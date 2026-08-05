@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator
 
 import httpx
-from fastapi import APIRouter, Body, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -475,9 +475,59 @@ class LLMCompleteRequest(BaseModel):
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
 
 
+# =============================================================================
+# 受限模型访问控制(2026-08-05 立,安全红线)
+# 生产真实 LLM API key(stepfun/agnes/groq/deepseek)只允许系统内置管理员
+# (users.is_system_admin=true)使用;普通用户 403。
+# system-worker(API 内部签发凭证,ai-feed 分类等后台任务)豁免。
+# 同时覆盖 /llm/complete 与 /llm/complete/stream(主聊天入口)。
+# =============================================================================
+
+RESTRICTED_PROVIDERS = {"stepfun", "agnes", "groq", "deepseek"}
+# 无前缀的受限模型(deepseek 官方模型 id 不带 provider 前缀)
+RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner"}
+
+
+def _is_restricted_model(model: str | None) -> bool:
+    """判断模型是否属于受限(真实付费 key)集合。"""
+    if not model:
+        return False
+    prefix = model.split("/", 1)[0]
+    if prefix in RESTRICTED_PROVIDERS:
+        return True
+    return model in RESTRICTED_MODEL_IDS
+
+
+async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
+    """受限模型仅系统管理员可用;非管理员抛 403。"""
+    if not _is_restricted_model(model):
+        return
+    uid = getattr(request.state, "user_id", None)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if uid == "system-worker":
+        return  # API 内部系统凭证(8802 已鉴权),供 ai-feed-process 等后台任务使用
+    try:
+        from ..core.db_pool import get_shared_pool
+
+        pool = await get_shared_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT is_system_admin FROM users WHERE id = $1", uid
+            )
+        if not row or not row["is_system_admin"]:
+            raise HTTPException(status_code=403, detail="该模型仅系统管理员可用")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("[model-access] 受限模型校验异常: %s", e)
+        raise HTTPException(status_code=403, detail="该模型仅系统管理员可用")
+
+
 @router.post("/llm/complete", response_model=None)
-async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse:
+async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
+    await _ensure_restricted_model_access(request, req.model)
     owner_uuid = (req.metadata or {}).get("userId")
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
@@ -553,7 +603,7 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse
 
 
 @router.get("/llm/models")
-async def list_models() -> dict[str, Any]:
+async def list_models(request: Request) -> dict[str, Any]:
     """返回可用模型列表(已按 provider 健康状态自动过滤)。
 
     过滤规则(2026-07-31 立,用户规则:只显示可完美接通调用的模型):
@@ -651,6 +701,26 @@ async def list_models() -> dict[str, Any]:
             m["caps"] = cap_to_dict(cap)
         # 积分消耗倍数(0.0 免费 / 1.0 经济 / 3.0 标准 / 10.0 高级 / 30.0 旗舰)
         m["points_multiplier"] = infer_points_multiplier(str(m.get("id") or ""))
+    # 2026-08-05 安全红线:非系统内置管理员过滤受限模型(真实付费 key 模型)。
+    # 与 /llm/complete(/stream) 的 _ensure_restricted_model_access、8802 列表过滤三端一致。
+    # system-worker 内部凭证同样过滤(它不应出现在普通列表,8802 /models 也不用于后台任务)。
+    uid = getattr(request.state, "user_id", None)
+    if uid and uid != "system-worker":
+        try:
+            from ..core.db_pool import get_shared_pool
+
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT is_system_admin FROM users WHERE id = $1", uid
+                )
+            is_admin = bool(row and row["is_system_admin"])
+            if not is_admin:
+                default_models = [
+                    m for m in default_models if not _is_restricted_model(str(m.get("id") or ""))
+                ]
+        except Exception as e:
+            logger.warning("[model-access] /llm/models 角色过滤异常: %s", e)
     return {
         "models": default_models,
         "default": settings.litellm_model,
@@ -887,6 +957,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     """
 
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
+    await _ensure_restricted_model_access(request, req.model)
     owner_uuid = (req.metadata or {}).get("userId")
     # Plan/Act 模式注入:plan 模式前置注入 Plan Mode system prompt(在 workspace memory 之前,
     # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
