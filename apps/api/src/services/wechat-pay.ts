@@ -378,7 +378,20 @@ export async function downloadBill(
   })
   if (!resp.ok) throw new Error(`WechatPay bill failed: ${resp.status}`)
   const data = (await resp.json()) as { download_url: string }
-  const csvResp = await fetch(data.download_url, {
+  // P2-7 修复(2026-08-06):download_url 必须与微信支付 API 同源(防 SSRF),
+  // 微信官方文档明确该 URL 指向微信支付域名;若被篡改/劫持则拒绝请求。
+  const downloadUrl = data.download_url
+  try {
+    const parsed = new URL(downloadUrl)
+    const apiHost = new URL(API_BASE).host
+    if (parsed.protocol !== 'https:' || parsed.host !== apiHost) {
+      throw new Error(`账单下载 URL 非同源(host=${parsed.host}, 期望=${apiHost})`)
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('账单下载 URL')) throw e
+    throw new Error(`账单下载 URL 非法: ${(e as Error).message}`)
+  }
+  const csvResp = await fetch(downloadUrl, {
     signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   return csvResp.text()
