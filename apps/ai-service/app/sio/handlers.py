@@ -340,8 +340,11 @@ async def on_chat_message(sid: str, data: Any) -> None:
         return
 
     # 预算检查:防预算耗尽后仍调 AI
-    tenant_id_raw = data.get("tenant_id")
-    tenant_id = str(tenant_id_raw) if tenant_id_raw else None
+    # P2-24 修复(2026-08-06):tenant_id 原完全来自客户端(data.get("tenant_id")),
+    # 用户可自选租户影响预算隔离(绕过/消耗他人租户额度)。改为服务端解析:
+    # 当前无可靠的租户归属来源(用户-租户关系未建模),一律按用户级预算(user scope)检查,
+    # 忽略客户端传入的 tenant_id。租户预算场景需服务端会话绑定租户后再启用。
+    tenant_id = None
     try:
         budget_ok, budget_reason = await rate_limiter.check_budget(
             owner_uuid, tenant_id=tenant_id, model=model
