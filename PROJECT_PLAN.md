@@ -2887,3 +2887,39 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - 排障 skill:`nextjs-windows-build-oom`(双 pagefile 数组格式/Tailwind 扫描检查/sourcemap 关闭等完整流程)
 - `.git` 丢失恢复流程:备份 worktree 改动 → clone 远程 → 应用改动 push → Copy clone\.git 回原目录 → reset --hard 同步
 - 当前生产:BUILD_ID=SXt6jK6D5WpSyurkg7oYF,公网全绿(首页 TTFB 0.4s),git 已 push(HEAD=d36c240770)
+
+---
+
+## 已修复:Cloudflared tunnel token rotate + 泄露封堵(2026-08-05 完成 ✅,安全/运维)
+
+### 触发背景
+
+用户要求 rotate Cloudflared tunnel token 并确保新 token 不再泄露。盘点发现两类泄露点:
+- **真实泄露**:git 历史 commit `cc73503d2d` 中 `scripts/start-cloudflared-tunnel.ps1` 第 19 行硬编码了旧 token(已 push 到 GitHub origin/main)
+- **运行时泄露**:浏览器 MCP 工具的 network log 文件含 token 字符串(本地 Temp 目录)
+
+### 操作过程
+
+1. **rotate token**:用 browser_use subagent 登录 Cloudflare Zero Trust 后台,在 ihui-local 隧道编辑页点"刷新令牌" → 确认对话框 → 通过注入 fetch 拦截器捕获 `PATCH /api/v4/accounts/{id}/cfd_tunnel/{id}` 的 200 响应 body,提取新 token(subagent 第一次报告"已 rotate"是假的,通过 connections API 验证旧连接仍活跃识破)
+2. **立即应用**:写入 `C:\ProgramData\cloudflared\token`(Windows 服务用)+ `deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt`(PS 脚本用)→ Restart-Service Cloudflared → curl 验证公网全绿(aizhs.top/bsm.aizhs.top 200,api.aizhs.top/api/health 200,ai.aizhs.top 401 正常,TTFB 0.5-0.7s)
+3. **封堵泄露点**:
+   - 删除浏览器 network log 文件(`%TEMP%\trae\browser-logs\network-*.log`)
+   - 删除旧 token 备份目录(`.trae-cn/tmp/cloudflared-token-backup-*`)
+   - 清空系统剪贴板
+   - 加固 token 文件 ACL(仅 SYSTEM + Administrators + 当前用户读,移除 Users/Power Users 读权限)
+4. **守门加固**:
+   - `.gitignore` 添加显式防御规则(`**/TUNNEL_TOKEN*.txt` / `**/cloudflared*token*` / `deploy/prod-bundle/cloudflared/*.local.txt`)
+   - `scripts/check-api-key-leak.mjs` 的 `KNOWN_KEY_PREFIXES` 加 cloudflared token 前缀 `eyJhIjoiNDhkY2Q1...`(account ID 段固定,rotate 后 s-field 变但前缀不变,可检测新旧 token;完整前缀仅存于守门脚本自身,不进文档)
+   - 该守门已集成在 pre-commit guardian-runner 第 1 项(blocking),任何 staged 文件含 token 字符串 → 阻塞 commit
+
+### 遗留评估
+
+- **git 历史中的旧 token**:commit `cc73503d2d` 已 push 到 origin/main,旧 token 字符串在 GitHub 远端可见。但旧 token 已 rotate 失效(20 分钟前 Cloudflare 后台确认),任何持有旧 token 的进程无法建立新连接,**实际危害 = 0**。不重写 git 历史(违反 AGENTS.md §22 §9b 单分支 + 禁止 force push 规则),仅做记录
+- **新 token 字符串**:仅存在于 `C:\ProgramData\cloudflared\token`(ACL 收紧)+ `deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt`(未 git tracked + .gitignore 显式忽略 + ACL 收紧),不进 git,不写代码,不进 memory
+
+### 经验沉淀
+
+- Cloudflare Dashboard UI 不直接展示完整 token,只渲染截断版本;获取完整 token 的可靠方式 = 浏览器注入 fetch 拦截器捕获 API 响应 body
+- `cloudflared tunnel run --token-file <path>` 是 Windows 服务模式的最优解(token 不进命令行参数,不进 Process Explorer 可见性)
+- token 结构:`{"a":"<account_id>","t":"<tunnel_id>","s":"<secret_uuid_base64>"}`,rotate 只换 s 字段,a/t 不变 → 守门用 a 字段前缀检测可覆盖所有 rotate 版本
+- subagent 自动化操作 Cloudflare 后台不可靠(会假报"已操作"),关键安全操作必须主 agent 亲自验证(API 调用确认状态变更)
