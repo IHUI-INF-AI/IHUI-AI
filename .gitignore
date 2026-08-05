@@ -49,6 +49,11 @@ __pycache__/
 *.pyo
 .next/
 .next.old/
+# 2026-08-05 生产排障:next build 备份目录(.next-bak-*/.next-failrec-*)
+# 必须忽略!Tailwind 4 扫描这些目录(每个 4.7GB,含 1GB+ webpack cache pack)
+# 导致内存爆炸 137GB,SWC 30GB 分配失败(0xC0000409)。
+.next-bak-*/
+.next-failrec-*/
 .turbo/
 # TypeScript 增量构建缓存
 *.tsbuildinfo
