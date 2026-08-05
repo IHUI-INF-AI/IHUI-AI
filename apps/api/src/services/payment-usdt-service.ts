@@ -18,7 +18,7 @@
  *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
  *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
  */
-import { eq, and, sql, desc, type SQL } from 'drizzle-orm'
+import { eq, and, not, sql, desc, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
 import type { UsdtPayment } from '@ihui/database'
@@ -507,6 +507,20 @@ export async function confirmUsdtPayment(
   const now = new Date()
 
   const result = await db.transaction(async (tx) => {
+    // P0-6 防同一 txHash 绑定多个订单:事务内查重(同 txHash 已存在 confirmed 订单 → 拒绝)
+    // 数据库层另有部分唯一索引 usdt_payments_tx_hash_confirmed_uniq 兜底(migration 0153)
+    const dupTx = await tx
+      .select({ orderId: usdtPayments.orderId })
+      .from(usdtPayments)
+      .where(and(eq(usdtPayments.txHash, txHash), not(eq(usdtPayments.orderId, orderId))))
+      .limit(1)
+    if (dupTx[0]) {
+      console.warn(
+        `[usdt-payment] txHash ${txHash} 已被订单 ${dupTx[0].orderId} 绑定,拒绝重复入账(orderId=${orderId})`,
+      )
+      throw Object.assign(new Error('该链上交易已用于其它订单,拒绝重复入账'), { statusCode: 400 })
+    }
+
     // 1. 原子翻转 status(只有 pending 才翻转,防并发)
     const [updated] = await tx
       .update(usdtPayments)
@@ -521,7 +535,6 @@ export async function confirmUsdtPayment(
 
     if (!updated) {
       // 2026-08-02 修复:原子更新返回 0 行表示已被并发确认,幂等跳过(防重复入账)
-      // TODO: 后续在 usdt_payments.tx_hash 上加唯一约束,防同一 txHash 绑定多个订单
       console.info(
         `[usdt-payment] 订单 ${orderId} 原子更新未命中(已并发确认),跳过(txHash=${txHash})`,
       )
