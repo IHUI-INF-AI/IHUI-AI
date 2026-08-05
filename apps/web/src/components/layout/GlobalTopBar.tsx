@@ -572,6 +572,9 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                   role="menu"
                   aria-label={plusLabel}
                   data-testid="global-topbar-plus-menu"
+                  // 2026-08-06 修复:menu role 需可聚焦(jsx-a11y/interactive-supports-focus),
+                  // tabIndex=-1 允许编程聚焦且不加入 Tab 序(子菜单项各自可聚焦)
+                  tabIndex={-1}
                   // 2026-08-01 修复:portal + mousedown 陷阱
                   // 菜单通过 createPortal 渲染到 body,不在 plusRef 内部。
                   // 外部点击关闭监听(L286)用 mousedown 检查 !plusRef.contains(target),

@@ -150,9 +150,20 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
             return (
               <div
                 key={i}
+                role="gridcell"
+                aria-selected={isSelected}
+                tabIndex={isSelected ? 0 : -1}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(date)}
                 onClick={() => setSelectedDate(ds)}
+                // 2026-08-06 修复:静态 div 带 onClick 需键盘等价(jsx-a11y),
+                // Enter/Space 触发日期选择
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setSelectedDate(ds)
+                  }
+                }}
                 className={cn(
                   'min-h-[64px] cursor-pointer rounded-md border p-1 transition-colors',
                   isCurrentMonth ? 'bg-card' : 'bg-muted/20 text-muted-foreground',
