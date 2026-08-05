@@ -246,6 +246,31 @@ if ($RestartService) {
     } catch {
         Write-Host "  [WARN] 公网访问失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
     }
+
+    # 2026-08-05 根治:重启 IHUI-WEB 后 Cloudflared 隧道连接池会残留指向旧进程
+    # 的连接,公网大响应(HTML 页面)会 502/超时(小响应正常,是假象)。
+    # 自动重启 Cloudflared 重置连接池,消除该隐患。
+    Write-Host "  重启 Cloudflared 隧道(重置连接池)..." -ForegroundColor Yellow
+    try {
+        Restart-Service Cloudflared -Force -ErrorAction Stop
+        Start-Sleep -Seconds 10
+        $tunnelOk = $false
+        for ($i = 0; $i -lt 6; $i++) {
+            try {
+                $r2 = Invoke-WebRequest -Uri "https://aizhs.top/" -TimeoutSec 15 -UseBasicParsing
+                Write-Host "  隧道重启后公网: $($r2.StatusCode)" -ForegroundColor Green
+                $tunnelOk = $true
+                break
+            } catch {
+                Start-Sleep -Seconds 5
+            }
+        }
+        if (-not $tunnelOk) {
+            Write-Host "  [WARN] 隧道重启后公网仍未恢复,请手动检查 Cloudflared" -ForegroundColor DarkYellow
+        }
+    } catch {
+        Write-Host "  [WARN] Cloudflared 重启失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
 } else {
     Write-Host "如需应用新产物,重启 IHUI-WEB:" -ForegroundColor DarkGray
     Write-Host "  Restart-Service IHUI-WEB -Force" -ForegroundColor DarkGray
