@@ -40,6 +40,19 @@ vi.mock('next-intl', () => ({
 
 vi.mock('sonner', () => ({ toast: mockToast }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}))
+
+vi.mock('@/components/common', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    BackButton: () => null,
+    toast: mockToast,
+  }
+})
+
 import ToolGenPage from '../../../app/(main)/admin/tool/gen/page'
 
 const TYPES = [
