@@ -115,6 +115,19 @@ export function AgentProgressTrigger({
     hydrateAgentProgressPaneFromStorage()
   }, [])
 
+  // 2026-08-05 修复:Ctrl+Shift+J 全局快捷键——UI 明示了该快捷键(title 提示 +
+  // 帮助面板 shortcutTogglePane),但从未实现 keydown 监听,用户按了无反应(真 bug)。
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
+        e.preventDefault()
+        togglePane()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [togglePane])
+
   // v10:trigger 永远渲染,Pane 由 ai-side-panel.tsx mount,trigger 只切换 store.open
   return (
     <button
