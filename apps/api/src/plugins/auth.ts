@@ -86,6 +86,27 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
     throw err
   }
 
+  // P2-14 修复(2026-08-06):原 authenticate 只验 token 不查用户状态,
+  // 封禁(status=0)/注销(status=3)用户在 access token 15 分钟有效期内仍可调用全部业务接口。
+  // 现在:验签后查一次用户状态(主键索引查询,毫秒级),封禁 403 / 注销 401 / 不存在 401。
+  // 内部系统凭证路径不受影响(不走本函数,见 internal-service-token 中间件)。
+  const userStatus = await getUserStatus(payload.userId)
+  if (userStatus === undefined) {
+    const err = new Error('用户不存在')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+  if (userStatus === 0) {
+    const err = new Error('账号已被封禁')
+    ;(err as Error & { statusCode: number }).statusCode = 403
+    throw err
+  }
+  if (userStatus === 3) {
+    const err = new Error('账号已注销')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
   request.userId = payload.userId
   request.jwtPayload = payload
   return payload
