@@ -5,7 +5,7 @@
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "pnpm --filter @ihui/web dev",
-    "beforeBuildCommand": "pnpm --filter @ihui/web build",
+    "beforeBuildCommand": "pnpm --filter @ihui/web build:static",
     "devUrl": "http://localhost:8801",
     "frontendDist": "../../web/out"
   },
