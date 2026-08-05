@@ -17,23 +17,34 @@ import {
 // 无 DATABASE_READ_REPLICA_URL 时,dbReader 自动回退到主库
 // logger 回调把每次 SQL 查询事件发布到 sqlEventBus,
 // slow-sql-killer 与 n1-detector 订阅消费(自动注入 ALS 中的 requestId)
-const { dbWriter, dbReader, writerClient } = createReadWriteDb({
-  url: config.DATABASE_URL,
-  readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
-  logger: (event) => {
-    sqlEventBus.emit({
-      query: event.query,
-      params: event.params,
-      durationMs: event.durationMs,
-      timestamp: event.timestamp,
-    })
-  },
-})
+const { dbWriter, writerClient, getReader, reportReplicaHealth, replicaClients } =
+  createReadWriteDb({
+    url: config.DATABASE_URL,
+    readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
+    logger: (event) => {
+      sqlEventBus.emit({
+        query: event.query,
+        params: event.params,
+        durationMs: event.durationMs,
+        timestamp: event.timestamp,
+      })
+    },
+  })
 
 // 主库(写) — insert/update/delete 必须使用此客户端
 export const db: Database = dbWriter
-// 读副本(读) — 仅用于 SELECT 查询;无读副本时回退到主库
-export const dbRead: Database = dbReader
+// P1-3 修复(2026-08-06):dbRead 原为固定绑第一个副本(dbReader),副本故障不自动回退。
+// 改为动态代理 —— 每次属性访问都从 getReader() 取当前优先级最高且健康的副本,
+// 全部不健康时 getReader() 自动回退主库,实现读路径故障转移。
+// 健康状态由下方探测循环通过 reportReplicaHealth 驱动。
+export const dbRead: Database = new Proxy(dbWriter, {
+  get(target, prop, receiver) {
+    const reader = getReader()
+    if (reader === target) return Reflect.get(target, prop, receiver)
+    const value = Reflect.get(reader, prop)
+    return typeof value === 'function' ? value.bind(reader) : value
+  },
+})
 // 原始 postgres.js 客户端，用于连接池指标采样
 export const dbClient = writerClient
 // P1 修复:导出 poolLeakDetector 单例,供 admin 路由 / db-keepalive 等模块统一访问
@@ -83,13 +94,47 @@ export function stopPoolTracker(): void {
   clearInterval(poolTracker)
 }
 
+// =============================================================================
+// P1-3 修复(2026-08-06):读副本健康探测循环。
+// 原 reportReplicaHealth/getReader 为死代码(从未被调用),dbRead 固定绑第一个副本,
+// 副本宕机/延迟超阈值不自动回退主库 → 700+ 处 dbRead 读路径雪崩。
+// 现在:每 15s 对每个副本执行 SELECT 1,成功 → reportReplicaHealth(id, true),
+// 失败 → reportReplicaHealth(id, false);连续失败 ≥3 次(或延迟 >10s)标记不健康,
+// getReader() 自动跳过并回退主库,故障恢复后探测成功自动恢复。
+// =============================================================================
+const REPLICA_PROBE_INTERVAL_MS = 15_000
+
+const replicaProbeTimer = (() => {
+  if (replicaClients.size === 0) return null
+  const probe = async (): Promise<void> => {
+    for (const [id, client] of replicaClients) {
+      try {
+        const start = Date.now()
+        await client`SELECT 1`
+        const lagSec = (Date.now() - start) / 1000
+        reportReplicaHealth(id, true, lagSec)
+      } catch (e) {
+        // 连接失败 → 上报不健康(连续失败达阈值后 getReader 跳过该副本)
+        console.warn(`[replica-probe] 副本 ${id} 探测失败:`, (e as Error).message)
+        reportReplicaHealth(id, false)
+      }
+    }
+  }
+  void probe()
+  const timer = setInterval(() => void probe(), REPLICA_PROBE_INTERVAL_MS)
+  timer.unref()
+  return timer
+})()
+
 /**
  * 2026-08-02 修复:注册 onClose 钩子清理 poolTracker,防进程不退出。
  * 在 Fastify 启动后调用:registerPoolTrackerCleanup(server)
+ * P1-3:同时清理 replicaProbeTimer。
  */
 export function registerPoolTrackerCleanup(server: FastifyInstance): void {
   server.addHook('onClose', () => {
     clearInterval(poolTracker)
+    if (replicaProbeTimer) clearInterval(replicaProbeTimer)
   })
 }
 

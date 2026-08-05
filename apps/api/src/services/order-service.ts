@@ -21,6 +21,9 @@ import { earnPoints, spendPoints } from './points-service.js'
 import { logger } from '../utils/logger.js'
 import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
+import { db } from '../db/index.js'
+import { eq, and, sql } from 'drizzle-orm'
+import { outboxEvents, pointTransactions } from '@ihui/database'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -102,6 +105,69 @@ async function rechargeIfTokenOrder(order: Order): Promise<void> {
   }
 }
 
+/**
+ * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
+ * 各步骤幂等,可安全重复调用:
+ * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
+ * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
+ * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
+ * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
+ */
+async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
+  // ① token 充值(幂等:unique 索引)
+  await rechargeIfTokenOrder(order)
+
+  // ② 积分发放(幂等:referenceId 查重)
+  const pointsToAward = Math.max(0, Math.floor(order.amount / 100))
+  if (pointsToAward > 0 && order.userId) {
+    const earned = await db
+      .select({ id: pointTransactions.id })
+      .from(pointTransactions)
+      .where(
+        and(
+          eq(pointTransactions.referenceId, order.orderNo),
+          eq(pointTransactions.type, 'earn'),
+        ),
+      )
+      .limit(1)
+    if (!earned[0]) {
+      await earnPoints(
+        order.userId,
+        pointsToAward,
+        'order_purchase',
+        `订单 ${order.orderNo} 消费奖励`,
+        order.orderNo,
+      )
+    }
+  }
+
+  // ③ Outbox 事件(幂等:同 orderNo 的 order.paid 已存在则跳过)
+  // 注意:outbox payload 是 jsonb,drizzle 0.38 不支持点访问嵌套字段,用 SQL 表达式匹配
+  const existing = await db
+    .select({ id: outboxEvents.id })
+    .from(outboxEvents)
+    .where(
+      and(
+        eq(outboxEvents.type, 'order.paid'),
+        sql`${outboxEvents.payload}->>'orderNo' = ${order.orderNo}`,
+      ),
+    )
+    .limit(1)
+  if (!existing[0]) {
+    await writeToOutbox({
+      type: 'order.paid',
+      payload: {
+        orderNo: order.orderNo,
+        userId: order.userId,
+        amount: order.amount,
+        orderType: order.orderType,
+        tradeNo,
+        paidAt: new Date().toISOString(),
+      },
+    })
+  }
+}
+
 /** Saga 编排结果。 */
 export interface SagaOrderResult extends OrderOperationResult {
   /** Saga 执行详情（含完成/补偿步骤） */
@@ -136,8 +202,12 @@ export async function completeOrderWithSaga(
 ): Promise<SagaOrderResult> {
   const order = await findOrderByNo(orderNo)
   if (!order) return { success: false, reason: '订单不存在' }
-  // B3: 订单已支付(并发回调/重试),返回幂等成功,让副作用(订阅激活/返佣)可被重试
+  // P1-5 修复(2026-08-06):原 paid 分支只返回 success,不重放副作用 ——
+  // mark-order-paid 已提交但 recharge-tokens/award-points/outbox 未执行时,
+  // 崩溃/重试窗口内用户付款成功但资产不到账,且无自动恢复路径(与 completeOrder 行为不一致)。
+  // 现在:重放全部副作用(各步幂等:token unique 索引 / 积分 referenceId 查重 / outbox 查重)。
   if (order.status === 'paid') {
+    await replayPaidSideEffects(order, tradeNo)
     return {
       success: true,
       order,
@@ -277,6 +347,7 @@ export async function completeOrderWithSaga(
  * 根据订单类型激活对应的订阅（支付成功回调调用，失败不阻塞）。
  * - orderType=2: VIP 会员激活
  * - orderType=5: 开发者套餐订阅激活
+ * - orderType=6: API 订阅（token 配额写入活跃 Key）
  */
 export async function activateOrderSubscription(order: Order): Promise<void> {
   if (!order.productId) return
@@ -303,20 +374,42 @@ export async function activateOrderSubscription(order: Order): Promise<void> {
       period: pricing.period ?? 'monthly',
       orderId: order.id,
     })
+  } else if (order.orderType === 6) {
+    // P1 修复(2026-08-06):orderType=6(API 订阅)支付成功后此前未激活订阅——
+    // activateApiSubscription 从未被调用,用户支付成功但 token 配额不发放。
+    // 现在补上:以订单 orderNo 作为幂等键,续费(新订单)不受影响,回调重试(同订单)被拦截。
+    const { activateApiSubscription } = await import('./api-subscription-service.js')
+    const result = await activateApiSubscription(order.userId, order.productId, order.orderNo)
+    if (!result.success && result.reason !== 'already_activated') {
+      throw new Error(`API 订阅激活失败: ${result.reason ?? 'unknown'}`)
+    }
   }
 }
 
 /**
  * 状态机：取消订单。
  * 仅 pending 订单可取消；已支付订单需走退款流程。
+ *
+ * P1 修复(2026-08-06):原实现先 SELECT 再 UPDATE,取消与支付回调并发时存在 TOCTOU 竞态——
+ * 两个请求都读到 status='pending',取消先执行后支付回调也可能把订单标记为 paid(资金已收但订单已取消)。
+ * 改为条件 UPDATE(WHERE status='pending')原子锁定,0 行影响说明订单状态已被并发变更(已支付/已取消),
+ * 返回对应错误,避免"支付成功但订单已取消"的资金不一致。
  */
 export async function cancelOrder(orderNo: string): Promise<OrderOperationResult> {
   const order = await findOrderByNo(orderNo)
   if (!order) return { success: false, reason: '订单不存在' }
   if (order.status !== 'pending')
     return { success: false, reason: `订单状态(${order.status})不可取消` }
-  await updateOrderStatus(orderNo, 'cancelled')
-  const updated = await findOrderByNo(orderNo)
+  // 条件 UPDATE:仅当当前仍为 pending 时取消,原子锁定防并发支付回调改写状态
+  const updated = await updateOrderStatus(orderNo, 'cancelled', 'pending')
+  if (!updated) {
+    // 0 行影响:并发回调已把订单改为 paid/refunded,重新查询区分场景返回精确错误
+    const refetched = await findOrderByNo(orderNo)
+    if (refetched && refetched.status === 'paid') {
+      return { success: false, reason: '订单已支付,不可取消,请走退款流程' }
+    }
+    return { success: false, reason: '订单状态已变更,不可取消' }
+  }
   return { success: true, order: updated }
 }
 
