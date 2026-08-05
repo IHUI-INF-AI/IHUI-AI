@@ -17,6 +17,12 @@ import { normalizeHeader } from '../utils/http-normalize.js'
  */
 const KEY_PREFIX = 'idempotency:payment:'
 const DEFAULT_TTL_SEC = 86400
+// P1-9 修复(2026-08-06):processing 锁的短 TTL。
+// 原实现 processing 与 completed 共用 24h TTL —— acquire 成功后若 handler
+// 异常(未调用 complete/fail),锁停留 processing 至 24h,期间支付平台重试全部
+// 被 409 拒绝,回调永远无法恢复。现在 processing 10 分钟自动过期,
+// 平台下次重试可重新获取锁处理;completed 缓存仍保持 24h(支付争议周期)。
+const PROCESSING_TTL_SEC = 600
 
 export type IdempotencyStatus = 'new' | 'processing' | 'completed'
 
@@ -64,12 +70,15 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     while (retries < maxRetries) {
       const now = Math.floor(Date.now() / 1000)
       try {
+        // P1-9:processing 锁用短 TTL(PROCESSING_TTL_SEC),handler 异常未 complete/fail 时
+        // 锁自动过期,平台重试可重新获取;completed 由 complete() 单独写 24h 缓存。
+        const lockTtlSec = Math.min(ttlSec, PROCESSING_TTL_SEC)
         // SET NX: 仅当 key 不存在时写入 processing，原子获取锁
         const wasSet = await server.redis.set(
           key,
           JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
           'EX',
-          ttlSec,
+          lockTtlSec,
           'NX',
         )
         if (wasSet === 'OK') {
@@ -94,7 +103,7 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
           key,
           JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
           'EX',
-          ttlSec,
+          lockTtlSec,
           'NX',
         )
         if (recovered === 'OK') {
