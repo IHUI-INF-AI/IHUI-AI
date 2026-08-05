@@ -114,6 +114,63 @@ export async function refundToken(
   return rechargeToken(userId, quantity, orderNo, remark ?? `退款:${orderNo}`)
 }
 
+/**
+ * P0-2 退款扣回 token(2026-08-05):原 refundOrder 用 rechargeToken 再发一次 token
+ * (related_order_no 不同绕过幂等索引),导致「购买→到账→退款→钱退+token 再入账」。
+ *
+ * 修复:退款改为尽力扣回 —— 事务内行锁 + 精确计算扣回量(余额不足扣到 0,不退负数),
+ * 流水 opType=3 + related_order_no=`refund:${orderNo}` 作为幂等键,重复退款被 unique 索引拦截。
+ *
+ * @returns 扣回后的余额
+ */
+export async function refundTokenDeduct(
+  userId: string,
+  quantity: number,
+  orderNo: string,
+  remark?: string,
+): Promise<number> {
+  if (!orderNo) throw new Error('ORDER_NO_REQUIRED_FOR_REFUND')
+  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
+    throw Object.assign(new Error('退款扣回数量必须为正数'), { statusCode: 400 })
+  }
+  await ensureMargin(userId)
+  try {
+    return await db.transaction(async (tx) => {
+      // 行锁:串行化并发退款对同一用户的扣回,消除读改写竞态
+      const [locked] = await tx
+        .select()
+        .from(userMargins)
+        .where(eq(userMargins.userId, userId))
+        .for('update')
+        .limit(1)
+      if (!locked) throw new Error('用户不存在')
+      // 尽力扣回:余额不足时扣到 0,不产生负余额
+      const actualDeductQty = Math.min(locked.tokenQuantity, quantity)
+      const newBalance = locked.tokenQuantity - actualDeductQty
+      await tx
+        .update(userMargins)
+        .set({ tokenQuantity: newBalance, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 3,
+        quantity: actualDeductQty,
+        balanceAfter: newBalance,
+        remark: remark ?? `退款扣回:${orderNo}`,
+        relatedOrderNo: `refund:${orderNo}`,
+      })
+      return newBalance
+    })
+  } catch (e: unknown) {
+    // PostgreSQL unique_violation (23505):幂等命中,重复退款被拦截,返回当前余额
+    if (e && typeof e === 'object' && 'code' in e && e.code === '23505') {
+      const margin = await ensureMargin(userId)
+      return margin.tokenQuantity
+    }
+    throw e
+  }
+}
+
 export async function expireToken(
   userId: string,
   quantity: number,
@@ -333,8 +390,15 @@ export async function applyWithdrawal(
   },
   operatorId: string | null,
 ): Promise<WithdrawalFlow> {
+  // P0-1 防御:负数/NaN/Infinity 提现直接拒绝(路由层 positive() 之外的第二道防线)
+  if (typeof input.amount !== 'number' || !Number.isFinite(input.amount) || input.amount <= 0) {
+    throw Object.assign(new Error('提现金额必须为正数'), { statusCode: 400 })
+  }
   const fee = Math.floor(input.amount * 0.02)
   const actualAmount = input.amount - fee
+  if (actualAmount <= 0) {
+    throw Object.assign(new Error('提现金额过小'), { statusCode: 400 })
+  }
   return await db.transaction(async (tx) => {
     // ① 原子冻结余额:DB 级 WHERE token_quantity >= actualAmount 防超发(绕过应用层竞态)
     const [updated] = await tx
