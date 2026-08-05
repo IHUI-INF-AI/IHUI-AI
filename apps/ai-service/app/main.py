@@ -23,7 +23,7 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 import socketio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -460,8 +460,15 @@ def create_app() -> FastAPI:
     app.include_router(meta_learning_router)
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
+    # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
+    # 普通登录用户无权读取。
     @app.get("/api/audit/recent", tags=["audit"])
-    async def audit_recent(limit: int = 100) -> dict[str, Any]:
+    async def audit_recent(request: Request, limit: int = 100) -> dict[str, Any]:
+        role_id = getattr(request.state, "role_id", 0) or 0
+        if int(role_id) < 1:
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=403, content={"code": 403, "message": "仅管理员可读审计日志"})
         from app.services.audit_service import audit_service
         return {
             "code": 200,
