@@ -22,6 +22,7 @@ import Parser from 'rss-parser'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { getSystemAccessToken } from '../utils/system-access-token.js'
 import {
   aiFeedSource,
   aiFeedHotItem,
@@ -271,9 +272,15 @@ async function callLlm(
       if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens
       // temperature=0 确定性输出(分类任务不需要创造性)
       if (options.temperature !== undefined) body.temperature = options.temperature
+      // 2026-08-05 修复:后台任务无用户上下文,aiServiceFetch(null) 不带 Authorization →
+      // ai-service JWT 中间件 401,LLM 分类/摘要/翻译全部静默失效。签发系统 access token。
+      const systemToken = await getSystemAccessToken()
       const res = await aiServiceFetch(null, '/api/llm/complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${systemToken}`,
+        },
         body: JSON.stringify(body),
         signal: controller.signal,
       })
@@ -547,23 +554,10 @@ export async function collectAllSources(): Promise<CollectResult> {
   const details: CollectResult['details'] = []
   let totalItems = 0
 
-  // 两个抓取源都未配置：降级
-  if (!dailyHotUrl && !rsshubUrl) {
-    logger.warn('collectAllSources: DAILYHOT_API_URL 与 RSSHUB_URL 均未配置,采集降级为空')
-    for (const src of sources) {
-      details.push({ sourceCode: src.sourceCode, status: 'skipped', count: 0 })
-      await db
-        .update(aiFeedSource)
-        .set({
-          lastFetchAt: new Date(),
-          lastFetchStatus: 'skipped',
-          lastFetchCount: 0,
-          updatedAt: new Date(),
-        })
-        .where(eq(aiFeedSource.id, src.id))
-    }
-    return { fetchedSources: sources.length, totalItems: 0, details }
-  }
+  // 2026-08-05 修复:删除"DAILYHOT/RSSHUB 都未配置 → 全部 skipped"的前置降级。
+  // 它会把 sourceType='rss' 的原生 RSS 源(完整 URL 且非 rsshub.app,不依赖任何 env)
+  // 也误拦掉,导致生产 ai_feed_source 配了 9 个原生 RSS 源仍采集 0 条。
+  // 各源是否可抓在下方循环内按 sourceType + env 自行判断,未配置的源自然 skip。
 
   for (const src of sources) {
     let items: FetchedFeedItem[] = []
