@@ -6,6 +6,20 @@ import { zhsAiModelInfo } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { inferPointsMultiplier } from './ai-vendors/proxy-llm.js'
+import { isSystemAdminUser } from '../db/queries.js'
+
+/**
+ * 受限模型(2026-08-05 安全红线):生产真实 LLM API key(stepfun/agnes/groq/deepseek)
+ * 的模型仅系统内置管理员(users.is_system_admin=true)可见/可用,普通用户过滤。
+ * 与 ai-service llm.py 的 _ensure_restricted_model_access 双端一致。
+ */
+const RESTRICTED_PROVIDERS = new Set(['stepfun', 'agnes', 'groq', 'deepseek'])
+const RESTRICTED_MODEL_IDS = new Set(['deepseek-chat', 'deepseek-reasoner'])
+
+function isRestrictedModel(id: string): boolean {
+  const prefix = id.split('/')[0] ?? id
+  return RESTRICTED_PROVIDERS.has(prefix) || RESTRICTED_MODEL_IDS.has(id)
+}
 
 /**
  * 特殊 UUID 列表:这些用户可见额外模型(如内部测试模型)。
@@ -114,6 +128,14 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const data = await resp.json()
+      // 2026-08-05 安全红线:非系统内置管理员过滤受限模型(真实付费 key 模型)
+      const userUuid = getUserUuid(request)
+      if (userUuid && !(await isSystemAdminUser(userUuid))) {
+        const raw = data as { models?: Array<{ id?: string }> }
+        if (Array.isArray(raw.models)) {
+          raw.models = raw.models.filter((m) => !m.id || !isRestrictedModel(m.id))
+        }
+      }
       return reply.send(success(attachPointsMultiplier(data)))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message || 'AI service unavailable'))
