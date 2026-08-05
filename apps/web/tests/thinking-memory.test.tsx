@@ -64,6 +64,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   window.localStorage.clear()
+  // 2026-08-05 修复:happy-dom 下 restoreAllMocks 无法恢复 localStorage spy,显式恢复
+  const ls = window.localStorage
+  if (vi.isMockFunction(ls.getItem)) ls.getItem.mockRestore()
+  if (vi.isMockFunction(ls.setItem)) ls.setItem.mockRestore()
   vi.restoreAllMocks()
 })
 
