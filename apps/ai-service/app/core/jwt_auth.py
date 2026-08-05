@@ -97,7 +97,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 settings.jwt_secret,
                 algorithms=["HS256"],
                 issuer=settings.jwt_issuer,
-                options={"verify_aud": False},
+                # P1-2 修复(2026-08-06):校验 aud,apps/api 签发 access token 时 aud='ihui-ai-users'
+                # (packages/auth/src/jwt.ts AUDIENCE),防跨服务 token 误用。
+                audience="ihui-ai-users",
             )
             if payload.get("type") and payload["type"] != "access":
                 return None
@@ -132,7 +134,8 @@ def verify_access_token(token: str) -> Optional[dict[str, Any]]:
             settings.jwt_secret,
             algorithms=["HS256"],
             issuer=settings.jwt_issuer,
-            options={"verify_aud": False},
+            # P1-2 修复(2026-08-06):校验 aud='ihui-ai-users',防跨服务 token 误用
+            audience="ihui-ai-users",
         )
         # P1-2(2026-08-05):type 必须是 access,拒绝 refresh 与 challenge(2FA 短期 token)
         if payload.get("type") and payload["type"] != "access":
