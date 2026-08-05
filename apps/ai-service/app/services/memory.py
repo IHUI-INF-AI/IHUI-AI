@@ -1,6 +1,9 @@
 """会话记忆存储(Redis 优先,无 Redis 时降级为内存)。
 
-按 session_id 维护消息列表,支持追加、读取、清除、列出会话。
+按 user_id + session_id 维护消息列表,支持追加、读取、清除、列出会话。
+P1-6 修复(2026-08-06):key 增加 user_id 前缀 —— 原 key=`memory:{session_id}`
+无用户隔离,session_id 由客户端控制,用户 A 可读写用户 B 的会话记忆(隐私泄漏 + 提示词注入面)。
+现在 key=`memory:{user_id}:{session_id}`,服务端强制用会话所有者 user_id 组合。
 配置 redis_url 后优先使用 Redis 持久化,连接失败或未安装 redis 包时降级为内存。
 """
 
@@ -41,14 +44,22 @@ class MemoryStore:
                 self._redis = None
         return self._redis
 
+    @staticmethod
+    def _key(user_id: str, session_id: str) -> str:
+        """P1-6:复合 key,user_id 必须非空(防注入空前缀绕过分隔)。"""
+        return f"memory:{user_id}:{session_id}"
+
     async def add(
         self,
+        user_id: str,
         session_id: str,
         role: str,
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """向指定会话追加一条消息。"""
+        """向指定用户会话追加一条消息。"""
+        if not user_id:
+            raise ValueError("memory.add: user_id 必填(防跨用户读写)")
         msg = {
             "role": role,
             "content": content,
@@ -57,38 +68,50 @@ class MemoryStore:
         }
         redis = await self._get_redis()
         if redis:
-            key = f"memory:{session_id}"
+            key = self._key(user_id, session_id)
             await redis.rpush(key, json.dumps(msg, ensure_ascii=False))
         else:
-            if session_id not in self._store:
-                self._store[session_id] = []
-            self._store[session_id].append(msg)
+            key = self._key(user_id, session_id)
+            if key not in self._store:
+                self._store[key] = []
+            self._store[key].append(msg)
 
-    async def get(self, session_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """获取指定会话的消息(返回最近 limit 条)。"""
+    async def get(self, user_id: str, session_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        """获取指定用户会话的消息(返回最近 limit 条)。"""
+        if not user_id:
+            raise ValueError("memory.get: user_id 必填(防跨用户读写)")
         redis = await self._get_redis()
         if redis:
-            key = f"memory:{session_id}"
+            key = self._key(user_id, session_id)
             raw = await redis.lrange(key, -limit, -1)
             return [json.loads(r) for r in raw]
-        msgs = self._store.get(session_id, [])
+        msgs = self._store.get(self._key(user_id, session_id), [])
         return msgs[-limit:] if limit < len(msgs) else msgs
 
-    async def clear(self, session_id: str) -> None:
-        """清除指定会话的全部消息。"""
+    async def clear(self, user_id: str, session_id: str) -> None:
+        """清除指定用户会话的全部消息。"""
+        if not user_id:
+            raise ValueError("memory.clear: user_id 必填(防跨用户读写)")
         redis = await self._get_redis()
         if redis:
-            await redis.delete(f"memory:{session_id}")
+            await redis.delete(self._key(user_id, session_id))
         else:
-            self._store.pop(session_id, None)
+            self._store.pop(self._key(user_id, session_id), None)
 
-    async def list_sessions(self) -> list[str]:
-        """列出所有会话 ID。"""
+    async def list_sessions(self, user_id: str | None = None) -> list[str]:
+        """列出会话 ID。传 user_id 时只列该用户的;不传时列出全部(仅管理员/调试用)。"""
         redis = await self._get_redis()
         if redis:
             keys = await redis.keys("memory:*")
+            if user_id:
+                prefix = f"memory:{user_id}:"
+                return [k[len(prefix):] for k in keys if k.startswith(prefix)]
             return [k.replace("memory:", "") for k in keys]
-        return list(self._store.keys())
+        keys = list(self._store.keys())
+        if user_id:
+            prefix = f"memory:{user_id}:"
+            return [k[len(prefix):] for k in keys if k.startswith(prefix)]
+        return keys
 
 
 memory_store = MemoryStore()
