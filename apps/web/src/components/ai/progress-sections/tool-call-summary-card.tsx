@@ -181,6 +181,17 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 fingerprint 比较,避免引用变化触发重算
   }, [summary, toolCallsFingerprint])
 
+  // 工具分类列表(按调用次数降序)。必须无条件调用(Hook 规则),用可选链防御
+  // effectiveSummary 为 null —— 该 useMemo 原位置在所有条件 return 之后,违反
+  // rules-of-hooks(2026-08-06 修复)。
+  const categoryEntries = React.useMemo(
+    () =>
+      Object.entries(effectiveSummary?.toolsByCategory ?? {})
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12), // 最多展示 12 项,避免过长
+    [effectiveSummary],
+  )
+
   // 流式中且无 summary 时,不渲染卡片(等首个 summary 到达再显示)
   if (!effectiveSummary) {
     if (isStreaming && toolCalls && toolCalls.length > 0) {
@@ -249,15 +260,6 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     .slice(0, 3)
     .map((c) => `${c.label} ${c.value}`)
     .join(' · ')
-
-  // 工具分类列表(按调用次数降序)
-  const categoryEntries = React.useMemo(
-    () =>
-      Object.entries(effectiveSummary.toolsByCategory)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 12), // 最多展示 12 项,避免过长
-    [effectiveSummary.toolsByCategory],
-  )
 
   const title = safeT(t, 'toolSummaryTitle', '工具调用汇总')
   const allChipsHidden = visibleChips.length === 0 && !effectiveSummary.totalDurationMs

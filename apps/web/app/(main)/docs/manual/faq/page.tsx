@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -247,14 +248,14 @@ export default function ManualFaqPage() {
             <p className="mt-1 text-xs text-muted-foreground">community.aizhs.top</p>
             <p className="mt-1 text-xs text-muted-foreground">用户互助 + 官方答疑 + 功能建议</p>
           </a>
-          <a
+          <Link
             href="/"
             className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
           >
             <p className="text-sm font-semibold">👥 飞书用户群</p>
             <p className="mt-1 text-xs text-muted-foreground">扫码加入(首页底部二维码)</p>
             <p className="mt-1 text-xs text-muted-foreground">实时交流,最快响应</p>
-          </a>
+          </Link>
           <a
             href="https://status.aizhs.top"
             className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
