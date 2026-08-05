@@ -29,7 +29,7 @@
 import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify'
 import { eq } from 'drizzle-orm'
 import IORedis, { type Redis } from 'ioredis'
-import { dbRead, db } from '../db/index.js'
+import { db } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
@@ -144,7 +144,10 @@ export function ipInList(ip: string, allowed: readonly string[]): boolean {
 
 /** CIDR 简化匹配:逐字节比较前 prefix 位。仅支持 IPv4。 */
 function isCidrMatch(ip: string, network: string, prefix: number): boolean {
-  if (prefix < 0 || prefix > 32) return false
+  // P1 修复(2026-08-06):parseInt 解析非法前缀(如 "10.0.0.0/xxx")返回 NaN,
+  // 而 NaN 与任何值比较都为 false,原 `prefix < 0 || prefix > 32` 检查会放过 NaN,
+  // 最终 CIDR 匹配返回 true → 白名单被畸形条目绕过,任意 IP 均匹配。
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false
   const ipParts = ip.split('.').map(Number)
   const netParts = network.split('.').map(Number)
   if (ipParts.length !== 4 || netParts.length !== 4) return false
@@ -269,6 +272,63 @@ const RATE_LIMIT_WINDOW_MS = 60_000
  * @param rpmLimit 该模型 RPM 上限(undefined/null = 不限制)
  * @param tpmLimit 该模型 TPM 上限(undefined/null = 不限制)
  */
+/**
+ * P1-7 修复(2026-08-06):RPM 限流 Lua 原子脚本 —— 清理窗口 + 统计 + 写入一次完成,
+ * 消除原 zremrangebyscore→zcard→zadd 分离导致的并发绕过(check-then-act 竞态)。
+ * 返回 [allowed(0|1), retryAfter];超限时不写入本次请求。
+ */
+const RPM_CHECK_LUA = `
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - window)
+local count = redis.call('ZCARD', KEYS[1])
+if count + 1 > limit then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  local retryAfter = math.ceil(window / 1000)
+  if #oldest >= 2 then
+    retryAfter = math.ceil((tonumber(oldest[2]) + window - now) / 1000)
+  end
+  return {0, retryAfter}
+end
+redis.call('ZADD', KEYS[1], now, ARGV[4])
+redis.call('PEXPIRE', KEYS[1], window)
+return {1, 0}
+`
+
+/**
+ * P1-7 修复(2026-08-06):TPM 限流 Lua 原子脚本 —— ZSET 清理 + HASH 汇总 + 写入一次完成,
+ * 消除原 hvals→hset 分离的并发绕过。返回 [allowed(0|1), retryAfter]。
+ */
+const TPM_CHECK_LUA = `
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local old = redis.call('ZRANGEBYSCORE', KEYS[1], 0, now - window)
+if #old > 0 then
+  redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - window)
+  for _, member in ipairs(old) do
+    redis.call('HDEL', KEYS[2], member)
+  end
+end
+local vals = redis.call('HVALS', KEYS[2])
+local sum = 0
+for _, v in ipairs(vals) do sum = sum + tonumber(v) end
+if sum + tonumber(ARGV[5]) > limit then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  local retryAfter = math.ceil(window / 1000)
+  if #oldest >= 2 then
+    retryAfter = math.ceil((tonumber(oldest[2]) + window - now) / 1000)
+  end
+  return {0, retryAfter}
+end
+redis.call('ZADD', KEYS[1], now, ARGV[4])
+redis.call('HSET', KEYS[2], ARGV[4], ARGV[5])
+redis.call('PEXPIRE', KEYS[1], window)
+redis.call('PEXPIRE', KEYS[2], window)
+return {1, 0}
+`
+
 export async function checkPerModelRateLimit(
   apiKeyId: string,
   model: string,
@@ -293,51 +353,41 @@ export async function checkPerModelRateLimit(
   const reqId = `${now}:${Math.random().toString(36).slice(2, 10)}`
 
   try {
-    // --- RPM 检查(ZSET 滑动窗口,统计请求数)---
+    // --- RPM 检查(Lua 原子脚本)---
     if (hasRpmLimit) {
       const rpmKey = `relay:ratelimit:rpm:${apiKeyId}:${model}`
-      // 清理窗口外的旧条目
-      await redis.zremrangebyscore(rpmKey, 0, now - RATE_LIMIT_WINDOW_MS)
-      // 先统计当前窗口内请求数(不含本次)
-      const currentCount = await redis.zcard(rpmKey)
-      if (currentCount + 1 > (rpmLimit as number)) {
-        // 超限:不写入本次请求,返回 429
-        // retryAfter = 窗口剩余时间(估算:最早条目到期时间,无条目时取完整窗口)
-        const oldest = await redis.zrange(rpmKey, 0, '0', 'WITHSCORES')
-        const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
-        const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
-        return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'rpm' }
+      const res = (await redis.eval(
+        RPM_CHECK_LUA,
+        1,
+        rpmKey,
+        now,
+        RATE_LIMIT_WINDOW_MS,
+        rpmLimit as number,
+        reqId,
+      )) as [number, number]
+      if (Number(res[0]) === 0) {
+        return { allowed: false, retryAfter: Math.max(1, Number(res[1])), reason: 'rpm' }
       }
-      // 未超限:写入本次请求
-      await redis.zadd(rpmKey, now, reqId)
-      await redis.pexpire(rpmKey, RATE_LIMIT_WINDOW_MS)
     }
 
-    // --- TPM 检查(ZSET 时间戳 + HASH token 数,统计 token 总和)---
+    // --- TPM 检查(Lua 原子脚本)---
     if (hasTpmLimit) {
       const tpmZsetKey = `relay:ratelimit:tpm:z:${apiKeyId}:${model}`
       const tpmHashKey = `relay:ratelimit:tpm:h:${apiKeyId}:${model}`
-      // 清理窗口外的旧条目
-      const oldMembers = await redis.zrangebyscore(tpmZsetKey, 0, now - RATE_LIMIT_WINDOW_MS)
-      if (oldMembers.length > 0) {
-        await redis.zremrangebyscore(tpmZsetKey, 0, now - RATE_LIMIT_WINDOW_MS)
-        await redis.hdel(tpmHashKey, ...oldMembers)
+      const res = (await redis.eval(
+        TPM_CHECK_LUA,
+        2,
+        tpmZsetKey,
+        tpmHashKey,
+        now,
+        RATE_LIMIT_WINDOW_MS,
+        tpmLimit as number,
+        reqId,
+        estimatedTokens,
+      )) as [number, number]
+      if (Number(res[0]) === 0) {
+        return { allowed: false, retryAfter: Math.max(1, Number(res[1])), reason: 'tpm' }
       }
-      // 统计当前窗口内 token 总和(不含本次)
-      const vals = await redis.hvals(tpmHashKey)
-      const currentSum = vals.reduce((acc, v) => acc + Number(v), 0)
-      if (currentSum + estimatedTokens > (tpmLimit as number)) {
-        // 超限:不写入本次请求,返回 429
-        const oldest = await redis.zrange(tpmZsetKey, 0, '0', 'WITHSCORES')
-        const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
-        const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
-        return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'tpm' }
-      }
-      // 未超限:写入本次请求的 token 数
-      await redis.zadd(tpmZsetKey, now, reqId)
-      await redis.hset(tpmHashKey, reqId, estimatedTokens)
-      await redis.pexpire(tpmZsetKey, RATE_LIMIT_WINDOW_MS)
-      await redis.pexpire(tpmHashKey, RATE_LIMIT_WINDOW_MS)
     }
 
     return { allowed: true }
@@ -385,6 +435,12 @@ async function authenticateShareToken(
 
   // 源 Key 必须活跃
   if (share.sourceKey.status !== 'active') throw unauthorized('Source API key inactive')
+
+  // P1 修复(2026-08-06):源 Key 过期检查。原 share 鉴权只校验了源 Key 的
+  // status 与 IP 白名单,未继承源 Key 的 expiresAt — 源 Key 过期后 share token
+  // 仍可继续调用(绕过主 Key 鉴权链路的过期检查),此处与主链路保持一致。
+  const sourceExpiryCheck = checkExpiresAt(share.sourceKey.expiresAt)
+  if (!sourceExpiryCheck.ok) throw unauthorized('Source API key expired')
 
   // P1-4 修复(2026-08-05):原实现未校验源 Key 的 IP 白名单,
   // 源 Key 的 IP 约束可被 share token 绕过。与主 Key 鉴权链路保持一致。
@@ -462,7 +518,9 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
     return authenticateShareToken(request, key)
   }
 
-  const [row] = await dbRead
+  // P1-3 修复(2026-08-06):鉴权关键路径改走主库 db(原用 dbRead 查 key,
+  // 新建 key 后立即鉴权可能因复制延迟查不到,且副本故障时鉴权雪崩)。
+  const [row] = await db
     .select()
     .from(developerApiKeys)
     .where(eq(developerApiKeys.key, key))
