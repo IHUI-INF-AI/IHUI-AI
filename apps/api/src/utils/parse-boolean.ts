@@ -35,7 +35,7 @@ export function parseBooleanString(v: string): boolean {
  * zod schema:把字符串按显式白名单解析为 boolean。
  * 与 z.coerce.boolean() 不同,"false"/"0" 会正确解析为 false,非法值直接失败。
  */
-export const booleanStringSchema: z.ZodType<boolean, z.ZodTypeDef, unknown> = z
+export const booleanStringSchema: z.ZodType<boolean> = z
   .string()
   .refine((v) => BOOL_TOKEN_RE.test(v), {
     message: '布尔配置仅接受 true/false/1/0/yes/no/on/off',
@@ -46,19 +46,18 @@ export const booleanStringSchema: z.ZodType<boolean, z.ZodTypeDef, unknown> = z
  * zod schema:可选布尔(undefined/空字符串 → undefined)。
  * 用于 query/body 中可省略的布尔字段,替代 `z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional())`。
  */
-export const booleanStringSchemaOptional: z.ZodType<boolean | undefined, z.ZodTypeDef, unknown> =
-  z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === undefined || v === '') return undefined
-      return parseBooleanString(v)
-    })
+export const booleanStringSchemaOptional: z.ZodType<boolean | undefined> = z
+  .string()
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === '') return undefined
+    return parseBooleanString(v)
+  })
 
 /**
  * 环境变量布尔配置工厂:带默认值的布尔 schema。
  * @param def 默认值(zod4 要求 default 与 transform 后输出类型一致,传 boolean 字面量)
  */
-export function booleanFromString(def: boolean): z.ZodType<boolean, z.ZodTypeDef, unknown> {
+export function booleanFromString(def: boolean): z.ZodType<boolean> {
   return booleanStringSchema.default(def)
 }

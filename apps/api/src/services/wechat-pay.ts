@@ -89,8 +89,17 @@ export function verifyCallbackSignature(
 ): boolean {
   const cert = getPlatformCert()
   if (!cert) {
-    // DEV 环境无平台证书时跳过验签（生产必须配置）
-    return env.NODE_ENV !== 'production'
+    // P1-1 修复(2026-08-05):原实现生产外环境无平台证书时跳过验签(NODE_ENV !== 'production'),
+    // 任何环境伪造回调即可入账。改为 fail-closed:无证书一律拒绝。
+    return false
+  }
+  // P1-1 防重放:timestamp 必须在当前时间 ±5 分钟内(微信回调允许的时钟偏差窗口)
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts)) return false
+  const nowSec = Math.floor(Date.now() / 1000)
+  if (Math.abs(nowSec - ts) > 5 * 60) {
+    console.warn(`[wechat-pay] 回调 timestamp 超出新鲜度窗口(now=${nowSec}, ts=${ts}),疑似重放`)
+    return false
   }
   const signStr = `${timestamp}\n${nonce}\n${body}\n`
   const verify = createVerify('RSA-SHA256')

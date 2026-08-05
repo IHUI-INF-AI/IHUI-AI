@@ -14,8 +14,9 @@ import time
 import uuid
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from ..core.jwt_auth import get_current_user_id
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -353,18 +354,33 @@ async def check_permission(
 
 @router.get("/memory")
 async def get_memory(
-    user_id: str, scope: str = "session", session_id: str | None = None
+    request: Request,
+    scope: str = "session",
+    session_id: str | None = None,
 ) -> dict[str, Any]:
-    """读取统一记忆(对接 api /api/memory,网络失败降级返回空列表)。"""
+    """读取统一记忆(对接 api /api/memory,网络失败降级返回空列表)。
+
+    P0-9 修复(2026-08-05):user_id 一律从 JWT 派生,忽略客户端 query 参数,
+    防止越权读取他人私有记忆。
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     entries = await unified_memory_client.get_entries(user_id, scope, session_id)
     return {"code": 0, "message": "ok", "data": entries}
 
 
 @router.post("/memory")
 async def add_memory(request: Request) -> dict[str, Any]:
-    """写入统一记忆(对接 api /api/memory,网络失败降级返回 None)。"""
+    """写入统一记忆(对接 api /api/memory,网络失败降级返回 None)。
+
+    P0-9 修复(2026-08-05):user_id 一律从 JWT 派生,忽略 body 中的 userId。
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     body = await request.json()
-    result = await unified_memory_client.add_entry(body.get("userId"), body.get("entry"))
+    result = await unified_memory_client.add_entry(user_id, body.get("entry"))
     return {"code": 0, "message": "ok", "data": result}
 
 
