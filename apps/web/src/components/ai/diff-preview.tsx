@@ -95,7 +95,7 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
         </div>
       )}
       <div className="grid grid-cols-2 text-xs">
-        <div className="border-r border-zinc-800">
+        <div className="border-zinc-800">
           <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">
             旧版本
           </div>
