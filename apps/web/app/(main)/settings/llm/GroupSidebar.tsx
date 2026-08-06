@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import { ChevronRight, FolderPlus, Layers, Loader2, Trash2 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
-import { createGroupV2 } from './helpers-v2'
+import { createGroupV2, deleteGroupV2 } from './helpers-v2'
 import type { ProviderGroup } from './types-v2'
 
 interface Props {
@@ -65,7 +65,15 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
     onError: (e: Error) => toast.error(t('createFailed'), { description: e.message }),
   })
 
-  // 旧版 delGroupMut 已删除 — 当前 handleDeleteGroup 走 groupDeleteNotSupported 占位逻辑(2026-07-22 简化)
+  const deleteGroupMut = useMutation({
+    mutationFn: (id: number) => deleteGroupV2(id),
+    onSuccess: () => {
+      toast.success(t('groupDeleted'))
+      void qc.invalidateQueries({ queryKey: ['v2-providers'] })
+      void qc.invalidateQueries({ queryKey: ['v2-groups'] })
+    },
+    onError: (e: Error) => toast.error(t('deleteFailed'), { description: e.message }),
+  })
 
   function handleAddGroup(e: React.FormEvent) {
     e.preventDefault()
@@ -77,16 +85,17 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
   function handleDeleteGroup(g: ProviderGroup, e: React.MouseEvent) {
     e.stopPropagation()
     if (!window.confirm(t('deleteGroupConfirm', { name: g.groupLabel }))) return
-    // 用 group 名称作为 label 反查?后端只接 id。这里用 sortOrder 0 + label 模拟不够严谨。
-    // 实际后端需要返回 group id。简化:提示用户先解绑 provider 再删
+    // 分组下仍有 provider 时先解绑再删
     if (g.providers.length > 0) {
       toast.error(t('groupNotEmpty', { count: g.providers.length }))
       return
     }
-    // 找到 group id(从 group 中第一个 provider 的 extraMetadata?这里没有 id)
-    // 兜底:用 group 名做临时 id(后端需要支持按 name 删除)
-    // 暂跳过,UI 上隐藏
-    toast.error(t('groupDeleteNotSupported'))
+    // 聚合接口不带 group 实体 id,由 PageClient 按 label 注入;缺 id 说明后端无对应实体
+    if (g.id == null) {
+      toast.error(t('groupDeleteNotSupported'))
+      return
+    }
+    deleteGroupMut.mutate(g.id)
   }
 
   return (

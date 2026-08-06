@@ -473,6 +473,8 @@
       "fans": "粉絲",
       "signedIn": "已簽到",
       "signIn": "簽到",
+      "checkInSuccess": "簽到成功",
+      "checkInFailed": "簽到失敗",
       "welcome": "Hi，歡迎來到學習平臺",
       "loginHint": "登入後享受更多服務",
       "loginNow": "立即登入",
@@ -12421,6 +12423,8 @@
         "deleteGroup": "刪除分組",
         "groupCreated": "已建立分組「{name}」",
         "createFailed": "建立失敗",
+        "groupDeleted": "已刪除分組",
+        "deleteFailed": "刪除失敗",
         "deleteGroupConfirm": "確認刪除分組「{name}」?",
         "groupNotEmpty": "該分組下還有 {count} 個服務商，請先移走再刪",
         "groupDeleteNotSupported": "請先將所有服務商移出此分組"
