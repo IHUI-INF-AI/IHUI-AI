@@ -1603,7 +1603,18 @@
       "platformMobile": "行動端 H5",
       "platformWechatMiniapp": "微信小程式",
       "platformExtension": "瀏覽器擴充功能",
-      "platformCli": "命令列工具"
+      "platformCli": "命令列工具",
+      "pendingTitle": "待接入端營運指引",
+      "pendingDesc": "以下 3 端尚未接入下載,營運人員需在 downloads.config.ts 填入對應欄位",
+      "pendingField": "設定欄位",
+      "pendingStatus": "狀態",
+      "pendingGuide": "接入說明",
+      "pendingConfigFile": "設定檔案",
+      "pendingNotConnected": "未接入",
+      "pendingConnected": "已接入",
+      "pendingIosGuide": "App 上架後填入純數字 App Store ID(如 1234567890)",
+      "pendingAndroidGuide": "APK 部署到 CDN 後填入絕對 URL 或 /public 下相對路徑",
+      "pendingWechatGuide": "微信小程式發布後填入掃碼落地頁 URL 或 scheme"
     },
     "relayParamOps": {
       "title": "參數覆蓋規則",
@@ -12743,7 +12754,7 @@
   },
   "mobileDashboardPage": {
     "title": "行動端儀錶板",
-    "subtitle": "監控行動端核心營運指標，資料為 Mock 演示資料。",
+    "subtitle": "監控行動端核心營運指標與趨勢。",
     "stats": {
       "trendSuffix": "較昨日",
       "dau": "日活使用者",
