@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { getAuthCookie } from '@/lib/cookie-utils'
 import { useAuthStore } from '@/stores/auth'
 import {
   Card,
@@ -113,13 +112,18 @@ export default function AdminRelayOverviewPage() {
         typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
           ? 'http://127.0.0.1:8802'
           : process.env.NEXT_PUBLIC_API_BASE_URL || ''
-      const token = useAuthStore.getState().token ?? getAuthCookie()
+      // P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
+      // 不再用它拼 Bearer;改用内存 token(有则发)+ credentials: include(cookie 自动附带兜底),
+      // 并带 X-Requested-With 满足后端 cookie 认证路径的 CSRF 校验。
+      const token = useAuthStore.getState().token
       const res = await fetch(
         `${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
         {
           method: 'PATCH',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ byokCommissionRate: vars.rate }),
