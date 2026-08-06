@@ -264,7 +264,7 @@ const TIERS: Tier[] = [
   },
 ]
 
-// TODO: custom color: 等级渐变背景 #6b7280/#9ca3af/#b8c0c8/#e8edf2/#d4af6a/#f5d98a/#6ec1e4/#b9f2ff 为品牌等级色,无对应 token
+// 保留:等级渐变背景 8 段色(normal/silver/gold/diamond 各 2 段);装饰性品牌等级色,渐变值无法用单一 token 表达,保留原逻辑
 const TIER_HEAD_CLASS: Record<string, string> = {
   normal: 'bg-[linear-gradient(135deg,#6b7280,#9ca3af)] text-primary-foreground',
   silver: 'bg-[linear-gradient(135deg,#b8c0c8,#e8edf2)] text-foreground',

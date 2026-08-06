@@ -677,7 +677,8 @@
       "shareFriend": "Share to friends",
       "voiceAnswer": "🔊 Voice answer",
       "modelDefault": "AI Model"
-    }
+    },
+    "success": "Shared successfully"
   },
   "aiGroup": {
     "title": "Agent plaza",
@@ -1873,7 +1874,20 @@
     "paymentMethod": "Payment Method",
     "confirmPay": "Confirm Pay ¥{price}",
     "alipay": "Alipay",
-    "balance": "Balance"
+    "balance": "Balance",
+    "cancel": "Payment cancelled",
+    "wxNotInstalled": "WeChat app not detected. Please install WeChat first",
+    "aliNotInstalled": "Alipay app not detected. Please install Alipay first",
+    "gotIt": "Got it",
+    "paramError": "Payment parameter error, please retry",
+    "failed": "Payment failed, please retry",
+    "failedShort": "Payment failed",
+    "processing": "Processing...",
+    "wxUnsupportedEnv": "WeChat Pay is not supported in this environment",
+    "aliUnsupportedWeapp": "Alipay is not supported in WeChat Mini Program",
+    "aliOrderMissing": "Alipay order info missing",
+    "unsupportedEnv": "Payment is not supported in this environment",
+    "resultPending": "Payment result pending"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -2495,5 +2509,16 @@
       "loginRequired": "Please login first"
     },
     "title": "IHUI AI Community"
+  },
+  "album": {
+    "saveSuccess": "Saved successfully",
+    "saveFailed": "Save failed",
+    "authTitle": "Authorization Required",
+    "authContent": "Album permission is required to save images. Please enable it in Settings",
+    "urlEmpty": "Image URL is empty",
+    "saving": "Saving..."
+  },
+  "auth": {
+    "expired": "Login expired, please log in again"
   }
 }

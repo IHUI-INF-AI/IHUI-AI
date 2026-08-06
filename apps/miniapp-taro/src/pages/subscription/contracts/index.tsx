@@ -5,7 +5,7 @@ import { listRecurringContracts, cancelRecurringContract, type WechatPayContract
 import { useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 
-// TODO: custom color: #e8f5e9 浅绿背景/#ff9a3c 自定义橙,无对应 token,保留原值
+// 保留:#e8f5e9 success 浅色背景 / #ff9a3c 自定义橙(status-pending);token 系统无对应浅色背景/状态橙,保留原值
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
   active: 'bg-[#e8f5e9] text-success',
   pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[#ff9a3c]',
@@ -56,7 +56,7 @@ export default function SubscriptionContractsPage() {
         content: tt('subscription.cancelContent', '确认取消该自动续费签约?取消后不再自动扣款。'),
         confirmText: tt('subscription.cancelConfirmBtn', '确认解约'),
         cancelText: tt('subscription.cancelThinkBtn', '再想想'),
-        // TODO: native API: Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
+        // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
         confirmColor: '#dd524d',
         success: async (modalRes) => {
           if (!modalRes.confirm) return
