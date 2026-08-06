@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "typecheck:e2e": "tsc -p e2e/tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "node scripts/clean-vite-temp.mjs && vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:visual": "playwright test --config=playwright.visual.config.ts",
     "e2e": "playwright test",
@@ -25,7 +25,9 @@
     "clean": "rimraf .next .turbo node_modules",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:static": "node scripts/build-static.mjs"
+    "build:static": "node scripts/build-static.mjs",
+    "test:clean": "node scripts/clean-vite-temp.mjs",
+    "test:watch": "node scripts/clean-vite-temp.mjs && vitest"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
