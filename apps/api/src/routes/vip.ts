@@ -174,8 +174,9 @@ const updateLevelBody = z.object({
   status: z.number().optional(),
 })
 const listUsersQuery = z.object({
-  page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(20),
+  // P1 修复(2026-08-06): 分页 limit 补上限,防恶意大分页拖垮数据库
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   userId: z.string().optional(),
 })
 

@@ -4,6 +4,7 @@
  */
 import { z } from 'zod'
 import { emptyToUndefined } from '../../utils/response.js'
+import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 
 export const ADMIN_ROLE_ID = 1
 
@@ -32,7 +33,8 @@ export const listCirclePostsQuery = z.object(paginationQuery)
 export const listAsksQuery = z.object({
   ...paginationQuery,
   search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-  resolved: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  resolved: booleanStringSchemaOptional,
 })
 
 export const listAskAnswersQuery = z.object(paginationQuery)

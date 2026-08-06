@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { examWrongQuestion } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import {
   createOrUpdateWrongQuestion,
   findWrongQuestionsByUser,
@@ -36,7 +37,8 @@ const deleteSchema = z.object({
 const listQuery = z.object({
   ...paginationQuery,
   paperId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
-  isMastered: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isMastered: booleanStringSchemaOptional,
 })
 
 const wrongQuestionRoutes: FastifyPluginAsync = async (server) => {

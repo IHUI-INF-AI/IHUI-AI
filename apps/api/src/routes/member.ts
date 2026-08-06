@@ -491,44 +491,60 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     })
 
     // GET /members/by-id - 按 ID 查询会员
-    authed.get('/members/by-id', { schema: { response: R } }, async (request, reply) => {
-      const parsed = byIdQuery.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const member = await findMemberById(parsed.data.id)
-      if (!member) {
-        return reply.status(404).send(error(404, '会员不存在'))
-      }
-      const { password: _pw, ...memberPublic } = member
-      return reply.send(success({ member: memberPublic }))
-    })
+    // P1 修复(2026-08-06): 原实现任意登录用户可按 id 查询他人会员资料(含手机号/邮箱),
+    // 属 IDOR/PII 越权泄露,改为仅管理员可查(普通用户请使用 /members/me)。
+    authed.get(
+      '/members/by-id',
+      { schema: { response: R }, preHandler: requireAdmin },
+      async (request, reply) => {
+        const parsed = byIdQuery.safeParse(request.query)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const member = await findMemberById(parsed.data.id)
+        if (!member) {
+          return reply.status(404).send(error(404, '会员不存在'))
+        }
+        const { password: _pw, ...memberPublic } = member
+        return reply.send(success({ member: memberPublic }))
+      },
+    )
 
     // GET /members/by-ids - 批量按 ID 查询
-    authed.get('/members/by-ids', { schema: { response: R } }, async (request, reply) => {
-      const parsed = byIdsQuery.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const ids = parsed.data.ids
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-      const list = await findMembersByIds(ids)
-      const publicList = list.map(({ password: _p, ...rest }) => rest)
-      return reply.send(success({ list: publicList }))
-    })
+    // P1 修复(2026-08-06): 批量查询他人会员资料(含手机号/邮箱),改为仅管理员可查
+    authed.get(
+      '/members/by-ids',
+      { schema: { response: R }, preHandler: requireAdmin },
+      async (request, reply) => {
+        const parsed = byIdsQuery.safeParse(request.query)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const ids = parsed.data.ids
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+        const list = await findMembersByIds(ids)
+        const publicList = list.map(({ password: _p, ...rest }) => rest)
+        return reply.send(success({ list: publicList }))
+      },
+    )
 
     // GET /members/auth-list - 登录用户列表（status=1）
-    authed.get('/members/auth-list', { schema: { response: R } }, async (request, reply) => {
-      const parsed = authListQuery.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const result = await findAuthMembers(parsed.data)
-      const list = result.list.map(({ password: _pw, ...rest }) => rest)
-      return reply.send(success({ ...result, list }))
-    })
+    // P1 修复(2026-08-06): 原实现任意登录用户可拉取全量会员列表(含手机号/邮箱),改为仅管理员可查
+    authed.get(
+      '/members/auth-list',
+      { schema: { response: R }, preHandler: requireAdmin },
+      async (request, reply) => {
+        const parsed = authListQuery.safeParse(request.query)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const result = await findAuthMembers(parsed.data)
+        const list = result.list.map(({ password: _pw, ...rest }) => rest)
+        return reply.send(success({ ...result, list }))
+      },
+    )
   })
 }
 
