@@ -172,16 +172,13 @@ export default function AccountCancel() {
     }
     setSubmitting(true)
     try {
-      try {
-        await api.post('/auth/cancel-account', { phone, code, confirmText })
-      } catch (e) {
-        // 端点不存在时降级为 mock 成功,保证流程可走通
-        logger.error('account-cancel', 'cancel-account endpoint fallback to mock', e)
-      }
+      await api.post('/auth/cancel-account', { phone, code, confirmText })
       Taro.showToast({ title: t('accountCancel.cancelled'), icon: 'success' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
     } catch (e) {
+      // 真实失败:如实提示,不假装注销成功
       logger.error('unknown', '注销', e)
+      Taro.showToast({ title: t('accountCancel.failed') || '注销失败,请重试', icon: 'none' })
     } finally {
       setSubmitting(false)
     }
