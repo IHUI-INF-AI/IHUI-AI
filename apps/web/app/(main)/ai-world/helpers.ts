@@ -40,7 +40,10 @@ export async function fetchAiWorldItems(params: FetchItemsParams): Promise<Pagin
   if (params.search) qs.set('search', params.search)
   if (params.order) qs.set('order', params.order)
   const suffix = qs.toString()
-  return api<PaginatedItems>(`/api/ai-world/${params.kind}s${suffix ? `?${suffix}` : ''}`)
+  // 2026-08-06 修复:后端 news 路由为单数 /ai-world/news,统一 `${kind}s` 会拼成
+  // newss(500)。news 特判不加 s;后端已注册 newss 别名兜底。
+  const resource = params.kind === 'news' ? 'news' : `${params.kind}s`
+  return api<PaginatedItems>(`/api/ai-world/${resource}${suffix ? `?${suffix}` : ''}`)
 }
 
 export interface FetchRankingsParams {
