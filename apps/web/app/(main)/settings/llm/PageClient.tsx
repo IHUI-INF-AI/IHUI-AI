@@ -29,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import { BookOpen, KeyRound, Loader2, PackagePlus, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react'
@@ -203,7 +202,6 @@ export default function UserLlmConfigsPage() {
 
   return (
     <Container maxWidth="xl" padding={false} className="space-y-5 py-6">
-      <BackButton />
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
