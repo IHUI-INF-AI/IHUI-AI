@@ -999,7 +999,7 @@ function TerminalViewport({
 
       {/* 搜索条(Ctrl+F 触发,深化:正则 + 全字 + 大小写三开关) */}
       {searchOpen && (
-        <div className="flex flex-col gap-1 border-b border-border bg-card px-2 py-1.5">
+        <div className="flex flex-col gap-1 bg-card px-2 py-1.5">
           <div className="flex items-center gap-1.5">
             <SearchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <input
@@ -1279,7 +1279,7 @@ function TerminalViewport({
       {/* ==================== Ctrl+R 智能历史搜索(2026-07-23 立,仅活跃 pane) ==================== */}
       {isActive && historyOpen && (
         <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
-          <div className="flex items-center gap-1.5 border-b border-border px-2 py-1.5">
+          <div className="flex items-center gap-1.5 px-2 py-1.5">
             <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <input
               ref={historyInputRef}

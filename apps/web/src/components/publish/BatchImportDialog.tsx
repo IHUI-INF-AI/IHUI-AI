@@ -210,7 +210,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
                   </thead>
                   <tbody>
                     {rows.slice(0, 20).map((r, i) => (
-                      <tr key={i} className="border-t border-border/50">
+                      <tr key={i} className="border-border/50">
                         <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
                         <td className="py-1 pr-2 font-mono">{r.platform}</td>
                         <td className="py-1 pr-2">{r.nickname || '-'}</td>

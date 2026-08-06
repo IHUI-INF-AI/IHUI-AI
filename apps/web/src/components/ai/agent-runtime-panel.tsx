@@ -109,7 +109,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
   return (
     <div className={cn('flex h-full flex-col bg-background', className)}>
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+      <header className="flex h-12 shrink-0 items-center gap-2 px-3">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Bot className="h-4 w-4" />
         </div>
@@ -213,7 +213,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-border p-3">
+      <footer className="shrink-0 p-3">
         <div className="flex items-end gap-2">
           <textarea
             value={input}
