@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { findAuditLogs, getDetailedStats, exportAuditLogs } from '../db/search-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { sanitizeCsvCell } from '../utils/csv-utils.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -184,11 +185,14 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
         'createdAt',
         'details',
       ]
+      // P2 修复(2026-08-06):escapeCsv 先经 sanitizeCsvCell 做公式注入防护,
+      // 防止 details/userAgent 等用户可控字段以 `=`/`+`/`-`/`@` 开头被 Excel 当公式执行。
       const escapeCsv = (v: unknown): string => {
         if (v === null || v === undefined) return ''
         const s = typeof v === 'string' ? v : JSON.stringify(v)
-        if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
-        return s
+        const safe = sanitizeCsvCell(s)
+        if (/[",\n\r]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`
+        return safe
       }
       const rows = list.map((row) =>
         [

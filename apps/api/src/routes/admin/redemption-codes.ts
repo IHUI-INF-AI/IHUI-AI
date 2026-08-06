@@ -16,6 +16,7 @@ import { eq } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
 import { redemptionCodes } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import { logger } from '../../utils/logger.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import {
@@ -67,6 +68,13 @@ const adminRedemptionCodesRoutes: FastifyPluginAsync = async (server) => {
         tokenAmount: parsed.data.tokenAmount,
         expiresAt: parsed.data.expiresAt,
         createdBy: userId,
+      })
+      // P2 修复(2026-08-06):批量生成无操作日志,补记操作人/面值/数量,便于审计追责。
+      logger.info('admin redemption-codes batch generated', {
+        userId,
+        count: codes.length,
+        faceValueCents: parsed.data.faceValueCents,
+        tokenAmount: parsed.data.tokenAmount,
       })
       return reply.send(
         success({
