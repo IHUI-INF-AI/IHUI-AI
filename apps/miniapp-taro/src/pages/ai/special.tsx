@@ -105,7 +105,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     icon: ICONS.plazaIcon01,
     category: 'plaza',
     uses: 780,
-    route: '/pages/plaza/index',
+    route: '/pages/plaza/index/index',
   },
 ]
 

@@ -42,9 +42,11 @@ function isLocale(value: string): value is Locale {
 
 async function readLocale(): Promise<Locale> {
   try {
-    if (typeof browser !== 'undefined' && browser.storage?.local) {
-      const result = await browser.storage.local.get(LOCALE_STORAGE_KEY)
-      const value = result[LOCALE_STORAGE_KEY]
+    // WXT 0.21 无 browser 全局,统一用 chrome.storage.local
+    // (与 background.ts 读同一键的存储区域一致)。
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      const result = await chrome.storage.local.get(LOCALE_STORAGE_KEY)
+      const value: unknown = result[LOCALE_STORAGE_KEY]
       if (typeof value === 'string' && isLocale(value)) return value
     }
   } catch {
@@ -63,8 +65,8 @@ async function readLocale(): Promise<Locale> {
 
 async function writeLocale(locale: Locale): Promise<void> {
   try {
-    if (typeof browser !== 'undefined' && browser.storage?.local) {
-      await browser.storage.local.set({ [LOCALE_STORAGE_KEY]: locale })
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      await chrome.storage.local.set({ [LOCALE_STORAGE_KEY]: locale })
       return
     }
   } catch {
