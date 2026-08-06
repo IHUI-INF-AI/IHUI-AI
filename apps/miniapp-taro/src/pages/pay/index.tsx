@@ -107,7 +107,7 @@ export default function PayIndex() {
     })
   }
 
-  const goRecharge = () => Taro.navigateTo({ url: '/pages/wallet/recharge' })
+  const goRecharge = () => Taro.navigateTo({ url: '/pages/wallet/recharge/index' })
 
   const onPay = async () => {
     if (!orderNo) {

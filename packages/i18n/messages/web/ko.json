@@ -470,6 +470,8 @@
       "fans": "팬",
       "signedIn": "출석 완료",
       "signIn": "출석",
+      "checkInSuccess": "출석 성공",
+      "checkInFailed": "출석 실패",
       "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다",
       "loginHint": "로그인 후 더 많은 서비스 이용",
       "loginNow": "지금 로그인",
@@ -12451,6 +12453,8 @@
         "deleteGroup": "그룹 삭제",
         "groupCreated": "그룹 \"{name}\"이(가) 생성되었습니다",
         "createFailed": "생성 실패",
+        "groupDeleted": "그룹이 삭제되었습니다",
+        "deleteFailed": "삭제 실패",
         "deleteGroupConfirm": "그룹 \"{name}\"을(를) 삭제하시겠습니까?",
         "groupNotEmpty": "그룹에 {count}개의 프로바이더가 있습니다. 먼저 이동하세요.",
         "groupDeleteNotSupported": "먼저 모든 프로바이더를 그룹 밖으로 이동하세요"
