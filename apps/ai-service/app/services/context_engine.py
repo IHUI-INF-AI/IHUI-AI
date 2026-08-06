@@ -58,6 +58,7 @@ _REDIS_KEY_BEHAVIOR = "context:behavior"
 _REDIS_KEY_COMPRESSION = "context:compression"
 _REDIS_KEY_SUMMARY = "context:summary"
 _REDIS_KEY_VIZ = "context:viz"
+_REDIS_KEY_SOURCES = "context:sources"  # 用户上下文源偏好(JSON map: type -> {enabled, budgetPercent})
 
 # 历史/可视化记录上限
 COMPRESSION_HISTORY_LIMIT = 100
@@ -1733,12 +1734,33 @@ async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
         return {"code": 500, "message": f"上下文增强失败: {e}", "data": None}
 
 
+async def _load_user_source_prefs(user_id: str) -> dict:
+    """读取用户上下文源偏好(Redis context:sources:{userId}),降级空 dict。"""
+    if not user_id:
+        return {}
+    try:
+        redis = await context_engine._get_redis()
+        if redis is None:
+            return {}
+        raw = await redis.get(f"{_REDIS_KEY_SOURCES}:{user_id}")
+        if not raw:
+            return {}
+        import json as _json
+        parsed = _json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception as e:
+        logger.debug("load user source prefs failed: %s", e)
+        return {}
+
+
 @router.get("/sources")
-async def sources_endpoint() -> dict[str, Any]:
+async def sources_endpoint(user_id: str = "") -> dict[str, Any]:
     """GET /api/context/sources — 返回可用上下文源类型 + 预算分配规则。
 
     输出:{ code, message, data: { sources: [...], defaultBudget: 8000 } }
+    - 每项含 budgetPercent(0-100)与 enabled;传入 user_id 时合并用户持久化偏好
     """
+    prefs = await _load_user_source_prefs(user_id)
     source_defs = [
         {
             "type": "history",
@@ -1771,14 +1793,81 @@ async def sources_endpoint() -> dict[str, Any]:
             "description": "数据库表结构定义(information_schema)",
         },
     ]
+    merged = []
+    for src in source_defs:
+        pref = prefs.get(src["type"], {})
+        default_pct = round(src["budgetRatio"] * 100)
+        merged.append(
+            {
+                "type": src["type"],
+                "label": src["label"],
+                "description": src["description"],
+                "budgetPercent": int(pref.get("budgetPercent", default_pct)),
+                "enabled": bool(pref.get("enabled", True)),
+            }
+        )
     return {
         "code": 0,
         "message": "ok",
         "data": {
-            "sources": source_defs,
+            "sources": merged,
             "defaultBudget": DEFAULT_CONTEXT_BUDGET,
         },
     }
+
+
+class UpdateSourcesRequest(BaseModel):
+    """PUT /api/context/sources 请求体 — 更新用户上下文源偏好。"""
+
+    updates: list[dict[str, Any]] = Field(
+        default_factory=list, description="[{type, enabled?, budgetPercent?}]"
+    )
+
+
+@router.put("/sources")
+async def update_sources_endpoint(
+    req: UpdateSourcesRequest, user_id: str = ""
+) -> dict[str, Any]:
+    """PUT /api/context/sources — 持久化用户上下文源偏好(Redis context:sources:{userId})。"""
+    if not user_id:
+        return {"code": 400, "message": "缺少 userId", "data": None}
+    valid_updates: dict[str, dict[str, Any]] = {}
+    for u in req.updates:
+        t = u.get("type")
+        if t not in SOURCE_BUDGET_RATIOS:
+            continue
+        entry: dict[str, Any] = {}
+        if "enabled" in u:
+            entry["enabled"] = bool(u["enabled"])
+        if "budgetPercent" in u:
+            try:
+                pct = int(u["budgetPercent"])
+            except (TypeError, ValueError):
+                continue
+            entry["budgetPercent"] = max(0, min(100, pct))
+        if entry:
+            valid_updates[t] = entry
+    if not valid_updates:
+        return {"code": 400, "message": "无有效更新项", "data": None}
+    try:
+        redis = await context_engine._get_redis()
+        if redis is None:
+            return {"code": 503, "message": "Redis 不可用,偏好无法持久化", "data": None}
+        key = f"{_REDIS_KEY_SOURCES}:{user_id}"
+        raw = await redis.get(key)
+        import json as _json
+        prefs = _json.loads(raw) if raw else {}
+        if not isinstance(prefs, dict):
+            prefs = {}
+        for t, entry in valid_updates.items():
+            cur = prefs.get(t, {})
+            cur.update(entry)
+            prefs[t] = cur
+        await redis.set(key, _json.dumps(prefs))
+        return {"code": 0, "message": "ok", "data": {"saved": len(valid_updates)}}
+    except Exception as e:
+        logger.exception("update sources failed: %s", e)
+        return {"code": 500, "message": f"保存上下文源偏好失败: {e}", "data": None}
 
 
 # ---------------------------------------------------------------------------

@@ -156,7 +156,7 @@ export default function CachePage() {
       </View>
 
       <Button
-        className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[40rpx] text-[32rpx] disabled:opacity-60"
+        className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[16rpx] text-[32rpx] disabled:opacity-60"
         onClick={onClearAll}
         disabled={clearing}
         loading={clearing}
