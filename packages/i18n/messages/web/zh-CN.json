@@ -175,11 +175,10 @@
     "language": "语言",
     "downloadClient": "下载客户端",
     "downloadAssets": "下载资源",
-    "downloadAvailable": "可下载",
+    "downloadAvailable": "已发布",
     "downloadComingSoon": "即将上线",
-    "downloadComingSoonHint": "{platform} 客户端正在开发中,敬请期待",
-    "downloadComingSoonTitle": "即将上线",
-
+    "downloadComingSoonHint": "{platform} 客户端正紧锣密鼓开发中,敬请期待。可先使用 Web 版体验完整功能。",
+    "downloadComingSoonTitle": "{platform} 即将上线",
     "selfMediaAutomation": "自动化",
     "downloadTitle": "下载客户端",
     "mainNav": "主导航",
@@ -359,12 +358,7 @@
     "downloadExtensionDesc": "Chrome / Edge / Firefox 全支持",
     "downloadCli": "命令行工具",
     "downloadCliDesc": "终端一键调用,脚本化集成",
-    "downloadComingSoon": "即将上线",
     "downloadBack": "返回",
-    "downloadAvailable": "已发布",
-    "downloadAssets": "下载资源",
-    "downloadComingSoonTitle": "{platform} 即将上线",
-    "downloadComingSoonHint": "{platform} 客户端正紧锣密鼓开发中,敬请期待。可先使用 Web 版体验完整功能。",
     "downloadUseWeb": "使用 Web 版",
     "downloadNow": "立即下载",
     "downloadInstallGuide": "安装指南",
@@ -15328,7 +15322,13 @@
       "gisLoadFailedToast": "Google GIS 加载失败",
       "oneTapNotInitialized": "Google One Tap 尚未初始化",
       "oneTapNotDisplayed": "Google One Tap 未显示"
-    }
+    },
+    "twoFactorTitle": "两步验证",
+    "twoFactorHint": "输入身份验证器中的 6 位验证码,或备用恢复码(格式 AAAA-AAAA)",
+    "twoFactorPlaceholder": "6 位验证码或备用码",
+    "twoFactorSubmit": "验证并登录",
+    "twoFactorCancel": "取消",
+    "twoFactorError": "验证码无效或已过期,请重试"
   },
   "title": "管理后台",
   "errors": {
