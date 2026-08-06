@@ -2851,12 +2851,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) desktop:tauri.conf.json CSP 内联脚本白屏、窗口状态写盘防抖、版本号同步
 - [x] ✅(2026-08-06) 验证:web/mobile-rn/miniapp-taro/extension 四端 tsc --noEmit 全绿
 
-### 遗留待办(需后端/运营/平台支持,前端无法独立完成)
+### 遗留待办(2026-08-06 二轮深度开发中,部分已完成)
 
-- [ ] context 页 toggle/预算持久化(后端 /api/context/sources 无 PUT 接口)
-- [ ] favorites 列表显示资源标题(后端 favorites 接口仅返回 resourceId)
-- [ ] agents 详情页 6 Tab 运行时数据(需 agentId→threadId 数据链路)
-- [ ] admin saas 配额真实数据源(P1-2.2c 占位)
-- [ ] downloads 运营数据(App Store ID / APK URL / 小程序 QR)
-- [ ] mobile-dashboard 真实移动端统计接入(当前为标注示例数据)
-- [ ] 小程序真机 BASE_URL 部署配置(api-config.ts 当前 localhost:8802)
+- [x] ✅(2026-08-06) context 页 toggle/预算持久化 — ai-service PUT /sources(Redis)+api 转发+前端乐观更新(commit bbf42ca20)
+- [x] ✅(2026-08-06) favorites 列表资源标题 — findFavorites 批量关联资源表(commit 43459d2c8)
+- [ ] agents 详情页 5 Tab 运行时数据(并行 agent 开发中)
+- [ ] admin saas 配额真实数据源(并行 agent 开发中)
+- [ ] downloads 运营数据配置化(并行 agent 开发中)
+- [ ] mobile-dashboard 真实移动端统计(并行 agent 开发中)
+- [ ] 小程序真机 BASE_URL 部署配置(并行 agent 开发中)
