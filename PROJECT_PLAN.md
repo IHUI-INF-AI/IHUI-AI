@@ -2856,8 +2856,8 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) context 页 toggle/预算持久化 — ai-service PUT /sources(Redis)+api 转发+前端乐观更新(commit bbf42ca20)
 - [x] ✅(2026-08-06) favorites 列表资源标题 — findFavorites 批量关联资源表(commit 43459d2c8)
 - [x] ✅(2026-08-06) **ai-world/favorites 收藏闭环** — 主代理审计发现孤儿页面(前端调 404 接口)后闭环:①后端 GET /ai-world/favorites(requireAuth)+ findAiWorldFavorites 关联 aiWorldItems(commit 8f66eaa05)②social zod 常量加 aiworld,与 JSON schema 对齐(POST /favorites 不再 400,commit 4a3f6af46)③详情页收藏按钮写入口 + cn import 补全(commit ad86535d0)。收藏:状态 GET /api/favorites/check/aiworld/:id、切换 POST/DELETE /api/favorites。favorites 页面导航入口待补(可直接 URL 访问)
-- [ ] agents 详情页 5 Tab 运行时数据(并行 agent 开发中)
-- [ ] admin saas 配额真实数据源(并行 agent 开发中)
-- [ ] downloads 运营数据配置化(并行 agent 开发中)
-- [ ] mobile-dashboard 真实移动端统计(并行 agent 开发中)
-- [ ] 小程序真机 BASE_URL 部署配置(并行 agent 开发中)
+- [x] ✅(2026-08-06) agents 详情页 5 Tab 运行时数据 — GET /subagents/by-agent/:agentId/summary(agent_tasks 聚合)+前端 useQuery 接入
+- [x] ✅(2026-08-06) admin saas 配额真实数据源 — admin-saas-quota.ts 拦截原代理路径,tenants/tenant_quotas/ai_cost_records 真实聚合
+- [x] ✅(2026-08-06) downloads 运营数据配置化 — 10 处 TODO 改 NEXT_PUBLIC_DOWNLOAD_* 环境变量 getter,未配置走"即将上线"
+- [x] ✅(2026-08-06) mobile-dashboard 真实移动端统计 — GET /admin/mobile-stats(visit_logs/analytics_events/users 聚合),前端 useQuery 接入,示例数据全删
+- [x] ✅(2026-08-06) 小程序真机 BASE_URL 部署配置 — TARO_APP_API_BASE 环境变量 + .env.example + 部署文档
