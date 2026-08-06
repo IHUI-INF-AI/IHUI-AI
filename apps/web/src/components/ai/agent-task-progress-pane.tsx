@@ -19,7 +19,6 @@ import {
   X,
   Timer,
   AlertCircle,
-  GripVertical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -46,12 +45,6 @@ import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 import { CopyButton } from './progress-sections/copy-button'
 import { ProgressRing } from './progress-sections/progress-ring'
-import {
-  ConnectionStatus,
-  ConnectionStatusDot,
-  deriveConnectionState,
-  type ConnectionState,
-} from './progress-sections/connection-status'
 import { HoverPreviewCard } from './progress-sections/hover-preview-card'
 import { BatchHeader, type BatchStatus } from './progress-sections/batch-header'
 import { Checklist, type ChecklistItemData } from './progress-sections/checklist'
@@ -687,18 +680,6 @@ export function AgentTaskProgressPane() {
     return 'idle'
   }, [planSteps.length, progressPct, isStreaming])
 
-  // Phase 16: SSE 连接状态推导
-  const connectionState: ConnectionState = React.useMemo(
-    () =>
-      deriveConnectionState(
-        isStreaming,
-        progress.overview.reconnectAttempt,
-        !!progress.overview.error,
-        threadId,
-      ),
-    [isStreaming, progress.overview.reconnectAttempt, progress.overview.error, threadId],
-  )
-
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
     const total = planSteps.length
@@ -993,14 +974,8 @@ export function AgentTaskProgressPane() {
   //   (minimize / pin / expand-all / help / tab 按钮 100% 触发原 onClick)
   // - 拖动结束后写 localStorage(`pane-drag-v18`),下次 mount 时从 useEffect 恢复
   // - 用 transform 而非视口坐标 → resize 后偏移仍正确(相对 inner div,不是 viewport)
-  //
-  // v19 修复(2026-07-29):删除原 closest 选择器中的 `[data-no-drag]` —
-  //   该选择器本意为"defensive 早退",但因 GripVertical icon 本身带 data-no-drag,
-  //   → 用户在 handle icon 上 mousedown 时 closest('[data-no-drag]') 命中,
-  //   → 早退,拖动彻底失效。v19 改为仅 button / [role="button"] / input 早退,
-  //   整个 header 空白 + GripVertical icon 都能正常启动拖动。
   const onHandleMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // 仅 button / [role="button"] / input 区域早退,其余 header 区域(空白 + GripVertical icon)启动拖动
+    // 仅 button / [role="button"] / input 区域早退,其余 header 空白区域启动拖动
     if ((e.target as HTMLElement).closest('button, [role="button"], input')) return
     e.preventDefault()
     e.stopPropagation()
@@ -1120,15 +1095,15 @@ export function AgentTaskProgressPane() {
         // (2026-07-31 根因修复:原 z-popover=2001 > z-modal=2000,pane 浮在登录框之上)
         'absolute z-sticky',
         'flex w-full min-[768px]:w-[280px] max-h-[60vh] flex-col',
-        'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+        'overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md',
       )}
       style={positionStyle}
       role="complementary"
       aria-label={t('ariaLabel')}
       data-testid="agent-progress-pane"
     >
-      {/* Header:拖动 handle(GripVertical) + 状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
-      {/* v18:恢复拖动 — handle 区域(空白 + GripVertical icon)onMouseDown 启动拖动,
+      {/* Header:拖动 handle + 进度环 + 步骤预算 + 工具按钮 */}
+      {/* v18:恢复拖动 — header 空白区域 onMouseDown 启动拖动,
           button 区域(closest 早退)走 button 自己的 onClick,click 路径 100% 纯粹。 */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions
           -- v18 设计选择:header 整体是拖动 handle,内嵌 button 用 closest('button') 早退
@@ -1140,22 +1115,6 @@ export function AgentTaskProgressPane() {
         onMouseDown={onHandleMouseDown}
         data-testid="pane-header"
       >
-        {/* v19 拖动 handle:GripVertical icon + cursor-grab 视觉提示,
-            (v18 的 data-no-drag 已删除 — 选择器不再使用它,留作反而会让 closest 误命中) */}
-        <GripVertical
-          className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted-foreground/40"
-          aria-hidden
-        />
-        <ConnectionStatusDot
-          state={connectionState}
-          className={cn(
-            'transition-all duration-300',
-            connectionState === 'connected' && 'shadow-[0_0_0_1px_rgb(16_185_129/0.3)]',
-            connectionState === 'reconnecting' && 'shadow-[0_0_0_1px_rgb(245_158_11/0.3)]',
-            connectionState === 'disconnected' && 'shadow-[0_0_0_1px_rgb(239_68_68/0.3)]',
-          )}
-        />
-        <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
         {planSteps.length > 0 && (
           <div>
             <ProgressRing
@@ -1165,17 +1124,6 @@ export function AgentTaskProgressPane() {
               size={16}
               strokeWidth={2}
               aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
-            />
-          </div>
-        )}
-        {connectionState !== 'connected' && connectionState !== 'connecting' && (
-          <div>
-            <ConnectionStatus
-              state={connectionState}
-              reconnectAttempt={progress.overview.reconnectAttempt}
-              totalAttempts={5}
-              error={progress.overview.error}
-              className="ml-0.5"
             />
           </div>
         )}
