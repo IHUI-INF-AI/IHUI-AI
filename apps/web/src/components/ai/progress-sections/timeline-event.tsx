@@ -264,7 +264,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
         </span>
       </button>
       {hasChildren && isExpanded && (
-        <div className="border-t border-border/30 px-2 py-1">
+        <div className="px-2 py-1">
           {description && (
             <div className="mb-1.5 text-[10px] text-muted-foreground/70">{description}</div>
           )}
