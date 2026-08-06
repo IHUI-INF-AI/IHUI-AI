@@ -19,6 +19,10 @@ import { checkAuth } from '../plugins/auth.js'
 import { uploadSessions } from '@ihui/database'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+// P2 修复(2026-08-06):合并后的成品文件(返回公开 URL /uploads/<id>)写入
+// uploads/public —— 静态白名单只暴露该子目录;分片临时目录仍留在
+// uploads/chunks(非公开目录,不对外提供)。
+const PUBLIC_UPLOAD_DIR = join(UPLOAD_DIR, 'public')
 
 // =============================================================================
 // Zod schemas
@@ -220,10 +224,10 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
     const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
     const fileId = randomUUID()
-    const finalPath = join(UPLOAD_DIR, fileId)
+    const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
 
     try {
-      if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+      if (!existsSync(PUBLIC_UPLOAD_DIR)) mkdirSync(PUBLIC_UPLOAD_DIR, { recursive: true })
 
       // 按 1..totalChunks 顺序读取所有 .part 文件合并为最终文件
       const writeStream = createWriteStream(finalPath)
