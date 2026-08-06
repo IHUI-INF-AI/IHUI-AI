@@ -50,6 +50,8 @@ export class ContentToolbar {
   private anchor: AnchorSnapshot | null = null
   private lastRect: RectLike | null = null
   private shown = false
+  private lastShownAt = 0
+  private static readonly SHOW_DEBOUNCE_MS = 500
 
   constructor(doc: Document) {
     this.doc = doc
@@ -131,12 +133,24 @@ export class ContentToolbar {
   /** 显示工具栏(fade-in + scale-up) */
   show(rect: RectLike, viewport: ViewportLike): ToolbarPlacement {
     const refs = this.getRefs()
+    const now = Date.now()
     const w = refs.root.offsetWidth || TOOLBAR_ESTIMATED_WIDTH
     const h = refs.root.offsetHeight || TOOLBAR_ESTIMATED_HEIGHT
 
-    // 防抖:同选区附近不抖动
-    if (this.lastRect && isNearbyRect(this.lastRect, rect)) {
-      // 沿用 anchor,只更新 top
+    // 防抖:同选区附近 500ms 内重复调用忽略(selectionchange 高频触发时避免重复定位/抖动)
+    if (
+      this.lastRect &&
+      isNearbyRect(this.lastRect, rect) &&
+      this.shown &&
+      now - this.lastShownAt < ContentToolbar.SHOW_DEBOUNCE_MS
+    ) {
+      return {
+        top: parseFloat(refs.root.style.top) || 0,
+        left: parseFloat(refs.root.style.left) || 0,
+        placement: this.anchor?.placement ?? 'bottom',
+        visible: true,
+        visibilityRatio: 1,
+      }
     }
 
     const placement = computePositionWithMemory(rect, w, h, viewport, {
@@ -163,6 +177,7 @@ export class ContentToolbar {
     }
     this.anchor = { placement: placement.placement, left: placement.left }
     this.lastRect = rect
+    this.lastShownAt = now
     return placement
   }
 

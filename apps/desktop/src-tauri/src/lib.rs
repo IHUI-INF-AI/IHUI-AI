@@ -5,6 +5,9 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use base64::Engine;
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use screenshots::Screen;
@@ -124,10 +127,12 @@ fn localized_app_name() -> &'static str {
 }
 
 #[tauri::command]
-fn get_app_info() -> AppInfo {
+fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     AppInfo {
         name: localized_app_name().to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        // 版本以 tauri.conf.json 的 version 为准(与 package.json 一致 0.1.13),
+        // 不再用 Cargo.toml 的 CARGO_PKG_VERSION(0.1.0,二者会漂移)。
+        version: app.package_info().version.to_string(),
         platform: std::env::consts::OS.to_string(),
     }
 }
@@ -855,6 +860,26 @@ use tauri_plugin_store::StoreExt;
 
 const WINDOW_STORE_FILE: &str = "window-state.json";
 
+/// 窗口状态写盘节流:Resized/Moved 事件每帧触发,记录 label → 上次写盘时刻,
+/// 同一窗口 300ms 内最多合并写一次盘(注释与实现一致:避免拖动过程中高频写盘)。
+static WINDOW_STATE_LAST_SAVE: Mutex<HashMap<String, Instant>> = Mutex::new(HashMap::new());
+
+/// 节流保存窗口状态:300ms 内同一窗口的 Resized/Moved 重复事件直接忽略。
+fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
+    const DEBOUNCE: Duration = Duration::from_millis(300);
+    let now = Instant::now();
+    {
+        let mut last = WINDOW_STATE_LAST_SAVE.lock().unwrap();
+        if let Some(prev) = last.get(&label) {
+            if now.duration_since(*prev) < DEBOUNCE {
+                return;
+            }
+        }
+        last.insert(label.clone(), now);
+    }
+    let _ = save_window_state(Some(label), app);
+}
+
 /// 生成窗口状态 store key(格式: window.<label>.<field>),区分 main/admin 窗口。
 /// 2026-07-27 立:支持多窗口独立持久化位置/尺寸/最大化状态。
 fn win_key(label: &str, field: &str) -> String {
@@ -1166,18 +1191,18 @@ pub fn run() {
                     let _ = save_window_state(Some(label.clone()), app);
                 }
             }
-            // 窗口移动 / 缩放结束时持久化(避免每次拖动都写盘)
+            // 窗口移动 / 缩放过程中防抖持久化(300ms 内合并,避免每次拖动都写盘)
             // 2026-07-27 立:扩展 admin 窗口也持久化位置/尺寸
             if let tauri::WindowEvent::Resized(_) = event {
                 if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(Some(label.clone()), app);
+                    debounce_save_window_state(label.clone(), app);
                 }
             }
             if let tauri::WindowEvent::Moved(_) = event {
                 if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(Some(label.clone()), app);
+                    debounce_save_window_state(label.clone(), app);
                 }
             }
             if let tauri::WindowEvent::Destroyed = event {
