@@ -29,6 +29,10 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
+// 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
+// mock 返回 status=1(active),避免 401 '用户不存在'
+vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
+
 // 修复(2026-07-24):authenticate 内部调用 jose.decodeJwt(token) 检查 challenge token,
 // 'mock-admin-token' 非有效 JWT 会抛异常 → 401。mock decodeJwt 返回非 challenge payload 绕过。
 vi.mock('jose', () => ({

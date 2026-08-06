@@ -375,9 +375,9 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   // ===== 文件上传(multipart) =====
 
   server.post('/publish/upload', async (request, reply) => {
-    // 从 JWT 或 query 取 userId,默认用 request.userId
-    const query = request.query as { user_id?: string }
-    const userId = query.user_id || (request as FastifyRequest & { userId?: string }).userId
+    // 2026-08-06 修复:userId 一律以 JWT 解析的 request.userId 为准,
+    // 忽略 query.user_id,防止伪造上传归属(IDOR)。
+    const userId = (request as FastifyRequest & { userId?: string }).userId
     await proxyMultipartToAiService(request, reply, userId)
   })
 

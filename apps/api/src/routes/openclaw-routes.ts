@@ -81,6 +81,32 @@ const memoryStore = new Map<string, MemoryItem[]>()
 const cronStore = new Map<string, CronJobItem[]>()
 const webhookStore = new Map<string, WebhookItem[]>()
 const hookStore = new Map<string, HookItem[]>()
+// 2026-08-06 修复:channels/skills 写操作(增/删/连接状态)原直接变异模块级
+// SEED_CHANNELS/SEED_SKILLS,导致跨用户污染(用户 A 创建的渠道/安装的技能
+// 全局可见)。改为按 userId 隔离的增量 store,种子数据保持只读。
+const channelStore = new Map<string, ChannelItem[]>()
+const skillStore = new Map<string, SkillItem[]>()
+
+// 返回 种子数据 + 用户自定义 合并后的完整列表(不修改种子)
+function getChannelsFor(userId: string): ChannelItem[] {
+  const custom = channelStore.get(userId) ?? []
+  return [...SEED_CHANNELS, ...custom]
+}
+
+function getSkillsFor(userId: string): SkillItem[] {
+  const custom = skillStore.get(userId) ?? []
+  return [...SEED_SKILLS, ...custom]
+}
+
+function getCustomChannels(userId: string): ChannelItem[] {
+  if (!channelStore.has(userId)) channelStore.set(userId, [])
+  return channelStore.get(userId)!
+}
+
+function getCustomSkills(userId: string): SkillItem[] {
+  if (!skillStore.has(userId)) skillStore.set(userId, [])
+  return skillStore.get(userId)!
+}
 
 // ===== 种子数据 =====
 
@@ -137,8 +163,11 @@ const SEED_TOOLS: ToolItem[] = [
 // ===== 辅助函数 =====
 
 function getUserId(request: FastifyRequest): string {
-  const user = (request as FastifyRequest & { user?: { id?: string; userId?: string } }).user
-  return user?.id ?? user?.userId ?? 'anonymous'
+  // 2026-08-06 修复:auth 插件注入的是 request.userId(见 plugins/auth.ts),
+  // 原实现读取 request.user 恒为 undefined → 所有用户塌缩为 'anonymous',
+  // 共享同一内存存储 → 跨用户读写删记忆与自动化任务(IDOR)。
+  const userId = (request as FastifyRequest & { userId?: string }).userId
+  return userId ?? 'anonymous'
 }
 
 function getMemories(userId: string): MemoryItem[] {
@@ -206,27 +235,35 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
 
   // ========== Skills ==========
 
-  server.get('/openclaw/skills', async (_request, reply) => {
-    return reply.send(success({ skills: SEED_SKILLS }))
+  server.get('/openclaw/skills', async (request, reply) => {
+    const userId = getUserId(request)
+    return reply.send(success({ skills: getSkillsFor(userId) }))
   })
 
-  server.get('/openclaw/skills/installed', async (_request, reply) => {
-    return reply.send(success({ skills: SEED_SKILLS.filter((s) => s.installed) }))
+  server.get('/openclaw/skills/installed', async (request, reply) => {
+    const userId = getUserId(request)
+    return reply.send(success({ skills: getSkillsFor(userId).filter((s) => s.installed) }))
   })
 
   server.post('/openclaw/skills/:id/install', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const skill = SEED_SKILLS.find((s) => s.id === id)
+    const userId = getUserId(request)
+    const skill = getSkillsFor(userId).find((s) => s.id === id)
     if (!skill) return reply.status(404).send(error(404, '技能不存在'))
-    skill.installed = true
+    const custom = getCustomSkills(userId)
+    if (!custom.some((s) => s.id === id)) custom.push({ ...skill, installed: true })
+    else custom.find((s) => s.id === id)!.installed = true
     return reply.send(success({ installed: true }))
   })
 
   server.post('/openclaw/skills/:id/uninstall', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const skill = SEED_SKILLS.find((s) => s.id === id)
+    const userId = getUserId(request)
+    const skill = getSkillsFor(userId).find((s) => s.id === id)
     if (!skill) return reply.status(404).send(error(404, '技能不存在'))
-    skill.installed = false
+    const custom = getCustomSkills(userId)
+    if (!custom.some((s) => s.id === id)) custom.push({ ...skill, installed: false })
+    else custom.find((s) => s.id === id)!.installed = false
     return reply.send(success({ uninstalled: true }))
   })
 
@@ -319,20 +356,22 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
 
   // ========== Channels ==========
 
-  server.get('/openclaw/channels', async (_request, reply) => {
-    return reply.send(success({ channels: SEED_CHANNELS }))
+  server.get('/openclaw/channels', async (request, reply) => {
+    const userId = getUserId(request)
+    return reply.send(success({ channels: getChannelsFor(userId) }))
   })
 
   server.post('/openclaw/channels', async (request, reply) => {
+    const userId = getUserId(request)
     const body = z.object({ type: z.string(), name: z.string() }).safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     const item: ChannelItem = {
-      id: `ch-${Date.now()}`,
+      id: `ch-${Date.now()}-${userId.slice(0, 6)}`,
       type: body.data.type,
       name: body.data.name,
       connected: false,
     }
-    SEED_CHANNELS.push(item)
+    getCustomChannels(userId).push(item)
     return reply.send(success(item))
   })
 
@@ -341,26 +380,34 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/openclaw/channels/:id', async (request, reply) => {
+    const userId = getUserId(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const idx = SEED_CHANNELS.findIndex((c) => c.id === id)
+    const custom = getCustomChannels(userId)
+    const idx = custom.findIndex((c) => c.id === id)
     if (idx < 0) return reply.status(404).send(error(404, '渠道不存在'))
-    SEED_CHANNELS.splice(idx, 1)
+    custom.splice(idx, 1)
     return reply.send(success({ deleted: true }))
   })
 
   server.post('/openclaw/channels/:id/connect', async (request, reply) => {
+    const userId = getUserId(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const ch = SEED_CHANNELS.find((c) => c.id === id)
+    const ch = getChannelsFor(userId).find((c) => c.id === id)
     if (!ch) return reply.status(404).send(error(404, '渠道不存在'))
-    ch.connected = true
+    const custom = getCustomChannels(userId)
+    if (!custom.some((c) => c.id === id)) custom.push({ ...ch, connected: true })
+    else custom.find((c) => c.id === id)!.connected = true
     return reply.send(success({ connected: true }))
   })
 
   server.post('/openclaw/channels/:id/disconnect', async (request, reply) => {
+    const userId = getUserId(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const ch = SEED_CHANNELS.find((c) => c.id === id)
+    const ch = getChannelsFor(userId).find((c) => c.id === id)
     if (!ch) return reply.status(404).send(error(404, '渠道不存在'))
-    ch.connected = false
+    const custom = getCustomChannels(userId)
+    if (!custom.some((c) => c.id === id)) custom.push({ ...ch, connected: false })
+    else custom.find((c) => c.id === id)!.connected = false
     return reply.send(success({ disconnected: true }))
   })
 

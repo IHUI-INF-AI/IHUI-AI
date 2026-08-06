@@ -139,7 +139,9 @@ export function computePositionWithMemory(
   const bestTop = order[0] === 'top' ? fallbackTop : fallbackBottom
   const idealLeft = rect.left + rect.width / 2 - toolbarWidth / 2
   const clampedLeft = clampHorizontal(idealLeft, toolbarWidth, viewport, margin)
-  const placement: 'top' | 'bottom' = order[0]
+  // 2026-08-06 修复:order[0] 在 noUncheckedIndexedAccess 下可能 undefined,
+  // 兜底为 'top'(与 order 默认值语义一致:top 优先)。
+  const placement: 'top' | 'bottom' = order[0] ?? 'top'
   const finalRatio = computeVisibilityRatio(
     bestTop,
     clampedLeft,

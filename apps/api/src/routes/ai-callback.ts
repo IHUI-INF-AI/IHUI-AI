@@ -43,13 +43,20 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       config: { sqliGuard: { enabled: false } },
     },
     async (request, reply) => {
-    // 共享密钥校验(可选):配置 AI_CALLBACK_SECRET 后,ai-service 必须带 X-Internal-Secret 头
-    if (config.AI_CALLBACK_SECRET) {
-      const provided = request.headers['x-internal-secret']
-      if (provided !== config.AI_CALLBACK_SECRET) {
-        request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
-        return reply.status(401).send(error(401, 'unauthorized'))
-      }
+    // 2026-08-06 修复:共享密钥校验从"可选"改为"强制"(fail-closed)。
+    // 原实现:AI_CALLBACK_SECRET 为空时端点完全公开,攻击者可伪造回调
+    // 注入任意 assistant 消息 + 篡改 token 用量(扣费) + 伪造 userId 关联。
+    // 与 plugins/internal-service-token.ts 的 checkInternalServiceToken
+    // 策略保持一致(该函数对未配置 secret 已 fail-closed);docker-compose
+    // 亦强制要求配置 AI_CALLBACK_SECRET(:? 校验),生产环境必有密钥。
+    if (!config.AI_CALLBACK_SECRET) {
+      request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
+      return reply.status(401).send(error(401, 'AI callback secret not configured'))
+    }
+    const provided = request.headers['x-internal-secret']
+    if (provided !== config.AI_CALLBACK_SECRET) {
+      request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
+      return reply.status(401).send(error(401, 'unauthorized'))
     }
 
     const parsed = callbackSchema.safeParse(request.body)
