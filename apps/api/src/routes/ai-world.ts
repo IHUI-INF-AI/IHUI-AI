@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import {
   countAiWorldItems,
@@ -143,7 +143,12 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /ai-world/news — 资讯列表(含 paper/project,默认 kind=news)
-  server.get('/ai-world/news', async (request, reply) => {
+  // 2026-08-06 修复:前端 helpers.ts 统一按 `${kind}s` 拼接( news → newss ),
+  // 注册 newss 别名,否则前端资讯列表请求 500 → 页面 fallback 旧数据。
+  const newsListHandler: (request: FastifyRequest, reply: FastifyReply) => Promise<void> = async (
+    request,
+    reply,
+  ) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
@@ -161,7 +166,9 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       countAiWorldItems({ kind: 'news', categorySlug: category, search }),
     ])
     return reply.send(success({ items: items.map(toItemDTO), total, limit, offset }))
-  })
+  }
+  server.get('/ai-world/news', newsListHandler)
+  server.get('/ai-world/newss', newsListHandler)
 
   // GET /ai-world/papers — 论文列表
   server.get('/ai-world/papers', async (request, reply) => {
