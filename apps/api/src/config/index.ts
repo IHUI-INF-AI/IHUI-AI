@@ -135,7 +135,9 @@ const envSchema = z.object({
   // 生产环境强烈建议配置,推荐:node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   SWAGGER_API_KEY: z.string().default(''),
 
-  API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+  // P2 修复(2026-08-06):API_LOG_SAMPLE_RATE 默认 0.1(仅 10% 2xx 落库)→ 1.0(全量)。
+  // 原默认导致 90% 正常请求无 api_logs,排查问题盲区大;需要降量可在环境变量显式调低。
+  API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
   API_LOG_ENABLED: booleanFromString(true),
   API_LOG_BATCH_SIZE: z.coerce.number().int().min(1).default(100),
   API_LOG_FLUSH_INTERVAL_MS: z.coerce.number().int().min(100).default(5000),
