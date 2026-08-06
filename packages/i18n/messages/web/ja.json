@@ -737,6 +737,13 @@
     "modelAutoDescription": "最適なモデルを自動選択",
     "modelFree": "無料",
     "modelPointsMultiplier": "ポイント消費倍率",
+    "modelTagMemberDiscount": "会員 75% OFF",
+    "modelTagOfficial": "正式版",
+    "modelTagSubsidy": "専用補助金",
+    "modelLockedHint": "会員アップグレードが必要",
+    "modelPopoverMemberTitle": "会員追加 75% オフ",
+    "modelPopoverMemberDesc": "有料会員にアップグレードして 75% オフをお楽しみいただけます、ポイント消費速度が {from}x から {to}x に低下",
+    "modelPopoverUpgradeButton": "アップグレード",
     "slashCmd": {
       "plan": "計画モードに切り替え(AIは計画のみ立案し、ツールを実行しません)",
       "act": "実行モードに切り替え(AIは正常にツールを実行します、デフォルト)",
