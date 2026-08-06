@@ -1603,7 +1603,18 @@
       "platformMobile": "モバイルH5",
       "platformWechatMiniapp": "WeChatミニプログラム",
       "platformExtension": "ブラウザ拡張機能",
-      "platformCli": "CLIツール"
+      "platformCli": "CLIツール",
+      "pendingTitle": "対応待ちプラットフォーム運用ガイド",
+      "pendingDesc": "以下3プラットフォームはまだ接続されていません。運用担当者は downloads.config.ts に該当フィールドを入力してください",
+      "pendingField": "設定フィールド",
+      "pendingStatus": "ステータス",
+      "pendingGuide": "接続ガイド",
+      "pendingConfigFile": "設定ファイル",
+      "pendingNotConnected": "未接続",
+      "pendingConnected": "接続済み",
+      "pendingIosGuide": "App Store公開後、数字のみのApp Store IDを入力してください(例: 1234567890)",
+      "pendingAndroidGuide": "APKをCDNにデプロイ後、絶対URLまたは/public下の相対パスを入力してください",
+      "pendingWechatGuide": "WeChatミニプログラム公開後、スキャンランディングページURLまたはschemeを入力してください"
     },
     "relayParamOps": {
       "title": "パラメータオーバーライドルール",
