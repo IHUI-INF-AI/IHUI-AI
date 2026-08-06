@@ -310,3 +310,6 @@ deploy/*.zip
 
 # Java SDK 构建产物
 sdks/java/target/
+
+# 2026-08-06 git 仓库损坏事故备份(待清理,勿提交)
+.git.broken/
