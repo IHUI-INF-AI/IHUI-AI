@@ -1,7 +1,9 @@
 /**
- * P1-2.2c: 配额占位卡片
- * 数据源: GET /admin/api/customers/:slug/quota(目前返回硬编码占位)
- * 后续 P1-2.3 接入 Prometheus 后,数据会自动从指标填充,UI 保持不变
+ * P1-2.2c: 配额卡片(2026-08-06 起接入真实数据源)
+ * 数据源: GET /api/admin-saas/customers/:slug/quota
+ *   - 后端 apps/api/src/routes/admin-saas-quota.ts 拦截该路径,
+ *     基于 tenants + tenant_quotas(api_calls/storage 用量)+ ai_cost_records(token 用量)聚合返回。
+ * 错误态:接口 404(数据库无该租户)/ 5xx / 网络异常时显示"无法获取配额数据"空态,不显示占位数字。
  */
 'use client'
 
