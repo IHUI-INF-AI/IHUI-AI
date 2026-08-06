@@ -72,7 +72,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     status: z.string().optional(),
     keyword: z.string().optional(),
     page: z.coerce.number().optional().default(1),
-    pageSize: z.coerce.number().optional().default(20),
+    // P1 修复(2026-08-06): 分页 pageSize 补上限
+    pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
   })
   const heartbeatBody = z.object({
     batteryLevel: z.number().optional(),
@@ -293,7 +294,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     const query = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(50),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(50),
       })
       .parse(request.query)
     const page = query.page

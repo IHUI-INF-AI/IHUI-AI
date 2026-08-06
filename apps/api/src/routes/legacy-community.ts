@@ -15,7 +15,8 @@ export const legacyCommunityRoutes: FastifyPluginAsync = async (fastify: Fastify
   // ========== D17: 圈子热门列表 (历史 /public-api/circle/hot/list) ==========
   fastify.get('/circles/hot', async (request) => {
     const { limit } = z
-      .object({ limit: z.coerce.number().optional().default(10) })
+      // P1 修复(2026-08-06): 分页 limit 补上限
+      .object({ limit: z.coerce.number().int().min(1).max(100).optional().default(10) })
       .parse(request.query)
     const list = await db
       .select({

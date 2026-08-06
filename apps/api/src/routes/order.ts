@@ -29,7 +29,14 @@ import {
 } from '../db/order-queries.js'
 import { eq, and, sql, gte, desc, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { eduOrders, eduRefunds, users, vipLevels, developerPricing } from '@ihui/database'
+import {
+  eduOrders,
+  eduRefunds,
+  eduInvoiceTitles,
+  users,
+  vipLevels,
+  developerPricing,
+} from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
 import { logAction } from '../services/audit-service.js'
@@ -491,6 +498,11 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       }
       const payment = await findPaymentById(parsed.data.id)
       if (!payment) return reply.status(404).send(error(404, '支付记录不存在'))
+      // P1 修复(2026-08-06): 支付记录按 id 查询前校验归属,防 IDOR 越权读取他人支付记录(管理员除外)
+      const isAdmin = (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+      if (!isAdmin && payment.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权访问该支付记录'))
+      }
       return reply.send(success({ payment }))
     },
   )
@@ -612,6 +624,17 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       if (!body.success) {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
+      // P1 修复(2026-08-06): 更新发票抬头前校验归属,防 IDOR 越权修改他人抬头(管理员除外)
+      const isAdmin = (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+      const [existingTitle] = await db
+        .select({ userId: eduInvoiceTitles.userId })
+        .from(eduInvoiceTitles)
+        .where(eq(eduInvoiceTitles.id, parsed.data.id))
+        .limit(1)
+      if (!existingTitle) return reply.status(404).send(error(404, '发票抬头不存在'))
+      if (!isAdmin && existingTitle.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作'))
+      }
       const title = await updateInvoiceTitle(parsed.data.id, body.data)
       if (!title) return reply.status(404).send(error(404, '发票抬头不存在'))
       return reply.send(success({ title }))
@@ -626,6 +649,17 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // P1 修复(2026-08-06): 删除发票抬头前校验归属,防 IDOR 越权删除他人抬头(管理员除外)
+      const isAdmin = (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+      const [existingTitle] = await db
+        .select({ userId: eduInvoiceTitles.userId })
+        .from(eduInvoiceTitles)
+        .where(eq(eduInvoiceTitles.id, parsed.data.id))
+        .limit(1)
+      if (!existingTitle) return reply.status(404).send(error(404, '发票抬头不存在'))
+      if (!isAdmin && existingTitle.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作'))
       }
       await deleteInvoiceTitle(parsed.data.id)
       return reply.send(success({ id: parsed.data.id, deleted: true }))
