@@ -1600,7 +1600,18 @@
       "platformMobile": "모바일 H5",
       "platformWechatMiniapp": "WeChat 미니프로그램",
       "platformExtension": "브라우저 확장 프로그램",
-      "platformCli": "CLI 도구"
+      "platformCli": "CLI 도구",
+      "pendingTitle": "대기 중인 플랫폼 운영 가이드",
+      "pendingDesc": "다음 3개 플랫폼은 아직 연결되지 않았습니다. 운영 담당자는 downloads.config.ts에 해당 필드를 입력해야 합니다",
+      "pendingField": "설정 필드",
+      "pendingStatus": "상태",
+      "pendingGuide": "연결 가이드",
+      "pendingConfigFile": "설정 파일",
+      "pendingNotConnected": "미연결",
+      "pendingConnected": "연결됨",
+      "pendingIosGuide": "App Store 출시 후 숫자로 된 App Store ID를 입력하세요 (예: 1234567890)",
+      "pendingAndroidGuide": "APK를 CDN에 배포 후 절대 URL 또는 /public 하위 상대 경로를 입력하세요",
+      "pendingWechatGuide": "WeChat 미니프로그램 출시 후 스캔 랜딩 페이지 URL 또는 scheme을 입력하세요"
     },
     "relayParamOps": {
       "title": "파라미터 오버라이드 규칙",
