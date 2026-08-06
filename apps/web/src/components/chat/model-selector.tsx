@@ -20,7 +20,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
-import { FALLBACK_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
+import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode } from '@/lib/llm-templates'
 
@@ -45,6 +45,9 @@ export interface ModelOption {
   subsidy?: boolean
   /** 是否锁定(显示 🔒 锁图标,需升级才能使用) */
   locked?: boolean
+  /** 是否自动路由(走任务类型自动调度,无积分倍数显示)
+   * 2026-08-06 补充:stepfun/step-router-v1 标记为 isAuto,UI 上不显示倍数文本 */
+  isAuto?: boolean
 }
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
@@ -72,11 +75,19 @@ interface ModelSelectorProps {
 // ============================================================================
 const KNOWN_MODEL_META: Record<string, Partial<ModelOption>> = {
   // === Step 系(plan 套餐主力)===
+  'stepfun/step-router-v1': { pointsMultiplier: 0, isAuto: true },
   'stepfun/step-2.1-pro': { pointsMultiplier: 0.77 },
   'stepfun/step-2.1-turbo': { pointsMultiplier: 0.39, memberDiscountEligible: true },
   'stepfun/step-2.1-code': { pointsMultiplier: 0.12, memberDiscountEligible: true },
   'stepfun/step-2.1-flash': { pointsMultiplier: 0.05, isOfficial: true },
   'stepfun/step-3.7-flash': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/step-3.5-flash': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/step-3.5-flash-2603': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/step-image-edit-2': { pointsMultiplier: 0.12, isOfficial: true },
+  'stepfun/stepaudio-2.5-tts': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/stepaudio-2.5-chat': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/stepaudio-2.5-asr': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/stepaudio-2.5-realtime': { pointsMultiplier: 0.05, isOfficial: true },
   // === DeepSeek 系 ===
   'deepseek/deepseek-v4-pro': { pointsMultiplier: 0.32 },
   'deepseek/deepseek-v4-flash': { pointsMultiplier: 0.05, isOfficial: true },
@@ -289,7 +300,11 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
 
 /** 升级权益 popover(2026-08-06 立,workbuddy 风格)
  *  - 悬停或聚焦 "会员2.5折" 徽章触发
- *  - 展示会员额外折扣说明 + 跳转 /user/subscription */
+ *  - 展示会员额外折扣说明 + 跳转 /user/subscription
+ *
+ *  2026-08-06 bugfix:父组件在 onMouseEnter 时 setPopoverAnchor({el, multiplier}),
+ *  但本组件 useState(open=false) 默认未打开,且没有 useEffect 把 anchor 变化同步到 open,
+ *  导致 popover 永远不显示。改为 anchor 变化时自动 setOpen(true) + 定位 pos。 */
 function MemberDiscountPopover({
   currentMultiplier,
   anchor,
@@ -302,15 +317,19 @@ function MemberDiscountPopover({
   const [open, setOpen] = React.useState(false)
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null)
 
+  // anchor 变化时自动打开 + 定位
   React.useEffect(() => {
-    if (!open || !anchor) return
+    if (!anchor) {
+      setOpen(false)
+      return
+    }
     const rect = anchor.getBoundingClientRect()
-    // popover 定位到徽章右侧
     setPos({
       top: rect.top + window.scrollY,
       left: rect.right + window.scrollX + 8,
     })
-  }, [open, anchor])
+    setOpen(true)
+  }, [anchor])
 
   if (!open || !pos) return null
   // 会员额外 2.5 折 = 25% 折扣,会员后倍数 = currentMultiplier * 0.25
@@ -360,8 +379,11 @@ function MemberDiscountPopover({
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
-  const [options, setOptions] = React.useState<ModelOption[]>(() =>
-    FALLBACK_MODELS.map((m): ModelOption => ({
+  const [options, setOptions] = React.useState<ModelOption[]>(() => {
+    // 合并 FALLBACK + DEMO:确保 5 档积分 + 徽章 + 锁定演示数据全部可见
+    // (2026-08-06 立,对齐 workbuddy 风格;详见 packages/shared/src/constants/fallback-models.ts)
+    const seed = [...FALLBACK_MODELS, ...DEMO_TIER_MODELS]
+    return seed.map((m): ModelOption => ({
       value: m.value,
       label: m.label,
       vendor: m.vendor,
@@ -372,8 +394,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
       isOfficial: m.isOfficial,
       subsidy: m.subsidy,
       locked: m.locked,
-    })),
-  )
+    }))
+  })
   const [loading, setLoading] = React.useState(true)
   const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
   // 会员折扣 popover 状态(2026-08-06 立,workbuddy 风格)
@@ -405,22 +427,27 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     fetchSelectorModels()
       .then((models) => {
         if (cancelled) return
-        if (models.length === 0) {
-          // fallback:仅 FALLBACK_MODELS,字段已显式
-          return
-        }
-        setOptions(
-          models.map((m): ModelOption => {
+        // 合并策略(2026-08-06 升级):API + 已有(FALLBACK + DEMO 演示档位)
+        // 优先级:API > FALLBACK > DEMO;同 value 取优先级最高的(API 模型覆盖演示)
+        // 这样既保留真实可调用的模型,又确保 5 档积分 + 徽章 + 锁定演示不丢失。
+        const merged = new Map<string, ModelOption>()
+        // 1. 先放当前 options(FALLBACK + DEMO 已经在初始 state 中)
+        setOptions((prev) => {
+          for (const o of prev) merged.set(o.value, o)
+          // 2. 再放 API 返回的模型(覆盖同 value 的旧数据)
+          for (const m of models) {
             // 1. 已知模型查表(精确 / 子串)
             const known = lookupKnownMeta(m.id)
             // 2. 后端 tier → 显示小数
             const tier =
-              typeof m.points_multiplier === 'number' ? m.points_multiplier : inferPointsMultiplier(m.id)
+              typeof m.points_multiplier === 'number'
+                ? m.points_multiplier
+                : inferPointsMultiplier(m.id)
             const display = tierToDisplayMultiplier(tier)
             // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
             const finalPoints =
               typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
-            return {
+            merged.set(m.id, {
               value: m.id,
               label: m.name || m.id,
               vendor: m.provider || inferVendor(m.id),
@@ -429,12 +456,13 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
               pointsMultiplier: finalPoints,
               locked: known.locked ?? display.locked,
-            }
-          }),
-        )
+            })
+          }
+          return Array.from(merged.values())
+        })
       })
       .catch(() => {
-        // 静默:保留 FALLBACK_MODELS 默认值
+        // 静默:保留 FALLBACK + DEMO 默认值
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
