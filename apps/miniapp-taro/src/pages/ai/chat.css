@@ -135,7 +135,7 @@
   height: 80rpx;
   padding: 0 24rpx;
   background: var(--color-background);
-  border-radius: 40rpx;
+  border-radius: 16rpx;
   font-size: 28rpx;
 }
 .send-btn {
@@ -145,7 +145,7 @@
   line-height: 80rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 40rpx;
+  border-radius: 16rpx;
   font-size: 28rpx;
 }
 .send-btn.disabled {
@@ -904,7 +904,7 @@
   width: calc(100% - 80rpx);
   max-height: 50vh;
   background: var(--color-card);
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 2rpx;
   overflow: hidden;
   display: flex;
@@ -968,7 +968,7 @@
     rgba(63, 129, 244, 0.6) 54%,
     rgba(75, 77, 85, 0) 126%
   );
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   margin: 12rpx 16rpx;
 }
 .tishi-box-inner {
