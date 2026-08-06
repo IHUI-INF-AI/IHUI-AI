@@ -182,6 +182,7 @@ function linesToArray(text: string): string[] {
 }
 
 export function DispatchSubagentDialog({ open, onOpenChange, agentId }: DispatchSubagentDialogProps) {
+  const tchat = useTranslations('aiChat')
   const [activeTab, setActiveTab] = React.useState('dispatch')
 
   React.useEffect(() => {
@@ -192,7 +193,7 @@ export function DispatchSubagentDialog({ open, onOpenChange, agentId }: Dispatch
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl gap-3 p-5">
         <DialogHeader>
-          <DialogTitle className="text-base">派发 Subagent</DialogTitle>
+          <DialogTitle className="text-base">{tchat('dispatchSubagent')}</DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8 w-full">
