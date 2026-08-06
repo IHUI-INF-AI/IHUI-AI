@@ -242,7 +242,7 @@ export function Popover({
       // 关闭时焦点回归 trigger
       triggerElRef.current?.focus?.()
     }
-  }, [open])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- setOpen 的 useCallback 依赖 isControlled/onOpenChange,部分调用方(onOpenChange 内联箭头)会让 setOpen 每 render 变化;若加入依赖,弹层打开期间父组件重渲染会使本 effect 反复清理+重跑(firstFocusable.focus()),打断用户键盘操作。ESC 关闭场景 setOpen 无需最新引用。
 
   const triggerProps =
     trigger === 'hover'
