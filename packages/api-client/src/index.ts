@@ -115,6 +115,8 @@ export {
   requestWithdraw,
   getDayMonthSummary,
 } from './endpoints/distribution'
+// 下载量统计 API(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
+export * from './endpoints/downloads'
 // 挣钱中心仪表盘 API(2026-07-31 立,P0 挣钱核心,跨端共享)
 export * from './endpoints/earnings'
 export * from './endpoints/edu'
