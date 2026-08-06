@@ -71,8 +71,20 @@ function sanitizeValue(data: unknown): unknown {
 }
 
 const xssProtectionPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // 净化请求体与查询参数（路由参数由框架管控，通常为路径片段，不在此处理）
+  // P1 修复(2026-08-06):原实现对所有请求体/查询参数(含 application/json)
+  // 全局做 HTML 实体编码,把 AI 接口的 prompt/代码块里的 `<` `>` `&` 等字符
+  // 编码成实体,导致 AI 收到的输入被破坏、返回的代码/文本错乱。
+  // 按安全最佳实践:HTML 实体编码只适用于会被回显到 HTML 上下文的内容
+  // (text/html / application/x-www-form-urlencoded / multipart/form-data),
+  // JSON 结构化数据由 JSON 自身转义保证安全,不应做 HTML 编码。
   server.addHook('onRequest', async (request: FastifyRequest) => {
+    const rawContentType = request.headers['content-type'] ?? ''
+    const contentType = rawContentType.toLowerCase()
+    const isHtmlContext =
+      contentType.includes('text/html') ||
+      contentType.includes('application/x-www-form-urlencoded') ||
+      contentType.includes('multipart/form-data')
+    if (!isHtmlContext) return
     if (request.body !== null && request.body !== undefined) {
       request.body = sanitizeValue(request.body)
     }

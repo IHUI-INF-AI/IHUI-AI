@@ -66,7 +66,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({
         beneficiaryId: z.string().optional(),
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限,防恶意大分页拖垮数据库
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
@@ -257,7 +258,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         userId: z.string().optional(),
         status: z.coerce.number().optional(),
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限,防恶意大分页拖垮数据库
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     const targetUserId = userId ?? request.userId!
@@ -415,7 +417,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({
         status: z.coerce.number().optional(),
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限,防恶意大分页拖垮数据库
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     const conditions: SQL[] = []
@@ -498,31 +501,86 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
       if (!existing[0]) return reply.status(404).send(error(404, '提现记录不存在'))
       if (action === 'approve') {
-        const currentStatus = existing[0].status
+        const flow = existing[0]
+        const currentStatus = flow.status
         if (currentStatus >= 2) {
           return reply.status(400).send(error(400, '该记录已完成审批'))
         }
-        const [row] = await db
-          .update(withdrawalFlows)
-          .set({
-            status: currentStatus + 1,
-            processedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(withdrawalFlows.id, id))
-          .returning()
+        // P1 修复(2026-08-06): 审批只改 status 不回退冻结资金,导致 frozen 永久沉淀。
+        // 事务内:① 条件 UPDATE 防并发重复审批 ② 审批通过后冻结资金实际转出(frozen -= amount)。
+        const row = await db.transaction(async (tx) => {
+          const [updated] = await tx
+            .update(withdrawalFlows)
+            .set({
+              status: currentStatus + 1,
+              processedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, currentStatus)))
+            .returning()
+          if (!updated) return undefined // 并发下状态已变更
+          // flow.userId 可空(用户删除时 SET NULL),null 时无法更新余额,跳过
+          if (flow.userId) {
+            const [margin] = await tx
+              .update(userMargins)
+              .set({
+                frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(userMargins.userId, flow.userId),
+                  sql`${userMargins.frozenQuantity} >= ${flow.amount}`,
+                ),
+              )
+              .returning()
+            if (!margin) {
+              // frozen 已被释放(如回调已处理),资金守恒不允许负数,整体回滚
+              throw Object.assign(new Error('冻结资金不足,无法审批'), { statusCode: 400 })
+            }
+          }
+          return updated
+        })
+        if (!row) return reply.status(400).send(error(400, '该记录已完成审批'))
         return reply.send(success(row))
       } else {
-        const [row] = await db
-          .update(withdrawalFlows)
-          .set({
-            status: 3,
-            rejectReason: remark,
-            processedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(withdrawalFlows.id, id))
-          .returning()
+        const flow = existing[0]
+        // P1 修复(2026-08-06): 驳回只改 status 不退还冻结,导致用户余额永久卡死。
+        // 事务内:① 条件 UPDATE pending→rejected(防并发重复驳回) ② 解冻回退(frozen -= amount, token += amount)。
+        const row = await db.transaction(async (tx) => {
+          const [updated] = await tx
+            .update(withdrawalFlows)
+            .set({
+              status: 3,
+              rejectReason: remark,
+              processedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
+            .returning()
+          if (!updated) return undefined // 已被处理或不存在
+          if (flow.userId) {
+            const [margin] = await tx
+              .update(userMargins)
+              .set({
+                tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
+                frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(userMargins.userId, flow.userId),
+                  sql`${userMargins.frozenQuantity} >= ${flow.amount}`,
+                ),
+              )
+              .returning()
+            if (!margin) {
+              throw Object.assign(new Error('冻结资金不足,无法驳回'), { statusCode: 400 })
+            }
+          }
+          return updated
+        })
+        if (!row) return reply.status(400).send(error(400, '该记录已完成审批或不存在'))
         return reply.send(success(row))
       }
     } catch (e) {

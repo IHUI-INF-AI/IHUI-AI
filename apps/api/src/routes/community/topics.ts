@@ -32,7 +32,8 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     const { page, pageSize, circleId, memberId, status } = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         circleId: z.coerce.number().optional(),
         memberId: z.coerce.number().optional(),
         status: z.string().optional(),

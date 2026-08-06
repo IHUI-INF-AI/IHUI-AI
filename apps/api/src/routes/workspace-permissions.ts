@@ -278,7 +278,11 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { workspacePath, limit } = z
-      .object({ workspacePath: z.string(), limit: z.coerce.number().optional() })
+      // P1 修复(2026-08-06): 分页 limit 补上限
+      .object({
+        workspacePath: z.string(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
+      })
       .parse(request.query)
     const logs = await listAuditLogs(request.userId, workspacePath, limit ?? 50)
     return reply.send(success({ logs }))

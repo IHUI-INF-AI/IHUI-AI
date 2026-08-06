@@ -24,6 +24,7 @@ import {
   countUnreadEduMessages,
 } from '../db/message-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 
 // =============================================================================
 // Zod schemas
@@ -37,14 +38,16 @@ const paginationQuery = {
 const announcementListQuery = z.object({
   ...paginationQuery,
   title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const messageListQuery = z.object({
   ...paginationQuery,
   msgType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
-  isRead: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isRead: booleanStringSchemaOptional,
 })
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
@@ -1091,7 +1094,8 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
           ...paginationQuery,
           memberId: z.transform(emptyToUndefined).pipe(z.uuid({ error: '无效的用户 ID' }).optional()),
           msgType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
-          isRead: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+          // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isRead: booleanStringSchemaOptional,
         })
         .safeParse(request.query)
       if (!parsed.success) {

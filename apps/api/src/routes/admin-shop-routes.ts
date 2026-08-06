@@ -409,16 +409,37 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const p = idParamSchema.safeParse(request.params)
       if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({
-          status: WITHDRAWAL_INT.approved,
-          processedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(withdrawalFlows.id, p.data.id))
-        .returning()
-      if (!row) return reply.status(404).send(error(404, '记录不存在'))
+      // P1 修复(2026-08-06): 审批通过只改 status 不回退冻结资金,导致 frozen 永久沉淀。
+      // 事务内:① 条件 UPDATE pending→approved(防并发重复审批) ② 冻结资金实际转出(frozen -= amount)。
+      const row = await db.transaction(async (tx) => {
+        const [flow] = await tx
+          .update(withdrawalFlows)
+          .set({
+            status: WITHDRAWAL_INT.approved,
+            processedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)))
+          .returning()
+        if (!flow) return undefined // 已被处理或不存在
+        // flow.userId 可空(用户删除时 SET NULL),null 时无法更新余额,跳过(等待人工对账)
+        if (flow.userId) {
+          const [margin] = await tx
+            .update(userMargins)
+            .set({
+              frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(userMargins.userId, flow.userId), sql`${userMargins.frozenQuantity} >= ${flow.amount}`))
+            .returning()
+          if (!margin) {
+            // frozen 已被释放(如回调已处理),资金守恒不允许负数,整体回滚
+            throw Object.assign(new Error('冻结资金不足,无法审批'), { statusCode: 400 })
+          }
+        }
+        return flow
+      })
+      if (!row) return reply.status(404).send(error(404, '记录不存在或已处理'))
       return reply.send(success({ id: row.id, status: 'approved', reviewer: request.userId ?? '' }))
     },
   )
@@ -430,17 +451,38 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
       if (!p.success) return reply.status(400).send(error(400, '参数错误'))
       const b = z.object({ notes: z.string().max(500).optional() }).safeParse(request.body)
       if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({
-          status: WITHDRAWAL_INT.rejected,
-          rejectReason: b.data.notes ?? null,
-          processedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(withdrawalFlows.id, p.data.id))
-        .returning()
-      if (!row) return reply.status(404).send(error(404, '记录不存在'))
+      // P1 修复(2026-08-06): 驳回只改 status 不退还冻结,导致用户余额永久卡死。
+      // 事务内:① 条件 UPDATE pending→rejected(防并发重复驳回) ② 解冻回退(frozen -= amount, token += amount)。
+      const row = await db.transaction(async (tx) => {
+        const [flow] = await tx
+          .update(withdrawalFlows)
+          .set({
+            status: WITHDRAWAL_INT.rejected,
+            rejectReason: b.data.notes ?? null,
+            processedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)))
+          .returning()
+        if (!flow) return undefined // 已被处理或不存在
+        if (flow.userId) {
+          const [margin] = await tx
+            .update(userMargins)
+            .set({
+              tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
+              frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(userMargins.userId, flow.userId), sql`${userMargins.frozenQuantity} >= ${flow.amount}`))
+            .returning()
+          if (!margin) {
+            // frozen 已被释放(如回调已处理),资金守恒不允许负数,整体回滚
+            throw Object.assign(new Error('冻结资金不足,无法驳回'), { statusCode: 400 })
+          }
+        }
+        return flow
+      })
+      if (!row) return reply.status(404).send(error(404, '记录不存在或已处理'))
       return reply.send(success({ id: row.id, status: 'rejected', reviewer: request.userId ?? '' }))
     },
   )

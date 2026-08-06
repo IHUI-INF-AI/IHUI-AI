@@ -19,6 +19,7 @@ import {
 } from '../db/admin-queries.js'
 import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects } from '@ihui/database'
@@ -36,7 +37,8 @@ const listUsersQuerySchema = z.object({
   search: z.transform(emptyToUndefined).pipe(z.string().trim().optional()),
   role: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
-  includeDeleted: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  includeDeleted: booleanStringSchemaOptional,
   deptId: z.transform(emptyToUndefined).pipe(
     z.coerce.number().int().optional(),
   ),

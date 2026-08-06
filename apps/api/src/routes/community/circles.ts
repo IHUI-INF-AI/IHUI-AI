@@ -757,7 +757,8 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     const { page, pageSize } = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     const list = await db

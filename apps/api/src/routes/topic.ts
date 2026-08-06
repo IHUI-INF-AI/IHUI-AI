@@ -10,6 +10,7 @@ import {
   deleteTopic,
 } from '../db/topic-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 
 // =============================================================================
 // Zod schemas
@@ -23,7 +24,8 @@ const paginationQuery = {
 const topicListQuery = z.object({
   ...paginationQuery,
   title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 

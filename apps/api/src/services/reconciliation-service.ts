@@ -140,11 +140,38 @@ interface RemoteTrade {
   tradeStatus: string;
 }
 
-/** 解析支付宝账单 CSV（业务明细段）。 */
+/** CSV 单元格清理:去引号包裹 + 去除 BOM。 */
+function cleanCell(raw: string): string {
+  return raw.trim().replace(/^`/, '').replace(/\uFEFF/g, '')
+}
+
+/** 按列名定位表头行中的索引;找不到返回 -1。 */
+function findColumnIndex(header: string[], name: string): number {
+  const idx = header.findIndex((h) => h.trim().replace(/^`/, '') === name)
+  return idx
+}
+
+/**
+ * 解析支付宝账单 CSV(业务明细段)。
+ *
+ * P1 修复(2026-08-06):原实现按固定 index 取列——outTradeNo 取 parts[0](账务流水号,实为
+ * 商户订单号前一位)、tradeStatus 取 parts[14](实为"费率"列),且 `#` 段标题后的表头行会被
+ * 当成交易记录解析。改为定位表头行(含"商户订单号")建立列名→索引映射,按表头名取列,
+ * 避免表头顺序变化导致列错位;表头找不到时回退旧固定索引兼容。
+ */
 function parseAlipayBill(csvText: string): RemoteTrade[] {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
   const trades: RemoteTrade[] = [];
-  // 支付宝账单：明细从 "#明细" 段开始，字段以逗号分隔
+  let headerIdx: string[] | null = null;
+  for (const line of lines) {
+    if (line.startsWith('#')) continue;
+    const parts = line.split(',').map(cleanCell);
+    if (parts.includes('商户订单号')) {
+      headerIdx = parts;
+      break;
+    }
+  }
+
   let inDetail = false;
   for (const line of lines) {
     if (line.startsWith('#')) {
@@ -152,34 +179,62 @@ function parseAlipayBill(csvText: string): RemoteTrade[] {
       continue;
     }
     if (!inDetail) continue;
-    const parts = line.split(',').map((p) => p.trim().replace(/^`/, ''));
-    if (parts.length >= 10) {
-      trades.push({
-        outTradeNo: parts[0] ?? '',
-        amount: parts[5] ?? '',
-        tradeStatus: parts[14] ?? '',
-      });
-    }
+    const parts = line.split(',').map(cleanCell);
+    // 跳过表头行本身(表头行也会匹配明细段)
+    if (headerIdx && parts.length >= 4 && parts[0] === '账务流水号') continue;
+    if (parts.length < 6) continue;
+    // 按表头名取列;找不到时回退到标准支付宝账单固定索引(1=商户订单号 5=交易金额 14=费率)
+    const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
+    const amountIdx = headerIdx ? findColumnIndex(headerIdx, '交易金额') : -1
+    const statusIdx = headerIdx ? findColumnIndex(headerIdx, '交易状态') : -1
+    const outTradeNo = outTradeNoIdx >= 0 ? (parts[outTradeNoIdx] ?? '') : (parts[1] ?? '')
+    const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[5] ?? '')
+    // 支付宝账单无"交易状态"列(明细均为已成交交易),留空即可
+    const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : ''
+    if (!outTradeNo) continue;
+    trades.push({ outTradeNo, amount, tradeStatus });
   }
   return trades;
 }
 
-/** 解析微信账单 CSV（跳过表头汇总行）。 */
+/**
+ * 解析微信账单 CSV(跳过表头汇总行)。
+ *
+ * P1 修复(2026-08-06):原实现按固定 index 取列——outTradeNo 取 parts[9](实为"交易状态")、
+ * amount 取 parts[2](实为"商户号")、tradeStatus 取 parts[7](实为"用户标识"),列全部错位,
+ * 导致对账把商户号当订单号、把用户标识当状态,对账结果完全失真。改为定位表头行
+ * (含"商户订单号")按表头名取列;找不到表头时回退微信 V3 标准固定索引
+ * (6=商户订单号 12=应结订单金额 9=交易状态)。
+ */
 function parseWechatBill(csvText: string): RemoteTrade[] {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
   const trades: RemoteTrade[] = [];
-  // 微信账单前 2 行为标题与表头，从第 3 行开始为交易记录
+  let headerIdx: string[] | null = null;
+  for (const line of lines) {
+    if (line.startsWith('总') || line.startsWith('交易时间')) continue;
+    const parts = line.split(',').map(cleanCell);
+    if (parts.includes('商户订单号')) {
+      headerIdx = parts;
+      break;
+    }
+  }
+  // 微信账单前 2 行为标题与表头,从第 3 行开始为交易记录
   for (let i = 2; i < lines.length; i++) {
     const line = lines[i]!;
     if (line.startsWith('总') || line.startsWith('交易时间')) continue;
-    const parts = line.split(',').map((p) => p.trim().replace(/^`/, ''));
-    if (parts.length >= 8) {
-      trades.push({
-        outTradeNo: parts[9] ?? '', // 商户订单号
-        amount: parts[2] ?? '', // 收入/支出金额
-        tradeStatus: parts[7] ?? '', // 交易状态
-      });
-    }
+    const parts = line.split(',').map(cleanCell);
+    // 跳过表头行本身
+    if (headerIdx && parts.length >= 4 && parts[0] === '交易时间') continue;
+    if (parts.length < 13) continue;
+    // 按表头名取列;找不到时回退微信 V3 标准固定索引
+    const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
+    const amountIdx = headerIdx ? findColumnIndex(headerIdx, '应结订单金额') : -1
+    const statusIdx = headerIdx ? findColumnIndex(headerIdx, '交易状态') : -1
+    const outTradeNo = outTradeNoIdx >= 0 ? (parts[outTradeNoIdx] ?? '') : (parts[6] ?? '')
+    const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[12] ?? '')
+    const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : (parts[9] ?? '')
+    if (!outTradeNo) continue;
+    trades.push({ outTradeNo, amount, tradeStatus });
   }
   return trades;
 }

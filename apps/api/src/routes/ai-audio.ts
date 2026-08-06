@@ -191,6 +191,9 @@ const DS_SPEAKER_URL = `${DASHSCOPE_BASE}/services/audio/asr/speaker-recognition
 // ============================================================================
 
 export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
+  // P1 修复(2026-08-06):audio_base64 无上限 → 恶意请求可提交超大 JSON base64
+  // 体撑爆内存(内存 DoS)。上限对齐上传接口的 25MB 音频(≈33.6MB base64)。
+  const MAX_AUDIO_BASE64_LENGTH = Math.ceil((25 * 1024 * 1024) / 3) * 4
   const ttsBody = z.object({
     text: z.string(),
     voice_id: z.string().optional(),
@@ -201,14 +204,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   })
   const asrBody = z.object({
     audio_url: z.string().optional(),
-    audio_base64: z.string().optional(),
+    audio_base64: z.string().max(MAX_AUDIO_BASE64_LENGTH).optional(),
     model: z.string().optional(),
     language: z.string().optional(),
     sample_rate: z.number().optional(),
   })
   const chatBody = z.object({
     text: z.string().optional(),
-    audio_base64: z.string().optional(),
+    audio_base64: z.string().max(MAX_AUDIO_BASE64_LENGTH).optional(),
     audio_url: z.string().optional(),
     voice_id: z.string().optional(),
     model: z.string().optional(),
@@ -223,7 +226,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   const cloneBody = z.object({
     voice_id: z.string().optional(),
     audio_url: z.string().optional(),
-    audio_base64: z.string().optional(),
+    audio_base64: z.string().max(MAX_AUDIO_BASE64_LENGTH).optional(),
     sample_rate: z.number().optional(),
   })
   const voiceIdParam = z.object({ voiceId: z.string() })
@@ -644,7 +647,6 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       reply.status(400).send(error(400, '请上传音频文件'))
       return
     }
-    const buf = await file.toBuffer()
     // 2026-07-24 安全加固:音频文件类型校验 + 大小限制(防 CWE-434)
     const AUDIO_MAX_SIZE = 25 * 1024 * 1024 // 25MB(DashScope ASR 限制)
     const AUDIO_ALLOWED_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac']
@@ -654,10 +656,20 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       reply.status(400).send(error(400, `仅支持音频格式: ${AUDIO_ALLOWED_EXTS.join(', ')}`))
       return
     }
-    if (buf.length > AUDIO_MAX_SIZE) {
-      reply.status(400).send(error(400, '音频文件不能超过 25MB'))
-      return
+    // P1 修复(2026-08-06):原实现先 file.toBuffer() 全量读入内存再校验大小,
+    // 超大文件已被完整缓冲后才被拒绝 → 内存 DoS。改为流式读取并限制总量。
+    const chunks: Buffer[] = []
+    let totalBytes = 0
+    for await (const chunk of file.file) {
+      totalBytes += chunk.length
+      if (totalBytes > AUDIO_MAX_SIZE) {
+        file.file.resume() // 排空剩余流,避免连接悬挂
+        reply.status(400).send(error(400, '音频文件不能超过 25MB'))
+        return
+      }
+      chunks.push(chunk)
     }
+    const buf = Buffer.concat(chunks)
     const audioBase64 = buf.toString('base64')
     const { model: qsModel, language } = modelLanguageQuery.parse(request.query)
     const model = qsModel ?? 'paraformer-v2'
