@@ -52,6 +52,9 @@ const PUBLIC_PREFIXES = [
   '/api/tbox/events',
   // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
   '/api/im-gateway/webhook/',
+  // 下载量统计 track(2026-08-06 立,公开分析端点,匿名用户也记录;
+  // 风险低:仅记录点击事件,无敏感操作;anomaly-detector + 全局限流已防自动化滥用)
+  '/api/downloads/track',
   // P2 修复(2026-08-06):移除 '/api/vip/' 前缀豁免——该前缀下无服务端回调,
   // 全部写端点(purchase/order/levels CRUD/users cancel)均需 authenticate 鉴权,
   // 已登录请求走下方 Bearer JWT / auth_token cookie 豁免,未登录应返 401 而非绕过 CSRF。
