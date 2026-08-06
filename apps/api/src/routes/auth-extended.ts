@@ -323,8 +323,9 @@ const bindingRemoveSchema = z.object({
 
 const codeQuery = z.object({ code: z.string() })
 const pageLimitQuery = z.object({
-  page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(20),
+  // P1 修复(2026-08-06): 分页 limit 补上限
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 })
 const skIdParam = z.object({ skId: z.string() })
 

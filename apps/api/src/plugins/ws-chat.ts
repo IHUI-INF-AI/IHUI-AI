@@ -194,6 +194,19 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // Redis 客户端获取（HTTP 端点用）
   const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
 
+  // P1 修复(2026-08-06):HTTP 读端点补房间归属校验(房主或已加入成员),
+  // 防止任意登录用户按 roomId 枚举读取他人房间的详情/消息历史/成员列表(IDOR)。
+  // Redis 不可用或房间元数据缺失时降级放行(与 WS 加入路径的降级策略一致)。
+  async function enforceRoomMembership(roomId: string, userId: string): Promise<boolean> {
+    const r = getRedis()
+    if (!r) return true
+    try {
+      return await checkRoomOwnership(r, roomId, userId)
+    } catch {
+      return true
+    }
+  }
+
   // ===== 聊天室 HTTP 端点（房间 CRUD + 消息历史 + 成员）=====
 
   const createRoomSchema = z.object({
@@ -257,6 +270,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const userId = await httpAuth(request, reply)
     if (!userId) return
     const { roomId } = request.params as { roomId: string }
+    // P1 修复(2026-08-06):房间详情仅房主/成员可读,防 IDOR 枚举他人房间元数据
+    const allowed = await enforceRoomMembership(roomId, userId)
+    if (!allowed) return reply.status(403).send(error(403, '无权访问此房间'))
     const redis = getRedis()
     if (!redis) return reply.send(success({ roomId, name: roomId, local: true }))
     const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
@@ -291,6 +307,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const userId = await httpAuth(request, reply)
     if (!userId) return
     const { roomId } = request.params as { roomId: string }
+    // P1 修复(2026-08-06):消息历史仅房主/成员可读,防 IDOR 窃听他人房间聊天记录
+    const allowed = await enforceRoomMembership(roomId, userId)
+    if (!allowed) return reply.status(403).send(error(403, '无权访问此房间'))
     const { limit = '50', before } = request.query as { limit?: string; before?: string }
     const redis = getRedis()
     if (!redis) return reply.send(success({ items: [], message: 'Redis 未配置,无历史消息' }))
@@ -315,6 +334,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const userId = await httpAuth(request, reply)
     if (!userId) return
     const { roomId } = request.params as { roomId: string }
+    // P1 修复(2026-08-06):成员列表仅房主/成员可读,防 IDOR 枚举房间用户
+    const allowed = await enforceRoomMembership(roomId, userId)
+    if (!allowed) return reply.status(403).send(error(403, '无权访问此房间'))
     const members = rooms.get(roomId)
     if (!members || members.size === 0)
       return reply.send(success({ items: [], total: 0, message: '当前无在线成员(可能其他实例有)' }))

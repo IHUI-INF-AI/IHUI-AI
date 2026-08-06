@@ -1106,7 +1106,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const { page, pageSize, keyword, status } = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         keyword: z.string().optional(),
         status: z.string().optional(),
       })
@@ -1211,7 +1212,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         memberId: z.coerce.number().optional(),
         status: z.string().optional(),
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     const conditions = []
@@ -1241,7 +1243,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       .object({
         memberId: z.coerce.number().optional(),
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
     // 从已认证用户推断 memberId
@@ -1396,7 +1399,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const { page, pageSize, paperId, isMastered } = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         paperId: z.string().optional(),
         isMastered: z.string().optional(),
       })

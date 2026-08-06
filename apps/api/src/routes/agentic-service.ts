@@ -18,7 +18,8 @@ export const agenticServiceRoutes: FastifyPluginAsync = async (server) => {
     const query = z
       .object({
         page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 pageSize 补上限
+        pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         search: z.string().optional(),
       })
       .parse(request.query)
