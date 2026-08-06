@@ -1110,7 +1110,7 @@ export function AgentTaskProgressPane() {
           保留独立 onClick。已通过测试用例 pane-minimize.test.tsx 的 click 路径纯粹性验证。 */}
       <div
         className={cn(
-          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-1.5',
+          'flex h-8 shrink-0 select-none items-center gap-1.5 px-2',
         )}
         onMouseDown={onHandleMouseDown}
         data-testid="pane-header"
@@ -1164,13 +1164,13 @@ export function AgentTaskProgressPane() {
           onClick={() => setExpandAll(expandAll === true ? false : true)}
           aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
           title={expandAll === true ? t('collapseAll') : t('expandAll')}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="pane-expand-all"
         >
           {expandAll === true ? (
-            <ChevronsDownUp className="h-3 w-3" />
+            <ChevronsDownUp className="h-3.5 w-3.5" />
           ) : (
-            <ChevronsUpDown className="h-3 w-3" />
+            <ChevronsUpDown className="h-3.5 w-3.5" />
           )}
         </button>
         {/* v13: 帮助按钮(打开/关闭快捷键面板) */}
@@ -1182,21 +1182,21 @@ export function AgentTaskProgressPane() {
           aria-controls="pane-help-panel"
           title={t('helpToggle')}
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
+            'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
             showHelp
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           )}
           data-testid="pane-help-toggle"
         >
-          <HelpCircle className="h-3 w-3" />
+          <HelpCircle className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           onClick={togglePin}
           aria-label={pinned ? t('unpin') : t('pin')}
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
+            'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
             pinned
               ? 'bg-primary/10 text-primary hover:bg-primary/20'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -1206,17 +1206,17 @@ export function AgentTaskProgressPane() {
           }
           data-testid="pane-pin"
         >
-          {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
+          {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
         </button>
         <button
           type="button"
           onClick={() => setIsMinimized(true)}
           aria-label={t('minimize')}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           title={`${t('minimize')}(${t('minimizeHint')})`}
           data-testid="pane-minimize"
         >
-          <Minimize2 className="h-3 w-3" />
+          <Minimize2 className="h-3.5 w-3.5" />
         </button>
       </div>
 
