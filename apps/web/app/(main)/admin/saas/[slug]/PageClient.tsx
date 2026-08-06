@@ -263,7 +263,7 @@ export default function TenantDetailPage() {
           />
         </div>
 
-        {/* P1-2.2c: 配额占位卡片 + P1-2.3: 实时 Prometheus 指标 */}
+        {/* P1-2.2c: 配额卡片(真实数据:DB tenants/tenant_quotas/ai_cost_records)+ P1-2.3: 实时 Prometheus 指标 */}
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-1 min-[1024px]:grid-cols-3">
           <div className="min-[1024px]:col-span-1">
             <QuotaCard slug={tenant.slug} />
