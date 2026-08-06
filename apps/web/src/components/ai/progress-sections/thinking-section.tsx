@@ -139,7 +139,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   return (
     <div
-      className="mx-1.5 mt-1.5 rounded-sm border border-border/60 bg-muted/40 transition-colors"
+      className="mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 transition-colors"
       data-testid="thinking-section"
       data-thinking-state={isStreaming ? 'streaming' : 'idle'}
       data-thinking-expanded={expanded ? 'true' : 'false'}
@@ -151,20 +151,20 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         aria-label={t('thinkingTitle')}
         data-section-header="true"
         data-testid="thinking-toggle"
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
+        className="flex w-full items-center gap-1 px-2 py-0.5 text-left text-[11px] font-medium text-muted-foreground/80 transition-colors hover:bg-accent/30 hover:text-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
       >
         <ChevronRight
           className={cn(
-            'h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-150',
+            'h-2.5 w-2.5 shrink-0 text-muted-foreground/50 transition-transform duration-150',
             expanded && 'rotate-90',
           )}
           aria-hidden
         />
-        <Brain className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden />
+        <Brain className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" aria-hidden />
         <span className="shrink-0">{t('thinkingTitle')}</span>
         {currentNode && (
           <span
-            className="inline-flex shrink-0 items-center rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary"
+            className="inline-flex shrink-0 items-center rounded-sm bg-primary/8 px-1 py-0.5 text-[10px] font-medium text-primary/80"
             data-testid="thinking-current-node"
           >
             {currentNode}
@@ -173,7 +173,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         {/* v2: 折叠态流式 loader(对标 Trae Work "思考中...") */}
         {isStreaming && !expanded && (
           <span
-            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-primary"
+            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-primary/70"
             data-testid="thinking-loader"
             aria-live="polite"
           >
@@ -181,13 +181,10 @@ export const ThinkingSection = React.memo(function ThinkingSection({
             <span>{t('thinkingStreaming')}</span>
           </span>
         )}
-        {/* v2: 折叠态内容预览(1 行高度,最后 60 字符)
-         *  修复 #5:内容长度跨过 60 字符边界时,显示从"完整 trimmed"突然变成"…后60字",
-         *  视觉跳变。保持原 slice(-60) 逻辑,在 span 上加 transition-all duration-150
-         *  让容器在文本变化时有轻微过渡,缓解边界跳变。 */}
+        {/* v2: 折叠态内容预览(1 行高度,最后 60 字符) */}
         {!expanded && preview && (
           <span
-            className="min-w-0 flex-1 truncate text-[10px] font-normal text-muted-foreground/60 transition-all duration-150"
+            className="min-w-0 flex-1 truncate text-[10px] font-normal text-muted-foreground/50 transition-all duration-150"
             data-testid="thinking-preview"
           >
             {preview}
@@ -196,7 +193,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         {/* v2: 折叠态耗时(从 mount 累积,>500ms 才显示) */}
         {!expanded && elapsedMs > 500 && (
           <span
-            className="shrink-0 tabular-nums text-[10px] text-muted-foreground/50"
+            className="shrink-0 tabular-nums text-[10px] text-muted-foreground/45"
             data-testid="thinking-elapsed"
             title={t('thinkingElapsedTitle', { time: formatDuration(elapsedMs) })}
           >
@@ -206,7 +203,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         {/* 展开态:字符数提示(右上角) */}
         {expanded && content.length > 0 && (
           <span
-            className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/50"
+            className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/45"
             data-testid="thinking-char-count"
             title={t('thinkingCharCountTitle', { n: content.length })}
           >
@@ -217,13 +214,13 @@ export const ThinkingSection = React.memo(function ThinkingSection({
       {/* v2: 展开态内容区(代码块样式) */}
       {expanded && (
         <div
-          className="px-2 pb-1.5 pt-1"
+          className="px-2 pb-1 pt-0.5"
           data-testid="thinking-content-wrapper"
         >
           <div className="relative">
             {content && (
               <pre
-                className="max-h-32 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/30 p-1.5 pr-7 font-mono text-[10.5px] leading-relaxed text-foreground/80"
+                className="max-h-40 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-[10.5px] leading-relaxed text-foreground/70"
                 aria-live={isStreaming ? 'polite' : undefined}
                 aria-atomic={isStreaming ? 'false' : undefined}
                 data-testid="thinking-content"
@@ -231,7 +228,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
                 {content}
                 {isStreaming && (
                   <span
-                    className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/60 align-middle"
+                    className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
                     style={{ height: '10px' }}
                     aria-hidden
                   />
@@ -242,16 +239,16 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               <button
                 type="button"
                 onClick={onCopy}
-                className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+                className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-accent/30 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
                 title={copied ? t('copied') : t('copyThinking')}
                 aria-label={copied ? t('copied') : t('copyThinking')}
                 data-testid="thinking-copy-btn"
                 data-copied={copied ? 'true' : undefined}
               >
                 {copied ? (
-                  <Check className="h-3 w-3 text-emerald-500" aria-hidden />
+                  <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
                 ) : (
-                  <Copy className="h-3 w-3" aria-hidden />
+                  <Copy className="h-2.5 w-2.5" aria-hidden />
                 )}
               </button>
             )}

@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { InlineDiffCard } from './inline-diff-card'
@@ -331,69 +330,69 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   }, [extractedUrl])
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="p-3">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-center gap-2 text-left"
-        >
-          <ChevronRight
-            className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              expanded && 'rotate-90',
-            )}
-          />
-          <StatusIcon className={cn('h-4 w-4 shrink-0', config.className)} />
-          <CardTitle className="flex-1 break-words text-sm font-medium">{toolName}</CardTitle>
-          {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
-            - builtin: 不显示徽章(默认,避免噪音)
-            - plugin: 紫底徽章 "插件"
-            - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
-            让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
-          {serverSource === 'plugin' && (
-            <span
-              aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
-              title={`插件工具${serverName ? ` · ${serverName}` : ''}`}
-              data-testid={`tool-call-source-plugin-${toolName}`}
-              className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400"
-            >
-              {serverName ?? '插件'}
-            </span>
+    <div className="overflow-hidden rounded-sm border border-border/30 bg-card/50">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors hover:bg-accent/30"
+      >
+        <ChevronRight
+          className={cn(
+            'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
+            expanded && 'rotate-90',
           )}
-          {serverSource === 'mcp' && (
-            <span
-              aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
-              title={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
-              data-testid={`tool-call-source-mcp-${toolName}`}
-              className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400"
-            >
-              MCP{serverName ? ` · ${serverName}` : ''}
-            </span>
-          )}
-          {iteration !== undefined && iteration > 1 && (
-            <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
-              第{iteration}轮
-            </span>
-          )}
-          {repeated && (
-            <span
-              aria-label="LLM 试图重复调用同参数工具,被去重机制跳过"
-              className="shrink-0 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-            >
-              已跳过
-            </span>
-          )}
-          {duration !== undefined && (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {duration}ms
-            </span>
-          )}
-          <span className={cn('shrink-0 text-xs', config.className)}>{t(config.labelKey)}</span>
-        </button>
-      </CardHeader>
+        />
+        <StatusIcon className={cn('h-3 w-3 shrink-0', config.className)} />
+        <span className="flex-1 truncate text-[11px] font-medium text-foreground/80">
+          {toolName}
+        </span>
+        {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
+          - builtin: 不显示徽章(默认,避免噪音)
+          - plugin: 紫底徽章 "插件"
+          - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
+          让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
+        {serverSource === 'plugin' && (
+          <span
+            aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+            title={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+            data-testid={`tool-call-source-plugin-${toolName}`}
+            className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400"
+          >
+            {serverName ?? '插件'}
+          </span>
+        )}
+        {serverSource === 'mcp' && (
+          <span
+            aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
+            title={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
+            data-testid={`tool-call-source-mcp-${toolName}`}
+            className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400"
+          >
+            MCP{serverName ? ` · ${serverName}` : ''}
+          </span>
+        )}
+        {iteration !== undefined && iteration > 1 && (
+          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70">
+            第{iteration}轮
+          </span>
+        )}
+        {repeated && (
+          <span
+            aria-label="LLM 试图重复调用同参数工具,被去重机制跳过"
+            className="shrink-0 rounded-sm border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground/70"
+          >
+            已跳过
+          </span>
+        )}
+        {duration !== undefined && (
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+            {duration}ms
+          </span>
+        )}
+        <span className={cn('shrink-0 text-[10px]', config.className)}>{t(config.labelKey)}</span>
+      </button>
       {expanded && (
-        <CardContent className="space-y-2 p-4 pt-0 text-xs">
+        <div className="space-y-1.5 border-t border-border/20 px-2 pb-1.5 pt-1 text-[11px]">
           {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
           {showInlineDiff && diffInfo && (
             <InlineDiffCard
@@ -417,23 +416,23 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           {!showInlineDiff && !showImage && !showSummary && (
             <>
               <div>
-                <p className="mb-1 font-medium text-muted-foreground">参数</p>
-                <pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono">
+                <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">参数</p>
+                <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
                   {JSON.stringify(args, null, 2)}
                 </pre>
               </div>
               {error && (
                 <div>
-                  <p className="mb-1 font-medium text-red-500">错误</p>
-                  <pre className="overflow-x-auto rounded-md bg-red-500/10 p-2 font-mono text-red-500">
+                  <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
+                  <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
                     {error}
                   </pre>
                 </div>
               )}
               {result !== undefined && (
                 <div>
-                  <p className="mb-1 font-medium text-muted-foreground">结果</p>
-                  <pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono">
+                  <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">结果</p>
+                  <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
                     {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
                   </pre>
                 </div>
@@ -445,15 +444,15 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <button
               type="button"
               onClick={handleOpenInWorkPanel}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:bg-muted"
+              className="inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3 w-3" />
               <span>在工作展示区打开{isBrowserTool ? '' : '(URL)'}</span>
             </button>
           )}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   )
 })
 

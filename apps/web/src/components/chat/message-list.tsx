@@ -874,10 +874,6 @@ export function MessageList({
     setFocusedIndex(next)
   }, [])
   const prevMessagesLenRef = React.useRef(0)
-  // 2026-08-06 立:记录上一轮 messages 的首条/末条消息 id,用于识别"会话整体切换
-  // (N1 → N2,不经空态)"场景(配合自动滚动 effect 内的 isSessionSwitch 判断)。
-  const prevFirstMessageIdRef = React.useRef<string | undefined>(undefined)
-  const prevLastMessageIdRef = React.useRef<string | undefined>(undefined)
   // #9 自动滚动 50ms throttle(2026-07-25 立):
   // 用 setTimeout + timestamp 实现 leading + trailing 节流,避免每个 token 触发 scrollIntoView。
   // - leading:第一次立即滚(新消息到达时视觉跟手)
@@ -1035,36 +1031,15 @@ export function MessageList({
   // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
   // - 新消息到达(messages.length 增加)时强制滚到底
   // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
-  // - 2026-08-06 立(用户反馈):打开任务/切换会话时不要"从对话最开始平滑滑到最新消息",
-  //   应直接显示最新消息。识别"会话首次加载"的两种情况(均用 behavior:'auto' 瞬间定位,
-  //   无滑动过程;后续流式 token 追加仍用 smooth 视觉跟手):
-  //   ① 从空态加载(0 → N):打开任务/首次进入;
-  //   ② 会话整体切换(N1 → N2,不经空态):首条+末条消息 id 均变化。
-  //   prepend 加载更早历史(首条变、末条不变)不算会话切换,维持原行为。
-  //   isInitialLoad 在 effect 开头捕获并传入 doScroll(闭包),
-  //   保证 throttle trailing 延迟执行时仍沿用首次加载的滚动行为。
   React.useEffect(() => {
     const newLen = messages.length
-    const firstId = messages[0]?.id
-    const lastId = messages[newLen - 1]?.id
     const isNewMessage = newLen > prevMessagesLenRef.current
-    const isSessionSwitch =
-      prevFirstMessageIdRef.current !== undefined &&
-      prevFirstMessageIdRef.current !== firstId &&
-      prevLastMessageIdRef.current !== undefined &&
-      prevLastMessageIdRef.current !== lastId
-    // 会话首次加载(打开任务/切换会话)→ 瞬间定位,不产生平滑滑动过程
-    const isInitialLoad =
-      isNewMessage && (prevMessagesLenRef.current === 0 || isSessionSwitch)
     prevMessagesLenRef.current = newLen
-    prevFirstMessageIdRef.current = firstId
-    prevLastMessageIdRef.current = lastId
     if (!isNewMessage && userScrolledUpRef.current) return
 
-    const doScroll = (initial: boolean) => {
+    const doScroll = () => {
       const el = bottomRef.current
-      if (!el) return
-      el.scrollIntoView({ behavior: initial ? 'auto' : 'smooth', block: 'end' })
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     }
     const st = scrollThrottleRef.current
     const now = Date.now()
@@ -1076,13 +1051,13 @@ export function MessageList({
         clearTimeout(st.timer)
         st.timer = null
       }
-      doScroll(isInitialLoad)
+      doScroll()
     } else if (st.timer === null) {
       // trailing:50ms 内首次触发,安排 trailing 滚动(后续触发忽略,保证最后 token 也滚)
       st.timer = window.setTimeout(() => {
         st.last = Date.now()
         st.timer = null
-        doScroll(isInitialLoad)
+        doScroll()
       }, remaining)
     }
   }, [messages.length, lastContent, isStreaming])
