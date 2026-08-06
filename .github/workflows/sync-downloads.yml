@@ -1,0 +1,71 @@
+name: Sync Downloads
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 每天凌晨 3 点 UTC(北京时间 11 点)定时同步 extension 下载包
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  sync:
+    name: Sync Download Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Configure npm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      - name: Install pnpm deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build extension
+        run: pnpm --filter @ihui/extension build
+
+      - name: Sync downloads
+        run: node scripts/sync-downloads.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain apps/web/public/downloads/)" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit synced downloads
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/web/public/downloads/
+          git commit -m "chore(downloads): auto-sync $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: Summary
+        run: |
+          echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "触发方式: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "extension 下载包已同步到 apps/web/public/downloads/" >> $GITHUB_STEP_SUMMARY
+          echo "变更状态: ${{ steps.changes.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
