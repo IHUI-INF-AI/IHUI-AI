@@ -677,7 +677,8 @@
       "shareFriend": "친구에게 공유",
       "voiceAnswer": "🔊 음성 답변",
       "modelDefault": "AI 모델"
-    }
+    },
+    "success": "공유 성공"
   },
   "aiGroup": {
     "title": "에이전트 광장",
@@ -1873,7 +1874,20 @@
     "paymentMethod": "결제 방식",
     "confirmPay": "결제 확인 ¥{price}",
     "alipay": "알리페이",
-    "balance": "잔액"
+    "balance": "잔액",
+    "cancel": "결제가 취소되었습니다",
+    "wxNotInstalled": "위챗 앱이 감지되지 않았습니다. 위챗을 먼저 설치해 주세요",
+    "aliNotInstalled": "알리페이 앱이 감지되지 않았습니다. 알리페이를 먼저 설치해 주세요",
+    "gotIt": "확인",
+    "paramError": "결제 매개변수 오류, 다시 시도해 주세요",
+    "failed": "결제 실패, 다시 시도해 주세요",
+    "failedShort": "결제 실패",
+    "processing": "결제 중...",
+    "wxUnsupportedEnv": "현재 환경은 위챗 결제를 지원하지 않습니다",
+    "aliUnsupportedWeapp": "위챗 미니프로그램은 알리페이 결제를 지원하지 않습니다",
+    "aliOrderMissing": "알리페이 주문 정보가 누락되었습니다",
+    "unsupportedEnv": "현재 환경은 결제를 지원하지 않습니다",
+    "resultPending": "결제 결과 확인 중"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -2495,5 +2509,16 @@
       "loginRequired": "먼저 로그인하세요"
     },
     "title": "지후이 AI 커뮤니티"
+  },
+  "album": {
+    "saveSuccess": "저장 성공",
+    "saveFailed": "저장 실패",
+    "authTitle": "권한 승인",
+    "authContent": "사진을 저장하려면 앨범 권한이 필요합니다. 설정에서 활성화해 주세요",
+    "urlEmpty": "이미지 주소가 비어 있습니다",
+    "saving": "저장 중..."
+  },
+  "auth": {
+    "expired": "로그인이 만료되었습니다. 다시 로그인해 주세요"
   }
 }
