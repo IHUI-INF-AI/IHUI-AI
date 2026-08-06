@@ -71,11 +71,11 @@
  *   - 亮色模式:纯黑 #000 2px
  *   - 暗色模式:纯白 #fff 2px
  *   - hover 不变化(用户要求不要 hover 态,见 §2 :not(input) 排除)
- *   - focus 时 border-color + box-shadow 柔和过渡(0.2s ease),不瞬间跳变
+ *   - focus 时 border-color + box-shadow 柔和过渡(1s ease),不瞬间跳变
  * 作用域:.login-scope(主站 LoginDialog + SSO 页面 + LoginPopup + 扩展端 AuthShell),
  * 覆盖登录/注册/找回密码三大场景所有输入框(账号/密码/邮箱/手机号/验证码)。 */
 .login-scope input {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 1s ease, box-shadow 1s ease;
 }
 .login-scope input:focus-visible {
   outline: none;
