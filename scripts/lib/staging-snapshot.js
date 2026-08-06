@@ -230,4 +230,119 @@ function setupRestoreOnExit(initialSnapshot, options = {}) {
   })
 }
 
-module.exports = { takeStagingSnapshot, restoreStaging, setupRestoreOnExit }
+/**
+ * 审计 staging area 文件清单(2026-08-06 立,防同目录文件级污染)
+ *
+ * 背景(2026-08-06 立,真实事故):
+ *   commit aa15bec23 "fix(web): message-list 消息操作按钮..." 意外包含了
+ *   message-input.tsx(其他 agent 改的 rounded-t-xl)。根因:message-input.tsx 在
+ *   pre-commit hook 执行**前**已被 IDE/其他 agent staged,takeStagingSnapshot 把它
+ *   当成本任务文件,restoreStaging 不会 unstage。所有领域级守门(check-commit-scope /
+ *   check-staged-pollution)都放过(同目录 apps/web/src/components/chat/,scope=web 匹配)。
+ *
+ * 机制:
+ *   - 在 pre-commit 入口(takeStagingSnapshot 之后、lint-staged 之前)调用本函数
+ *   - 打印 staged 文件清单(按目录分组),让 agent 察觉异常
+ *   - 同目录多文件时警告(提示可能是污染,建议用 safe-commit.mjs 重新提交)
+ *   - 文件数 > 5 时严重警告
+ *   - warn-only(不阻塞 commit,避免误伤合法多文件 commit)
+ *
+ * 注意:
+ *   - 本函数是"提示层",无法真正阻止污染。真正阻止污染的是 safe-commit.mjs
+ *     (git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验 staged == 预期)
+ *   - agent 应遵循 AGENTS.md §12/§16/§20 强制用 safe-commit.mjs,不直接 git add + commit
+ *
+ * 豁免: HUSKY_SKIP_STAGING_AUDIT=1 跳过审计(紧急情况用)
+ *
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @param {boolean} [options.silent] 静默模式(不输出日志,测试用)
+ * @returns {void}
+ */
+function auditStagingFiles(options = {}) {
+  if (process.env.HUSKY_SKIP_STAGING_AUDIT === '1') {
+    if (!options.silent) {
+      console.log('⏭  staged 文件清单审计(HUSKY_SKIP_STAGING_AUDIT=1, 跳过)')
+    }
+    return
+  }
+  const cwd = options.cwd || process.cwd()
+  const silent = options.silent || false
+
+  let stagedFiles = []
+  try {
+    const output = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
+    stagedFiles = output
+      .split('\n')
+      .filter(Boolean)
+      .map((f) => f.replace(/\\/g, '/'))
+  } catch (e) {
+    return // 非 git 环境,跳过
+  }
+
+  if (stagedFiles.length === 0) return
+
+  // 按目录分组(取文件所在目录,如 apps/web/src/components/chat/)
+  const groups = new Map()
+  for (const f of stagedFiles) {
+    const lastSlash = f.lastIndexOf('/')
+    const dir = lastSlash > 0 ? f.slice(0, lastSlash) : '(root)'
+    if (!groups.has(dir)) groups.set(dir, [])
+    groups.get(dir).push(f)
+  }
+
+  if (!silent) {
+    console.log(
+      `\n📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 ${stagedFiles.length} 个文件):`,
+    )
+    for (const [dir, files] of groups) {
+      console.log(`   📁 ${dir}/`)
+      for (const f of files) {
+        const name = f.slice(f.lastIndexOf('/') + 1)
+        console.log(`      - ${name}`)
+      }
+    }
+
+    // 警告:同目录多文件(最常见污染模式,如 message-list + message-input 同目录)
+    // 用 console.log 而非 console.warn(warn 输出到 stderr,pre-commit hook 中不显眼)
+    let hasMultiFileDir = false
+    for (const [dir, files] of groups) {
+      if (files.length > 1) {
+        hasMultiFileDir = true
+        console.log(
+          `   ⚠️  目录 ${dir}/ 有 ${files.length} 个文件 — 请确认是否都是本任务文件(同目录多文件是最常见污染模式)`,
+        )
+      }
+    }
+    if (hasMultiFileDir) {
+      console.log(
+        '      如果混入了其他 agent 改动,请用 node scripts/safe-commit.mjs 重新提交:',
+      )
+      console.log(
+        '      node scripts/safe-commit.mjs -m "fix(web): ..." -- apps/web/foo.tsx',
+      )
+      console.log('      (safe-commit 会 git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验)')
+    }
+
+    // 严重警告:文件数 > 5(多 agent 并行时容易混入)
+    if (stagedFiles.length > 5) {
+      console.log(
+        `   ⚠️  staged 文件数 ${stagedFiles.length} > 5 — 多 agent 并行时容易混入其他 agent 改动`,
+      )
+      console.log(
+        '      强烈建议用 node scripts/safe-commit.mjs -m "..." -- <files> 重新提交',
+      )
+    }
+
+    console.log('')
+  }
+}
+
+module.exports = { takeStagingSnapshot, restoreStaging, setupRestoreOnExit, auditStagingFiles }
