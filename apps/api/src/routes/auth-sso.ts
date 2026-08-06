@@ -1,8 +1,9 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
+import { setAuthCookies } from '../utils/auth-cookies.js'
 import {
   findUserById,
   revokeAllUserRefreshTokens,
@@ -148,12 +149,15 @@ const refreshTokenSchema = z.object({
 
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 
-async function buildTokenPair(user: {
-  id: string
-  phone: string | null
-  roleId: number | null
-  familyId: string | null
-}) {
+async function buildTokenPair(
+  user: {
+    id: string
+    phone: string | null
+    roleId: number | null
+    familyId: string | null
+  },
+  reply?: FastifyReply,
+) {
   const payload: JWTPayload = {
     userId: user.id,
     phone: user.phone ?? '',
@@ -161,6 +165,8 @@ async function buildTokenPair(user: {
     roleId: user.roleId ?? 0,
   }
   const tokens = await issueTokenPair(payload)
+  // P2-18:签发成功设置 httpOnly auth cookie(浏览器场景)
+  if (reply) setAuthCookies(reply, tokens, true)
   return { ...tokens, refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS }
 }
 
@@ -278,7 +284,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
         return reply.code(403).send(error(403, '用户已被禁用'))
       }
 
-      const tokens = await buildTokenPair(user)
+      const tokens = await buildTokenPair(user, reply)
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
       request.log.info({ userId: user.id, clientId }, 'SSO token exchanged')
@@ -357,12 +363,15 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
       await revokeRefreshToken(token)
 
       // 5. 用同一 familyId 签发新 token 对
-      const tokens = await buildTokenPair({
-        id: user.id,
-        phone: user.phone,
-        roleId: user.roleId,
-        familyId: payload.familyId,
-      })
+      const tokens = await buildTokenPair(
+        {
+          id: user.id,
+          phone: user.phone,
+          roleId: user.roleId,
+          familyId: payload.familyId,
+        },
+        reply,
+      )
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
       request.log.info({ userId: user.id }, 'SSO token refreshed')

@@ -135,12 +135,10 @@ async function resolveProductAmountCents(
 /**
  * P0-21 集成(部分):计算充值阶梯折扣到账额度并记录审计日志。
  *
- * TODO(主 agent):当前 completeOrder(order-service.ts)仅按订单原额到账,
- * 阶梯折扣的 bonus 部分(actualCredit - paidAmount)尚未实际入账。
- * 需在 order-service.ts 的 completeOrder 中调用 calculateTopupBonus,
- * 用 actualCredit 替换原 amount 到账,或追加 bonus 部分为额外流水。
- *
- * 此函数先做审计日志,使 bonus 计算可见,不阻塞支付流程。
+ * P2 修复(2026-08-06):充值赠送已在 order-service.ts 接线 —— completeOrder/
+ * completeOrderWithSaga 中 orderType=2(token 充值)支付成功后调用 calculateTopupBonus,
+ * 按 bonus 部分(actualCredit - paidAmount)追加赠送 token 流水(幂等键 bonus:${orderNo})。
+ * 此函数保留为审计日志,使 bonus 计算可见,不阻塞支付流程。
  */
 async function auditTopupBonus(
   orderNo: string,
@@ -162,9 +160,9 @@ async function auditTopupBonus(
           multiplier: bonus.multiplier,
           bonus: bonus.bonus,
           expectedCreditYuan: bonus.actualCredit,
-          pendingCrediting: true,
+          credited: true,
         },
-        'topup bonus calculated (TODO: wire into completeOrder)',
+        'topup bonus calculated (credited via order-service)',
       )
     }
   } catch (e) {
