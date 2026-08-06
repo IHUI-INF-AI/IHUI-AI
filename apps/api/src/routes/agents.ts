@@ -5,6 +5,7 @@ import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
 import {
@@ -918,7 +919,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/oauth-apps/audit-logs/export', async (_request, reply) => {
     const { items } = await findAuditLogList({ page: 1, limit: 10000 })
     const headers = ['id', 'event', 'clientId', 'userId', 'ip', 'status', 'detail', 'createdAt']
-    const escapeCsv = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+    // P2 修复(2026-08-06):escapeCsv 先经 sanitizeCsvCell 做公式注入防护,
+    // 防止 detail/ip 等用户可控字段以 `=`/`+`/`-`/`@` 开头被 Excel 当公式执行。
+    const escapeCsv = (v: string) => {
+      const safe = sanitizeCsvCell(v)
+      return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+    }
     const rows = items.map((item) =>
       [
         item.id,

@@ -629,32 +629,38 @@ export async function collectAllSources(): Promise<CollectResult> {
     }
 
     // 幂等 upsert：已存在的 (sourceCode, platformItemId) 更新 lastSeenAt/currentHot/currentRank
-    for (const item of items) {
+    // P2 修复(2026-08-06):原逐条 insert 循环,单源几十条 hot 条目会产生几十次往返查询。
+    // 改为一次性批量 upsert(insert().values([...]) + onConflictDoUpdate 引用 excluded),
+    // 每源 1 次 SQL 提交,与 id-mapping-queries.ts 的 bulkCreateMappings 同款模式。
+    if (items.length > 0) {
       await db
         .insert(aiFeedHotItem)
-        .values({
-          sourceCode: item.sourceCode,
-          platformItemId: item.platformItemId,
-          title: item.title,
-          summary: item.summary ?? null,
-          url: item.url ?? null,
-          coverUrl: item.coverUrl ?? null,
-          author: item.author ?? null,
-          currentRank: item.currentRank ?? null,
-          currentHot: item.currentHot ?? null,
-          publishTime: item.publishTime ?? null,
-          lastSeenAt: new Date(),
-        })
+        .values(
+          items.map((item) => ({
+            sourceCode: item.sourceCode,
+            platformItemId: item.platformItemId,
+            title: item.title,
+            summary: item.summary ?? null,
+            url: item.url ?? null,
+            coverUrl: item.coverUrl ?? null,
+            author: item.author ?? null,
+            currentRank: item.currentRank ?? null,
+            currentHot: item.currentHot ?? null,
+            publishTime: item.publishTime ?? null,
+            lastSeenAt: new Date(),
+          })),
+        )
         .onConflictDoUpdate({
           target: [aiFeedHotItem.sourceCode, aiFeedHotItem.platformItemId],
           set: {
-            title: item.title,
-            summary: item.summary ?? sql`null`,
-            url: item.url ?? sql`null`,
-            coverUrl: item.coverUrl ?? sql`null`,
-            author: item.author ?? sql`null`,
-            currentRank: item.currentRank ?? sql`null`,
-            currentHot: item.currentHot ?? sql`null`,
+            title: sql`excluded.title`,
+            summary: sql`excluded.summary`,
+            url: sql`excluded.url`,
+            coverUrl: sql`excluded.cover_url`,
+            author: sql`excluded.author`,
+            currentRank: sql`excluded.current_rank`,
+            currentHot: sql`excluded.current_hot`,
+            publishTime: sql`excluded.publish_time`,
             lastSeenAt: new Date(),
             updatedAt: new Date(),
           },

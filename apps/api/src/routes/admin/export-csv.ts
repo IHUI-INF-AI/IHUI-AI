@@ -21,6 +21,7 @@ import { dbRead } from '../../db/index.js'
 import { orders, llmCallLogs, users, developerApiKeys } from '@ihui/database'
 import { error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { sanitizeCsvCell } from '../../utils/csv-utils.js'
 
 // =============================================================================
 // 常量
@@ -63,13 +64,17 @@ const exportRateLimiter = new Map<string, number[]>()
  * 把单个字段值转义为 CSV 安全字符串。
  * - 空字符串保持空
  * - 含逗号/引号/换行 → 双引号包裹,内部双引号转义为两个双引号
+ * - P2 修复(2026-08-06):先做公式注入防护——以 `=`/`+`/`-`/`@` 开头的值前缀 `'`,
+ *   防止导出单元格被 Excel 当公式执行(用户名/邮箱/订单号等字段用户可控)。
+ *   金额等数字字段由程序生成不受影响。
  */
 function escapeCsvField(value: string): string {
-  if (value === '') return ''
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
+  const safe = sanitizeCsvCell(value)
+  if (safe === '') return ''
+  if (/[",\r\n]/.test(safe)) {
+    return `"${safe.replace(/"/g, '""')}"`
   }
-  return value
+  return safe
 }
 
 /**
