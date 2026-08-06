@@ -1093,6 +1093,13 @@
       "when": 1786001928069,
       "tag": "20260806153000_tenant_members_user_id_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1786002597320,
+      "tag": "20260806154900_crash_reports",
+      "breakpoints": true
     }
   ]
 }
