@@ -2861,3 +2861,17 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) downloads 运营数据配置化 — 10 处 TODO 改 NEXT_PUBLIC_DOWNLOAD_* 环境变量 getter,未配置走"即将上线"
 - [x] ✅(2026-08-06) mobile-dashboard 真实移动端统计 — GET /admin/mobile-stats(visit_logs/analytics_events/users 聚合),前端 useQuery 接入,示例数据全删
 - [x] ✅(2026-08-06) 小程序真机 BASE_URL 部署配置 — TARO_APP_API_BASE 环境变量 + .env.example + 部署文档
+
+### 审计收尾:「无法由代码闭合」4 项核实与处理(2026-08-06,commit 4a0079a99)
+
+> 前端全量审计遗留 4 项被判定"无法由代码闭合(需外部动作)",2026-08-06 逐项物理核实后,发现其中 1 项存在真实代码缺口已修复,其余 3 项结论属实。
+
+- [x] ✅(2026-08-06) **tenant_quotas 用量为 0 — 核实发现真实代码缺口并修复**:ai-callback-worker / crew-llm-adapter / ai-user-model-chat 三处 `recordAiCost` 调用均未传 tenantId → `ai_cost_records.tenant_id` 恒为 NULL → admin 配额页租户维度 AI token 用量恒 0 + `checkBudget('tenant')` 预算永不生效。修复:①`recordAiCost` 内部自动解析(userId → tenant_members,取最早加入租户,容错不阻塞)②tenant_members 新增 `tenant_members_user_id_idx` 索引 ③migration `20260806153000_tenant_members_user_id_idx.sql` + journal 条目(idx 155)。**待部署侧执行 migrate 后生效**。剩余:`tenant_quotas.api_calls_used / storage_used_mb` 字段仍无写入侧维护(需计费/用量写入服务,外部动作)
+- [x] ✅(2026-08-06) **崩溃率无数据源(返回 null)— 结论属实**:`admin/mobile-stats.ts` crashRate 恒 null + 前端 MobileDashboardClient 诚实注释"项目无崩溃上报表"。代码侧已做到诚实空态,无进一步可修。需真实值必须客户端集成崩溃埋点 SDK(Sentry/Crashlytics)并上报表(外部动作,待客户端团队)
+- [x] ✅(2026-08-06) **downloads 真数据 — 结论属实,配置通道已就绪**:`apps/web/src/config/downloads.config.ts` 已完成 10 处 env 化(NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID / APK_URL / WECHAT_QR 等,未配置自动走"即将上线"占位)。需运营在 .env.production 填 App Store ID / APK URL / 小程序 QR(外部动作,PROJECT_PLAN「待运营接入」3 项保持 [ ] 待数据)
+- [x] ✅(2026-08-06) **agent 运行时步进精度 — 结论属实(数据模型限制)**:项目无 `subagents` 持久化表,ai-service 运行时 subagent 为内存态,无 agentId 关联的轨迹表;`agent_tasks`(agent_id 有索引)聚合是现有最真实水平。提升需 ai-service 侧新增运行轨迹持久化设计(架构演进项,非 bug)
+
+### 环境债记录(2026-08-06 审计中发现,非本次引入)
+
+- `packages/database/drizzle` 工具链已损坏:**47 个 SQL migration 未入 `meta/_journal.json`**(含 download_events)、快照链跳号(0..152 仅 50 个)、`meta/0131_snapshot.json` / `0152_snapshot.json` zod 校验失败(drizzle-kit generate 不可用)、0152 曾带 UTF-8 BOM(已修)。
+- 本次索引 migration 采用**手写 SQL + journal 条目**落地(migrate 链 156 条完整可用);`drizzle-kit generate` 需后续专项修复(建议按 journal 重建快照链或升级工具统一生成),不影响业务 migrate。
