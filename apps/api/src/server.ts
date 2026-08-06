@@ -333,9 +333,13 @@ async function registerPlugins(server: FastifyInstance) {
     limits: { fileSize: 100 * 1024 * 1024 },
   })
 
-  // 静态文件服务：暴露 uploads 目录（头像等公开资源）
+  // 静态文件服务：仅暴露 uploads/public 子目录（白名单，防私有文件泄露）
+  // P2 修复(2026-08-06):此前整个 uploads/ 目录被挂载到 /uploads/*，工作区文件
+  // (uploads/private) 与文件版本 (uploads/private/versions) 等私有资源可被无鉴权
+  // 猜 UUID 访问。现在 root 改为 uploads/public —— 公开资源(头像/图片/附件)写入
+  // public 子目录且 URL 不变，私有文件写入 uploads/private/ 不再对外提供。
   await server.register(fastifyStatic, {
-    root: join(process.cwd(), 'uploads'),
+    root: join(process.cwd(), 'uploads', 'public'),
     prefix: '/uploads/',
     decorateReply: false,
   })
