@@ -219,7 +219,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
 
       {/* 底部链接区:GitHub Releases + Docs */}
       {(meta.githubReleasesUrl || meta.docsUrl) && (
-        <section className="flex flex-wrap gap-3 border-t border-border pt-4">
+        <section className="flex flex-wrap gap-3 pt-4">
           {meta.githubReleasesUrl && (
             <a
               href={meta.githubReleasesUrl}

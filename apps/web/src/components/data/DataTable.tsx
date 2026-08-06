@@ -151,7 +151,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
               </tr>
             ) : (
               sortedData.map((row, i) => (
-                <tr key={rowKey(row, i)} className="border-t transition-colors hover:bg-muted/30">
+                <tr key={rowKey(row, i)} className="transition-colors hover:bg-muted/30">
                   {selectable && (
                     <td className="w-10 px-3 py-2.5">
                       <Checkbox checked={selected.has(i)} onChange={() => toggleRow(i)} />

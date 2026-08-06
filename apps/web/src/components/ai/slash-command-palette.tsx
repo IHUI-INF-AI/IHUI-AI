@@ -449,7 +449,7 @@ export function SlashCommandPalette({
       </div>
       {/* 底部快捷键提示(2026-07-29 立,带 kbd 样式)
        * 参数补全模式下提示 ESC 返回;普通模式提示 ESC 关闭 */}
-      <div className="flex items-center gap-2 border-t border-border/50 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
