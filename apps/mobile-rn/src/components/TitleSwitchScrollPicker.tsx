@@ -121,7 +121,7 @@ const s = StyleSheet.create({
   },
   itemNear: { transform: [{ scale: 0.8 }], opacity: 0.8 },
   itemFar: { transform: [{ scale: 0.6 }], opacity: 0.6 },
-  itemText: { color: tokens.text.secondary, fontSize: 16, fontWeight: '700' }, // TODO: custom color #666
+  itemText: { color: tokens.text.secondary, fontSize: 16, fontWeight: '700' },
   itemTextActive: { color: tokens.gray.black, fontWeight: '700' },
 })
 
