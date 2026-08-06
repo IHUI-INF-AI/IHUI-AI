@@ -6,6 +6,7 @@ const { execSync } = require('child_process')
 const {
   takeStagingSnapshot,
   setupRestoreOnExit,
+  auditStagingFiles,
 } = require('../scripts/lib/staging-snapshot.js')
 
 // 0. staged 文件数预检(2026-07-30 立,防污染事故快速告警)
@@ -46,6 +47,16 @@ const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()
 setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
   skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
 })
+
+// 0b. staged 文件清单审计(2026-08-06 立,防同目录文件级污染)
+// 背景:commit aa15bec23 "fix(web): message-list ..." 意外包含 message-input.tsx(其他 agent 改的)。
+// 根因:message-input.tsx 在 hook 执行前已被 IDE/其他 agent staged,takeStagingSnapshot 把它
+//       当成本任务文件,restoreStaging 不会 unstage。所有领域级守门都放过(同目录 scope=web 匹配)。
+// 本步骤:打印 staged 文件清单(按目录分组)+ 同目录多文件警告 + 文件数 > 5 严重警告。
+// warn-only(不阻塞 commit,避免误伤合法多文件 commit),但警告足够明显让 agent 察觉异常。
+// 真正阻止污染的是 safe-commit.mjs(git reset HEAD + 只 add 声明文件 + 校验),见 AGENTS.md §12/§16/§20。
+// 跳过方法:HUSKY_SKIP_STAGING_AUDIT=1
+auditStagingFiles()
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
 if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {

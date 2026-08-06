@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 // 动态导入 .js 模块(CommonJS → ESM 互操作)
-const { takeStagingSnapshot, restoreStaging, setupRestoreOnExit } = await import('../lib/staging-snapshot.js')
+const { takeStagingSnapshot, restoreStaging, setupRestoreOnExit, auditStagingFiles } = await import('../lib/staging-snapshot.js')
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const STAGING_SNAPSHOT_PATH = join(__dirname, '..', 'lib', 'staging-snapshot.js').replace(/\\/g, '/')
@@ -629,5 +629,138 @@ test('restoreStaging: silent 模式不写监控日志(即使 HUSKY_STAGING_RESTO
     if (originalEnv === undefined) delete process.env.HUSKY_STAGING_RESTORE_LOG
     else process.env.HUSKY_STAGING_RESTORE_LOG = originalEnv
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── auditStagingFiles 测试(2026-08-06 立,防同目录文件级污染) ───
+// auditStagingFiles 是 warn-only 打印函数,测试用子进程捕获 stdout 验证打印内容。
+
+test('auditStagingFiles: 空 staging area → 不打印审计清单', () => {
+  const dir = createTempGitRepo()
+  try {
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.ok(!result.stdout.includes('📋'), '空 staging 不应打印审计清单')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: 单文件 → 打印清单无警告', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'apps/web/page.tsx', 'x')
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.ok(result.stdout.includes('📋'), '应打印审计清单')
+    assert.ok(result.stdout.includes('page.tsx'), '应列出文件名')
+    assert.ok(!result.stdout.includes('⚠️'), '单文件不应有警告')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: 同目录多文件 → 打印污染警告(核心场景)', () => {
+  const dir = createTempGitRepo()
+  try {
+    // 模拟 aa15bec23 事故场景:message-list + message-input 同目录
+    stageFile(dir, 'apps/web/src/components/chat/message-list.tsx', 'a')
+    stageFile(dir, 'apps/web/src/components/chat/message-input.tsx', 'b')
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.ok(result.stdout.includes('📋'), '应打印审计清单')
+    assert.ok(result.stdout.includes('message-list.tsx'), '应列出 message-list')
+    assert.ok(result.stdout.includes('message-input.tsx'), '应列出 message-input')
+    assert.ok(result.stdout.includes('⚠️'), '同目录多文件应有警告')
+    assert.ok(
+      result.stdout.includes('2 个文件') || result.stdout.includes('有 2 个文件'),
+      '应提示 2 个文件',
+    )
+    assert.ok(
+      result.stdout.includes('safe-commit'),
+      '应提示用 safe-commit.mjs 重新提交',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: 文件数 > 5 → 打印严重警告', () => {
+  const dir = createTempGitRepo()
+  try {
+    for (let i = 1; i <= 6; i++) {
+      stageFile(dir, `file${i}.ts`, `content${i}`)
+    }
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.ok(result.stdout.includes('📋'), '应打印审计清单')
+    assert.ok(result.stdout.includes('> 5'), '应有文件数 > 5 严重警告')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: silent=true → 不打印', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    stageFile(dir, 'file2.ts', 'b')
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: true })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.equal(result.stdout.trim(), '', 'silent 模式不应打印任何内容')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: HUSKY_SKIP_STAGING_AUDIT=1 → 跳过', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    const script = `
+      process.env.HUSKY_SKIP_STAGING_AUDIT = '1'
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(dir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    assert.ok(result.stdout.includes('⏭'), '应打印跳过提示')
+    assert.ok(!result.stdout.includes('📋'), '不应打印审计清单')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('auditStagingFiles: 非 git 环境 → 不报错', () => {
+  const nonGitDir = mkdtempSync(join(tmpdir(), 'ihui-non-git-audit-'))
+  try {
+    const script = `
+      const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      auditStagingFiles({ cwd: ${JSON.stringify(nonGitDir.replace(/\\/g, '/'))}, silent: false })
+    `
+    const result = runInChild(script, nonGitDir)
+    assert.equal(result.status, 0, '非 git 环境应正常退出不报错')
+  } finally {
+    rmSync(nonGitDir, { recursive: true, force: true })
   }
 })
