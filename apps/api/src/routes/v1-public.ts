@@ -1514,7 +1514,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const filename = data.filename || `upload-${Date.now()}`
-      const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+      // P2 修复(2026-08-06):/v1/files 公开 API 上传写入 uploads/public(静态白名单只暴露 public/),URL 不变
+      const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
 
       // P0 安全加固(2026-08-02):文件类型校验(防 CWE-434 恶意文件上传)
       // magic number + 扩展名白名单 + MIME 一致性校验
