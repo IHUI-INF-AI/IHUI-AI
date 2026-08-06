@@ -53,12 +53,38 @@ import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 
-function TypingIndicator() {
+function TypingIndicator({
+  reasoning,
+  toolCalls,
+}: {
+  reasoning?: string
+  toolCalls?: ChatMessage['toolCalls']
+}) {
+  // 2026-08-06:三个跳动点 → 一行实时状态小字。
+  // 按当前进度动态显示:正在调用工具:xxx / 模型思考中… / 正在等待模型响应…
+  const runningTool = toolCalls?.find((tc) => tc.status === 'running')
+  let statusText = '正在等待模型响应…'
+  if (runningTool) {
+    statusText = `正在调用工具:${runningTool.toolName}`
+  } else if (reasoning && reasoning.length > 0) {
+    statusText = '模型思考中…'
+  }
+  // 光道效果:文字渐变 + shimmer 动画,高光从左到右反复扫过(animations.css @keyframes shimmer)
   return (
-    <div className="flex items-center gap-1 py-1">
-      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
+    <div className="flex items-center gap-2 py-1">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70" />
+      <span
+        className="bg-clip-text text-xs font-medium text-transparent"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, hsl(var(--muted-foreground)) 0%, hsl(var(--primary)) 50%, hsl(var(--muted-foreground)) 100%)',
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 2.2s linear infinite',
+          WebkitBackgroundClip: 'text',
+        }}
+      >
+        {statusText}
+      </span>
     </div>
   )
 }
@@ -398,7 +424,7 @@ const MessageItem = React.memo(function MessageItem({
           // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
           // 避免硬切换造成的短暂空白闪烁(TypingIndicator 硬切 → 内容区 fade-in 0→1 过渡)
           <div className="animate-in fade-in-0 duration-150 fill-mode-both">
-            <TypingIndicator />
+            <TypingIndicator reasoning={m.reasoning} toolCalls={m.toolCalls} />
           </div>
         ) : isUser ? (
           // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
