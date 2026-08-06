@@ -150,7 +150,7 @@ export default function DeveloperIndex() {
       title: tt('developer.index.tip', '提示'),
       content: `${tt('developer.index.deleteConfirm', '确认删除智能体')}「${name}」?`,
       confirmText: tt('developer.index.deleteBtn', '删除'),
-      // TODO: native API: Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
+      // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
       confirmColor: '#dd524d',
       success: async (res) => {
         if (!res.confirm) return

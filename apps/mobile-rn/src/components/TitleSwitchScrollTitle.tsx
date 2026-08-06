@@ -129,11 +129,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(248,249,252,0.65)',
   },
   itemActive: {
-    borderColor: tokens.purple.DEFAULT, // TODO: custom color #7361FF
+    borderColor: tokens.purple.DEFAULT,
     backgroundColor: 'rgba(205,208,255,0.35)',
   },
   itemText: { fontSize: 13, color: 'rgba(0,0,0,0.6)' },
-  itemTextActive: { color: tokens.purple.DEFAULT, fontWeight: '700' }, // TODO: custom color #7361FF
+  itemTextActive: { color: tokens.purple.DEFAULT, fontWeight: '700' },
 })
 
 export default TitleSwitchScrollTitle
