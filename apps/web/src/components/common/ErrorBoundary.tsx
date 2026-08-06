@@ -69,6 +69,24 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     this.props.onError?.(error, info)
+    // 2026-08-06: 崩溃自动上报(crash_reports 链路,POST /api/crash-reports)。
+    // 静默失败:上报失败 / 环境异常绝不影响 UI 渲染。
+    if (typeof window !== 'undefined') {
+      try {
+        void fetch('/api/crash-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: 'web',
+            errorMessage: error?.message ?? 'unknown error',
+            stack: error?.stack,
+            route: window.location.pathname,
+          }),
+        }).catch(() => {})
+      } catch {
+        /* 上报失败静默 */
+      }
+    }
   }
 
   handleReset = () => {
