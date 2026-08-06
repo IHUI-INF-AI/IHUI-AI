@@ -58,6 +58,8 @@ class SessionState(BaseModel):
     createdAt: float = Field(default_factory=time.time)
     # 2026-07-22 P1 鲁棒性加固:TTL 过期清理,防长期空闲会话内存泄漏
     last_access: float = Field(default_factory=time.time)
+    # P1 修复(2026-08-06): 会话归属用户 ID,用于跨用户会话隔离
+    user_id: str = ""
 
 
 class PermissionCheckResponse(BaseModel):
@@ -87,16 +89,46 @@ def _evict_if_needed() -> None:
         _sessions.pop(next(iter(_sessions)))
 
 
-def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
-    """获取或创建会话:内存命中 → 新建(写入时持久化 Redis)。"""
+def _get_or_create_session(
+    session_id: str | None, bot_id: str, user_id: str, is_admin: bool = False
+) -> SessionState:
+    """获取或创建会话:内存命中 → 新建(写入时持久化 Redis)。
+
+    P1 修复(2026-08-06): 创建/复用会话时记录并校验归属 user_id,
+    防止跨用户通过猜测 session_id 读取/续用他人会话(管理员除外)。
+    """
     new_id = session_id or str(uuid.uuid4())
     if new_id in _sessions:
+        # P1 修复(2026-08-06): 会话归属校验 —— 归属非空且与当前用户不一致时拒绝(管理员除外)。
+        owner = _sessions[new_id].user_id
+        if owner and owner != user_id and not is_admin:
+            raise HTTPException(status_code=403, detail="无权访问他人会话")
         _sessions[new_id].last_access = time.time()
         return _sessions[new_id]
-    session = SessionState(id=new_id, botId=bot_id)
+    session = SessionState(id=new_id, botId=bot_id, user_id=user_id)
     _sessions[new_id] = session
     _evict_if_needed()
     return session
+
+
+def _require_session(session_id: str, user_id: str, is_admin: bool = False) -> SessionState:
+    """查找会话并校验归属;不归属当前用户时按 404 处理(不泄露会话是否存在)。"""
+    session = _find_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    owner = session.user_id
+    if owner and owner != user_id and not is_admin:
+        raise HTTPException(status_code=404, detail="session not found")
+    return session
+
+
+def _get_current_user(request: Request) -> tuple[str, bool]:
+    """从 JWT 派生当前用户(user_id, is_admin)。"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    role_id = getattr(request.state, "role_id", 0) or 0
+    return str(user_id), int(role_id) >= 1
 
 
 def _find_session(session_id: str) -> SessionState | None:
@@ -184,9 +216,11 @@ def _check_permission(tool_name: str, mode: str, danger_level: str) -> str:
 
 
 @router.post("/execute", response_model=ExecuteResponse)
-async def execute(req: ExecuteRequest) -> ExecuteResponse:
+async def execute(req: ExecuteRequest, request: Request) -> ExecuteResponse:
     """同步执行 — 调用 LangGraph plan → execute → summarize 完整链路。"""
-    session = _get_or_create_session(req.sessionId, req.botId or "default")
+    # P1 修复(2026-08-06): 强制 JWT 身份,创建/复用会话时校验归属
+    user_id, is_admin = _get_current_user(request)
+    session = _get_or_create_session(req.sessionId, req.botId or "default", user_id, is_admin)
     session.messages.append(SessionMessage(role="user", content=req.message))
     _save_session_redis(session)
 
@@ -216,7 +250,9 @@ async def execute(req: ExecuteRequest) -> ExecuteResponse:
 @router.post("/execute/stream")
 async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResponse:
     """SSE 流式执行 — LangGraph plan → execute → summarize 真实驱动。"""
-    session = _get_or_create_session(req.sessionId, req.botId or "default")
+    # P1 修复(2026-08-06): 强制 JWT 身份,创建/复用会话时校验归属
+    user_id, is_admin = _get_current_user(request)
+    session = _get_or_create_session(req.sessionId, req.botId or "default", user_id, is_admin)
     session.messages.append(SessionMessage(role="user", content=req.message))
     _save_session_redis(session)
 
@@ -298,26 +334,30 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
 
 
 @router.get("/{session_id}/status")
-async def get_status(session_id: str) -> dict[str, Any]:
-    session = _find_session(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="session not found")
+async def get_status(session_id: str, request: Request) -> dict[str, Any]:
+    # P1 修复(2026-08-06): 校验会话归属,防跨用户读取他人会话状态
+    user_id, is_admin = _get_current_user(request)
+    session = _require_session(session_id, user_id, is_admin)
     return {"sessionId": session.id, "status": session.status, "messageCount": len(session.messages)}
 
 
 @router.post("/{session_id}/cancel")
-async def cancel_session(session_id: str) -> dict[str, Any]:
-    session = _find_session(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="session not found")
+async def cancel_session(session_id: str, request: Request) -> dict[str, Any]:
+    # P1 修复(2026-08-06): 校验会话归属,防跨用户取消他人会话
+    user_id, is_admin = _get_current_user(request)
+    session = _require_session(session_id, user_id, is_admin)
     session.status = "cancelled"
     _save_session_redis(session)
     return {"sessionId": session_id, "status": "cancelled"}
 
 
 @router.get("/sessions")
-async def list_sessions(limit: int = 20, offset: int = 0) -> dict[str, Any]:
+async def list_sessions(request: Request, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+    # P1 修复(2026-08-06): 只返回当前用户的会话(管理员可见全部)
+    user_id, is_admin = _get_current_user(request)
     items = list(_sessions.values())
+    if not is_admin:
+        items = [s for s in items if not s.user_id or s.user_id == user_id]
     return {
         "sessions": [s.model_dump() for s in items[offset : offset + limit]],
         "total": len(items),
@@ -325,18 +365,18 @@ async def list_sessions(limit: int = 20, offset: int = 0) -> dict[str, Any]:
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str) -> dict[str, Any]:
-    session = _find_session(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="session not found")
+async def get_session(session_id: str, request: Request) -> dict[str, Any]:
+    # P1 修复(2026-08-06): 校验会话归属,防跨用户读取他人会话(含消息内容)
+    user_id, is_admin = _get_current_user(request)
+    session = _require_session(session_id, user_id, is_admin)
     return session.model_dump()
 
 
 @router.post("/sessions/{session_id}/resume")
-async def resume_session(session_id: str) -> dict[str, Any]:
-    session = _find_session(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="session not found")
+async def resume_session(session_id: str, request: Request) -> dict[str, Any]:
+    # P1 修复(2026-08-06): 校验会话归属,防跨用户续用他人会话
+    user_id, is_admin = _get_current_user(request)
+    session = _require_session(session_id, user_id, is_admin)
     session.status = "running"
     _save_session_redis(session)
     return {"sessionId": session_id, "status": "running"}
