@@ -146,8 +146,8 @@ export function AgentProgressTrigger({
         'inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-xs font-medium transition-colors duration-150 ease-out',
         // 容器背景色 + 描边(始终 bg-card 白色,pane 打开态不再变灰)
         'border border-border bg-card text-foreground/80',
-        // hover subtle 颜色变化
-        'hover:bg-accent hover:text-accent-foreground',
+        // hover subtle 颜色变化(半透明 accent,轻微区分即可)
+        'hover:bg-accent/50',
         // 有实时活动时文字用 primary 色突出
         hasLiveActivity && 'text-primary',
         // 外部传入的 className 覆盖
