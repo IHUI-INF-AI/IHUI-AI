@@ -58,6 +58,7 @@ export default function AgentRuntimePage() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在挂载时拉取一次 agent 列表;若把 agentId 加入依赖,用户切换 agent 会重复请求,且自动选中首个 agent 应只基于初始空值
   }, [])
 
   React.useEffect(() => {

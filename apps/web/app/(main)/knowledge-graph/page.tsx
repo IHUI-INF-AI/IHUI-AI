@@ -131,19 +131,19 @@ export default function KnowledgeGraphPage() {
   const data = graphQuery.data
   const entities = data?.entities ?? []
   const relations = data?.relations ?? []
-  const positions = React.useMemo(() => layoutCircle(entities), [entities])
+  const positions = React.useMemo(() => layoutCircle(data?.entities ?? []), [data])
 
   // 节点 hover 时,高亮关联的 source/target
   const relatedEdgeIds = React.useMemo(() => {
     if (highlightId === null) return new Set<number>()
     const s = new Set<number>()
-    relations.forEach((r) => {
+    for (const r of data?.relations ?? []) {
       if (r.source_entity_id === highlightId || r.target_entity_id === highlightId) {
         s.add(r.id)
       }
-    })
+    }
     return s
-  }, [highlightId, relations])
+  }, [highlightId, data])
 
   const onBuild = () => {
     if (!text.trim()) return

@@ -62,7 +62,6 @@ import {
   EMPTY_MODEL_FORM,
   EMPTY_PROVIDER_FORM,
   type ModelFormState,
-  type PlatformTemplate,
   type ProviderFormState,
   type UserLlmProvider,
 } from '../settings/llm/types-v2'
@@ -89,11 +88,10 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
     queryFn: () => fetchTemplatesV2(),
     staleTime: 5 * 60_000,
   })
-  const templates: PlatformTemplate[] = tplQuery.data?.templates ?? []
-  const tplMap = React.useMemo(
-    () => Object.fromEntries(templates.map((tpl) => [tpl.code, tpl])),
-    [templates],
-  )
+  const tplMap = React.useMemo(() => {
+    const templates = tplQuery.data?.templates ?? []
+    return Object.fromEntries(templates.map((tpl) => [tpl.code, tpl]))
+  }, [tplQuery.data])
 
   // 用户已保存的 provider(用于判定"已配置"状态)
   const cfgQuery = useQuery({
