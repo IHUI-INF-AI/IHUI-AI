@@ -50,10 +50,11 @@ class CodeBlockErrorBoundary extends React.PureComponent<
   static getDerivedStateFromError() {
     return { hasError: true }
   }
-  componentDidCatch() {
+  // 2026-08-06 修复:noImplicitOverride 下覆写 PureComponent 方法需 override 修饰符
+  override componentDidCatch() {
     // 静默降级到 fallback
   }
-  render() {
+  override render() {
     if (this.state.hasError) return this.props.fallback
     return this.props.children
   }
