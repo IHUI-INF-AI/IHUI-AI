@@ -142,20 +142,8 @@ afterEach(() => {
 })
 
 // ─── Header 拖拽手柄(键盘入口) ─────────────────────────────
-describe('AgentTaskProgressPane — Header 拖拽手柄', () => {
-  it('Header 存在且含 GripVertical 拖拽手柄(2026-08-05 更新)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-    expect(header).toBeTruthy()
-    const grip = header.querySelector('[data-testid="lucide-icon"]')
-    expect(grip, 'Header 应含 GripVertical 拖拽手柄').toBeTruthy()
-    expect(grip?.className).toContain('h-3.5')
-    expect(grip?.className).toContain('w-3.5')
-    expect(grip?.className).toContain('cursor-grab')
-  })
-})
-
+// 2026-08-06 移除:外部重构后 pane header 不再渲染 GripVertical 拖拽图标
+// (拖拽改由 header 空白区 onHandleMouseDown 触发),原断言为死断言。
 describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
   it('pinned=true 时按 Esc 不关闭 pane(防误触)', () => {
     useAgentProgressPaneStore.getState().openPane()
