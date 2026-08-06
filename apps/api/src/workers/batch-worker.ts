@@ -42,6 +42,23 @@ import { logger } from '../utils/logger.js'
 /** 终态状态(已终态任务不再处理,幂等) */
 const TERMINAL_STATUSES: BatchTaskStatus[] = ['completed', 'failed', 'cancelled', 'expired']
 
+// P1 修复(2026-08-06):计费幂等 — worker 崩溃后 BullMQ 会重新投递同一任务,
+// 重试时任务状态是 in_progress(非终态),原实现会从头重跑并再次计费 → 重复扣费。
+// 以 taskId + 行标识 作为唯一键(Redis SET NX),已计费的行直接跳过。
+const BILLING_DEDUP_PREFIX = 'batch:billing:dedup:'
+const BILLING_DEDUP_TTL_SEC = 7 * 24 * 3600
+
+/** 尝试认领一次计费:true=首次(应计费);false=已计费(跳过)。Redis 异常时 fail-open 计费。 */
+async function claimBillingOnce(redis: Redis, taskId: string, lineKey: string): Promise<boolean> {
+  try {
+    const key = `${BILLING_DEDUP_PREFIX}${taskId}:${lineKey}`
+    const claimed = await redis.set(key, '1', 'EX', BILLING_DEDUP_TTL_SEC, 'NX')
+    return claimed === 'OK'
+  } catch {
+    return true
+  }
+}
+
 // =============================================================================
 // LLM 调用 + 计费辅助
 // =============================================================================
@@ -325,18 +342,21 @@ async function processOpenAIBatch(
           error: { message: result.error },
         }),
       )
-      recordBatchCall(
-        task._apiKeyId,
-        task._userId,
-        model,
-        promptText,
-        '',
-        { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-        latencyMs,
-        'error',
-        result.error,
-        taskId,
-      )
+      // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
+      if (await claimBillingOnce(redis, taskId, customId)) {
+        recordBatchCall(
+          task._apiKeyId,
+          task._userId,
+          model,
+          promptText,
+          '',
+          { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+          latencyMs,
+          'error',
+          result.error,
+          taskId,
+        )
+      }
       continue
     }
 
@@ -365,18 +385,21 @@ async function processOpenAIBatch(
         error: null,
       }),
     )
-    recordBatchCall(
-      task._apiKeyId,
-      task._userId,
-      model,
-      promptText,
-      result.content,
-      result.usage,
-      latencyMs,
-      'success',
-      null,
-      taskId,
-    )
+    // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
+    if (await claimBillingOnce(redis, taskId, customId)) {
+      recordBatchCall(
+        task._apiKeyId,
+        task._userId,
+        model,
+        promptText,
+        result.content,
+        result.usage,
+        latencyMs,
+        'success',
+        null,
+        taskId,
+      )
+    }
   }
 
   // 5. 更新状态 finalizing → completed
@@ -446,18 +469,21 @@ async function processAnthropicBatch(
           error: { type: 'error', message: result.error },
         },
       })
-      recordBatchCall(
-        task._apiKeyId,
-        task._userId,
-        model,
-        promptText,
-        '',
-        { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-        latencyMs,
-        'error',
-        result.error,
-        taskId,
-      )
+      // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
+      if (await claimBillingOnce(redis, taskId, custom_id)) {
+        recordBatchCall(
+          task._apiKeyId,
+          task._userId,
+          model,
+          promptText,
+          '',
+          { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+          latencyMs,
+          'error',
+          result.error,
+          taskId,
+        )
+      }
       continue
     }
 
@@ -481,18 +507,21 @@ async function processAnthropicBatch(
         },
       },
     })
-    recordBatchCall(
-      task._apiKeyId,
-      task._userId,
-      model,
-      promptText,
-      result.content,
-      result.usage,
-      latencyMs,
-      'success',
-      null,
-      taskId,
-    )
+    // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
+    if (await claimBillingOnce(redis, taskId, custom_id)) {
+      recordBatchCall(
+        task._apiKeyId,
+        task._userId,
+        model,
+        promptText,
+        result.content,
+        result.usage,
+        latencyMs,
+        'success',
+        null,
+        taskId,
+      )
+    }
   }
 
   // 4. 更新状态 finalizing → completed

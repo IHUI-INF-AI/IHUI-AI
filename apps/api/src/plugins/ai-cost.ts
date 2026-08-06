@@ -12,7 +12,7 @@ import {
   userVips,
   type AiCostRecord,
 } from '@ihui/database'
-import { authenticate } from './auth.js'
+import { requireAdmin } from './require-permission.js'
 import { success, error } from '../utils/response.js'
 import { calculateCost } from '../services/pricing-service.js'
 import { logger } from '../utils/logger.js'
@@ -230,14 +230,26 @@ export async function checkBudget(
 
   if (!budget) return { allowed: true }
 
-  // 查今日已用 token
+  // 今日 0 点起算
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
+
+  // 查今日已用 token — P1 修复(2026-08-06):原实现未按 scope 维度过滤,
+  // 把全站所有用户/Key 的消费加总当作用户/租户/模型预算,导致任一用户超限时全站被限。
+  // 现在按预算维度(user→userId / tenant→tenantId / model→model)聚合。
+  const usedConditions: SQL[] = [gte(aiCostRecords.createdAt, todayStart)]
+  if (scope === 'user') {
+    usedConditions.push(eq(aiCostRecords.userId, scopeKey))
+  } else if (scope === 'tenant') {
+    usedConditions.push(eq(aiCostRecords.tenantId, scopeKey))
+  } else {
+    usedConditions.push(eq(aiCostRecords.model, model ?? scopeKey))
+  }
 
   const [used] = await db
     .select({ total: sum(aiCostRecords.totalTokens) })
     .from(aiCostRecords)
-    .where(gte(aiCostRecords.createdAt, todayStart))
+    .where(and(...usedConditions))
 
   const usedToday = Number(used?.total ?? 0)
   if (usedToday >= budget.dailyTokenLimit) {
@@ -343,7 +355,9 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // GET /api/admin/ai/cost/dashboard — 成本汇总看板
   server.get(
     '/api/admin/ai/cost/dashboard',
-    { preHandler: authenticate },
+    // P1 修复(2026-08-06):成本看板为 admin 管理端点,原只做登录校验
+    // (authenticate),任何登录用户可查看全站成本/预算并可改写预算,改为 requireAdmin。
+    { preHandler: requireAdmin },
     async (request: FastifyRequest) => {
       const query = request.query as {
         startDate?: string
@@ -428,7 +442,9 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // GET /api/admin/ai/cost/records — 成本记录明细
   server.get(
     '/api/admin/ai/cost/records',
-    { preHandler: authenticate },
+    // P1 修复(2026-08-06):成本看板为 admin 管理端点,原只做登录校验
+    // (authenticate),任何登录用户可查看全站成本/预算并可改写预算,改为 requireAdmin。
+    { preHandler: requireAdmin },
     async (request: FastifyRequest) => {
       const query = request.query as {
         limit?: string
@@ -471,7 +487,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   )
 
   // GET /api/admin/ai/cost/budgets — 预算列表
-  server.get('/api/admin/ai/cost/budgets', { preHandler: authenticate }, async () => {
+  server.get('/api/admin/ai/cost/budgets', { preHandler: requireAdmin }, async () => {
     const budgets = await db.select().from(aiBudgets).orderBy(desc(aiBudgets.updatedAt))
     return success(budgets)
   })
@@ -479,7 +495,9 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // POST /api/admin/ai/cost/budgets — 设置预算
   server.post(
     '/api/admin/ai/cost/budgets',
-    { preHandler: authenticate },
+    // P1 修复(2026-08-06):成本看板为 admin 管理端点,原只做登录校验
+    // (authenticate),任何登录用户可查看全站成本/预算并可改写预算,改为 requireAdmin。
+    { preHandler: requireAdmin },
     async (request: FastifyRequest, reply) => {
       const body = request.body as {
         scope: 'user' | 'tenant' | 'model'
@@ -541,7 +559,9 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 按时间段聚合 userId 的总成本/Token/调用次数,LEFT JOIN users 取昵称/邮箱用于展示
   server.get(
     '/api/admin/ai/cost/top-users',
-    { preHandler: authenticate },
+    // P1 修复(2026-08-06):成本看板为 admin 管理端点,原只做登录校验
+    // (authenticate),任何登录用户可查看全站成本/预算并可改写预算,改为 requireAdmin。
+    { preHandler: requireAdmin },
     async (request: FastifyRequest) => {
       const query = request.query as {
         startDate?: string
@@ -595,7 +615,9 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 对比每个 user 预算与今日/本月实际消耗,返回超出 80% 阈值的记录
   server.get(
     '/api/admin/ai/cost/budget-alerts',
-    { preHandler: authenticate },
+    // P1 修复(2026-08-06):成本看板为 admin 管理端点,原只做登录校验
+    // (authenticate),任何登录用户可查看全站成本/预算并可改写预算,改为 requireAdmin。
+    { preHandler: requireAdmin },
     async (request) => {
       // P0-3e: 字段名含 "token" 命中 response-sanitizer 遮蔽为 "***"(同 vip-quotas),admin 路由直接跳过整端点脱敏
       request.skipResponseSanitization = true
@@ -674,7 +696,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // GET /api/admin/ai/cost/vip-quotas — VIP 档位配额视图
   // 返回每档 VIP 的配额配置 + 当前生效用户数
-  server.get('/api/admin/ai/cost/vip-quotas', { preHandler: authenticate }, async (request) => {
+  server.get('/api/admin/ai/cost/vip-quotas', { preHandler: requireAdmin }, async (request) => {
     // P0-3c: aiBudgetDefaults.dailyTokenLimit/monthlyTokenLimit 字段名含 "token" 命中 response-sanitizer
     // 遮蔽为 "***",admin 路由可信上下文直接跳过整端点脱敏
     request.skipResponseSanitization = true

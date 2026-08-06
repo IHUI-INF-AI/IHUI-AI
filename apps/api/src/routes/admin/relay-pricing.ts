@@ -17,6 +17,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { idParamSchema } from './_shared.js'
 import {
@@ -48,7 +49,8 @@ const recordHistoryBodySchema = z.object({
 })
 
 const listDiscountsQuerySchema = z.object({
-  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  enabled: booleanStringSchemaOptional,
   modelId: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
 })
 
