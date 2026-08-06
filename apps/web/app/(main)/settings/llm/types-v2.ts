@@ -79,6 +79,8 @@ export interface ProviderGroup {
   group: string
   groupLabel: string
   providers: UserLlmProvider[]
+  /** 分组实体 id(来自 /llm-groups,按 label 匹配注入;聚合接口本身不返回) */
+  id?: number
 }
 
 /** 列表响应 */

@@ -24,3 +24,5 @@ export * from './use-register-form'
 export * from './use-storage'
 // 跨端图片选择 hook(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
 export * from './use-image-picker'
+// 跨端下载点击统计 hook(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
+export * from './use-download-track'

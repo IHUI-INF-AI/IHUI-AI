@@ -125,7 +125,11 @@ export default function TeacherDetail() {
       ],
       success: (res) => {
         if (res.tapIndex === 0) {
-          Taro.navigateTo({ url: `/pages/im/chat?teacherId=${teacher.id}` })
+          // 项目无 /pages/im/* 私信页,优雅降级为提示
+          Taro.showToast({
+            title: tt('teacher.detail.imSoon', '私信功能即将开放'),
+            icon: 'none',
+          })
         } else if (res.tapIndex === 1) {
           Taro.showToast({ title: tt('teacher.detail.phoneHint', '已复制联系方式'), icon: 'none' })
         }

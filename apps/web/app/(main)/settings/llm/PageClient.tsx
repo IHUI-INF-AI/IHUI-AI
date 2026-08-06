@@ -132,18 +132,21 @@ export default function UserLlmConfigsPage() {
     queryKey: ['v2-providers'],
     queryFn: () => fetchProvidersV2(),
   })
-  const groups: ProviderGroup[] = React.useMemo(() => data?.groups ?? [], [data])
-  const allProviders: UserLlmProvider[] = React.useMemo(
-    () => groups.flatMap((g) => g.providers),
-    [groups],
-  )
-
-  // 加载分组(用于 ProviderFormDialog 的 existingGroups 下拉)
+  // 加载分组实体(/llm-groups,含 id/label;用于分组 CRUD 与 existingGroups 下拉)
   const { data: groupsData } = useQuery({
     queryKey: ['v2-groups'],
     queryFn: () => fetchGroupsV2(),
     staleTime: 60_000,
   })
+  const groups: ProviderGroup[] = React.useMemo(() => {
+    // 聚合接口不返回 group 实体 id,按 label 从 /llm-groups 注入,供删除/编辑分组使用
+    const idMap = new Map((groupsData?.list ?? []).map((g) => [g.label, g.id]))
+    return (data?.groups ?? []).map((g) => ({ ...g, id: idMap.get(g.group) }))
+  }, [data, groupsData])
+  const allProviders: UserLlmProvider[] = React.useMemo(
+    () => groups.flatMap((g) => g.providers),
+    [groups],
+  )
   const existingGroups = React.useMemo(
     () =>
       (groupsData?.list ?? []).map((g) => ({
@@ -255,7 +258,7 @@ export default function UserLlmConfigsPage() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-[200px_1fr]">
-        <div className="rounded-lg border bg-card p-2">
+        <div className="rounded-lg border bg-card p-3">
           <GroupSidebar groups={groups} activeGroup={activeGroup} onChange={setActiveGroup} />
         </div>
         <div className="space-y-3">
