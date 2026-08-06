@@ -1830,9 +1830,15 @@ async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, 
     }
     if payload.get("reasoning"):
         body["reasoning"] = payload["reasoning"]
-    headers: dict[str, str] = {}
-    if settings.ai_callback_secret:
-        headers["X-Internal-Secret"] = settings.ai_callback_secret
+    # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
+    # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
+    # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
+    if not settings.ai_callback_secret:
+        logger.error(
+            "LLM callback skipped: ai_callback_secret 未配置(API 侧 AI_CALLBACK_SECRET 缺失时拒绝回调)"
+        )
+        return
+    headers: dict[str, str] = {"X-Internal-Secret": settings.ai_callback_secret}
 
     max_attempts = 3  # 首次 + 2 次重试
     for attempt in range(max_attempts):

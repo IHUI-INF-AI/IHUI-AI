@@ -46,6 +46,10 @@ vi.mock('@ihui/auth', async (importOriginal) => {
   }
 })
 
+// 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
+// mock 返回 status=1(active),避免 401 '用户不存在'
+vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
+
 import { authExtendedRoutes } from '../auth-extended.js'
 
 describe('Auth Extended API', () => {
