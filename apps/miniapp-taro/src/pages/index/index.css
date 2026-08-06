@@ -210,7 +210,7 @@
   background: var(--color-card);
   border: 4rpx solid var(--color-border-list-item);
   margin: 5rpx 0;
-  padding: 0 15rpx;
+  padding: 0 24rpx;
 }
 
 .ai-chu-row-active {
