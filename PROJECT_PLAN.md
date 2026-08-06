@@ -2814,3 +2814,19 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [ ] admin 后台下载量统计展示页(GET /api/downloads/stats 已实现,展示页待开发)
 
+---
+
+## 下载功能增强 — admin 统计页 + CI 自动化(2026-08-06 进行中,跨端:apps/web + apps/api + .github/workflows,AGENTS.md §24 用户已确认)
+
+> **触发**:用户要求"继续按建议执行,最多 agent 并行,完美细致完整毫无遗漏"。
+> **范围**:① admin 下载量统计展示页(`/admin/downloads`)② CI 集成 sync-downloads.mjs 到 release workflow ③ 跨平台构建矩阵补齐 macOS/Linux 产物同步到 public/downloads。
+
+### 任务清单
+
+- [ ] admin 下载量统计展示页 — `/admin/downloads` 页面消费 `GET /api/downloads/stats`,Card 概览 + EChart 趋势图 + 平台分布饼图 + 时间筛选
+- [ ] CI 集成 sync-downloads.mjs — release-desktop.yml / release-cli.yml 构建后自动跑 sync:downloads,产物同步到 apps/web/public/downloads/(通过 artifact 或 commit 回仓库)
+- [ ] 跨平台构建矩阵补齐 — release-desktop.yml 已有 4 平台矩阵,增加 post-build 步骤把 .dmg/.deb/.AppImage 复制到 apps/web/public/downloads/desktop/
+- [ ] admin 导航菜单注册 — AdminNav 注册"下载统计"菜单项
+- [ ] i18n 5 语言翻译键 — admin.downloads.* 命名空间
+- [ ] browser 自验 admin 页面 4 状态(默认/hover/active/dark)
+
