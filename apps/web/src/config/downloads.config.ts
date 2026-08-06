@@ -1,5 +1,5 @@
 /**
- * 下载入口配置(2026-07-25 抽取,2026-08-06 深度扩展)
+ * 下载入口配置(2026-07-25 抽取,2026-08-06 深度扩展,2026-08-06 运营数据 env 化)
  *
  * 历史:原本 4 处运营待办(App Store ID / 4 端 href / APK path / 微信小程序 QR)
  *  内联在 `apps/web/src/lib/downloads.tsx` 的 DOWNLOADS 数组里,导致:
@@ -20,13 +20,59 @@
  *  - ios/android-apk/wechat-miniapp 暂未接入,详情页显示"即将上线"+ Web 端使用引导
  *  - 详情页路由 `apps/web/app/(main)/download/[platform]/page.tsx` 渲染 PLATFORM_META
  *
- * 接入流程:
- *  1. iOS 上架后:填 `appStoreId`(纯数字 ID),自动生成 App Store URL + 在 PLATFORM_META.ios.assets 加条目
- *  2. Android 上架 Google Play:填 `hrefs.android` 为 Play Store URL + 在 PLATFORM_META['android-apk'].assets 加条目
- *  3. APK 直链:填 `apkPath` 为 CDN 绝对 URL,`apkFileName` 与 CDN 文件对齐 + 在 PLATFORM_META['android-apk'].assets 加条目
- *  4. 微信小程序:填 `wechatMiniProgramQr` 为扫码落地页 URL 或 scheme + 在 PLATFORM_META['wechat-miniapp'].assets 加条目
- *  5. Desktop/Mobile/Extension/CLI:填 `hrefs.desktop` / `hrefs.mobile` /
- *     `hrefs.extension` / `hrefs.cli` 为 CDN 下载 URL 或 /download/[platform] 详情页路由
+ * 2026-08-06 运营数据 env 化(本次改造):
+ *  - 原先 10 处 `TODO(运营)` 占位全部改为**运行时环境变量**配置,运营无需改代码。
+ *  - 所有 env 以 `NEXT_PUBLIC_` 前缀暴露,未配置的 getter 返回 null(归一为空字符串),
+ *    前端自动走"即将上线"占位逻辑;配置后自动生成下载入口 + 详情页 assets。
+ *  - `DOWNLOADS_CONFIG` / `PLATFORM_META` 保留为模块级常量(由 env 计算)以兼容现有调用方;
+ *    推荐新代码使用 `getDownloadsConfig()` / `getPlatformMetaMap()` getter。
+ *
+ * 环境变量清单(全部可选;未配置 = 未上架):
+ *  | 环境变量                                   | 对应配置字段                          | 说明 |
+ *  |--------------------------------------------|---------------------------------------|------|
+ *  | NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID           | appStoreId                            | iOS App Store 纯数字 ID,如 1234567890 |
+ *  | NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL          | hrefs.ios                            | 显式 App Store URL(优先于 ID 自动生成) |
+ *  | NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL       | hrefs.android                        | Google Play 入口(优先于 APK 直链) |
+ *  | NEXT_PUBLIC_DOWNLOAD_CDN_BASE              | —(拼 apkPath 用)                     | CDN 基础地址,如 https://cdn.example.com |
+ *  | NEXT_PUBLIC_DOWNLOAD_APK_URL               | apkPath                              | APK 完整下载 URL(优先于 CDN_BASE 拼接) |
+ *  | NEXT_PUBLIC_DOWNLOAD_APK_FILE_NAME         | apkFileName                          | APK 文件名(配合 CDN_BASE 拼接;默认 ihui-ai-latest.apk) |
+ *  | NEXT_PUBLIC_DOWNLOAD_WECHAT_QR             | wechatMiniProgramQr                  | 微信小程序二维码落地页 URL 或 scheme |
+ *  | NEXT_PUBLIC_DOWNLOAD_WECHAT_URL            | hrefs.wechat                         | 微信小程序入口 URL(优先于 QR) |
+ *  | NEXT_PUBLIC_DOWNLOAD_IOS_VERSION           | PLATFORM_META.ios.version            | iOS 版本号(需与 APPSTORE_ID 同时配置) |
+ *  | NEXT_PUBLIC_DOWNLOAD_IOS_RELEASE_DATE      | PLATFORM_META.ios.releaseDate        | iOS 发布日期 YYYY-MM-DD |
+ *  | NEXT_PUBLIC_DOWNLOAD_APK_VERSION           | PLATFORM_META['android-apk'].version | APK 版本号(需与 APK_URL/GOOGLE_PLAY_URL 同时配置) |
+ *  | NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE      | PLATFORM_META['android-apk'].releaseDate | APK 发布日期 YYYY-MM-DD |
+ *  | NEXT_PUBLIC_DOWNLOAD_WECHAT_VERSION        | PLATFORM_META['wechat-miniapp'].version | 小程序版本号(需与 WECHAT_QR 同时配置) |
+ *  | NEXT_PUBLIC_DOWNLOAD_WECHAT_RELEASE_DATE   | PLATFORM_META['wechat-miniapp'].releaseDate | 小程序发布日期 YYYY-MM-DD |
+ *
+ * 配置方式(apps/web/.env.local 或 .env.production,示例):
+ *  # ---- iOS ----
+ *  NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID=1234567890
+ *  NEXT_PUBLIC_DOWNLOAD_IOS_VERSION=1.0.0
+ *  NEXT_PUBLIC_DOWNLOAD_IOS_RELEASE_DATE=2026-09-01
+ *  # ---- Android(Google Play 与 APK 直链可二选一)----
+ *  NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL=https://play.google.com/store/apps/details?id=com.ihui.ai
+ *  NEXT_PUBLIC_DOWNLOAD_APK_URL=https://cdn.example.com/apk/ihui-ai-v1.0.0.apk
+ *  NEXT_PUBLIC_DOWNLOAD_APK_VERSION=1.0.0
+ *  NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE=2026-09-01
+ *  # ---- 微信小程序 ----
+ *  NEXT_PUBLIC_DOWNLOAD_WECHAT_QR=https://example.com/miniapp/qr
+ *  NEXT_PUBLIC_DOWNLOAD_WECHAT_VERSION=1.0.0
+ *  NEXT_PUBLIC_DOWNLOAD_WECHAT_RELEASE_DATE=2026-09-01
+ *
+ * 注意:
+ *  - NEXT_PUBLIC_ 前缀变量在 Next.js **构建期**被 webpack DefinePlugin 内联,
+ *    修改 env 后必须重新 build 才生效;服务端与浏览器端读取结果一致。
+ *  - 保留默认值结构:未配置项 getter 返回 null,`DOWNLOADS_CONFIG`/`PLATFORM_META`
+ *    内部归一为空字符串,现有调用方(`href.length > 0` 等真值判断)无需改动。
+ *  - Desktop / Mobile / Extension / CLI 4 端走代码内路由(/download/[platform]),不依赖 env。
+ *
+ * 接入流程(等价于旧版"改常量"流程,现在改 env):
+ *  1. iOS 上架后:填 NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID,自动生成 App Store URL + 详情页资源
+ *  2. Android 上架 Google Play:填 NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL(或 APK 直链)
+ *  3. APK 直链:填 NEXT_PUBLIC_DOWNLOAD_APK_URL(或 CDN_BASE + APK_FILE_NAME)
+ *  4. 微信小程序:填 NEXT_PUBLIC_DOWNLOAD_WECHAT_QR
+ *  5. 各端可选补 version / releaseDate,详情页头部展示版本号与发布日期
  */
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
@@ -44,7 +90,7 @@ export type DownloadPlatform =
 export interface DownloadAsset {
   /** 文件下载 URL;http(s):// 开头视为外链,否则视为 /public 下相对路径 */
   href: string
-  /** 文件大小(字节),UI 展示 "12.4 MB" */
+  /** 文件大小(字节),UI 展示 "12.4 MB";商店链接/扫码落地页用 0 表示无体积 */
   sizeBytes: number
   /** 文件 SHA256 校验值(可选,接入后端 API 时填充) */
   sha256?: string
@@ -104,148 +150,115 @@ export interface DownloadsConfig {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* 环境变量读取(2026-08-06 起,运营配置的唯一入口)                            */
+/* -------------------------------------------------------------------------- */
+
 /**
- * 下载配置单一事实源。
- *
- * 运营接入时仅需修改本常量,downloads.tsx 自动适配。
- * 所有空字符串值在 UI 中显示为"即将上线"占位。
+ * 读取单个 NEXT_PUBLIC_ 环境变量。
+ * 未配置 / 空白 → 返回 null(表示"未上架");配置 → 返回 trim 后字符串。
+ * 注意:参数必须是字面量 `process.env.NEXT_PUBLIC_*` 表达式(非动态变量名),
+ * 否则 Next.js 构建期无法用 DefinePlugin 内联,浏览器端将拿不到值。
  */
-export const DOWNLOADS_CONFIG: DownloadsConfig = {
-  // TODO(运营):iOS App 上架后填入纯数字 App Store ID(如 "1234567890")
-  appStoreId: '',
-  // TODO(运营):CDN 接入后改为绝对 URL(如 https://cdn.aizhs.top/apk/app-release.apk)
-  apkPath: '',
-  // TODO(运营):与 apps/web/public/apk/ 实际文件名对齐
-  apkFileName: 'ihui-ai-latest.apk',
-  // TODO(运营):微信小程序 QR scheme 或扫码落地页 URL
-  wechatMiniProgramQr: '',
-  hrefs: {
-    // TODO(运营):App Store URL;留空时若 appStoreId 已填会自动生成,否则占位
-    ios: '',
-    // TODO(运营):Google Play URL 或 APK 直链;留空时回退到 apkPath
-    android: '',
-    // TODO(运营):微信小程序入口;留空时回退到 wechatMiniProgramQr
-    wechat: '',
-    // Desktop 详情页路由(展示 NSIS exe + MSI 双格式下载按钮 + 系统要求 + 安装指南)
-    desktop: '/download/desktop',
-    // Mobile RN 详情页路由(展示源码构建说明 + GitHub 链接)
-    mobile: '/download/mobile',
-    // Extension 详情页路由(展示 Chrome MV3 ZIP 下载 + 加载说明)
-    extension: '/download/extension',
-    // CLI 详情页路由(展示 npm 安装命令 + 使用文档)
-    cli: '/download/cli',
-  },
+function readEnv(value: string | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+/** iOS App Store 纯数字 ID;未配置返回 null */
+export function getAppStoreId(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID)
+}
+
+/** 显式 App Store URL;未配置返回 null */
+export function getAppStoreUrl(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL)
+}
+
+/** Google Play 商店入口;未配置返回 null */
+export function getGooglePlayUrl(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL)
+}
+
+/** CDN 基础地址(用于拼接 APK 直链);未配置返回 null */
+export function getCdnBase(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_CDN_BASE)
+}
+
+/** APK 完整下载 URL;未配置返回 null */
+export function getApkUrl(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_URL)
+}
+
+/** APK 文件名(配合 CDN_BASE 拼接);默认保留历史值 'ihui-ai-latest.apk' */
+export function getApkFileName(): string {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_FILE_NAME) ?? 'ihui-ai-latest.apk'
+}
+
+/** 微信小程序二维码落地页 URL 或 scheme;未配置返回 null */
+export function getWechatQr(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_WECHAT_QR)
+}
+
+/** 微信小程序入口 URL(优先于 QR);未配置返回 null */
+export function getWechatEntryUrl(): string | null {
+  return readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_WECHAT_URL)
 }
 
 /**
- * 8 端完整下载元数据(2026-08-06 新增)。
- *
- * 用于 /download/[platform] 详情页渲染:
- *  - assets 非空 → 显示下载按钮(支持多格式/架构)
- *  - assets 为空 + version 未填 → 显示"即将上线"占位
- *  - assets 为空 + installGuideKey 已填 → 显示安装/构建说明(CLI/Mobile)
- *
- * 接入新版本时:更新 version + releaseDate + assets[].href/sizeBytes 即可。
- * 文件物理位置:apps/web/public/downloads/<platform>/<filename>
+ * 解析 APK 直链:
+ *  1. NEXT_PUBLIC_DOWNLOAD_APK_URL 直接返回;
+ *  2. NEXT_PUBLIC_DOWNLOAD_CDN_BASE 非空 → `${CDN_BASE}/${apkFileName}`(去除尾部 /);
+ *  3. 均未配置 → 返回空字符串(未上架)。
  */
-export const PLATFORM_META: Record<DownloadPlatform, PlatformMeta> = {
-  web: {
-    platform: 'web',
-    version: '1.0.0',
-    releaseDate: '2026-08-06',
-    systemRequirementsKey: 'downloadWebSysReq',
-    installGuideKey: 'downloadWebInstallGuide',
-    assets: [
-      {
-        href: '/',
-        sizeBytes: 0,
-        format: 'PWA / Browser',
-      },
-    ],
-  },
-  desktop: {
-    platform: 'desktop',
-    version: '0.1.13',
-    releaseDate: '2026-08-06',
-    systemRequirementsKey: 'downloadDesktopSysReq',
-    installGuideKey: 'downloadDesktopInstallGuide',
-    releaseNotesKey: 'downloadDesktopReleaseNotes',
-    githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-    // 真实安装包(从 apps/desktop/src-tauri/target/release/bundle/ 复制)
-    assets: [
-      {
-        href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.exe',
-        sizeBytes: 75095099,
-        format: 'Windows NSIS exe',
-        arch: 'x64',
-      },
-      {
-        href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.msi',
-        sizeBytes: 81514496,
-        format: 'Windows MSI',
-        arch: 'x64',
-      },
-    ],
-  },
-  ios: {
-    platform: 'ios',
-    // TODO(运营):App Store 上架后填入 version + releaseDate + assets
-    systemRequirementsKey: 'downloadIOSSysReq',
-    installGuideKey: 'downloadIOSInstallGuide',
-    assets: [],
-  },
-  'android-apk': {
-    platform: 'android-apk',
-    // TODO(运营):APK 构建产物部署到 apps/web/public/apk/ 后填入 version + releaseDate + assets
-    systemRequirementsKey: 'downloadAndroidSysReq',
-    installGuideKey: 'downloadAndroidInstallGuide',
-    assets: [],
-  },
-  mobile: {
-    platform: 'mobile',
-    version: '1.0.0',
-    releaseDate: '2026-08-06',
-    systemRequirementsKey: 'downloadMobileSysReq',
-    installGuideKey: 'downloadMobileInstallGuide',
-    githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/apps/mobile-rn',
-    // Mobile RN 走源码构建,无预编译包
-    assets: [],
-  },
-  'wechat-miniapp': {
-    platform: 'wechat-miniapp',
-    // TODO(运营):微信小程序发布后填入 version + releaseDate + assets(QR 图片)
-    systemRequirementsKey: 'downloadWechatSysReq',
-    installGuideKey: 'downloadWechatInstallGuide',
-    assets: [],
-  },
-  extension: {
-    platform: 'extension',
-    version: '1.0.0',
-    releaseDate: '2026-08-06',
-    systemRequirementsKey: 'downloadExtensionSysReq',
-    installGuideKey: 'downloadExtensionInstallGuide',
-    githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-    // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
-    assets: [
-      {
-        href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-        sizeBytes: 1294181,
-        format: 'Chrome MV3 ZIP',
-      },
-    ],
-  },
-  cli: {
-    platform: 'cli',
-    version: '1.0.0',
-    releaseDate: '2026-08-06',
-    systemRequirementsKey: 'downloadCliSysReq',
-    installGuideKey: 'downloadCliInstallGuide',
-    docsUrl: 'https://www.npmjs.com/package/@ihui/cli',
-    githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-    // CLI 走 npm install,无独立安装包
-    assets: [],
-  },
+export function getApkPath(): string {
+  const apkUrl = getApkUrl()
+  if (apkUrl) return apkUrl
+  const cdnBase = getCdnBase()
+  if (cdnBase) return `${cdnBase.replace(/\/+$/, '')}/${getApkFileName()}`
+  return ''
 }
+
+/* -------------------------------------------------------------------------- */
+/* 下载配置单一事实源(DOWNLOADS_CONFIG 兼容常量 + getDownloadsConfig getter)  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 由 env 计算完整下载配置。
+ * 推荐新代码使用本 getter;`DOWNLOADS_CONFIG` 常量仅保留兼容现有调用方。
+ */
+export function getDownloadsConfig(): DownloadsConfig {
+  return {
+    appStoreId: getAppStoreId() ?? '',
+    apkPath: getApkPath(),
+    apkFileName: getApkFileName(),
+    wechatMiniProgramQr: getWechatQr() ?? '',
+    hrefs: {
+      ios: getAppStoreUrl() ?? '',
+      android: getGooglePlayUrl() ?? '',
+      wechat: getWechatEntryUrl() ?? '',
+      // 4 端走代码内详情页路由,不依赖 env
+      desktop: '/download/desktop',
+      mobile: '/download/mobile',
+      extension: '/download/extension',
+      cli: '/download/cli',
+    },
+  }
+}
+
+/**
+ * 下载配置单一事实源(向后兼容常量,2026-08-06 起由 env 计算)。
+ *
+ * 运营接入时仅需在 .env.local / .env.production 配置 NEXT_PUBLIC_DOWNLOAD_* 变量,
+ * 本常量自动适配;所有空字符串值在 UI 中显示为"即将上线"占位。
+ * NEXT_PUBLIC_ 变量构建期内联,模块初始化读取与构建时 env 一致。
+ */
+export const DOWNLOADS_CONFIG: DownloadsConfig = getDownloadsConfig()
+
+/* -------------------------------------------------------------------------- */
+/* URL 解析函数(优先显式 URL,其次自动生成,最后空串占位)                     */
+/* -------------------------------------------------------------------------- */
 
 /**
  * 解析 iOS 下载 URL:优先用 hrefs.ios,其次用 appStoreId 自动生成,最后占位。
@@ -276,6 +289,143 @@ export function resolveWechatHref(): string {
   if (DOWNLOADS_CONFIG.wechatMiniProgramQr) return DOWNLOADS_CONFIG.wechatMiniProgramQr
   return ''
 }
+
+/* -------------------------------------------------------------------------- */
+/* 8 端完整下载元数据(PLATFORM_META 兼容常量 + getPlatformMetaMap getter)    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 由 env 计算 8 端完整元数据。
+ *
+ * ios / android-apk / wechat-miniapp 三端 assets 由对应 env 配置自动生成:
+ *  - 配置了 App Store ID / URL → ios.assets 出现 App Store 下载条目
+ *  - 配置了 Google Play / APK 直链 → android-apk.assets 出现 APK 下载条目
+ *  - 配置了小程序 QR / 入口 → wechat-miniapp.assets 出现扫码落地页条目
+ * 未配置的端 assets 保持空数组 → 详情页显示"即将上线"占位。
+ */
+export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
+  const iosHref = resolveIosHref()
+  const androidHref = resolveAndroidHref()
+  const wechatHref = resolveWechatHref()
+
+  return {
+    web: {
+      platform: 'web',
+      version: '1.0.0',
+      releaseDate: '2026-08-06',
+      systemRequirementsKey: 'downloadWebSysReq',
+      installGuideKey: 'downloadWebInstallGuide',
+      assets: [
+        {
+          href: '/',
+          sizeBytes: 0,
+          format: 'PWA / Browser',
+        },
+      ],
+    },
+    desktop: {
+      platform: 'desktop',
+      version: '0.1.13',
+      releaseDate: '2026-08-06',
+      systemRequirementsKey: 'downloadDesktopSysReq',
+      installGuideKey: 'downloadDesktopInstallGuide',
+      releaseNotesKey: 'downloadDesktopReleaseNotes',
+      githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
+      // 真实安装包(从 apps/desktop/src-tauri/target/release/bundle/ 复制)
+      assets: [
+        {
+          href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.exe',
+          sizeBytes: 75095099,
+          format: 'Windows NSIS exe',
+          arch: 'x64',
+        },
+        {
+          href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.msi',
+          sizeBytes: 81514496,
+          format: 'Windows MSI',
+          arch: 'x64',
+        },
+      ],
+    },
+    ios: {
+      platform: 'ios',
+      // 2026-08-06 起由 env 驱动:填 NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID 后自动上架
+      version: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_IOS_VERSION) ?? undefined,
+      releaseDate: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_IOS_RELEASE_DATE) ?? undefined,
+      systemRequirementsKey: 'downloadIOSSysReq',
+      installGuideKey: 'downloadIOSInstallGuide',
+      assets: iosHref ? [{ href: iosHref, sizeBytes: 0, format: 'App Store' }] : [],
+    },
+    'android-apk': {
+      platform: 'android-apk',
+      // 2026-08-06 起由 env 驱动:填 NEXT_PUBLIC_DOWNLOAD_APK_URL / GOOGLE_PLAY_URL 后自动上架
+      version: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_VERSION) ?? undefined,
+      releaseDate: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE) ?? undefined,
+      systemRequirementsKey: 'downloadAndroidSysReq',
+      installGuideKey: 'downloadAndroidInstallGuide',
+      assets: androidHref ? [{ href: androidHref, sizeBytes: 0, format: 'Android APK' }] : [],
+    },
+    mobile: {
+      platform: 'mobile',
+      version: '1.0.0',
+      releaseDate: '2026-08-06',
+      systemRequirementsKey: 'downloadMobileSysReq',
+      installGuideKey: 'downloadMobileInstallGuide',
+      githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/apps/mobile-rn',
+      // Mobile RN 走源码构建,无预编译包
+      assets: [],
+    },
+    'wechat-miniapp': {
+      platform: 'wechat-miniapp',
+      // 2026-08-06 起由 env 驱动:填 NEXT_PUBLIC_DOWNLOAD_WECHAT_QR 后自动上架
+      version: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_WECHAT_VERSION) ?? undefined,
+      releaseDate: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_WECHAT_RELEASE_DATE) ?? undefined,
+      systemRequirementsKey: 'downloadWechatSysReq',
+      installGuideKey: 'downloadWechatInstallGuide',
+      assets: wechatHref ? [{ href: wechatHref, sizeBytes: 0, format: '微信小程序' }] : [],
+    },
+    extension: {
+      platform: 'extension',
+      version: '1.0.0',
+      releaseDate: '2026-08-06',
+      systemRequirementsKey: 'downloadExtensionSysReq',
+      installGuideKey: 'downloadExtensionInstallGuide',
+      githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
+      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
+      assets: [
+        {
+          href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
+          sizeBytes: 1294181,
+          format: 'Chrome MV3 ZIP',
+        },
+      ],
+    },
+    cli: {
+      platform: 'cli',
+      version: '1.0.0',
+      releaseDate: '2026-08-06',
+      systemRequirementsKey: 'downloadCliSysReq',
+      installGuideKey: 'downloadCliInstallGuide',
+      docsUrl: 'https://www.npmjs.com/package/@ihui/cli',
+      githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
+      // CLI 走 npm install,无独立安装包
+      assets: [],
+    },
+  }
+}
+
+/**
+ * 8 端完整下载元数据(向后兼容常量,2026-08-06 起由 env 计算)。
+ *
+ * 用于 /download/[platform] 详情页渲染:
+ *  - assets 非空 → 显示下载按钮(支持多格式/架构)
+ *  - assets 为空 + version 未填 → 显示"即将上线"占位
+ *  - assets 为空 + installGuideKey 已填 → 显示安装/构建说明(CLI/Mobile)
+ *
+ * ios / android-apk / wechat-miniapp 三端 assets 由 NEXT_PUBLIC_DOWNLOAD_* env 自动生成,
+ * 见 `getPlatformMetaMap()` 注释。
+ */
+export const PLATFORM_META: Record<DownloadPlatform, PlatformMeta> = getPlatformMetaMap()
 
 /** 获取指定端的元数据(PLATFORM_META 类型安全访问) */
 export function getPlatformMeta(platform: DownloadPlatform): PlatformMeta {
