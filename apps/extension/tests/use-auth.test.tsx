@@ -109,9 +109,11 @@ class ShimNode {
   }
   private _relink(): void {
     for (let i = 0; i < this.childNodes.length; i++) {
+      // 2026-08-06 修复:noUncheckedIndexedAccess 下索引访问可能 undefined
       const c = this.childNodes[i]
-      c.previousSibling = i > 0 ? this.childNodes[i - 1] : null
-      c.nextSibling = i < this.childNodes.length - 1 ? this.childNodes[i + 1] : null
+      if (!c) continue
+      c.previousSibling = i > 0 ? this.childNodes[i - 1] ?? null : null
+      c.nextSibling = i < this.childNodes.length - 1 ? this.childNodes[i + 1] ?? null : null
     }
   }
   get firstChild(): ShimNode | null {
@@ -146,7 +148,7 @@ class ShimNode {
 }
 
 class ShimElement extends ShimNode {
-  nodeType = SHIM_ELEMENT_NODE
+  override nodeType = SHIM_ELEMENT_NODE
   tagName: string
   attributes: Record<string, string> = {}
   style: Record<string, string> = {}
@@ -162,7 +164,7 @@ class ShimElement extends ShimNode {
     this.attributes[name] = String(value)
   }
   getAttribute(name: string): string | null {
-    return name in this.attributes ? this.attributes[name] : null
+    return name in this.attributes ? (this.attributes[name] ?? null) : null
   }
   hasAttribute(name: string): boolean {
     return name in this.attributes
@@ -193,8 +195,8 @@ class ShimElement extends ShimNode {
 }
 
 class ShimText extends ShimNode {
-  nodeType = SHIM_TEXT_NODE
-  nodeName = '#text'
+  override nodeType = SHIM_TEXT_NODE
+  override nodeName = '#text'
   data = ''
   constructor(text: string, ownerDocument: ShimDocument) {
     super()
@@ -210,8 +212,8 @@ class ShimText extends ShimNode {
 }
 
 class ShimDocumentFragment extends ShimNode {
-  nodeType = SHIM_FRAGMENT_NODE
-  nodeName = '#document-fragment'
+  override nodeType = SHIM_FRAGMENT_NODE
+  override nodeName = '#document-fragment'
   constructor(ownerDocument: ShimDocument) {
     super()
     this.ownerDocument = ownerDocument
@@ -249,8 +251,8 @@ class ShimWindow {
 }
 
 class ShimDocument extends ShimNode {
-  nodeType = SHIM_DOCUMENT_NODE
-  nodeName = '#document'
+  override nodeType = SHIM_DOCUMENT_NODE
+  override nodeName = '#document'
   documentElement: ShimElement
   body: ShimElement
   head: ShimElement
