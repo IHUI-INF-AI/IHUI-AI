@@ -5,6 +5,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
+import { logger } from '../../utils/logger.js'
 import { monitorAlerts, suppressionRules, apiLogs, systemConfigs } from '@ihui/database'
 import { eq, ilike, desc, sql, and, or, inArray } from 'drizzle-orm'
 import { paginationSchema, registerCrud, fields, idParamSchema } from './_shared.js'
@@ -72,6 +73,12 @@ const ossFilesRoutes: FastifyPluginAsync = async (server) => {
           and(eq(systemConfigs.category, 'oss_file'), inArray(systemConfigs.id, parsed.data.ids)),
         )
         .returning({ id: systemConfigs.id })
+      // P2 修复(2026-08-06):批量删除无操作日志,补记操作人/请求数/实际删除数,便于审计追责。
+      logger.info('admin oss-files batch-delete executed', {
+        userId: request.userId,
+        requested: parsed.data.ids.length,
+        deleted: rows.length,
+      })
       return reply.send(success({ deleted: rows.length }))
     } catch (e) {
       request.log.error(e)

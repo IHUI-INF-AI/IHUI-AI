@@ -98,33 +98,42 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 写入 ai_relay_discovery(ON CONFLICT 不重复插入)
-    let newDiscovered = 0
+    // P2 修复(2026-08-06):原逐条 insert 循环,模型列表可能上百条 → 上百次往返查询。
+    // 改为一次性批量 insert(values([...]) + onConflictDoNothing),返回真实新增条数。
+    const rowsToInsert: typeof upstreamModels = []
     for (const m of upstreamModels) {
       if (!m.id) continue
+      rowsToInsert.push(m)
+    }
+    let newDiscovered = 0
+    if (rowsToInsert.length > 0) {
       try {
-        await db
+        const insertedRows = await db
           .insert(aiRelayDiscovery)
-          .values({
-            providerCode,
-            modelId: m.id,
-            modelName: m.name ?? null,
-            contextLength: m.context_length ?? null,
-            upstreamPrice: m.input_price || m.output_price
-              ? {
-                  input: m.input_price ?? 0,
-                  output: m.output_price ?? 0,
-                  currency: 'CNY',
-                }
-              : null,
-            capabilities: m.capabilities ?? [],
-            description: m.description ?? null,
-            status: 'discovered',
-            rawMetadata: m as unknown as Record<string, unknown>,
-          })
+          .values(
+            rowsToInsert.map((m) => ({
+              providerCode,
+              modelId: m.id!,
+              modelName: m.name ?? null,
+              contextLength: m.context_length ?? null,
+              upstreamPrice: m.input_price || m.output_price
+                ? {
+                    input: m.input_price ?? 0,
+                    output: m.output_price ?? 0,
+                    currency: 'CNY',
+                  }
+                : null,
+              capabilities: m.capabilities ?? [],
+              description: m.description ?? null,
+              status: 'discovered',
+              rawMetadata: m as unknown as Record<string, unknown>,
+            })),
+          )
           .onConflictDoNothing({
             target: [aiRelayDiscovery.providerCode, aiRelayDiscovery.modelId],
           })
-        newDiscovered++
+          .returning()
+        newDiscovered = insertedRows.length
       } catch {
         // 已存在则跳过(onConflictDoNothing 应已处理)
       }
