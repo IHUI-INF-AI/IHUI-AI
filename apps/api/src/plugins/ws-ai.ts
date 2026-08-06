@@ -40,6 +40,9 @@ async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal):
   return Buffer.from(await resp.arrayBuffer())
 }
 
+// P1 修复(2026-08-06):实时 ASR PCM 缓冲上限(50MB),防无上限累积导致内存 DoS。
+const MAX_ASR_BUFFER_BYTES = 50 * 1024 * 1024
+
 /**
  * WebSocket AI 能力插件:agent_stream / tts_stream / realtime_pcm.
  *
@@ -300,6 +303,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         try {
           msg = JSON.parse(data.toString()) as Record<string, unknown>
         } catch {
+          // P1 修复(2026-08-06):PCM 帧无上限累积 → 恶意客户端可持续发送二进制
+          // 撑爆内存(内存 DoS)。加上限 50MB,超限清空缓冲并通知客户端。
+          if (asrBuffer.length + data.length > MAX_ASR_BUFFER_BYTES) {
+            asrBuffer = Buffer.alloc(0)
+            send(socket, { event: 'error', msg: '音频输入超过大小上限(50MB),已清空缓冲' })
+            return
+          }
           asrBuffer = Buffer.concat([asrBuffer, data])
           return
         }

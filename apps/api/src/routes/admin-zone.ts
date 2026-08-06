@@ -4,6 +4,7 @@ import { eq, and, asc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { zhsZone } from '@ihui/database'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
@@ -13,7 +14,8 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   parentId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   level: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(5).optional()),
-  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  enabled: booleanStringSchemaOptional,
 })
 
 const createZoneSchema = z.object({

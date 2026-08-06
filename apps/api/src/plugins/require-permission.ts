@@ -54,8 +54,9 @@ export const requireAuth = async (request: FastifyRequest, reply: FastifyReply):
   try {
     await authenticate(request)
   } catch (e) {
+    // P1 修复(2026-08-06): catch 分支必须 return，否则鉴权失败后仍会继续执行后续 handler 造成未授权访问
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
+    return reply
       .status(statusCode)
       .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
   }
