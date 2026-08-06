@@ -182,7 +182,8 @@ export const SCHOOL_BRANDS: readonly {
   mono?: boolean
   darkInvert?: boolean
 }[] = [
-  { nameKey: 'kouzi', src: '/brands/kouzi.png' },
+  // 2026-08-06 修复:brands/kouzi.png 文件缺失(404),改用同品牌 Coze 官方 logo
+  { nameKey: 'kouzi', src: '/footer/awsp/coze.png' },
   { nameKey: 'bbxLogo', src: '/brands/bbx.svg' },
   // brand4.svg 在架构变更中丢失,跳过
   { nameKey: 'zhipu', src: '/brands/zhipu.png' },
