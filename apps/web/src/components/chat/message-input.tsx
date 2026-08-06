@@ -441,12 +441,16 @@ export function MessageInput({
                 权限模式徽章(2026-07-25 深化):在模式徽章右侧持续显示当前权限模式,
                 高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。
                 CurrentModeBadge 已整合到 AgentProgressTrigger 按钮前部(2026-07-29)。 */}
-            <div className="flex items-center gap-2 px-3 pt-2">
-              <div
-                className="ml-auto flex items-center gap-1.5"
-                data-testid="titlebar-permission-mode"
-              >
-                {activeWorkspaceMode && (
+            {/* 权限模式标题栏(2026-08-06 修复):仅在 activeWorkspaceMode 有值时渲染,
+                避免空模式时也占用 pt-2 + flex 行高(原实现始终渲染但内容为空,
+                视觉上是无内容的 8-12px 空白条,被用户反馈"啥也没显示 + 高度太高")。
+                ml-auto 保证徽章右对齐(与底部工具栏右对齐基线一致)。 */}
+            {activeWorkspaceMode && (
+              <div className="flex items-center gap-2 px-3 pt-2">
+                <div
+                  className="ml-auto flex items-center gap-1.5"
+                  data-testid="titlebar-permission-mode"
+                >
                   <span
                     className={cn(
                       'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
@@ -467,7 +471,6 @@ export function MessageInput({
                         ? t('permission.mode.auto')
                         : t('permission.mode.ask')}
                   </span>
-                )}
                 {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
                     只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
                     展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
@@ -495,8 +498,9 @@ export function MessageInput({
                     })}
                   </span>
                 )}
+                </div>
               </div>
-            </div>
+            )}
             {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
             <WebInputCore
               ref={inputCoreRef}

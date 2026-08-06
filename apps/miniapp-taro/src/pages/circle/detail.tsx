@@ -174,11 +174,13 @@ export default function CircleDetailPage() {
   }, [commentText, id, submitting, tt])
 
   const goCommentList = useCallback(() => {
-    Taro.navigateTo({ url: `/pages/comment/list?circleId=${id}` })
-  }, [id])
+    // 项目暂无独立评论列表页(/pages/comment/* 未注册),降级为提示引导在本页评论区浏览
+    Taro.showToast({ title: tt('circle.detail.commentListSoon', '评论列表即将开放'), icon: 'none' })
+  }, [tt])
 
-  const goAigcDetail = useCallback((workId: string) => {
-    Taro.navigateTo({ url: `/pages/aigc/detail?id=${workId}` })
+  const goAigcDetail = useCallback(() => {
+    // /pages/aigc/detail 未注册,跳转到已注册的 AIGC 作品列表页
+    Taro.navigateTo({ url: '/pages/aigc/list' })
   }, [])
 
   const goTopic = useCallback((topicId: string) => {
@@ -229,7 +231,7 @@ export default function CircleDetailPage() {
             ) : null}
 
             {data.aigcWork ? (
-              <View className="cd-aigc-card" onClick={() => goAigcDetail(data.aigcWork!.id)}>
+              <View className="cd-aigc-card" onClick={goAigcDetail}>
                 {data.aigcWork.coverUrl ? (
                   <Image
                     className="cd-aigc-cover"

@@ -1092,7 +1092,42 @@ cd IHUI-AI && docker compose up -d
 - 🟢 **生产级**:完整业务页面 + 完整测试覆盖 + 已用于商业化主平台
 - 🟡 **核心场景级**:核心 Chat / WorkPanel / SSO 等关键路径已打通,但业务页面覆盖度低于 Web 端,适合二次开发补全
 
-**多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求"每一个任务默认全端连通",任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
+**多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求“每一个任务默认全端连通”,任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
+
+### 8 端下载能力矩阵(2026-08-06 立)
+
+> 8 端下载元数据单一事实源(`PLATFORM_META`)+ 详情页(`/download/[platform]`)+ 下载量统计 API + 自动化构建同步脚本。下载中心 UI 为 web 专属,统计 API + 共享层类型 + api-client + hook 跨端复用。
+
+**下载状态矩阵**:
+
+| 端              | 下载形态                       | 版本     | 大小           | 状态         |
+| --------------- | ------------------------------ | -------- | -------------- | ------------ |
+| **Desktop**     | Windows NSIS `.exe` + MSI      | 0.1.13   | 71.6 / 77.7 MB | 🟢 已接入    |
+| **CLI**         | `npm install -g @ihui/cli`     | 1.0.0    | -              | 🟢 已接入    |
+| **Extension**   | Chrome MV3 `.zip`              | 1.0.0    | 1.29 MB        | 🟢 已接入    |
+| **Mobile RN**   | 源码构建(GitHub)              | -        | -              | 🟢 已接入    |
+| **Web**         | PWA / 浏览器访问               | -        | -              | 🟢 已接入    |
+| **iOS**         | App Store                      | -        | -              | 🟡 即将上线  |
+| **Android APK** | 直接下载 `.apk`                | -        | -              | 🟡 即将上线  |
+| **微信小程序**  | 扫码二维码                     | -        | -              | 🟡 即将上线  |
+
+**核心能力**:
+
+- **PLATFORM_META 单一事实源**:8 端下载元数据(id/name/version/size/assetHref/systemRequirements/installGuide/availability)集中定义在 web 端,详情页 `/download/[platform]` 消费,5 语言 i18n 自动跟随
+- **下载量统计 API**:`POST /api/downloads/track`(记录下载事件,前端 sidebar Popover + 详情页下载按钮均接入)+ `GET /api/downloads/stats`(管理员聚合查询,按平台/来源/时间维度)
+- **`download_events` 数据库表**:`packages/database` 新增表(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
+- **共享层跨端复用**:`packages/types/src/download.ts`(类型)+ `packages/api-client/src/endpoints/downloads.ts`(SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook),8 端统计调用统一契约
+- **自动化构建同步**:`scripts/sync-downloads.mjs` 一键构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json`(版本 + 大小 + sha256)
+
+**npm scripts**(根 `package.json`):
+
+| 命令                          | 用途                                                       |
+| ----------------------------- | ---------------------------------------------------------- |
+| `pnpm sync:downloads`         | 全量构建 8 端 + 同步下载包 + 生成 manifest                |
+| `pnpm sync:downloads:check`   | 校验 `manifest.json` 与实际下载包一致(版本/大小/sha256)   |
+| `pnpm sync:downloads:dry-run` | 预览同步计划,不执行写操作                                  |
+
+**详情页路径**:`/download/desktop` / `/download/cli` / `/download/extension` / `/download/mobile` / `/download/web` / `/download/ios` / `/download/android-apk` / `/download/wechat-miniapp`
 
 ---
 

@@ -199,9 +199,10 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set) => ({
       messages: [],
-      // 2026-07-24 升级:与 ai-service default_models.json 首位 + FALLBACK_MODELS 首位对齐
-      // 原 step-3.7-flash 降为备选,step-router-v1 智能路由更适合 tool calling 决策
-      currentModel: 'stepfun/step-router-v1',
+      // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
+      // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
+      // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
+      currentModel: 'auto',
       isStreaming: false,
       error: null,
       conversationId: null,
@@ -211,9 +212,11 @@ export const useChatStore = create<ChatState>()(
       selectedTools: [],
       recentMessages: null,
 
-      // 2026-07-31:'auto' 模型后端不支持(MODEL_NOT_CONFIGURED),降级到 stepfun/step-router-v1
-      // (智能路由模型,符合"自动"语义)。用户选"自动"时 UI 仍显示 AUTO_OPTION,底层存 step-router-v1。
-      setModel: (model) => set({ currentModel: model === 'auto' ? 'stepfun/step-router-v1' : model }),
+      // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
+      // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
+      // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
+      //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
+      setModel: (model) => set({ currentModel: model }),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
@@ -655,14 +658,24 @@ export const useChatStore = create<ChatState>()(
       // 2026-07-31 立:version=3 migrate 把 'auto' 迁移到 stepfun/step-3.7-flash。
       // 原因:后端不支持 'auto' 模型,返回 MODEL_NOT_CONFIGURED 错误,导致 AI 对话无回复。
       // 'auto' 来源:早期 UI 允许选择 'auto' 或用户手动选择后被持久化。
-      version: 3,
+      // 2026-08-06 立:version=4 migrate 恢复 'auto' 合法值。
+      // 原因:ai-service llm_gateway.py 已实现真正的跨厂商自动路由(model=='auto' →
+      //       model_availability 选最优模型,跨 stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
+      // 旧 migrate (version<3) 把 'auto' 改成 'stepfun/step-3.7-flash' 会让用户每次重启
+      // 浏览器都丢失「自动模式」选择,需要再点一次 Auto 才能恢复。新版保留 'auto'。
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         if (persisted && typeof persisted === 'object') {
           const s = persisted as { currentModel?: string }
+          // 2026-08-06 立:version=4 migrate,旧默认值 stepfun/step-router-v1 升级为 'auto'。
+          // 原因:Auto 模式已实现真正跨厂商路由(ai-service llm_gateway._resolve_auto_model),
+          //       比硬绑 stepfun/step-router-v1 覆盖更广。旧用户重启浏览器即升级到 Auto。
+          // 注:显式选择 gpt-4o / claude / deepseek 等其他模型的用户不动,保留原值。
           if (version < 2 && s.currentModel === 'stepfun/step-3.7-flash') {
-            s.currentModel = 'stepfun/step-router-v1'
+            s.currentModel = 'auto'
           }
           // version < 3:'auto' 模型后端不支持,迁移到已验证连通的 stepfun/step-3.7-flash
+          // 2026-08-06 升级:v4 之后已支持 'auto',此分支仅对 v1 → v3 用户生效一次
           if (
             version < 3 &&
             (s.currentModel === 'auto' || s.currentModel === '' || !s.currentModel)

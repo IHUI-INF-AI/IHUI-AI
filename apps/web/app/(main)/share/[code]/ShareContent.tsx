@@ -18,7 +18,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
     <div className="min-h-[60vh] bg-background pb-20">
       <BackButton />
       {/* 头部：模型信息 */}
-      <header className="flex items-center border-b border-border px-5 py-3.5">
+      <header className="flex items-center px-5 py-3.5">
         {modelIcon ? (
           <Image
             src={modelIcon}

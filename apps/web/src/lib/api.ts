@@ -12,9 +12,9 @@ import { getAuthCookie } from '@/lib/cookie-utils'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
-// 原因:登录后只把 accessToken 写到 cookie(2026-07-21 安全加固后未持久化到 localStorage),
-// 刷新页面后 useAuthStore.token 丢失,但 cookie 仍在。CSRF 插件(csrf.ts)对非 Bearer
-// 写请求直接拒绝,导致新增服务商等表单无法保存。
+// P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
+// 该兜底自然失效——请求凭内存 token 发 Bearer;内存无 token 时由浏览器自动附带
+// httpOnly cookie(api-client transport 默认 credentials: 'include')兜底认证。
 setTokenProvider({
   getToken: () => useAuthStore.getState().token ?? getAuthCookie(),
 })

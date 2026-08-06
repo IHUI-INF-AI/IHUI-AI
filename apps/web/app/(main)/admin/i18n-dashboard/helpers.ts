@@ -1,68 +1,10 @@
 import type { I18nOverview } from './types'
 
-export const MOCK: I18nOverview = {
-  languages: [
-    {
-      locale: 'zh-CN',
-      name: '简体中文',
-      total: 3600,
-      translated: 3600,
-      missing: 0,
-      completion: 100,
-    },
-    { locale: 'en', name: 'English', total: 3600, translated: 3420, missing: 180, completion: 95 },
-    { locale: 'ja', name: '日本語', total: 3600, translated: 3168, missing: 432, completion: 88 },
-    { locale: 'ko', name: '한국어', total: 3600, translated: 3060, missing: 540, completion: 85 },
-    {
-      locale: 'zh-TW',
-      name: '繁體中文',
-      total: 3600,
-      translated: 3312,
-      missing: 288,
-      completion: 92,
-    },
-  ],
-  totalMissing: 1440,
-  recentUpdates: [
-    {
-      id: '1',
-      locale: 'en',
-      key: 'common.save',
-      namespace: 'common',
-      updatedAt: '2026-07-14T10:30:00Z',
-      author: 'admin',
-    },
-    {
-      id: '2',
-      locale: 'ja',
-      key: 'menu.settings',
-      namespace: 'menu',
-      updatedAt: '2026-07-14T09:15:00Z',
-      author: 'translator1',
-    },
-    {
-      id: '3',
-      locale: 'ko',
-      key: 'home.welcome',
-      namespace: 'home',
-      updatedAt: '2026-07-13T18:45:00Z',
-    },
-    {
-      id: '4',
-      locale: 'zh-TW',
-      key: 'user.profile',
-      namespace: 'user',
-      updatedAt: '2026-07-13T14:20:00Z',
-      author: 'admin',
-    },
-    {
-      id: '5',
-      locale: 'en',
-      key: 'articles.title',
-      namespace: 'articles',
-      updatedAt: '2026-07-13T11:00:00Z',
-    },
-  ],
+/** 加载失败时的诚实空态,避免用假数据冒充真实缺失统计 */
+export const EMPTY: I18nOverview = {
+  languages: [],
+  totalMissing: 0,
+  recentUpdates: [],
 }
 
 export const LOCALE_COLORS: Record<string, string> = {

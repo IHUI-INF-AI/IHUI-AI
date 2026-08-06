@@ -5,7 +5,6 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { fetchApi } from '@/lib/api'
-import { getRefreshTokenCookie, clearRefreshTokenCookie } from '@/lib/cookie-utils'
 import { refreshAccessToken } from '@ihui/api-client'
 
 export interface UseAuthBootstrapReturn {
@@ -15,18 +14,16 @@ export interface UseAuthBootstrapReturn {
 }
 
 /**
- * 用 refreshToken 调 /api/auth/refresh 获取新 accessToken。
- * 成功返回 { accessToken, refreshToken },失败返回 null 并清理 refresh cookie。
- * 这是"自动登录"的核心:浏览器关闭再打开后,refreshToken cookie(30d)仍在,
- * 自动换取新 token 实现免密登录。
+ * 用 httpOnly refresh_token cookie 调 /api/auth/refresh 获取新 accessToken。
+ * 成功返回 { accessToken, refreshToken },失败返回 null。
+ * P2-18 修复(2026-08-06):refresh_token 已 httpOnly,前端 JS 读不到 cookie,
+ * 不再从 document.cookie 读取,改为无参调用刷新接口(不带 refreshToken body),
+ * 由浏览器自动附带 httpOnly cookie。
  */
 async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: string } | null> {
-  const refreshToken = getRefreshTokenCookie()
-  if (!refreshToken) return null
   try {
-    const r = await refreshAccessToken(refreshToken)
+    const r = await refreshAccessToken()
     if (!r.success || !r.data?.accessToken) {
-      clearRefreshTokenCookie()
       return null
     }
     return {
@@ -34,7 +31,6 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
       refreshToken: r.data.refreshToken,
     }
   } catch {
-    clearRefreshTokenCookie()
     return null
   }
 }
@@ -45,10 +41,10 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
  * 应用启动时尝试用已有 token 恢复登录态并拉取用户资料，
  * 供根布局/Provider 调用以完成"静默登录"。
  *
- * 自动登录闭环(2026-07-22 完善):
- *  1. 优先用 auth_token cookie 直接恢复
- *  2. token 失效时,用 refresh_token cookie 调 /api/auth/refresh 换取新 token
- *  3. refresh 也失败 → 清理 cookie,用户需重新登录
+ * 自动登录闭环(2026-07-22 完善,2026-08-06 P2-18 修订):
+ *  1. 无内存 token 时,直接无参调 /api/auth/refresh(httpOnly refresh_token cookie 自动附带)
+ *  2. 刷新成功 → setToken 恢复登录态
+ *  3. 刷新失败(401) → 保持未登录(静默,不弹登录框)
  */
 export function useAuthBootstrap(): UseAuthBootstrapReturn {
   const token = useAuthStore((s) => s.token)
@@ -64,14 +60,12 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
   React.useEffect(() => {
     let cancelled = false
     async function bootstrap() {
-      // 从 cookie 读取 token（SSR 场景下 store 尚未水合）
+      // P2-18 修复(2026-08-06):auth_token 已 httpOnly,前端 JS 读不到 cookie,
+      // 不再从 document.cookie 恢复 token。改为无内存 token 时直接静默刷新
+      // (POST /api/auth/refresh 不带 refreshToken body,靠 httpOnly cookie 自动附带)。
       let storedToken = token
-      if (!storedToken && typeof document !== 'undefined') {
-        const match = document.cookie.match(/(?:^|;\s*)auth_token=([^;]+)/)
-        storedToken = match ? decodeURIComponent(match[1]!) : null
-      }
 
-      // 无 accessToken:尝试用 refreshToken 自动登录(自动登录闭环)
+      // 无内存 accessToken:尝试静默刷新恢复登录态(自动登录闭环)
       if (!storedToken) {
         const refreshed = await tryRefresh()
         if (cancelled) return
@@ -79,12 +73,16 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
           storedToken = refreshed.accessToken
           setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
         } else {
+          // 刷新失败(401):保持未登录,静默不弹登录框
           setReady(true)
           return
         }
+      } else {
+        // 内存已有 token(本会话登录过):补 setToken 保持状态一致。
+        // P2-18:原实现传 null 会清掉内存 refreshToken,而 httpOnly 后无法再从 cookie 恢复,
+        // 将导致页面刷新后自动续期(startAutoRefresh)与登出吊销失效,故改为保留。
+        setToken(storedToken, useAuthStore.getState().refreshToken)
       }
-
-      setToken(storedToken, null)
 
       try {
         const res = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string; roleId?: number; username?: string; status?: number } }>('/auth/me')

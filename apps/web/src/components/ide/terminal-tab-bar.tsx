@@ -57,7 +57,7 @@ interface TerminalTabBarProps {
  * - 表单校验:主机非空,端口 1-65535,用户名非空,密码或私钥至少一个
  *
  * 样式约束(AGENTS.md §4):
- * - border-b border-border 分隔(非 divide-x)
+ * - 分隔(非 divide-x)
  * - gap-* 间距分隔
  * - 禁止 rounded-full / 蓝色发光边框
  * - active tab 用 subtle 颜色变化(text-foreground vs text-muted-foreground)
@@ -259,7 +259,7 @@ export function TerminalTabBar({
   const isCurrentRecording = activeSessionId ? !!recordingBySession[activeSessionId] : false
 
   return (
-    <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-2 py-1">
+    <div className="flex items-center gap-1 bg-muted/30 px-2 py-1">
       {sessions.map((session, index) => {
         const isActive = session.id === activeSessionId
         const fallbackLabel = `Terminal ${index + 1}`

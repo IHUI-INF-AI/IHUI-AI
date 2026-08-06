@@ -30,48 +30,20 @@ interface StatisticsData {
   sources: SourceItem[]
 }
 
-const MOCK: StatisticsData = {
-  overview: {
-    memberTotal: 1280,
-    lessonTotal: 156,
-    examTotal: 48,
-    signupTotal: 320,
-    examRecordTotal: 1840,
-    postTotal: 92,
-    announcementTotal: 18,
-    articleTotal: 245,
-  },
-  userGrowth: [
-    { date: '07-08', total: 1200, newCount: 45 },
-    { date: '07-09', total: 1280, newCount: 80 },
-    { date: '07-10', total: 1320, newCount: 40 },
-    { date: '07-11', total: 1410, newCount: 90 },
-    { date: '07-12', total: 1485, newCount: 75 },
-    { date: '07-13', total: 1620, newCount: 135 },
-    { date: '07-14', total: 1780, newCount: 160 },
-  ],
-  sources: [
-    { name: '搜索', value: 4200 },
-    { name: '推荐', value: 3100 },
-    { name: '广告', value: 2200 },
-    { name: '社交', value: 1500 },
-    { name: '其他', value: 820 },
-  ],
-}
-
 export default function StatisticsPage() {
   const t = useTranslations('statistics')
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery<StatisticsData>({
+  const { data, isLoading, error } = useQuery<StatisticsData>({
     queryKey: ['statistics', 'admin'],
     queryFn: async () => {
       const r = await fetchApi<StatisticsData>('/api/admin/statistics')
-      return r.success && r.data ? r.data : MOCK
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     staleTime: 60_000,
   })
-  const d = data ?? MOCK
+  const d = data!
 
   const { data: snapshotsData } = useQuery({
     queryKey: ['statistics', 'snapshots'],
@@ -171,6 +143,10 @@ export default function StatisticsPage() {
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            统计加载失败:{(error as Error).message}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">

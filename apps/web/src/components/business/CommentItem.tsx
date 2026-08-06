@@ -42,9 +42,17 @@ function CommentItemImpl({
   const [likeCount, setLikeCount] = React.useState(likes)
   const t = useTranslations('common')
 
+  // 父组件数据刷新后同步 props,避免 UI 显示过期点赞态
+  React.useEffect(() => {
+    setIsLiked(liked)
+    setLikeCount(likes)
+  }, [liked, likes])
+
   const handleLike = () => {
-    setIsLiked(!isLiked)
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1)
+    setIsLiked((prev) => {
+      setLikeCount(prev ? likeCount - 1 : likeCount + 1)
+      return !prev
+    })
     onLike?.()
   }
 
