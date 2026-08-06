@@ -12,13 +12,31 @@ import { isSystemAdminUser } from '../db/queries.js'
  * 受限模型(2026-08-05 安全红线):生产真实 LLM API key(stepfun/agnes/groq/deepseek)
  * 的模型仅系统内置管理员(users.is_system_admin=true)可见/可用,普通用户过滤。
  * 与 ai-service llm.py 的 _ensure_restricted_model_access 双端一致。
+ * 2026-08-06 扩展:新增 nvidia_nim/siliconflow/zhipu/bailian/openai 真实 key。
  */
-const RESTRICTED_PROVIDERS = new Set(['stepfun', 'agnes', 'groq', 'deepseek'])
-const RESTRICTED_MODEL_IDS = new Set(['deepseek-chat', 'deepseek-reasoner'])
+// 受限模型 id 前缀(nvidia/→nvidia_nim;siliconcloud/与 siliconflow/→siliconflow;
+// bailian/→阿里百炼;glm-→zhipu,与 llm_gateway._model_to_provider_code 一致)
+const RESTRICTED_PREFIXES = [
+  'stepfun/',
+  'agnes/',
+  'groq/',
+  'nvidia/',
+  'siliconcloud/',
+  'siliconflow/',
+  'bailian/',
+  'glm-',
+]
+const RESTRICTED_MODEL_IDS = new Set([
+  'deepseek-chat',
+  'deepseek-reasoner',
+  'gpt-4o',
+  'gpt-4o-mini',
+])
 
 function isRestrictedModel(id: string): boolean {
-  const prefix = id.split('/')[0] ?? id
-  return RESTRICTED_PROVIDERS.has(prefix) || RESTRICTED_MODEL_IDS.has(id)
+  return (
+    RESTRICTED_MODEL_IDS.has(id) || RESTRICTED_PREFIXES.some((p) => id.startsWith(p))
+  )
 }
 
 /**
