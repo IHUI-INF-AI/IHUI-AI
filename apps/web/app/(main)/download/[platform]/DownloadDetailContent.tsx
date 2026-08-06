@@ -35,6 +35,7 @@ import {
   type DownloadPlatform,
   type PlatformMeta,
 } from '@/config/downloads.config'
+import { useDownloadTrack } from '@ihui/shared/hooks'
 
 /** platform → 图标组件映射(与 downloads.tsx 的 DOWNLOADS 数组同源) */
 const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?: string }>> = {
@@ -154,6 +155,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
                 asset={asset}
                 label={label}
                 t={t}
+                platform={platform}
               />
             ))}
           </div>
@@ -217,7 +219,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
 
       {/* 底部链接区:GitHub Releases + Docs */}
       {(meta.githubReleasesUrl || meta.docsUrl) && (
-        <section className="flex flex-wrap gap-3 border-t border-border pt-4">
+        <section className="flex flex-wrap gap-3 pt-4">
           {meta.githubReleasesUrl && (
             <a
               href={meta.githubReleasesUrl}
@@ -251,11 +253,14 @@ function DownloadAssetCard({
   asset,
   label,
   t,
+  platform,
 }: {
   asset: DownloadAsset
   label: string
   t: (key: string) => string
+  platform: DownloadPlatform
 }) {
+  const trackDownload = useDownloadTrack()
   const isExternal = /^https?:/.test(asset.href)
   const sizeLabel = formatFileSize(asset.sizeBytes)
 
@@ -290,6 +295,7 @@ function DownloadAssetCard({
         href={asset.href}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
+        onClick={() => trackDownload(platform, 'detail_page', asset.href)}
         className={cn(
           'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         )}

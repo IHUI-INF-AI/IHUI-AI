@@ -66,12 +66,14 @@ const loginSchema = z.object({
   password: z.string().min(1, '密码不能为空'),
 })
 
+// P2-18:refreshToken 改为可选 —— httpOnly cookie 化后,前端 JS 读不到 refresh_token,
+// 刷新/登出靠 cookie 自动附带,body 可缺省(handler 内已兼容 cookie 读取)。
 const refreshSchema = z.object({
-  refreshToken: z.string().min(1, 'refreshToken 不能为空'),
+  refreshToken: z.string().min(1).optional(),
 })
 
 const logoutSchema = z.object({
-  refreshToken: z.string().min(1, 'refreshToken 不能为空'),
+  refreshToken: z.string().min(1).optional(),
 })
 
 const sendCodeSchema = z.object({
@@ -1295,11 +1297,17 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { refreshToken: token } = parsed.data
+      // P2-18:refresh token 来源兼容 —— body.refreshToken 优先(旧前端),无则从 httpOnly cookie 读
+      const bodyToken = parsed.success ? parsed.data.refreshToken : undefined
+      const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+        ?.refresh_token
+      const token = bodyToken || cookieToken
 
-      const record = await findRefreshToken(token)
-      if (record && !record.revokedAt) {
-        await revokeRefreshToken(token)
+      if (token) {
+        const record = await findRefreshToken(token)
+        if (record && !record.revokedAt) {
+          await revokeRefreshToken(token)
+        }
       }
 
       // P2-18:登出清除 httpOnly auth cookie(前端 JS 清不掉,必须服务端下发)

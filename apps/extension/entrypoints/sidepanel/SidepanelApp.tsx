@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
@@ -171,7 +171,7 @@ function SidepanelInner() {
     setTokenState(null)
     setAuthed(false)
     setUser(null)
-    navigate('/login', { replace: true })
+    navigate('/chat', { replace: true })
   }
 
   if (!ready) {
@@ -248,6 +248,15 @@ function SidepanelInner() {
       <NotificationPanel />
     </div>
   )
+}
+
+/**
+ * 旧路由 /agents/:id → /ai/agents/:id 重定向。
+ * 注意:React Router 不会对 <Navigate to> 的字符串做参数替换,必须用组件形式拼 URL。
+ */
+function RedirectAgentDetail() {
+  const { id } = useParams()
+  return <Navigate to={`/ai/agents/${id ?? ''}`} replace />
 }
 
 export default function SidepanelApp() {
@@ -379,7 +388,7 @@ export default function SidepanelApp() {
           />
           {/* 旧路由兼容重定向 */}
           <Route path="/agents" element={<Navigate to="/ai/agents" replace />} />
-          <Route path="/agents/:id" element={<Navigate to="/ai/agents/:id" replace />} />
+          <Route path="/agents/:id" element={<RedirectAgentDetail />} />
           <Route path="/profile" element={<Navigate to="/me/profile" replace />} />
           <Route path="/wallet" element={<Navigate to="/me/wallet" replace />} />
           <Route path="/orders" element={<Navigate to="/me/orders" replace />} />

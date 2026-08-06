@@ -42,10 +42,7 @@ export function WalletScreen() {
       loading={loading}
       error={error}
       onRefresh={() => void load()}
-      onAction={(action) =>
-        // Recharge 路由待主 agent 注册到 RootStackParamList;Withdraw 已存在
-        navigation.navigate((action === 'withdraw' ? 'Withdraw' : 'Recharge') as 'Withdraw')
-      }
+      onAction={(action) => navigation.navigate(action === 'withdraw' ? 'Withdraw' : 'Recharge')}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

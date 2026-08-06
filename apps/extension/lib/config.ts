@@ -5,6 +5,9 @@ const platform = createChromePlatform()
 
 const DEFAULT_API_BASE_URL = 'http://localhost:8802'
 
+/** 默认 AI 服务地址(STT 语音识别等;与 API 服务分离,开发环境 localhost:8803)。 */
+export const DEFAULT_AI_SERVICE_URL = 'http://localhost:8803'
+
 /** 当前运行时 API base URL(由 initApiBaseUrl() 初始化)。 */
 let _apiBaseUrl = DEFAULT_API_BASE_URL
 
