@@ -29,6 +29,7 @@ import {
 } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
+import { logger } from '../../utils/logger.js'
 import { idParamSchema } from './_shared.js'
 import { decryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
 import {
@@ -678,6 +679,13 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
 
       const updated = rows.length
       const failed = ids.length - updated
+      // P2 修复(2026-08-06):批量启停无操作日志,补记操作人/目标状态/影响数量,便于审计追责。
+      logger.info('admin relay-channels batch-toggle executed', {
+        userId: request.userId,
+        enabled,
+        requested: ids.length,
+        updated,
+      })
       return reply.send(success({ updated, failed }))
     } catch (e) {
       request.log.error(e)
