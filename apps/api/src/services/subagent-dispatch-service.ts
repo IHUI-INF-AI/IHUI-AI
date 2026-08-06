@@ -24,6 +24,10 @@
 
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
+import { eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { agentTasks } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -138,12 +142,14 @@ export interface RetryConfig {
   delayMs: number
 }
 
-/** 扩展派单输入(支持 DAG + 优先级 + 配额 + 重试) */
+/** 扩展派单输入(支持 DAG + 优先级 + 配额 + 重试 + agentId 关联) */
 export interface ExtendedDispatchInput extends DispatchInput {
   retry?: RetryConfig
   dag?: DagConfig
   priority?: DispatchPriority
   quotas?: QuotaConfig
+  /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
+  agentId?: string
 }
 
 /** 全局统计 */
@@ -343,6 +349,8 @@ interface DispatchRuntime {
   messages: CommunicationMessage[]
   /** DAG 节点执行状态(stepId → status) */
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
+  /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
+  agentTaskId?: string
 }
 
 /** ai-service 返回的 OrchestrationResult 形状(子集,含 token 用量) */
@@ -1110,6 +1118,8 @@ class SubagentDispatchService {
   private async _persistDispatch(id: string): Promise<void> {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
+    // 2026-08-06: agent_tasks 联动同步(带 agentId 的派单在状态终态时写回轨迹)
+    await this._syncAgentTask(runtime)
     const d = runtime.dispatch
     if (!this.redisClient) return
     try {
@@ -1138,6 +1148,75 @@ class SubagentDispatchService {
       await this.redisClient.zadd(REDIS_KEY_QUEUE, PRIORITY_SCORE[runtime.priority], id)
     } catch {
       // Redis 不可用 → 降级内存,不抛异常
+    }
+  }
+
+  /**
+   * 派单轨迹持久化:创建 agent_tasks 记录(仅 input.agentId 存在时)。
+   * 失败静默(轨迹落库失败不影响派单主流程)。返回 task id,无 agentId / 失败返回 undefined。
+   */
+  private async _createAgentTask(
+    input: ExtendedDispatchInput,
+    dispatchId: string,
+  ): Promise<string | undefined> {
+    if (!input.agentId || input.agentId.length === 0) return undefined
+    try {
+      const [task] = await db
+        .insert(agentTasks)
+        .values({
+          agentId: input.agentId,
+          name: `subagent:${input.orchestration ?? 'parallel'}:${input.agentRole ?? 'coder'}`,
+          description: (input.goal ?? '').slice(0, 2000),
+          status: 'running',
+          startedAt: new Date(),
+          payload: { dispatchId },
+        })
+        .returning({ id: agentTasks.id })
+      return task?.id
+    } catch (err) {
+      logger.warn(`[subagent-dispatch] _createAgentTask 失败(不阻塞): ${String(err)}`)
+      return undefined
+    }
+  }
+
+  /**
+   * 派单轨迹同步:dispatch 进入终态时把 status/result/error 写回 agent_tasks。
+   * running/pending 保持创建时的 running;幂等(终态只写一次);失败静默。
+   */
+  private async _syncAgentTask(runtime: DispatchRuntime): Promise<void> {
+    const taskId = runtime.agentTaskId
+    if (!taskId) return
+    // quota_exceeded / preempted 为代码内 as 强转态,不在 DispatchStatus 联合中,用 string 集合判断
+    const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+      'completed',
+      'failed',
+      'quota_exceeded',
+      'cancelled',
+      'preempted',
+    ])
+    const status = String(runtime.dispatch.status)
+    if (!TERMINAL_STATUSES.has(status)) return
+    try {
+      const terminalStatus = status === 'preempted' ? 'cancelled' : status
+      await db
+        .update(agentTasks)
+        .set({
+          status: terminalStatus,
+          result:
+            status === 'completed' && typeof runtime.dispatch.result === 'string'
+              ? { output: runtime.dispatch.result }
+              : undefined,
+          errorMessage:
+            (status === 'failed' || status === 'quota_exceeded') &&
+            typeof runtime.dispatch.result === 'string'
+              ? runtime.dispatch.result.slice(0, 2000)
+              : undefined,
+          completedAt: runtime.completedAt ? new Date(runtime.completedAt) : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentTasks.id, taskId))
+    } catch (err) {
+      logger.warn(`[subagent-dispatch] _syncAgentTask 失败(不阻塞): ${String(err)}`)
     }
   }
 
@@ -1325,7 +1404,7 @@ class SubagentDispatchService {
 
     // 先入 Map(pending),保证 GET /active 立即能看到
     const pending = buildDispatch(input, 'pending')
-    this.runtimes.set(pending.id, {
+    const runtime: DispatchRuntime = {
       dispatch: pending,
       retry,
       dag,
@@ -1337,7 +1416,10 @@ class SubagentDispatchService {
       checkpoints: new Map(),
       messages: [],
       dagNodeStatus: new Map(),
-    })
+    }
+    this.runtimes.set(pending.id, runtime)
+    // 2026-08-06: 派单轨迹持久化 — 带 agentId 的派单写入 agent_tasks(agents 详情页 5 Tab 运行时数据源)
+    runtime.agentTaskId = await this._createAgentTask(input, pending.id)
     await this._persistDispatch(pending.id)
     await this._persistLog(pending.id, {
       ts: nowIso(),
