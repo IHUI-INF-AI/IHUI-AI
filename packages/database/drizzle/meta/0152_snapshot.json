@@ -1199,8 +1199,18 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": false },
-        "action": { "name": "action", "type": "varchar(32)", "primaryKey": false, "notNull": true },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "resource_type": {
           "name": "resource_type",
           "type": "varchar(64)",
@@ -1218,9 +1228,14 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027{}\u0027::jsonb"
+          "default": "'{}'::jsonb"
         },
-        "ip": { "name": "ip", "type": "varchar(64)", "primaryKey": false, "notNull": false },
+        "ip": {
+          "name": "ip",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "user_agent": {
           "name": "user_agent",
           "type": "varchar(512)",
@@ -1248,7 +1263,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.search_history": {
       "name": "search_history",
@@ -3648,14 +3666,14 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": false,
-          "default": "true"
+          "default": true
         },
         "environment": {
           "name": "environment",
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027production\u0027"
+          "default": "'production'"
         },
         "created_at": {
           "name": "created_at",
@@ -3675,18 +3693,26 @@
       "indexes": {
         "payment_configs_provider_idx": {
           "name": "payment_configs_provider_idx",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "provider" }],
-          "columns": ["provider"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.system_configs": {
       "name": "system_configs",
@@ -7488,7 +7514,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027parent-child\u0027"
+          "default": "'parent-child'"
         },
         "created_at": {
           "name": "created_at",
@@ -7501,23 +7527,33 @@
       "indexes": {
         "department_relations_parent_idx": {
           "name": "department_relations_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_dept_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "parent_dept_id" }],
-          "columns": ["parent_dept_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "department_relations_child_idx": {
           "name": "department_relations_child_idx",
+          "columns": [
+            {
+              "expression": "child_dept_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "child_dept_id" }],
-          "columns": ["child_dept_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -7541,7 +7577,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.departments": {
       "name": "departments",
@@ -9099,7 +9138,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027active\u0027"
+          "default": "'active'"
         },
         "created_at": {
           "name": "created_at",
@@ -9112,23 +9151,33 @@
       "indexes": {
         "certificate_serial_numbers_certificate_id_idx": {
           "name": "certificate_serial_numbers_certificate_id_idx",
+          "columns": [
+            {
+              "expression": "certificate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "certificate_id" }],
-          "columns": ["certificate_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "certificate_serial_numbers_serial_number_uniq": {
           "name": "certificate_serial_numbers_serial_number_uniq",
+          "columns": [
+            {
+              "expression": "serial_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": true,
-          "columnExpressions": [{ "name": "serial_number" }],
-          "columns": ["serial_number"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -9143,7 +9192,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.certificate_templates": {
       "name": "certificate_templates",
@@ -12611,7 +12663,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "agent_id": { "name": "agent_id", "type": "uuid", "primaryKey": false, "notNull": false },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "category_id": {
           "name": "category_id",
           "type": "uuid",
@@ -12623,14 +12680,14 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": false,
-          "default": "false"
+          "default": false
         },
         "sort": {
           "name": "sort",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": "0"
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -12643,23 +12700,33 @@
       "indexes": {
         "agent_category_links_agent_idx": {
           "name": "agent_category_links_agent_idx",
+          "columns": [
+            {
+              "expression": "agent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "agent_id" }],
-          "columns": ["agent_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "agent_category_links_category_idx": {
           "name": "agent_category_links_category_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "category_id" }],
-          "columns": ["category_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -12683,7 +12750,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.zhs_agent_collect": {
       "name": "zhs_agent_collect",
@@ -13598,14 +13668,24 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "rule_id": { "name": "rule_id", "type": "uuid", "primaryKey": false, "notNull": false },
+        "rule_id": {
+          "name": "rule_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "target_type": {
           "name": "target_type",
           "type": "varchar(32)",
           "primaryKey": false,
           "notNull": true
         },
-        "target_id": { "name": "target_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -13617,23 +13697,39 @@
       "indexes": {
         "idx_rule_link_rule_id": {
           "name": "idx_rule_link_rule_id",
+          "columns": [
+            {
+              "expression": "rule_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "rule_id" }],
-          "columns": ["rule_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "idx_rule_link_target": {
           "name": "idx_rule_link_target",
+          "columns": [
+            {
+              "expression": "target_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "target_type" }, { "name": "target_id" }],
-          "columns": ["target_type", "target_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -13648,7 +13744,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.agent_rule_param": {
       "name": "agent_rule_param",
@@ -13661,7 +13760,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "rule_id": { "name": "rule_id", "type": "uuid", "primaryKey": false, "notNull": false },
+        "rule_id": {
+          "name": "rule_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "param_name": {
           "name": "param_name",
           "type": "varchar(100)",
@@ -13679,14 +13783,14 @@
           "type": "varchar(32)",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027string\u0027"
+          "default": "'string'"
         },
         "sort": {
           "name": "sort",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": "0"
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -13706,13 +13810,18 @@
       "indexes": {
         "idx_rule_param_rule_id": {
           "name": "idx_rule_param_rule_id",
+          "columns": [
+            {
+              "expression": "rule_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "rule_id" }],
-          "columns": ["rule_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -13727,7 +13836,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.agent_upload": {
       "name": "agent_upload",
@@ -13740,8 +13852,18 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "agent_id": { "name": "agent_id", "type": "uuid", "primaryKey": false, "notNull": true },
-        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "file_name": {
           "name": "file_name",
           "type": "varchar(255)",
@@ -13777,9 +13899,14 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false,
-          "default": "\u0027pending\u0027"
+          "default": "'pending'"
         },
-        "metadata": { "name": "metadata", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -13798,28 +13925,41 @@
       "indexes": {
         "idx_agent_upload_agent_id": {
           "name": "idx_agent_upload_agent_id",
+          "columns": [
+            {
+              "expression": "agent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "agent_id" }],
-          "columns": ["agent_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "idx_agent_upload_user_id": {
           "name": "idx_agent_upload_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "user_id" }],
-          "columns": ["user_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.hot_words": {
       "name": "hot_words",
@@ -21076,20 +21216,25 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "lesson_id": { "name": "lesson_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "lesson_id": {
+          "name": "lesson_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "access_type": {
           "name": "access_type",
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027all\u0027"
+          "default": "'all'"
         },
         "access_values": {
           "name": "access_values",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027[]\u0027"
+          "default": "'[]'"
         },
         "created_at": {
           "name": "created_at",
@@ -21109,18 +21254,26 @@
       "indexes": {
         "lesson_access_lesson_idx": {
           "name": "lesson_access_lesson_idx",
+          "columns": [
+            {
+              "expression": "lesson_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "lesson_id" }],
-          "columns": ["lesson_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.lesson_rate": {
       "name": "lesson_rate",
@@ -21133,10 +21286,30 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "lesson_id": { "name": "lesson_id", "type": "uuid", "primaryKey": false, "notNull": true },
-        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": true },
-        "sign_id": { "name": "sign_id", "type": "uuid", "primaryKey": false, "notNull": false },
-        "content": { "name": "content", "type": "text", "primaryKey": false, "notNull": false },
+        "lesson_id": {
+          "name": "lesson_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sign_id": {
+          "name": "sign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "content_utility_score": {
           "name": "content_utility_score",
           "type": "integer",
@@ -21160,14 +21333,14 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": "false"
+          "default": false
         },
         "status": {
           "name": "status",
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027published\u0027"
+          "default": "'published'"
         },
         "created_at": {
           "name": "created_at",
@@ -21187,28 +21360,41 @@
       "indexes": {
         "lesson_rate_lesson_idx": {
           "name": "lesson_rate_lesson_idx",
+          "columns": [
+            {
+              "expression": "lesson_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "lesson_id" }],
-          "columns": ["lesson_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "lesson_rate_user_idx": {
           "name": "lesson_rate_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "user_id" }],
-          "columns": ["user_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.lesson_task": {
       "name": "lesson_task",
@@ -21221,7 +21407,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "lesson_id": { "name": "lesson_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "lesson_id": {
+          "name": "lesson_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "lesson_chapter_id": {
           "name": "lesson_chapter_id",
           "type": "uuid",
@@ -21234,7 +21425,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "title": { "name": "title", "type": "varchar(200)", "primaryKey": false, "notNull": true },
+        "title": {
+          "name": "title",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "content_type": {
           "name": "content_type",
           "type": "varchar(50)",
@@ -21252,7 +21448,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027enable\u0027"
+          "default": "'enable'"
         },
         "created_at": {
           "name": "created_at",
@@ -21272,28 +21468,41 @@
       "indexes": {
         "lesson_task_lesson_idx": {
           "name": "lesson_task_lesson_idx",
+          "columns": [
+            {
+              "expression": "lesson_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "lesson_id" }],
-          "columns": ["lesson_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "lesson_task_chapter_idx": {
           "name": "lesson_task_chapter_idx",
+          "columns": [
+            {
+              "expression": "lesson_chapter_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "lesson_chapter_id" }],
-          "columns": ["lesson_chapter_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.lesson_record_logs": {
       "name": "lesson_record_logs",
@@ -21982,35 +22191,45 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "name": { "name": "name", "type": "varchar(100)", "primaryKey": false, "notNull": true },
-        "host": { "name": "host", "type": "varchar(255)", "primaryKey": false, "notNull": true },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "host": {
+          "name": "host",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "rtmp_port": {
           "name": "rtmp_port",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "1935"
+          "default": 1935
         },
         "http_port": {
           "name": "http_port",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "8080"
+          "default": 8080
         },
         "webrtc_port": {
           "name": "webrtc_port",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "1985"
+          "default": 1985
         },
         "api_port": {
           "name": "api_port",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "1985"
+          "default": 1985
         },
         "api_secret": {
           "name": "api_secret",
@@ -22023,14 +22242,14 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "100"
+          "default": 100
         },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": "true"
+          "default": true
         },
         "health_check_url": {
           "name": "health_check_url",
@@ -22049,7 +22268,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027online\u0027"
+          "default": "'online'"
         },
         "created_at": {
           "name": "created_at",
@@ -22069,18 +22288,26 @@
       "indexes": {
         "srs_servers_active_idx": {
           "name": "srs_servers_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "is_active" }],
-          "columns": ["is_active"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.srs_streams": {
       "name": "srs_streams",
@@ -22105,7 +22332,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "title": { "name": "title", "type": "varchar(200)", "primaryKey": false, "notNull": true },
+        "title": {
+          "name": "title",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "push_url": {
           "name": "push_url",
           "type": "varchar(500)",
@@ -22141,7 +22373,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027inactive\u0027"
+          "default": "'inactive'"
         },
         "publisher_ip": {
           "name": "publisher_ip",
@@ -22214,23 +22446,28 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": "0"
+          "default": 0
         },
         "recv_bytes": {
           "name": "recv_bytes",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": "0"
+          "default": 0
         },
         "send_bytes": {
           "name": "send_bytes",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": "0"
+          "default": 0
         },
-        "metadata": { "name": "metadata", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -22249,33 +22486,48 @@
       "indexes": {
         "srs_streams_key_idx": {
           "name": "srs_streams_key_idx",
+          "columns": [
+            {
+              "expression": "stream_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "stream_key" }],
-          "columns": ["stream_key"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "srs_streams_channel_idx": {
           "name": "srs_streams_channel_idx",
+          "columns": [
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "channel_id" }],
-          "columns": ["channel_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "srs_streams_status_idx": {
           "name": "srs_streams_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "status" }],
-          "columns": ["status"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -22286,7 +22538,10 @@
           "nullsNotDistinct": false,
           "columns": ["stream_key"]
         }
-      }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.remote_device_tasks": {
       "name": "remote_device_tasks",
@@ -22299,34 +22554,49 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "device_id": { "name": "device_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "device_id": {
+          "name": "device_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "task_type": {
           "name": "task_type",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
-        "title": { "name": "title", "type": "varchar(200)", "primaryKey": false, "notNull": true },
+        "title": {
+          "name": "title",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "description": {
           "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "payload": { "name": "payload", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "priority": {
           "name": "priority",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "0"
+          "default": 0
         },
         "status": {
           "name": "status",
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027pending\u0027"
+          "default": "'pending'"
         },
         "dispatched_at": {
           "name": "dispatched_at",
@@ -22346,7 +22616,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "result": { "name": "result", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "error_message": {
           "name": "error_message",
           "type": "text",
@@ -22358,14 +22633,14 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "0"
+          "default": 0
         },
         "max_retries": {
           "name": "max_retries",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "3"
+          "default": 3
         },
         "created_by": {
           "name": "created_by",
@@ -22391,33 +22666,48 @@
       "indexes": {
         "remote_device_tasks_device_idx": {
           "name": "remote_device_tasks_device_idx",
+          "columns": [
+            {
+              "expression": "device_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "device_id" }],
-          "columns": ["device_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "remote_device_tasks_status_idx": {
           "name": "remote_device_tasks_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "status" }],
-          "columns": ["status"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "remote_device_tasks_type_idx": {
           "name": "remote_device_tasks_type_idx",
+          "columns": [
+            {
+              "expression": "task_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "task_type" }],
-          "columns": ["task_type"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -22432,7 +22722,10 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.remote_devices": {
       "name": "remote_devices",
@@ -22463,7 +22756,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "model": { "name": "model", "type": "varchar(100)", "primaryKey": false, "notNull": false },
+        "model": {
+          "name": "model",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "manufacturer": {
           "name": "manufacturer",
           "type": "varchar(100)",
@@ -22511,7 +22809,7 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
-          "default": "\u0027offline\u0027"
+          "default": "'offline'"
         },
         "battery_level": {
           "name": "battery_level",
@@ -22525,14 +22823,24 @@
           "primaryKey": false,
           "notNull": false
         },
-        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": false },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "last_online_at": {
           "name": "last_online_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "metadata": { "name": "metadata", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -22551,33 +22859,48 @@
       "indexes": {
         "remote_devices_no_idx": {
           "name": "remote_devices_no_idx",
+          "columns": [
+            {
+              "expression": "device_no",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "device_no" }],
-          "columns": ["device_no"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "remote_devices_status_idx": {
           "name": "remote_devices_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "status" }],
-          "columns": ["status"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         },
         "remote_devices_user_idx": {
           "name": "remote_devices_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
-          "columnExpressions": [{ "name": "user_id" }],
-          "columns": ["user_id"],
-          "isAggregate": false,
+          "concurrently": false,
           "method": "btree",
-          "where": null,
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -22588,7 +22911,10 @@
           "nullsNotDistinct": false,
           "columns": ["device_no"]
         }
-      }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.canary_audit_logs": {
       "name": "canary_audit_logs",
