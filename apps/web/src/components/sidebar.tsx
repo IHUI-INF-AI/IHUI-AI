@@ -109,6 +109,7 @@ import {
   TOPBAR_BTN_W9,
 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
+import { useDownloadTrack } from '@ihui/shared/hooks'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'
@@ -561,6 +562,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
   const { trackClick } = useAnalytics()
+  const trackDownload = useDownloadTrack()
   const { locale, setLocale } = useLanguageStore()
   const { theme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
@@ -634,13 +636,13 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         tooltipSide={collapsed ? 'right' : 'top'}
         className="p-0"
         content={
-          <div className="flex w-36 flex-col gap-px p-1">
+          <div className="flex w-36 flex-col gap-px p-2">
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleLocaleChange(lang.code)}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent',
+                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent',
                   locale === lang.code && 'bg-accent font-medium',
                 )}
               >
@@ -656,10 +658,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
               </button>
             ))}
             {/* 2026-08-02 海外 SEO 入口:独立 /en 路由(英文 landing page),区别于 locale 切换 */}
-            <div className="my-1 h-px bg-border" aria-hidden="true" />
+            <div className="my-1.5 h-px bg-border" aria-hidden="true" />
             <Link
               href="/en"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <span className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground">
                 EN
@@ -770,7 +772,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   <Link
                     key={item.platform}
                     href={item.href}
-                    onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                    onClick={() => {
+                      trackClick(`download_${item.platform}`, 'download_popover')
+                      trackDownload(item.platform, 'sidebar')
+                    }}
                     className={className}
                   >
                     {inner}
@@ -785,7 +790,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   href={item.href}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
-                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                  onClick={() => {
+                    trackClick(`download_${item.platform}`, 'download_popover')
+                    trackDownload(item.platform, 'sidebar')
+                  }}
                   className={className}
                 >
                   {inner}
@@ -2104,7 +2112,7 @@ const Sidebar = React.memo(function Sidebar({
           // 改 overflow-y-auto → overflow-hidden,让 nav 自己处理 overflow-y-auto
           // 之前 aside 整体 overflow-y-auto,内容超长时 footer 被推下屏幕外不可见
           // 现在 footer (shrink-0) 固定在底部,nav (flex-1 overflow-y-auto) 独立滚动
-          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{

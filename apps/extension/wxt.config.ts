@@ -31,7 +31,12 @@ export default defineConfig({
       // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
       'identity',
     ],
-    host_permissions: ['http://localhost:8802/*', 'https://*.aizhs.top/*'],
+    host_permissions: [
+      'http://localhost:8802/*',
+      // 2026-08-06 补 8803:VoiceInput STT fallback 直连 ai-service(localhost:8803)
+      'http://localhost:8803/*',
+      'https://*.aizhs.top/*',
+    ],
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',

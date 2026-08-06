@@ -13,11 +13,17 @@ import type { WebSocket } from '@fastify/websocket'
 import { desc, eq, sql } from 'drizzle-orm'
 import { liveComment, type LiveComment } from '@ihui/database'
 import { db } from '../db/index.js'
+import { WsRateLimiter } from '../plugins/ws-helpers.js'
 
 export const HISTORY_PAGE_SIZE = 50
 const MAX_CONTENT_LENGTH = 2000
 const MAX_ROOMS = 1000
 const MAX_CONN_PER_ROOM = 500
+// P2 修复(2026-08-06):live-chat WS 消息频率限制(防刷屏)。
+// 与 plugins/ws-chat.ts 的 WsRateLimiter 保持一致:每用户滑动窗口 60 条/分钟,
+// 覆盖 send(落库+广播)与 history(查库)等业务消息,超限返回 429 错误帧(不关连接)。
+const MESSAGE_RATE_LIMIT = 60
+const MESSAGE_RATE_WINDOW_MS = 60_000
 
 // P2 修复(2026-08-06):HTML 转义,防聊天消息 XSS。
 // 消息 content/userName/userAvatar 来自客户端,直接落库+广播会被注入 `<script>` 等
@@ -98,6 +104,8 @@ export class LiveChatRoom {
 
 export class LiveChatServer {
   private rooms = new Map<string, LiveChatRoom>()
+  // P2 修复(2026-08-06):per-user 消息频率限制(60 条/分钟,滑动窗口)
+  private readonly messageRateLimiter = new WsRateLimiter(MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS)
 
   join(roomId: string, ws: WebSocket): LiveChatRoom {
     let room = this.rooms.get(roomId)
@@ -129,6 +137,14 @@ export class LiveChatServer {
     return this.rooms.size
   }
 
+  /**
+   * P2 修复(2026-08-06):用户断开时清除其消息频率窗口,防止内存累积。
+   * 连接关闭/出错时由调用方(live-chat 路由)触发。
+   */
+  resetUserRateLimit(userId: string): void {
+    this.messageRateLimiter.reset(userId)
+  }
+
   totalConnections(): number {
     let n = 0
     for (const r of this.rooms.values()) n += r.size
@@ -152,6 +168,16 @@ export class LiveChatServer {
 
     if (msg.type === 'ping') {
       room.sendTo(ws, JSON.stringify({ type: 'pong' }))
+      return
+    }
+
+    // P2 修复(2026-08-06):业务消息(history/send 等)频率限制,超限返回 429 错误帧。
+    // ping 不计数(心跳需高频),其余消息统一走滑动窗口,防单用户刷屏压垮落库与广播。
+    if (!this.messageRateLimiter.allow(userId)) {
+      room.sendTo(
+        ws,
+        JSON.stringify({ type: 'error', code: 429, message: '消息发送过快，请稍后再试' }),
+      )
       return
     }
 

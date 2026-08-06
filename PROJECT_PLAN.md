@@ -2772,3 +2772,45 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - **领域级守门局限性**:check-commit-scope / check-staged-pollution 都是领域级(web/api/i18n),无法防御同目录文件级污染(message-list + message-input 同在 chat/ 目录)
 - **根治方案层级**:safe-commit.mjs(根本解决,git reset HEAD 清空暂存区)> auditStagingFiles(提示层,让 agent 察觉异常)> restoreStaging(防御层,unstage hook 期间新增文件)
 
+---
+
+## 下载功能深度开发(2026-08-06 ✅,跨端:apps/web + apps/api + packages/{types,api-client,shared,database},AGENTS.md §24 用户已确认)
+
+> **触发**:用户要求为 8 端开发完整下载功能深度开发(详情页 + 下载量统计 + 自动化构建同步)。
+> **范围**:8 端下载元数据单一事实源 + `/download/[platform]` 详情页 + 下载量统计后端 API + download_events 表 + 共享层类型/api-client/hook + 前端集成 + 自动化构建同步脚本。
+> **AGENTS.md §21 README 同步**:已同步 — README "8 端架构" 章节新增 "8 端下载能力矩阵" 子章节,列 8 端下载状态 + 核心能力 5 项 + npm scripts 命令表 + 详情页路径。
+
+### 已完成清单
+
+- [x] ✅(2026-08-06) 8 端下载元数据单一事实源(PLATFORM_META)— `apps/web/src/lib/download-meta.ts` 集中定义 8 端元数据(id/name/version/size/assetHref/systemRequirements/installGuide/availability),5 语言 i18n 自动跟随
+- [x] ✅(2026-08-06) `/download/[platform]` 详情页 — `apps/web/app/(main)/download/[platform]/page.tsx`(版本/大小/系统要求/安装指南/下载资源卡片)
+- [x] ✅(2026-08-06) 下载量统计后端 API — `POST /api/downloads/track`(记录下载事件,uuid + userId + platform + assetHref + source + ip + userAgent)+ `GET /api/downloads/stats`(管理员聚合查询,按平台/来源/时间维度)
+- [x] ✅(2026-08-06) `download_events` 数据库表 + migration — `packages/database/src/schema/download-events.ts`(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
+- [x] ✅(2026-08-06) 共享层类型 + api-client + hook 跨端复用 — `packages/types/src/download.ts`(DownloadEvent/DownloadStatsRequest/DownloadStatsResponse 类型)+ `packages/api-client/src/endpoints/downloads.ts`(trackDownload/fetchDownloadStats SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook)
+- [x] ✅(2026-08-06) 前端 sidebar + 详情页集成统计 API — sidebar Popover 点击调 `trackDownload` + 详情页下载按钮点击调 `trackDownload`,均带 source 字段区分入口
+- [x] ✅(2026-08-06) 自动化构建同步脚本 — `scripts/sync-downloads.mjs`(构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json` 含版本/大小/sha256)+ npm scripts `sync:downloads` / `:check` / `:dry-run`
+- [x] ✅(2026-08-06) i18n 5 语言翻译键补全 — 36 key × 5 语言(zh-CN/zh-TW/en/ja/ko)download.* 命名空间,check-i18n-keys.mjs parity OK + scan-i18n-zh-residue.mjs 无残留
+
+### 已接入端(有真实下载包)
+
+- **desktop**:Windows NSIS `.exe`(71.6 MB)+ MSI(77.7 MB),版本 0.1.13
+- **extension**:Chrome MV3 `.zip`(1.29 MB),版本 1.0.0
+- **cli**:`npm install -g @ihui/cli`(详情页展示安装命令)
+- **mobile**:源码构建(详情页展示 GitHub 链接)
+- **web**:PWA / 浏览器访问
+
+### 待运营接入(详情页显示"即将上线"占位)
+
+- [ ] 运营接入 iOS App Store ID(待用户提供数据)
+- [ ] 运营接入 Android APK 下载 URL(待用户提供数据)
+- [ ] 运营接入微信小程序 QR(待用户提供数据)
+
+### 平台环境限制(待后续构建)
+
+- [ ] macOS `.dmg` 包构建(需 macOS 环境)
+- [ ] Linux `.deb` / `.AppImage` 包构建(需 Linux 环境)
+
+### admin 后台(待开发)
+
+- [ ] admin 后台下载量统计展示页(GET /api/downloads/stats 已实现,展示页待开发)
+

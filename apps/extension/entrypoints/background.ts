@@ -276,16 +276,6 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
         const data = await handleSidePanelOpen(msg.payload)
         return reply(msg.requestId, data)
       }
-      case 'notification.broadcast': {
-        // 广播给所有 frame(content script + sidepanel)
-        await platform.messaging
-          .sendRuntimeMessage({
-            type: 'ws.notification',
-            payload: msg.payload,
-          })
-          .catch(() => {})
-        return reply(msg.requestId, { broadcast: true })
-      }
       case 'agent.action': {
         // 2026-07-22 P2 dedupe:改用 agent-control.ts 的 executeAgentActionRequest
         // (与 agent-control-bridge.ts 共用同一实现,消除重复)

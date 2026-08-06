@@ -122,3 +122,6 @@ export {
   type ImAdapterFieldSchema,
   type ImPlatformMeta,
 } from './im-gateway'
+
+// 下载量统计跨端契约(2026-08-06 立,8 端下载点击上报 + 统计类型)
+export * from './download'
