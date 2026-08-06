@@ -569,7 +569,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               实际无积分倍数,保持纯文本 "自动" + 描述) */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
-              onSelect={() => onChange('stepfun/step-router-v1')}
+              onSelect={() => onChange(AUTO_OPTION.value)}
               className={cn(
                 'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
                 'focus:bg-accent focus:text-accent-foreground',
@@ -579,7 +579,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               <Check
                 className={cn(
                   'h-4 w-4 shrink-0',
-                  value === 'stepfun/step-router-v1' ? 'opacity-100' : 'opacity-0',
+                  value === AUTO_OPTION.value ? 'opacity-100' : 'opacity-0',
                 )}
               />
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
