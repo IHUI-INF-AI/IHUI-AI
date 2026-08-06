@@ -2,11 +2,12 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowRight, Loader2, RotateCw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
-import { fetchSources, fetchVisualization } from '@/lib/context-api'
+import { fetchSources, fetchVisualization, updateSources } from '@/lib/context-api'
 import { SourceList } from '@/components/context/SourceList'
 import { TokenPieChart } from '@/components/context/TokenPieChart'
 import type { ContextSource, ContextType } from '@ihui/shared/context/index'
@@ -18,6 +19,7 @@ const SUB_PAGES = [
 ] as const
 
 export default function ContextOverviewPage() {
+  const qc = useQueryClient()
   const sourcesQ = useQuery({
     queryKey: ['context', 'sources'],
     queryFn: fetchSources,
@@ -29,20 +31,38 @@ export default function ContextOverviewPage() {
 
   const [sources, setSources] = React.useState<ContextSource[]>([])
   React.useEffect(() => {
-    if (sourcesQ.data) setSources(sourcesQ.data)
+    // 后端返回 { sources, defaultBudget },取 sources 数组(此前类型声明为数组导致页面一直空态)
+    if (sourcesQ.data?.sources) setSources(sourcesQ.data.sources)
   }, [sourcesQ.data])
 
-  const dist = vizQ.data?.current
+  // 持久化开关/预算(乐观更新 + PUT,失败回滚并提示)
+  const persistMut = useMutation({
+    mutationFn: (updates: Array<{ type: ContextType; enabled?: boolean; budgetPercent?: number }>) =>
+      updateSources(updates),
+    onError: (e: Error) => {
+      toast.error('上下文源设置保存失败', { description: e.message })
+      void qc.invalidateQueries({ queryKey: ['context', 'sources'] })
+    },
+  })
 
-  const handleToggle = React.useCallback((type: ContextType, enabled: boolean) => {
-    setSources((prev) => prev.map((s) => (s.type === type ? { ...s, enabled } : s)))
-  }, [])
+  const handleToggle = React.useCallback(
+    (type: ContextType, enabled: boolean) => {
+      setSources((prev) => prev.map((s) => (s.type === type ? { ...s, enabled } : s)))
+      persistMut.mutate([{ type, enabled }])
+    },
+    [persistMut],
+  )
 
-  const handleBudget = React.useCallback((type: ContextType, percent: number) => {
-    setSources((prev) => prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)))
-  }, [])
+  const handleBudget = React.useCallback(
+    (type: ContextType, percent: number) => {
+      setSources((prev) => prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)))
+      persistMut.mutate([{ type, budgetPercent: percent }])
+    },
+    [persistMut],
+  )
 
   const isLoading = sourcesQ.isLoading || vizQ.isLoading
+  const dist = vizQ.data?.current
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">

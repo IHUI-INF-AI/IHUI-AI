@@ -150,16 +150,19 @@ function DataTableImpl<T extends Record<string, unknown>>({
                 </td>
               </tr>
             ) : (
-              sortedData.map((row, i) => (
-                <tr key={rowKey(row, i)} className="transition-colors hover:bg-muted/30">
+              sortedData.map(({ row, index }) => (
+                <tr key={rowKey(row, index)} className="transition-colors hover:bg-muted/30">
                   {selectable && (
                     <td className="w-10 px-3 py-2.5">
-                      <Checkbox checked={selected.has(i)} onChange={() => toggleRow(i)} />
+                      <Checkbox
+                        checked={selected.has(rowKey(row, index))}
+                        onChange={() => toggleRow(row, index)}
+                      />
                     </td>
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className={cn('px-3 py-2.5', alignMap[col.align ?? 'left'])}>
-                      {col.render ? col.render(row, i) : String(row[col.key] ?? '')}
+                      {col.render ? col.render(row, index) : String(row[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>
