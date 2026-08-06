@@ -667,10 +667,15 @@ export const useChatStore = create<ChatState>()(
       migrate: (persisted: unknown, version: number) => {
         if (persisted && typeof persisted === 'object') {
           const s = persisted as { currentModel?: string }
+          // 2026-08-06 立:version=4 migrate,旧默认值 stepfun/step-router-v1 升级为 'auto'。
+          // 原因:Auto 模式已实现真正跨厂商路由(ai-service llm_gateway._resolve_auto_model),
+          //       比硬绑 stepfun/step-router-v1 覆盖更广。旧用户重启浏览器即升级到 Auto。
+          // 注:显式选择 gpt-4o / claude / deepseek 等其他模型的用户不动,保留原值。
           if (version < 2 && s.currentModel === 'stepfun/step-3.7-flash') {
-            s.currentModel = 'stepfun/step-router-v1'
+            s.currentModel = 'auto'
           }
           // version < 3:'auto' 模型后端不支持,迁移到已验证连通的 stepfun/step-3.7-flash
+          // 2026-08-06 升级:v4 之后已支持 'auto',此分支仅对 v1 → v3 用户生效一次
           if (
             version < 3 &&
             (s.currentModel === 'auto' || s.currentModel === '' || !s.currentModel)
