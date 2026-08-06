@@ -15378,13 +15378,7 @@
       "gisLoadFailedToast": "Google GIS 載入失敗",
       "oneTapNotInitialized": "Google One Tap 尚未初始化",
       "oneTapNotDisplayed": "Google One Tap 未顯示"
-    },
-    "twoFactorTitle": "兩步驗證",
-    "twoFactorHint": "輸入驗證器中的 6 位驗證碼,或備用恢復碼(格式 AAAA-AAAA)",
-    "twoFactorPlaceholder": "6 位驗證碼或備用碼",
-    "twoFactorSubmit": "驗證並登入",
-    "twoFactorCancel": "取消",
-    "twoFactorError": "驗證碼無效或已過期,請重試"
+    }
   },
   "title": "管理後臺",
   "errors": {
