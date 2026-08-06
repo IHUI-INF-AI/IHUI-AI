@@ -35,12 +35,26 @@ const PUBLIC_PREFIXES = [
   '/api/oauth/',
   // 服务回调（HMAC/共享密钥，无 JWT）
   '/api/ai/callback',
-  '/api/payments/',
+  // 支付服务端回调（P2 修复 2026-08-06:豁免最小化,仅保留纯回调路径,且入口均有签名/密钥验签）:
+  // - wechat/notify + wechat/notify/refund:verifyCallbackSignature 微信平台证书验签
+  // - alipay/notify:verifyNotify 支付宝 RSA 验签
+  // - stripe/webhook:verifyStripeWebhook 签名验签
+  // - paypal/webhook:verifyPaypalWebhook 签名验签
+  // - withdrawal/notify + recurring/wechat-notify:verifyCallbackSignature 验签(生产强制)
+  // 其余 /api/payments/* 写端点(下单/查询/关单/退款/提现等)均已从豁免名单移除,
+  // 它们走 Bearer JWT / auth_token cookie 豁免,未认证请求应返回 401/403 而非绕过 CSRF。
+  '/api/payments/wechat/notify',
+  '/api/payments/alipay/notify',
+  '/api/payments/stripe/webhook',
+  '/api/payments/paypal/webhook',
+  '/api/payments/withdrawal/notify',
+  '/api/payments/recurring/wechat-notify',
   '/api/tbox/events',
   // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
   '/api/im-gateway/webhook/',
-  // VIP 购买/订阅:需 authenticate 鉴权(未登录返 401 引导登录,而非 CSRF 403)
-  '/api/vip/',
+  // P2 修复(2026-08-06):移除 '/api/vip/' 前缀豁免——该前缀下无服务端回调,
+  // 全部写端点(purchase/order/levels CRUD/users cancel)均需 authenticate 鉴权,
+  // 已登录请求走下方 Bearer JWT / auth_token cookie 豁免,未登录应返 401 而非绕过 CSRF。
   // 2026-07-28 加固:本地工作区文件浏览是 read-only(列目录结构/打开文件夹),
   // 由 fsBridge 处理,无副作用;同时已有 requireAuth 鉴权(workspace-ai.ts:84),
   // CSRF 校验在此是冗余(主要防 csrf 利用已登录 cookie,但 browse 无副作用可攻击),

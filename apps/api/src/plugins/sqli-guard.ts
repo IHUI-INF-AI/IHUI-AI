@@ -44,6 +44,61 @@ declare module 'fastify' {
 /** 健康检查 / 监控路径白名单(不检测 SQL 注入)。 */
 const SKIP_PATHS = new Set(['/api/health', '/api/metrics', '/business-metrics'])
 
+/**
+ * P2 修复(2026-08-06):AI 内容端点白名单。
+ *
+ * 背景:全局关键字检测(SELECT/UNION/OR 等)对 AI 类端点是误杀源——
+ * 用户 prompt 是自由文本,天然可能包含 "select/union/or/where" 等词,配合引号/分号
+ * 即命中 InputValidator.checkSqlInjection,导致正常 AI 请求被 400 拒绝。
+ *
+ * 方案:命中以下路径前缀的请求跳过关键字检测,但仍做强特征检测
+ * (SQL 注释符 `--`/`/*`/`#`,以及分号后的堆叠查询 `; SELECT ...`)。
+ * 这些端点接收的是交给 LLM 的自由文本而非 SQL,关键字本身无注入能力;
+ * 真正危险的注释符/堆叠语句特征仍会被拦截。路径按前缀匹配(小写)。
+ */
+const AI_CONTENT_PREFIXES = [
+  '/api/llm/',
+  '/api/ai/',
+  '/api/chat/',
+  '/api/langchain/',
+  '/api/ai-ext/',
+  '/api/ai-feed/',
+  '/api/ai-education/',
+  '/api/ai-video-compose/',
+  '/api/ai-vendors/',
+  '/api/workspace-ai/',
+  '/api/workspace/ai/',
+  '/v1/',
+]
+
+/**
+ * 强 SQL 注入特征(豁免路径仍检测):
+ * - `--` / `/*` / `#` SQL 注释符
+ * - 分号后的堆叠查询语句(; SELECT/UNION/... )
+ */
+const SQLI_STRONG_PATTERN = /(--|\/\*|#)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/i
+
+/** 递归扫描对象/数组中的字符串值,检测强 SQL 注入特征(供豁免路径使用)。 */
+function detectStrongSqli(data: unknown): string | null {
+    if (typeof data === 'string') {
+        return SQLI_STRONG_PATTERN.test(data) ? data.slice(0, 200) : null
+    }
+    if (Array.isArray(data)) {
+        for (const item of data) {
+            const hit = detectStrongSqli(item)
+            if (hit) return hit
+        }
+        return null
+    }
+    if (data && typeof data === 'object') {
+        for (const v of Object.values(data as Record<string, unknown>)) {
+            const hit = detectStrongSqli(v)
+            if (hit) return hit
+        }
+    }
+    return null
+}
+
 /** 递归扫描对象/数组中的字符串值,返回首个命中 SQL 注入的值(截断 200 字符),未命中返回 null。 */
 function detectSqlInjection(data: unknown): string | null {
     if (typeof data === 'string') {
@@ -81,11 +136,16 @@ const sqliGuardPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         // 文件上传跳过(已由 upload-scanner 处理)
         if (typeof request.isMultipart === 'function' && request.isMultipart()) return
 
-        // 扫描 body / query / params
-        const hit =
-            detectSqlInjection(request.body) ??
-            detectSqlInjection(request.query) ??
-            detectSqlInjection(request.params)
+        // P2 修复(2026-08-06):AI 内容端点跳过关键字检测,仅做强特征检测,
+        // 避免用户 prompt 含 "select/union" 等词被误杀。
+        const isAiContentPath = AI_CONTENT_PREFIXES.some((prefix) => path.startsWith(prefix))
+        const hit = isAiContentPath
+            ? (detectStrongSqli(request.body) ??
+              detectStrongSqli(request.query) ??
+              detectStrongSqli(request.params))
+            : (detectSqlInjection(request.body) ??
+              detectSqlInjection(request.query) ??
+              detectSqlInjection(request.params))
 
         if (!hit) return
 
