@@ -29,6 +29,7 @@ import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 import { db } from '../db/index.js'
 import { users } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { publicUser, resolveUserPermissions } from './auth.js'
 import {
   generateSecret,
   verifyTotp,
@@ -2770,7 +2771,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(401).send(error(401, '2FA 验证失败:token 或 backup code 错误'))
       }
 
-      // 校验通过 → 签发完整 access + refresh token 对
+      // 校验通过 → 签发完整 access + refresh token 对(与正常登录响应一致,含 user 信息)
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
       const tokens = await buildTokenPair({
@@ -2779,8 +2780,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: user.roleId,
         familyId,
       })
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
 
-      return reply.send(success(tokens))
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
     },
   )
 
