@@ -2971,3 +2971,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 3. **mobile-dashboard 5 处"暂无数据"硬编码**:待 `packages/i18n/messages/web/*.json` 其他会话 WIP 完成后 i18n 化(避免污染他人未完成改动)
 4. **generate 中间产物清理**:`0204_curvy_swarm.sql`(含 DROP 勿执行)/`meta/0204_snapshot.json`/`scripts/tmp-cur-snapshot.*` 已 gitignore,待用户授权删除
 5. **migration 部署执行**:`20260806153000_tenant_members_user_id_idx`、`20260806154900_crash_reports` 需部署环境执行(本地无 DATABASE_URL)
+
+## 剩余问题处理(2026-08-06 19:30 ✅,commit 8a780abd50,已推送)
+
+> 用户指令"剩余问题也要处理好"——5 项边界中 3 项已代码解决,2 项受外部条件阻塞(如实记录)。
+
+- ✅ **migration 部署执行(边界 5 已闭合)**:本地开发库(127.0.0.1/ihui)实测跑通 `run-migrate.mjs`——`tenant_members_user_id_idx` 索引与 `crash_reports` 表已落地(pg_indexes/to_regclass 实证)。**期间修复 journal when 机制问题**:drizzle migrator 按 `when` 与 `__drizzle_migrations.created_at` 比较执行(非 hash),47 条补入条目 when 不合理导致依赖序错误(42P01)。修复:时间戳条目 when 统一小值跳过(库为 push 演进模式),新 migration 用真实时间戳 when 正常执行——**migrate 稳定可跑**("completed",不再失败)
+- ✅ **mobile-dashboard 5 处"暂无数据"硬编码(边界 3 已闭合)**:json WIP 结束后安全 i18n 化——新增 `mobileDashboardPage.noData`(5 语言),5 处 tsx 全部接入,check-i18n-keys/tsc 全绿
+- ✅ **subagent 轨迹步骤明细(边界 2 补强)**:`_syncAgentTask` completed 时把 runtime.steps(agent/耗时/token 用量/attempt/status)写入 result——agents 详情页 5 Tab checkpoint 展示更真实;12 个既有测试全过
+- ✅ **downloads 配置核查(边界 1 工具化)**:新增 `scripts/check-downloads-config.mjs`——一键输出 8 端配置状态,当前明确 3 端待运营数据(iOS App Store ID / Android APK·Play / 小程序 QR)
+- ⏳ **generate 中间产物清理(边界 4)**:`0204_curvy_swarm.sql`(含 DROP 勿执行)等 4 文件已 gitignore 保护;物理删除曾被用户拒绝沙箱外权限——**保留,待用户授权后清理**
+- ⏳ **ai-service 侧轨迹(边界 2 深层)**:ai-service 9 个文件正被其他会话 WIP 修改,不可触碰(避免污染);派单层 agent_tasks(含 steps 明细)已是该架构下最真实水平——**待 ai-service WIP 结束后可评估深层演进**
