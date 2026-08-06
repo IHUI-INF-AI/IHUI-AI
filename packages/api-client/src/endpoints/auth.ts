@@ -153,11 +153,20 @@ export async function logout(refreshToken: string): Promise<ApiResult<{ revoked:
   })
 }
 
-/** 刷新 accessToken — POST /auth/refresh */
-export async function refreshAccessToken(refreshToken: string): Promise<ApiResult<LoginResult>> {
+/** 刷新 accessToken — POST /auth/refresh
+ *  P2-18 修复(2026-08-06):refreshToken 参数改为可选。
+ *  - 传入 refreshToken:body 携带(兼容旧调用方,如 tokenUtils 自动续期)
+ *  - 不传:body 传空字符串 refreshToken,由后端判空后回退到 httpOnly refresh_token cookie
+ *    (浏览器自动附带),用于页面刷新后静默恢复登录态(use-auth-bootstrap)。
+ *    说明:不传空对象 `{}` 是因为后端路由 schema 仍声明 required:['refreshToken']
+ *    (apps/api/src/routes/auth.ts:1138),空对象会被 Fastify 400 拦截;
+ *    空字符串能通过路由 schema(string 无 minLength),再由 handler 的 zod(min(1)) 判空
+ *    走到 cookie 兜底分支。
+ */
+export async function refreshAccessToken(refreshToken?: string): Promise<ApiResult<LoginResult>> {
   return fetchApi<LoginResult>('/api/auth/refresh', {
     method: 'POST',
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify(refreshToken ? { refreshToken } : { refreshToken: '' }),
   })
 }
 

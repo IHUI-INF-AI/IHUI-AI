@@ -63,6 +63,15 @@
     },
     "clean": {
       "cache": false
+    },
+    "sync-downloads": {
+      "cache": false,
+      "inputs": [
+        "apps/desktop/src-tauri/tauri.conf.json",
+        "apps/extension/package.json",
+        "apps/desktop/src-tauri/target/release/bundle/**",
+        "apps/extension/.output/**"
+      ]
     }
   }
 }

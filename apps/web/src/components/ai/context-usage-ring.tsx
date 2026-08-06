@@ -380,10 +380,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                   <div className="tabular-nums text-muted-foreground">
                     {compressResult.originalChars.toLocaleString()} →{' '}
                     {compressResult.compressedChars.toLocaleString()} · {t('ratio')}{' '}
-                    {Math.max(
+                    {/* 不吞负值:压缩后反而更大时如实显示负压缩率,暴露异常数据 */}
+                    {(
                       1 -
-                        compressResult.compressedChars / Math.max(compressResult.originalChars, 1),
-                      0,
+                      compressResult.compressedChars / Math.max(compressResult.originalChars, 1)
                     ).toLocaleString(undefined, {
                       style: 'percent',
                       maximumFractionDigits: 1,

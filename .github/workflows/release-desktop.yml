@@ -96,6 +96,19 @@ jobs:
           # https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json
           updaterJsonPreferNsis: true
 
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-bundle-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Summary
         run: |
           echo "### Desktop 构建完成" >> $GITHUB_STEP_SUMMARY
@@ -130,3 +143,69 @@ jobs:
           echo "### Updater JSON 发布完成" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "latest.json 已聚合所有平台签名,上传到 Release assets" >> $GITHUB_STEP_SUMMARY
+
+  # 同步构建产物到 apps/web/public/downloads/,实现"构建 → 自动同步下载包 → 自动更新 manifest"全链路
+  sync-downloads:
+    name: Sync Downloads to public/downloads/
+    needs: [build, publish-updater-json]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (main branch for commit)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Configure npm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      - name: Install pnpm deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build extension
+        run: pnpm --filter @ihui/extension build
+
+      - name: Download all bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: .
+          pattern: desktop-bundle-*
+          merge-multiple: true
+
+      - name: Sync downloads to public/downloads/
+        run: node scripts/sync-downloads.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain apps/web/public/downloads/)" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit synced downloads
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/web/public/downloads/
+          git commit -m "chore(downloads): auto-sync after release ${{ github.ref_name }}"
+          git push origin main
+
+      - name: Summary
+        run: |
+          echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY

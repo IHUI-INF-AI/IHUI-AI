@@ -78,7 +78,7 @@ export function DiffFileList({
           <div key={key} className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1 px-2 py-0.5 text-muted-foreground">
               <span className="font-medium">{t(labelKey)}</span>
-              <span className="rounded bg-muted px-1 text-[10px]">{files.length}</span>
+              <span className="rounded bg-muted px-2 py-0.5 text-[10px]">{files.length}</span>
             </div>
             {files.map((file) => (
               <FileRow
