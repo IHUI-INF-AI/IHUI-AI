@@ -133,9 +133,8 @@ export default function MemberIndexPage() {
   }
 
   const goToShare = () => {
-    Taro.switchTab({ url: '/pages/distribution/index' }).catch(() => {
-      Taro.navigateTo({ url: '/pages/distribution/index' })
-    })
+    // distribution/index 非 tabBar 页,直接 navigateTo
+    Taro.navigateTo({ url: '/pages/distribution/index' })
   }
 
   return (

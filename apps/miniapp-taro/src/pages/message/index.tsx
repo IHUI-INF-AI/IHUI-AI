@@ -358,7 +358,7 @@ export default function MessageIndex() {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
     return (
-      <View className="p-[20rpx]">
+      <View className="p-[24rpx]">
         <SearchBar
           value={keyword}
           placeholder={t('message.search')}

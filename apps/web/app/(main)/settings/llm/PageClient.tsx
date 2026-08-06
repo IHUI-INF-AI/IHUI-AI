@@ -112,10 +112,13 @@ export default function UserLlmConfigsPage() {
   )
 
   // 外部预填:从 ?prefill=base64 读取(如排行榜一键导入)
+  // ref 标记只消费一次:useSearchParams 返回对象引用不稳定,直接依赖会导致弹窗重复触发
   const searchParams = useSearchParams()
+  const prefilledRef = React.useRef(false)
   React.useEffect(() => {
     const encoded = searchParams.get('prefill')
-    if (!encoded) return
+    if (!encoded || prefilledRef.current) return
+    prefilledRef.current = true
     try {
       const json = decodeURIComponent(atob(encoded))
       const payload = JSON.parse(json) as Partial<ProviderFormState>

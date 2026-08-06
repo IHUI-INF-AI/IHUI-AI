@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger'
+import { BASE_URL } from '@/utils/api-config'
 import { View, Text, Image, Video, ScrollView, Input } from '@tarojs/components'
 import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
@@ -312,7 +313,8 @@ export default function AgentDialogue() {
   const connectWebSocket = useCallback(() => {
     if (!userUuidRef.current || wsTaskRef.current) return
     // ws URL 直连 API 端口(8802),与 H5 dev server proxy 区分;按端动态取 BASE_URL
-    const apiOriginHttp = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8802/api'
+    // 与全局 API 配置一致:非 H5 端取 BASE_URL(部署时统一改 api-config 即可)
+    const apiOriginHttp = process.env.TARO_ENV === 'h5' ? '/api' : BASE_URL
     const apiOriginWs = apiOriginHttp.replace(/^http/, 'ws').replace(/\/api$/, '')
     const wsUrl = `${apiOriginWs}/api/chat-room/ws`
     Taro.connectSocket({ url: wsUrl })
