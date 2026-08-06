@@ -1113,6 +1113,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     chunk_event = {"type": "chunk", "content": clean_text}
                                     accumulated["content"] += clean_text
                                     yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                elif not accumulated["content"]:
+                                    # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
+                                    # 不能给用户一条空消息)
+                                    _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
+                                    accumulated["content"] = _fallback
+                                    _fallback_evt = {"type": "chunk", "content": _fallback}
+                                    yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
                                 leftover, leftover_qs = question_parser.flush()
                                 if leftover:
                                     chunk_event = {"type": "chunk", "content": leftover}
@@ -1720,6 +1727,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _ts_str = _format_tool_summary_event(tool_calls_history)
                     if _ts_str:
                         yield _ts_str
+                    # 2026-08-06 修复:空回复兜底 —— 模型可能返回 0 content
+                    # (step_plan 只返回 tool_calls 或空文本),不能给用户一条空消息。
+                    # 此时通常已发生工具调用,提示用户可基于工具结果重试。
+                    if not accumulated["content"] and not accumulated.get("error"):
+                        _had_tools = bool(tool_calls_history)
+                        _fallback = (
+                            "抱歉,未能生成有效回复。"
+                            + ("模型已完成工具调用但未产出文本,请重试或补充说明。" if _had_tools
+                               else "请换个说法重试一下。")
+                        )
+                        accumulated["content"] = _fallback
+                        _fallback_evt = {"type": "chunk", "content": _fallback}
+                        yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
                 yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             logger.info("SSE generator cancelled by client disconnect")
