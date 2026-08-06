@@ -31,6 +31,8 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
+import { findAgentTasksByAgentId } from '../db/agent-queries.js'
+import type { AgentTask } from '@ihui/database'
 
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 注入 Redis 客户端(fastify.decorate 挂载后,服务初始化时从 app 拿取)
@@ -107,6 +109,271 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
     quotas: quotasSchema.optional(),
   })
+
+  // ---------- GET /subagents/by-agent/:agentId/summary 聚合类型 ----------
+  // agent 详情页 5 个 Tab(progress/swarm/checkpoint/plan/background)的运行时数据形状。
+  // 数据源:agent_tasks 表(subagent dispatch 无 agentId 关联,无法直接查询)。
+
+  /** 进度步骤(对齐前端 AgentProgressPanel props) */
+  interface AgentRuntimeStep {
+    id: string
+    title: string
+    status: 'pending' | 'running' | 'done' | 'error'
+    detail?: string
+    duration?: number
+  }
+
+  /** 检查点(对齐前端 CheckpointHistoryPanel props) */
+  interface AgentRuntimeCheckpoint {
+    id: string
+    label: string
+    timestamp: string
+    diff?: string
+  }
+
+  /** 计划步骤(对齐前端 PlanReviewPanel props) */
+  interface AgentRuntimePlanStep {
+    id: string
+    description: string
+    tools?: string[]
+  }
+
+  /** 计划(对齐前端 PlanReviewPanel props) */
+  interface AgentRuntimePlan {
+    steps: AgentRuntimePlanStep[]
+    summary?: string
+  }
+
+  /** 后台 agent(对齐前端 BackgroundAgentsPanel props) */
+  interface AgentRuntimeBackgroundAgent {
+    agent_id: string
+    status: string
+    prompt: string
+    created_at: string
+    updated_at?: string
+    progress?: { text_preview?: string; tool_calls?: number }
+    result?: { output?: string }
+    error?: string
+  }
+
+  /** swarm 数据(对齐前端 AgentSwarmMonitor props 的 SwarmData) */
+  interface AgentRuntimeSwarmData {
+    swarm?: {
+      swarmId: string
+      status: string
+      task: string
+      currentIteration: number
+      maxIterations: number
+    }
+    agentList?: Array<{
+      name: string
+      type: string
+      status: string
+      currentStep?: string
+    }>
+    results?: Array<{
+      step_id: string
+      step_action: string
+      result?: string
+      error_message?: string
+      created_at: string
+    }>
+  }
+
+  /** agent 运行时汇总(端点返回结构) */
+  interface AgentRuntimeSummary {
+    steps: AgentRuntimeStep[]
+    swarmData: AgentRuntimeSwarmData | null
+    checkpoints: AgentRuntimeCheckpoint[]
+    plan: AgentRuntimePlan
+    agents: AgentRuntimeBackgroundAgent[]
+  }
+
+  /** agent_tasks.status(legacy) → 前端进度步骤状态 */
+  function toStepStatus(raw: string): AgentRuntimeStep['status'] {
+    if (raw === 'running' || raw === 'in_progress') return 'running'
+    if (raw === 'completed' || raw === 'done') return 'done'
+    if (raw === 'failed' || raw === 'blocked' || raw === 'cancelled') return 'error'
+    return 'pending'
+  }
+
+  /** agent_tasks.status(legacy) → 前端 AgentStatus(swarm/background 共用) */
+  function toAgentStatus(raw: string): string {
+    if (raw === 'in_progress') return 'running'
+    if (raw === 'done') return 'completed'
+    if (raw === 'blocked') return 'failed'
+    if (raw === 'cancelled') return 'cancelled'
+    if (raw === 'completed') return 'completed'
+    if (raw === 'failed') return 'failed'
+    if (raw === 'running') return 'running'
+    return 'idle'
+  }
+
+  /** 从任务行读取 payload 中的 toolCalls(存在且为 number 时返回) */
+  function readToolCalls(payload: Record<string, unknown> | null | undefined): number | undefined {
+    if (!payload) return undefined
+    const v = payload.toolCalls ?? payload.tool_calls
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  }
+
+  /** 从任务行的 payload 中尝试提取计划(payload.plan / payload.steps 为数组时) */
+  function extractPlanFromTask(task: AgentTask): AgentRuntimePlan | undefined {
+    const payload = task.payload ?? {}
+    const candidate: unknown[] | undefined = Array.isArray(payload.plan)
+      ? (payload.plan as unknown[])
+      : Array.isArray(payload.steps)
+        ? (payload.steps as unknown[])
+        : undefined
+    if (!candidate) return undefined
+    const steps: AgentRuntimePlanStep[] = []
+    for (let i = 0; i < candidate.length; i++) {
+      const item = candidate[i]
+      if (!item || typeof item !== 'object') continue
+      const record = item as Record<string, unknown>
+      const description =
+        typeof record.description === 'string'
+          ? record.description
+          : typeof record.name === 'string'
+            ? record.name
+            : typeof record.task === 'string'
+              ? record.task
+              : ''
+      if (!description) continue
+      steps.push({
+        id: typeof record.id === 'string' && record.id.length > 0 ? record.id : `${task.id}-plan-${i}`,
+        description,
+        tools: Array.isArray(record.tools)
+          ? (record.tools as unknown[]).filter((t): t is string => typeof t === 'string')
+          : undefined,
+      })
+    }
+    if (steps.length === 0) return undefined
+    const summary = typeof payload.planSummary === 'string' ? payload.planSummary : undefined
+    return { steps, summary }
+  }
+
+  /** 由 agent_tasks 记录聚合出详情页运行时汇总(无记录时返回空数据,保持前端空态) */
+  function buildAgentRuntimeSummary(agentId: string, tasks: AgentTask[]): AgentRuntimeSummary {
+    const steps: AgentRuntimeStep[] = []
+    const checkpoints: AgentRuntimeCheckpoint[] = []
+    const planSteps: AgentRuntimePlanStep[] = []
+    const agents: AgentRuntimeBackgroundAgent[] = []
+    const results: AgentRuntimeSwarmData['results'] = []
+
+    // 计划:优先用最近一条任务的 payload.plan,否则用任务名/描述兜底
+    let planSummary: string | undefined
+    const extractedPlan = tasks.length > 0 ? extractPlanFromTask(tasks[0]!) : undefined
+    if (extractedPlan) {
+      planSteps.push(...extractedPlan.steps)
+      planSummary = extractedPlan.summary
+    }
+
+    for (const task of tasks) {
+      const rawStatus = task.status ?? 'pending'
+      const startedAt = task.startedAt?.getTime()
+      const completedAt = task.completedAt?.getTime()
+      const duration =
+        startedAt !== undefined && completedAt !== undefined && completedAt >= startedAt
+          ? completedAt - startedAt
+          : undefined
+      const description = task.description ?? undefined
+      const payload = task.payload ?? {}
+
+      steps.push({
+        id: task.id,
+        title: task.name,
+        status: toStepStatus(rawStatus),
+        detail: description ?? task.errorMessage ?? undefined,
+        duration,
+      })
+
+      checkpoints.push({
+        id: task.id,
+        label: `${task.name} · ${rawStatus}`,
+        timestamp: (task.updatedAt ?? task.createdAt).toISOString(),
+        diff: task.result
+          ? JSON.stringify(task.result, null, 2)
+          : Object.keys(payload).length > 0
+            ? JSON.stringify(payload, null, 2)
+            : undefined,
+      })
+
+      if (!extractedPlan) {
+        planSteps.push({
+          id: task.id,
+          description: description ?? task.name,
+        })
+      }
+
+      agents.push({
+        agent_id: task.id,
+        status: toAgentStatus(rawStatus),
+        prompt: description ?? task.name,
+        created_at: task.createdAt.toISOString(),
+        updated_at: task.updatedAt?.toISOString(),
+        progress:
+          description || readToolCalls(payload) !== undefined
+            ? { text_preview: description, tool_calls: readToolCalls(payload) }
+            : undefined,
+        result: task.result
+          ? {
+              output:
+                typeof task.result.output === 'string'
+                  ? task.result.output
+                  : JSON.stringify(task.result),
+            }
+          : undefined,
+        error: task.errorMessage ?? undefined,
+      })
+
+      if (task.result) {
+        results.push({
+          step_id: task.id,
+          step_action: task.name,
+          result: typeof task.result.output === 'string' ? task.result.output : undefined,
+          error_message: task.errorMessage ?? undefined,
+          created_at: task.createdAt.toISOString(),
+        })
+      }
+    }
+
+    // swarm 状态:running > failed > pending > completed > idle(有记录时)
+    let swarmStatus = 'idle'
+    if (tasks.length > 0) {
+      if (tasks.some((t) => t.status === 'running' || t.status === 'in_progress')) swarmStatus = 'running'
+      else if (tasks.some((t) => t.status === 'failed' || t.status === 'blocked' || t.status === 'cancelled')) swarmStatus = 'failed'
+      else if (tasks.some((t) => t.status === 'pending')) swarmStatus = 'pending'
+      else swarmStatus = 'completed'
+    }
+
+    const swarmData: AgentRuntimeSwarmData | null =
+      tasks.length > 0
+        ? {
+            swarm: {
+              swarmId: agentId,
+              status: swarmStatus,
+              task: tasks[0]!.name,
+              currentIteration: 1,
+              maxIterations: Math.max(1, tasks.length),
+            },
+            agentList: tasks.map((task) => ({
+              name: task.name,
+              type: task.status ?? 'pending',
+              status: toAgentStatus(task.status ?? 'pending'),
+              currentStep: task.description ?? undefined,
+            })),
+            results: results.length > 0 ? results : undefined,
+          }
+        : null
+
+    return {
+      steps,
+      swarmData,
+      checkpoints,
+      plan: { steps: planSteps, summary: planSummary },
+      agents,
+    }
+  }
 
   // ---------- POST /subagents/dispatch ----------
 
@@ -226,6 +493,28 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
     const queue = subagentDispatchService.getQueue()
     return reply.send(success({ queue }))
+  })
+
+  // ---------- GET /subagents/by-agent/:agentId/summary ----------
+  // agent 详情页运行时数据汇总:从 agent_tasks 按 agentId 聚合最近记录,
+  // 映射为 progress/swarm/checkpoint/plan/background 5 个 Tab 的数据形状。
+  // 注意:by-agent 为静态前缀,须在 /subagents/:id/stats 参数路由之前注册。
+
+  server.get('/subagents/by-agent/:agentId/summary', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { agentId } = request.params as { agentId: string }
+    if (!agentId) {
+      return reply.status(400).send(error(400, 'agentId 不能为空'))
+    }
+
+    try {
+      const tasks = await findAgentTasksByAgentId(agentId, 50)
+      return reply.send(success(buildAgentRuntimeSummary(agentId, tasks)))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
   })
 
   // ---------- GET /subagents/:id/stats(单个 dispatch 资源统计) ----------
