@@ -9,6 +9,7 @@ import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
 import { BackButton } from '@/components/common'
+import { DOWNLOADS_CONFIG, PLATFORM_META } from '@/config/downloads.config'
 
 type PlatformKey =
   | 'web'
@@ -57,6 +58,30 @@ const PLATFORM_COLORS = [
   '#ec4899',
   '#14b8a6',
   '#6366f1',
+]
+
+const PENDING_PLATFORMS = [
+  {
+    platformKey: 'ios' as const,
+    labelKey: 'platformIos' as const,
+    field: 'appStoreId',
+    value: DOWNLOADS_CONFIG.appStoreId,
+    guideKey: 'pendingIosGuide' as const,
+  },
+  {
+    platformKey: 'android-apk' as const,
+    labelKey: 'platformAndroidApk' as const,
+    field: 'apkPath',
+    value: DOWNLOADS_CONFIG.apkPath,
+    guideKey: 'pendingAndroidGuide' as const,
+  },
+  {
+    platformKey: 'wechat-miniapp' as const,
+    labelKey: 'platformWechatMiniapp' as const,
+    field: 'wechatMiniProgramQr',
+    value: DOWNLOADS_CONFIG.wechatMiniProgramQr,
+    guideKey: 'pendingWechatGuide' as const,
+  },
 ]
 
 const dateFmt = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' })
