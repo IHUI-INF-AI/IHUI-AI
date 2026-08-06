@@ -252,6 +252,12 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - ❌ 禁止用 `git add .` / `git add -A` / `git add -u`(会把其他 agent 改动一起 stage)
   - ❌ 禁止忽略 pre-commit hook 的 `📋 staged 文件清单审计` 警告(同目录多文件时必须核对)
   - ✅ 多 agent 并行时用 `node scripts/safe-commit.mjs -m "..." -- <files>`(自动清空暂存区 + 只 add 声明文件 + 校验)
+- **git 写操作全局锁**(2026-08-06 立,`.git` 损坏事故根治):所有 git **写**操作(commit/push/pull/rebase/merge/stash/checkout/gc/repack/fetch)在同一仓库必须**串行化**,同一时刻只允许一个写操作单元执行。
+  - **已自动生效**:safe-commit.mjs 整个 commit 流程自带锁(`Step 0/5 获取 git 写锁`);post-commit 钩子自动处理直接 `git commit` 场景。**agent 无需额外操作**。
+  - **手动 git 命令**必须遵守:执行 `git pull` / `git rebase` / `git fetch` / `git checkout` / `git stash` 等写操作前,先 `node scripts/git-lock.mjs check`(exit 0 = 无锁可执行;exit 1 = 有其他写操作进行中,等待后重试)。
+  - **禁止手动 `git gc` / `git repack` / `git prune`**:需要时用 `node scripts/safe-gc.mjs`(自动检查无锁后执行)。autoGc 已禁用(`gc.auto=0` + `maintenance.auto=false`),无需也不应手动触发 gc。
+  - **锁异常处理**:锁等待超时会报错并提示;超过 300s 的悬挂锁会自动抢占;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
+  - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
 
 ---
 

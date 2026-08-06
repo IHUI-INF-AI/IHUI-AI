@@ -113,6 +113,26 @@ if (!currentBranch) {
   process.exit(2)
 }
 
+// ─── 0.5 git 写操作全局锁(2026-08-06 立,根治多 agent 并发写损坏) ──
+// 整个 commit 流程(含 post-commit 自动脚本)串行化;exit 事件保证任意退出路径都释放锁。
+// 锁 unitId 通过环境变量 IHUI_GIT_LOCK_UNIT 传递给子进程(post-commit 检测到则不再加锁)。
+const LOCK_UNIT = `safe-commit-${process.pid}-${Date.now()}`
+process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
+log('info', `Step 0/5: 获取 git 写锁(unit=${LOCK_UNIT})`)
+try {
+  run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${LOCK_UNIT}`)
+} catch (e) {
+  log('err', `获取 git 写锁失败: ${e.message}`)
+  process.exit(2)
+}
+process.on('exit', () => {
+  try {
+    run(`node ${repoRoot}/scripts/git-lock.mjs release --unit ${LOCK_UNIT}`, { allowFail: true })
+  } catch {
+    /* 忽略释放失败 */
+  }
+})
+
 log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`)
 log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
 
