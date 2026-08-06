@@ -139,9 +139,9 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     expect(button?.className).toMatch(/hover:bg-/)
     expect(button?.className).not.toMatch(/hover:border-blue/)
     expect(button?.className).not.toMatch(/hover:border-black/)
-    // 按钮尺寸 h-7 w-7,圆角 rounded-md
-    expect(button?.className).toContain('h-7')
-    expect(button?.className).toContain('w-7')
+    // 按钮尺寸 h-9 w-9(2026-08-05 更新),圆角 rounded-md
+    expect(button?.className).toContain('h-9')
+    expect(button?.className).toContain('w-9')
     expect(button?.className).toContain('rounded-md')
   })
 

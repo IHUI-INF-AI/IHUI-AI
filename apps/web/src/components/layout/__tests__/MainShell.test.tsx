@@ -22,10 +22,21 @@ vi.mock('@/components/sidebar', () => ({
   ALL_NAV_HREFS: [],
   NAV_GROUPS: [],
 }))
-vi.mock('@/components/common', () => ({
-  PWAInstallPrompt: () => null,
-  PWAUpdatePrompt: () => null,
+vi.mock('@/components/common/PageSkeleton', () => ({
+  PageSkeleton: () => null,
 }))
+
+vi.mock('@/components/common', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    PWAInstallPrompt: () => null,
+    PWAUpdatePrompt: () => null,
+    NavigationProgress: () => null,
+    UpdatePrompt: () => null,
+    QuitUpdateOverlay: () => null,
+  }
+})
 vi.mock('@/components/ai/ai-side-panel', () => ({
   AISidePanel: () => null,
 }))
@@ -51,24 +62,48 @@ function __setMockLocale(locale: keyof typeof MESSAGES_BY_LOCALE) {
   currentLocale.value = locale
 }
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 vi.mock('next-intl', () => ({
   useTranslations: (ns: string) => {
     const msgs = MESSAGES_BY_LOCALE[currentLocale.value]?.[ns] ?? {}
-    return (key: string) => msgs[key] ?? key
+    const translate = (key: string) => msgs[key] ?? key
+    return Object.assign(translate, { has: (key: string) => key in msgs }) as typeof translate
   },
 }))
 
 import { GlobalShell } from '../GlobalShell'
+import { TooltipProvider } from '@/components/feedback'
 
 // GlobalShell 间接挂载 workspace-permission-request-dialog → usePermissionRequest → useQueryClient,
 // 测试需用 QueryClientProvider 包裹,避免 "No QueryClient set" 错误。
 let queryClient: QueryClient
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>
+  )
 }
 
 describe('GlobalShell 移动端菜单 toggle 行为', () => {
   beforeEach(() => {
+    if (typeof window !== 'undefined' && !window.matchMedia) {
+      window.matchMedia = ((query: string) => ({
+        matches: false, media: query, onchange: null,
+        addListener: () => {}, removeListener: () => {},
+        addEventListener: () => {}, removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as unknown as typeof window.matchMedia
+    }
+    if (typeof globalThis !== 'undefined' && !(globalThis as { ResizeObserver?: unknown }).ResizeObserver) {
+      class MockResizeObserver { observe() {} unobserve() {} disconnect() {} }
+      ;(globalThis as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver
+    }
     localStorage.clear()
     capturedCloseMobile = null
     capturedMobileOpen = false
