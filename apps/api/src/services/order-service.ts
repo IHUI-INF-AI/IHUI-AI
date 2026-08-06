@@ -24,6 +24,7 @@ import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-
 import { db } from '../db/index.js'
 import { eq, and, sql } from 'drizzle-orm'
 import { outboxEvents, pointTransactions } from '@ihui/database'
+import { calculateTopupBonus } from './topup-discount-service.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -102,7 +103,29 @@ export async function completeOrder(
 async function rechargeIfTokenOrder(order: Order): Promise<void> {
   if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
     await rechargeToken(order.userId, order.amount, order.orderNo, '充值')
+    // P2-20(2026-08-06):充值赠送接线 —— 主充值到账后再发放赠送 token
+    await creditTopupBonus(order)
   }
+}
+
+/**
+ * P2-20 修复(2026-08-06):充值赠送接线 —— token 充值订单(orderType=2)支付成功后,
+ * 按 calculateTopupBonus 的阶梯赠送规则额外发放赠送 token。
+ * - 赠送额度 = actualCredit - 实付金额(元),折算为分(token 单位)入账;
+ * - 赠送流水以 related_order_no = `bonus:${orderNo}` 作为幂等键 —— rechargeToken 的
+ *   (related_order_no, op_type) unique 索引拦截重复回调/重放,与主充值键(orderNo)区分;
+ * - remark 标注"充值赠送",方便对账与用户侧展示。
+ * 未命中赠送档位(actualCredit===实付)时返回 0 不产生流水。
+ * @returns 实际赠送的 token 数量(分);无赠送或非 token 充值订单返回 0。
+ */
+async function creditTopupBonus(order: Order): Promise<number> {
+  if (order.orderType !== 2 || !order.userId) return 0
+  const amountYuan = order.amount / 100
+  const { actualCredit } = await calculateTopupBonus(amountYuan, order.paymentMethod ?? '')
+  const bonusCents = Math.round((actualCredit - amountYuan) * 100)
+  if (bonusCents <= 0) return 0
+  await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送')
+  return bonusCents
 }
 
 /**
@@ -244,20 +267,32 @@ export async function completeOrderWithSaga(
         // B1: token 充值订单(orderType=2)/活动订单(orderType=3)支付成功后加 token
         // rechargeToken 内部 (related_order_no, op_type) unique 索引保证幂等
         if (order.orderType === 2 || order.orderType === 3) {
-          if (!order.userId) return { amount: 0, orderNo }
+          if (!order.userId) return { amount: 0, bonusAmount: 0, orderNo }
           await rechargeToken(order.userId, order.amount, orderNo, '充值')
-          return { amount: order.amount, orderNo }
+          // P2-20(2026-08-06):充值赠送接线 —— 赠送 token 以 bonus:${orderNo} 为幂等键
+          const bonusAmount = await creditTopupBonus(order)
+          return { amount: order.amount, bonusAmount, orderNo }
         }
-        return { amount: 0, orderNo }
+        return { amount: 0, bonusAmount: 0, orderNo }
       },
       compensate: async (result) => {
-        const r = result as { amount: number; orderNo: string }
-        if (r.amount <= 0 || !order.userId) return
+        const r = result as { amount: number; bonusAmount: number; orderNo: string }
+        if (!order.userId) return
         // 补偿:扣回已充值的 token(余额不足时 best-effort,不阻塞回滚流程)
-        try {
-          await deductToken(order.userId, r.amount, `订单 ${orderNo} saga 补偿扣回 token`)
-        } catch (e) {
-          logger.error(`[saga] recharge-tokens compensate failed`, { err: e, orderNo })
+        if (r.amount > 0) {
+          try {
+            await deductToken(order.userId, r.amount, `订单 ${orderNo} saga 补偿扣回 token`)
+          } catch (e) {
+            logger.error(`[saga] recharge-tokens compensate failed`, { err: e, orderNo })
+          }
+        }
+        // P2-20(2026-08-06):补偿同时扣回已发放的赠送 token,保证 Saga 回滚一致
+        if (r.bonusAmount > 0) {
+          try {
+            await deductToken(order.userId, r.bonusAmount, `订单 ${orderNo} saga 补偿扣回赠送 token`)
+          } catch (e) {
+            logger.error(`[saga] recharge-tokens bonus compensate failed`, { err: e, orderNo })
+          }
         }
       },
     },
@@ -420,6 +455,10 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
  * 2026-08-05 P0-2 修复:原实现用 rechargeToken 退款=再发一次 token(钱退+token 再入账)。
  * 改为 refundTokenDeduct 尽力扣回 —— 事务内行锁 + (refund:orderNo, opType=3) 幂等键,
  * 余额不足扣到 0,重复退款被 unique 索引拦截。
+ *
+ * P2 遗留(2026-08-06):退款无审核/二次确认流程——调用方(payment-gateway 退款端点)
+ * 鉴权后直接置为 refunded,角色权限够即可一键退款,无审批/复核/风控(如大额/频次阈值)。
+ * 资金敏感操作建议补人工审核或风控规则后再落库 refunded。
  */
 export async function refundOrder(orderNo: string): Promise<OrderOperationResult> {
   const order = await findOrderByNo(orderNo)
