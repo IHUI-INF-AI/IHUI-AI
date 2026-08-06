@@ -57,6 +57,14 @@ _FS_DEPENDENT_TOOLS = {
     "analyze_code", "generate_test",
 }
 
+# 2026-08-06 生产修复:LLM(stepfun step_plan 等)返回的工具名可能与系统注册名不一致
+# (模型幻觉/跨平台别名),导致 call_tool 报"未知工具"→ 工具执行失败 → 对话显示失败。
+# 统一映射到实际注册的工具名(execute_command 是 Claude/Codex 风格别名,本项目为 run_command)。
+_TOOL_ALIASES: dict[str, str] = {
+    "execute_command": "run_command",
+}
+
+
 
 def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
     """统一 {code, message, data} 响应信封(AGENTS.md §5 项目约定)。
@@ -1126,6 +1134,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         for tc in tool_calls_raw:
                             fn = tc.get("function", {})
                             tool_name = fn.get("name", "")
+                            # 2026-08-06 修复:别名归一化(execute_command → run_command),
+                            # 防止 LLM 返回未注册工具名导致"未知工具"工具执行失败
+                            tool_name = _TOOL_ALIASES.get(tool_name, tool_name)
                             raw_args = fn.get("arguments", "")
                             try:
                                 args = json.loads(raw_args) if raw_args.strip() else {}
