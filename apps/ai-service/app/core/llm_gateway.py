@@ -430,7 +430,7 @@ async def _resolve_auto_model(
         # 优先级:free > cheap tier 1 > cheap tier 3 > premium
         candidates: list[str] = []
         candidates.extend(free_pool)
-        candidates.extend(sorted(cheap_pool, key=lambda x: x["tier"])[:5])
+        candidates.extend(x["id"] for x in sorted(cheap_pool, key=lambda x: x["tier"])[:5])
         # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
         if premium_pool:
             candidates.append(min(premium_pool, key=lambda x: x["tier"])["id"])
