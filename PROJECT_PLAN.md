@@ -2925,3 +2925,25 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
   - ✅ 新增 `scripts/git-hygiene-init.mjs`(幂等):新环境/clone 后执行一次即可恢复全部防护配置
   - ✅ 约定:关键提交后立即 push(远端是最终备份);多 agent 并行期间避免手动 git gc / repack
   - 📌 建议:多 agent 并行时用 `HUSKY_SKIP_ARCHIVE=1 HUSKY_SKIP_TAG_SYNC=1` 减少 post-commit 写操作竞争
+
+### 彻底杜绝方案(2026-08-06 17:00 ✅,commit 91ad0517ed,根治 3 次同类事故)
+
+> 用户指令"要彻底杜绝问题再发生"——不再靠"降低概率",三层防线全部落地。
+
+**防线 1:git 写操作全局串行化锁(根治并发写)**
+- `scripts/git-lock.mjs`:mkdir 原子锁(unitId 可重入防嵌套死锁、300s 悬挂锁自动抢占、120s 等待超时、CLI acquire/release/check)
+- `safe-commit.mjs` 集成:整个 commit 流程自动持锁(Step 0/5),`IHUI_GIT_LOCK_UNIT` 环境变量传给子进程
+- `.husky/post-commit` 集成:直接 `git commit`(未走 safe-commit)时自动 acquire + trap EXIT 释放
+- 手动 git 写命令(pull/rebase/fetch/checkout/stash)前 `node scripts/git-lock.mjs check` 确认无锁
+- **测试验证**:并发 acquire 测试通过(B 在 A 释放后才获锁,串行化生效);safe-commit 实跑通过(post-commit 锁内正常)
+
+**防线 2:封死 gc 所有触发路径**
+- `gc.auto=0` + `gc.autodetach=false` + `maintenance.auto=false`(2.30+ 自动维护)已全部禁用
+- `scripts/safe-gc.mjs`:手动 gc 唯一合法入口(自动检查无锁;`IHUI_GIT_NO_GC=1` 可完全禁用)
+- AGENTS.md 红线:禁止手动 `git gc`/`repack`/`prune`
+
+**防线 3:一键重建兜底(杜绝损坏的影响)**
+- `scripts/git-rebuild-local.mjs`:健康检查(git cat-file 校验 HEAD)→ 损坏自动从远端 clone 重建 .git → git reset 重建 index(工作区文件永不动)→ 输出重新提交指引
+- 实测 `--check` 对健康仓库正确返回;损坏场景 5 分钟内恢复
+
+**环境初始化**:新 clone 后必须执行 `node scripts/git-hygiene-init.mjs`(恢复 local 防护配置,clone 不保留)——已写入 AGENTS.md §12 强制规则。
