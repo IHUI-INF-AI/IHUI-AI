@@ -69,18 +69,19 @@ def test_default_cors_origin():
 
 
 def test_default_database_url(monkeypatch):
-    """database_url 默认指向本地 postgres(隔离 .env + env var)。"""
+    """database_url 默认空字符串(fail-closed,防明文弱密码),部署必须显式配置。"""
     monkeypatch.delenv("DATABASE_URL", raising=False)
     s = Settings(_env_file=None)
-    assert "postgres" in s.database_url
-    assert "ihui_ai" in s.database_url
+    # P2-9 修复(2026-08-06):原默认含明文弱密码 postgres:postgres,已改为空串 fail-closed
+    assert s.database_url == ""
 
 
 def test_default_redis_url(monkeypatch):
-    """redis_url 默认指向本地 redis(隔离 .env + env var)。"""
+    """redis_url 默认空字符串(fail-closed),部署必须显式配置。"""
     monkeypatch.delenv("REDIS_URL", raising=False)
     s = Settings(_env_file=None)
-    assert s.redis_url == "redis://localhost:8811"
+    # P2-9 修复(2026-08-06):原默认连本地 redis,已改为空串 fail-closed
+    assert s.redis_url == ""
 
 
 def test_default_litellm_model():
