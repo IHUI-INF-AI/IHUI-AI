@@ -409,14 +409,15 @@ const MessageItem = React.memo(function MessageItem({
     >
       {/* 2026-08-02:用户消息保留气泡(rounded-lg),AI 消息无气泡平铺 */}
       {/* 2026-08-06:用户消息气泡 bg-primary → bg-muted + text-foreground(亮色浅灰黑字/暗色深灰白字,降低视觉突兀感) */}
+      {/* 2026-08-06:AI 消息 w-full 占满可用宽度 —— 原 max-w-[85%] 导致右侧 15% 留白、
+          表格(如架构表)被压缩到 85% 内显示不全;表格自身 overflow-x-auto 已保证超宽可横滚 */}
       <div
         className={cn(
-          'relative max-w-[85%]',
           isUser
-            ? 'rounded-lg rounded-br-sm bg-muted px-4 py-2.5 text-foreground'
+            ? 'relative max-w-[85%] rounded-lg rounded-br-sm bg-muted px-4 py-2.5 text-foreground'
             : m.error
-              ? 'text-destructive'
-              : 'text-left',
+              ? 'w-full text-destructive'
+              : 'w-full text-left',
         )}
       >
         {showTyping ? (
