@@ -120,7 +120,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAnalytics } from '@/hooks/use-analytics'
-import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
+import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminNav'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { startWindowDrag } from '@/lib/tauri-bridge'
@@ -681,7 +681,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
       </Popover>
 
       {/* 下载客户端 — portal 模式让弹窗脱离 MainShell overflow-hidden 祖先,
-          从侧边栏右侧弹出,底部对齐 trigger 按钮(避免被裁剪 + 视觉对齐工具栏行) */}
+          从侧边栏右侧弹出,底部对齐 trigger 按钮(避免被裁剪 + 视觉对齐工具栏行)
+          2026-08-06 深度扩展:
+          - 已接入端(web/desktop/extension/cli/mobile):渲染为 Link/a,点击跳转 /download/[platform] 详情页或直接下载
+          - 未接入端(ios/android-apk/wechat-miniapp):渲染为 div + disabled + "即将上线" badge
+          - 每项显示版本号(若有)+ 描述文字 */}
       <Popover
         position="right"
         align="end"
@@ -690,26 +694,47 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         tooltipSide={collapsed ? 'right' : 'top'}
         className="p-0"
         content={
-          <div className="w-56 p-1">
+          <div className="w-60 p-1">
             <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
               {t('downloadTitle')}
             </div>
             {DOWNLOADS.map((item) => {
               const Icon = item.icon
               const isExternal = isExternalDownloadHref(item.href)
-              return (
-                <a
-                  key={item.platform}
-                  href={item.href}
-                  target={isExternal ? '_blank' : undefined}
-                  rel={isExternal ? 'noopener noreferrer' : undefined}
-                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
-                  className="group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                >
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/80 transition-colors group-hover:text-foreground" />
+              const available = isDownloadAvailable(item.platform)
+              // 内部路由(/ 或 /download/xxx)用 Next Link 走 SPA;外链/下载文件用 <a>
+              const isInternalRoute = available && !isExternal
+
+              const inner = (
+                <>
+                  <Icon
+                    className={cn(
+                      'mt-0.5 h-4 w-4 shrink-0 transition-colors',
+                      available
+                        ? 'text-foreground/80 group-hover:text-foreground'
+                        : 'text-muted-foreground/40',
+                    )}
+                  />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">
-                      {t(item.labelKey)}
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          'truncate font-medium',
+                          available ? 'text-foreground' : 'text-muted-foreground',
+                        )}
+                      >
+                        {t(item.labelKey)}
+                      </span>
+                      {item.version && available && (
+                        <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                          v{item.version}
+                        </span>
+                      )}
+                      {!available && (
+                        <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                          {t('downloadComingSoon')}
+                        </span>
+                      )}
                     </span>
                     {item.descKey && (
                       <span className="block truncate text-[11px] text-muted-foreground">
@@ -717,6 +742,50 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                       </span>
                     )}
                   </span>
+                </>
+              )
+
+              const className = cn(
+                'group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors',
+                available
+                  ? 'hover:bg-accent focus-visible:bg-accent focus-visible:outline-none cursor-pointer'
+                  : 'cursor-not-allowed opacity-60',
+              )
+
+              if (!available) {
+                // 未接入端:渲染为 div,不可点击
+                return (
+                  <div key={item.platform} className={className} aria-disabled="true">
+                    {inner}
+                  </div>
+                )
+              }
+
+              if (isInternalRoute) {
+                // 内部 SPA 路由(/ 或 /download/xxx)用 Next Link
+                return (
+                  <Link
+                    key={item.platform}
+                    href={item.href}
+                    onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                    className={className}
+                  >
+                    {inner}
+                  </Link>
+                )
+              }
+
+              // 外链 / 真实文件下载用 <a>
+              return (
+                <a
+                  key={item.platform}
+                  href={item.href}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
+                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                  className={className}
+                >
+                  {inner}
                 </a>
               )
             })}
