@@ -42,6 +42,8 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       setToken: (token, refreshOrPair) => {
+        // P2-18 修复(2026-08-06):setAuthCookie/setRefreshTokenCookie 已改为空操作,
+        // cookie 由后端 httpOnly Set-Cookie 管理,此处不再实际写 cookie。
         setAuthCookie(token)
         if (refreshOrPair === null || refreshOrPair === undefined) {
           clearRefreshTokenCookie()
@@ -49,7 +51,7 @@ export const useAuthStore = create<AuthState>()(
           return
         }
         if (typeof refreshOrPair === 'string') {
-          // 默认 session cookie(浏览器关闭失效);autoLogin 由 setTokenWithPrefs 控制
+          // autoLogin 偏好由 setTokenWithPrefs 处理;httpOnly 后 cookie 有效期由后端决定
           setRefreshTokenCookie(refreshOrPair || null)
           set({
             token,
@@ -80,6 +82,8 @@ export const useAuthStore = create<AuthState>()(
       hydrateRefreshToken: () => {
         const { refreshToken } = get()
         if (refreshToken) return // 内存已有,无需恢复
+        // P2-18:refresh_token 已 httpOnly,getRefreshTokenCookie() 恒返回 null,
+        // 此函数在 httpOnly 部署下实际为空操作;登录态恢复改由 bootstrap 无参刷新完成。
         const fromCookie = getRefreshTokenCookie()
         if (fromCookie) {
           set({ refreshToken: fromCookie })
@@ -88,6 +92,8 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       logout: () => {
         const { refreshToken } = get()
+        // P2-18:httpOnly cookie 由后端管理,登出必须调后端接口(响应清 cookie);
+        // 内存有 refreshToken 时携带 body 吊销,后端同时 clearAuthCookies。
         if (refreshToken) {
           void apiLogout(refreshToken).catch(() => {})
         }
