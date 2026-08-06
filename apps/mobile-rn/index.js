@@ -25,4 +25,37 @@ try {
 // RootNavigator + OfflineBanner)。App.tsx 顶层第 62 行已调用
 // AppRegistry.registerComponent('main', () => App),所以这里只需 require('./App')
 // 触发其副作用,不需要再调用 registerRootComponent(否则会重复注册覆盖)。
+
+// ============================================================================
+// 全局崩溃捕获 + 上报(2026-08-06,打通崩溃率链路 → POST /api/crash-reports)
+// 覆盖 JS 运行时未捕获异常(含 fatal),上报静默失败,绝不阻断默认处理。
+// ============================================================================
+try {
+  const { ErrorUtils } = require('react-native')
+  const { API_BASE_URL } = require('./src/lib/config')
+  if (ErrorUtils && typeof ErrorUtils.setGlobalHandler === 'function') {
+    const defaultHandler = ErrorUtils.getGlobalHandler()
+    ErrorUtils.setGlobalHandler((error, isFatal) => {
+      try {
+        const msg = error && error.message ? String(error.message) : String(error)
+        const stack = error && error.stack ? String(error.stack) : undefined
+        fetch(`${API_BASE_URL}/api/crash-reports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: 'mobile',
+            errorMessage: msg.slice(0, 4000),
+            stack: stack ? stack.slice(0, 20000) : undefined,
+          }),
+        }).catch(() => {})
+      } catch {
+        /* 上报失败静默 */
+      }
+      if (defaultHandler) defaultHandler(error, isFatal)
+    })
+  }
+} catch {
+  /* 崩溃捕获初始化失败不影响应用启动 */
+}
+
 module.exports = require('./App')

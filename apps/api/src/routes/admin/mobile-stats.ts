@@ -7,7 +7,8 @@
  * - dau:最近 24h 活跃用户数(visit_logs/analytics_events/llm_call_logs 的 user_id 去重)
  * - newUsers:当日新增注册用户数(users.created_at 当日,Asia/Shanghai 日界)
  * - sessions:当日会话数(visit_logs 当日 distinct session_id)
- * - crashRate:null(项目无崩溃上报表,前端显示"暂无数据")
+ * - crashRate:近 7 日崩溃率百分比(crash_reports 崩溃数 / visit_logs 会话数;
+ *   2026-08-06 起各端全局错误捕获上报;窗口无会话返回 null 显示"暂无数据")
  * - dauTrend:近 7 日 DAU 趋势 [{date,dau}]
  * - deviceDistribution:设备分布 [{name,percent}](无数据为空数组)
  * - topPages:Top 5 页面 [{path,visits}](无数据为空数组)
@@ -22,6 +23,7 @@ import {
   getDauTrend,
   getDeviceDistribution,
   getTopPages,
+  getCrashRate,
 } from '../../db/mobile-stats-queries.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -45,8 +47,9 @@ const mobileStatsRoutes: FastifyPluginAsync = async (server) => {
       const todayStart = shanghaiDayStartUtc(0)
       const nextDayStart = new Date(todayStart.getTime() + DAY_MS)
       const since24h = new Date(now.getTime() - DAY_MS)
+      const since7d = new Date(now.getTime() - 7 * DAY_MS)
 
-      const [dau, newUsers, sessions, dauTrend, deviceDistribution, topPagesResult] =
+      const [dau, newUsers, sessions, dauTrend, deviceDistribution, topPagesResult, crashRate] =
         await Promise.all([
           getActiveUsers(since24h),
           getNewUsers(todayStart, nextDayStart),
@@ -54,6 +57,7 @@ const mobileStatsRoutes: FastifyPluginAsync = async (server) => {
           getDauTrend(7),
           getDeviceDistribution(since24h),
           getTopPages(since24h, 5),
+          getCrashRate(since7d),
         ])
 
       return reply.send(
@@ -61,8 +65,8 @@ const mobileStatsRoutes: FastifyPluginAsync = async (server) => {
           dau,
           newUsers,
           sessions,
-          // 项目无崩溃上报表,返回 null,前端显示"暂无数据"
-          crashRate: null,
+          // 近 7 日崩溃率(crash_reports 崩溃数 / 会话数);窗口无会话返回 null,前端显示"暂无数据"
+          crashRate,
           dauTrend,
           deviceDistribution,
           topPages: topPagesResult.pages,
