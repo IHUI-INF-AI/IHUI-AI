@@ -1734,7 +1734,7 @@ async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
         return {"code": 500, "message": f"上下文增强失败: {e}", "data": None}
 
 
-async def _load_user_source_prefs(user_id: str) -> dict:
+async def _load_user_source_prefs(user_id: str) -> dict[str, Any]:
     """读取用户上下文源偏好(Redis context:sources:{userId}),降级空 dict。"""
     if not user_id:
         return {}
@@ -1761,7 +1761,7 @@ async def sources_endpoint(user_id: str = "") -> dict[str, Any]:
     - 每项含 budgetPercent(0-100)与 enabled;传入 user_id 时合并用户持久化偏好
     """
     prefs = await _load_user_source_prefs(user_id)
-    source_defs = [
+    source_defs: list[dict[str, Any]] = [
         {
             "type": "history",
             "label": "历史对话",
@@ -1796,7 +1796,7 @@ async def sources_endpoint(user_id: str = "") -> dict[str, Any]:
     merged = []
     for src in source_defs:
         pref = prefs.get(src["type"], {})
-        default_pct = round(src["budgetRatio"] * 100)
+        default_pct = round(float(src["budgetRatio"]) * 100)
         merged.append(
             {
                 "type": src["type"],

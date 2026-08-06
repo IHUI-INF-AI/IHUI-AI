@@ -100,7 +100,7 @@ export default function AiWorldDetailPage() {
 
   const { data: catData } = useQuery({
     queryKey: ['ai-world', 'categories'],
-    queryFn: () => api<{ list: AiWorldCategory[] }>('/api/ai-world/categories'),
+    queryFn: () => api<{ list: AiWorldCategory[] }>('/api/ai-world/categories'), // method: GET
   })
 
   const { data: worldListData } = useQuery({

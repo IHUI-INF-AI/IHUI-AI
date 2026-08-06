@@ -1100,6 +1100,335 @@
       "when": 1786002597320,
       "tag": "20260806154900_crash_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1784980800000,
+      "tag": "20260725120000_agent_memory_decay_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1784984400000,
+      "tag": "20260725130000_agent_user_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1784988000000,
+      "tag": "20260725140000_agent_meta_lessons",
+      "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1784991600000,
+      "tag": "20260725150000_agent_ab_tests",
+      "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1784995200000,
+      "tag": "20260725160000_add_last_read_at_to_chat_conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1784995200000,
+      "tag": "20260725160000_agent_multimodal_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1784995200000,
+      "tag": "20260725160000_resource_products_pid",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1784998800000,
+      "tag": "20260725170000_agent_federated_lessons",
+      "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1785002400000,
+      "tag": "20260725180000_agent_session_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1785006000000,
+      "tag": "20260725190000_agent_metacognition_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1785153600000,
+      "tag": "20260727120000_p0_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1785240000000,
+      "tag": "20260728120000_vip_levels_quota_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1785243600000,
+      "tag": "20260728130000_stage7_ai_careers_resources_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1785326400000,
+      "tag": "20260729120000_relay_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "7",
+      "when": 1785412800000,
+      "tag": "20260730120000_byok_commission",
+      "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1785499200000,
+      "tag": "20260731120000_developer_api_keys_security_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1785499201000,
+      "tag": "20260731120001_llm_call_logs_cache_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1785499202000,
+      "tag": "20260731120002_ai_model_mappings",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1785499204000,
+      "tag": "20260731120004_redemption_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1785546001000,
+      "tag": "20260801010001_llm_call_logs_relay_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1785546002000,
+      "tag": "20260801010002_ai_relay_channel_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1785546003000,
+      "tag": "20260801010003_user_billing_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1785546004000,
+      "tag": "20260801010004_tiered_pricing_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1785546005000,
+      "tag": "20260801010005_relay_commission_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1785546006000,
+      "tag": "20260801010006_coupons",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1785546007000,
+      "tag": "20260801010007_webhook_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1785546008000,
+      "tag": "20260801010008_model_price_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1785546009000,
+      "tag": "20260801010009_api_key_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1785546010000,
+      "tag": "20260801010010_add_tenant_id_to_developer_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1785546020000,
+      "tag": "20260801010020_add_user_passkeys_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1785546030000,
+      "tag": "20260801010030_add_usdt_payments_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1785546040000,
+      "tag": "20260801010040_add_api_key_shares_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1785546050000,
+      "tag": "20260801010050_add_channel_quota_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1785546060000,
+      "tag": "20260801010060_add_api_key_tpm_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1785546070000,
+      "tag": "20260801010070_add_relay_conversations_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1785546080000,
+      "tag": "20260801010080_add_ai_model_sync_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1785546090000,
+      "tag": "20260801010090_add_model_sync_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1785546060000,
+      "tag": "20260801010100_add_points_multiplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1785546120000,
+      "tag": "20260801010200_add_im_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1785549600000,
+      "tag": "20260801020000_add_missing_20_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1785549600000,
+      "tag": "20260801020000_clean_placeholder_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1785553200000,
+      "tag": "20260801030000_seed_home_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1785556800000,
+      "tag": "20260801040000_admin_test_verify_code_bypass",
+      "breakpoints": true
+    },
+    {
+      "idx": 200,
+      "version": "7",
+      "when": 1785844800000,
+      "tag": "20260804120000_publish_account_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1785848400000,
+      "tag": "20260804130000_plugins",
+      "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1785852000000,
+      "tag": "20260804140000_user_token_balance",
+      "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1785988800000,
+      "tag": "20260806040000_download_events",
+      "breakpoints": true
     }
   ]
 }

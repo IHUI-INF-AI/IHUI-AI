@@ -474,12 +474,10 @@ def create_app() -> FastAPI:
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
     # 普通登录用户无权读取。
-    @app.get("/api/audit/recent", tags=["audit"])
-    async def audit_recent(request: Request, limit: int = 100) -> dict[str, Any]:
+    @app.get("/api/audit/recent", tags=["audit"], response_model=None)
+    async def audit_recent(request: Request, limit: int = 100) -> dict[str, Any] | JSONResponse:
         role_id = getattr(request.state, "role_id", 0) or 0
         if int(role_id) < 1:
-            from fastapi.responses import JSONResponse
-
             return JSONResponse(status_code=403, content={"code": 403, "message": "仅管理员可读审计日志"})
         from app.services.audit_service import audit_service
         return {
