@@ -41,7 +41,7 @@ export function NotificationCenter({
 
   return (
     <div className="flex w-full flex-col">
-      <div className="flex items-center justify-between p-2">
+      <div className="flex items-center justify-between p-3">
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>

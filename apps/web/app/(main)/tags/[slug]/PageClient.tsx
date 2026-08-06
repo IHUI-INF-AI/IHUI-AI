@@ -154,7 +154,7 @@ export default function TagDetailPageClient() {
                     {groupLabel(type)}
                     <span className="font-normal">({items.length})</span>
                   </div>
-                  <ul className="space-y-1 rounded-lg border border-border bg-card p-1.5">
+                  <ul className="space-y-1 rounded-lg border border-border bg-card p-2">
                     {items.map((r) => {
                       const href = resourceHref(r.resourceType, r.resourceId)
                       const label = r.resourceId.slice(0, 8)

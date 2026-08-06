@@ -380,7 +380,7 @@ function HookEditor({
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
             <h3 className="text-base font-semibold leading-none">
               {isEdit ? '编辑 Hook' : '新建 Hook'}
@@ -498,7 +498,7 @@ function HookEditor({
         </div>
 
         {/* 底部操作栏 */}
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-2">
             {isEdit && (
               <Button
@@ -659,7 +659,7 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
         className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
             <h3 className="text-base font-semibold leading-none">Hook 执行日志</h3>
             <p className="text-xs text-muted-foreground">最近 100 条触发记录</p>
