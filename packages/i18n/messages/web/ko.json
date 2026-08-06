@@ -1576,6 +1576,32 @@
     }
   },
   "admin": {
+    "downloads": {
+      "title": "다운로드 통계",
+      "total": "총 다운로드",
+      "activePlatforms": "활성 플랫폼 수",
+      "today": "오늘 다운로드",
+      "week": "최근 7일",
+      "platform": "플랫폼",
+      "count": "다운로드 수",
+      "ratio": "비율",
+      "trend": "다운로드 추이",
+      "distribution": "플랫폼 분포",
+      "detail": "플랫폼 상세",
+      "filterPlatform": "플랫폼 필터",
+      "allPlatforms": "전체 플랫폼",
+      "startDate": "시작일",
+      "endDate": "종료일",
+      "noData": "다운로드 기록이 없습니다",
+      "platformWeb": "Web 버전",
+      "platformDesktop": "데스크톱 클라이언트",
+      "platformIos": "iOS 앱",
+      "platformAndroidApk": "Android APK",
+      "platformMobile": "모바일 H5",
+      "platformWechatMiniapp": "WeChat 미니프로그램",
+      "platformExtension": "브라우저 확장 프로그램",
+      "platformCli": "CLI 도구"
+    },
     "relayParamOps": {
       "title": "파라미터 오버라이드 규칙",
       "subtitle": "전달 계층 applyParamOps 규칙 관리(15종 op + 조건 + JSON 경로)",
