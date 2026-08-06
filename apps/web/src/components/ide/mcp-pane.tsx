@@ -331,7 +331,7 @@ export function McpPane() {
 
             {/* 底部结果区 */}
             {result && (
-              <div className="flex max-h-48 min-h-0 flex-col overflow-hidden border-t border-border bg-muted/20">
+              <div className="flex max-h-48 min-h-0 flex-col overflow-hidden bg-muted/20">
                 <div className="flex items-center justify-between px-2 py-1">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t('mcpPane.result')}

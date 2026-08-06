@@ -61,7 +61,7 @@ export function ChatSearchBar({
   if (!show) return null
 
   return (
-    <div className="border-b border-border bg-background/95 backdrop-blur">
+    <div className="bg-background/95 backdrop-blur">
       <div className="flex items-center gap-2 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Input
