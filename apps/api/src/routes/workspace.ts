@@ -50,7 +50,9 @@ import type {
 // 上传目录
 // =============================================================================
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+// P2 修复(2026-08-06):工作区文件属私有资源,写入 uploads/private(静态白名单只暴露
+// uploads/public,该目录不对外提供);读取走 GET /api/files/:id 鉴权下载(基于 DB path 定位)。
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'private')
 
 function ensureUploadDir(): void {
   if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })

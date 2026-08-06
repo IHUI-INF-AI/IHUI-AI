@@ -23,7 +23,8 @@ const pdfFileIdQuerySchema = z.object({
   fileId: z.uuid().optional(),
 })
 
-const PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+// P2 修复(2026-08-06):PDF 工具读取/输出的文件位于公开目录 uploads/public(静态白名单只暴露 public/)
+const PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
 
 const mergeSchema = z.object({
   fileIds: z.array(z.uuid()).min(2, '至少需要 2 个文件'),
