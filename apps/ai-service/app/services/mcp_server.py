@@ -545,6 +545,20 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "SENSITIVE_FILE_BLOCKED",
         }
     try:
+        # 2026-08-06 生产修复:目录路径显式报错。
+        # Windows 上 open() 目录返回模糊的 PermissionError([Errno 13] Permission denied),
+        # 用户/模型误以为是权限问题(实际是"把目录当文件读")。
+        # 改为明确错误 + 引导使用 search_codebase 探索目录结构。
+        import os as _os
+        if _os.path.isdir(resolved_path):
+            return {
+                "tool": "read_file",
+                "path": resolved_path,
+                "content": "",
+                "ok": False,
+                "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
+                "errorCode": "IS_A_DIRECTORY",
+            }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
