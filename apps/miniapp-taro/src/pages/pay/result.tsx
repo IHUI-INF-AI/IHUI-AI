@@ -89,13 +89,13 @@ export default function PayResult() {
       {status !== 'pending' ? (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
             onClick={goHome}
           >
             {t('pay.backHome')}
           </Button>
           <Button
-            className="mt-[32rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
             onClick={goOrders}
           >
             {t('pay.viewOrders')}
@@ -104,7 +104,7 @@ export default function PayResult() {
       ) : (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
             onClick={check}
           >
             {t('pay.refresh')}
