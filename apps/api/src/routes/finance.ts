@@ -24,8 +24,9 @@ import { db } from '../db/index.js'
 
 export const financeRoutes: FastifyPluginAsync = async (server) => {
   const pageLimitQuery = z.object({
-    page: z.coerce.number().optional().default(1),
-    limit: z.coerce.number().optional().default(20),
+    // P1 修复(2026-08-06): 分页 limit 补上限,防恶意大分页拖垮数据库
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   })
 
   // ==========================================================================
@@ -150,8 +151,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const { page, limit, opType } = z
       .object({
-        page: z.coerce.number().optional().default(1),
-        limit: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 limit 补上限
+        page: z.coerce.number().int().min(1).optional().default(1),
+        limit: z.coerce.number().int().min(1).max(100).optional().default(20),
         opType: z.coerce.number().optional(),
       })
       .parse(request.query)
@@ -183,8 +185,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const { page, limit, orderType, status } = z
       .object({
-        page: z.coerce.number().optional().default(1),
-        limit: z.coerce.number().optional().default(20),
+        // P1 修复(2026-08-06): 分页 limit 补上限
+        page: z.coerce.number().int().min(1).optional().default(1),
+        limit: z.coerce.number().int().min(1).max(100).optional().default(20),
         orderType: z.string().optional(),
         status: z.string().optional(),
       })

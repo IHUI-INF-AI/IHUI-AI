@@ -2,7 +2,8 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
-import { checkAuth, authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
@@ -560,7 +561,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   // Prometheus 抓取仍由 business-metrics.ts 的 /business-metrics 负责,本端点不直接进 Prometheus。
   // 注意:本插件注册时 prefix=/api/ai(见 routes/index.ts),故路由用相对路径 /admin/ai/chat/metrics,
   // 实际完整路径为 /api/ai/admin/ai/chat/metrics(避免双 /api 拼接 bug)。
-  server.get('/admin/ai/chat/metrics', { preHandler: authenticate }, async () => {
+  // P1 修复(2026-08-06):内部指标为 admin 调试端点,原只做登录校验(authenticate),
+  // 任何登录用户可查看全站实时指标,改为 requireAdmin。
+  server.get('/admin/ai/chat/metrics', { preHandler: requireAdmin }, async () => {
     return success(sseMetrics)
   })
 }

@@ -7,7 +7,8 @@
  * 3. listApiSubscriptionPlans: 列出 3 档 API 订阅方案(name 以 'API ' 前缀 + isActive=true)
  * 4. parseTokenQuotaFromFeatures: 从 plan.features 字符串数组解析 token 配额
  *
- * 幂等:用 orders 表查 paid 订单(orderType=6 + userId + planId)做去重,无需新增表。
+ * 幂等:以订单 orderNo + token_flows(related_order_no, op_type=6)唯一键做去重,
+ * 续费(新订单号)可正常发放,回调重试(同订单号)被拦截,无需新增表。
  *
  * 配额写入策略:
  * - 用户有 active Key → UPDATE token_balance += quota(累加,允许多次订阅叠加)
@@ -17,7 +18,7 @@
  */
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { plans, orders, developerApiKeys } from '@ihui/database'
+import { plans, orders, developerApiKeys, tokenFlows } from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 
 // =============================================================================
@@ -223,18 +224,25 @@ export async function getUserSubscriptionStatus(
  *
  * 流程:
  * 1. 查 plan → 解析 features 拿 tokenQuota(0 视为无配额,仍返回 success)
- * 2. 幂等检查:orders 表是否已有 paid + orderType=6 + userId + planId 的订单
- *    (本函数被 activateOrderSubscription 调用前订单已落 paid,因此查到=已激活过)
- *    → 已激活则跳过(返回 success=false, reason='already_activated')
+ * 2. 幂等检查:以订单 orderNo 为幂等键,查 token_flows(related_order_no=orderNo, op_type=6)
+ *    是否已有配额发放流水 → 有则视为该订单已激活,跳过(回调重试幂等)
  * 3. 找用户当前活跃 Key(status=active,按 lastUsedAt desc + createdAt desc)
- * 4. 有 Key → UPDATE token_balance += quota
- *    无 Key → 自动创建默认 Key(token_balance = quota)
+ * 4. 有 Key → 事务内 UPDATE token_balance += quota + 写 token_flows 流水
+ *    无 Key → 事务内自动创建默认 Key(token_balance = quota) + 写流水
  *
+ * P1 修复(2026-08-06):原幂等判断用「paid + orderType=6 + userId + planId 订单数量 > 1」,
+ * 用户同方案续费会产生第 2 条 paid 订单 → 被误判 already_activated,续费配额不发放。
+ * 改为按订单 orderNo + token_flows 唯一键,续费(新订单号)天然通过,回调重试(同订单号)被拦截。
+ *
+ * @param userId 用户 id
+ * @param planId 订阅方案 id
+ * @param orderNo 当前支付订单号(幂等键,必须传;缺失时降级按旧逻辑处理)
  * @returns { success, keyId, tokenQuota, reason }
  */
 export async function activateApiSubscription(
   userId: string,
   planId: string,
+  orderNo?: string,
 ): Promise<ActivateResult> {
   // 1. 查 plan
   const [planRow] = await dbRead
@@ -250,37 +258,17 @@ export async function activateApiSubscription(
 
   const tokenQuota = parseTokenQuotaFromFeatures(planRow.features)
 
-  // 2. 幂等:查 paid + orderType=6 + userId + planId 订单
-  //    (调用方 activateOrderSubscription 在订单 paid 后才调本函数;
-  //     若同 plan 已有 paid 订单,视为重复激活,跳过)
-  const [existingPaid] = await dbRead
-    .select({ id: orders.id })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.userId, userId),
-        eq(orders.planId, planId),
-        eq(orders.orderType, 6),
-        eq(orders.status, 'paid'),
-      ),
-    )
-    .limit(1)
-  // 注意:当前订单本身也是 paid 状态,会被查到;此处通过"是否已有 ≥2 条 paid 订单"判断重复
-  // 简化:查 paid 订单总数,>1 视为重复(第 1 次激活时只有当前这 1 条)
-  const [countRow] = await dbRead
-    .select({ c: sql<number>`count(*)::int` })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.userId, userId),
-        eq(orders.planId, planId),
-        eq(orders.orderType, 6),
-        eq(orders.status, 'paid'),
-      ),
-    )
-  const paidCount = Number(countRow?.c ?? 0)
-  if (existingPaid && paidCount > 1) {
-    return { success: false, reason: 'already_activated' }
+  // 2. 幂等:以订单 orderNo 为键,查该订单是否已发放过配额流水
+  //    (op_type=6 = API 订阅配额发放;token_flows (related_order_no, op_type) 唯一索引兜底)
+  if (orderNo) {
+    const [existingFlow] = await dbRead
+      .select({ id: tokenFlows.id })
+      .from(tokenFlows)
+      .where(and(eq(tokenFlows.relatedOrderNo, orderNo), eq(tokenFlows.opType, 6)))
+      .limit(1)
+    if (existingFlow) {
+      return { success: false, reason: 'already_activated' }
+    }
   }
 
   // 3. 找用户当前活跃 Key
@@ -294,49 +282,83 @@ export async function activateApiSubscription(
     .orderBy(desc(developerApiKeys.lastUsedAt), desc(developerApiKeys.createdAt))
     .limit(1)
 
-  // 4. 写入配额
-  if (activeKey) {
-    // 累加:quota=-1(无限) → 设为 -1;quota>0 → token_balance += quota(若已 -1 保持 -1)
-    if (tokenQuota === -1) {
-      await db
-        .update(developerApiKeys)
-        .set({ tokenBalance: -1, updatedAt: new Date() })
-        .where(eq(developerApiKeys.id, activeKey.id))
-    } else if (tokenQuota > 0) {
-      // 已是无限额度则保持,否则累加
-      if (Number(activeKey.tokenBalance) === -1) {
-        // 已经无限,无需变更
-      } else {
-        await db
-          .update(developerApiKeys)
-          .set({
-            tokenBalance: Number(activeKey.tokenBalance) + tokenQuota,
-            updatedAt: new Date(),
-          })
-          .where(eq(developerApiKeys.id, activeKey.id))
-      }
+  // 4. 事务内:写入配额 + 记录发放流水(流水唯一索引拦截并发重复回调)
+  return db.transaction(async (tx) => {
+    // 4.1 事务内二次幂等检查(防 TOCTOU:查无流水 → 并发回调重复发放)
+    if (orderNo) {
+      const [existingFlow] = await tx
+        .select({ id: tokenFlows.id })
+        .from(tokenFlows)
+        .where(and(eq(tokenFlows.relatedOrderNo, orderNo), eq(tokenFlows.opType, 6)))
+        .limit(1)
+      if (existingFlow) return { success: false, reason: 'already_activated' }
     }
-    return { success: true, keyId: activeKey.id, tokenQuota }
-  }
 
-  // 5. 无 Key → 自动创建默认 Key
-  const { key, secret } = generateApiKey()
-  const hashed = hashSecret(secret)
-  const [newKey] = await db
-    .insert(developerApiKeys)
-    .values({
-      userId,
-      name: `API 订阅自动创建 (${planRow.name})`,
-      key,
-      secret: hashed,
-      permissions: [],
-      status: 'active',
-      rateLimit: 60,
-      tokenBalance: tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0),
-    })
-    .returning({ id: developerApiKeys.id })
-  if (!newKey) return { success: false, reason: 'create_key_failed' }
-  return { success: true, keyId: newKey.id, tokenQuota }
+    let keyId: string
+    let appliedQuota: number
+    if (activeKey) {
+      keyId = activeKey.id
+      // 累加:quota=-1(无限) → 设为 -1;quota>0 → token_balance += quota(若已 -1 保持 -1)
+      if (tokenQuota === -1) {
+        await tx
+          .update(developerApiKeys)
+          .set({ tokenBalance: -1, updatedAt: new Date() })
+          .where(eq(developerApiKeys.id, activeKey.id))
+        appliedQuota = 0
+      } else if (tokenQuota > 0) {
+        // 已是无限额度则保持,否则累加
+        if (Number(activeKey.tokenBalance) === -1) {
+          // 已经无限,无需变更
+          appliedQuota = 0
+        } else {
+          await tx
+            .update(developerApiKeys)
+            .set({
+              tokenBalance: Number(activeKey.tokenBalance) + tokenQuota,
+              updatedAt: new Date(),
+            })
+            .where(eq(developerApiKeys.id, activeKey.id))
+          appliedQuota = tokenQuota
+        }
+      } else {
+        appliedQuota = 0
+      }
+    } else {
+      // 5. 无 Key → 自动创建默认 Key
+      const { key, secret } = generateApiKey()
+      const hashed = hashSecret(secret)
+      const [newKey] = await tx
+        .insert(developerApiKeys)
+        .values({
+          userId,
+          name: `API 订阅自动创建 (${planRow.name})`,
+          key,
+          secret: hashed,
+          permissions: [],
+          status: 'active',
+          rateLimit: 60,
+          tokenBalance: tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0),
+        })
+        .returning({ id: developerApiKeys.id })
+      if (!newKey) return { success: false, reason: 'create_key_failed' }
+      keyId = newKey.id
+      appliedQuota = tokenQuota === -1 ? 0 : Math.max(tokenQuota, 0)
+    }
+
+    // 4.2 写配额发放流水作为幂等标记(仅当 orderNo 存在;op_type=6 避免与佣金 4 冲突)
+    if (orderNo && appliedQuota > 0) {
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 6,
+        quantity: appliedQuota,
+        balanceAfter: 0,
+        remark: `API 订阅配额发放:${planRow.name}`,
+        relatedOrderNo: orderNo,
+      })
+    }
+
+    return { success: true, keyId, tokenQuota }
+  })
 }
 
 // =============================================================================

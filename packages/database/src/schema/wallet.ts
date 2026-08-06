@@ -26,7 +26,7 @@ export const userMargins = pgTable(
 
 /**
  * Token 流水表。
- * opType: 0=充值 1=扣减 2=过期 3=退款 4=佣金 5=管理员调整。
+ * opType: 0=充值 1=扣减 2=过期 3=退款 4=佣金 5=管理员调整 6=API 订阅配额发放。
  */
 export const tokenFlows = pgTable(
   'token_flows',
