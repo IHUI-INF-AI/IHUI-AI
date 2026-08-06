@@ -1,12 +1,12 @@
 name: Build Android APK
 
-# Android APK 构建(2026-08-06 立)。
+# Android APK 全自动构建 + 分发(2026-08-06 立,2026-08-06 增 Release 自动发布)。
 # 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
 #       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
-# 触发:
-#   - 手动 workflow_dispatch
-#   - 推送 v* tag(发布时自动构建)
-# 产物:Actions artifact(app-release.apk),下载后放入 apps/web/public/apk/ 即完成自托管分发。
+# 流程(全自动):
+#   - 手动 workflow_dispatch 或推送 v* tag → ubuntu runner 构建 release APK
+#   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.apk)
+#   - 下载页 APK_URL 指向最新 Release 固定地址,引导页自动生效(无需人工放入)
 # 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
 
 on:
@@ -15,7 +15,7 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -51,8 +51,27 @@ jobs:
         working-directory: apps/mobile-rn/android
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Prepare APK artifact (fixed filename)
+        run: |
+          ls apps/mobile-rn/android/app/build/outputs/apk/release/
+          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk ./ihui-ai-latest.apk
+          ls -lh ihui-ai-latest.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ihui-ai-android-apk
-          path: apps/mobile-rn/android/app/build/outputs/apk/release/*.apk
+          path: ihui-ai-latest.apk
+
+      # 自动发布 Release(2026-08-06 增):
+      #   - tag 触发 → 发布到该 tag
+      #   - 手动触发 → 自动创建 nightly 标签发布
+      # 下载页固定地址(指向最新 Release,永远可用):
+      #   https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-ai-latest.apk
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('nightly-{0}', github.run_id) }}
+          files: ihui-ai-latest.apk
+          generate_release_notes: false
+          make_latest: true
