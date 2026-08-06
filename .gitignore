@@ -313,9 +313,3 @@ sdks/java/target/
 
 # 2026-08-06 git 仓库损坏事故备份(待清理,勿提交)
 .git.broken/
-
-# drizzle-kit generate 中间产物(2026-08-06,0204 含 DROP 语句勿执行;待用户授权后清理)
-packages/database/drizzle/0204_curvy_swarm.sql
-packages/database/drizzle/meta/0204_snapshot.json
-scripts/tmp-cur-snapshot.json
-scripts/tmp-cur-snapshot.mjs
