@@ -149,7 +149,15 @@ if (existsSync(aiServiceDir)) {
     )
   } else {
     console.log('\n[typecheck:full] 运行 apps/ai-service mypy (blocking)...')
-    const mypyResult = spawnSync('mypy', ['app/'], {
+    // 2026-08-06 修复:优先使用项目自带 .venv 的 mypy,避免依赖全局 PATH 的
+    // uv trampoline(Windows 上 uv 无法 spawn Python 子进程 → 误报失败阻塞 push)。
+    const mypyCandidates = [
+      join(aiServiceDir, '.venv/Scripts/mypy.exe'), // Windows
+      join(aiServiceDir, '.venv/bin/mypy'), // Unix/macOS
+    ]
+    const mypyExecutable =
+      mypyCandidates.find((p) => existsSync(p)) ?? 'mypy'
+    const mypyResult = spawnSync(mypyExecutable, ['app/'], {
       cwd: aiServiceDir,
       stdio: 'inherit',
       shell: true,
