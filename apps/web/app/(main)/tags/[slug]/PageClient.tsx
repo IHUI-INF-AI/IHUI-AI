@@ -77,13 +77,13 @@ export default function TagDetailPageClient() {
 
   const groups = React.useMemo(() => {
     const map = new Map<string, TagResource[]>()
-    for (const r of list) {
+    for (const r of resourcesQuery.data?.list ?? []) {
       const arr = map.get(r.resourceType) ?? []
       arr.push(r)
       map.set(r.resourceType, arr)
     }
     return Array.from(map.entries())
-  }, [list])
+  }, [resourcesQuery.data])
 
   const groupLabel = (type: string) => t(GROUP_KEY[type] ?? 'groupOther')
 

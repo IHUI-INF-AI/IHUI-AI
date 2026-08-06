@@ -93,16 +93,18 @@ export function IntegrationsPanel() {
     onError: () => toast.error(t('confirmDeleteChannel')),
   })
 
-  const channels: ChannelItem[] = channelsQuery.data ?? []
-  const supportedList =
-    supportedQuery.data ??
-    CHANNEL_TYPES.map((c) => ({
-      id: c.value,
-      type: c.value,
-      name: c.label,
-    }))
-
+  // channels/supportedList 的初始化(`data ?? []` / `data ?? fallback`)每 render 生成新引用,
+  // 若放在组件作用域会使 useMemo 依赖每次变化导致重算,故移入 useMemo 内部,
+  // useMemo 依赖原始 query data,仅在其变化时重算。
   const merged = React.useMemo(() => {
+    const channels: ChannelItem[] = channelsQuery.data ?? []
+    const supportedList =
+      supportedQuery.data ??
+      CHANNEL_TYPES.map((c) => ({
+        id: c.value,
+        type: c.value,
+        name: c.label,
+      }))
     const map = new Map<string, ChannelItem>()
     for (const s of supportedList) {
       map.set(s.id, { ...s, connected: false })
@@ -111,7 +113,7 @@ export function IntegrationsPanel() {
       map.set(c.id, { ...map.get(c.id), ...c })
     }
     return Array.from(map.values())
-  }, [channels, supportedList])
+  }, [channelsQuery.data, supportedQuery.data])
 
   return (
     <div className="space-y-4">

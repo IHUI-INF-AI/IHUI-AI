@@ -134,7 +134,7 @@ export function AttachmentsUpload({
         setUploading(false)
       }
     },
-    [maxCount, onChange, uploadOne, value],
+    [maxCount, onChange, onError, uploadOne, value],
   )
 
   const handleRemove = React.useCallback(
