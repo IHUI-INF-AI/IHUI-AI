@@ -82,12 +82,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   manifest: '/manifest.json',
   icons: {
-    // 2026-08-06 修复浏览器标签破图:
-    // - favicon.ico 已用 public/images/logo.png (2534x2534 品牌图) 重新生成
-    //   为多尺寸 16/32/48 PNG-based ICO(3726 字节, 替换原损坏的 1088 字节破图)
-    // - apple-touch-icon.png 已用 logo.png 重新生成 180x180(11044 字节, 替换原 1339 字节破图)
-    // - 额外声明 /images/logo.png (512x512) 作为高分辨率 PNG 兜底,
-    //   现代浏览器 tab/PWA 场景优先匹配矢量级清晰度
+    // 2026-08-06 修复浏览器标签破图 + 品牌图标统一:
+    // - favicon.ico: logo.png(2534x2534)→黑色背景+logo→多尺寸 16/32/48 PNG-based ICO
+    //   (3501 字节, 替换原损坏的 1088 字节破图; 黑色背景与 logo 主体圆角方形融合)
+    // - apple-touch-icon.png: logo.png→黑色背景+logo→180x180
+    //   (10627 字节, 替换原损坏的 1339 字节破图; iOS 主屏幕不显示白角)
+    // - /images/logo.png (512x512) 高分辨率 PNG 兜底, 现代 tab/PWA 优先匹配
+    // - PWA manifest.json icons 同源派生(icon-192/512/maskable-512 均黑底+logo)
+    //   theme_color/background_color=#000000 与图标黑底统一, PWA 启动闪屏无色差
     icon: [
       { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
       { url: '/images/logo.png', sizes: '512x512', type: 'image/png' },
