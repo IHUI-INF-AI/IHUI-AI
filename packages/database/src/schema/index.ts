@@ -224,3 +224,5 @@ export * from './user-devices.js'
 export * from './plugins.js'
 // 用户 Token 余额表(2026-08-04 补建:代码引用但 schema 缺失导致 500,预先存在的 schema 缺口)
 export * from './user-token-balance.js'
+// 下载量统计事件表(2026-08-06 新增,记录用户点击下载按钮事件,admin 查询统计)
+export * from './download-stats.js'
