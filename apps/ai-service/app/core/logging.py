@@ -30,7 +30,9 @@ def _configure_structlog() -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
+            # 2026-08-06 立:utc=False 用本地时区,与 stdlib basicConfig(main.py)一致,
+            # 避免日志聚合时 structlog(UTC,带 Z)与 stdlib(本地,无 Z)时间戳差 8 小时。
+            structlog.processors.TimeStamper(fmt="iso", utc=False),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.dev.ConsoleRenderer(),
