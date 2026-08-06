@@ -735,6 +735,13 @@
     "modelAutoDescription": "Automatically select the optimal model",
     "modelFree": "Free",
     "modelPointsMultiplier": "Credits multiplier",
+    "modelTagMemberDiscount": "Member 75% off",
+    "modelTagOfficial": "Stable",
+    "modelTagSubsidy": "Subsidized",
+    "modelLockedHint": "Upgrade required to use",
+    "modelPopoverMemberTitle": "Extra 75% off for Members",
+    "modelPopoverMemberDesc": "Upgrade to a paid member and enjoy an extra 75% off — credits consumption drops from {from}x to {to}x",
+    "modelPopoverUpgradeButton": "Upgrade Now",
     "slashCmd": {
       "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "act": "Switch to act mode (AI normally executes tools, default)",
