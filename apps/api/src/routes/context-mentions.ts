@@ -232,11 +232,28 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
 
     try {
-      const data = await contextEngineService.getSources()
+      const data = await contextEngineService.getSources(request.userId)
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '源类型查询失败'))
+    }
+  })
+
+  // PUT /sources — 持久化用户上下文源偏好(2026-08-06 立)
+  server.put('/sources', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = (request.body ?? {}) as { updates?: Array<{ type: string; enabled?: boolean; budgetPercent?: number }> }
+    if (!Array.isArray(body.updates) || body.updates.length === 0) {
+      return reply.status(400).send(error(400, 'updates 不能为空'))
+    }
+    try {
+      const data = await contextEngineService.updateSources(request.userId, body.updates)
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '源偏好保存失败'))
     }
   })
 

@@ -51,7 +51,7 @@
 .vs-info-card {
   width: 100%;
   background: rgba(8, 20, 40, 0.5);
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 40rpx 30rpx;
   margin-bottom: 60rpx;
   border: 1rpx solid rgba(5, 122, 255, 0.2);
