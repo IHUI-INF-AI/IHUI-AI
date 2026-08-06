@@ -1086,6 +1086,13 @@
       "when": 1785947927780,
       "tag": "20260806003847_notification_message_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1786001928069,
+      "tag": "20260806153000_tenant_members_user_id_idx",
+      "breakpoints": true
     }
   ]
 }

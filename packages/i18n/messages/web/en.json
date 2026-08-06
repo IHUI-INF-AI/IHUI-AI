@@ -1601,7 +1601,18 @@
       "platformMobile": "Mobile H5",
       "platformWechatMiniapp": "WeChat Mini Program",
       "platformExtension": "Browser Extension",
-      "platformCli": "CLI Tool"
+      "platformCli": "CLI Tool",
+      "pendingTitle": "Pending Platform Onboarding Guide",
+      "pendingDesc": "The following 3 platforms are not yet connected. Operators need to fill in the corresponding fields in downloads.config.ts",
+      "pendingField": "Config Field",
+      "pendingStatus": "Status",
+      "pendingGuide": "Onboarding Guide",
+      "pendingConfigFile": "Config File",
+      "pendingNotConnected": "Not Connected",
+      "pendingConnected": "Connected",
+      "pendingIosGuide": "Fill in the numeric App Store ID after App Store launch (e.g. 1234567890)",
+      "pendingAndroidGuide": "Fill in absolute CDN URL or /public relative path after APK deployment",
+      "pendingWechatGuide": "Fill in scan landing page URL or scheme after WeChat Mini Program launch"
     },
     "relayParamOps": {
       "title": "Param Override Rules",
@@ -12776,7 +12787,7 @@
   },
   "mobileDashboardPage": {
     "title": "Mobile Dashboard",
-    "subtitle": "Monitor mobile core operational metrics. Data is mock demo data.",
+    "subtitle": "Monitor core mobile operational metrics and trends.",
     "stats": {
       "trendSuffix": "vs yesterday",
       "dau": "DAU",
