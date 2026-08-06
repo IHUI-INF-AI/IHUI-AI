@@ -192,8 +192,8 @@ export function AgreementNoticeDialog({
         <div className="mt-5 flex items-center gap-2">
           <Button
             type="button"
-            variant="ghost"
-            className="h-10 flex-1"
+            variant="outline"
+            className="h-10 flex-1 bg-muted/40 hover:bg-muted"
             onClick={onCancel}
             data-testid="agreement-notice-disagree"
           >
