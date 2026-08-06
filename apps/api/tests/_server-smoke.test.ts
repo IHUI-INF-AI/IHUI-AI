@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
@@ -69,17 +70,17 @@ vi.mock('@fastify/cookie', async () => {
     if (opts?.httpOnly) parts.push('HttpOnly')
     if (opts?.secure) parts.push('Secure')
     if (opts?.sameSite) parts.push(`SameSite=${opts.sameSite}`)
-    if (opts?.maxAge != null) parts.push(`Max-Age=${opts.maxAge}`)
+    if (opts?.maxAge !== null && opts?.maxAge !== undefined) parts.push(`Max-Age=${opts.maxAge}`)
     return parts.join('; ')
   }
 
-  const plugin = async (instance: import('fastify').FastifyInstance): Promise<void> => {
+  const plugin = async (instance: FastifyInstance): Promise<void> => {
     instance.decorateRequest('cookies', null)
     instance.addHook(
       'onRequest',
       (
-        request: import('fastify').FastifyRequest,
-        _reply: import('fastify').FastifyReply,
+        request: FastifyRequest,
+        _reply: FastifyReply,
         done: () => void,
       ) => {
         const cookieHeader = request.headers.cookie
@@ -90,7 +91,7 @@ vi.mock('@fastify/cookie', async () => {
     )
     instance.decorateReply(
       'setCookie',
-      function (this: import('fastify').FastifyReply, name: string, value: string, opts?: CookieOpts) {
+      function (this: FastifyReply, name: string, value: string, opts?: CookieOpts) {
         const cookieStr = buildCookieString(name, value, opts)
         const existing = this.getHeader('set-cookie')
         if (existing === undefined) {
@@ -105,7 +106,7 @@ vi.mock('@fastify/cookie', async () => {
     )
     instance.decorateReply(
       'clearCookie',
-      function (this: import('fastify').FastifyReply, name: string, opts?: CookieOpts) {
+      function (this: FastifyReply, name: string, opts?: CookieOpts) {
         const cookieStr = `${name}=; Path=${opts?.path ?? '/'}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
         this.header('set-cookie', cookieStr)
         return this
