@@ -11,7 +11,9 @@
  * 防护配置(本脚本幂等,可重复执行):
  *   1. gc.auto=0            禁用自动 gc —— 消除并发 repack 损坏 pack 的最大根因
  *   2. gc.autodetach=false  gc 不后台分离 —— 手动 gc 时前台可观测
- *   3. push 前 git fsck 提示  —— 早期发现损坏(仅提示,不阻断)
+ *   3. maintenance.auto false 禁用 git maintenance 自动任务(2.30+ 的自动维护,等价于 gc 自动触发)
+ *   4. push 前 git fsck 提示  —— 早期发现损坏(仅提示,不阻断)
+ *   5. git 写锁:scripts/git-lock.mjs(safe-commit/post-commit/safe-gc 已集成,无需额外配置)
  *
  * 用法:
  *   node scripts/git-hygiene-init.mjs          # 应用到当前仓库
@@ -37,6 +39,7 @@ const CHECK_ONLY = process.argv.includes('--check')
 const EXPECTED = {
   'gc.auto': '0',
   'gc.autodetach': 'false',
+  'maintenance.auto': 'false',
 }
 
 function main() {
