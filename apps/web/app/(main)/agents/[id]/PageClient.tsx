@@ -117,6 +117,7 @@ const PERMISSION_REASON_KEY: Record<string, string> = {
 export default function AgentDetailPage() {
   const t = useTranslations('agent')
   const tc = useTranslations('common')
+  const tchat = useTranslations('aiChat')
   const locale = useLocale()
   const router = useRouter()
   const params = useParams<{ id: string }>()
@@ -181,7 +182,7 @@ export default function AgentDetailPage() {
         {agent && (
           <Button size="sm" variant="outline" onClick={() => setDispatchOpen(true)}>
             <Sparkles className="h-4 w-4" />
-            派发 Subagent
+            {tchat('dispatchSubagent')}
           </Button>
         )}
       </div>
