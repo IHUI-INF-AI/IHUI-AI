@@ -98,13 +98,6 @@ export interface LoginApiClient {
   sendSmsCode: (phone: string) => Promise<ApiResult<{ sent: boolean }>>
   /** 图形验证码 svg(token 用于提交时校验),可选 */
   fetchCaptcha?: () => Promise<{ svg: string; token: string } | null>
-  /**
-   * 登录 2FA 二次校验钩子(2026-08-06 立,可选)。
-   * 当登录响应 twoFactorRequired=true 时,调用方注入的登录方法实现内部调用此钩子:
-   * 展示 TOTP/备用码输入面板,返回用户提交的 code(challengeToken 用于标识本次挑战)。
-   * 未注入时,登录方法应原样返回 twoFactorRequired 响应由上层处理(或提示用户)。
-   */
-  request2faCode?: (challengeToken: string) => Promise<string>
 }
 
 /** QR tab 平台配置(由调用方注入,默认 4 个 wechat/wecom/dingtalk/feishu) */
