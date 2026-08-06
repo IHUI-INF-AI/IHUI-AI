@@ -157,10 +157,8 @@ export function RegisterScreen() {
             await sendSmsCode(verifyPhone, 'register')
           }
         }}
-        onSubmit={(code) => {
-          // 演示流程:打印验证码并关闭弹窗;真实项目应调 verifySmsCode API
-          // eslint-disable-next-line no-console
-          console.log('[RegisterScreen] verify code:', code)
+        onSubmit={(_code) => {
+          // TODO: 真实项目应调 verifySmsCode API 校验验证码
           setVerifyVisible(false)
         }}
       />

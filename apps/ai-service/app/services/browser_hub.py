@@ -293,7 +293,8 @@ class BrowserSession:
     @property
     def viewport(self) -> dict[str, int]:
         """会话视口(用于风控墙重建时保持同尺寸)。"""
-        size = self._context.viewport_size
+        # Playwright BrowserContext 无 viewport_size 属性,改从 Page.viewport_size 取
+        size = self._page.viewport_size
         if size:
             return {"width": int(size["width"]), "height": int(size["height"])}
         return {"width": 1280, "height": 720}
@@ -654,6 +655,7 @@ class BrowserHub:
             context, page = await asyncio.get_running_loop().run_in_executor(
                 self._executor, _sync_create
             )
+            assert self._main_loop is not None  # _ensure_browser 已赋值,类型守卫
             session = BrowserSession(session_id, context, page, self._executor, self._main_loop, user_agent)
             if url:
                 await session.navigate(url)
