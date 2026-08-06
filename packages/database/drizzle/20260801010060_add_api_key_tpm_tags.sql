@@ -19,5 +19,5 @@ CREATE TABLE IF NOT EXISTS api_key_minute_usage (
   UNIQUE(api_key_id, usage_minute)
 );
 
-CREATE INDEX idx_api_key_minute_usage_time ON api_key_minute_usage(usage_minute);
-CREATE INDEX idx_api_key_minute_usage_key ON api_key_minute_usage(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_api_key_minute_usage_time ON api_key_minute_usage(usage_minute);
+CREATE INDEX IF NOT EXISTS idx_api_key_minute_usage_key ON api_key_minute_usage(api_key_id);

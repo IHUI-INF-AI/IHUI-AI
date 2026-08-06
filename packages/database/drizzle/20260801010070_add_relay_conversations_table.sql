@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS relay_conversations (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_relay_conversations_user ON relay_conversations(user_id, last_message_at DESC);
-CREATE INDEX idx_relay_conversations_api_key ON relay_conversations(api_key_id);
-CREATE INDEX idx_relay_conversations_user_updated ON relay_conversations(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_relay_conversations_user ON relay_conversations(user_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_relay_conversations_api_key ON relay_conversations(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_relay_conversations_user_updated ON relay_conversations(user_id, updated_at DESC);
 
 -- 中转站用户对话消息表(每条 message 一行)
 CREATE TABLE IF NOT EXISTS relay_messages (
@@ -40,5 +40,5 @@ CREATE TABLE IF NOT EXISTS relay_messages (
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_relay_messages_conversation ON relay_messages(conversation_id, created_at);
-CREATE INDEX idx_relay_messages_log ON relay_messages(log_id);
+CREATE INDEX IF NOT EXISTS idx_relay_messages_conversation ON relay_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_relay_messages_log ON relay_messages(log_id);
