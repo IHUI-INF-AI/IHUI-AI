@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../src/i18n'
 import { voiceSttFromBlob } from '@ihui/api-client'
+import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
 
 /** Mic 图标 SVG(extension 端不依赖 lucide-react,保持依赖精简)。 */
 function MicIcon({ className }: { className?: string }) {
@@ -50,10 +51,8 @@ declare global {
   }
 }
 
-const AI_SERVICE_URL =
-  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_AI_SERVICE_URL
-    ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
-    : 'http://localhost:8803'
+// STT 地址单一来源:lib/config.ts 的 DEFAULT_AI_SERVICE_URL(与 host_permissions 的 8803 权限对应)
+const AI_SERVICE_URL = DEFAULT_AI_SERVICE_URL
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void

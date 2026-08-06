@@ -11,18 +11,20 @@ import { normalizeHeader, normalizeHeaderStrict, parsePath } from '../utils/http
  * - 请求 ID 追踪：从 X-Request-Id 头透传，缺失则生成 UUID，回写响应头供下游串联
  * - 结构化字段：requestId / method / path / status / duration / userId / ip / apiVersion
  * - 敏感字段脱敏：复用 response-sanitizer 规则，对可选的请求体快照做脱敏后输出
- * - 4xx/5xx 全量记录，2xx 按 ELK_LOG_SAMPLE_RATE 采样（默认 10%）
+ * - 4xx/5xx 全量记录，2xx 按 ELK_LOG_SAMPLE_RATE 采样（默认 100%，可设 0~1 调低）
  *
- * 配置：ELK_LOG_ENABLED=true 启用，ELK_LOG_SAMPLE_RATE 采样率（0~1，默认 0.1）
+ * 配置：ELK_LOG_ENABLED=true 启用，ELK_LOG_SAMPLE_RATE 采样率（0~1，默认 1）
  */
-
+ 
 const REQUEST_ID_HEADER = 'x-request-id'
 
 const apiLoggerExtendedPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const enabled = process.env.ELK_LOG_ENABLED === 'true'
   if (!enabled) return
 
-  const sampleRate = Number(process.env.ELK_LOG_SAMPLE_RATE ?? '0.1')
+  // P2 修复(2026-08-06):默认采样率 0.1 → 1.0(全量),原默认 90% 2xx 请求无 ELK 日志,
+  // 线上问题排查盲区大。需要降量时显式设 ELK_LOG_SAMPLE_RATE=0.1,并钳制到 [0,1]。
+  const sampleRate = Math.min(Math.max(Number(process.env.ELK_LOG_SAMPLE_RATE ?? '1'), 0), 1)
   const sensitiveKeys = buildSensitiveKeySet()
 
   // 注入/透传请求 ID（字符集校验防 CRLF 注入）

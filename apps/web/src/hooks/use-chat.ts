@@ -1243,9 +1243,11 @@ export function useChat(): UseChatReturn {
       // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
       const workspaceContext = await loadBrowserWorkspaceContext()
 
-      // 2026-07-31 防御性降级:'auto' 模型后端不支持,降级到 stepfun/step-router-v1
-      // (正常路径 setModel 已降级,此处防止其他路径绕过 setModel 直接传 'auto')
-      const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
+      // 2026-08-06 立:不再做 'auto' → stepfun/step-router-v1 防御性降级。
+      // 原降级会把 Auto 模式绑死 stepfun 一家,违反用户反馈"应该自动切换所有可使用的模型"。
+      // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
+      // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
+      const effectiveModel = model
       try {
         await streamChat({
           model: effectiveModel,
@@ -1627,8 +1629,9 @@ export function useChat(): UseChatReturn {
       // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(与 sendMessage 对称)
       const workspaceContext = await loadBrowserWorkspaceContext()
 
-      // 2026-07-31 防御性降级:与 sendMessage 对称,'auto' → stepfun/step-router-v1
-      const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
+      // 2026-08-06 立:与 sendMessage 对称,删除 'auto' → stepfun/step-router-v1 降级,
+      // 让 'auto' 透传到 ai-service 跨厂商路由(详见 line 1246-1249 注释)。
+      const effectiveModel = model
       try {
         await streamChat({
           model: effectiveModel,
