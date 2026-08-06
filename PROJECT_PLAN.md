@@ -2730,3 +2730,45 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - **前端登录成功判定**不能依赖"accessToken 必须存在",必须识别 twoFactorRequired 中间态
 - 后台任务的 pnpm install 会触发 safe-delete 沙箱拦截 → typecheck/lint 用 `node_modules/.bin/tsc`/`eslint` 直跑绕过
 
+## P1 staging area 同目录文件级污染根治(2026-08-06 立,工程治理,平台独占:scripts/ + .husky/ + AGENTS.md)
+
+### 触发背景(真实事故)
+
+commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到气泡外" 意外包含 `apps/web/src/components/chat/message-input.tsx`(其他 agent 改的 `rounded-t-xl` 圆角修复)。
+
+**根因分析**(4 路并行 Task agent 审计 + 主 agent 验证):
+1. `message-input.tsx` 在 pre-commit hook 执行**前**已被 IDE/其他 agent staged
+2. `takeStagingSnapshot()` 在 hook 入口记录快照时,把 `message-input.tsx` 当成本任务文件
+3. `restoreStaging()` 对比快照时认为它是"本任务文件",不会 unstage
+4. 所有领域级守门(`check-commit-scope-consistency.mjs` / `check-staged-pollution.mjs`)都放过(同目录 `apps/web/src/components/chat/`,scope=web 完全匹配)
+5. **核心漏洞**:领域级守门**无法防御同目录文件级污染**
+
+### 修复方案(3 层防御)
+
+1. **staging-snapshot.js 新增 `auditStagingFiles()` 函数**(warn-only 提示层):
+   - pre-commit hook 入口调用,打印 staged 文件清单(按目录分组)
+   - 同目录多文件时警告(提示可能是污染,建议用 safe-commit.mjs 重新提交)
+   - 文件数 > 5 时严重警告
+   - 7 个测试用例覆盖(空 staging / 单文件 / 同目录多文件 / 文件数 > 5 / silent / HUSKY_SKIP_STAGING_AUDIT / 非 git 环境)
+
+2. **AGENTS.md §12 新增"强制使用 safe-commit.mjs"子规则**(根本解决方案):
+   - 多 agent 并行环境(≥2 个 agent 同时工作)下,agent commit **必须**用 `node scripts/safe-commit.mjs`
+   - safe-commit.mjs 5 步法(零信任):`git reset HEAD` 清空暂存区 → 只 add 声明文件 → 校验 staged == 预期 → `git commit -- <pathspec>` → 验证 commit 内容
+   - 单 agent 环境豁免(需 `git status --porcelain` 确认 staging 干净)
+
+3. **pre-commit hook 入口增加 `auditStagingFiles()` 调用**(2026-08-06 立):
+   - 位置:takeStagingSnapshot 之后、lint-staged 之前
+   - 跳过方法:`HUSKY_SKIP_STAGING_AUDIT=1`
+
+### 验证
+
+- `node --test scripts/tests/staging-snapshot.test.mjs` 37/37 通过(含 7 个新 auditStagingFiles 测试)
+- `node -c scripts/lib/staging-snapshot.js` 语法正确
+- `node -c .husky/pre-commit` 语法正确
+
+### 经验沉淀
+
+- **staging-snapshot 机制局限性**:只能防御"hook 执行期间新增的 staged 文件",无法防御"hook 执行前已 staged 的非本任务文件"(后者由 safe-commit.mjs 的 `git reset HEAD` 解决)
+- **领域级守门局限性**:check-commit-scope / check-staged-pollution 都是领域级(web/api/i18n),无法防御同目录文件级污染(message-list + message-input 同在 chat/ 目录)
+- **根治方案层级**:safe-commit.mjs(根本解决,git reset HEAD 清空暂存区)> auditStagingFiles(提示层,让 agent 察觉异常)> restoreStaging(防御层,unstage hook 期间新增文件)
+

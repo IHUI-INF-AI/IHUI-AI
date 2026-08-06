@@ -240,6 +240,19 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
 
+### 强制使用 safe-commit.mjs(2026-08-06 立,真实事故根治)
+
+- **触发背景**:commit `aa15bec23` "fix(web): message-list 消息操作按钮..." 意外包含 `message-input.tsx`(其他 agent 改的 `rounded-t-xl`)。根因:`message-input.tsx` 在 pre-commit hook 执行**前**已被 IDE/其他 agent staged,`takeStagingSnapshot` 把它当成本任务文件,`restoreStaging` 不会 unstage。所有领域级守门(`check-commit-scope` / `check-staged-pollution`)都放过(同目录 `apps/web/src/components/chat/`,scope=web 匹配)。领域级守门**无法防御同目录文件级污染**。
+- **强制规则**:多 agent 并行环境(≥2 个 agent 同时工作)下,agent commit **必须**用 `node scripts/safe-commit.mjs -m "<message>" -- <file1> [file2 ...]`,**禁止**直接 `git add <file> && git commit -m "..."`。
+- **safe-commit.mjs 5 步法(零信任)**:① `git reset HEAD` 清空整个暂存区(无论谁 staged 的)→ ② `git add -A -- <声明的文件>` 只暂存自己声明的文件 → ③ 校验 `git diff --cached --name-only` === 声明文件(有意外文件立即 exit 1)→ ④ `git commit -- <pathspec>` 原生 pathspec 终极兜底 → ⑤ `git show --name-only HEAD` 验证 commit 内容只包含预期文件。
+- **单 agent 环境豁免**:确认无其他 agent 并行时,可直接 `git add <file> && git commit`,但必须先 `git status --porcelain` 确认 staging area 干净(无其他已 staged 文件)。
+- **pre-commit hook 配套提示层**(2026-08-06 立):hook 入口调用 `auditStagingFiles()` 打印 staged 文件清单(按目录分组)+ 同目录多文件警告 + 文件数 > 5 严重警告(warn-only,不阻塞)。提示层无法真正阻止污染,真正阻止污染的是 safe-commit.mjs 的 `git reset HEAD` 清空暂存区。
+- **红线**:
+  - ❌ 禁止多 agent 并行时直接 `git add <file> && git commit`(staging area 可能有其他 agent 残留)
+  - ❌ 禁止用 `git add .` / `git add -A` / `git add -u`(会把其他 agent 改动一起 stage)
+  - ❌ 禁止忽略 pre-commit hook 的 `📋 staged 文件清单审计` 警告(同目录多文件时必须核对)
+  - ✅ 多 agent 并行时用 `node scripts/safe-commit.mjs -m "..." -- <files>`(自动清空暂存区 + 只 add 声明文件 + 校验)
+
 ---
 
 ## 13. 文件修改持久化强制规则(强制)
