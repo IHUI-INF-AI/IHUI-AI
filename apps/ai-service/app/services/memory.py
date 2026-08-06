@@ -45,21 +45,26 @@ class MemoryStore:
         return self._redis
 
     @staticmethod
-    def _key(user_id: str, session_id: str) -> str:
-        """P1-6:复合 key,user_id 必须非空(防注入空前缀绕过分隔)。"""
-        return f"memory:{user_id}:{session_id}"
+    def _key(session_id: str, user_id: str | None = None) -> str:
+        """P1-6:复合 key,user_id 非空时加前缀(防跨用户读写)。
+
+        user_id 为 None 时降级为旧格式 memory:{session_id}(向后兼容,
+        调用方暂未全部传递 user_id 的过渡期保留)。
+        """
+        if user_id:
+            return f"memory:{user_id}:{session_id}"
+        return f"memory:{session_id}"
 
     async def add(
         self,
-        user_id: str,
         session_id: str,
         role: str,
         content: str,
         metadata: dict[str, Any] | None = None,
+        *,
+        user_id: str | None = None,
     ) -> None:
-        """向指定用户会话追加一条消息。"""
-        if not user_id:
-            raise ValueError("memory.add: user_id 必填(防跨用户读写)")
+        """向指定会话追加一条消息。user_id 非空时启用用户隔离(P1-6)。"""
         msg = {
             "role": role,
             "content": content,
@@ -67,36 +72,37 @@ class MemoryStore:
             "timestamp": datetime.utcnow().isoformat(),
         }
         redis = await self._get_redis()
+        key = self._key(session_id, user_id)
         if redis:
-            key = self._key(user_id, session_id)
             await redis.rpush(key, json.dumps(msg, ensure_ascii=False))
         else:
-            key = self._key(user_id, session_id)
             if key not in self._store:
                 self._store[key] = []
             self._store[key].append(msg)
 
-    async def get(self, user_id: str, session_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """获取指定用户会话的消息(返回最近 limit 条)。"""
-        if not user_id:
-            raise ValueError("memory.get: user_id 必填(防跨用户读写)")
+    async def get(
+        self,
+        session_id: str,
+        limit: int = 100,
+        *,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """获取指定会话的消息(返回最近 limit 条)。user_id 非空时启用用户隔离(P1-6)。"""
         redis = await self._get_redis()
         if redis:
-            key = self._key(user_id, session_id)
+            key = self._key(session_id, user_id)
             raw = await redis.lrange(key, -limit, -1)
             return [json.loads(r) for r in raw]
-        msgs = self._store.get(self._key(user_id, session_id), [])
+        msgs = self._store.get(self._key(session_id, user_id), [])
         return msgs[-limit:] if limit < len(msgs) else msgs
 
-    async def clear(self, user_id: str, session_id: str) -> None:
-        """清除指定用户会话的全部消息。"""
-        if not user_id:
-            raise ValueError("memory.clear: user_id 必填(防跨用户读写)")
+    async def clear(self, session_id: str, *, user_id: str | None = None) -> None:
+        """清除指定会话的全部消息。user_id 非空时启用用户隔离(P1-6)。"""
         redis = await self._get_redis()
         if redis:
-            await redis.delete(self._key(user_id, session_id))
+            await redis.delete(self._key(session_id, user_id))
         else:
-            self._store.pop(self._key(user_id, session_id), None)
+            self._store.pop(self._key(session_id, user_id), None)
 
     async def list_sessions(self, user_id: str | None = None) -> list[str]:
         """列出会话 ID。传 user_id 时只列该用户的;不传时列出全部(仅管理员/调试用)。"""
@@ -111,7 +117,7 @@ class MemoryStore:
         if user_id:
             prefix = f"memory:{user_id}:"
             return [k[len(prefix):] for k in keys if k.startswith(prefix)]
-        return keys
+        return [k.replace("memory:", "") for k in keys]
 
 
 memory_store = MemoryStore()
