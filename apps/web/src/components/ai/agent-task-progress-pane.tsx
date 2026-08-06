@@ -67,7 +67,7 @@ import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
  *   DOM 父级 = CSS containing block = inner div,绝对定位天然正确,0 状态机可漂移。
  * - **恢复拖动功能**:v17 因为 v15 JS 坐标漂移 bug 把拖拽连根拔起,用户要求恢复。
  *   v18 用 **handle 元素 + 纯 DOM style.transform** 实现:
- *   ① 拖动只在 header 左侧 GripVertical 区域启动,onMouseDown 用 `closest('button')` 早退
+ *   ① 拖动在 header 空白区域启动(整条 header 都是 handle),onMouseDown 用 `closest('button')` 早退
  *      → 不会污染 tab 切换 / 展开全部 / 快捷键 / 置顶 / 最小化 按钮的 onClick 路径,
  *      解决 v13 "拖动状态机吞 click → minimize 按钮不好使"问题;
  *   ② 拖动过程中直接改 paneRef.current.style.transform,不走 setState → 不触发 React 重渲染
