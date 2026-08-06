@@ -1971,8 +1971,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const code = info?.code
       // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
       // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
+      // 2026-08-06 根治:所有 4xx 客户端错误一律不重试 —— 请求体未变,重试必然
+      // 再次失败(曾因后端 sqli-guard 误杀返回 400,前端无限重连形成风暴)。
+      // 仅 429+retryAfter(服务端协商等待)与网络错误(无 code)可走重连路径。
       const isBusinessError =
-        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
+        (code !== undefined && code >= 400 && code < 500 && code !== 429) ||
+        (code === 429 && info?.retryAfter === undefined)
       const canRetry = !isBusinessError && attempt < maxRetries
       if (!canRetry) {
         const message = err instanceof Error ? err.message : '网络异常'
