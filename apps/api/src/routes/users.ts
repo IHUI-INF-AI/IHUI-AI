@@ -244,7 +244,9 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /api/users/:id/avatar - 上传头像（multipart,仅本人,限图片 ≤2MB）
-  const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatars')
+  // P2 修复(2026-08-06):头像写入 uploads/public/avatars(静态白名单只暴露 public/),
+  // 对外 URL /uploads/avatars/<id>.<ext> 保持不变;存量头像需按同结构迁移一次。
+  const AVATAR_DIR = join(process.cwd(), 'uploads', 'public', 'avatars')
   const AVATAR_MAX_SIZE = 2 * 1024 * 1024
   const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
   const AVATAR_EXT_MAP: Record<string, string> = {

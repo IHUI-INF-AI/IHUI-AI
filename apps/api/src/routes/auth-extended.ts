@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
@@ -25,6 +25,7 @@ import {
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { setAuthCookies } from '../utils/auth-cookies.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 import { db } from '../db/index.js'
 import { users } from '@ihui/database'
@@ -138,12 +139,15 @@ import {
 // 已移除(2026-07-22),改为前端内嵌各厂商官方扫码 SDK(微信 WxLogin / 企业微信 wwLogin /
 // 钉钉 DTFrameLogin / 飞书 QRLogin),扫码成功后走标准 OAuth callback:POST /api/auth/:platform/callback
 
-async function buildTokenPair(user: {
-  id: string
-  phone: string | null
-  roleId: number | null
-  familyId: string | null
-}): Promise<{
+async function buildTokenPair(
+  user: {
+    id: string
+    phone: string | null
+    roleId: number | null
+    familyId: string | null
+  },
+  reply?: FastifyReply,
+): Promise<{
   accessToken: string
   refreshToken: string
   expiresIn: number
@@ -162,6 +166,8 @@ async function buildTokenPair(user: {
   ])
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)
   await saveRefreshToken(refreshToken, user.id, familyId, expiresAt)
+  // P2-18:签发成功后设置 httpOnly auth cookie(浏览器场景;OAuth 客户端/非浏览器调用不传 reply)
+  if (reply) setAuthCookies(reply, { accessToken, refreshToken }, true)
   return {
     accessToken,
     refreshToken,
@@ -363,7 +369,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       } else if (user.status !== 1) {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
-      const { accessToken, refreshToken } = await buildTokenPair(user)
+      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
       )
@@ -417,7 +423,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
       await clearLoginFailures(username, ip)
-      const { accessToken, refreshToken } = await buildTokenPair(user)
+      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
       )
@@ -737,7 +743,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const { accessToken, refreshToken } = await buildTokenPair(user)
+    const { accessToken, refreshToken } = await buildTokenPair(user, reply)
     return reply.send(success({ userId: user.id, accessToken, refreshToken }))
   })
 
@@ -808,7 +814,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(binding.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
           accessToken,
@@ -874,7 +880,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user)
+    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user, reply)
     return reply.send(
       success({
         accessToken,
@@ -1109,7 +1115,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await markSessionUsed(code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      const { accessToken } = await buildTokenPair(user)
+      const { accessToken } = await buildTokenPair(user, reply)
       await createAuditLog({
         event: 'token',
         clientId: client_id,
@@ -1306,7 +1312,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(entry.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     deviceCodeStore.delete(parsed.data.device_code)
-    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'device_token',
       clientId: entry.clientId,
@@ -1341,7 +1347,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(payload.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
           access_token: accessToken,
@@ -1414,7 +1420,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'web_token',
       clientId: parsed.data.client_id,
@@ -1444,7 +1450,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(payload.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
           access_token: accessToken,
@@ -1531,7 +1537,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'pkce_token',
       clientId: parsed.data.client_id,
@@ -1561,7 +1567,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(payload.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
           access_token: accessToken,
@@ -1607,7 +1613,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!userId) return reply.status(400).send(error(400, 'assertion 缺少 sub'))
       const user = await findUserById(userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       await createAuditLog({
         event: 'jwt_token',
         clientId: parsed.data.client_id,
@@ -1678,7 +1684,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const { accessToken, expiresIn } = await buildTokenPair(user)
+    const { accessToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'access_token',
       clientId: parsed.data.client_id,
@@ -1708,7 +1714,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await markSessionUsed(parsed.data.code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
           access_token: accessToken,
@@ -1731,7 +1737,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         const user = await findUserById(payload.userId)
         if (!user) return reply.status(404).send(error(404, '用户不存在'))
         await revokeRefreshToken(parsed.data.refresh_token)
-        const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+        const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
         return reply.send(
           success({
             access_token: accessToken,
@@ -2286,7 +2292,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
 
-    const { accessToken, refreshToken } = await buildTokenPair(user)
+    const { accessToken, refreshToken } = await buildTokenPair(user, reply)
     return reply.send(
       success({
         token: accessToken,
@@ -2359,7 +2365,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-      const tokens = await buildTokenPair(user)
+      const tokens = await buildTokenPair(user, reply)
       return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
     },
   )
@@ -2774,12 +2780,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // 校验通过 → 签发完整 access + refresh token 对(与正常登录响应一致,含 user 信息)
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
-      const tokens = await buildTokenPair({
-        id: user.id,
-        phone: user.phone,
-        roleId: user.roleId,
-        familyId,
-      })
+      const tokens = await buildTokenPair(
+        {
+          id: user.id,
+          phone: user.phone,
+          roleId: user.roleId,
+          familyId,
+        },
+        reply,
+      )
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
       return reply.send(

@@ -17,7 +17,7 @@
  * ⚠️ 依赖 @simplewebauthn/server(由 provider 懒加载,主 agent 需安装)
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
@@ -33,6 +33,7 @@ import { db } from '../db/index.js'
 import { userPasskeys } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { setAuthCookies } from '../utils/auth-cookies.js'
 import { findUserById, saveRefreshToken } from '../db/queries.js'
 import {
   generateRegistrationOptions,
@@ -106,12 +107,15 @@ function generateChallengeId(): string {
 }
 
 /** 签发 JWT token 对(复用 auth-extended.ts 的 buildTokenPair 逻辑,避免跨文件依赖)。 */
-async function buildTokenPair(user: {
-  id: string
-  phone: string | null
-  roleId: number | null
-  familyId: string | null
-}): Promise<{
+async function buildTokenPair(
+  user: {
+    id: string
+    phone: string | null
+    roleId: number | null
+    familyId: string | null
+  },
+  reply?: FastifyReply,
+): Promise<{
   accessToken: string
   refreshToken: string
   expiresIn: number
@@ -130,6 +134,8 @@ async function buildTokenPair(user: {
   ])
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)
   await saveRefreshToken(refreshToken, user.id, familyId, expiresAt)
+  // P2-18:签发成功设置 httpOnly auth cookie(浏览器场景)
+  if (reply) setAuthCookies(reply, { accessToken, refreshToken }, true)
   return {
     accessToken,
     refreshToken,
@@ -430,12 +436,15 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
 
-      const tokens = await buildTokenPair({
-        id: user.id,
-        phone: user.phone,
-        roleId: user.roleId,
-        familyId: user.familyId,
-      })
+      const tokens = await buildTokenPair(
+        {
+          id: user.id,
+          phone: user.phone,
+          roleId: user.roleId,
+          familyId: user.familyId,
+        },
+        reply,
+      )
 
       return reply.send(
         success({
