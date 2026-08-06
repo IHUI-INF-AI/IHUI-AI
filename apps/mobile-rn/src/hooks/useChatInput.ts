@@ -235,9 +235,6 @@ export function useChatInput(): UseChatInputResult {
     }
     setInputFiles((prev) => [...prev, placeholder])
     // 上传接入点:此处可调 uploadFileMultipart 上传到服务器,获得 CDN URL 后替换 placeholder.url
-    // 当前阶段:只 console.log 兜底
-    // eslint-disable-next-line no-console
-    console.log('[useChatInput] voice recorded uri=', uri, '待上传到服务器后替换为远端 url')
   }, [recorder])
 
   const onInputAgentVariableTextChange = useCallback((index: number, value: string): void => {

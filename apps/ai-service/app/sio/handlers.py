@@ -379,7 +379,7 @@ async def on_chat_message(sid: str, data: Any) -> None:
     else:
         try:
             # P1-6:memory_store key 增加 user_id 前缀,防跨用户读写会话记忆
-            stored = await memory_store.get(owner_uuid, session_id)
+            stored = await memory_store.get(session_id, user_id=owner_uuid)
             history = [
                 {"role": m.get("role"), "content": m.get("content")}
                 for m in stored
@@ -390,7 +390,7 @@ async def on_chat_message(sid: str, data: Any) -> None:
 
     # 写入用户消息(失败不阻塞)
     try:
-        await memory_store.add(owner_uuid, session_id, "user", message)
+        await memory_store.add(session_id, "user", message, user_id=owner_uuid)
     except Exception as e:
         logger.warning("[sio] append user message to memory_store failed: %s", e)
 
@@ -450,7 +450,7 @@ async def on_chat_message(sid: str, data: Any) -> None:
         # 写入助手回复(失败不阻塞)
         if accumulated_content:
             try:
-                await memory_store.add(owner_uuid, session_id, "assistant", accumulated_content)
+                await memory_store.add(session_id, "assistant", accumulated_content, user_id=owner_uuid)
             except Exception as e:
                 logger.warning("[sio] append assistant reply to memory_store failed: %s", e)
 

@@ -89,7 +89,7 @@ def _assert_safe_image_url(url: str) -> None:
     if not addresses:
         raise ValueError(f"图片 URL 无 IPv4 解析记录: {host}")
     for addr in addresses:
-        if _is_private_ipv4(addr):
+        if _is_private_ipv4(str(addr)):
             raise ValueError(f"图片 URL 解析到内网/保留地址,已拒绝: {addr}")
 
 
