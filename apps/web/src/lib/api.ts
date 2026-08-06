@@ -17,6 +17,22 @@ import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 // httpOnly cookie(api-client transport 默认 credentials: 'include')兜底认证。
 setTokenProvider({
   getToken: () => useAuthStore.getState().token ?? getAuthCookie(),
+  // 2026-08-06 401 自动续期:access token 过期(15min)时,api-client 收到 401 会调用
+  // 此回调,用 httpOnly refresh_token cookie(30 天)静默换取新 access token。
+  // 走 fetchApi 自身(经 isAuthEndpoint 判断 /auth/refresh 不递归续期)。
+  // 刷新失败(401,refresh token 也失效)→ 返回 null → 调用方按登录过期处理。
+  refreshAccessToken: async () => {
+    const res = await fetchApiShared<{
+      accessToken: string
+      refreshToken?: string | null
+    }>('/auth/refresh', { method: 'POST', body: JSON.stringify({}) })
+    if (res.success && res.data?.accessToken) {
+      // 更新内存 token;refreshToken 由后端 httpOnly cookie 轮转,前端不落地
+      useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
+      return res.data.accessToken
+    }
+    return null
+  },
 })
 
 // A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api
