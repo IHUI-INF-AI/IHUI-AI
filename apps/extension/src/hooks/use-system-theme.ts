@@ -21,7 +21,7 @@ import { createChromePlatform, type StorageChange } from '@ihui/browser-platform
 
 const platform = createChromePlatform()
 
-const STORAGE_KEY = 'ihui.theme.preference' // 'system' | 'light' | 'dark'
+export const THEME_STORAGE_KEY = 'ihui.theme.preference' // 'system' | 'light' | 'dark'
 
 function applyTheme(theme: 'light' | 'dark') {
   if (typeof document === 'undefined') return
@@ -59,7 +59,7 @@ export function useSystemTheme() {
           applyTheme(resolveTheme('system'))
           return
         }
-        const stored = await platform.storage.localGet<string>(STORAGE_KEY)
+        const stored = await platform.storage.localGet<string>(THEME_STORAGE_KEY)
         const pref = (stored as 'system' | 'light' | 'dark' | null) ?? 'system'
         currentPref = pref
         applyTheme(resolveTheme(pref))
@@ -82,9 +82,9 @@ export function useSystemTheme() {
     let unsubscribe: (() => void) | null = null
     if (typeof chrome !== 'undefined') {
       const onStorageChange = (changes: Record<string, StorageChange>) => {
-        if (!(STORAGE_KEY in changes)) return
+        if (!(THEME_STORAGE_KEY in changes)) return
         const newPref =
-          (changes[STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ?? 'system'
+          (changes[THEME_STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ?? 'system'
         currentPref = newPref
         applyTheme(resolveTheme(newPref))
       }
