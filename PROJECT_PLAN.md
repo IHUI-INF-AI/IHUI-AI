@@ -2871,10 +2871,15 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) **downloads 真数据 — 结论属实,配置通道已就绪**:`apps/web/src/config/downloads.config.ts` 已完成 10 处 env 化(NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID / APK_URL / WECHAT_QR 等,未配置自动走"即将上线"占位)。需运营在 .env.production 填 App Store ID / APK URL / 小程序 QR(外部动作,PROJECT_PLAN「待运营接入」3 项保持 [ ] 待数据)
 - [x] ✅(2026-08-06) **agent 运行时步进精度 — 结论属实(数据模型限制)**:项目无 `subagents` 持久化表,ai-service 运行时 subagent 为内存态,无 agentId 关联的轨迹表;`agent_tasks`(agent_id 有索引)聚合是现有最真实水平。提升需 ai-service 侧新增运行轨迹持久化设计(架构演进项,非 bug)
 
-### 环境债记录(2026-08-06 审计中发现,非本次引入)
+### 环境债记录(2026-08-06 审计中发现 → 当日彻底修复 ✅)
 
-- `packages/database/drizzle` 工具链已损坏:**47 个 SQL migration 未入 `meta/_journal.json`**(含 download_events)、快照链跳号(0..152 仅 50 个)、`meta/0131_snapshot.json` / `0152_snapshot.json` zod 校验失败(drizzle-kit generate 不可用)、0152 曾带 UTF-8 BOM(已修)。
-- 本次索引 migration 采用**手写 SQL + journal 条目**落地(migrate 链 156 条完整可用);`drizzle-kit generate` 需后续专项修复(建议按 journal 重建快照链或升级工具统一生成),不影响业务 migrate。
+- ~~`packages/database/drizzle` 工具链已损坏~~ **已彻底修复(2026-08-06,commit e61312612b + a74095103f)**:
+  - journal 已补全至 204 条(idx 0-203 连续,含此前缺失的 47 个 SQL;commit 664207017e 由健康审计并行完成)
+  - `0131/0152_snapshot.json` zod 失败根因:孤儿快照由更新版 drizzle-kit 序列化,index 用新格式 columnExpressions,与 0.31.10 v7 index2 .strict() 不兼容 → 用健康快照(0127)同语义表定义替换转回 v7 格式,50 快照全部通过真实 validator
+  - **schema drift 消除**:46 张 schema 独有表按 v7 格式合并进 0152;6 张 prev 独有表(ab_tests/t_check_in_record/t_homework/audit_chain_entries 等,schema 无对应、业务零引用)已从快照移除;609 张公共表中 32 处假 diff(已有 migration 应用过的列/索引/外键差异)一并对齐
+  - **验证**:`drizzle-kit generate` 非交互输出 "No schema changes, nothing to migrate" —— 工具链完全可用
+  - 2 个非幂等 SQL(20260801010060/20260801010070)共 7 处 CREATE INDEX 补 IF NOT EXISTS(重跑安全)
+  - ⚠️ generate 首次中间产物 `0204_curvy_swarm.sql`(含 6 表 DROP,勿执行)/`meta/0204_snapshot.json`/`scripts/tmp-cur-snapshot.*` 已 gitignore 保护(待用户授权后清理)
 
 ## 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared)
 
@@ -2947,3 +2952,22 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - 实测 `--check` 对健康仓库正确返回;损坏场景 5 分钟内恢复
 
 **环境初始化**:新 clone 后必须执行 `node scripts/git-hygiene-init.mjs`(恢复 local 防护配置,clone 不保留)——已写入 AGENTS.md §12 强制规则。
+
+## 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送)
+
+> 用户指令"继续执行到没有任何后续建议为止,并行最大化效率"。3 个并行 agent + 主代理收尾,全部完成。
+
+- ✅ **i18n 硬编码修复**(`d9965b67bd`):agents 详情页"派发 Subagent"按钮 + 对话框标题接入 i18n,复用已有孤立 key `aiChat.dispatchSubagent`(5 语言已全译,零新增 key、零 json 冲突);check-i18n-keys/tsc/eslint 全绿
+- ✅ **核心链路测试**(`76753f3a5b`):5 文件 42 用例全过——crash-reports 路由(zod/防刷/匿名)9、recordCrash 服务 6、崩溃率聚合 8、租户配额聚合 7、subagent 轨迹持久化 12;mock DB 不连真实库
+- ✅ **drizzle 工具链彻底修复**(`e61312612b` + `a74095103f`):见上文"环境债记录"段——快照 zod 根因修复 + schema drift 消除 + 2 个 SQL 幂等化,`generate` 非交互可用
+- ✅ **前端数据消费验证**:崩溃率(null→暂无数据/数字→%)、租户配额(apiCalls/storage/aiTokens 字段契约)、agent 轨迹(派单→agent_tasks→5 Tab)三项闭环确认
+- ✅ **generate 中间产物保护**:0204 DROP SQL 等 4 文件已 gitignore(待用户授权后清理)
+- ✅ **可复用沉淀**:用户级 skill `git-repository-recovery`(仓库损坏检测/远端重建/工作区重放/防护配置全流程)
+
+### 已知边界(非代码可闭合,如实记录)
+
+1. **downloads 运营数据**:App Store ID / APK URL / 小程序 QR 需运营提供真实数据(填 env + rebuild 即生效,`getDownloadsStatus()` 可自检)
+2. **ai-service 侧 agent 轨迹**:subagent 内存态不持久化是数据模型限制,派单层 agent_tasks 轨迹已是最真实水平(架构演进项)
+3. **mobile-dashboard 5 处"暂无数据"硬编码**:待 `packages/i18n/messages/web/*.json` 其他会话 WIP 完成后 i18n 化(避免污染他人未完成改动)
+4. **generate 中间产物清理**:`0204_curvy_swarm.sql`(含 DROP 勿执行)/`meta/0204_snapshot.json`/`scripts/tmp-cur-snapshot.*` 已 gitignore,待用户授权删除
+5. **migration 部署执行**:`20260806153000_tenant_members_user_id_idx`、`20260806154900_crash_reports` 需部署环境执行(本地无 DATABASE_URL)
