@@ -107,14 +107,14 @@ function StatChip({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground',
+        'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70',
         colorClass,
       )}
       title={label}
       aria-label={label}
       data-testid={testId}
     >
-      <Icon className="h-2.5 w-2.5" aria-hidden />
+      <Icon className="h-2 w-2" aria-hidden />
       <span className="font-medium">{value}</span>
     </span>
   )
@@ -198,11 +198,11 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       // 流式中已有 toolCalls 但未到 summary 阶段:显示轻量"统计中..."提示
       return (
         <div
-          className="mx-1.5 mt-1.5 rounded-md border border-border/40 bg-muted/20 px-2 py-1"
+          className="mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 px-2 py-0.5"
           data-testid={testId ?? 'tool-call-summary-card'}
           data-state="streaming"
         >
-          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60">
             <Clock className="h-2.5 w-2.5 animate-pulse" aria-hidden />
             {safeT(t, 'toolSummaryStreaming', '统计工具调用中…')}
           </span>
@@ -301,12 +301,12 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
               <span
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground"
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70"
                 title={safeT(t, 'toolSummaryDuration', '总耗时')}
                 aria-label={safeT(t, 'toolSummaryDuration', '总耗时')}
                 data-testid="tool-call-summary-chip-duration"
               >
-                <Clock className="h-2.5 w-2.5" aria-hidden />
+                <Clock className="h-2 w-2" aria-hidden />
                 <span className="font-medium">
                   {formatDuration(effectiveSummary.totalDurationMs)}
                 </span>
@@ -317,16 +317,16 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
         {/* 工具分类列表(展开态显示) */}
         {categoryEntries.length > 0 && (
           <div
-            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/30 px-2 py-1 text-[10px]"
+            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/20 px-2 py-0.5 text-[9px]"
             data-testid="tool-call-summary-categories"
           >
             {categoryEntries.map(([name, count]) => (
               <div
                 key={name}
-                className="flex items-center justify-between gap-2 text-muted-foreground"
+                className="flex items-center justify-between gap-2 text-muted-foreground/70"
               >
                 <span className="truncate font-mono">{name}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground/70">×{count}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{count}</span>
               </div>
             ))}
           </div>
@@ -334,7 +334,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
 
         {/* 总览(展开态显示) */}
         <div
-          className="flex items-center gap-3 text-[10px] text-muted-foreground/70"
+          className="flex items-center gap-3 text-[9px] text-muted-foreground/60"
           data-testid="tool-call-summary-overview"
         >
           <span>
