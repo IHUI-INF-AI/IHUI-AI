@@ -15435,13 +15435,7 @@
       "gisLoadFailedToast": "Google GIS の読み込みに失敗しました",
       "oneTapNotInitialized": "Google One Tap は初期化されていません",
       "oneTapNotDisplayed": "Google One Tap が表示されません"
-    },
-    "twoFactorTitle": "2段階認証",
-    "twoFactorHint": "認証アプリの6桁コード、またはバックアップコード(AAAA-AAAA)を入力してください",
-    "twoFactorPlaceholder": "6桁コードまたはバックアップコード",
-    "twoFactorSubmit": "確認してログイン",
-    "twoFactorCancel": "キャンセル",
-    "twoFactorError": "コードが無効または期限切れです。もう一度お試しください"
+    }
   },
   "title": "管理ダッシュボード",
   "errors": {
