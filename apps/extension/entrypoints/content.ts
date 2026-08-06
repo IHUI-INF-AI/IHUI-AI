@@ -148,6 +148,8 @@ function insertTranslation(_original: string, translated: string) {
   shadow.appendChild(style)
   shadow.appendChild(inner)
 
+  // 先删除选中文本,再插入译文(否则译文插在原选区文本之后,原文残留)
+  range.deleteContents()
   range.insertNode(host)
   sel.removeAllRanges()
   hideToolbar()

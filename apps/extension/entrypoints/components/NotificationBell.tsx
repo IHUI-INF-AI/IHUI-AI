@@ -31,10 +31,19 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
       })
 
     // 监听 WS 推送增加
-    const listener = (msg: { type?: string; payload?: { notification?: { type?: string } } }) => {
-      if (msg?.type === 'ws.notification') {
-        setCount((c) => c + 1)
-      }
+    const listener = (msg: { type?: string; payload?: unknown }) => {
+      if (msg?.type !== 'ws.notification') return
+      // 过滤 agent.action 控制指令(由 background agent-control bridge 处理,
+      // 不是用户通知)。兼容直接 / {notification: ...} 包装两种 payload 格式。
+      const payload = msg.payload as
+        | { data?: { type?: string }; notification?: { data?: { type?: string } } }
+        | undefined
+      const inner = payload?.notification
+      const dataType =
+        payload?.data?.type ??
+        (inner && typeof inner === 'object' ? inner.data?.type : undefined)
+      if (dataType === 'agent.action') return
+      setCount((c) => c + 1)
     }
     chrome.runtime.onMessage.addListener(
       listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
