@@ -12,7 +12,7 @@
  *   - 其他需要展示模型列表的 SSR 组件的最终降级
  */
 
-export { FALLBACK_MODELS, type FallbackModel } from '@ihui/shared'
+export { FALLBACK_MODELS, DEMO_TIER_MODELS, type FallbackModel } from '@ihui/shared'
 
 /** 厂商代码 → i18n key(覆盖 /llm/models 动态拉取的所有 vendor + ModelsNav PROVIDER_GROUPS 全部 80+ 厂商)
  * 渲染处用 t() 转换 key 为本地化显示名;未知厂商回退到原始 provider code 字符串 */

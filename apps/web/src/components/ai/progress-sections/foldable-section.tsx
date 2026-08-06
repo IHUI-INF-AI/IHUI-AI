@@ -183,13 +183,13 @@ export function FoldableSection({
           精美化(2026-07-31):圆角 + 渐变色 + 更明显的高度 */}
       {hasProgress && (
         <div
-          className="mx-2.5 h-1 -mt-0.5 overflow-hidden rounded-full bg-muted/60"
+          className="mx-2.5 h-1 -mt-0.5 overflow-hidden rounded-md bg-muted/60"
           aria-hidden
           data-testid={`${testId ?? 'foldable'}-progress-bar`}
         >
           <div
             className={cn(
-              'h-full rounded-full transition-all duration-300 ease-out',
+              'h-full rounded-sm transition-all duration-300 ease-out',
               allDone ? 'bg-emerald-500/80' : 'bg-primary/70',
             )}
             style={{ width: `${progressPct}%` }}
