@@ -109,6 +109,7 @@ import {
   TOPBAR_BTN_W9,
 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
+import { useDownloadTrack } from '@ihui/shared/hooks'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'
@@ -561,6 +562,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
   const { trackClick } = useAnalytics()
+  const trackDownload = useDownloadTrack()
   const { locale, setLocale } = useLanguageStore()
   const { theme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
@@ -770,7 +772,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   <Link
                     key={item.platform}
                     href={item.href}
-                    onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                    onClick={() => {
+                      trackClick(`download_${item.platform}`, 'download_popover')
+                      trackDownload(item.platform, 'sidebar')
+                    }}
                     className={className}
                   >
                     {inner}
@@ -785,7 +790,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   href={item.href}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
-                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
+                  onClick={() => {
+                    trackClick(`download_${item.platform}`, 'download_popover')
+                    trackDownload(item.platform, 'sidebar')
+                  }}
                   className={className}
                 >
                   {inner}
