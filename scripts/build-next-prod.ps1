@@ -74,13 +74,16 @@ if (Test-Path ".next\BUILD_ID") {
     Write-Host "  当前 BUILD_ID: $currentBuildId"
     Write-Host "  备份为: $backupName (外部,防 Tailwind 扫描污染)"
     if (-not (Test-Path "C:\tmp")) { New-Item -ItemType Directory -Path "C:\tmp" -Force | Out-Null }
-    Copy-Item ".next" $backupName -Recurse -Force
-    Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue
+    # 2026-08-06 提速:robocopy /MT 多线程复制(4.7GB 单线程 Copy-Item 慢 3-5 倍)。
+    # /NFL /NDL /NJH /NJS /NP 抑制日志刷屏;退出码 >= 8 表示复制失败。
+    robocopy ".next" $backupName /E /MT:16 /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "  [WARN] robocopy 备份失败(退出码 $LASTEXITCODE),回退 Copy-Item" -ForegroundColor DarkYellow
+        Remove-Item $backupName -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item ".next" $backupName -Recurse -Force
+    }
 } else {
     Write-Host "  当前 .next 无 BUILD_ID(不完整或不存在),跳过备份"
-    if (Test-Path ".next") {
-        Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue
-    }
 }
 
 # ----------------------------- [2/6] 清理旧产物 -----------------------------
@@ -89,9 +92,14 @@ Write-Host "[2/6] 清理旧产物" -ForegroundColor Yellow
 # 不再清理 node_modules\.cache 和 *.tsbuildinfo —— 它们是 webpack filesystem
 # 持久缓存,二次构建命中后从 50 分钟降到 10-15 分钟。缓存损坏时用
 # -CleanCache 参数强制清理。
-if (Test-Path ".next") { Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue }
+# 2026-08-06 提速:清理时**保留 .next\cache**(Next 构建缓存,删除整个 .next
+# 会丢缓存导致每次全量编译)。产物目录(server/static/pages/BUILD_ID 等)仍删除。
+if (Test-Path ".next") {
+    Get-ChildItem ".next" -Exclude "cache" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
 if ($CleanCache) {
-    Write-Host "  -CleanCache: 强制清理 node_modules\.cache + *.tsbuildinfo" -ForegroundColor Yellow
+    Write-Host "  -CleanCache: 强制清理 .next\cache + node_modules\.cache + *.tsbuildinfo" -ForegroundColor Yellow
+    if (Test-Path ".next\cache") { Remove-Item ".next\cache" -Recurse -Force -ErrorAction SilentlyContinue }
     if (Test-Path "node_modules\.cache") { Remove-Item "node_modules\.cache" -Recurse -Force -ErrorAction SilentlyContinue }
     Get-ChildItem -Filter "*.tsbuildinfo" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 }
@@ -114,13 +122,17 @@ if ($prebuildExit -ne 0) {
 Write-Host "  prebuild 通过 ($($prebuildDuration.ToString('mm\分ss\秒')))"
 
 # ----------------------------- [4/6] next build -----------------------------
-Write-Host "[4/6] next build --webpack (Node 22.22.2)" -ForegroundColor Yellow
+# 2026-08-06 提速:webpack(3.4min 编译)→ Turbopack(29s 编译,7 倍提速,
+# 且跳过 build traces 收集)。产物验证:rewrites 7 条、client-reference-manifest 齐全、
+# 798 页,next start 兼容。webpack 专属配置(afterEmit/webpackMemoryOptimizations)被
+# turbopack 忽略,无副作用。
+Write-Host "[4/6] next build --turbopack (Node 22.22.2)" -ForegroundColor Yellow
 Write-Host "  开始时间: $(Get-Date -Format 'HH:mm:ss')"
 Write-Host ""
 
 $buildStart = Get-Date
 # 追加到同一日志(prebuild 已创建)
-& $Node22 node_modules/next/dist/bin/next build --webpack 2>&1 |
+& $Node22 node_modules/next/dist/bin/next build --turbopack 2>&1 |
     Tee-Object -FilePath $BuildLog -Append
 $buildExit = $LASTEXITCODE
 $buildDuration = (Get-Date) - $buildStart
