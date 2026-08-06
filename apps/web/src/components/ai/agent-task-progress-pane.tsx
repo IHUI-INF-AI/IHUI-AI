@@ -264,7 +264,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
           )}
         </div>
         {data.linkedMessagePreview && (
-          <div className="border-t border-border/40 pt-1 text-[10px] text-muted-foreground/60">
+          <div className="pt-1 text-[10px] text-muted-foreground/60">
             <span className="font-medium text-foreground/70">{t('previewRelatedMessage')}</span>{' '}
             {data.linkedMessagePreview}
           </div>
@@ -1254,7 +1254,7 @@ export function AgentTaskProgressPane() {
           id="pane-help-panel"
           role="dialog"
           aria-label={t('helpPanelTitle')}
-          className="shrink-0 border-b border-border bg-muted/40 px-3 py-2"
+          className="shrink-0 bg-muted/40 px-3 py-2"
           data-testid="pane-help-panel"
         >
           <div className="mb-1.5 flex items-center justify-between">

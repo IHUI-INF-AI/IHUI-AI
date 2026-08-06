@@ -24,7 +24,7 @@ export function BottomBar({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] flex gap-2.5 border-t border-border bg-background px-2.5 py-2.5">
+    <div className="fixed inset-x-0 bottom-0 z-[100] flex gap-2.5 bg-background px-2.5 py-2.5">
       <button
         onClick={openMiniProgram}
         className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-muted py-3 text-sm text-foreground transition-colors hover:bg-muted/80"
