@@ -135,17 +135,17 @@
   border-radius: 8rpx;
   z-index: 2;
 }
-/* TODO: custom color: #ffd700(金)/#5a4500(金字)/#c0c0c0(银)/#3a3a3a(银字)/#cd7f32(铜)/#fff(铜字) 排名奖牌色,无对应 token,保留原值 */
+/* 排名奖牌金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#ffd700/#c0c0c0/#cd7f32);文字色 #5a4500/#3a3a3a/#fff 为奖牌上文字深色/纯白,无对应 token,保留原值 */
 .team-medal-gold {
-  background: #ffd700;
+  background: var(--color-rank-gold);
   color: #5a4500;
 }
 .team-medal-silver {
-  background: #c0c0c0;
+  background: var(--color-rank-silver);
   color: #3a3a3a;
 }
 .team-medal-bronze {
-  background: #cd7f32;
+  background: var(--color-rank-bronze);
   color: #fff;
 }
 .team-medal-normal {
