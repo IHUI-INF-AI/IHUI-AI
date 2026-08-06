@@ -490,9 +490,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     }
   }, [])
 
+  const isAuto = value === AUTO_OPTION.value
   const current = React.useMemo(
-    () => (value === 'stepfun/step-router-v1' ? AUTO_OPTION : options.find((m) => m.value === value)),
-    [options, value],
+    () => (isAuto ? AUTO_OPTION : options.find((m) => m.value === value)),
+    [options, value, isAuto],
   )
   const grouped = React.useMemo(() => groupByVendor(options), [options])
 
@@ -601,7 +602,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
               </DropdownMenu.Label>
               {items.map((opt) => {
-                const active = opt.value === value && value !== 'stepfun/step-router-v1'
+                const active = opt.value === value && value !== AUTO_OPTION.value
                 const optTemplateCode = opt.vendor ? providerToTemplateCode(opt.vendor) : null
                 const optConfigured = optTemplateCode
                   ? configuredTemplateCodes.has(optTemplateCode)
