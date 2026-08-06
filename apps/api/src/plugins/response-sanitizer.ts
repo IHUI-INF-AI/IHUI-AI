@@ -263,6 +263,16 @@ export function sanitizeData(
   keys: Set<string>,
   opts?: { rules?: FieldMaskRule[]; secretKey?: Buffer },
 ): unknown {
+  // P1 修复(2026-08-06):Error 的 message/stack 不是敏感字段,但 stack 是
+  // 非枚举属性,原逻辑用 Object.entries 遍历会把它丢弃(Error 被转成只含
+  // message 的普通对象),导致日志排障时堆栈丢失。这里显式保留 name/message/
+  // stack/cause,仅对自身可枚举属性继续递归脱敏。
+  if (data instanceof Error) {
+    const out: Record<string, unknown> = { name: data.name, message: data.message }
+    if (data.stack) out.stack = data.stack
+    if (data.cause !== undefined) out.cause = sanitizeData(data.cause, keys, opts)
+    return out
+  }
   if (Array.isArray(data)) {
     return data.map((item) => sanitizeData(item, keys, opts))
   }

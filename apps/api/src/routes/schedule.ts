@@ -14,6 +14,7 @@ import {
   findScheduleLogById,
 } from '../db/schedule-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 
 // =============================================================================
 // Zod schemas
@@ -24,7 +25,8 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listTasksQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  enabled: booleanStringSchemaOptional,
   name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
 })
 
