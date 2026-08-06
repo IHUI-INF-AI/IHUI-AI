@@ -60,7 +60,7 @@ export default function SsoLoginPage() {
     router.push(redirectUrl)
   }, [router, redirectUrl])
 
-  async function generateCodeAndRedirect() {
+  const generateCodeAndRedirect = React.useCallback(async () => {
     const currentToken = useAuthStore.getState().token
     if (!currentToken) return
     setExchanging(true)
@@ -91,11 +91,11 @@ export default function SsoLoginPage() {
     } finally {
       setExchanging(false)
     }
-  }
+  }, [clientId, redirectUrl, router, tSso])
 
   const handleLoginSuccess = React.useCallback(() => {
     void generateCodeAndRedirect()
-  }, [])
+  }, [generateCodeAndRedirect])
 
   // 已登录分支:授权跳转卡片
   if (token && user) {

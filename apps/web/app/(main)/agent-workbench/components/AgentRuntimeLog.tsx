@@ -140,7 +140,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
     return () => {
       controller.abort()
     }
-  }, [agentId, retryKey])
+  }, [agentId, retryKey, t])
 
   // 自动滚动到底部
   // 2026-08-02 修复 Bug #12:用 leading + trailing 200ms throttle 合并滚动赋值,
