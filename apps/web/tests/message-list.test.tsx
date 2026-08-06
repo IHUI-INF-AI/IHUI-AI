@@ -228,8 +228,9 @@ vi.mock('@/components/ai/progress-sections/timeline-event', () => ({
   TimelineEventRow: () => <div data-testid="timeline-event-row" />,
 }))
 
-// next/image mock
+// next/image mock(jsdom 下渲染真实 <img>,避免 next/image 优化管线依赖)
 vi.mock('next/image', () => ({
+  // eslint-disable-next-line @next/next/no-img-element -- next/image mock 必须渲染真实 <img>
   default: ({ alt, ...rest }: { alt: string }) => <img alt={alt} {...rest} />,
 }))
 

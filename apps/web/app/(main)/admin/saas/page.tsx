@@ -48,8 +48,8 @@ export default function AdminSaasPage() {
   const [confirmAction, setConfirmAction] = React.useState<ConfirmAction>(null)
   const [pending, setPending] = React.useState<PendingMap>({})
 
-  const allTenants = data ?? []
   const filteredTenants = React.useMemo(() => {
+    const allTenants = data ?? []
     return allTenants.filter((tn) => {
       if (search && !tn.slug.toLowerCase().includes(search.toLowerCase())) {
         return false
@@ -59,7 +59,7 @@ export default function AdminSaasPage() {
       }
       return true
     })
-  }, [allTenants, search, stateFilter])
+  }, [data, search, stateFilter])
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',

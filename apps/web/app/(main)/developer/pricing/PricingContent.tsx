@@ -84,16 +84,16 @@ export function PricingContent(): React.JSX.Element {
     queryFn: () => api<AiPricingStats>('/api/ai-pricing/stats'),
   })
 
-  const allItems = listQ.data?.items ?? []
   const vendors = statsQ.data?.vendors ?? []
   const total = statsQ.data?.total ?? 0
 
   // 前端二次过滤(精确匹配 + 关键词)
   const filtered = React.useMemo(() => {
+    const allItems = listQ.data?.items ?? []
     const kw = keyword.trim().toLowerCase()
     if (!kw) return allItems
     return allItems.filter((p) => p.modelId.toLowerCase().includes(kw))
-  }, [allItems, keyword])
+  }, [listQ.data, keyword])
 
   // 按厂商分组
   const grouped = React.useMemo(() => {

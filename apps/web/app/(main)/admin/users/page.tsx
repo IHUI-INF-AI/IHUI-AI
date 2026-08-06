@@ -148,11 +148,10 @@ export default function AdminUsersPage() {
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const rawUsers = data?.list ?? []
-  const orderedUsers = React.useMemo(
-    () => applyStoredOrder(rawUsers, storedOrder),
-    [rawUsers, storedOrder],
-  )
+  const orderedUsers = React.useMemo(() => {
+    const rawUsers = data?.list ?? []
+    return applyStoredOrder(rawUsers, storedOrder)
+  }, [data, storedOrder])
 
   // react-table 客户端实例:排序持久化 + 列可见性/固定/宽状态管理
   // sorting 非空时覆盖 storedOrder 手动拖拽排序;sorting 为空时回落到 orderedUsers
