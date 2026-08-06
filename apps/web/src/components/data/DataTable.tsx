@@ -40,13 +40,15 @@ function DataTableImpl<T extends Record<string, unknown>>({
   className,
 }: DataTableProps<T>) {
   const [sort, setSort] = React.useState<SortState>(null)
-  const [selected, setSelected] = React.useState<Set<number>>(new Set())
+  // 选中态以 rowKey 为准,与排序/翻页解耦,避免"排序后勾选错行""跨页残留"
+  const [selected, setSelected] = React.useState<Set<string | number>>(new Set())
 
   const sortedData = React.useMemo(() => {
-    if (!sort) return data
-    return [...data].sort((a, b) => {
-      const av = a[sort.key] as unknown
-      const bv = b[sort.key] as unknown
+    const indexed = data.map((row, i) => ({ row, index: i }))
+    if (!sort) return indexed
+    return indexed.sort((a, b) => {
+      const av = a.row[sort.key] as unknown
+      const bv = b.row[sort.key] as unknown
       if (av === bv) return 0
       const cmp = (av as number) > (bv as number) ? 1 : -1
       return sort.dir === 'asc' ? cmp : -cmp
@@ -62,27 +64,25 @@ function DataTableImpl<T extends Record<string, unknown>>({
     })
   }
 
-  const allChecked = data.length > 0 && selected.size === data.length
+  const allChecked = data.length > 0 && data.every((row, i) => selected.has(rowKey(row, i)))
   const toggleAll = () => {
-    const next = allChecked ? new Set<number>() : new Set(data.map((_, i) => i))
+    const next = new Set(selected)
+    if (allChecked) {
+      data.forEach((row, i) => next.delete(rowKey(row, i)))
+    } else {
+      data.forEach((row, i) => next.add(rowKey(row, i)))
+    }
     setSelected(next)
-    onSelect?.(
-      Array.from(next)
-        .map((i) => data[i]!)
-        .filter(Boolean) as T[],
-    )
+    onSelect?.(data.filter((row, i) => next.has(rowKey(row, i))))
   }
 
-  const toggleRow = (idx: number) => {
+  const toggleRow = (row: T, idx: number) => {
+    const key = rowKey(row, idx)
     const next = new Set(selected)
-    if (next.has(idx)) next.delete(idx)
-    else next.add(idx)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
     setSelected(next)
-    onSelect?.(
-      Array.from(next)
-        .map((i) => data[i]!)
-        .filter(Boolean) as T[],
-    )
+    onSelect?.(data.filter((r, i) => next.has(rowKey(r, i))))
   }
 
   const alignMap = { left: 'text-left', center: 'text-center', right: 'text-right' }

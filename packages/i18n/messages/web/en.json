@@ -471,6 +471,8 @@
       "fans": "Fans",
       "signedIn": "Checked in",
       "signIn": "Check in",
+      "checkInSuccess": "Check-in successful",
+      "checkInFailed": "Check-in failed",
       "welcome": "Hi, welcome to the learning platform",
       "loginHint": "Log in for more services",
       "loginNow": "Log in now",
@@ -12454,6 +12456,8 @@
         "deleteGroup": "Delete group",
         "groupCreated": "Group \"{name}\" created",
         "createFailed": "Create failed",
+        "groupDeleted": "Group deleted",
+        "deleteFailed": "Delete failed",
         "deleteGroupConfirm": "Delete group \"{name}\"?",
         "groupNotEmpty": "Group still has {count} providers. Move them first.",
         "groupDeleteNotSupported": "Move all providers out of the group first"
