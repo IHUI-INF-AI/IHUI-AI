@@ -73,7 +73,11 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
           storedToken = refreshed.accessToken
           setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
         } else {
-          // 刷新失败(401):保持未登录,静默不弹登录框
+          // 刷新失败(401):清理幽灵登录态(2026-08-07 修复)
+          // 根因:persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后
+          // 标志位残留 → 前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败"。
+          // 此处必须 logout() 清空标志位,而非仅 setReady(true) 静默返回。
+          logout()
           setReady(true)
           return
         }
