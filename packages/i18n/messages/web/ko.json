@@ -12784,7 +12784,7 @@
   },
   "mobileDashboardPage": {
     "title": "모바일 대시보드",
-    "subtitle": "모바일 핵심 운영 지표를 모니터링합니다. 데이터는 목 데모 데이터입니다.",
+    "subtitle": "모바일 핵심 운영 지표 및 트렌드 모니터링.",
     "stats": {
       "trendSuffix": "전일 대비",
       "dau": "DAU",
