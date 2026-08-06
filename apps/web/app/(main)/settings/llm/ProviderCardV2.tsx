@@ -223,54 +223,42 @@ export function ProviderCardV2({
           </div>
         </div>
 
-        {/* Info Row 1: baseUrl / format / health check time */}
-        <div className="grid grid-cols-1 gap-2 text-xs min-[640px]:grid-cols-2">
-          <div className="min-w-0">
-            <p className="text-muted-foreground">{t('baseUrl')}</p>
-            <TruncatedText value={provider.baseUrl} mono className="font-mono" />
-          </div>
-          <div>
-            <p className="text-muted-foreground">{t('lastTest')}</p>
-            <p
-              className={
-                testOk
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : testFailed
-                    ? 'text-red-600 dark:text-red-400'
-                    : 'text-muted-foreground'
-              }
-            >
-              {testOk
-                ? t('testSuccessWithTime', {
-                    ms: provider.lastTestResponseMs ?? 0,
+        {/* Info line: baseUrl · test status · usage stats */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          <TruncatedText value={provider.baseUrl} mono className="font-mono text-muted-foreground" />
+          <span className="shrink-0 text-muted-foreground/40">·</span>
+          <span
+            className={
+              testOk
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : testFailed
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-muted-foreground'
+            }
+          >
+            {testOk
+              ? t('testSuccessWithTime', {
+                  ms: provider.lastTestResponseMs ?? 0,
+                  date: provider.lastTestedAt ? formatDate(provider.lastTestedAt) : '—',
+                })
+              : provider.lastTestedAt
+                ? t('testFailedWithTime', {
                     date: provider.lastTestedAt ? formatDate(provider.lastTestedAt) : '—',
                   })
-                : provider.lastTestedAt
-                  ? t('testFailedWithTime', {
-                      date: provider.lastTestedAt ? formatDate(provider.lastTestedAt) : '—',
-                    })
-                  : t('untested')}
-            </p>
-          </div>
-        </div>
-
-        {/* 30d Usage stats(Phase 1 新深度功能) */}
-        {(provider.usage30dTokens > 0 || provider.usage30dCostCents > 0) && (
-          <div className="grid grid-cols-2 gap-2 rounded-md border border-dashed bg-muted/30 p-2 text-xs">
-            <div className="min-w-0">
-              <p className="truncate text-muted-foreground">{t('usage30d')}</p>
-              <p className="whitespace-nowrap font-mono tabular-nums">
+                : t('untested')}
+          </span>
+          {(provider.usage30dTokens > 0 || provider.usage30dCostCents > 0) && (
+            <>
+              <span className="shrink-0 text-muted-foreground/40">·</span>
+              <span className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">
                 {(provider.usage30dTokens / 1000).toFixed(1)}K tokens
-              </p>
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-muted-foreground">{t('cost30d')}</p>
-              <p className="whitespace-nowrap font-mono tabular-nums">
+              </span>
+              <span className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">
                 ${(provider.usage30dCostCents / 100).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        )}
+              </span>
+            </>
+          )}
+        </div>
 
         {/* Failed error message */}
         {testFailed && provider.lastTestError ? (

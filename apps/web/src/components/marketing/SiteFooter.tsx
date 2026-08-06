@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import {
@@ -94,7 +95,7 @@ function PlatformIcon({
 }) {
   const filter = mono ? ` ${MONO_FILTER}` : darkInvert ? ` ${DARK_INVERT_FILTER}` : ''
   const img = (
-    <img
+    <Image
       src={src}
       alt={name}
       width={14}
@@ -122,7 +123,14 @@ function PlatformIcon({
 
 function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
   const img = (
-    <img src={qr.src} alt={t(qr.altKey)} width={64} height={64} className={QR_IMG} {...IMG_EAGER} />
+    <Image
+      src={qr.src}
+      alt={t(qr.altKey)}
+      width={64}
+      height={64}
+      className={QR_IMG}
+      {...IMG_EAGER}
+    />
   )
 
   // 2026-07-20:action='copy' → 点击复制 copyValue(如微信号)到剪贴板 + sonner toast 引导
@@ -197,7 +205,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
       >
         <div className="rounded-md border bg-popover p-2 shadow-lg">
           <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
-            <img
+            <Image
               src={qr.src}
               alt={t(qr.altKey)}
               width={240}
@@ -344,7 +352,7 @@ export function SiteFooter({ className }: { className?: string }) {
             - justify-center 居中显示
             - 只保留 ICP 图标 + ICP 文字 + 版权 */}
         <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2 pt-2 text-xs text-muted-foreground">
-          <img
+          <Image
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}
             width={20}
