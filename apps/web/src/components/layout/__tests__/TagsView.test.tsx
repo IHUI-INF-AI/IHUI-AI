@@ -132,7 +132,10 @@ vi.mock('next-intl', async () => {
       let t = cache.get(key)
       if (!t) {
         const msgs = (MESSAGES[locale] as Record<string, Record<string, string>>)[ns] ?? {}
-        t = (k: string) => msgs[k] ?? k
+        const translate = (k: string) => msgs[k] ?? k
+        t = Object.assign(translate, {
+          has: (k: string) => k in msgs,
+        }) as (k: string) => string
         cache.set(key, t)
       }
       return t
@@ -194,29 +197,12 @@ describe('TagsView 视觉守门', () => {
     return outerDiv
   }
 
-  it('容器 className 包含 rounded-lg(防止圆角被误删)', () => {
+  // 2026-08-05 更新:第八轮做减法(2026-07-30)后 TagsView 根容器是内容区 flex 容器
+  it('容器 className 包含 flex 布局(保持横向排列)', () => {
     const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 rounded-lg').toContain('rounded-lg')
-  })
-
-  it('容器 className 包含 mx-2(防止左右间距被误删)', () => {
-    const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 mx-2').toContain('mx-2')
-  })
-
-  it('容器 className 包含 mt-2(防止顶部间距被误删)', () => {
-    const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 mt-2').toContain('mt-2')
-  })
-
-  it('容器 className 包含 bg-muted/70(防止背景色被误删)', () => {
-    const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 bg-muted/70').toContain('bg-muted/70')
-  })
-
-  it('容器 className 包含 dark:bg-white/[0.07](深色模式更偏白)', () => {
-    const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 dark:bg-white/[0.07]').toContain('dark:bg-white/[0.07]')
+    expect(outerDiv.className, '应有 flex').toContain('flex')
+    expect(outerDiv.className, '应有 items-center').toContain('items-center')
+    expect(outerDiv.className, '应有 gap-1').toContain('gap-1')
   })
 
   it('标签 Link 包含 border 描边(active 状态用 primary/30,非 active 状态用 border/40)', () => {
@@ -225,15 +211,17 @@ describe('TagsView 视觉守门', () => {
     expect(link, '应有 a 标签').not.toBeNull()
     expect(link!.className, '应有 border').toContain('border')
     // 当前 tag 是 active(addTag 后默认激活),实际渲染用 primary/30 描边
-    expect(link!.className, 'active tag 应用 primary/30 描边').toContain('border-primary/30')
+    // 2026-08-05 更新:active 标签描边改为 border border-border
+    expect(link!.className, 'active tag 应用 border-border 描边').toContain('border-border')
   })
 
   it('关闭按钮 X 默认占位 w-5 + opacity-0(hover 不拉伸标签宽度,加大到接近文字大小)', () => {
     const outerDiv = renderWithTags()
     const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
-    expect(closeBtn!.className, 'X 按钮应始终占位 w-5(加大与文字匹配)').toContain('w-5')
-    expect(closeBtn!.className, 'X 按钮应始终占位 h-5(加大与文字匹配)').toContain('h-5')
+    // 2026-08-05 更新:关闭按钮 2026-08-01 从 w-5/h-5 加大到 w-6/h-6
+    expect(closeBtn!.className, 'X 按钮应始终占位 w-6').toContain('w-6')
+    expect(closeBtn!.className, 'X 按钮应始终占位 h-6').toContain('h-6')
     expect(closeBtn!.className, 'X 按钮默认透明').toContain('opacity-0')
     expect(closeBtn!.className, 'X 按钮 hover 时显示').toContain('group-hover:opacity-100')
   })
@@ -265,7 +253,8 @@ describe('TagsView 视觉守门', () => {
     // 右侧 = gap-1(4px) + X w-5(20px) + pr-1(4px) = 28px
     // 左侧 pl-7(28px) 与右侧总占位对称,文字几何居中
     // gap-1 + pr-1 让 X 紧贴标签右侧(pr 仅 4px padding)
-    expect(link!.className, '应有 pl-7').toContain('pl-7')
+    // 2026-08-05 更新:关闭按钮加大后 pl 同步调整为 pl-8
+    expect(link!.className, '应有 pl-8').toContain('pl-8')
     expect(link!.className, '应有 pr-1(X 紧贴右侧)').toContain('pr-1')
     expect(link!.className, '应有 gap-1(X 与文字紧贴)').toContain('gap-1')
   })
@@ -279,13 +268,14 @@ describe('TagsView 视觉守门', () => {
     // lucide-react SVG 在 jsdom 下 className 属性可能为空,用 getAttribute('class') 兜底
     const iconClass =
       icon!.className.baseVal || icon!.getAttribute('class') || icon!.className || ''
-    expect(iconClass, 'X 图标应加大到 h-3.5(检查 class 属性)').toContain('h-3.5')
-    expect(iconClass, 'X 图标应加大到 w-3.5(检查 class 属性)').toContain('w-3.5')
+    // 2026-08-05 更新:X 图标 2026-08-01 从 h-3.5 加大到 h-4
+    expect(iconClass, 'X 图标应为 h-4(检查 class 属性)').toContain('h-4')
+    expect(iconClass, 'X 图标应为 w-4(检查 class 属性)').toContain('w-4')
   })
 
-  it('容器 className 包含 h-9(防止高度被误改)', () => {
+  it('容器 className 包含 h-full(高度跟随父级,2026-08-05 更新)', () => {
     const outerDiv = renderWithTags()
-    expect(outerDiv.className, '应有 h-9').toContain('h-9')
+    expect(outerDiv.className, '应有 h-full').toContain('h-full')
   })
 
   it('派生式标题:渲染时根据 path + 当前 locale 实时计算,忽略 store 中的 title 字段', () => {
@@ -416,9 +406,10 @@ describe('TagsView 视觉守门', () => {
     expect(menu, '右键应弹出菜单').not.toBeNull()
     expect(menu!.getAttribute('role'), '菜单应有 menu role').toBe('menu')
     const items = menu!.querySelectorAll('[role="menuitem"]')
-    expect(items.length, '菜单应有 3 项操作(关闭/关闭其他/关闭全部)').toBe(3)
+    // 2026-08-05 更新:2026-07-31 新增 pin 项,菜单为「关闭/固定/关闭全部」
+    expect(items.length, '菜单应有 3 项操作(关闭/固定/关闭全部)').toBe(3)
     expect(items[0]!.textContent, '第一项应为"关闭"').toContain('关闭')
-    expect(items[1]!.textContent, '第二项应为"关闭其他"').toContain('关闭其他')
+    expect(items[1]!.textContent, '第二项应为"固定"(mock 无翻译回退 key pin)').toContain('pin')
     expect(items[2]!.textContent, '第三项应为"关闭全部"').toContain('关闭全部')
   })
 
