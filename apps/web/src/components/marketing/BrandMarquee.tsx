@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import { IMG_EAGER, MARQUEE_BRANDS, SCHOOL_BRANDS } from './footer-data'
@@ -89,7 +90,7 @@ function MarqueeRow({
               className={box}
               title={label}
             >
-              <img
+              <Image
                 src={brand.src}
                 alt={label}
                 width={shape === 'wide' ? 144 : 36}

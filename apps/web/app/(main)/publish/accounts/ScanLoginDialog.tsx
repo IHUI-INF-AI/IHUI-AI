@@ -77,7 +77,6 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
       setCountdownSeconds(Math.max(0, TIMEOUT_SECONDS - elapsed))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, phase])
 
   function stopPolling() {

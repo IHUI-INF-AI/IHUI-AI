@@ -230,7 +230,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       })
     },
     // handleSelect 自身递归调用,useMutation 自带 isPending 闭包,无需在 deps 中重复
-    [activeWorkspace, currentMode, updateMode, setActiveWorkspace, t],
+    [activeWorkspace, currentMode, updateMode, setActiveWorkspace, setPendingFullAccess, t],
   )
 
   // 键盘处理(↑/↓/Enter/1/2/3):只在 popover 打开时启用

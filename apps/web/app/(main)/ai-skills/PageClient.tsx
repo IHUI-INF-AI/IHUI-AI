@@ -57,11 +57,11 @@ export default function AiSkillsPageClient() {
     queryFn: fetchAll,
   })
 
-  const all = data ?? []
-  const availableCount = all.filter((s) => s.available).length
-  const comingCount = all.length - availableCount
+  const availableCount = data?.filter((s) => s.available).length ?? 0
+  const comingCount = (data?.length ?? 0) - availableCount
 
   const filtered = React.useMemo(() => {
+    const all = data ?? []
     const k = keyword.trim().toLowerCase()
     return all
       .filter((s) => {
@@ -79,7 +79,7 @@ export default function AiSkillsPageClient() {
         if (a.available !== b.available) return a.available ? -1 : 1
         return a.name.localeCompare(b.name)
       })
-  }, [all, activeTab, keyword])
+  }, [data, activeTab, keyword])
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
@@ -92,7 +92,7 @@ export default function AiSkillsPageClient() {
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-          <span>{t('totalCount', { total: all.length, available: availableCount })}</span>
+          <span>{t('totalCount', { total: data?.length ?? 0, available: availableCount })}</span>
           <Badge variant="success">{t('availableCount', { count: availableCount })}</Badge>
           <Badge variant="default">{t('comingCount', { count: comingCount })}</Badge>
         </div>

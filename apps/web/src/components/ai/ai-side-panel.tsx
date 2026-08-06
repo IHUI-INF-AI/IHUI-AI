@@ -154,8 +154,10 @@ export function AISidePanel() {
   // P3 修复:组件卸载时清空会话 LRU 缓存,释放消息数据引用
   // (LRU 上限 5 个会话,每个会话含完整 messages 数组,长期运行累积大量消息数据)
   React.useEffect(() => {
+    // eslint 要求:cleanup 运行时 ref.current 可能已指向新引用,需在 effect 内捕获局部变量
+    const cache = conversationCacheRef.current
     return () => {
-      conversationCacheRef.current.clear()
+      cache.clear()
     }
   }, [])
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
