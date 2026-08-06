@@ -30,7 +30,8 @@ import {
   ALLOWED_EXTENSIONS,
 } from '../utils/file-type-validator.js'
 
-const VERSIONS_DIR = join(process.cwd(), 'uploads', 'versions')
+// P2 修复(2026-08-06):文件版本属私有资源,写入 uploads/private/versions(静态白名单只暴露 public/)
+const VERSIONS_DIR = join(process.cwd(), 'uploads', 'private', 'versions')
 
 function ensureVersionsDir(): void {
   if (!existsSync(VERSIONS_DIR)) mkdirSync(VERSIONS_DIR, { recursive: true })
