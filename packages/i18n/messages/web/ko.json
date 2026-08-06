@@ -734,6 +734,13 @@
     "modelAutoDescription": "최적 모델 자동 선택",
     "modelFree": "무료",
     "modelPointsMultiplier": "포인트 소비 배수",
+    "modelTagMemberDiscount": "멤버 75% 할인",
+    "modelTagOfficial": "정식 버전",
+    "modelTagSubsidy": "전용 보조금",
+    "modelLockedHint": "멤버십 업그레이드 필요",
+    "modelPopoverMemberTitle": "멤버 추가 75% 할인",
+    "modelPopoverMemberDesc": "유료 멤버로 업그레이드하고 75% 할인을 받으세요, 포인트 소비 속도가 {from}x에서 {to}x로 감소",
+    "modelPopoverUpgradeButton": "업그레이드",
     "slashCmd": {
       "plan": "계획 모드로 전환(AI가 계획만 수립하고 도구를 실행하지 않습니다)",
       "act": "실행 모드로 전환(AI가 정상적으로 도구를 실행합니다, 기본값)",
