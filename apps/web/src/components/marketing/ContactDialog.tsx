@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@ihui/ui-react'
@@ -59,7 +60,7 @@ export function ContactDialog({
           </div>
 
           <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
-            <img
+            <Image
               src="/footer/erweima/wechat-vx.png"
               alt={t('contactWechat')}
               width={64}

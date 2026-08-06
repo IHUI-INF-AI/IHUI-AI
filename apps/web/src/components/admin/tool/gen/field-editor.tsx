@@ -43,7 +43,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
     setUids((prev) => {
       if (prev.length === fields.length) return prev
       // 长度变化时同步:保留已有 uid,补齐新位
-      return fields.map((_, i) => prev[i] ?? genUid())
+      return Array.from({ length: fields.length }, (_, i) => prev[i] ?? genUid())
     })
   }, [fields.length])
 
