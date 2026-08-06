@@ -36,7 +36,7 @@ import { BrandIcon } from '@/components/ai/brand-icon'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
-import { fetchConfigs, type UserLlmConfig } from '@/lib/user-llm-configs'
+import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -113,8 +113,6 @@ export function ModelsMarketplace({ list }: Props) {
   const [qkOpen, setQkOpen] = React.useState(false)
   // 收藏模型 id 集合(localStorage 持久化)
   const [favoriteIds, setFavoriteIds] = React.useState<Set<string>>(() => getFavoriteModelIds())
-  // 收藏状态变更标记,触发筛选重算
-  const [favoriteTick, setFavoriteTick] = React.useState(0)
 
   // 拉取用户 LLM 配置(用于配置感知徽章 + configured/notConfigured 筛选)
   // enabled: isAuthenticated:未登录时不触发请求(避免 401 触发自动登录弹窗,让未登录用户也能浏览模型市场)
@@ -127,15 +125,14 @@ export function ModelsMarketplace({ list }: Props) {
     throwOnError: false,
     staleTime: 60_000,
   })
-  const userConfigs: UserLlmConfig[] = cfgData?.list ?? []
   // 已配置(且启用)的 templateCode 集合,用于 O(1) 查询
   const configuredTemplateCodes = React.useMemo(() => {
     const set = new Set<string>()
-    for (const c of userConfigs) {
+    for (const c of cfgData?.list ?? []) {
       if (c.enabled) set.add(c.providerCode)
     }
     return set
-  }, [userConfigs])
+  }, [cfgData])
   // 某个模型是否已配置(根据 provider 推 templateCode)
   const isModelConfigured = React.useCallback(
     (m: Model): boolean => {
@@ -180,14 +177,12 @@ export function ModelsMarketplace({ list }: Props) {
           return true
       }
     },
-    // favoriteTick 用于在 favoriteIds 变化时让 useMemo/useCallback 重新计算
-    [favoriteTick, isModelConfigured],
+    [favoriteIds, isModelConfigured],
   )
 
   const handleToggleFavorite = React.useCallback((modelId: string) => {
     const ids = toggleFavoriteModel(modelId)
     setFavoriteIds(new Set(ids))
-    setFavoriteTick((t) => t + 1)
   }, [])
 
   const filtered = React.useMemo(() => {
@@ -203,7 +198,7 @@ export function ModelsMarketplace({ list }: Props) {
       const matchFilter = matchesQuickFilter(m, quickFilter)
       return matchQuery && matchFilter
     })
-  }, [list, query, quickFilter, matchesQuickFilter, t])
+  }, [list, query, quickFilter, matchesQuickFilter])
   const sorted = React.useMemo(() => {
     const arr = [...filtered]
     switch (sortKey) {

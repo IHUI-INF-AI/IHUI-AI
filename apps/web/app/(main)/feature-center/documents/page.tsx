@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import {
   Loader2,
@@ -621,8 +622,12 @@ export default function DocumentsPage() {
                           </h3>
                         )
                       },
-                      img: ({ src, alt, ...props }: React.ComponentProps<'img'>) => {
-                        if (!src) return <img src={src} alt={alt} {...props} />
+                      img: ({ src, alt, width: mdWidth, height: mdHeight, ...props }: React.ComponentProps<'img'>) => {
+                        // next/image 要求合法 src,无 src 的 markdown 图片直接跳过(原空 img 无视觉输出)
+                        if (!src) return null
+                        // next/image 的 width/height 只接受 number 或数字字符串;markdown 里可能是任意值,取有效值否则用默认占位
+                        const isNumeric = (v: unknown): v is number | `${number}` =>
+                          typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v))
                         const isHttp = /^(https?:)?\/\//.test(String(src))
                         const isAbsolute = String(src).startsWith('/')
                         let finalSrc = String(src)
@@ -637,10 +642,15 @@ export default function DocumentsPage() {
                             ? `/api/feature-center/documents/asset/${dirBase}/${cleanSrc}`
                             : `/api/feature-center/documents/asset/${cleanSrc}`
                         }
+                        // 尺寸未知:width/height 仅作占位比例,实际布局由 max-h-[480px] w-auto 决定;
+                        // src 可能是任意远程 URL,显式 unoptimized 不走优化管线(全局 images.unoptimized 兜底)
                         return (
-                          <img
+                          <Image
                             src={finalSrc}
-                            alt={alt}
+                            alt={alt ?? ''}
+                            width={isNumeric(mdWidth) ? mdWidth : 1200}
+                            height={isNumeric(mdHeight) ? mdHeight : 800}
+                            unoptimized
                             {...props}
                             className="max-h-[480px] w-auto rounded-md"
                           />
