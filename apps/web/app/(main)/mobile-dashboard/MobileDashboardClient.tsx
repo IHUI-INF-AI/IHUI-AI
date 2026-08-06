@@ -131,7 +131,7 @@ export function MobileDashboardClient() {
             />
             <StatCard
               labelKey="stats.crashRate"
-              value={data.crashRate === null ? '暂无数据' : `${data.crashRate.toFixed(2)}%`}
+              value={data.crashRate === null ? t('noData') : `${data.crashRate.toFixed(2)}%`}
               sub="—"
               trendUp={false}
               Icon={AlertTriangle}
@@ -155,7 +155,7 @@ export function MobileDashboardClient() {
                   />
                 ) : (
                   <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
-                    暂无数据
+                    {t('noData')}
                   </div>
                 )}
               </CardContent>
@@ -199,7 +199,7 @@ export function MobileDashboardClient() {
                   </>
                 ) : (
                   <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
-                    暂无数据
+                    {t('noData')}
                   </div>
                 )}
               </CardContent>
@@ -258,7 +258,7 @@ export function MobileDashboardClient() {
                 </div>
               ) : (
                 <div className="flex h-[120px] items-center justify-center text-sm text-muted-foreground">
-                  暂无数据
+                  {t('noData')}
                 </div>
               )}
             </CardContent>
@@ -293,7 +293,7 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
           <div className="text-sm text-muted-foreground">{t(labelKey)}</div>
           <div className="text-2xl font-bold tracking-tight">{value}</div>
           <div
-            className={`text-xs ${sub === '—' || sub === '暂无数据' ? 'text-muted-foreground' : trendUp ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}
+            className={`text-xs ${sub === '—' || sub === t('noData') ? 'text-muted-foreground' : trendUp ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}
           >
             {sub}
           </div>
