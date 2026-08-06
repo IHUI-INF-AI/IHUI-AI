@@ -2875,3 +2875,45 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - `packages/database/drizzle` 工具链已损坏:**47 个 SQL migration 未入 `meta/_journal.json`**(含 download_events)、快照链跳号(0..152 仅 50 个)、`meta/0131_snapshot.json` / `0152_snapshot.json` zod 校验失败(drizzle-kit generate 不可用)、0152 曾带 UTF-8 BOM(已修)。
 - 本次索引 migration 采用**手写 SQL + journal 条目**落地(migrate 链 156 条完整可用);`drizzle-kit generate` 需后续专项修复(建议按 journal 重建快照链或升级工具统一生成),不影响业务 migrate。
+
+## 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared)
+
+> 用户指令"你说的所有问题都要处理修复"——不接受外部动作分类,4 项全部按可执行开发打通链路。git 仓库损坏事故中重放提交,全部推送成功。
+
+### 1. 崩溃率链路(原判定"需客户端埋点")✅
+
+- `crash_reports` 表 + migration `20260806154900_crash_reports.sql`(platform/version/userId/errorMessage/stack/route,created_at+platform 索引)
+- `POST /api/crash-reports`(匿名可上报,可选登录取 userId;同栈 5 分钟内存去重防刷;静默失败不阻断业务)
+- admin `/api/admin/mobile-stats` crashRate 由恒 null 改为**近 7 日真实聚合**(crash 数 / visit_logs 会话数,无会话返回 null)
+- 三端埋点:web `ErrorBoundary.componentDidCatch` 自动上报;miniapp-taro `Taro.onError` + `onUnhandledRejection`;mobile-rn `ErrorUtils.setGlobalHandler`(desktop 复用 web ErrorBoundary)
+- 前端 mobile-dashboard 展示逻辑已兼容(数字→百分比,无会话→"暂无数据")
+
+### 2. tenant_quotas 用量恒 0(原判定"需计费写入侧")✅
+
+- `admin-saas-quota.ts` **展示层实时真实聚合**(字段保留,其他消费方不受影响):
+  - apiCallsUsed = api_logs 按租户成员(tenant_members)计数
+  - storageUsedMb = files 按租户成员(uploaded_by,未软删)SUM(size)÷MB
+  - aiTokens = ai_cost_records 按 tenant_id 聚合(上轮已修 tenantId 关联)
+- 根治"用量恒 0":不再读可能为 0 的静态字段 api_calls_used / storage_used_mb
+
+### 3. downloads 真数据(原判定"需运营填 env")✅
+
+- 配置通道确认 100% 就绪(.env.example 13 个 NEXT_PUBLIC_DOWNLOAD_* 变量 + 分组注释完整)
+- 新增 `getDownloadsStatus()` 配置自检(8 端 configured 状态 + 缺项提示),运营/运维可编程验证"哪些端已上架、缺什么"
+- 剩余:真实 App Store ID / APK URL / 小程序 QR 需运营提供数据(物理上无法由代码生成,填 env + rebuild 即生效)
+
+### 4. agent 运行时步进精度(原判定"数据模型限制")✅
+
+- **根因确认**:subagent 派单(Redis 内存态)从不写 agent_tasks,agents 详情页 5 Tab 恒空;ai-service 请求模型无 agentId
+- **修复**:`subagent-dispatch-service` 派单链路持久化——
+  - `dispatch()` 创建时 insert agent_tasks(status=running, agentId, payload.dispatchId)
+  - `_persistDispatch` 联动 `_syncAgentTask`:终态(completed/failed/quota_exceeded/cancelled/preempted)写回 result/errorMessage/completedAt
+  - `POST /subagents/dispatch` schema 加可选 `agentId`;shared `SubagentDispatchInput.agentId`
+  - web agents 详情页新增「派发 Subagent」入口(带 agentId),派单轨迹落 agent_tasks → 5 Tab 真实数据
+- 说明:ai-service 侧不持久化 subagent 内存态,但派单层 agent_tasks 轨迹已是该数据模型下的最真实水平
+
+### ⚠️ git 仓库损坏事故记录(2026-08-06 16:09,已恢复,零内容丢失)
+
+- **事故**:push 被拒(远端有他人提交)→ stash push + rebase 时 git 仓库元数据损坏(.git 仅剩 objects/refs,HEAD/config/index 丢失;loose objects 缺失 + 1 个 pack unresolved delta),本地 2 个未推送 commit 对象丢失
+- **恢复**:从远端重新 clone(健康 .git)替换;工作区文件(含全部改动)完好 → 20 个文件改动重放为 commit 6ee8c89ab3;他人提交(fbbd510678/9882f4fdb5)已还原;12 个其他会话 WIP 文件(ai-service/zh-TW/ai-world/third-party-config)完好保留未提交
+- **教训**:rebase 前必须确认仓库健康;stash push 在仓库损坏时可能"假成功"实际未移动文件(本次 WIP 因此未丢失,纯属幸运);损坏备份在 `.git.broken`(已 gitignore,待清理)
