@@ -12753,6 +12753,7 @@
   "mobileDashboardPage": {
     "title": "行動端儀錶板",
     "subtitle": "監控行動端核心營運指標與趨勢。",
+    "noData": "暫無資料",
     "stats": {
       "trendSuffix": "較昨日",
       "dau": "日活使用者",
