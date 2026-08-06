@@ -67,6 +67,18 @@ from app.middleware.trace_context import setup_trace_context_middleware
 
 logger = logging.getLogger(__name__)
 
+# 2026-08-06 立:配置 root logger,让 stdlib logger.info 可见
+# 根因:uvicorn 只配置 uvicorn.* logger,root logger 保持默认(WARNING + lastResort),
+# 导致 llm_gateway 等 stdlib logger 的 [auto-route] / [fallback_router] 等 info 日志被过滤。
+# structlog 走自己的配置(PrintLoggerFactory → stderr,见 app/core/logging.py),不受影响。
+# basicConfig 在 root logger 无 handler 时生效(uvicorn 不配 root handler),加 stdout StreamHandler。
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+
 # 同步 settings 关键变量到 os.environ,确保用 os.getenv() 读取的模块(如 agent_runtime)
 # 能拿到 .env 配置(pydantic-settings 只加载到 Settings 对象,不同步到 os.environ)。
 # 仅在变量未设置时 setdefault,不覆盖运行时注入的值(如测试 monkeypatch)。
