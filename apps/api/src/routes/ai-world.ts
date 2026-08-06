@@ -10,6 +10,7 @@ import {
   findRecentSyncLogs,
   incrementViewCount,
   listAiWorldItems,
+  findAiWorldFavorites,
   listAiWorldRankings,
   listLeaderboards,
   listTrendingItems,
@@ -23,7 +24,7 @@ import {
   getSourceStats,
 } from '../jobs/ai-world-sync.js'
 import { success, error } from '../utils/response.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 
 const ListQuerySchema = z.object({
   category: z.string().optional(),
@@ -185,6 +186,21 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /ai-world/projects — GitHub 项目列表
+  // GET /ai-world/favorites — 我的收藏 AI 项目(2026-08-06 立,修复孤儿页面)
+  server.get('/ai-world/favorites', { preHandler: requireAuth }, async (request, reply) => {
+    const userId = (request as { userId?: string }).userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '未登录'))
+    }
+    try {
+      const list = await findAiWorldFavorites(userId)
+      return reply.send(success({ list }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '收藏列表查询失败'))
+    }
+  })
+
   server.get('/ai-world/projects', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
