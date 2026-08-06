@@ -125,11 +125,19 @@ export function AISidePanel() {
   // - 768-1023px(平板/小窗口)保持 docked,不自动全屏(2026-08-02 修复)
   // - 不设 floatMinimized:true(2026-08-02 改,用户规则"默认展开正常态"):
   //   浮窗默认全屏展开,用户可手动点最小化按钮收成 FAB,而非默认就收成 FAB
-  // - 桌面端恢复时不自动切回 docked(保留用户持久化的 floatMode 偏好)
+  // - 桌面端恢复时自动切回 docked(2026-08-06 修复:
+  //   旧逻辑仅单向切换,窗口从窄变宽后 floatMode 残留 true,导致"总是悬浮")
+  //   用 autoFloatRef 区分:自动触发的浮窗→自动恢复;用户手动点 Pin 的浮窗→保留
+  const autoFloatRef = React.useRef(false)
   React.useEffect(() => {
     if (isMobileSmall && !floatMode) {
       setFloatMode(true)
       setFloatCollapsed(false)
+      autoFloatRef.current = true
+    } else if (!isMobileSmall && floatMode && autoFloatRef.current) {
+      setFloatMode(false)
+      setFloatCollapsed(false)
+      autoFloatRef.current = false
     }
   }, [isMobileSmall, floatMode, setFloatMode, setFloatCollapsed])
   const [loadingHistory, setLoadingHistory] = React.useState(false)
