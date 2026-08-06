@@ -8,7 +8,7 @@ import { Switch } from '@ihui/ui-react'
 /**
  * Switch 视觉与行为守门测试 (2026-07-22 立)
  *
- * 防止以下回归(AGENTS.md §4 圆角守门 + 3D 立体感 + 暗色模式):
+ * 防止以下回归(AGENTS.md §4 圆角守门 + 粗野方块设计语言,2026-08-01 重设计):
  *   - Track 圆角从 rounded 退回 rounded-full(违反圆角守门)
  *   - Thumb 圆角从 rounded-sm 退回 rounded-full
  *   - 3D 阴影的 inset 高光 / drop shadow 误删
@@ -27,7 +27,7 @@ describe('Switch 圆角守门 (AGENTS.md §4)', () => {
     render(<Switch data-testid="sw" />)
     const root = screen.getByTestId('sw')
     const cls = root.getAttribute('class') ?? ''
-    expect(cls, 'Track 应该有 rounded 圆角').toContain('rounded')
+    expect(cls, 'Track 应该有 rounded-md').toContain('rounded-md')
     expect(cls, 'Track 不应该有 rounded-full 胶囊').not.toContain('rounded-full')
     expect(cls, 'Track 不应该有 rounded-pill').not.toContain('rounded-pill')
   })
@@ -44,44 +44,29 @@ describe('Switch 圆角守门 (AGENTS.md §4)', () => {
   })
 })
 
-describe('Switch 3D 立体感阴影 (2026-07-22)', () => {
+describe('Switch 粗野硬阴影 (Neo-Brutalist,2026-08-01 重设计)', () => {
   afterEach(() => cleanup())
 
-  it('Track unchecked 包含 inset 凹陷阴影', () => {
+  it('Track 包含 3px 硬阴影(非柔光弥散)', () => {
     render(<Switch data-testid="sw" />)
     const cls = screen.getByTestId('sw').getAttribute('class') ?? ''
-    expect(cls, 'Track unchecked 应该有 inset 凹陷阴影').toContain(
-      'data-[state=unchecked]:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]',
-    )
+    expect(cls, 'Track 应该有硬阴影').toContain('shadow-[3px_3px_0_var(--color-foreground)]')
   })
 
-  it('Track checked 包含双层 inset(顶部白光 + 底部深光)模拟按键凸起', () => {
+  it('Track 按下时阴影收缩 + 2px 位移(实体按键反馈)', () => {
+    render(<Switch data-testid="sw" />)
+    const cls = screen.getByTestId('sw').getAttribute('class') ?? ''
+    expect(cls, '按下应有 2px 位移').toContain('active:translate-x-[2px]')
+    expect(cls, '按下应阴影收缩').toContain('active:shadow-[1px_1px_0_var(--color-foreground)]')
+  })
+
+  it('ON 状态:Track 品牌橙背景 + Thumb 变白', () => {
     render(<Switch data-testid="sw" defaultChecked />)
-    const cls = screen.getByTestId('sw').getAttribute('class') ?? ''
-    expect(cls, 'Track checked 应该有顶部白光').toContain('rgba(255,255,255,0.25)')
-    expect(cls, 'Track checked 应该有底部深光').toContain('rgba(0,0,0,0.12)')
-  })
-
-  it('Thumb 包含顶部白色高光(inset)+ 双层 drop shadow + 0.5px 黑边', () => {
-    render(<Switch data-testid="sw" />)
+    const rootCls = screen.getByTestId('sw').getAttribute('class') ?? ''
     const thumb = screen.getByTestId('sw').querySelector('span')
-    const cls = thumb?.getAttribute('class') ?? ''
-    expect(cls, 'Thumb 应有顶部白色高光').toContain('inset_0_1px_0_rgba(255,255,255,0.9)')
-    expect(cls, 'Thumb 应有第一层 drop shadow').toContain('0_1px_2px_rgba(0,0,0,0.18)')
-    expect(cls, 'Thumb 应有第二层 drop shadow').toContain('0_1px_3px_rgba(0,0,0,0.1)')
-    expect(cls, 'Thumb 应有 0.5px 黑色描边').toContain('0_0_0_0.5px_rgba(0,0,0,0.06)')
-  })
-})
-
-describe('Switch 暗色模式边缘 (2026-07-22)', () => {
-  afterEach(() => cleanup())
-
-  it('Thumb 包含 dark:ring-1 dark:ring-white/10 增强暗色背景下的分离感', () => {
-    render(<Switch data-testid="sw" />)
-    const thumb = screen.getByTestId('sw').querySelector('span')
-    const cls = thumb?.getAttribute('class') ?? ''
-    expect(cls, 'Thumb 应该有 dark:ring-1').toContain('dark:ring-1')
-    expect(cls, 'Thumb 应该有 dark:ring-white/10').toContain('dark:ring-white/10')
+    const thumbCls = thumb?.getAttribute('class') ?? ''
+    expect(rootCls, 'ON 应为品牌橙').toContain('data-[state=checked]:bg-[var(--color-brand-orange)]')
+    expect(thumbCls, 'ON 拇指应变白').toContain('data-[state=checked]:bg-background')
   })
 })
 
@@ -94,7 +79,7 @@ describe('Switch prefers-reduced-motion 降级', () => {
     expect(cls, 'Track 应该有 motion-reduce:transition-none').toContain(
       'motion-reduce:transition-none',
     )
-    expect(cls, 'Track 应该有 motion-reduce:shadow-none').toContain('motion-reduce:shadow-none')
+    expect(cls, 'Track 按下位移应归零').toContain('motion-reduce:active:translate-x-0')
   })
 
   it('Thumb 包含 motion-reduce:transition-none + motion-reduce:shadow-none', () => {
@@ -104,7 +89,7 @@ describe('Switch prefers-reduced-motion 降级', () => {
     expect(cls, 'Thumb 应该有 motion-reduce:transition-none').toContain(
       'motion-reduce:transition-none',
     )
-    expect(cls, 'Thumb 应该有 motion-reduce:shadow-none').toContain('motion-reduce:shadow-none')
+
   })
 })
 
@@ -117,10 +102,10 @@ describe('Switch 尺寸变体 sm/md/lg', () => {
     const thumb = root.querySelector('span')
     const rootCls = root.getAttribute('class') ?? ''
     const thumbCls = thumb?.getAttribute('class') ?? ''
-    expect(rootCls, 'sm Track 应有 h-4 w-7').toMatch(/h-4.*w-7|w-7.*h-4/)
+    expect(rootCls, 'sm Track 应有 h-5 w-9').toMatch(/h-5.*w-9|w-9.*h-5/)
     expect(thumbCls, 'sm Thumb 应有 h-3 w-3').toMatch(/h-3.*w-3|w-3.*h-3/)
-    expect(thumbCls, 'sm Thumb 应有 translate-x-3').toContain(
-      'data-[state=checked]:translate-x-3',
+    expect(thumbCls, 'sm Thumb 应有 checked 位移 15px').toContain(
+      'data-[state=checked]:translate-x-[15px]',
     )
   })
 
@@ -130,10 +115,10 @@ describe('Switch 尺寸变体 sm/md/lg', () => {
     const thumb = root.querySelector('span')
     const rootCls = root.getAttribute('class') ?? ''
     const thumbCls = thumb?.getAttribute('class') ?? ''
-    expect(rootCls, 'md Track 应有 h-5 w-9').toMatch(/h-5.*w-9|w-9.*h-5/)
+    expect(rootCls, 'md Track 应有 h-6 w-11').toMatch(/h-6.*w-11|w-11.*h-6/)
     expect(thumbCls, 'md Thumb 应有 h-4 w-4').toMatch(/h-4.*w-4|w-4.*h-4/)
-    expect(thumbCls, 'md Thumb 应有 translate-x-4').toContain(
-      'data-[state=checked]:translate-x-4',
+    expect(thumbCls, 'md Thumb 应有 checked 位移 19px').toContain(
+      'data-[state=checked]:translate-x-[19px]',
     )
   })
 
@@ -143,10 +128,10 @@ describe('Switch 尺寸变体 sm/md/lg', () => {
     const thumb = root.querySelector('span')
     const rootCls = root.getAttribute('class') ?? ''
     const thumbCls = thumb?.getAttribute('class') ?? ''
-    expect(rootCls, 'lg Track 应有 h-6 w-11').toMatch(/h-6.*w-11|w-11.*h-6/)
+    expect(rootCls, 'lg Track 应有 h-7 w-[52px]').toMatch(/h-7.*w-\[52px\]|w-\[52px\].*h-7/)
     expect(thumbCls, 'lg Thumb 应有 h-5 w-5').toMatch(/h-5.*w-5|w-5.*h-5/)
-    expect(thumbCls, 'lg Thumb 应有 translate-x-5').toContain(
-      'data-[state=checked]:translate-x-5',
+    expect(thumbCls, 'lg Thumb 应有 checked 位移 23px').toContain(
+      'data-[state=checked]:translate-x-[23px]',
     )
   })
 })
