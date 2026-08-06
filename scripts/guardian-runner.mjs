@@ -178,6 +178,13 @@ const checks = [
     mode: 'blocking',
   },
   {
+    id: '11b',
+    label: '📐 圆角溢出(父 rounded + 子 bg 贴边)',
+    script: 'check-rounded-overflow.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
     id: '12',
     label: '📋 交付报告一致性',
     script: 'check-delivery-report-consistency.mjs',
