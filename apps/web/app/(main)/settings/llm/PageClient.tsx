@@ -258,7 +258,7 @@ export default function UserLlmConfigsPage() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-[200px_1fr]">
-        <div className="rounded-lg border bg-card p-2">
+        <div className="rounded-lg border bg-card p-3">
           <GroupSidebar groups={groups} activeGroup={activeGroup} onChange={setActiveGroup} />
         </div>
         <div className="space-y-3">
