@@ -64,6 +64,12 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   window.localStorage.clear()
+  // 2026-08-05 修复:happy-dom 下 restoreAllMocks 无法恢复 localStorage spy,显式恢复
+  const ls = window.localStorage
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FIXME(any): vi.isMockFunction 守卫后仍需 cast,因为 Storage 类型定义不含 mockRestore;移除计划:vi.restoreAllMocks 修复后移除
+  if (vi.isMockFunction(ls.getItem)) (ls.getItem as any).mockRestore()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FIXME(any): 同上
+  if (vi.isMockFunction(ls.setItem)) (ls.setItem as any).mockRestore()
   vi.restoreAllMocks()
 })
 
