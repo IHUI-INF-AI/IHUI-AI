@@ -28,6 +28,7 @@ import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
+import { initCrashReport } from './utils/crash-report'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
@@ -37,6 +38,9 @@ bindTokenStoreToApiClient(tokenStore)
 setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
 setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
+
+// 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
+initCrashReport()
 
 // 2026-07-22 P0 Round 5 鲁棒性加固:防 NetworkStatusListener 在组件卸载后仍触发 toast
 let networkListenerRegistered = false

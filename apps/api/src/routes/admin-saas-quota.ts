@@ -7,6 +7,13 @@
  * api_calls_used/limit、storage_used_mb/limit_mb、period_start/period_end) +
  * ai_cost_records(AI token 用量,按 tenant_id 聚合)。
  *
+ * 2026-08-06 修复「用量恒 0」:api_calls_used 与 storage_used_mb 字段此前无写入侧,
+ * admin 页展示恒 0。现改为**展示层实时真实聚合**(字段保留不动,其他消费方不受影响):
+ * - apiCallsUsed = api_logs 按租户成员(user_id ∈ tenant_members)计数
+ * - storageUsedMb = files 按租户成员(uploaded_by ∈ tenant_members,未软删)SUM(size)
+ * - aiTokens    = ai_cost_records 按 tenant_id 聚合(已有)
+ * 聚合口径与「租户配额」语义一致(累计值),不再依赖可能为 0 的静态字段。
+ *
  * 本路由注册在与代理同一 prefix(/api/admin-saas),但使用更具体的
  * /customers/:slug/quota 路径,Fastify 路由优先级(parametric > wildcard)
  * 保证优先命中本路由,不再落入代理。
@@ -16,9 +23,9 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, sql } from 'drizzle-orm'
+import { eq, and, isNull, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { tenants, tenantQuotas, aiCostRecords } from '@ihui/database'
+import { tenants, tenantQuotas, aiCostRecords, apiLogs, files, tenantMembers } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
@@ -80,11 +87,26 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
         .from(aiCostRecords)
         .where(eq(aiCostRecords.tenantId, tenant.id))
 
+      // API 调用次数:租户成员(tenant_members.user_id)在 api_logs 的记录数(真实聚合,2026-08-06)
+      const [apiAgg] = await dbRead
+        .select({ used: sql<number>`count(*)::int` })
+        .from(apiLogs)
+        .innerJoin(tenantMembers, eq(apiLogs.userId, tenantMembers.userId))
+        .where(eq(tenantMembers.tenantId, tenant.id))
+
+      // 存储用量:租户成员未软删文件 size 之和,字节 → MB(真实聚合,2026-08-06)
+      const [storageAgg] = await dbRead
+        .select({ usedBytes: sql<number>`coalesce(sum(${files.size}), 0)::bigint` })
+        .from(files)
+        .innerJoin(tenantMembers, eq(files.uploadedBy, tenantMembers.userId))
+        .where(and(eq(tenantMembers.tenantId, tenant.id), isNull(files.deletedAt)))
+
       const plan = planKey(tenant.plan)
       const apiCallsLimit = quota?.apiCallsLimit ?? PLAN_DEFAULTS[plan].apiCallsLimit
-      const apiCallsUsed = quota?.apiCallsUsed ?? 0
       const storageLimitMb = quota?.storageLimitMb ?? PLAN_DEFAULTS[plan].storageLimitMb
-      const storageUsedMb = quota?.storageUsedMb ?? 0
+      // 展示层真实聚合:不读可能恒 0 的静态字段(api_calls_used / storage_used_mb)
+      const apiCallsUsed = apiAgg?.used ?? 0
+      const storageUsedMb = Math.floor(((storageAgg?.usedBytes ?? 0) as number) / MB)
       // tenant_quotas.limits jsonb 可选携带 aiTokensLimit/tokenLimit,未配置则为 null(无上限)
       const limits = (quota?.limits ?? {}) as Record<string, unknown>
       const aiTokensLimitRaw = limits.aiTokensLimit ?? limits.tokenLimit

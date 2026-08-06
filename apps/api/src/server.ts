@@ -19,6 +19,7 @@ import { join } from 'node:path'
 import { registerRoutes } from './routes/index.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
 import { downloadsRoutes } from './routes/downloads.js'
+import { crashReportsRoutes } from './routes/crash-reports.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -243,6 +244,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 下载量统计(POST /api/downloads/track + GET /api/downloads/stats,2026-08-06 新增)
   server.register(downloadsRoutes, { prefix: '/api/downloads' })
+
+  // 崩溃上报(POST /api/crash-reports,匿名可上报,2026-08-06 新增打通崩溃率链路)
+  server.register(crashReportsRoutes, { prefix: '/api' })
 
   // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
   setFastify(server)
