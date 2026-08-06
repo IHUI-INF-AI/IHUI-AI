@@ -12,6 +12,12 @@ import { nullDeviceFingerprintCollector } from '@ihui/types'
 
 export interface TokenProvider {
   getToken(): string | null
+  /**
+   * 401 自动续期(2026-08-06 立):access token 过期时调用,用 refresh token 换取
+   * 新的 access token。返回新 token(内部自行持久化),失败返回 null。
+   * 各端注入自己的刷新实现(web 调 POST /auth/refresh,httpOnly cookie 自动附带)。
+   */
+  refreshAccessToken?: () => Promise<string | null>
 }
 
 /**
@@ -28,6 +34,8 @@ export type FetchApiOptions = RequestInit & {
 }
 
 let tokenProvider: TokenProvider = { getToken: () => null }
+// 401 自动续期的并发去重:多个请求同时 401 时只刷新一次,共享同一 promise
+let refreshInFlight: Promise<string | null> | null = null
 // 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
 let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
@@ -99,6 +107,39 @@ export function getCircuitBreaker(): CircuitBreaker | null {
 /** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
 export function getToken(): string | null {
   return tokenProvider.getToken()
+}
+
+/**
+ * 401 自动续期核心(2026-08-06 立)。
+ * 并发去重:多个请求同时 401 时共享同一个刷新 promise,只调用一次 refreshAccessToken。
+ * 刷新失败返回 null,由调用方决定是否走登出/错误流程。
+ */
+async function refreshAccessTokenOnce(): Promise<string | null> {
+  if (!tokenProvider.refreshAccessToken) return null
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = Promise.resolve()
+    .then(() => tokenProvider.refreshAccessToken!())
+    .then((t) => {
+      refreshInFlight = null
+      return t
+    })
+    .catch(() => {
+      refreshInFlight = null
+      return null
+    })
+  return refreshInFlight
+}
+
+/**
+ * 认证/会话端点不做 401 续期(避免死循环):
+ * login/refresh/logout/register/2fa/callback/oauth 等端点自身 401 就是最终结果,
+ * 不能触发 refresh 重试。
+ */
+const AUTH_ENDPOINT_RE =
+  /\/auth\/(login|refresh|logout|register|2fa|callback|forgot|reset|verify|google|apple|wechat|wecom|dingtalk|oauth)|\/oauth\//i
+function isAuthEndpoint(url: string): boolean {
+  const path = (url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] ?? '').toLowerCase()
+  return AUTH_ENDPOINT_RE.test(path)
 }
 
 /** 规范化 URL(供需要原生 fetch 的场景使用) */
@@ -303,10 +344,26 @@ export async function fetchApi<T>(
     if (!circuitBreaker) {
       const maxRetries = 1
       let lastError = '网络异常'
+      let authRetried = false
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
+          const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
+          // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
+          if (
+            'status' in result &&
+            result.status === 401 &&
+            !authRetried &&
+            !isAuthEndpoint(normalizedUrl)
+          ) {
+            const newToken = await refreshAccessTokenOnce()
+            if (newToken) {
+              headers['Authorization'] = `Bearer ${newToken}`
+              authRetried = true
+              continue
+            }
+          }
+          return result as ApiResult<T>
         } catch (err) {
           // AbortError:用户主动取消或超时,直接返回,不重试
           if (err instanceof DOMException && err.name === 'AbortError') {
@@ -332,9 +389,20 @@ export async function fetchApi<T>(
 
     // 有 breaker:每次 fetchApi 计 1 个 breaker 样本(不内部重试,避免重复计样本)
     try {
-      return await circuitBreaker.execute(async () => {
+      let result = await circuitBreaker.execute(async () => {
         return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
       })
+      // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
+      if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
+        const newToken = await refreshAccessTokenOnce()
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`
+          result = await circuitBreaker.execute(async () => {
+            return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
+          })
+        }
+      }
+      return result as ApiResult<T>
     } catch (err) {
       if (err instanceof CircuitOpenError) throw err
       if (err instanceof DOMException && err.name === 'AbortError') {
