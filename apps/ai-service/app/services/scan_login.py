@@ -4,7 +4,8 @@
 自动保存 cookies 到后端账号"。
 
 实现:
-- 内存任务存储:每个扫码任务 = {platform, user_id, status, cookies, qr_image}
+- 任务存储:P2 修复(2026-08-06)后 Redis 优先(`scan_login:task:{task_id}`,多实例共享),
+  Redis 不可用时降级为进程内 dict;每个扫码任务 = {platform, user_id, status, cookies, qr_image}
 - 后台线程:启动 Playwright Chromium → 打开平台登录页 → 持续截图 → 检测登录态
 - 登录态判定:cookies 出现目标字段 / URL 跳转 / 出现用户头像
 - 登录成功:提取相关 cookies → 调用账号更新 API → 标记任务完成
@@ -20,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import json
 import os
 import threading
 import time
@@ -27,6 +29,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from ..core.config import settings
 from ..core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -250,7 +253,7 @@ class ScanTask:
     task_id: str
     user_id: str
     platform: str
-    status: str = "pending"  # pending | waiting_scan | scanned | success | failed | timeout | cancelled
+    status: str = "pending"  # pending | waiting_scan | scanned | success | failed | timeout | cancelled | expired
     message: str = ""
     qr_image_b64: str = ""  # base64 PNG 截图
     qr_image_updated_at: float = 0.0
@@ -266,7 +269,8 @@ class ScanTask:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def is_terminal(self) -> bool:
-        return self.status in ("success", "failed", "timeout", "cancelled")
+        # P2 修复(2026-08-06): 新增 expired 终态
+        return self.status in ("success", "failed", "timeout", "cancelled", "expired")
 
     def snapshot(self) -> dict[str, Any]:
         """返回可序列化的状态(供 API 返回)。"""
@@ -286,40 +290,229 @@ class ScanTask:
 
 
 # ---------------------------------------------------------------------------
-# 任务存储(进程内,简单实现)
+# 任务存储(Redis 优先,多实例共享;Redis 不可用时降级为进程内 dict)
+# P2 修复(2026-08-06): 原 _TASKS 为进程内 dict,多实例部署下轮询打到其它实例会 404
 # ---------------------------------------------------------------------------
-_TASKS: dict[str, ScanTask] = {}
-_TASKS_LOCK = threading.Lock()
+try:
+    import redis as _redis_sync
+except ImportError:
+    _redis_sync = None  # type: ignore[assignment]
+
+_TERMINAL_STATUSES = ("success", "failed", "timeout", "cancelled", "expired")
+
 _TASK_TTL_SECONDS = 5 * 60  # 完成后保留 5 分钟
+_QR_VALIDITY_SECONDS = 5 * 60  # 二维码有效/轮询超时窗口(与线程内 5 分钟超时一致)
+_REDIS_KEY_TTL_SECONDS = 10 * 60  # Redis key TTL:覆盖二维码有效期 + 结果保留期
+
+
+class ScanTaskStore:
+    """扫码任务存储。
+
+    - Redis 模式:key=`scan_login:task:{task_id}`,value=任务 JSON(含 base64 截图),TTL=10 分钟。
+      任意实例创建的任务,其它实例经同一 Redis 也能查到(解决多实例轮询 404)。
+    - 内存模式:Redis 未配置 / 未安装 redis 包 / ping 失败时降级为进程内 dict(与 memory.py 同模式)。
+    - 本地 dict 始终保留本实例创建任务的工作副本(含线程句柄/浏览器对象,不可序列化),
+      Redis 中仅存可序列化快照。
+    """
+
+    KEY_PREFIX = "scan_login:task:"
+
+    def __init__(self) -> None:
+        self._local: dict[str, ScanTask] = {}
+        self._lock = threading.Lock()
+        self._redis: Any = None
+        self._use_redis = bool(settings.redis_url) and _redis_sync is not None
+
+    # -- Redis 连接 -------------------------------------------------------
+    def _get_redis(self) -> Any:
+        """获取同步 Redis 客户端;连接失败时降级为内存模式(与 memory.py 同模式)。"""
+        if self._redis is None and self._use_redis:
+            try:
+                self._redis = _redis_sync.Redis.from_url(
+                    settings.redis_url, decode_responses=True
+                )
+                self._redis.ping()
+                logger.info("[scan_login] Redis 存储已启用")
+            except Exception as e:
+                logger.warning("[scan_login] Redis 连接失败,降级为内存模式: %s", e, exc_info=True)
+                self._use_redis = False
+                self._redis = None
+        return self._redis
+
+    def _key(self, task_id: str) -> str:
+        return f"{self.KEY_PREFIX}{task_id}"
+
+    # -- 本地工作副本(含线程句柄/浏览器对象,不可序列化) ---------------------
+    def get_local(self, task_id: str) -> Optional[ScanTask]:
+        with self._lock:
+            return self._local.get(task_id)
+
+    def put_local(self, task: ScanTask) -> None:
+        with self._lock:
+            self._local[task.task_id] = task
+
+    def pop_local(self, task_id: str) -> Optional[ScanTask]:
+        with self._lock:
+            return self._local.pop(task_id, None)
+
+
+_TASK_STORE = ScanTaskStore()
+
+
+def _task_to_dict(task: ScanTask) -> dict[str, Any]:
+    """把任务序列化为 JSON 可存储字典(不包含线程/浏览器等不可序列化字段)。"""
+    return {
+        "task_id": task.task_id,
+        "user_id": task.user_id,
+        "platform": task.platform,
+        "status": task.status,
+        "message": task.message,
+        "qr_image_b64": task.qr_image_b64,
+        "qr_image_updated_at": task.qr_image_updated_at,
+        "cookies": dict(task.cookies),
+        "all_relevant_cookies": dict(task.all_relevant_cookies),
+        "account_id": task.account_id,
+        "created_at": task.created_at,
+        "completed_at": task.completed_at,
+    }
+
+
+def _task_from_dict(data: dict[str, Any]) -> ScanTask:
+    """从 Redis JSON 恢复只读任务副本(无线程句柄,仅用于查询/状态展示)。"""
+    return ScanTask(
+        task_id=str(data.get("task_id", "")),
+        user_id=str(data.get("user_id", "")),
+        platform=str(data.get("platform", "")),
+        status=str(data.get("status", "pending")),
+        message=str(data.get("message", "")),
+        qr_image_b64=str(data.get("qr_image_b64", "")),
+        qr_image_updated_at=float(data.get("qr_image_updated_at", 0.0) or 0.0),
+        cookies=dict(data.get("cookies") or {}),
+        all_relevant_cookies=dict(data.get("all_relevant_cookies") or {}),
+        account_id=data.get("account_id"),
+        created_at=float(data.get("created_at", time.time()) or time.time()),
+        completed_at=data.get("completed_at"),
+    )
+
+
+def _persist_task(task: ScanTask) -> bool:
+    """把任务快照写入 Redis(带 TTL)。Redis 不可用时静默返回 False,降级内存。"""
+    redis = _TASK_STORE._get_redis()
+    if not redis:
+        return False
+    try:
+        redis.set(
+            _TASK_STORE._key(task.task_id),
+            json.dumps(_task_to_dict(task), ensure_ascii=False),
+            ex=_REDIS_KEY_TTL_SECONDS,
+        )
+        return True
+    except Exception as e:
+        logger.warning("[scan_login] 任务持久化失败,降级为内存模式: %s", e, exc_info=True)
+        _TASK_STORE._use_redis = False
+        _TASK_STORE._redis = None
+        return False
 
 
 def _cleanup_expired_tasks() -> None:
-    """清理超时的已完成任务(> 5 分钟)。"""
+    """清理超时的已完成任务(> 5 分钟)。内存模式手动遍历;Redis 模式靠 TTL + 兜底扫描。"""
     now = time.time()
+    # 本地工作副本:只清理本实例已终态且超保留期的任务(不误删运行中线程的任务)
     expired: list[str] = []
-    with _TASKS_LOCK:
-        for tid, task in _TASKS.items():
+    with _TASK_STORE._lock:
+        for tid, task in list(_TASK_STORE._local.items()):
             if task.is_terminal() and task.completed_at and now - task.completed_at > _TASK_TTL_SECONDS:
                 expired.append(tid)
         for tid in expired:
-            del _TASKS[tid]
+            _TASK_STORE._local.pop(tid, None)
             logger.info(f"[scan_login] 清理过期任务 {tid}")
+
+    # Redis 模式:P2 修复(2026-08-06) 兜底扫描 `scan_login:task:*`,删除超保留期的终态 key
+    # (正常情况下 TTL 会自动过期,这里防 TTL 未设置的孤儿 key)
+    redis = _TASK_STORE._get_redis()
+    if redis:
+        try:
+            keys = redis.keys(f"{_TASK_STORE.KEY_PREFIX}*")
+            for k in keys:
+                raw = redis.get(k)
+                if not raw:
+                    continue
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    continue
+                if (
+                    data.get("status") in _TERMINAL_STATUSES
+                    and data.get("completed_at")
+                    and now - float(data["completed_at"]) > _TASK_TTL_SECONDS
+                ):
+                    redis.delete(k)
+                    logger.info(f"[scan_login] 清理 Redis 过期任务 {k}")
+        except Exception as e:
+            logger.warning("[scan_login] Redis 清理任务失败: %s", e, exc_info=True)
 
 
 def get_task(task_id: str) -> Optional[ScanTask]:
-    with _TASKS_LOCK:
-        return _TASKS.get(task_id)
+    """按 task_id 查询任务:优先本地工作副本,本地无则读 Redis(支持跨实例轮询)。"""
+    # 本地工作副本(含线程句柄)优先
+    task = _TASK_STORE.get_local(task_id)
+    if task is None:
+        # 跨实例:从 Redis 读取只读副本
+        redis = _TASK_STORE._get_redis()
+        if redis:
+            try:
+                raw = redis.get(_TASK_STORE._key(task_id))
+            except Exception as e:
+                logger.warning("[scan_login] 读取 Redis 任务失败: %s", e, exc_info=True)
+                raw = None
+            if raw:
+                try:
+                    task = _task_from_dict(json.loads(raw))
+                except Exception as e:
+                    logger.warning("[scan_login] 反序列化任务失败: %s", e, exc_info=True)
+                    task = None
+        if task is None:
+            return None
+
+    # P2 修复(2026-08-06): 超过二维码有效期且未到终态 → 一次性标记 expired,前端轮询得到明确过期状态
+    if not task.is_terminal() and task.completed_at is None and time.time() - task.created_at > _QR_VALIDITY_SECONDS:
+        task.status = "expired"
+        task.message = "二维码已过期,请重新发起扫码登录"
+        task.completed_at = time.time()
+        _persist_task(task)
+    return task
 
 
 def list_tasks(user_id: Optional[str] = None) -> list[ScanTask]:
-    with _TASKS_LOCK:
-        tasks = list(_TASKS.values())
+    """列出任务。Redis 模式扫描 `scan_login:task:*` 前缀;内存模式遍历本地 dict。"""
+    redis = _TASK_STORE._get_redis()
+    if redis:
+        tasks: list[ScanTask] = []
+        try:
+            keys = redis.keys(f"{_TASK_STORE.KEY_PREFIX}*")
+            for k in keys:
+                raw = redis.get(k)
+                if not raw:
+                    continue
+                try:
+                    tasks.append(_task_from_dict(json.loads(raw)))
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.warning("[scan_login] 列出 Redis 任务失败: %s", e, exc_info=True)
+            return []
+        if user_id:
+            tasks = [t for t in tasks if t.user_id == user_id]
+        return tasks
+    with _TASK_STORE._lock:
+        tasks = list(_TASK_STORE._local.values())
     if user_id:
         tasks = [t for t in tasks if t.user_id == user_id]
     return tasks
 
 
 def create_task(user_id: str, platform: str) -> ScanTask:
+    """创建任务:写入本地工作副本 + Redis(带 TTL)。"""
     if platform not in PLATFORM_SCAN_CONFIG:
         raise ValueError(f"不支持的平台: {platform},可用: {list(PLATFORM_SCAN_CONFIG.keys())}")
     task = ScanTask(
@@ -327,14 +520,20 @@ def create_task(user_id: str, platform: str) -> ScanTask:
         user_id=user_id,
         platform=platform,
     )
-    with _TASKS_LOCK:
-        _TASKS[task.task_id] = task
+    _TASK_STORE.put_local(task)
+    _persist_task(task)
     return task
 
 
 def remove_task(task_id: str) -> None:
-    with _TASKS_LOCK:
-        task = _TASKS.pop(task_id, None)
+    """删除任务:本地 + Redis 同时清理,并触发线程停止。"""
+    task = _TASK_STORE.pop_local(task_id)
+    redis = _TASK_STORE._get_redis()
+    if redis:
+        try:
+            redis.delete(_TASK_STORE._key(task_id))
+        except Exception as e:
+            logger.warning("[scan_login] 删除 Redis 任务失败: %s", e, exc_info=True)
     if task:
         task._stop_event.set()
 
@@ -394,6 +593,7 @@ def _run_scan_task(task: ScanTask) -> None:
         task.message = f"Playwright 未安装:{e}"
         task.completed_at = time.time()
         logger.error(f"[scan_login] Playwright 缺失:{e}")
+        _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
         return
 
     try:
@@ -427,12 +627,14 @@ def _run_scan_task(task: ScanTask) -> None:
             task.status = "waiting_scan"
             task.message = f"正在打开 {config['name']} 登录页..."
             logger.info(f"[scan_login] 打开 {config['login_url']}")
+            _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
             try:
                 page.goto(config["login_url"], wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
                 task.status = "failed"
                 task.message = f"打开登录页失败:{type(e).__name__}: {str(e)[:200]}"
                 task.completed_at = time.time()
+                _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                 return
 
             page.wait_for_timeout(3000)
@@ -469,6 +671,7 @@ def _run_scan_task(task: ScanTask) -> None:
 
             task.message = f"请用 {config['name']} App 扫描二维码"
             logger.info(f"[scan_login] 任务 {task.task_id} 进入等待扫码状态")
+            _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
 
             # 4. 轮询检测登录成功
             timeout_seconds = 5 * 60  # 5 分钟超时
@@ -477,11 +680,33 @@ def _run_scan_task(task: ScanTask) -> None:
             import re
 
             while not task._stop_event.is_set():
+                # P2 修复(2026-08-06): 检测其它实例的状态变更(取消/过期),
+                # 避免本线程在跨实例取消后继续运行并覆盖终态
+                _redis = _TASK_STORE._get_redis()
+                if _redis:
+                    try:
+                        _raw = _redis.get(_TASK_STORE._key(task.task_id))
+                        if _raw:
+                            _remote = json.loads(_raw)
+                            _rs = _remote.get("status")
+                            if _rs in ("cancelled", "expired"):
+                                task.status = _rs
+                                task.message = _remote.get("message", "") or (
+                                    "用户取消" if _rs == "cancelled"
+                                    else "二维码已过期,请重新发起扫码登录"
+                                )
+                                task.completed_at = time.time()
+                                logger.info(f"[scan_login] 任务 {task.task_id} 检测到远端终态: {_rs}")
+                                break
+                    except Exception:
+                        pass
+
                 if time.time() - start_time > timeout_seconds:
                     task.status = "timeout"
                     task.message = f"等待超时(> {timeout_seconds}s)"
                     task.completed_at = time.time()
                     logger.warning(f"[scan_login] 任务 {task.task_id} 超时")
+                    _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                     break
 
                 # 每 2 秒更新一次截图
@@ -512,6 +737,7 @@ def _run_scan_task(task: ScanTask) -> None:
 
                         # 异步保存到后端账号
                         _schedule_account_save(task)
+                        _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
                         break
 
                 if task.status == "success":
@@ -535,6 +761,7 @@ def _run_scan_task(task: ScanTask) -> None:
                         task.completed_at = time.time()
                         _update_qr_screenshot(task, page)
                         _schedule_account_save(task)
+                        _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
                         break
 
                 page.wait_for_timeout(1500)
@@ -554,6 +781,7 @@ def _run_scan_task(task: ScanTask) -> None:
         task.status = "failed"
         task.message = f"扫码登录异常:{type(e).__name__}: {str(e)[:200]}"
         task.completed_at = time.time()
+        _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
 
 
 def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
@@ -565,6 +793,9 @@ def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
             task.qr_image_updated_at = time.time()
     except Exception as e:
         logger.debug(f"[scan_login] 截图失败:{e}")
+        return
+    # P2 修复(2026-08-06): 截图变更后同步到 Redis,保证跨实例 qr 轮询取到最新截图
+    _persist_task(task)
 
 
 def _schedule_account_save(task: ScanTask) -> None:
@@ -634,6 +865,9 @@ async def _save_account_async(task: ScanTask) -> None:
         )
     except Exception as e:
         logger.exception(f"[scan_login] 保存账号失败:{e}")
+    finally:
+        # P2 修复(2026-08-06): account_id 更新后同步到 Redis,前端可查询到关联账号
+        _persist_task(task)
 
 
 async def detect_login_from_cdp_session(
@@ -714,16 +948,20 @@ def start_scan_task(user_id: str, platform: str) -> ScanTask:
 
 
 def cancel_scan_task(task_id: str) -> bool:
-    """取消扫码任务。"""
+    """取消扫码任务。跨实例同样生效:更新 Redis 终态,创建侧线程轮询检测到 cancelled 后自行退出。"""
     task = get_task(task_id)
     if not task:
         return False
     if task.is_terminal():
         return False
-    task._stop_event.set()
+    # 本实例若持有工作副本(线程句柄),触发线程立即停止
+    local = _TASK_STORE.get_local(task_id)
+    if local is not None:
+        local._stop_event.set()
     task.status = "cancelled"
     task.message = "用户取消"
     task.completed_at = time.time()
+    _persist_task(task)  # P2 修复(2026-08-06): 取消终态同步到 Redis(跨实例可见)
     return True
 
 
