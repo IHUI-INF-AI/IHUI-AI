@@ -354,7 +354,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
           properties: {
             resourceType: {
               type: 'string',
-              enum: ['project', 'file', 'doc', 'post', 'comment'],
+              enum: ['project', 'file', 'doc', 'post', 'comment', 'aiworld'],
               description: '资源类型',
             },
             resourceId: { type: 'string', maxLength: 128, description: '资源 ID' },
@@ -431,7 +431,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
             },
             resourceType: {
               type: 'string',
-              enum: ['project', 'file', 'doc', 'post', 'comment'],
+              enum: ['project', 'file', 'doc', 'post', 'comment', 'aiworld'],
               description: '资源类型筛选(可选)',
             },
           },
