@@ -1585,7 +1585,18 @@
       "platformMobile": "移动端 H5",
       "platformWechatMiniapp": "微信小程序",
       "platformExtension": "浏览器插件",
-      "platformCli": "命令行工具"
+      "platformCli": "命令行工具",
+      "pendingTitle": "待接入端运营指引",
+      "pendingDesc": "以下 3 端尚未接入下载,运营人员需在 downloads.config.ts 填入对应字段",
+      "pendingField": "配置字段",
+      "pendingStatus": "状态",
+      "pendingGuide": "接入说明",
+      "pendingConfigFile": "配置文件",
+      "pendingNotConnected": "未接入",
+      "pendingConnected": "已接入",
+      "pendingIosGuide": "App 上架后填入纯数字 App Store ID(如 1234567890)",
+      "pendingAndroidGuide": "APK 部署到 CDN 后填入绝对 URL 或 /public 下相对路径",
+      "pendingWechatGuide": "微信小程序发布后填入扫码落地页 URL 或 scheme"
     },
     "relayParamOps": {
       "title": "参数覆盖规则",
