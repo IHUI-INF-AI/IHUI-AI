@@ -18,7 +18,7 @@ const STATUS_ICON: Record<PayStatus, string> = {
   failed: '×',
 }
 
-// TODO: custom color: #ff9a3c 自定义橙色,无对应 token,保留原值
+// 保留:#ff9a3c 自定义橙(pending 状态色);token 系统无对应状态橙,保留原值
 const STATUS_BG: Record<PayStatus, string> = {
   pending: 'bg-[#ff9a3c]',
   paid: 'bg-success',
