@@ -477,25 +477,36 @@ class LLMCompleteRequest(BaseModel):
 
 # =============================================================================
 # 受限模型访问控制(2026-08-05 立,安全红线)
-# 生产真实 LLM API key(stepfun/agnes/groq/deepseek)只允许系统内置管理员
-# (users.is_system_admin=true)使用;普通用户 403。
-# system-worker(API 内部签发凭证,ai-feed 分类等后台任务)豁免。
+# 生产真实 LLM API key 的模型只允许系统内置管理员(users.is_system_admin=true)
+# 使用;普通用户 403。system-worker(API 内部签发凭证,ai-feed 分类等后台任务)豁免。
 # 同时覆盖 /llm/complete 与 /llm/complete/stream(主聊天入口)。
+# 2026-08-06 扩展:新增 nvidia_nim/siliconflow/zhipu/bailian/openai 真实 key。
 # =============================================================================
 
-RESTRICTED_PROVIDERS = {"stepfun", "agnes", "groq", "deepseek"}
-# 无前缀的受限模型(deepseek 官方模型 id 不带 provider 前缀)
-RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner"}
+# 受限模型 id 前缀(llm_gateway._model_to_provider_code 映射后的模型 id 形态):
+# stepfun/agnes/groq/ → 真实 key;nvidia/ → nvidia_nim;siliconcloud/ 与 siliconflow/ →
+# siliconflow;bailian/ → 阿里百炼;glm- → zhipu(智谱模型 id 无斜杠前缀)
+RESTRICTED_PREFIXES = (
+    "stepfun/",
+    "agnes/",
+    "groq/",
+    "nvidia/",
+    "siliconcloud/",
+    "siliconflow/",
+    "bailian/",
+    "glm-",
+)
+# 无前缀的受限模型(deepseek/gpt 官方模型 id 不带 provider 前缀)
+RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner", "gpt-4o", "gpt-4o-mini"}
 
 
 def _is_restricted_model(model: str | None) -> bool:
     """判断模型是否属于受限(真实付费 key)集合。"""
     if not model:
         return False
-    prefix = model.split("/", 1)[0]
-    if prefix in RESTRICTED_PROVIDERS:
+    if model in RESTRICTED_MODEL_IDS:
         return True
-    return model in RESTRICTED_MODEL_IDS
+    return any(model.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
