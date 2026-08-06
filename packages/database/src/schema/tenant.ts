@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text, integer, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, integer, jsonb, unique, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 
 /**
@@ -41,6 +41,9 @@ export const tenantMembers = pgTable(
   },
   (t) => ({
     tenantUserUnique: unique().on(t.tenantId, t.userId),
+    // 按 user_id 反查租户归属(成本归集/配额聚合用)。联合唯一索引最左前缀是 tenant_id,
+    // 按 user_id 查询无法利用,需独立索引(2026-08-06 recordAiCost 自动解析 tenantId 配套)。
+    userIdIdx: index('tenant_members_user_id_idx').on(t.userId),
   }),
 );
 

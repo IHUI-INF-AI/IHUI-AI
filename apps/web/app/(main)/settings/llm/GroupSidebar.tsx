@@ -91,7 +91,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
       return
     }
     // 聚合接口不带 group 实体 id,由 PageClient 按 label 注入;缺 id 说明后端无对应实体
-    if (g.id == null) {
+    if (g.id === undefined) {
       toast.error(t('groupDeleteNotSupported'))
       return
     }
