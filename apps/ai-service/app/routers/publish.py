@@ -220,6 +220,26 @@ def _detect_format(filename: str) -> str:
     return ""
 
 
+def _resolve_allowed_file(raw: str) -> Path:
+    """P1 修复(2026-08-06): 校验文件路径解析后必须位于上传根目录内。
+
+    禁止 `..` 穿越 / 绝对路径逃逸,防止用户传入任意服务器路径被读取并外发到平台。
+    """
+    if not raw:
+        raise HTTPException(status_code=400, detail="路径不能为空")
+    try:
+        real = Path(raw).expanduser().resolve(strict=False)
+    except Exception:
+        real = Path(os.path.realpath(raw))
+    root = _upload_root().resolve()
+    if real != root and not real.is_relative_to(root):
+        raise HTTPException(
+            status_code=403,
+            detail=f"文件路径不在允许的上传目录内: {raw}",
+        )
+    return real
+
+
 @router.post("/upload")
 async def upload_file(
     request: Request,
@@ -544,10 +564,29 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     )
 
     # 检查文件路径存在(docx/pdf/image/video)
+    # P1 修复(2026-08-06): 校验 file_path/cover_path/images 均须位于上传根目录内,
+    # 防止路径穿越读取任意服务器文件并外发到平台。
     if body.file_path:
-        p = Path(body.file_path)
-        if not p.is_file():
+        resolved_file = _resolve_allowed_file(body.file_path)
+        if not resolved_file.is_file():
             raise HTTPException(status_code=400, detail=f"file not found: {body.file_path}")
+        body.file_path = str(resolved_file)
+    if body.cover_path:
+        resolved_cover = _resolve_allowed_file(body.cover_path)
+        if not resolved_cover.is_file():
+            raise HTTPException(status_code=400, detail=f"cover not found: {body.cover_path}")
+        body.cover_path = str(resolved_cover)
+    # images 列表可能是本地路径(须校验)或外链 URL(下载时另有 SSRF 防护)
+    checked_images: list[str] = []
+    for img in body.images:
+        if img.startswith(("http://", "https://")):
+            checked_images.append(img)
+            continue
+        resolved_img = _resolve_allowed_file(img)
+        if not resolved_img.is_file():
+            raise HTTPException(status_code=400, detail=f"image not found: {img}")
+        checked_images.append(str(resolved_img))
+    body.images = checked_images
 
     task_id = f"pub-{uuid.uuid4().hex[:12]}-{int(time.time())}"
     targets_dicts = [t.model_dump() for t in body.targets]

@@ -12,9 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, AsyncIterator
 
-from fastapi import HTTPException
-
-from .base_provider import BaseProvider
+from .base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +40,10 @@ class TencentHunyuanProvider(BaseProvider):
         try:
             import litellm
         except ImportError:
-            raise HTTPException(
-                status_code=503,
-                detail="Tencent Hunyuan 暂不可用:LiteLLM 未安装,无法调用混元模型",
+            # P1 修复(2026-08-06): 统一抛 ProviderError,避免 HTTPException 绕过
+            # llm_gateway 的 fallback 链(只有 ProviderError 会被捕获并降级 LiteLLM)。
+            raise ProviderError(
+                "Tencent Hunyuan 暂不可用:LiteLLM 未安装,无法调用混元模型", 503
             )
 
         call_kwargs: dict[str, Any] = {
@@ -84,14 +83,12 @@ class TencentHunyuanProvider(BaseProvider):
                     for tc in raw_tool_calls
                 ]
             return result
-        except HTTPException:
-            raise
         except Exception as e:
             logger.warning("Tencent Hunyuan LiteLLM 调用失败: %s", e)
-            raise HTTPException(
-                status_code=503,
-                detail=f"Tencent Hunyuan 暂不可用:LiteLLM 调用失败 - {type(e).__name__}",
-            )
+            # P1 修复(2026-08-06): 统一抛 ProviderError,纳入 fallback 链
+            raise ProviderError(
+                f"Tencent Hunyuan 暂不可用:LiteLLM 调用失败 - {type(e).__name__}", 503
+            ) from e
 
     async def astream(
         self,
@@ -104,9 +101,9 @@ class TencentHunyuanProvider(BaseProvider):
         try:
             import litellm
         except ImportError:
-            raise HTTPException(
-                status_code=503,
-                detail="Tencent Hunyuan 暂不可用:LiteLLM 未安装,无法调用混元模型",
+            # P1 修复(2026-08-06): 统一抛 ProviderError
+            raise ProviderError(
+                "Tencent Hunyuan 暂不可用:LiteLLM 未安装,无法调用混元模型", 503
             )
             yield {}  # pragma: no cover
 
