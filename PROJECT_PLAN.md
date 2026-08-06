@@ -2916,4 +2916,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - **事故**:push 被拒(远端有他人提交)→ stash push + rebase 时 git 仓库元数据损坏(.git 仅剩 objects/refs,HEAD/config/index 丢失;loose objects 缺失 + 1 个 pack unresolved delta),本地 2 个未推送 commit 对象丢失
 - **恢复**:从远端重新 clone(健康 .git)替换;工作区文件(含全部改动)完好 → 20 个文件改动重放为 commit 6ee8c89ab3;他人提交(fbbd510678/9882f4fdb5)已还原;12 个其他会话 WIP 文件(ai-service/zh-TW/ai-world/third-party-config)完好保留未提交
-- **教训**:rebase 前必须确认仓库健康;stash push 在仓库损坏时可能"假成功"实际未移动文件(本次 WIP 因此未丢失,纯属幸运);损坏备份在 `.git.broken`(已 gitignore,待清理)
+- **根因分析(证据链,2026-08-06 调查)**:
+  1. **autoGc 并发 repack 损坏 pack(主因)**:仓库 96 万+ 对象,git 默认 autoGc 阈值 6700 loose 对象,任意 commit 都易触发;多 agent 并行 commit 时多个 git 进程**同时** repack → 一个进程删掉另一个刚写的 pack → fsck "unresolved delta"/"broken link" + `tmp_pack_*` 残留(8-05 晚 3 个 tmp_pack 已证实)
+  2. **post-commit 脚本风暴**:每次 commit 触发 5 个 git 脚本(auto-archive + push-guard + tag-sync + pollution-clean + lfs),多 agent 并行时并发 git 写操作(index/refs 竞争)
+  3. **历史同类事故**:7-26 lost-commit tag 被 gc 清理、8-05 晚仓库重建(P0 代码三次丢失)→ 非偶然,系同一类根因反复
+- **预防(已落地)**:
+  - ✅ `git config gc.auto 0` + `gc.autodetach false` 已生效(消除并发 repack 根因)
+  - ✅ 新增 `scripts/git-hygiene-init.mjs`(幂等):新环境/clone 后执行一次即可恢复全部防护配置
+  - ✅ 约定:关键提交后立即 push(远端是最终备份);多 agent 并行期间避免手动 git gc / repack
+  - 📌 建议:多 agent 并行时用 `HUSKY_SKIP_ARCHIVE=1 HUSKY_SKIP_TAG_SYNC=1` 减少 post-commit 写操作竞争
