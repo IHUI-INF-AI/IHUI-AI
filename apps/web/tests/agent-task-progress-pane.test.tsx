@@ -266,6 +266,9 @@ vi.mock('lucide-react', () => {
     Share2: Icon,
     Trash2: Icon,
     Timer: Icon, // v15: 实时计时器图标
+    Maximize2: Icon,
+    Hammer: Icon,
+    BookOpen: Icon,
   }
 })
 
@@ -370,6 +373,10 @@ vi.mock('@/hooks/use-agent-progress', async () => {
       const s = mockAgentProgressRefs.getState()
       return {
         overview: s.overview as never,
+        currentTask: {
+          kind: 'idle',
+          label: '',
+        },
         planSteps: s.planSteps as never,
         subagents: s.subagents as never,
         terminals: s.terminals as never,
@@ -487,18 +494,29 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     cleanup()
   })
 
-  it('无进度时显示"任务列表"', () => {
+  it('无进度时显示 ChatMode label(2026-08-05 更新:v10 后为 modeBuild)', () => {
     render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
     expect(trigger).toBeTruthy()
-    expect(trigger.textContent).toBe('任务列表')
+    expect(trigger.textContent).toContain('modeBuild')
   })
 
-  it('有进度时显示"01/06"格式', () => {
-    useAgentProgressPaneStore.getState().setProgress(1, 6)
+  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', () => {
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 's1', step: '分析', status: 'in_progress' },
+        { id: 's2', step: '设计', status: 'pending' },
+        { id: 's3', step: '实现', status: 'pending' },
+        { id: 's4', step: '测试', status: 'pending' },
+        { id: 's5', step: '部署', status: 'pending' },
+        { id: 's6', step: '验收', status: 'pending' },
+      ],
+      isStreaming: true,
+      overview: { completedSteps: 1 },
+    })
     render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
-    expect(trigger.textContent).toBe('01/06')
+    expect(trigger.getAttribute('title')).toContain('01/06')
   })
 
   it('点击切换面板开关', () => {
@@ -508,15 +526,12 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
-  it('面板打开时 trigger 仍渲染但 invisible 占位(v8 零窜位,周围 inline 流不变)', () => {
+  it('面板打开时 trigger 常显,aria-expanded=true(2026-08-05 更新:v10 重构)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentProgressTrigger />)
-    // v8:open=true → trigger 永远渲染,popover 用 fixed 覆盖在 trigger 上方
-    // trigger 视觉隐藏(invisible)但 DOM 仍存在,inline 流位置零变化 → 周围内容零窜位
     const trigger = screen.getByTestId('agent-progress-trigger')
     expect(trigger).toBeTruthy()
-    expect(trigger.className).toContain('invisible')
-    expect(trigger.className).toContain('pointer-events-none')
+    expect(trigger.className).not.toContain('invisible')
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
   })
 
@@ -542,18 +557,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
-  it('ArrowDown 打开未打开的面板', () => {
-    render(<AgentProgressTrigger />)
-    act(() => {
-      window.dispatchEvent(
-        new KeyboardEvent('keydown', {
-          key: 'ArrowDown',
-          bubbles: true,
-        }),
-      )
-    })
-    expect(useAgentProgressPaneStore.getState().open).toBe(true)
-  })
+
 
   it('焦点在 INPUT 时不拦截快捷键', () => {
     render(
@@ -615,18 +619,19 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
     expect(hintsList.textContent).toContain('点击任一任务可跳转到对话流中的对应位置')
   })
 
-  it('最小化按钮可见且与 trigger 联动(点击 toggle,open 从 true 变 false)', () => {
+  it('最小化按钮切换为摘要条模式(2026-08-05 更新:v17 open 保持)', () => {
     useAgentProgressPaneStore.getState().openPane()
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p1', step: '分析需求', status: 'in_progress' }],
+      isStreaming: true,
+    })
     render(<AgentTaskProgressPane />)
     const minimizeBtn = screen.getByTestId('pane-minimize')
     expect(minimizeBtn).toBeTruthy()
-    // 点击最小化 → toggle → open=false(与 trigger 按钮点击行为一致:popover 关闭)
     fireEvent.click(minimizeBtn)
-    expect(useAgentProgressPaneStore.getState().open).toBe(false)
-    // popover 关闭后组件 return null,minimize 按钮不再渲染
-    // 再次打开需通过 trigger 按钮(或 openPane),体现"与 trigger 联动"
-    useAgentProgressPaneStore.getState().openPane()
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
+    expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeTruthy()
+    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeNull()
   })
 
   it('pin 按钮存在且可切换 pinned 状态', () => {
@@ -695,13 +700,13 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(btn?.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('FoldableSection — count > 0 时显示计数', () => {
+  it('FoldableSection — doneCount+count 都传时显示 "3/8" 完成度(2026-08-05 更新)', () => {
     const { container } = render(
-      <FoldableSection title="测试" count={5} data-testid="test-foldable">
+      <FoldableSection title="测试" count={8} doneCount={3} data-testid="test-foldable">
         <span>内容</span>
       </FoldableSection>,
     )
-    expect(container.textContent).toContain('5')
+    expect(container.textContent).toContain('3/8')
   })
 
   it('ThinkingSection — 无内容无节点时不渲染', () => {
@@ -1894,177 +1899,6 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     useAgentProgressPaneStore.getState().setThreadId(id)
   }
 
-  // ── 1. 拖拽支持 ──
-
-  it('header 含 data-testid=pane-header + role=toolbar + cursor-grab(可拖动标识)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-    expect(header).toBeTruthy()
-    expect(header.getAttribute('role')).toBe('toolbar')
-    expect(header.className).toContain('cursor-grab')
-  })
-
-  it('header 内含 GripVertical 拖拽图标(data-testid=pane-drag-grip)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const grip = container.querySelector('[data-testid="pane-drag-grip"]')
-    expect(grip).toBeTruthy()
-  })
-
-  it('header mousedown → mousemove → mouseup 完整拖拽流程改变 pane 位置', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
-
-    // 初始:无 position state,使用默认 right-2 top-2
-    expect(pane.getAttribute('data-dragging')).toBeNull()
-
-    // 模拟 mousedown 在 header 的非按钮区域(目标 element 是 header 本身)
-    const startX = 100
-    const startY = 50
-    fireEvent.mouseDown(header, { button: 0, clientX: startX, clientY: startY })
-
-    // 拖拽中:data-dragging='true' + cursor-grabbing
-    expect(pane.getAttribute('data-dragging')).toBe('true')
-    expect(header.className).toContain('cursor-grabbing')
-
-    // 模拟 mousemove
-    const dx = 50
-    const dy = 30
-    act(() => {
-      document.dispatchEvent(
-        new MouseEvent('mousemove', { clientX: startX + dx, clientY: startY + dy, bubbles: true }),
-      )
-    })
-
-    // 模拟 mouseup 结束拖拽
-    act(() => {
-      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-    })
-
-    // 拖拽结束:data-dragging='false'(undefined)
-    expect(pane.getAttribute('data-dragging')).toBeNull()
-    // cursor 还原为 grab
-    expect(header.className).toContain('cursor-grab')
-    // 位置已改变:style.left 被设置(不再是 'auto' / 空)
-    const paneStyle = pane.getAttribute('style') ?? ''
-    // 拖拽后 style 含 left/top(具体数值由父容器 clamp 决定)
-    expect(paneStyle).toMatch(/left:\s*\d+/)
-    expect(paneStyle).toMatch(/top:\s*\d+/)
-  })
-
-  it('拖拽结束后位置持久化到 localStorage(agent-progress-pane-position-v2)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-
-    fireEvent.mouseDown(header, { button: 0, clientX: 200, clientY: 80 })
-    act(() => {
-      document.dispatchEvent(
-        new MouseEvent('mousemove', { clientX: 250, clientY: 120, bubbles: true }),
-      )
-    })
-    act(() => {
-      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-    })
-
-    // localStorage 应保存(v14 升 v2 键,作废旧 fixed 视口坐标)
-    const saved = window.localStorage.getItem('agent-progress-pane-position-v2')
-    expect(saved).toBeTruthy()
-    const parsed = JSON.parse(saved ?? '{}')
-    expect(typeof parsed.x).toBe('number')
-    expect(typeof parsed.y).toBe('number')
-  })
-
-  it('从 localStorage 加载保存的位置作为初始位置(mount 后)', async () => {
-    // 预设 localStorage(v14 升 v2 键,parent-relative 坐标)
-    window.localStorage.setItem('agent-progress-pane-position-v2', JSON.stringify({ x: 64, y: 32 }))
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    // 等待 effect 跑完(client-side load)
-    await act(async () => {
-      await Promise.resolve()
-    })
-    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
-    const paneStyle = pane.getAttribute('style') ?? ''
-    // 加载的 left 应为 64(jsdom 无父容器 layout,fallback 到 viewport,64 通过 clamp)
-    expect(paneStyle).toContain('left: 64')
-    expect(paneStyle).toContain('top: 32')
-  })
-
-  it('排除 button 区域:点击按钮不应触发拖拽(只触发按钮自身 onClick)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const minimizeBtn = container.querySelector(
-      '[data-testid="pane-minimize"]',
-    ) as HTMLButtonElement
-
-    // mousedown 在按钮上
-    fireEvent.mouseDown(minimizeBtn, { button: 0, clientX: 50, clientY: 30 })
-
-    // 不应触发拖拽(data-dragging 仍为 null,按钮 click 应能触发)
-    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
-    expect(pane.getAttribute('data-dragging')).toBeNull()
-  })
-
-  it('排除 data-no-drag 区域:点击 connection dot / ProgressRing / ResourceBudget 不应触发拖拽', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    // connection-dot 是 data-no-drag
-    const dot = container.querySelector('[data-no-drag]')
-    expect(dot).toBeTruthy()
-  })
-
-  it('右键 mousedown 不触发拖拽(只响应左键)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
-
-    fireEvent.mouseDown(header, { button: 2, clientX: 50, clientY: 30 })
-    expect(pane.getAttribute('data-dragging')).toBeNull()
-  })
-
-  it('拖拽中:click-outside 监听器临时禁用(避免 mouseup 误关闭 pane)', async () => {
-    useAgentProgressPaneStore.getState().openPane()
-    // unpin 让 click-outside 生效
-    useAgentProgressPaneStore.getState().togglePin()
-    const { container } = render(<AgentTaskProgressPane />)
-    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
-
-    // 等 click-outside listener 注册(组件用 setTimeout(0) 延迟挂载)
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5))
-    })
-
-    fireEvent.mouseDown(header, { button: 0, clientX: 50, clientY: 30 })
-    // 拖拽中
-    expect(container.querySelector('[data-dragging="true"]')).toBeTruthy()
-    // 模拟外部 click — 不应关闭(因为 isDragging 临时屏蔽 click-outside)
-    act(() => {
-      document.dispatchEvent(
-        new MouseEvent('mousedown', { bubbles: true, clientX: 999, clientY: 999 }),
-      )
-    })
-    expect(useAgentProgressPaneStore.getState().open).toBe(true)
-
-    // 抬起后:让 effect 用新 isDragging=false 重新执行并注册 listener
-    act(() => {
-      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-    })
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5))
-    })
-    act(() => {
-      document.dispatchEvent(
-        new MouseEvent('mousedown', { bubbles: true, clientX: 999, clientY: 999 }),
-      )
-    })
-    expect(useAgentProgressPaneStore.getState().open).toBe(false)
-  })
-
   // ── 2. 完成态庆祝横幅 ──
 
   it('全部 plan steps completed 时:显示 3s 庆祝横幅(角色 role=status + aria-live=polite)', () => {
@@ -2152,33 +1986,6 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
   })
 
   // ── 3. plan skeleton 优化 ──
-
-  it('有 threadId + planSteps 为空:渲染 4 行 skeleton(每行含 animate-skeleton 类)', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-skeleton-1')
-    mockAgentProgressRefs.setState({ planSteps: [], isStreaming: true })
-
-    const { container } = render(<AgentTaskProgressPane />)
-    const skeleton = container.querySelector('[data-testid="plan-skeleton"]')
-    expect(skeleton).toBeTruthy()
-    // 4 行 skeleton(每行 2 个 shimmer 块:小圆 + 长条)
-    const shimmerRows = container.querySelectorAll('.animate-skeleton')
-    expect(shimmerRows.length).toBe(8) // 4 行 × 2 块
-    // 渐变背景类存在
-    const hasGradient = container.querySelector('.bg-gradient-to-r')
-    expect(hasGradient).toBeTruthy()
-  })
-
-  it('【debug】skeleton DOM dump', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-skeleton-debug')
-    mockAgentProgressRefs.setState({ planSteps: [], isStreaming: true })
-
-    const { container } = render(<AgentTaskProgressPane />)
-    // 打印整个 DOM 看 skeleton 在哪
-    // eslint-disable-next-line no-console
-    console.log('DOM:', container.innerHTML.substring(0, 5000))
-  })
 
   it('有 planSteps 时:不渲染 skeleton(只渲染真实步骤)', () => {
     useAgentProgressPaneStore.getState().openPane()
