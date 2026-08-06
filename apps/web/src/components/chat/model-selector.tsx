@@ -45,9 +45,6 @@ export interface ModelOption {
   subsidy?: boolean
   /** 是否锁定(显示 🔒 锁图标,需升级才能使用) */
   locked?: boolean
-  /** 是否自动路由(走任务类型自动调度,无积分倍数显示)
-   * 2026-08-06 补充:stepfun/step-router-v1 标记为 isAuto,UI 上不显示倍数文本 */
-  isAuto?: boolean
 }
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
@@ -75,7 +72,7 @@ interface ModelSelectorProps {
 // ============================================================================
 const KNOWN_MODEL_META: Record<string, Partial<ModelOption>> = {
   // === Step 系(plan 套餐主力)===
-  'stepfun/step-router-v1': { pointsMultiplier: 0, isAuto: true },
+  'stepfun/step-router-v1': { pointsMultiplier: 0 },
   'stepfun/step-2.1-pro': { pointsMultiplier: 0.77 },
   'stepfun/step-2.1-turbo': { pointsMultiplier: 0.39, memberDiscountEligible: true },
   'stepfun/step-2.1-code': { pointsMultiplier: 0.12, memberDiscountEligible: true },
