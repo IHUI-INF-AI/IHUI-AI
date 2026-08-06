@@ -37,9 +37,8 @@ export function StudyPlanScreen() {
   }, [load])
 
   const onPressItem = (item: StudyPlanItem) => {
-    // StudyPlanDetail 路由待注册到 RootStackParamList(主 agent 后续整合)
-    // @ts-expect-error StudyPlanDetail 路由未在 RootStackParamList 注册
-    navigation.navigate('StudyPlanDetail', { id: item.id })
+    // 无独立计划详情页,跳转学习进度页(已注册)承载计划进度查看
+    navigation.navigate('StudyProgress')
   }
 
   return (
