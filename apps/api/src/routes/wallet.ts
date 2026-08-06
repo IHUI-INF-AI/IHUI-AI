@@ -464,15 +464,21 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
           }
           if (marginRow) {
             const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
-            return { margin: marginRow, flow: flow! }
+            // P2 修复(2026-08-06):流水插入未返回行时抛错回滚,避免 flow 为 undefined
+            // 导致下方 result.flow.balanceAfter 直接 NPE
+            if (!flow) throw new Error('余额调整成功但流水记录创建失败')
+            return { margin: marginRow, flow }
           }
           // amount >= 0 且 margin 不存在:创建 margin 行
           const [created] = await tx
             .insert(userMargins)
             .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
             .returning()
+          // P2 修复(2026-08-06):创建 margin/流水未返回行时抛错回滚,替代原 `!` 非空断言
+          if (!created) throw new Error('创建余额记录失败')
           const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
-          return { margin: created!, flow: flow! }
+          if (!flow) throw new Error('余额调整成功但流水记录创建失败')
+          return { margin: created, flow }
         })
 
         await logAction({

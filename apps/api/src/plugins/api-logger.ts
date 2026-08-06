@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.js'
 /**
  * API 日志中间件：记录 /api 请求到 api_logs 表。
  * 采样策略：
- * - 2xx 响应：按采样率记录（默认 10%）
+ * - 2xx 响应：按采样率记录（默认 100%，可用 API_LOG_SAMPLE_RATE 调低）
  * - 4xx/5xx 响应：全量记录（排查问题）
  * - 健康检查/指标端点：不记录
  * - 配置 API_LOG_ENABLED=false 可完全关闭
