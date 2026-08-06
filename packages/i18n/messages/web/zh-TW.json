@@ -12754,7 +12754,7 @@
   },
   "mobileDashboardPage": {
     "title": "行動端儀錶板",
-    "subtitle": "監控行動端核心營運指標，資料為 Mock 演示資料。",
+    "subtitle": "監控行動端核心營運指標與趨勢。",
     "stats": {
       "trendSuffix": "較昨日",
       "dau": "日活使用者",
