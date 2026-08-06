@@ -74,7 +74,23 @@ class BaseProvider(ABC):
         try:
             client = get_http_client()
             resp = await client.request(method, url, headers=headers, json=json, timeout=self.timeout)
-            data = resp.json()
+            # P1 修复(2026-08-06): 先包装 JSON 解析再校验结构,畸形响应统一转
+            # ProviderError(进入 fallback 链),避免 JSONDecodeError/AttributeError
+            # 直接抛给上层绕过 fallback。
+            try:
+                data = resp.json()
+            except ValueError as e:
+                raise ProviderError(
+                    f"{self.__class__.__name__} 响应非合法 JSON: "
+                    f"{resp.status_code} {resp.text[:300]!r}",
+                    resp.status_code,
+                ) from e
+            if not isinstance(data, dict):
+                raise ProviderError(
+                    f"{self.__class__.__name__} 响应结构异常: 期望 JSON 对象, "
+                    f"实际为 {type(data).__name__}",
+                    resp.status_code,
+                )
             if resp.status_code >= 400:
                 raise ProviderError(
                     f"{self.__class__.__name__} 调用失败: {resp.status_code} {str(data)[:300]}",

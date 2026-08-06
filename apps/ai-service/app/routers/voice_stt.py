@@ -11,6 +11,7 @@ faster-whisper 本地推理(CTranslate2 后端,base 模型 74MB,首次下载后�
 - 线程安全:全局单例 _whisper_model,首次请求懒加载
 """
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -81,6 +82,19 @@ def _get_whisper_model() -> Any:
         return _whisper_model
 
 
+def _transcribe_sync(model: Any, tmp_path: str, language: Optional[str]) -> str:
+    """同步执行 faster-whisper 转写(供 asyncio.to_thread 调用,避免阻塞事件循环)。"""
+    # segments 是生成器,segments_iter + info
+    # language=None 让模型自动检测;传 language 则强制语言
+    segments, _info = model.transcribe(
+        tmp_path,
+        language=language,
+        vad_filter=True,  # 过滤静音段,提升速度
+    )
+    # 拼接所有段文本
+    return "".join(segment.text for segment in segments).strip()
+
+
 @router.post("/voice/stt", response_model=STTResponse)
 async def voice_stt(
     file: UploadFile = File(..., description="音频文件(wav/mp3/m4a/webm 等)"),
@@ -113,7 +127,9 @@ async def voice_stt(
     tmp_fd: int = -1
     tmp_path: str = ""
     try:
-        model = _get_whisper_model()
+        # P1 修复(2026-08-06): 模型加载/转写均为阻塞 CPU 操作,
+        # 用 asyncio.to_thread 包装,避免阻塞事件循环导致服务整体卡顿。
+        model = await asyncio.to_thread(_get_whisper_model)
 
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
         # 写入音频字节后立即关闭 fd,释放 Windows 文件锁
@@ -122,15 +138,7 @@ async def voice_stt(
             f.flush()
         tmp_fd = -1  # 已关闭,避免 finally 重复 close
 
-        # segments 是生成器,segments_iter + info
-        # language=None 让模型自动检测;传 language 则强制语言
-        segments, _info = model.transcribe(
-            tmp_path,
-            language=language,
-            vad_filter=True,  # 过滤静音段,提升速度
-        )
-        # 拼接所有段文本
-        text = "".join(segment.text for segment in segments).strip()
+        text = await asyncio.to_thread(_transcribe_sync, model, tmp_path, language)
 
         return STTResponse(
             text=text,
