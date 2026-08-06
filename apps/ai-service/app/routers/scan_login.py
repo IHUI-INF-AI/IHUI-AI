@@ -76,23 +76,30 @@ async def start_scan(body: StartScanRequest, request: Request) -> dict[str, Any]
 
 
 @router.get("/{task_id}/status")
-async def get_task_status(task_id: str) -> dict[str, Any]:
+async def get_task_status(task_id: str, request: Request) -> dict[str, Any]:
     """查询任务状态。"""
+    # P1 修复(2026-08-06): 校验任务归属,防 IDOR 查询他人任务状态
+    user_id = await get_current_user_id(request)
     task = get_task(task_id)
-    if not task:
+    if not task or task.user_id != user_id:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+    data = task.snapshot()
+    # P1 修复(2026-08-06): 响应不泄露 user_id
+    data.pop("user_id", None)
     return {
         "code": 0,
         "message": "ok",
-        "data": task.snapshot(),
+        "data": data,
     }
 
 
 @router.get("/{task_id}/qr")
-async def get_task_qr(task_id: str) -> Response:
+async def get_task_qr(task_id: str, request: Request) -> Response:
     """获取二维码截图 PNG。"""
+    # P1 修复(2026-08-06): 校验任务归属,防 IDOR 拉取他人二维码/登录截图
+    user_id = await get_current_user_id(request)
     task = get_task(task_id)
-    if not task:
+    if not task or task.user_id != user_id:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
     img_bytes = get_qr_image(task_id)
     if not img_bytes:
@@ -108,10 +115,12 @@ async def get_task_qr(task_id: str) -> Response:
 
 
 @router.post("/{task_id}/cancel")
-async def cancel_task(task_id: str) -> dict[str, Any]:
+async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
     """取消扫码任务。"""
+    # P1 修复(2026-08-06): 校验任务归属,防 IDOR 取消他人任务
+    user_id = await get_current_user_id(request)
     task = get_task(task_id)
-    if not task:
+    if not task or task.user_id != user_id:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
     ok = cancel_scan_task(task_id)
     return {
