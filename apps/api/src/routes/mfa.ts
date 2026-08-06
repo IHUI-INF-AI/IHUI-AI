@@ -233,6 +233,8 @@ const mfaRoutes: FastifyPluginAsync = async (server) => {
       roleId: user.roleId ?? 0,
     }
     const accessToken = await signAccessToken(payload)
+    // P2-18 特例说明:recovery 只签发 accessToken(无 refreshToken,familyId 为空),
+    // 不设置 httpOnly auth cookie —— 完整登录由 /auth/2fa/login-verify 补全 token 对并设 cookie。
     logger.info('MFA 恢复码已使用', { userId, remaining: remaining.length })
     return reply.send(success({ accessToken, backupCodesRemaining: remaining.length }))
   })
