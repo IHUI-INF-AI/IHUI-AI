@@ -60,7 +60,7 @@ export default function DistributionRank() {
           {/* 2nd */}
           <View className="flex flex-col items-center mx-[24rpx] relative">
             <Image
-              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['2']}"
+              className={`w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['2']}`}
               src={top3[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -77,7 +77,7 @@ export default function DistributionRank() {
           {/* 1st */}
           <View className="flex flex-col items-center mx-[24rpx] relative">
             <Image
-              className="w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 ${RANK_BORDER['1']}"
+              className={`w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 ${RANK_BORDER['1']}`}
               src={top3[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />

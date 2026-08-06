@@ -36,7 +36,7 @@ export function StudyPlanScreen() {
     void load()
   }, [load])
 
-  const onPressItem = (item: StudyPlanItem) => {
+  const onPressItem = (_item: StudyPlanItem) => {
     // 无独立计划详情页,跳转学习进度页(已注册)承载计划进度查看
     navigation.navigate('StudyProgress')
   }
