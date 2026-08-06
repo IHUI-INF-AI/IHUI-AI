@@ -94,6 +94,21 @@ function formatBlock(lines, indent = '  ') {
 
 /**
  * 提取需要同步的语义色变量(只同步 miniapp-taro 需要的,过滤掉 web 独有的)。
+ *
+ * 2026-08-06:移除 --color-brand-/--color-vip-/--color-rank- 三个前缀。
+ * tokens.css @theme 块已定义业务品牌色(--color-vip-gold-start/end、--color-rank-gold/silver/bronze、
+ * --color-brand-orange、--color-brand-50..900、--color-brand),此前被跳过导致小程序端无法 var() 引用,
+ * 只能硬编码 hex。现全部同步到 app.css,页面可引用 var(--color-rank-*) / var(--color-vip-*) / var(--color-brand*)。
+ *
+ * --color-white-/--color-black- 前缀也一并移除:这两组透明度色板定义在 tokens.css 独立 :root 块(非 @theme),
+ * extractThemeBlock 本就不会提取到它们,保留跳过项无实际作用,移除让脚本意图更清晰。
+ *
+ * 仍保留跳过的是 web 端独有或已在 app.css 另行管理的变量:
+ *   --font-/--animate-/--breakpoint-       Tailwind v4 专用,小程序用 Tailwind v3 不识别
+ *   --text-vcenter-offset                   web 端中文字体垂直对齐偏移,小程序不需要
+ *   --color-sidebar 系列 / --color-shell-panel    web 侧边栏/面板布局色
+ *   --z-                                    z-index 分层,小程序由 app.css 另行管理
+ *   --global-box-shadow/--shadow-premium*   web 投影体系,小程序不用
  */
 function filterTokens(lines) {
   const skipPrefixes = [
@@ -103,11 +118,6 @@ function filterTokens(lines) {
     '--text-vcenter-offset',
     '--color-sidebar',
     '--color-shell-panel',
-    '--color-brand-',
-    '--color-vip-',
-    '--color-rank-',
-    '--color-white-',
-    '--color-black-',
     '--z-',
     '--global-box-shadow',
     '--shadow-premium',
