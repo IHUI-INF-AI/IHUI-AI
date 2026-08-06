@@ -21,6 +21,7 @@ import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
+import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import type { SwarmData, BackgroundAgent } from '@/components/ai/types'
 import { getAgentPermission } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
@@ -121,6 +122,7 @@ export default function AgentDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const [permOpen, setPermOpen] = React.useState(false)
+  const [dispatchOpen, setDispatchOpen] = React.useState(false)
   // 从 chat store 读取 sub-agent 活动流(多 agent 多路复用:SSE chunk 按 agentId 分流后累加)
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
 
@@ -176,7 +178,16 @@ export default function AgentDetailPage() {
             {tc('edit')}
           </Button>
         )}
+        {agent && (
+          <Button size="sm" variant="outline" onClick={() => setDispatchOpen(true)}>
+            <Sparkles className="h-4 w-4" />
+            派发 Subagent
+          </Button>
+        )}
       </div>
+
+      {/* 2026-08-06: 派单入口带 agentId,运行轨迹持久化到 agent_tasks(5 Tab 真实数据) */}
+      <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} agentId={id} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">

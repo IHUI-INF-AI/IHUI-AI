@@ -189,6 +189,29 @@ export async function getTopPages(since: Date, limit: number): Promise<TopPagesR
   }
 }
 
+/**
+ * 崩溃率(窗口内崩溃数 / 会话数,百分比,2 位小数)。
+ * 崩溃数来自 crash_reports(各端全局错误捕获上报,2026-08-06 起);
+ * 会话数来自 visit_logs distinct session_id,与 sessions 口径一致。
+ * 窗口内无会话数据返回 null(前端显示"暂无数据",避免 0/0 造假)。
+ */
+export async function getCrashRate(since: Date): Promise<number | null> {
+  const [crashRows, sessionRows] = await Promise.all([
+    dbRead.execute(sql`
+      SELECT COUNT(*)::int AS count FROM crash_reports
+      WHERE created_at >= ${since}
+    `),
+    dbRead.execute(sql`
+      SELECT COUNT(DISTINCT session_id)::int AS count FROM visit_logs
+      WHERE session_id IS NOT NULL AND session_id <> '' AND created_at >= ${since}
+    `),
+  ])
+  const crashes = num(toRows(crashRows)[0]?.count)
+  const sessions = num(toRows(sessionRows)[0]?.count)
+  if (sessions <= 0) return null
+  return Math.round((crashes / sessions) * 10000) / 100
+}
+
 /** 从 URL 提取 pathname(非法/相对路径兜底原样返回)。 */
 function extractPath(url: string): string {
   if (!url) return '-'

@@ -48,6 +48,8 @@ import type { SubagentRole, OrchestrationMode, SubagentDispatch } from '@ihui/sh
 interface DispatchSubagentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
+  agentId?: string
 }
 
 const ROLE_OPTIONS: Array<{ value: SubagentRole; label: string }> = [
@@ -179,7 +181,7 @@ function linesToArray(text: string): string[] {
     .filter((l) => l.length > 0)
 }
 
-export function DispatchSubagentDialog({ open, onOpenChange }: DispatchSubagentDialogProps) {
+export function DispatchSubagentDialog({ open, onOpenChange, agentId }: DispatchSubagentDialogProps) {
   const [activeTab, setActiveTab] = React.useState('dispatch')
 
   React.useEffect(() => {
@@ -208,7 +210,7 @@ export function DispatchSubagentDialog({ open, onOpenChange }: DispatchSubagentD
             </TabsTrigger>
           </TabsList>
           <TabsContent value="dispatch">
-            <DispatchForm onOpenChange={onOpenChange} />
+            <DispatchForm onOpenChange={onOpenChange} agentId={agentId} />
           </TabsContent>
           <TabsContent value="auto-plan">
             <AutoPlanPanel />
@@ -229,7 +231,13 @@ export function DispatchSubagentDialog({ open, onOpenChange }: DispatchSubagentD
 // Tab 1: 派发表单(原有功能)
 // ===========================================================================
 
-function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
+function DispatchForm({
+  onOpenChange,
+  agentId,
+}: {
+  onOpenChange: (open: boolean) => void
+  agentId?: string
+}) {
   const t = useTranslations('dispatchDialog')
   const queryClient = useQueryClient()
 
@@ -310,6 +318,8 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
         priority,
         retry: maxAttempts > 1 ? { maxAttempts, delayMs } : undefined,
       }
+      // 2026-08-06: 从 agents 详情页派发时带 agentId,派单运行轨迹落 agent_tasks
+      if (agentId) body.agentId = agentId
       if (enableQuotas) body.quotas = { timeoutMs, tokenQuota, maxRetries: quotaRetries }
       if (enableDag && dagNodes.length > 0) {
         body.dag = {
