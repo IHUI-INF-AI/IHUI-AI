@@ -206,9 +206,19 @@ export class ApiKeyQuota {
         dailyLimit,
         resetAt,
       })
+      .onConflictDoNothing({ target: [apiKeyQuotas.apiKeyId] })
       .returning()
     const row = inserted[0]
-    if (!row) throw new Error('初始化 API Key 配额失败')
-    return row
+    if (row) return row
+    // P2 修复(2026-08-06):两个并发请求同时初始化相同 apiKeyId 时,
+    // 后到的 insert 撞唯一约束(23505)原实现会抛 500。onConflictDoNothing 吞掉冲突后,
+    // 回退重查返回并发请求已插入的记录,保证幂等返回。
+    const existingAfterInsert = await db
+      .select()
+      .from(apiKeyQuotas)
+      .where(eq(apiKeyQuotas.apiKeyId, apiKeyId))
+      .limit(1)
+    if (existingAfterInsert[0]) return existingAfterInsert[0]
+    throw new Error('初始化 API Key 配额失败')
   }
 }
