@@ -87,6 +87,7 @@ import {
   Zap,
   Shuffle,
   TrendingUp,
+  Download,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -702,6 +703,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         labelKey: 'dashboard',
         icon: Server,
         dynamicLabel: 'Redis Monitor',
+      },
+      {
+        href: '/admin/downloads',
+        labelKey: 'dashboard',
+        icon: Download,
+        dynamicLabel: 'Download Stats',
       },
     ],
   },
