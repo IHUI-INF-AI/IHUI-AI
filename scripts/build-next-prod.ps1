@@ -92,14 +92,12 @@ Write-Host "[2/6] 清理旧产物" -ForegroundColor Yellow
 # 不再清理 node_modules\.cache 和 *.tsbuildinfo —— 它们是 webpack filesystem
 # 持久缓存,二次构建命中后从 50 分钟降到 10-15 分钟。缓存损坏时用
 # -CleanCache 参数强制清理。
-# 2026-08-06 提速:清理时**保留 .next\cache**(Next 构建缓存,删除整个 .next
-# 会丢缓存导致每次全量编译)。产物目录(server/static/pages/BUILD_ID 等)仍删除。
-if (Test-Path ".next") {
-    Get-ChildItem ".next" -Exclude "cache" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-}
+# 2026-08-06 21:15 回退 webpack:保留 .next\cache 后二次 Turbopack 构建从
+# 4min42s 恶化到 9min50s(页面数据收集阶段 4→9min);Turbopack 该阶段比 webpack
+# 慢 6 倍(4min vs 40s)→ 回退 webpack 且 .next 全删,避免混用缓存。
+if (Test-Path ".next") { Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue }
 if ($CleanCache) {
-    Write-Host "  -CleanCache: 强制清理 .next\cache + node_modules\.cache + *.tsbuildinfo" -ForegroundColor Yellow
-    if (Test-Path ".next\cache") { Remove-Item ".next\cache" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Host "  -CleanCache: 强制清理 node_modules\.cache + *.tsbuildinfo" -ForegroundColor Yellow
     if (Test-Path "node_modules\.cache") { Remove-Item "node_modules\.cache" -Recurse -Force -ErrorAction SilentlyContinue }
     Get-ChildItem -Filter "*.tsbuildinfo" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 }
@@ -122,17 +120,18 @@ if ($prebuildExit -ne 0) {
 Write-Host "  prebuild 通过 ($($prebuildDuration.ToString('mm\分ss\秒')))"
 
 # ----------------------------- [4/6] next build -----------------------------
-# 2026-08-06 提速:webpack(3.4min 编译)→ Turbopack(29s 编译,7 倍提速,
-# 且跳过 build traces 收集)。产物验证:rewrites 7 条、client-reference-manifest 齐全、
-# 798 页,next start 兼容。webpack 专属配置(afterEmit/webpackMemoryOptimizations)被
-# turbopack 忽略,无副作用。
-Write-Host "[4/6] next build --turbopack (Node 22.22.2)" -ForegroundColor Yellow
+# 2026-08-06 21:15 回退 webpack(实测结论):
+# Turbopack 编译快(29s vs 3.4min),但其页面数据收集+优化阶段比 webpack 慢 6 倍
+# (4min42s → 二次构建 9min50s),总时长反而更差且不稳定 → 保留 webpack(总 ~4min,
+# 页面收集仅 40s,稳定可预期)。webpack 编译 3.4min 已由 12 核 + filesystem 缓存
+# 优化到位。Turbopack 待 Next 修复页面收集性能后再评估。
+Write-Host "[4/6] next build --webpack (Node 22.22.2)" -ForegroundColor Yellow
 Write-Host "  开始时间: $(Get-Date -Format 'HH:mm:ss')"
 Write-Host ""
 
 $buildStart = Get-Date
 # 追加到同一日志(prebuild 已创建)
-& $Node22 node_modules/next/dist/bin/next build --turbopack 2>&1 |
+& $Node22 node_modules/next/dist/bin/next build --webpack 2>&1 |
     Tee-Object -FilePath $BuildLog -Append
 $buildExit = $LASTEXITCODE
 $buildDuration = (Get-Date) - $buildStart
