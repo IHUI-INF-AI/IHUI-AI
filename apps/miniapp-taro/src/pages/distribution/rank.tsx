@@ -11,7 +11,7 @@ interface RankUser {
   commission: number
 }
 
-// TODO: custom color: #FFD700(金) / #C0C0C0(银) / #CD7F32(铜) 排名色,无对应 token
+// 保留:#FFD700(金)/#C0C0C0(银)/#CD7F32(铜) 排名色;tokens.css 已定义 --color-rank-gold/silver/bronze 同值,但被 sync-design-tokens.mjs filterTokens 跳过,不同步到 app.css,小程序端无法 var() 引用,保留原值
 const RANK_BG: Record<string, string> = {
   '1': 'bg-[#FFD700]',
   '2': 'bg-[#C0C0C0]',
