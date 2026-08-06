@@ -19,13 +19,7 @@ import MaterialList, {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-// Aigc 系列屏幕未注册到 RootStackParamList(独立 mock 屏幕),本地扩展导航类型
-// 避免 useNavigation<any>() 退化为 any,保留 navigate/goBack 的类型安全
-type AigcStackParamList = RootStackParamList & {
-  AigcCover: { id: string; title: string }
-  AigcPublish: undefined
-}
-type Nav = NativeStackNavigationProp<AigcStackParamList>
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 const CATEGORIES: AigcCategoryOption[] = [
   { key: 'all', label: '全部' },

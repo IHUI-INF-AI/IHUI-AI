@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -34,7 +34,8 @@ export function OrderDetailScreen() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   // 购买须知弹窗(已支付订单首次进入时自动展示)
   const [noticeVisible, setNoticeVisible] = useState(false)
-  const [noticeShown, setNoticeShown] = useState(false)
+  // ref 标记提示已展示,避免 setState 触发 effect 重跑导致重复请求
+  const noticeHandledRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -46,9 +47,9 @@ export function OrderDetailScreen() {
       if (res.success) {
         setOrder(res.data)
         // 已支付订单首次加载自动展示购买须知
-        if (res.data?.status === 'paid' && !noticeShown) {
+        if (res.data?.status === 'paid' && !noticeHandledRef.current) {
+          noticeHandledRef.current = true
           setNoticeVisible(true)
-          setNoticeShown(true)
         }
       } else {
         setError(res.error || t('orderDetail.loadFailed'))
@@ -56,7 +57,7 @@ export function OrderDetailScreen() {
       setLoading(false)
     })()
     return () => { cancelled = true }
-  }, [id, t, noticeShown])
+  }, [id, t])
 
   const callOrderAction = useCallback(
     async (action: string): Promise<void> => {
