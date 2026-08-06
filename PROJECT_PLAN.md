@@ -2855,6 +2855,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-08-06) context 页 toggle/预算持久化 — ai-service PUT /sources(Redis)+api 转发+前端乐观更新(commit bbf42ca20)
 - [x] ✅(2026-08-06) favorites 列表资源标题 — findFavorites 批量关联资源表(commit 43459d2c8)
+- [ ] **ai-world/favorites 收藏闭环**(2026-08-06 主代理审计发现并登记):孤儿页面根因已定位——①后端无 `/api/ai-world/favorites` 路由 ②`FAVORITE_RESOURCE_TYPES` zod 未含 aiworld ③ItemCard 无收藏按钮/入口。**进展**:外部代理已补 GET /ai-world/favorites 路由 + findAiWorldFavorites(ai-world-queries.ts)+ JSON schema enum 加 aiworld,但 **zod 常量 `FAVORITE_RESOURCE_TYPES`(social.ts:36)未同步**——前端 POST /favorites 传 aiworld 会被 zod 400 拒绝,写入链路仍断;前端收藏按钮也未加。待办:①social.ts zod 常量加 'aiworld' ②ItemCard/详情页加收藏按钮 ③favorites 页面导航入口
 - [ ] agents 详情页 5 Tab 运行时数据(并行 agent 开发中)
 - [ ] admin saas 配额真实数据源(并行 agent 开发中)
 - [ ] downloads 运营数据配置化(并行 agent 开发中)

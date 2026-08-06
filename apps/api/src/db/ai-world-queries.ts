@@ -5,6 +5,7 @@ import {
   aiWorldItems,
   aiWorldRankings,
   aiWorldSyncLog,
+  userFavorites,
   type AiWorldCategory,
   type AiWorldItem,
   type AiWorldRanking,
@@ -221,4 +222,45 @@ export async function countTrendingItems(opts: ListTrendingOptions = {}): Promis
     .from(aiWorldItems)
     .where(and(...conditions))
   return rows[0]?.count ?? 0
+}
+
+
+/**
+ * 查询用户收藏的 ai-world 条目(关联 aiWorldItems 取标题/封面,2026-08-06 立)。
+ * 收藏记录存 userFavorites(resourceType='aiworld'),经 aiWorldItems 关联取展示字段。
+ */
+/** 收藏列表条目(精简展示字段) */
+export interface AiWorldFavoriteItem {
+  id: string
+  slug: string | null
+  title: string
+  coverImage: string | null
+  viewCount: number
+  createdAt: Date
+}
+
+export async function findAiWorldFavorites(userId: string): Promise<AiWorldFavoriteItem[]> {
+  try {
+    const rows = await db
+      .select({
+        id: aiWorldItems.id,
+        slug: aiWorldItems.slug,
+        title: aiWorldItems.title,
+        coverImage: aiWorldItems.coverImage,
+        viewCount: aiWorldItems.viewCount,
+        createdAt: aiWorldItems.createdAt,
+      })
+      .from(userFavorites)
+      .innerJoin(aiWorldItems, eq(aiWorldItems.id, userFavorites.resourceId))
+      .where(
+        and(
+          eq(userFavorites.userId, userId),
+          eq(userFavorites.resourceType, 'aiworld'),
+        ),
+      )
+      .orderBy(desc(userFavorites.createdAt))
+    return rows
+  } catch {
+    return []
+  }
 }
