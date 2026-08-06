@@ -22,7 +22,7 @@
   transform: translateY(-50%);
   font-size: 44rpx;
   color: var(--color-foreground);
-  padding: 0 12rpx;
+  padding: 0 20rpx;
   line-height: 1;
 }
 .income-title {
