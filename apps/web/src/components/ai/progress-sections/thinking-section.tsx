@@ -217,7 +217,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
       {/* v2: 展开态内容区(代码块样式) */}
       {expanded && (
         <div
-          className="border-t border-border/40 px-2 pb-1.5 pt-1"
+          className="px-2 pb-1.5 pt-1"
           data-testid="thinking-content-wrapper"
         >
           <div className="relative">

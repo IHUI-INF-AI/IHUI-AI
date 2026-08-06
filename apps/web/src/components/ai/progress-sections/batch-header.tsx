@@ -133,7 +133,7 @@ export const BatchHeader = React.memo(function BatchHeader({
           {meta && <span className="shrink-0 text-[10px] text-muted-foreground/60">{meta}</span>}
         </button>
         {subtitle && !collapsed && (
-          <div className="border-t border-border/30 px-2 py-1 text-[10px] text-muted-foreground/60">
+          <div className="px-2 py-1 text-[10px] text-muted-foreground/60">
             <Bot className="mr-0.5 inline h-2.5 w-2.5" aria-hidden />
             {subtitle}
           </div>

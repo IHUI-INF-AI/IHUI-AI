@@ -2112,7 +2112,7 @@ const Sidebar = React.memo(function Sidebar({
           // 改 overflow-y-auto → overflow-hidden,让 nav 自己处理 overflow-y-auto
           // 之前 aside 整体 overflow-y-auto,内容超长时 footer 被推下屏幕外不可见
           // 现在 footer (shrink-0) 固定在底部,nav (flex-1 overflow-y-auto) 独立滚动
-          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{
