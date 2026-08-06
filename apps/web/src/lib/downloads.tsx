@@ -1,5 +1,5 @@
 /**
- * 下载配置层(2026-07-19 抽取,2026-07-25 配置外置)
+ * 下载配置层(2026-07-19 抽取,2026-07-25 配置外置,2026-08-06 深度扩展)
  *
  * 历史:原本内联在 `apps/web/src/components/sidebar.tsx` 的模块级 `DOWNLOADS` 数组
  *  耦合了 React 组件的图标 import + i18n label key,导致:
@@ -8,15 +8,15 @@
  *  3) 8 端下载数据散落在 UI 组件里,缺少单一事实源
  *
  * 抽取后:
- *  - `DownloadPlatform` 联合类型覆盖全部 8 端,与 `apps/*` 目录一一对应
- *  - `DownloadEntry` 扩展接口预留 `version?` + `sha256?` 字段(为后续真实下载元数据接入)
+ *  - `DownloadPlatform` 联合类型覆盖全部 8 端,与 `apps/*` 目录一一对应(2026-08-06 移至 downloads.config.ts)
+ *  - `DownloadEntry` 扩展接口预留 `version?` + `sha256?` + `assets?` 字段(为后续真实下载元数据接入)
  *  - `DOWNLOADS` 常量集中维护,sidebar.tsx 仅做 map 渲染
  *  - 纯数据 + 类型,无 React/JSX 依赖,可独立单测
  *
- * 配置外置(2026-07-25):运营待接入字段(App Store ID / 4 端 href / APK path /
- * 微信小程序 QR)统一在 `apps/web/src/config/downloads.config.ts` 的 DOWNLOADS_CONFIG
- * 维护,本文件通过 resolveIosHref / resolveAndroidHref / resolveWechatHref 三个 resolver
- * 读取配置。空字符串值视为"未接入",UI 通过 isDownloadAvailable 判断后显示占位。
+ * 2026-08-06 深度扩展:
+ *  - DOWNLOADS 数组从 PLATFORM_META 读取 version + 主 assets[0] 的 sizeBytes
+ *  - 新增 DownloadStatus 联合类型 + getDownloadStatus 函数
+ *  - sidebar Popover 根据 status 渲染不同状态(available=可下载 / coming-soon=禁用+badge)
  */
 
 import { Globe, Monitor, Puzzle, Smartphone, Terminal, type LucideIcon } from 'lucide-react'
@@ -24,17 +24,21 @@ import * as React from 'react'
 
 import {
   DOWNLOADS_CONFIG,
+  PLATFORM_META,
+  type DownloadPlatform,
   resolveAndroidHref,
   resolveIosHref,
   resolveWechatHref,
 } from '@/config/downloads.config'
 
-/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
-export type DownloadPlatform =
-  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
+// 向后兼容 re-export(原 downloads.tsx 直接 export DownloadPlatform,2026-08-06 移至 downloads.config.ts)
+export type { DownloadPlatform } from '@/config/downloads.config'
 
-/** 单个下载条目完整元数据
- * - `version` / `sha256` 暂未填充(占位),为后续真实 CDN 接入预留
+/** 下载状态(2026-08-06 新增,配合 sidebar Popover 占位状态) */
+export type DownloadStatus = 'available' | 'coming-soon'
+
+/** 单个下载条目完整元数据(UI 渲染层用,从 DOWNLOADS 数组 map 渲染)
+ * - `version` / `sizeBytes` 从 PLATFORM_META 同步(2026-08-06)
  * - `icon` 同时支持 lucide React 组件和内联 SVG 组件
  */
 export interface DownloadEntry {
@@ -43,15 +47,16 @@ export interface DownloadEntry {
   labelKey: string
   /** i18n desc key(可选,i18n 文件可省略) */
   descKey?: string
-  /** 下载链接(内部路径或外部 URL,http(s):// 开头视为外链新窗口打开) */
+  /** 下载链接(内部路径或外部 URL,http(s):// 开头视为外链新窗口打开)
+   *  - 空字符串表示该端未接入,UI 显示"即将上线"占位
+   *  - /download/[platform] 路由表示跳转到详情页
+   *  - http(s):// 或 /downloads/... 表示直接下载文件 */
   href: string
   /** lucide 图标组件或自定义 React 组件 */
   icon: LucideIcon | React.FC<{ className?: string }>
-  /** 真实下载版本号(占位为 undefined,接入 CDN 时填充,如 "1.2.3") */
+  /** 真实下载版本号(从 PLATFORM_META 同步,未接入时为 undefined) */
   version?: string
-  /** 文件 SHA256 校验值(占位为 undefined,接入后端 API 时填充) */
-  sha256?: string
-  /** 文件大小(字节,可选,UI 可展示 "12.4 MB") */
+  /** 文件大小字节(从 PLATFORM_META.assets[0].sizeBytes 同步,无 assets 时为 undefined) */
   sizeBytes?: number
 }
 
@@ -87,8 +92,20 @@ export function WechatMiniIcon({ className }: { className?: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 8 端下载数据(单一事实源)                                                  */
+/* 8 端下载数据(单一事实源,UI 组件从本常量 map 渲染)                        */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * 从 PLATFORM_META 同步 version + 主 asset sizeBytes 到 DownloadEntry,
+ * 保持 DOWNLOADS(渲染层数据) 与 PLATFORM_META(元数据) 单一事实源。
+ */
+function syncMeta(platform: DownloadPlatform): Pick<DownloadEntry, 'version' | 'sizeBytes'> {
+  const meta = PLATFORM_META[platform]
+  return {
+    version: meta?.version,
+    sizeBytes: meta?.assets[0]?.sizeBytes || undefined,
+  }
+}
 
 /** 项目所有 8 端下载条目,UI 组件从本常量 map 渲染 */
 export const DOWNLOADS: readonly DownloadEntry[] = [
@@ -98,6 +115,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadWebDesc',
     href: '/',
     icon: Globe,
+    ...syncMeta('web'),
   },
   {
     platform: 'desktop',
@@ -105,6 +123,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadDesktopDesc',
     href: DOWNLOADS_CONFIG.hrefs.desktop,
     icon: Monitor,
+    ...syncMeta('desktop'),
   },
   {
     platform: 'ios',
@@ -112,6 +131,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadIOSDesc',
     href: resolveIosHref(),
     icon: AppleIcon,
+    ...syncMeta('ios'),
   },
   {
     platform: 'android-apk',
@@ -119,6 +139,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadAndroidDesc',
     href: resolveAndroidHref(),
     icon: AndroidIcon,
+    ...syncMeta('android-apk'),
   },
   {
     platform: 'mobile',
@@ -126,6 +147,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadMobileDesc',
     href: DOWNLOADS_CONFIG.hrefs.mobile,
     icon: Smartphone,
+    ...syncMeta('mobile'),
   },
   {
     platform: 'wechat-miniapp',
@@ -133,6 +155,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadMiniDesc',
     href: resolveWechatHref(),
     icon: WechatMiniIcon,
+    ...syncMeta('wechat-miniapp'),
   },
   {
     platform: 'extension',
@@ -140,6 +163,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadExtensionDesc',
     href: DOWNLOADS_CONFIG.hrefs.extension,
     icon: Puzzle,
+    ...syncMeta('extension'),
   },
   {
     platform: 'cli',
@@ -147,6 +171,7 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     descKey: 'downloadCliDesc',
     href: DOWNLOADS_CONFIG.hrefs.cli,
     icon: Terminal,
+    ...syncMeta('cli'),
   },
 ] as const
 
@@ -161,7 +186,7 @@ export function isExternalDownloadHref(href: string): boolean {
 }
 
 /**
- * 判定指定端的下载是否已接入(2026-07-25 新增,配合配置外置)。
+ * 判定指定端的下载是否已接入(配合配置外置)。
  *
  * 空字符串 href 表示该端尚未接入(运营待办),UI 应显示"即将上线"占位状态:
  * - 禁用点击 / 链接按钮置 disabled
@@ -173,4 +198,16 @@ export function isDownloadAvailable(platform: DownloadPlatform): boolean {
   if (platform === 'web') return true
   const entry = getDownloadEntry(platform)
   return Boolean(entry && entry.href.length > 0)
+}
+
+/**
+ * 获取下载状态(2026-08-06 新增)。
+ *
+ * - 'available':已接入,可点击下载/跳转详情页
+ * - 'coming-soon':未接入,UI 显示"即将上线"占位
+ *
+ * web 端始终 available;其他端按 href 是否为空判断。
+ */
+export function getDownloadStatus(platform: DownloadPlatform): DownloadStatus {
+  return isDownloadAvailable(platform) ? 'available' : 'coming-soon'
 }
