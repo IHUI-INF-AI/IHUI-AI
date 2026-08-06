@@ -44,13 +44,29 @@ const messages: Record<Locale, Messages> = {
 
 const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 
+// 模块级当前 locale(供非组件代码使用,如 utils/platform 中的 Taro.showToast 提示文案)
+// I18nProvider 挂载时从 storage 同步,setLocale 时同步更新
+let currentLocale: Locale = 'zh-CN'
+
+/**
+ * 全局 t 函数(供非组件代码使用,如 utils/pay.ts、platform/pay.ts 等)
+ * - 组件内优先用 useI18n() 获取响应式 t
+ * - utils/platform 等非组件代码用本函数
+ * - locale 切换由 I18nProvider 同步到 currentLocale
+ */
+export function t(key: string, params?: Record<string, string | number>): string {
+  return translate(messages[currentLocale], key, { fallback: messages['zh-CN'], params })
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
     const stored = Taro.getStorageSync(LOCALE_KEY)
-    return LOCALES.includes(stored) ? (stored as Locale) : 'zh-CN'
+    currentLocale = LOCALES.includes(stored) ? (stored as Locale) : 'zh-CN'
+    return currentLocale
   })
 
   const setLocale = useCallback((l: Locale) => {
+    currentLocale = l
     setLocaleState(l)
     Taro.setStorageSync(LOCALE_KEY, l)
   }, [])

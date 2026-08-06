@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
+import { t } from '@/i18n'
 import {
   getSharePath as sharedGetSharePath,
   getShareInfo as sharedGetShareInfo,
@@ -84,6 +85,5 @@ export function hideShareMenu(): void {
 }
 
 export function onShareSuccess(): void {
-  // TODO: i18n — Taro.showToast 硬编码中文待翻译(分享成功)
-  Taro.showToast({ title: '分享成功', icon: 'success', duration: 2000 })
+  Taro.showToast({ title: t('share.success'), icon: 'success', duration: 2000 })
 }

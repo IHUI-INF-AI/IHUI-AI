@@ -677,7 +677,8 @@
       "shareFriend": "分享給好友",
       "voiceAnswer": "🔊 語音回答",
       "modelDefault": "AI 模型"
-    }
+    },
+    "success": "分享成功"
   },
   "aiGroup": {
     "title": "智慧體廣場",
@@ -1873,7 +1874,20 @@
     "paymentMethod": "支付方式",
     "confirmPay": "確認支付 ¥{price}",
     "alipay": "支付寶",
-    "balance": "餘額"
+    "balance": "餘額",
+    "cancel": "您已取消支付",
+    "wxNotInstalled": "未檢測到微信應用,請先安裝微信",
+    "aliNotInstalled": "未檢測到支付寶應用,請先安裝支付寶",
+    "gotIt": "我知道了",
+    "paramError": "支付參數錯誤,請重試",
+    "failed": "支付失敗,請重試",
+    "failedShort": "支付失敗",
+    "processing": "支付中...",
+    "wxUnsupportedEnv": "當前環境不支援微信支付",
+    "aliUnsupportedWeapp": "微信小程式暫不支援支付寶支付",
+    "aliOrderMissing": "支付寶訂單資訊缺失",
+    "unsupportedEnv": "當前環境不支援支付",
+    "resultPending": "支付結果待確認"
   },
   "study": {
     "todayMinutes": "今日 {n} 分鐘",
@@ -2495,5 +2509,16 @@
       "loginRequired": "請先登入"
     },
     "title": "智匯AI社群"
+  },
+  "album": {
+    "saveSuccess": "儲存成功",
+    "saveFailed": "儲存失敗",
+    "authTitle": "授權提示",
+    "authContent": "需要相簿權限才能儲存圖片，請前往設定開啟",
+    "urlEmpty": "圖片網址為空",
+    "saving": "正在儲存..."
+  },
+  "auth": {
+    "expired": "登入已過期，請重新登入"
   }
 }

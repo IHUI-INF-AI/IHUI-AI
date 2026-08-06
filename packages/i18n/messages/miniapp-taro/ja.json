@@ -677,7 +677,8 @@
       "shareFriend": "友達に共有",
       "voiceAnswer": "🔊 音声回答",
       "modelDefault": "AIモデル"
-    }
+    },
+    "success": "共有成功"
   },
   "aiGroup": {
     "title": "エージェント広場",
@@ -1873,7 +1874,20 @@
     "paymentMethod": "支払い方法",
     "confirmPay": "支払い確認 ¥{price}",
     "alipay": "Alipay",
-    "balance": "残高"
+    "balance": "残高",
+    "cancel": "支払いがキャンセルされました",
+    "wxNotInstalled": "WeChatアプリが検出されませんでした。先にWeChatをインストールしてください",
+    "aliNotInstalled": "Alipayアプリが検出されませんでした。先にAlipayをインストールしてください",
+    "gotIt": "了解しました",
+    "paramError": "支払いパラメータエラー、再試行してください",
+    "failed": "支払い失敗、再試行してください",
+    "failedShort": "支払い失敗",
+    "processing": "支払い中...",
+    "wxUnsupportedEnv": "現在の環境はWeChat決済に対応していません",
+    "aliUnsupportedWeapp": "WeChatミニプログラムではAlipay決済に対応していません",
+    "aliOrderMissing": "Alipay注文情報が不足しています",
+    "unsupportedEnv": "現在の環境は決済に対応していません",
+    "resultPending": "支払い結果確認中"
   },
   "study": {
     "todayMinutes": "今日 {n} 分",
@@ -2495,5 +2509,16 @@
       "loginRequired": "先にログインしてください"
     },
     "title": "智汇AIコミュニティ"
+  },
+  "album": {
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失敗",
+    "authTitle": "権限承認",
+    "authContent": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
+    "urlEmpty": "画像アドレスが空です",
+    "saving": "保存中..."
+  },
+  "auth": {
+    "expired": "ログインの有効期限が切れました。再ログインしてください"
   }
 }
