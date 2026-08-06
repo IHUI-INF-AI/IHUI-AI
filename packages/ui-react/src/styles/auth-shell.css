@@ -63,3 +63,21 @@
 .dark .welcome-img-dark {
   display: block;
 }
+
+/* ===== 4. 登录框 input focus 描边(2026-08-06 立,用户要求) =====
+ * 登录框内所有 input 点击激活(focus-visible)时,容器描边变为纯黑/纯白 2px,
+ * 覆盖 Input 默认的 focus-visible:ring-1 ring-ring(灰色 ring)。
+ *   - 亮色模式:纯黑 #000 2px
+ *   - 暗色模式:纯白 #fff 2px
+ * 作用域:.login-scope(主站 LoginDialog + SSO 页面 + LoginPopup + 扩展端 AuthShell),
+ * 覆盖登录/注册/找回密码三大场景所有输入框(账号/密码/邮箱/手机号/验证码)。
+ * 实现:border-width:2px + border-color + box-shadow:none(移除 ring),视觉为真 2px 描边。 */
+.login-scope input:focus-visible {
+  outline: none;
+  border-color: #000;
+  border-width: 2px;
+  box-shadow: none;
+}
+:where(.dark) .login-scope input:focus-visible {
+  border-color: #fff;
+}
