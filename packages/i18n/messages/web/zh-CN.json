@@ -12698,7 +12698,7 @@
   },
   "mobileDashboardPage": {
     "title": "移动端仪表盘",
-    "subtitle": "监控移动端核心运营指标，数据为 Mock 演示数据。",
+    "subtitle": "监控移动端核心运营指标与趋势",
     "stats": {
       "trendSuffix": "较昨日",
       "dau": "日活用户",
