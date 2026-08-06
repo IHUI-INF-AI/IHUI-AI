@@ -1579,6 +1579,32 @@
     }
   },
   "admin": {
+    "downloads": {
+      "title": "ダウンロード統計",
+      "total": "総ダウンロード数",
+      "activePlatforms": "対応プラットフォーム数",
+      "today": "今日のダウンロード",
+      "week": "過去7日間",
+      "platform": "プラットフォーム",
+      "count": "ダウンロード数",
+      "ratio": "割合",
+      "trend": "ダウンロード推移",
+      "distribution": "プラットフォーム分布",
+      "detail": "プラットフォーム詳細",
+      "filterPlatform": "プラットフォーム絞込",
+      "allPlatforms": "すべて",
+      "startDate": "開始日",
+      "endDate": "終了日",
+      "noData": "ダウンロード記録がありません",
+      "platformWeb": "Web版",
+      "platformDesktop": "デスクトップクライアント",
+      "platformIos": "iOSアプリ",
+      "platformAndroidApk": "Android APK",
+      "platformMobile": "モバイルH5",
+      "platformWechatMiniapp": "WeChatミニプログラム",
+      "platformExtension": "ブラウザ拡張機能",
+      "platformCli": "CLIツール"
+    },
     "relayParamOps": {
       "title": "パラメータオーバーライドルール",
       "subtitle": "転送層 applyParamOps ルール管理(15 種 op + 条件 + JSON パス)",
