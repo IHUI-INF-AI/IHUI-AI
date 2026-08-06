@@ -18,6 +18,7 @@ import { join } from 'node:path'
 
 import { registerRoutes } from './routes/index.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
+import { downloadsRoutes } from './routes/downloads.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -239,6 +240,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
+
+  // 下载量统计(POST /api/downloads/track + GET /api/downloads/stats,2026-08-06 新增)
+  server.register(downloadsRoutes, { prefix: '/api/downloads' })
 
   // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
   setFastify(server)
