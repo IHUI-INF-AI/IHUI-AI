@@ -73,10 +73,17 @@ const AI_CONTENT_PREFIXES = [
 
 /**
  * 强 SQL 注入特征(豁免路径仍检测):
- * - `--` / `/*` / `#` SQL 注释符
+ * - `--`(后跟空白/行尾,PostgreSQL 注释;`--` 后跟数字如 `1--2` 是减法,非注释)
+ * - 斜杠星号 ... 星号斜杠(PostgreSQL 块注释)
  * - 分号后的堆叠查询语句(; SELECT/UNION/... )
+ *
+ * 2026-08-06 P2 修复(生产故障):移除 `#` 单字符特征。
+ * PostgreSQL 中 `#` 不是注释符(MySQL/MariaDB 才用),且 `#1`/`#tag`/`C#` 等
+ * 在用户正常文本中出现频率极高,导致 AI 对话内容被误杀(线上用户消息
+ * "[Advisor consultation #1]" 被 400 拦截 → 前端无限重连)。堆叠查询正则
+ * 与关键字检测已足够覆盖真实注入,`#` 对 PG 无威胁。
  */
-const SQLI_STRONG_PATTERN = /(--|\/\*|#)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/i
+const SQLI_STRONG_PATTERN = /(--\s|--$|\/\*[\s\S]*?\*\/)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/im
 
 /** 递归扫描对象/数组中的字符串值,检测强 SQL 注入特征(供豁免路径使用)。 */
 function detectStrongSqli(data: unknown): string | null {
