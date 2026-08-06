@@ -147,7 +147,7 @@ export default function AiCircle() {
           </View>
         )}
       </View>
-      <View className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[48rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_rgba(0,0,0,0.2)]" onClick={onPublish}>
+      <View className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[16rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_rgba(0,0,0,0.2)]" onClick={onPublish}>
         <Text className="text-[48rpx] text-foreground leading-[48rpx]">+</Text>
       </View>
     </View>
