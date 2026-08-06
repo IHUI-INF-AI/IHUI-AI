@@ -191,6 +191,12 @@
     "collapse": "收起",
     "language": "語言",
     "downloadClient": "下載客戶端",
+    "downloadAssets": "下載資源",
+    "downloadAvailable": "可下載",
+    "downloadComingSoon": "即將上線",
+    "downloadComingSoonHint": "{platform} 客戶端正在開發中,敬請期待",
+    "downloadComingSoonTitle": "即將上線",
+
     "selfMediaAutomation": "自動化",
     "downloadTitle": "下載使用者端",
     "mainNav": "主導航",

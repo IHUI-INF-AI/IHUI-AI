@@ -190,6 +190,12 @@
     "collapse": "Collapse",
     "language": "Language",
     "downloadClient": "Download App",
+    "downloadAssets": "Download resources",
+    "downloadAvailable": "Available",
+    "downloadComingSoon": "Coming soon",
+    "downloadComingSoonHint": "{platform} app is under development. Stay tuned!",
+    "downloadComingSoonTitle": "Coming soon",
+
     "selfMediaAutomation": "Automation",
     "downloadTitle": "Download App",
     "mainNav": "Main Navigation",
