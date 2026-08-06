@@ -2829,7 +2829,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) 跨平台构建矩阵补齐 — release-desktop.yml 增加 post-build 步骤把 .dmg/.deb/.AppImage 复制到 apps/web/public/downloads/desktop/(79 行增量)
 - [x] ✅(2026-08-06) admin 导航菜单注册 — AdminNav 注册"下载统计"菜单项(第 708 行)
 - [x] ✅(2026-08-06) i18n 5 语言翻译键 — admin.downloads.* 命名空间(5 语言 × 24 key 全对齐)
-- [ ] browser 自验 admin 页面 4 状态(默认/hover/active/dark) — 待补
+- [x] ✅(2026-08-06) browser 自验 admin 页面 4 状态(默认/hover/active/dark) — `.trae-cn/tmp/admin-downloads-verify/` 4 截图 + dom-report.json,h1="下载统计" / select 9 选项 / dark mode 切换正常 / 空数据态占位卡片符合代码预期
 
 
 ---
