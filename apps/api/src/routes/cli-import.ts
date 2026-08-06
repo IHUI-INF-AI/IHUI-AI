@@ -259,7 +259,8 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      // 2026-08-06 修复:必须 return reply,防止 handler 在未认证时继续执行
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
     }
   })
 

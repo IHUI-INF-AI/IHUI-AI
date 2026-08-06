@@ -382,7 +382,8 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      // 2026-08-06 修复:必须 return reply,否则 handler 会继续执行(同 user-llm-configs.ts)
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
     }
   })
 
