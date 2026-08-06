@@ -6,6 +6,9 @@ tmp/
 apps/web/out/
 # Monaco Editor self-host 静态资源(postinstall 从 node_modules/monaco-editor/min/vs 复制)
 apps/web/public/vs/
+# 下载构建产物 manifest(sync-downloads.mjs 生成,含 syncedAt 时间戳,每次同步都变化;
+# 下载包 exe/msi/zip 由 sync 脚本复制到 public/downloads/,按需跟踪,manifest 不入库)
+apps/web/public/downloads/manifest.json
 *.log
 test_*.json
 test_*.log
