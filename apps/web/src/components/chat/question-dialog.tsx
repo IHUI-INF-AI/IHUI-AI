@@ -44,7 +44,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
       setSelectedIds(new Set())
       setCustomInput('')
     }
-  }, [question?.questionId])
+  }, [question?.questionId]) // eslint-disable-line react-hooks/exhaustive-deps -- 只依赖 questionId:同一提问对象引用变化(store 重写)不应重置用户已选状态,仅当切换到新提问时才重置
 
   if (!question) return null
 
