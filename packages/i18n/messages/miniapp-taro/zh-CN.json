@@ -677,7 +677,8 @@
       "shareFriend": "分享给好友",
       "voiceAnswer": "🔊 语音回答",
       "modelDefault": "AI 模型"
-    }
+    },
+    "success": "分享成功"
   },
   "aiGroup": {
     "title": "智能体广场",
@@ -1873,7 +1874,20 @@
     "paymentMethod": "支付方式",
     "confirmPay": "确认支付 ¥{price}",
     "alipay": "支付宝",
-    "balance": "余额"
+    "balance": "余额",
+    "cancel": "您已取消支付",
+    "wxNotInstalled": "未检测到微信应用,请先安装微信",
+    "aliNotInstalled": "未检测到支付宝应用,请先安装支付宝",
+    "gotIt": "我知道了",
+    "paramError": "支付参数错误,请重试",
+    "failed": "支付失败,请重试",
+    "failedShort": "支付失败",
+    "processing": "支付中...",
+    "wxUnsupportedEnv": "当前环境不支持微信支付",
+    "aliUnsupportedWeapp": "微信小程序暂不支持支付宝支付",
+    "aliOrderMissing": "支付宝订单信息缺失",
+    "unsupportedEnv": "当前环境不支持支付",
+    "resultPending": "支付结果待确认"
   },
   "study": {
     "todayMinutes": "今日 {n} 分钟",
@@ -2495,5 +2509,16 @@
       "loginRequired": "请先登录"
     },
     "title": "智汇AI社区"
+  },
+  "album": {
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败",
+    "authTitle": "授权提示",
+    "authContent": "需要相册权限才能保存图片，请前往设置开启",
+    "urlEmpty": "图片地址为空",
+    "saving": "正在保存..."
+  },
+  "auth": {
+    "expired": "登录已过期，请重新登录"
   }
 }

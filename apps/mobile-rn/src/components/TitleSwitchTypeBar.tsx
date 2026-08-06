@@ -140,7 +140,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   tabActive: {
-    borderColor: tokens.indigo.light, // TODO: custom color #E0E8FF
+    borderColor: tokens.indigo.light,
     backgroundColor: 'rgba(205,208,255,0.5)',
   },
   tabText: { fontSize: 13, fontWeight: '600', color: tokens.overlay.modal },
@@ -158,12 +158,12 @@ const s = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     alignItems: 'center',
   },
-  dialogTitle: { fontSize: 14, fontWeight: '700', color: tokens.text.medium, marginBottom: 16 }, // TODO: custom color #3D3D3D
+  dialogTitle: { fontSize: 14, fontWeight: '700', color: tokens.text.medium, marginBottom: 16 },
   input: {
     width: 240,
     height: 40,
     borderWidth: 1,
-    borderColor: tokens.border.medium, // TODO: custom color #979797
+    borderColor: tokens.border.medium,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 13,
