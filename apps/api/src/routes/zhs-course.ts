@@ -35,8 +35,9 @@ const courseSchema = z.object({
 const updateSchema = courseSchema.partial().extend({ id: z.uuid() })
 
 const pageQuery = {
-  page: z.coerce.number().optional().default(1),
-  pageSize: z.coerce.number().optional().default(20),
+  // P1 修复(2026-08-06): 分页 pageSize 补上限
+  page: z.coerce.number().int().min(1).optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
 }
 
 export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {

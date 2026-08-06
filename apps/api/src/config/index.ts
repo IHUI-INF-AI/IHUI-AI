@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { logger } from '../utils/logger.js'
+import { booleanFromString } from '../utils/parse-boolean.js'
 
 const optionalUrl = (def: string) =>
   z
@@ -77,7 +78,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().default('noreply@aizhs.top'),
-  SMTP_ENABLED: z.coerce.boolean().default(false),
+  // P1 修复(2026-08-06):z.coerce.boolean() 把 "false"/"0" 解析为 true,
+  // 导致 SMTP_ENABLED=false 实际开启,改为严格布尔解析。
+  SMTP_ENABLED: booleanFromString(false),
 
   // 邮件服务商 (auto=按收件域名智能路由国内/国外; smtp/resend/tencent 强制指定)
   MAIL_PROVIDER: z.enum(['auto', 'smtp', 'resend', 'tencent']).default('auto'),
@@ -119,7 +122,9 @@ const envSchema = z.object({
 
   // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固 + 2026-07-28 P0-4a 品牌化)
   // 生产环境必须 SWAGGER_ENABLED=true 才暴露 /docs 路由,默认 false(避免未授权 schema 泄露)
-  SWAGGER_ENABLED: z.coerce.boolean().default(false),
+  // P1 修复(2026-08-06):同上,SWAGGER_ENABLED=false 不能被解析为 true
+  // (生产环境错误暴露 /docs 属未授权 schema 泄露)。
+  SWAGGER_ENABLED: booleanFromString(false),
   // Swagger UI 访问 API Key(可选,2026-07-28 P0-4a 立)
   // 配置后访问 /docs 必须带 `X-API-Key: <key>` header(timing-safe 比较)
   // 留空 = /docs 公开(仅推荐开发环境)
@@ -127,7 +132,7 @@ const envSchema = z.object({
   SWAGGER_API_KEY: z.string().default(''),
 
   API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
-  API_LOG_ENABLED: z.coerce.boolean().default(true),
+  API_LOG_ENABLED: booleanFromString(true),
   API_LOG_BATCH_SIZE: z.coerce.number().int().min(1).default(100),
   API_LOG_FLUSH_INTERVAL_MS: z.coerce.number().int().min(100).default(5000),
 

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import {
@@ -458,7 +459,8 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
         search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-        isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+        // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+        isPublished: booleanStringSchemaOptional,
       })
       .safeParse(request.query)
     if (!parsed.success) {

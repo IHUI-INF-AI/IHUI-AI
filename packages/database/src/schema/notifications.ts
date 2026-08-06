@@ -7,6 +7,7 @@ import {
   integer,
   timestamp,
   jsonb,
+  index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -14,34 +15,51 @@ import { users } from './users.js'
  * 通知表。
  * type: 'system' | 'order' | 'project' | 'comment' | 'mention'（用 varchar，避免 pg enum 兼容性问题）。
  */
-export const notifications = pgTable('notifications', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  type: varchar('type', { length: 32 }).default('system').notNull(),
-  title: varchar('title', { length: 255 }).notNull(),
-  content: text('content'),
-  data: jsonb('data'),
-  isRead: boolean('is_read').default(false).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    type: varchar('type', { length: 32 }).default('system').notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    content: text('content'),
+    data: jsonb('data'),
+    isRead: boolean('is_read').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // P1 索引补全(2026-08-06):按 userId 查询通知列表 + createdAt 排序是高频路径,
+    // 原表无索引导致大表全表扫描,补 (user_id, created_at) 复合索引。
+    userCreatedIdx: index('notifications_user_created_idx').on(t.userId, t.createdAt),
+  }),
+)
 
 /**
  * 站内信 / 会话消息表。
  */
-export const messages = pgTable('messages', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  senderId: uuid('sender_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  receiverId: uuid('receiver_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  content: text('content').notNull(),
-  isRead: boolean('is_read').default(false).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    senderId: uuid('sender_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    receiverId: uuid('receiver_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    content: text('content').notNull(),
+    isRead: boolean('is_read').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // P1 索引补全(2026-08-06):会话列表/消息历史按 sender_id / receiver_id 查询 + createdAt 排序,
+    // 原表无索引导致大表全表扫描,补 (receiver_id, created_at) 与 (sender_id, created_at) 索引。
+    receiverCreatedIdx: index('messages_receiver_created_idx').on(t.receiverId, t.createdAt),
+    senderCreatedIdx: index('messages_sender_created_idx').on(t.senderId, t.createdAt),
+  }),
+)
 
 export type Notification = typeof notifications.$inferSelect
 export type NewNotification = typeof notifications.$inferInsert
