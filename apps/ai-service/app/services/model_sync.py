@@ -1191,7 +1191,7 @@ class ModelSyncService:
                 if not model_id:
                     continue
                 # 构造兼容的 model dict(id 字段是必须的)
-                normalized: dict[str, Any] = {"id": model_id}
+                normalized = {"id": model_id}
                 # Gemini:displayName → name 字段(供 _extract_display_name 用)
                 if m.get("displayName"):
                     normalized["name"] = m["displayName"]

@@ -370,7 +370,7 @@ async def fetch_actual_columns(
         table_name,
     )
 
-    def _pg_type(row) -> str:
+    def _pg_type(row: dict[str, Any]) -> str:
         dt = (row["data_type"] or "").lower()
         if dt == "array":
             # udt_name 形如 _text / _int4,去下划线前缀 + []

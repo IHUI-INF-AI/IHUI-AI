@@ -226,7 +226,7 @@ export const ALIPAY_CONFIG: ThirdPartyPlatformConfig = {
 export const APP_CONFIG: ThirdPartyPlatformConfig = {
   enabled: true,
   redirectUri: '',
-  proxyPath: '/api/auth/qr/generate',
+  proxyPath: '/api/auth/qr/generate', // method: POST
 }
 
 /** 平台 → 配置映射 */
