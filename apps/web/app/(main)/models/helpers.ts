@@ -1966,7 +1966,8 @@ export async function fetchModels(): Promise<Model[]> {
     })
     return enrichModels(list)
   } catch {
-    return enrichModels(FALLBACK_MODELS)
+    // API 不可用时返回空列表,由页面呈现加载失败态,避免用内置模型冒充真实模型市场
+    return []
   }
 }
 
