@@ -51,6 +51,17 @@ def mock_llm_gateway():
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def _mock_current_user(monkeypatch):
+    """P1 修复(2026-08-06): agent_runtime 会话端点现要求 JWT 身份并校验归属,
+    测试统一注入固定 test-user-001 身份。"""
+    monkeypatch.setattr(
+        agent_runtime,
+        "_get_current_user",
+        lambda request: ("test-user-001", False),
+    )
+
+
 # =============================================================================
 # POST /api/agent-runtime/execute
 # =============================================================================

@@ -629,6 +629,20 @@ class LLMGateway:
             for name in ("openai", "anthropic", "groq", "gemini", "openrouter", "agnes", "stepfun")
         ):
             return False
+        # P1 修复(2026-08-06): 遍历 LLM_PROVIDERS 全量 provider,任一配置了 api_key
+        # 即非 stub —— 避免固定 7 名列表漏掉 cloudflare/nvidia/mistral 等已配置厂商,
+        # 导致 .env 实际已配置 key 仍误判 stub 模式。
+        if settings.llm_providers:
+            try:
+                all_providers = json.loads(settings.llm_providers)
+                if isinstance(all_providers, dict) and any(
+                    isinstance(cfg, dict)
+                    and (cfg.get("api_key") or cfg.get("apiKey") or cfg.get("token"))
+                    for cfg in all_providers.values()
+                ):
+                    return False
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass  # 解析失败走下一层 os.environ 判断
         # 第二层:os.environ 检查所有 LiteLLM 一等公民厂商 key
         # 用户在 .env 直接配 GROQ_API_KEY / XAI_API_KEY / DEEPSEEK_API_KEY 等也立即激活
         # 前缀列表对应 _PREFIX_TO_PROVIDER_CODE 全部 30+ 厂商
@@ -1033,9 +1047,12 @@ class LLMGateway:
                 # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
                 from ..providers.base_provider import ProviderError
                 try:
-                    tools = kwargs.pop("tools", None)
+                    # P1 修复(2026-08-06): 用浅拷贝再 pop,避免破坏原 kwargs,
+                    # 防止 ProviderError fallback 到 LiteLLM 时 tools 丢失导致 function calling 失效。
+                    provider_kwargs = dict(kwargs)
+                    tools = provider_kwargs.pop("tools", None)
                     return await provider.complete(
-                        trimmed_messages, used_model, tools=tools, **kwargs
+                        trimmed_messages, used_model, tools=tools, **provider_kwargs
                     )
                 except ProviderError as e:
                     logger.warning(
@@ -1404,9 +1421,12 @@ class LLMGateway:
         if "tools" in kwargs and not self._is_stub_mode():
             provider = await self._get_provider(used_model, owner_uuid)
             if provider is not None:
-                tools = kwargs.pop("tools", None)
+                # P1 修复(2026-08-06): 用浅拷贝再 pop,避免破坏原 kwargs 的 tools,
+                # 确保后续 LiteLLM 路径仍能透传 tools(function calling)。
+                provider_kwargs = dict(kwargs)
+                tools = provider_kwargs.pop("tools", None)
                 astream_iter = provider.astream(
-                    trimmed_messages, used_model, tools=tools, **kwargs
+                    trimmed_messages, used_model, tools=tools, **provider_kwargs
                 )
                 async for evt in astream_iter:
                     yield evt
