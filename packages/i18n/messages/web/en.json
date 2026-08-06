@@ -12787,7 +12787,7 @@
   },
   "mobileDashboardPage": {
     "title": "Mobile Dashboard",
-    "subtitle": "Monitor mobile core operational metrics. Data is mock demo data.",
+    "subtitle": "Monitor core mobile operational metrics and trends.",
     "stats": {
       "trendSuffix": "vs yesterday",
       "dau": "DAU",
