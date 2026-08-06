@@ -158,12 +158,15 @@ async function buildTokenPair(user: {
  * - admin（roleId >= 1）返回通配符 ['*:*:*']，前端 HasPermi 直接放行所有
  * - 其他用户查 RBAC 表，无记录返回 []（前端 HasPermi 将拒绝）
  */
-async function resolveUserPermissions(userId: string, roleId: number | null): Promise<string[]> {
+export async function resolveUserPermissions(
+  userId: string,
+  roleId: number | null,
+): Promise<string[]> {
   if (roleId !== null && roleId >= ADMIN_ROLE_ID) return ADMIN_WILDCARD_PERMISSIONS
   return getUserPermissions(userId)
 }
 
-function publicUser(
+export function publicUser(
   user: {
     id: string
     phone: string | null
@@ -712,6 +715,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
+      // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***
       if (user.twoFactorEnabled) {
         const challengeToken = await signChallengeToken({
           userId: user.id,
@@ -719,6 +723,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           familyId: '', // challenge token 不绑定 family,login-verify 通过后新建
           roleId: user.roleId ?? 0,
         })
+        request.skipResponseSanitization = true
         return reply.send(
           success({
             twoFactorRequired: true,
@@ -866,6 +871,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
+      // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***
       if (user.twoFactorEnabled) {
         const challengeToken = await signChallengeToken({
           userId: user.id,
@@ -873,6 +879,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           familyId: '',
           roleId: user.roleId ?? 0,
         })
+        request.skipResponseSanitization = true
         return reply.send(
           success({
             twoFactorRequired: true,

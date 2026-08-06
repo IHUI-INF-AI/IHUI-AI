@@ -64,13 +64,16 @@ export async function listAiWorldItems(opts: ListItemsOptions = {}): Promise<AiW
     )
   }
 
+  // 2026-08-06 修复:latest 按发布时间(COALESCE published_at, fetched_at)排序。
+  // 此前按 fetched_at(入库时间)排序 → 每日同步刷新旧条目入库时间(如 venturebeat
+  // 1 月旧闻 fetched_at=今天)把真实新新闻(8/5 techcrunch)挤下去 → 页面显示旧数据。
   const order = opts.orderBy === 'hot'
     ? desc(aiWorldItems.likeCount)
     : opts.orderBy === 'published'
       ? desc(aiWorldItems.publishedAt)
       : opts.orderBy === 'trending'
         ? desc(aiWorldItems.trendingScore)
-        : desc(aiWorldItems.fetchedAt)
+        : sql`COALESCE(${aiWorldItems.publishedAt}, ${aiWorldItems.fetchedAt}) DESC`
 
   return db
     .select()
