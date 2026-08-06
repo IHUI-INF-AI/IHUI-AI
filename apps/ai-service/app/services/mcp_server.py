@@ -4067,6 +4067,18 @@ def get_registered_tool_names() -> set[str]:
     return {t.name for t in _TOOLS}
 
 
+# 2026-08-06 生产修复:LLM 可能返回与注册工具不一致的别名(模型幻觉/跨平台命名),
+# 统一映射到实际注册工具名,防止 call_tool 报"未知工具"。
+_TOOL_ALIASES: dict[str, str] = {
+    "execute_command": "run_command",  # Claude/Codex 风格 → 本项目 run_command
+}
+
+
+def _normalize_tool_name(name: str) -> str:
+    """工具名归一化:优先映射别名,否则原样返回。"""
+    return _TOOL_ALIASES.get(name, name)
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
@@ -4239,6 +4251,12 @@ class MCPServer:
             session_id: 会话 ID(可选)。供 knowledge_lookup 限定 RAG 检索会话范围。
         """
         handler = _TOOL_HANDLERS.get(name)
+        if not handler:
+            # 2026-08-06 修复:LLM 返回的别名工具名归一化后再查(execute_command → run_command)
+            normalized = _normalize_tool_name(name)
+            if normalized != name:
+                handler = _TOOL_HANDLERS.get(normalized)
+                name = normalized
         if not handler:
             available = ", ".join(_TOOL_HANDLERS.keys())
             return {"ok": False, "error": f"未知工具: {name}。可用: {available}"}
