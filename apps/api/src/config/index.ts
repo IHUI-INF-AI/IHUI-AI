@@ -38,7 +38,11 @@ const envSchema = z.object({
       },
       { message: 'JWT_SECRET 不能使用弱默认值/全相同字符/test- 前缀/已知占位符' },
     ),
-  JWT_EXPIRES_IN: z.string().default('7d'),
+  // P2 修复(2026-08-06):删除死配置 JWT_EXPIRES_IN。
+  // access token 实际 TTL 由 @ihui/auth 的 ACCESS_TOKEN_TTL_SECONDS 控制
+  // (packages/auth/src/jwt.ts,默认 15 分钟,可用 env.JWT_ACCESS_TTL_SECONDS 覆盖);
+  // refresh token 由 REFRESH_TOKEN_TTL_SECONDS 控制(默认 30 天,env.JWT_REFRESH_TTL_SECONDS)。
+  // 原默认 '7d' 从未被 jwt.ts 读取,属误导性死配置,统一为实际值并移除。
   CREDENTIALS_ENCRYPTION_KEY: z
     .string()
     .min(32, 'CREDENTIALS_ENCRYPTION_KEY 必须至少 32 字符')

@@ -4,6 +4,7 @@ import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { logger } from '../utils/logger.js'
 import { zhsDemandSquare } from '@ihui/database'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
@@ -175,6 +176,13 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     for (const id of body.data.ids) {
       results.push({ id, status: pendingIdSet.has(id) ? newStatus : 'skipped' })
     }
+    // P2 修复(2026-08-06):批量审核无操作日志,补记操作人/动作/影响数量,便于审计追责。
+    logger.info('admin demand-square batch-review executed', {
+      userId: request.userId,
+      action: body.data.action,
+      total: body.data.ids.length,
+      affected: pendingIdSet.size,
+    })
     return reply.send(success({ results }))
   })
 
