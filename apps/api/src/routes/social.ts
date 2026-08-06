@@ -33,7 +33,9 @@ import { findUserById } from '../db/queries.js'
 import { queueNotificationEmail } from '../services/email-service.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
-const FAVORITE_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment'] as const
+// 2026-08-06:加 'aiworld'(AI World 收藏闭环,与下方 JSON schema enum 对齐;
+// 此前仅 JSON schema 加了 aiworld,zod 常量漏同步会导致 POST /favorites 传 aiworld 被 400)
+const FAVORITE_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment', 'aiworld'] as const
 const TAG_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment'] as const
 const TARGET_TYPES = ['user', 'project', 'tag', 'category'] as const
 
