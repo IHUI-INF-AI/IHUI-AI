@@ -76,7 +76,7 @@
   z-index: 996;
   width: 427rpx;
   height: 303rpx;
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   background: var(--color-card);
   border: 1px solid var(--color-border);
   box-sizing: border-box;
