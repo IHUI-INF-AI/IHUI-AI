@@ -2830,3 +2830,32 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ] i18n 5 语言翻译键 — admin.downloads.* 命名空间
 - [ ] browser 自验 admin 页面 4 状态(默认/hover/active/dark)
 
+
+---
+
+## 前端全量深度审计与修复(2026-08-06 完成 ✅,跨端:apps/web + miniapp-taro + mobile-rn + extension + desktop)
+
+> **触发**:用户要求"深度分析发现所有前端 bug / 未开发完整处 / 容器文本贴边无呼吸感,并彻底修复"。
+> **结果**:6 个并行扫描 agent 全仓审计(web ~2400 文件 / taro 422 / rn 227 / extension 71 / desktop 壳),发现 P0 35+ / P1 89+ / P2 148+ 项,已分批提交 8 个 commit(见 git log 2026-08-06)。
+
+### 已完成(commit 4069ed087 / 835381bba / f34f9d319 / dc91041ac / 99eb0a52b / 0213d85bc / 9b6af9a63 / b7cc8712a)
+
+- [x] ✅(2026-08-06) web P0:DataTable 排序/全选错位(rowKey 选中态)、CommentItem 点赞不同步、registry className 拼写、workspace 上传非空断言、压缩率吞负值、MemberCard 签到 react-query 化、GroupSidebar 删除分组接入 deleteGroupV2、agents 详情 Tab 空态、use-authed-api 死代码删除、5 个假数据死代码组件删除
+- [x] ✅(2026-08-06) web P1:admin statistics/bi-dashboard/i18n-dashboard MOCK 兜底改诚实空态+错误提示、models 市场 FALLBACK 改空态、mobile-dashboard 示例数据标注、chat/settings 模型下拉接 v2-providers、llm prefill 弹窗 ref 去重
+- [x] ✅(2026-08-06) web P2:25 文件单边 border 分割线移除、sidebar/通知/Badge/徽章/列表 padding 呼吸感提升、进度条圆角梯度化
+- [x] ✅(2026-08-06) miniapp-taro P0:chat 会话恢复(sessionId/id)、7 处路由注册/跳转修复、rank 模板字符串、account-cancel 移除 mock 成功、agent-dialogue ws 用 BASE_URL、member/community 跳转修复
+- [x] ✅(2026-08-06) miniapp-taro P2:20 文件全圆角梯度化、4 处容器 padding 呼吸感提升
+- [x] ✅(2026-08-06) mobile-rn P0:RootNavigator 注册 Recharge/AigcCover/AigcPublish、Certificate 改跳 CertDetail、StudyPlan 改跳 StudyProgress、ChatScreen getParent 修复、OrderDetail effect 循环拆分
+- [x] ✅(2026-08-06) extension P0/P1:SidepanelApp 路由重定向参数修复、token 兜底刷新、主题持久化、i18n 存储统一、startAutoRefresh 实现、第三方登录 app 平台补齐
+- [x] ✅(2026-08-06) desktop:tauri.conf.json CSP 内联脚本白屏、窗口状态写盘防抖、版本号同步
+- [x] ✅(2026-08-06) 验证:web/mobile-rn/miniapp-taro/extension 四端 tsc --noEmit 全绿
+
+### 遗留待办(需后端/运营/平台支持,前端无法独立完成)
+
+- [ ] context 页 toggle/预算持久化(后端 /api/context/sources 无 PUT 接口)
+- [ ] favorites 列表显示资源标题(后端 favorites 接口仅返回 resourceId)
+- [ ] agents 详情页 6 Tab 运行时数据(需 agentId→threadId 数据链路)
+- [ ] admin saas 配额真实数据源(P1-2.2c 占位)
+- [ ] downloads 运营数据(App Store ID / APK URL / 小程序 QR)
+- [ ] mobile-dashboard 真实移动端统计接入(当前为标注示例数据)
+- [ ] 小程序真机 BASE_URL 部署配置(api-config.ts 当前 localhost:8802)
