@@ -368,7 +368,7 @@ export function MessageInput({
                 {floatHeader}
               </div>
             )}
-            <div className="flex items-center gap-1 bg-muted/50 px-2 py-1.5">
+            <div className="flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1.5">
               {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
