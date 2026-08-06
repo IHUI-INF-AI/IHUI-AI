@@ -92,6 +92,8 @@ export interface SubagentDispatchInput {
   dag?: DagDefinition
   priority?: DispatchPriority
   quotas?: QuotaConfig
+  /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
+  agentId?: string
 }
 
 /**

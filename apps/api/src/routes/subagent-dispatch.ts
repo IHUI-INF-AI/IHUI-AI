@@ -108,6 +108,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     dag: dagSchema.optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
     quotas: quotasSchema.optional(),
+    // 2026-08-06: 关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(agents 详情页 5 Tab 数据源)
+    agentId: z.string().uuid().optional(),
   })
 
   // ---------- GET /subagents/by-agent/:agentId/summary 聚合类型 ----------
