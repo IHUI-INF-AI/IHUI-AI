@@ -3,13 +3,14 @@ import fp from 'fastify-plugin'
 import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { eq, sql, and, gte, lte, sum, desc, count, isNotNull, type SQL } from 'drizzle-orm'
-import { db } from '../db/index.js'
+import { db, dbRead } from '../db/index.js'
 import {
   aiCostRecords,
   aiBudgets,
   users,
   vipLevels,
   userVips,
+  tenantMembers,
   type AiCostRecord,
 } from '@ihui/database'
 import { requireAdmin } from './require-permission.js'
@@ -280,9 +281,37 @@ export interface CostRecordInput {
 }
 
 /**
+ * 解析用户所属租户(2026-08-06 修复)。
+ *
+ * 背景:ai-callback-worker / crew-llm-adapter / ai-user-model-chat 三处 recordAiCost
+ * 调用点此前均未传 tenantId → ai_cost_records.tenant_id 恒为 NULL,
+ * 导致:① admin 配额页按 tenant 维度聚合 AI token 用量恒为 0;
+ *       ② checkBudget('tenant') 维度预算永远查不到今日用量、永不生效。
+ *
+ * 一个用户可能属于多个租户(tenant_members 联合唯一是 (tenant_id, user_id)),
+ * 取最早加入的租户作为成本归集目标。查不到/异常时返回 undefined(不阻塞记成本)。
+ */
+async function resolveTenantIdForUser(userId: string): Promise<string | undefined> {
+  try {
+    const [member] = await dbRead
+      .select({ tenantId: tenantMembers.tenantId })
+      .from(tenantMembers)
+      .where(eq(tenantMembers.userId, userId))
+      .orderBy(tenantMembers.joinedAt)
+      .limit(1)
+    return member?.tenantId
+  } catch (err) {
+    logger.warn(`[ai-cost] resolveTenantIdForUser 失败,跳过租户归集: userId=${userId} err=${String(err)}`)
+    return undefined
+  }
+}
+
+/**
  * 记录一次 AI 调用的成本。
  * - 若 input.cost 未提供，则调用定价引擎 calculateCost() 自动计算（单位: 分）。
  * - 若模型无定价配置，回退 0 成本并记录 warning。
+ * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属，
+ *   保证 admin 配额页租户维度用量与 tenant 预算检查有真实数据（2026-08-06 修复）。
  */
 export async function recordAiCost(input: CostRecordInput): Promise<void> {
   let cost = input.cost
@@ -298,9 +327,10 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
     }
     cost = result.totalCost
   }
+  const tenantId = input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
   await db.insert(aiCostRecords).values({
     userId: input.userId,
-    tenantId: input.tenantId,
+    tenantId,
     model: input.model,
     provider: input.provider,
     promptTokens: input.promptTokens,
