@@ -82,14 +82,15 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   manifest: '/manifest.json',
   icons: {
-    // 2026-07-28 P1-4 SEO 资产补全:
-    // - favicon.ico(多尺寸 16/32/48)作为浏览器默认 favicon 兜底
-    // - apple-touch-icon.png(180x180)用于 iOS 添加到主屏幕
-    // - icon.png 兜底高分辨率浏览器(Chrome/Edge tab)
-    // - shortcut icon 兼容旧版 IE/Edge
-    // 老的 /images/logo.png?v=20260719-unify 保留作为 SVG 矢量备选
+    // 2026-08-06 修复浏览器标签破图:
+    // - favicon.ico 已用 public/images/logo.png (2534x2534 品牌图) 重新生成
+    //   为多尺寸 16/32/48 PNG-based ICO(3726 字节, 替换原损坏的 1088 字节破图)
+    // - apple-touch-icon.png 已用 logo.png 重新生成 180x180(11044 字节, 替换原 1339 字节破图)
+    // - 额外声明 /images/logo.png (512x512) 作为高分辨率 PNG 兜底,
+    //   现代浏览器 tab/PWA 场景优先匹配矢量级清晰度
     icon: [
       { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+      { url: '/images/logo.png', sizes: '512x512', type: 'image/png' },
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
     shortcut: [{ url: '/favicon.ico', type: 'image/x-icon' }],
