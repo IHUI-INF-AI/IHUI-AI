@@ -1,4 +1,18 @@
 #!/bin/sh
+# ─── 0. git 写锁(2026-08-06 立,根治多 agent 并发写损坏) ─────
+# safe-commit.mjs 已持锁(通过 IHUI_GIT_LOCK_UNIT 环境变量传给子进程)则跳过;
+# 直接 git commit(未走 safe-commit)时在此获取锁,整个 post-commit 脚本链串行化。
+# trap EXIT 保证任意退出路径都释放锁。
+if [ -z "${IHUI_GIT_LOCK_UNIT:-}" ]; then
+  ROOT_DIR="$(git rev-parse --show-toplevel)" || exit 1
+  UNIT="post-commit-$$-$(date +%s)"
+  node "$ROOT_DIR/scripts/git-lock.mjs" acquire --unit "$UNIT" >/dev/null 2>&1 || {
+    printf '%s\n' "❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock)" >&2
+    exit 1
+  }
+  trap 'node "$ROOT_DIR/scripts/git-lock.mjs" release --unit "$UNIT" >/dev/null 2>&1' EXIT
+fi
+
 # ─── 1. Git LFS post-commit(原有) ──────────────────────────
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'post-commit' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs post-commit "$@"
