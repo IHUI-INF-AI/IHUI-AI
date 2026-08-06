@@ -31,6 +31,10 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
+// 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
+// mock 返回 status=1(active),避免 401 '用户不存在'
+vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
+
 function createChainableMock() {
   const thenFn = (resolve: (v: unknown) => void) => mockSelectResult().then(resolve)
   const make = (): Record<string, unknown> => {
