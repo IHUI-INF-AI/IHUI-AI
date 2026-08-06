@@ -16,81 +16,13 @@ import {
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { fetchApi } from '@/lib/api'
-import type { ThirdPartyPlatform, ApiResult } from '@ihui/types'
+import type { ThirdPartyPlatform } from '@ihui/types'
 import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
-import { verifyTwoFactorLogin } from '@ihui/api-client'
 import { QrCodeLogin } from './QrCodeLogin'
 import { useTurnstile } from './LoginWithTurnstile'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
-}
-
-/** 登录响应可能携带 2FA 挑战(后端 twoFactorRequired + challengeToken) */
-type LoginResponseWith2fa = LoginResult & {
-  twoFactorRequired?: boolean
-  challengeToken?: string
-}
-
-/**
- * 2FA 验证面板(2026-08-06 立):登录响应 twoFactorRequired 时展示,
- * 收集 TOTP(6 位)或备用码(AAAA-AAAA),Promise 方式把 code 交回登录流程。
- */
-function TwoFactorPanel({
-  onSubmit,
-  onCancel,
-}: {
-  onSubmit: (code: string) => void
-  onCancel: () => void
-}) {
-  const t = useTranslations('auth')
-  const [code, setCode] = React.useState('')
-  const [err, setErr] = React.useState('')
-  const handleSubmit = () => {
-    const v = code.trim()
-    if (v.length < 6) {
-      setErr(t('twoFactorError'))
-      return
-    }
-    onSubmit(v)
-  }
-  return (
-    <div className="space-y-3">
-      <div>
-        <p className="text-sm font-medium text-foreground">{t('twoFactorTitle')}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t('twoFactorHint')}</p>
-      </div>
-      <input
-        value={code}
-        onChange={(e) => {
-          setCode(e.target.value)
-          setErr('')
-        }}
-        placeholder={t('twoFactorPlaceholder')}
-        autoFocus
-        className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-      />
-      {err && <p className="text-xs text-destructive">{err}</p>}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!code.trim()}
-          className="h-9 flex-1 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {t('twoFactorSubmit')}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="h-9 rounded-md border border-border px-4 text-sm text-muted-foreground hover:bg-muted/50"
-        >
-          {t('twoFactorCancel')}
-        </button>
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -105,9 +37,7 @@ function TwoFactorPanel({
  * - 用 ref 捕获最新 token,避免 token 变化导致 apiClient 重建(保持 LoginForm 内部状态稳定)
  * - 未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY 时 token 为 null,body 不含 turnstileToken(降级放行)
  */
-function useWebLoginApiClient(
-  request2faCode: (challengeToken: string) => Promise<string>,
-): LoginApiClient {
+function useWebLoginApiClient(): LoginApiClient {
   const { token: turnstileToken } = useTurnstile()
   const turnstileTokenRef = React.useRef(turnstileToken)
   turnstileTokenRef.current = turnstileToken
@@ -118,49 +48,25 @@ function useWebLoginApiClient(
       if (tk) base.turnstileToken = tk
       return JSON.stringify(base)
     }
-
-    /**
-     * 2026-08-06 立:2FA 挑战拦截 —— 登录响应 twoFactorRequired=true 时,
-     * 弹 2FA 面板收集 TOTP/备用码 → verifyTwoFactorLogin → 返回完整登录结果。
-     * 对共享 LoginForm 完全透明(它只看到最终成功/失败)。
-     */
-    const with2fa = async (
-      p: Promise<ApiResult<LoginResponseWith2fa>>,
-    ): Promise<ApiResult<LoginResult>> => {
-      const res = await p
-      if (res.success && res.data?.twoFactorRequired && res.data.challengeToken) {
-        const code = await request2faCode(res.data.challengeToken)
-        if (!code) return { success: false, error: '2FA 验证已取消' }
-        return verifyTwoFactorLogin(res.data.challengeToken, code)
-      }
-      return res
-    }
-
     return {
       loginByAccount: async (account, password, captcha) => {
         const body: Record<string, string> = { account, password }
         if (captcha) body.captcha = captcha
-        return with2fa(
-          fetchApi<LoginResponseWith2fa>('/api/auth/login', {
-            method: 'POST',
-            body: buildLoginBody(body),
-          }),
-        )
+        return fetchApi<LoginResult>('/api/auth/login', {
+          method: 'POST',
+          body: buildLoginBody(body),
+        })
       },
       loginByEmailCode: async (email, code) =>
-        with2fa(
-          fetchApi<LoginResponseWith2fa>('/api/auth/login/email', {
-            method: 'POST',
-            body: buildLoginBody({ email, code }),
-          }),
-        ),
+        fetchApi<LoginResult>('/api/auth/login/email', {
+          method: 'POST',
+          body: buildLoginBody({ email, code }),
+        }),
       loginBySms: async (phone, code) =>
-        with2fa(
-          fetchApi<LoginResponseWith2fa>('/api/auth/login/sms', {
-            method: 'POST',
-            body: buildLoginBody({ phone, code }),
-          }),
-        ),
+        fetchApi<LoginResult>('/api/auth/login/sms', {
+          method: 'POST',
+          body: buildLoginBody({ phone, code }),
+        }),
       sendEmailCode: async (email) =>
         fetchApi<{ sent: boolean }>('/api/auth/email/code', {
           method: 'POST',
@@ -172,7 +78,7 @@ function useWebLoginApiClient(
           body: JSON.stringify({ phone, scene: 'login' }),
         }),
     }
-  }, [request2faCode])
+  }, [])
 }
 
 /**
@@ -272,29 +178,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const setUser = useAuthStore((s) => s.setUser)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const thirdParty = useThirdPartyConfig()
-
-  // 2026-08-06 立:2FA 登录流程 —— pending2fa 非空时显示验证面板,
-  // request2faCode 返回 Promise,面板提交 code 后 resolve(对登录流程透明)。
-  const [pending2fa, setPending2fa] = React.useState(false)
-  const pending2faResolve = React.useRef<((code: string) => void) | null>(null)
-  const request2faCode = React.useCallback((_challengeToken: string) => {
-    return new Promise<string>((resolve) => {
-      pending2faResolve.current = resolve
-      setPending2fa(true)
-    })
-  }, [])
-  const submit2fa = React.useCallback((code: string) => {
-    setPending2fa(false)
-    pending2faResolve.current?.(code)
-    pending2faResolve.current = null
-  }, [])
-  const cancel2fa = React.useCallback(() => {
-    setPending2fa(false)
-    pending2faResolve.current?.('')
-    pending2faResolve.current = null
-  }, [])
-
-  const apiClient = useWebLoginApiClient(request2faCode)
+  const apiClient = useWebLoginApiClient()
 
   const handleSuccess = React.useCallback(
     async (data: LoginResult) => {
@@ -308,32 +192,22 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   )
 
   return (
-    <div className="relative">
-      <LoginForm
-        t={t}
-        apiClient={apiClient}
-        onSuccess={handleSuccess}
-        thirdParty={thirdParty}
-        showAgreement
-        agreementMode="notice-dialog"
-        onRegister={() => setMode('register')}
-        showForgotPassword
-        onForgotPassword={() => setMode('forgot')}
-        qrComponent={({ platform, refreshKey }) => (
-          <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
-        )}
-        qrPlatforms={QR_PLATFORMS}
-        // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
-        enableCredentialPersistence
-      />
-      {pending2fa && (
-        // 2FA 验证面板覆盖层:登录响应 twoFactorRequired 时弹出
-        <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-background/95 pt-10 backdrop-blur-sm">
-          <div className="w-[320px] rounded-lg border border-border p-5 shadow-lg">
-            <TwoFactorPanel onSubmit={submit2fa} onCancel={cancel2fa} />
-          </div>
-        </div>
+    <LoginForm
+      t={t}
+      apiClient={apiClient}
+      onSuccess={handleSuccess}
+      thirdParty={thirdParty}
+      showAgreement
+      agreementMode="notice-dialog"
+      onRegister={() => setMode('register')}
+      showForgotPassword
+      onForgotPassword={() => setMode('forgot')}
+      qrComponent={({ platform, refreshKey }) => (
+        <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
       )}
-    </div>
+      qrPlatforms={QR_PLATFORMS}
+      // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
+      enableCredentialPersistence
+    />
   )
 }
