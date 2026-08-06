@@ -1198,13 +1198,23 @@ class SubagentDispatchService {
     if (!TERMINAL_STATUSES.has(status)) return
     try {
       const terminalStatus = status === 'preempted' ? 'cancelled' : status
+      // 步骤明细(2026-08-06 增补):completed 时把 runtime.steps 写入 result,
+      // 供 agents 详情页 5 Tab checkpoint 展示各 step 的 agent/耗时/token 用量。
+      const steps = (runtime.steps ?? []).map((s) => ({
+        agent: s.agent,
+        status: s.status,
+        durationMs: s.durationMs,
+        attempt: s.attempt,
+        tokenUsage: s.tokenUsage,
+        error: s.error,
+      }))
       await db
         .update(agentTasks)
         .set({
           status: terminalStatus,
           result:
             status === 'completed' && typeof runtime.dispatch.result === 'string'
-              ? { output: runtime.dispatch.result }
+              ? { output: runtime.dispatch.result, steps }
               : undefined,
           errorMessage:
             (status === 'failed' || status === 'quota_exceeded') &&
