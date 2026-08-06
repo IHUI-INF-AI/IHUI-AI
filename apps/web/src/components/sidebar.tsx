@@ -636,13 +636,13 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         tooltipSide={collapsed ? 'right' : 'top'}
         className="p-0"
         content={
-          <div className="flex w-36 flex-col gap-px p-1">
+          <div className="flex w-36 flex-col gap-px p-2">
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleLocaleChange(lang.code)}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent',
+                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent',
                   locale === lang.code && 'bg-accent font-medium',
                 )}
               >
@@ -658,10 +658,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
               </button>
             ))}
             {/* 2026-08-02 海外 SEO 入口:独立 /en 路由(英文 landing page),区别于 locale 切换 */}
-            <div className="my-1 h-px bg-border" aria-hidden="true" />
+            <div className="my-1.5 h-px bg-border" aria-hidden="true" />
             <Link
               href="/en"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <span className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground">
                 EN

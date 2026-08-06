@@ -33,34 +33,15 @@ interface BiDashboardData {
   sources: BiSource[]
 }
 
-const MOCK: BiDashboardData = {
-  totalRevenue: 86420,
-  totalOrders: 1284,
-  newUsers: 560,
-  activeUsers: 3120,
-  trend: [
-    { date: '07-08', revenue: 4200, orders: 45 },
-    { date: '07-09', revenue: 5300, orders: 58 },
-    { date: '07-10', revenue: 3800, orders: 41 },
-    { date: '07-11', revenue: 6100, orders: 72 },
-    { date: '07-12', revenue: 4800, orders: 55 },
-    { date: '07-13', revenue: 7200, orders: 86 },
-    { date: '07-14', revenue: 8400, orders: 94 },
-  ],
-  categories: [
-    { name: '课程', value: 5420 },
-    { name: '会员', value: 3180 },
-    { name: '直播', value: 2240 },
-    { name: '商品', value: 1680 },
-    { name: '其他', value: 920 },
-  ],
-  sources: [
-    { name: '搜索', value: 4200 },
-    { name: '推荐', value: 3100 },
-    { name: '广告', value: 2200 },
-    { name: '社交', value: 1500 },
-    { name: '其他', value: 820 },
-  ],
+/** 加载失败时的诚实空态(全 0/空数组),避免用假数字冒充真实运营数据 */
+const EMPTY: BiDashboardData = {
+  totalRevenue: 0,
+  totalOrders: 0,
+  newUsers: 0,
+  activeUsers: 0,
+  trend: [],
+  categories: [],
+  sources: [],
 }
 
 const STAT_CARDS = [
@@ -71,15 +52,16 @@ const STAT_CARDS = [
 ]
 
 export default function BiDashboardPage() {
-  const { data, isLoading } = useQuery<BiDashboardData>({
+  const { data, isLoading, error } = useQuery<BiDashboardData>({
     queryKey: ['bi-dashboard'],
     queryFn: async () => {
       const r = await fetchApi<BiDashboardData>('/api/admin/bi-dashboard')
-      return r.success && r.data ? r.data : MOCK
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     staleTime: 60_000,
   })
-  const d = data ?? MOCK
+  const d = data ?? EMPTY
 
   const trendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -148,6 +130,12 @@ export default function BiDashboardPage() {
         <h1 className="text-2xl font-bold">BI 仪表板</h1>
         <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          BI 数据加载失败:{(error as Error).message}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {STAT_CARDS.map((c) => {
