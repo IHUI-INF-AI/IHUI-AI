@@ -3000,3 +3000,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - ✅ **前端体验(d6657fd1e/33317a29b/fb17948b5)**:等待状态实时小字+光道扫光;AI 消息占满宽度(表格右侧留白修复);按钮/时间戳 hover 显隐
 - ✅ **防删库防线(e262c0e97)**:pre-push + pre-commit 删除守门(删除≥500 文件拦截),防止 `git add -A` 误删全仓库(当日事故:远程 main 曾被删空 9005 文件,本地 force push 恢复)
 - ⏳ **GitHub 分支保护(建议)**:无 API token 无法自动配置,需网页操作——Settings→Branches→main→Require PR reviews + 限制推送
+
+## 长期待办闭合(2026-08-07 00:10 ✅,已推送)
+
+- ✅ **web 端登录 2FA 流程(commit 99760d47b)**:后端 2FA 早已实现但前端登录缺流程,开启 2FA 的用户无法登录。已实现:api-client `verifyTwoFactorLogin`(POST /auth/2fa/login-verify,TOTP 6 位或备用码自动识别);LoginApiClient 可选 `request2faCode` 钩子;LoginFormContent 登录拦截 twoFactorRequired → 2FA 验证面板 → 验证后正常登录;i18n 5 语言 6 个新 key。验证:tsc 0 错、i18n parity OK、端点契约 400/401 正确。构建 BUILD_ID=R8K5agnpbPxnXUzZiZvGJ 已上线。
+- ✅ **ai_feed 真实采集**:确认 9 条源中 7 条成功(Verge/HuggingFace/arXiv 等,数据已入库,同步调度 0/12 点运行);openai-blog 与 mistral 官网 RSS 已停用(实测空 feed/解析失败,外部原因)→ 已置 enabled=false,保留 7 健康源。
+- ✅ **generate 中间产物清理**:确认相关文件已不存在(meta/0204_*、scripts/tmp-cur-snapshot.* 均无),待办过时关闭。
