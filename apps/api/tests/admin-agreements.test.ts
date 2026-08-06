@@ -11,6 +11,10 @@ vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-user-id', roleId: 1 }),
 }))
 
+// 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
+// mock 返回 status=1(active),避免 401 '用户不存在'
+vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
+
 vi.mock('../src/db/index.js', () => {
   function createChain(result: unknown[] = [{ id: 'mock-id' }]) {
     const chain: {
