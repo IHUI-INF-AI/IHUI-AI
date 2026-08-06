@@ -719,6 +719,13 @@
     "modelAutoDescription": "自动选择最优模型",
     "modelFree": "免费",
     "modelPointsMultiplier": "积分消耗倍数",
+    "modelTagMemberDiscount": "会员2.5折",
+    "modelTagOfficial": "正式版",
+    "modelTagSubsidy": "专属补贴",
+    "modelLockedHint": "需升级会员才能使用",
+    "modelPopoverMemberTitle": "会员额外 2.5 折",
+    "modelPopoverMemberDesc": "升级付费会员,享受额外 2.5 折,积分消耗速度 {from}x 降至 {to}x",
+    "modelPopoverUpgradeButton": "升级权益",
     "slashCmd": {
       "plan": "切换到规划模式(AI 只制定计划,不执行工具)",
       "act": "切换到执行模式(AI 正常执行工具,默认)",
