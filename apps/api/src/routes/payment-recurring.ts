@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { authenticate } from '../plugins/auth.js'
 import { wechatPayContracts, userVips, plans, orders, wxPayNotifications } from '@ihui/database'
@@ -260,7 +261,8 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           '鉴权后按 ID 查询签约详情(仅限当前用户)。query.refresh=true 时同步拉取微信侧最新状态并回写本地。',
         tags: ['Payment'],
         params: idParamSchema,
-        querystring: z.object({ refresh: z.coerce.boolean().optional() }),
+        // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+        querystring: z.object({ refresh: booleanStringSchemaOptional }),
       }),
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
