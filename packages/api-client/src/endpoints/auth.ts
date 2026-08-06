@@ -121,6 +121,28 @@ export async function loginByWechat(code: string): Promise<ApiResult<LoginResult
   })
 }
 
+/**
+ * 登录 2FA 二次校验 — POST /auth/2fa/login-verify(2026-08-06 立)
+ * 用户启用 2FA 时,/auth/login 返回 { twoFactorRequired:true, challengeToken },
+ * 前端收集 TOTP(6 位)或备用码(AAAA-AAAA)后调用本接口完成登录。
+ * code 为 6 位数字 → token;否则按备用码处理(8 位字母数字,可含连字符)。
+ */
+export async function verifyTwoFactorLogin(
+  challengeToken: string,
+  code: string,
+): Promise<ApiResult<LoginResult>> {
+  const trimmed = code.trim()
+  const isTotp = /^\d{6}$/.test(trimmed)
+  return fetchApi<LoginResult>('/api/auth/2fa/login-verify', {
+    method: 'POST',
+    body: JSON.stringify(
+      isTotp
+        ? { challengeToken, token: trimmed }
+        : { challengeToken, backupCode: trimmed.toUpperCase() },
+    ),
+  })
+}
+
 // =============================================================================
 // 注册 / 登出 / 刷新 / 验证码
 // =============================================================================
