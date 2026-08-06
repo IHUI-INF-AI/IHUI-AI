@@ -134,7 +134,10 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   const isAdmin = (request: FastifyRequest): boolean =>
     (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
 
-  const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+  // P2 修复(2026-08-06):公开文件(图片/附件,前端以 /uploads/<id> 引用)写入
+  // uploads/public —— 静态白名单只暴露该子目录,URL 保持不变;
+  // 私有文件(工作区文件)由 workspace.ts 写入 uploads/private/,不再对外提供。
+  const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
 
   // POST /files/upload/base64 - base64 上传（支持 webp→png 转换）
   server.post(
@@ -381,7 +384,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '无权访问该文件'))
       }
 
-      const filePath = join(UPLOAD_DIR, file.id)
+      // P2 修复(2026-08-06):改用 DB 记录的真实路径(file.path),
+      // 兼容公开(public)与私有(private)两种落盘位置,避免按 UPLOAD_DIR 拼接找不到文件
+      const filePath = file.path
       const markdown = await convertToMarkdown(filePath)
       if (!markdown) {
         return reply.status(422).send(error(422, '不支持的文件类型或转换失败'))

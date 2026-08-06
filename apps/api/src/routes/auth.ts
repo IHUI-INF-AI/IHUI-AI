@@ -31,6 +31,7 @@ import {
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
+import { setAuthCookies, clearAuthCookies } from '../utils/auth-cookies.js'
 import { jscode2session, isWechatMiniConfigured } from '../services/oauth-providers.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
@@ -566,6 +567,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      setAuthCookies(reply, tokens, true)
       return reply.send(
         success({
           ...tokens,
@@ -744,6 +746,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
+      // P2-18:登录成功 → 设置 httpOnly auth cookie(access+refresh 均 httpOnly,
+      // 前端 JS 读不到;请求自动携带,SSR/middleware/cookie 鉴权不受影响)
+      setAuthCookies(reply, tokens, true)
+
       // 登录成功 → upsert 设备指纹到 user_devices 表(从 x-device-fingerprint header 取)
       // 指纹为空时跳过(不阻塞登录);失败仅 log,不影响登录流程
       const fingerprintHeader = request.headers['x-device-fingerprint']
@@ -899,6 +905,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      setAuthCookies(reply, tokens, true)
       return reply.send(
         success({
           ...tokens,
@@ -962,6 +969,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      setAuthCookies(reply, tokens, true)
       return reply.send(
         success({
           ...tokens,
@@ -1037,6 +1045,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId,
       })
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      setAuthCookies(reply, tokens, true)
       return reply.send(
         success({
           ...tokens,
@@ -1160,11 +1169,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const parsed = refreshSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // P2-18:refresh token 来源兼容 —— body.refreshToken 优先(旧前端/API 客户端),
+      // 无则从 httpOnly refresh_token cookie 读(新前端 JS 读不到 cookie,靠自动附带)。
+      const parsedBody = refreshSchema.safeParse(request.body)
+      const bodyToken = parsedBody.success ? parsedBody.data.refreshToken : undefined
+      const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+        ?.refresh_token
+      const token = bodyToken || cookieToken
+      if (!token) {
+        return reply.status(400).send(error(400, 'refreshToken 必填(header/cookie 均缺失)'))
       }
-      const { refreshToken: token } = parsed.data
 
       // 1. 验证 refresh token 签名 + 过期
       let payload: JWTPayload
@@ -1214,6 +1228,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId: payload.familyId,
       })
 
+      // P2-18:刷新成功 → 更新 httpOnly auth cookie(新 refresh token 轮转进 cookie)
+      setAuthCookies(reply, tokens, true)
       return reply.send(success(tokens))
     },
   )
@@ -1285,6 +1301,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (record && !record.revokedAt) {
         await revokeRefreshToken(token)
       }
+
+      // P2-18:登出清除 httpOnly auth cookie(前端 JS 清不掉,必须服务端下发)
+      clearAuthCookies(reply)
 
       return reply.send(success({ revoked: true }))
     },
