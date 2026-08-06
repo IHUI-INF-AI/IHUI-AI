@@ -81,13 +81,12 @@ export default function NewsDetailPage() {
   }, [liked, id])
 
   const onComment = useCallback(() => {
-    Taro.navigateTo({ url: `/pages/news/comment?id=${id}` }).catch(() => {
-      Taro.showToast({
-        title: tt('news.detail.commentSoon', '评论功能即将开放'),
-        icon: 'none',
-      })
+    // /pages/news/comment 未注册,仅保留"即将开放"提示
+    Taro.showToast({
+      title: tt('news.detail.commentSoon', '评论功能即将开放'),
+      icon: 'none',
     })
-  }, [id, tt])
+  }, [tt])
 
   const onShare = useCallback(() => {
     Taro.showShareMenu({ withShareTicket: true })

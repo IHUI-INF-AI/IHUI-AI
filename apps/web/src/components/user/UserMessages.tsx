@@ -37,7 +37,7 @@ export default function UserMessages({
     )
   }
   return (
-    <div className={cn('space-y-2 rounded-xl border bg-card p-2', className)}>
+    <div className={cn('space-y-2 rounded-xl border bg-card p-3', className)}>
       {messages.map((m) => (
         <button
           key={m.id}
