@@ -1999,7 +1999,7 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
 
 
 def _anthropic_streaming_response(
-    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any]
+    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any], request: Request
 ) -> StreamingResponse:
     """构造 Anthropic Messages SSE 流式响应(对齐 Anthropic Messages Streaming)。
 
@@ -2041,6 +2041,10 @@ def _anthropic_streaming_response(
         final_usage: dict[str, Any] = {}
         try:
             async for event in llm_gateway.astream(messages, model=model, **kwargs):
+                # P2 修复(2026-08-06):客户端断开后立即停止消费上游流,
+                # 避免 LLM token 继续生成浪费资源(StreamingResponse 断开取消 + 显式检测双保险)。
+                if await request.is_disconnected():
+                    return
                 event_type = event.get("type", "")
                 if event_type in ("chunk", "message"):
                     text = event.get("content", "")
@@ -2098,7 +2102,7 @@ def _anthropic_streaming_response(
 
 
 def _gemini_streaming_response(
-    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any]
+    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any], request: Request
 ) -> StreamingResponse:
     """构造 Gemini generateContent SSE 流式响应(对齐 Gemini Streaming)。
 
@@ -2111,6 +2115,10 @@ def _gemini_streaming_response(
         final_usage: dict[str, Any] = {}
         try:
             async for event in llm_gateway.astream(messages, model=model, **kwargs):
+                # P2 修复(2026-08-06):客户端断开后立即停止消费上游流,
+                # 避免 LLM token 继续生成浪费资源。
+                if await request.is_disconnected():
+                    return
                 event_type = event.get("type", "")
                 if event_type in ("chunk", "message"):
                     text = event.get("content", "")
@@ -2212,7 +2220,7 @@ async def anthropic_messages_endpoint(request: Request) -> dict[str, Any] | JSON
 
     # streaming 模式:调 llm_gateway.astream() + Anthropic SSE 事件格式输出
     if bool(payload.get("stream", False)):
-        return _anthropic_streaming_response(messages, model, kwargs)
+        return _anthropic_streaming_response(messages, model, kwargs, request)
 
     result = await llm_gateway.complete(messages, model=model, **kwargs)
     if result.get("error"):
@@ -2301,7 +2309,7 @@ async def gemini_generate_content_endpoint(
 
     # streaming 模式:调 llm_gateway.astream() + Gemini SSE 格式输出
     if bool(payload.get("stream", False)):
-        return _gemini_streaming_response(messages, model_name, kwargs)
+        return _gemini_streaming_response(messages, model_name, kwargs, request)
 
     result = await llm_gateway.complete(messages, model=model_name, **kwargs)
     if result.get("error"):
@@ -2378,7 +2386,7 @@ async def gemini_stream_generate_content_endpoint(
     if "topP" in payload.get("generationConfig", {}):
         kwargs["top_p"] = payload["generationConfig"]["topP"]
 
-    return _gemini_streaming_response(messages, model_name, kwargs)
+    return _gemini_streaming_response(messages, model_name, kwargs, request)
 
 
 @router.get("/llm/free-providers", response_model=None)
