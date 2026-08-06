@@ -39,6 +39,40 @@ CONTENT_ENGINE_DIR = SKILLS_ROOT / "content_engine"
 KOUBO_WORKFLOW_DIR = SKILLS_ROOT / "koubo_workflow"
 
 
+# P1 修复(2026-08-06): 允许读取的文件根目录 —— 用户传入的 md/filePath 解析后
+# 必须位于这些目录内,禁止 `..` 穿越 / 绝对路径逃逸读取并外发任意服务器文件。
+def _allowed_file_roots() -> list[Path]:
+    """用户文件允许的根目录:skill 目录 + publish 上传目录。"""
+    roots = [CONTENT_ENGINE_DIR.resolve(), KOUBO_WORKFLOW_DIR.resolve()]
+    upload_raw = settings.publish_upload_dir
+    if upload_raw:
+        roots.append(Path(upload_raw).resolve())
+    else:
+        roots.append((Path.cwd() / ".uploads" / "publish").resolve())
+    return roots
+
+
+def _resolve_allowed_path(raw: str) -> Path:
+    """校验用户传入路径解析后仍位于允许目录内,返回规范化的绝对路径。
+
+    Raises:
+        HTTPException: 路径为空 / 不存在 / 逃逸出允许目录(403)。
+    """
+    if not raw:
+        raise HTTPException(status_code=400, detail="路径不能为空")
+    try:
+        real = Path(raw).expanduser().resolve(strict=False)
+    except Exception:
+        real = Path(os.path.realpath(raw))
+    for root in _allowed_file_roots():
+        if real == root or real.is_relative_to(root):
+            return real
+    raise HTTPException(
+        status_code=403,
+        detail=f"路径不在允许目录内: {raw}",
+    )
+
+
 # ===== Pydantic 模型 =====
 
 class SkillMeta(BaseModel):
@@ -312,8 +346,10 @@ async def invoke_skill(skill_id: str, req: InvokeRequest) -> InvokeResponse:
         title = ctx.get("title", "")
         digest = ctx.get("digest", "")
         if md_path:
+            # P1 修复(2026-08-06): 校验 context 中 mdPath 位于允许目录内,防路径穿越
+            resolved_md = _resolve_allowed_path(str(md_path))
             # 调 publish_pipeline.py --md <path> --title <t> --digest <d> --dry-run
-            args = ["--md", str(md_path)]
+            args = ["--md", str(resolved_md)]
             if title:
                 args += ["--title", title]
             if digest:
@@ -340,10 +376,12 @@ async def invoke_skill(skill_id: str, req: InvokeRequest) -> InvokeResponse:
         file_path = ctx.get("filePath") or ctx.get("file_path")
         date = ctx.get("date", "")
         if file_path:
+            # P1 修复(2026-08-06): 校验 context 中 filePath 位于允许目录内,防路径穿越
+            resolved_file = _resolve_allowed_path(str(file_path))
             # 调 pre_publish_check.py <file>(5 项门禁)
             rc, out, err = await _run_script(
                 KOUBO_WORKFLOW_DIR / "tools" / "pre_publish_check.py",
-                [str(file_path)],
+                [str(resolved_file)],
                 cwd=KOUBO_WORKFLOW_DIR / "tools",
                 timeout_sec=120,
             )
@@ -451,7 +489,8 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
 
     # 已有 md 优先(用户上传/手写)
     if req.mdPath:
-        p = Path(req.mdPath)
+        # P1 修复(2026-08-06): 校验 mdPath 位于允许目录内,防路径穿越读取任意文件
+        p = _resolve_allowed_path(req.mdPath)
         if p.is_file():
             md_path = p
         else:
@@ -492,7 +531,8 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
 @router.post("/wechat/validate")
 async def wechat_validate(req: WechatValidateRequest) -> dict[str, Any]:
     """跑 22 项自检(可读性/传播力/开头钩子满分 + GEO/原创度/AI味/风险)。"""
-    md_path = Path(req.mdPath)
+    # P1 修复(2026-08-06): 校验 mdPath 位于允许目录内,防路径穿越读取任意文件
+    md_path = _resolve_allowed_path(req.mdPath)
     if not md_path.is_file():
         raise HTTPException(status_code=404, detail=f"md not found: {req.mdPath}")
 
@@ -539,7 +579,8 @@ async def _run_inline_python(code: str, args: list[str], cwd: Path, timeout_sec:
 @router.post("/wechat/publish")
 async def wechat_publish(req: WechatPublishRequest) -> dict[str, Any]:
     """推送到微信公众号草稿箱(默认 dry-run,需显式 dryRun=false 才真推)。"""
-    md_path = Path(req.mdPath)
+    # P1 修复(2026-08-06): 校验 mdPath 位于允许目录内,防路径穿越读取任意文件
+    md_path = _resolve_allowed_path(req.mdPath)
     if not md_path.is_file():
         raise HTTPException(status_code=404, detail=f"md not found: {req.mdPath}")
 
@@ -631,7 +672,8 @@ async def koubo_generate_stream(req: KouboGenerateRequest) -> dict[str, Any]:
 @router.post("/koubo/validate")
 async def koubo_validate(req: KouboValidateRequest) -> dict[str, Any]:
     """双门禁验证(pre_publish_check 5 项:歧义/词表/全量/语病/热点覆盖)。"""
-    file_path = Path(req.filePath)
+    # P1 修复(2026-08-06): 校验 filePath 位于允许目录内,防路径穿越读取任意文件
+    file_path = _resolve_allowed_path(req.filePath)
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail=f"file not found: {req.filePath}")
 
