@@ -27,8 +27,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import os
 import re
+import socket
 import tempfile
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
@@ -39,6 +41,56 @@ import httpx
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# P1 修复(2026-08-06): SSRF 防护 —— 用户内容中的外链图片 URL 在服务端下载前
+# 必须通过校验:仅允许 https + host 非内网/保留地址(DNS 解析全部 A 记录均为公网)。
+def _is_private_ipv4(ip: str) -> bool:
+    """判断 IPv4 是否为私网/保留地址(对齐 apps/api llm-verify-key.ts isPrivateIpv4):
+    10/8、172.16/12、192.168/16、127/8、0/8、169.254/16、组播(224/4)等。"""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # 非法 IP 一律视为不安全
+    if addr.version != 4:
+        return True  # 不支持 IPv6 目标
+    return (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_multicast
+        or addr.is_reserved
+        or addr.is_link_local
+        or addr.is_unspecified
+    )
+
+
+def _assert_safe_image_url(url: str) -> None:
+    """校验图片 URL 安全,不满足时抛 ValueError(由调用方降级跳过)。"""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https",):
+        raise ValueError("仅允许 https 协议的图片外链")
+    host = parsed.hostname or ""
+    if not host or ":" in host:
+        raise ValueError("图片 URL host 非法")
+    # IP 字面量:直接校验
+    try:
+        if ipaddress.ip_address(host).version == 4:
+            if _is_private_ipv4(host):
+                raise ValueError(f"图片 URL 不允许指向内网/保留地址: {host}")
+            return
+    except ValueError:
+        pass
+    # 域名:DNS 解析全部 A 记录,任一为私网即拒绝(防 DNS rebinding / 内网探测)
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        raise ValueError(f"图片 URL 域名无法解析: {host}")
+    addresses = {info[4][0] for info in infos if info[0] == socket.AF_INET}
+    if not addresses:
+        raise ValueError(f"图片 URL 无 IPv4 解析记录: {host}")
+    for addr in addresses:
+        if _is_private_ipv4(addr):
+            raise ValueError(f"图片 URL 解析到内网/保留地址,已拒绝: {addr}")
 
 
 # 通用 UA(模拟 Chrome 120,所有 HTTP 上传复用)
@@ -169,6 +221,8 @@ async def download_image(url: str, timeout: float = 30.0) -> Optional[Path]:
         本地文件路径,失败返回 None
     """
     try:
+        # P1 修复(2026-08-06): 下载前校验 URL(https + 非内网),防 SSRF
+        _assert_safe_image_url(url)
         parsed = urlparse(url)
         # 从 URL 提取文件扩展名(默认 .png)
         ext = ".png"
