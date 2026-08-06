@@ -21,6 +21,7 @@ import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
+import type { SwarmData, BackgroundAgent } from '@/components/ai/types'
 import { getAgentPermission } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 
@@ -46,6 +47,48 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
+}
+
+// ---- Agent 详情页运行时数据(5 个 Tab:progress/swarm/checkpoint/plan/background) ----
+// 由后端 GET /api/subagents/by-agent/:agentId/summary 返回,数据源为 agent_tasks 表。
+
+/** 进度步骤(对齐 AgentProgressPanel props) */
+interface RuntimeProgressStep {
+  id: string
+  title: string
+  status: 'pending' | 'running' | 'done' | 'error'
+  detail?: string
+  duration?: number
+}
+
+/** 检查点(对齐 CheckpointHistoryPanel props) */
+interface RuntimeCheckpoint {
+  id: string
+  label: string
+  timestamp: string
+  diff?: string
+}
+
+/** 计划步骤(对齐 PlanReviewPanel props) */
+interface RuntimePlanStep {
+  id: string
+  description: string
+  tools?: string[]
+}
+
+/** 计划(对齐 PlanReviewPanel props) */
+interface RuntimePlan {
+  steps: RuntimePlanStep[]
+  summary?: string
+}
+
+/** 运行时汇总(端点返回结构) */
+interface AgentRuntimeSummary {
+  steps: RuntimeProgressStep[]
+  swarmData: SwarmData | null
+  checkpoints: RuntimeCheckpoint[]
+  plan: RuntimePlan
+  agents: BackgroundAgent[]
 }
 
 const STATUS_KEY: Record<string, string> = {
@@ -95,6 +138,15 @@ export default function AgentDetailPage() {
   const { data: permission, isLoading: permLoading } = useQuery({
     queryKey: ['agents', 'permission', id],
     queryFn: () => getAgentPermission(id),
+    enabled: !!id,
+    retry: false,
+  })
+
+  // Agent 运行时数据(progress/swarm/checkpoint/plan/background 5 个 Tab)。
+  // 请求失败时保持 undefined → 各组件走内置空态,不造假数据。
+  const { data: runtime } = useQuery({
+    queryKey: ['agents', 'runtime', id],
+    queryFn: () => api<AgentRuntimeSummary>(`/api/subagents/by-agent/${id}/summary`),
     enabled: !!id,
     retry: false,
   })
@@ -260,23 +312,23 @@ export default function AgentDetailPage() {
               <TabsTrigger value="runtime">{t('tabRuntime')}</TabsTrigger>
             </TabsList>
             <TabsContent value="progress" className="space-y-4">
-              <AgentProgressPanel steps={[]} />
+              <AgentProgressPanel steps={runtime?.steps ?? []} />
               <TaskListPanel tasks={[]} />
             </TabsContent>
             <TabsContent value="swarm" className="mt-3 space-y-4">
-              <AgentSwarmMonitor swarmId={agent.agentId} swarmData={null} />
+              <AgentSwarmMonitor swarmId={agent.agentId} swarmData={runtime?.swarmData ?? null} />
             </TabsContent>
             <TabsContent value="checkpoint" className="mt-3 space-y-4">
-              <CheckpointHistoryPanel checkpoints={[]} />
+              <CheckpointHistoryPanel checkpoints={runtime?.checkpoints ?? []} />
             </TabsContent>
             <TabsContent value="plan" className="mt-3 space-y-4">
-              <PlanReviewPanel plan={{ steps: [] }} />
+              <PlanReviewPanel plan={runtime?.plan ?? { steps: [] }} />
             </TabsContent>
             <TabsContent value="activity" className="mt-3 space-y-4">
               <SubAgentActivityFeed swarmId={agent.agentId} activities={subAgentActivities} />
             </TabsContent>
             <TabsContent value="background" className="mt-3 space-y-4">
-              <BackgroundAgentsPanel agents={[]} />
+              <BackgroundAgentsPanel agents={runtime?.agents ?? []} />
             </TabsContent>
             <TabsContent value="permission" className="space-y-3">
               <Button variant="outline" size="sm" onClick={() => setPermOpen(true)}>
