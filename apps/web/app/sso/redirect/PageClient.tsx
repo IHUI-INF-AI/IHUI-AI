@@ -3,12 +3,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { decodeUserFromToken, isAuthenticated } from '@/lib/auth-utils'
 import { Loader2 } from 'lucide-react'
 
 /**
  * A 套壳:output:export 不支持 cookies() + await fetch() + redirect() + searchParams: Promise SSR
- * 改为客户端实现:读 document.cookie → 调 API → router.replace
+ * 改为客户端实现:调 API(靠 httpOnly cookie 自动附带)→ router.replace
+ *
+ * P2-18 修复(2026-08-06):auth_token/refresh_token 已改由后端 httpOnly Set-Cookie 管理,
+ * 前端 JS 读不到 cookie,不再读 document.cookie。流程改为:
+ *  1. GET /api/auth/me(cookie 自动附带)确认登录态;
+ *  2. 已登录 → POST /api/auth/sso/code 换一次性 code;
+ *  3. 未登录 → 跳 /sso/login。
  *
  * 安全说明:URL 白名单校验在客户端执行(output:export 限制),
  * 真正的安全边界由 SSO code 生成 API(apps/api)服务端保证。
@@ -41,12 +46,6 @@ function isAllowedRedirect(url: string): boolean {
   }
 }
 
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'))
-  return match && match[1] ? decodeURIComponent(match[1]) : null
-}
-
 export default function SsoRedirectPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -62,32 +61,36 @@ export default function SsoRedirectPageClient() {
       return
     }
 
-    const token = getCookie('auth_token') ?? getCookie('token')
-
-    if (!isAuthenticated(token)) {
-      const loginRedirect = encodeURIComponent(
-        `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`,
-      )
-      router.replace(`/sso/login?redirect=${loginRedirect}`)
-      return
-    }
-
-    const user = decodeUserFromToken(token!)
-    if (!user) {
-      router.replace('/sso/login')
-      return
-    }
-
     let cancelled = false
     void (async () => {
       try {
         const base = detectApiBaseUrl()
+
+        // P2-18:登录态校验改走 /auth/me(httpOnly cookie 自动附带),不再读 document.cookie
+        const meRes = await fetch(`${base}/api/auth/me`, {
+          method: 'GET',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'include',
+        })
+
+        if (!meRes.ok) {
+          // 未登录:跳登录页,登录成功后带回 redirect 继续 SSO 流程
+          const loginRedirect = encodeURIComponent(
+            `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`,
+          )
+          router.replace(`/sso/login?redirect=${loginRedirect}`)
+          return
+        }
+
+        // P2-18:不拼 Bearer header,靠 httpOnly cookie 认证;
+        // 状态变更方法走 cookie 认证需 X-Requested-With 满足后端 CSRF 校验
         const resp = await fetch(`${base}/api/auth/sso/code`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            'X-Requested-With': 'XMLHttpRequest',
           },
+          credentials: 'include',
           body: JSON.stringify({ clientId, redirectUri: targetUrl }),
         })
 

@@ -97,7 +97,7 @@ export function HomeComparison() {
                   key={n}
                   as="tr"
                   delay={0.12 + 0.05 * (i + 1)}
-                  className="group/row relative border-t border-border/50 transition-colors duration-200 hover:bg-primary/3"
+                  className="group/row relative transition-colors duration-200 hover:bg-primary/3"
                 >
                   {/* hover 左侧 accent bar */}
                   <td className="relative px-3 py-3 font-medium min-[640px]:px-4 min-[640px]:py-3.5">

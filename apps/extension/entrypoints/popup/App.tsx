@@ -90,15 +90,16 @@ export default function App() {
     setUser(null)
   }
 
-  const openSidePanel = async (route: string = '/chat') => {
+  const openSidePanel = async (route?: string) => {
     try {
       const res = await sendMessage<{ opened: boolean }>({
         type: 'sidePanel.open',
         payload: { tabId: activeTab?.tabId },
         requestId: `sp-${Date.now()}`,
       })
-      if (res?.opened && route !== '/chat') {
-        // 写入待跳转路由(sidepanel 启动时检测)
+      // 指定了非默认路由才写入待跳转路由(sidepanel 启动时检测);
+      // 不传 route 时保留 sidepanel 当前路由
+      if (res?.opened && route && route !== '/chat') {
         await chrome.storage.session?.set({ [PENDING_ROUTE_STORAGE_KEY]: route })
       }
     } catch (err) {
@@ -196,7 +197,7 @@ export default function App() {
           <QuickActionButton
             label={t('popup.openSidePanel')}
             icon="📌"
-            onClick={() => openSidePanel('/chat')}
+            onClick={() => openSidePanel()}
           />
           <QuickActionButton
             label={t('nav.vocabulary')}

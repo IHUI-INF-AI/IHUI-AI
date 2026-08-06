@@ -2,7 +2,7 @@
  * 国安级审计日志 Fastify 全局插件。
  *
  * 与现有 plugins/audit.ts(仅记录写操作 + 无防篡改)互补:
- * - 本插件记录所有请求(GET 10% 采样,非 GET 100%)
+ * - 本插件记录所有请求(GET 默认 100% 采样,非 GET 100%;可设 AUDIT_LOG_GET_SAMPLE_RATE 调低)
  * - 自动分类 action(auth.login / user.create / data.read / data.write / admin.op 等)
  * - 敏感字段脱敏(password/token/secret/apiKey → ***REDACTED***)
  * - UUID 路径参数截断(前 8 位 + ...)
@@ -34,8 +34,10 @@ const REDACTED = '***REDACTED***'
 /** 跳过记录的健康检查路径(精确匹配 url path 部分)。 */
 const SKIP_PATHS = new Set(['/api/health', '/api/ready'])
 
-/** GET 请求采样率(0-1)。 */
-const GET_SAMPLE_RATE = 0.1
+// P2 修复(2026-08-06):GET 请求采样率默认 0.1(仅 10% GET 有审计记录)→ 1.0(全量)。
+// 审计日志要求完整留痕,原默认 90% GET 审计事件缺失属合规盲区。
+// 需要降量时可设 AUDIT_LOG_GET_SAMPLE_RATE(0~1)显式调低,钳制到 [0,1]。
+const GET_SAMPLE_RATE = Math.min(Math.max(Number(process.env.AUDIT_LOG_GET_SAMPLE_RATE ?? '1'), 0), 1)
 
 declare module 'fastify' {
   interface FastifyRequest {

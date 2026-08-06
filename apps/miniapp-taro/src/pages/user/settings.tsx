@@ -121,7 +121,7 @@ export default function Settings() {
             <Text className="text-[28rpx] text-foreground flex-1">{tt('setting.emailBinding', '邮箱绑定')}</Text>
             <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
           </View>
-          <View className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted" onClick={() => navigate('/pages/account-cancel/index/index')}>
+          <View className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted" onClick={() => navigate('/pages/account-cancel/index')}>
             <Text className="text-[28rpx] text-foreground flex-1">{tt('setting.accountCancel', '账号注销')}</Text>
             <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
           </View>
