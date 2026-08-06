@@ -19,7 +19,7 @@ export default function ModelsPageClient() {
   const searchParams = useSearchParams()
   const providerParam = searchParams.get('provider')
 
-  const { data: MODELS = [] } = useQuery({
+  const { data: MODELS = [], isError } = useQuery({
     queryKey: ['models'],
     queryFn: fetchModels,
     staleTime: 5 * 60 * 1000,
@@ -42,6 +42,11 @@ export default function ModelsPageClient() {
   return (
     <div className="space-y-4">
       <BackButton />
+      {isError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          模型列表加载失败,请稍后重试
+        </div>
+      )}
       <ModelsHeader
         total={total}
         freeCount={freeCount}

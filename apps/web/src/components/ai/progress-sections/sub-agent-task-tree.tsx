@@ -250,7 +250,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left transition-colors hover:bg-accent/30"
+        className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left transition-colors hover:bg-accent/30"
       >
         <ChevronRight
           className={cn(
