@@ -2810,9 +2810,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ] macOS `.dmg` 包构建(需 macOS 环境)
 - [ ] Linux `.deb` / `.AppImage` 包构建(需 Linux 环境)
 
-### admin 后台(待开发)
+### admin 后台(已完成)
 
-- [ ] admin 后台下载量统计展示页(GET /api/downloads/stats 已实现,展示页待开发)
+- [x] ✅(2026-08-06) admin 后台下载量统计展示页 — `/admin/downloads`(GET /api/downloads/stats),Card 概览 + 趋势图 + 平台分布 + 时间筛选,已上线(commit 22e98ef26,browser 自验通过)
 
 ---
 
