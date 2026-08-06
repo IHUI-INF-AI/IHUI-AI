@@ -338,11 +338,16 @@ _AUTO_TIER_HINTS: list[tuple[tuple[str, ...], int]] = [
       "gemma", "llama-3.1-8b", "llama-3.2-3b"), 1),
 ]
 
-# zero_cost provider 前缀(免费模型,无 key 即可调用)
+# zero_cost provider 前缀(免费模型,无 key 即可调用,且 ping 通过)
+# 2026-08-06 修复:移除 LOCAL provider(ollama/lmstudio/llamacpp)——本地服务可用性
+# model_availability 无法准确判定(is_model_available 对 LOCAL 直接返回 True,仅 UI 显示用),
+# auto 路由选了会 MODEL_NOT_CONFIGURED。LOCAL 模型用户可手动选,auto 优先 zero_cost + 已配 key。
 _AUTO_FREE_PREFIXES = (
     "@cf/", "pollinations/", "llm7/", "aihorde/", "opencode/",
-    "ollama/", "lmstudio/", "llamacpp/",
 )
+# LOCAL provider 前缀(本地 LLM):is_model_available 直接返回 True,但本地服务未必在跑,
+# auto 路由需排除,避免选了不可用模型(详见 _resolve_auto_model available 过滤)。
+_LOCAL_PREFIXES = ("ollama/", "lmstudio/", "llamacpp/", "vllm/")
 
 
 def _infer_tier_from_model_id(model_id: str) -> int:
@@ -393,8 +398,15 @@ async def _resolve_auto_model(
             except Exception as e:
                 logger.warning("[auto-route] 读取 default_models.json 失败: %s", e)
 
-        # 过滤:只保留 model_availability 判定为可用的
-        available = [m for m in all_models if model_availability.is_model_available(m["id"])]
+        # 过滤:只保留 model_availability 判定为可用的,且排除 LOCAL provider
+        # (ollama/lmstudio/llamacpp/vllm):is_model_available 对 LOCAL 直接返回 True(UI 显示用),
+        # 但本地服务未必在跑,auto 选了会 MODEL_NOT_CONFIGURED。LOCAL 模型用户可手动选。
+        available = [
+            m
+            for m in all_models
+            if model_availability.is_model_available(m["id"])
+            and not any(m["id"].startswith(p) for p in _LOCAL_PREFIXES)
+        ]
         if not available:
             logger.info("[auto-route] 无可用模型,降级到 settings.litellm_model=%r", fallback)
             return fallback

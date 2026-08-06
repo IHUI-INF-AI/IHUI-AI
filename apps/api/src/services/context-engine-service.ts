@@ -526,9 +526,10 @@ class ContextEngineService {
    *
    * 降级:ai-service 不可用时返回内置默认值(与 ai-service 端常量同步)。
    */
-  async getSources(): Promise<ContextSourcesResult> {
+  async getSources(userId = ''): Promise<ContextSourcesResult> {
     try {
-      const resp = await aiServiceFetch(null, '/api/context/sources', {
+      const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      const resp = await aiServiceFetch(null, `/api/context/sources${qs}`, {
         method: 'GET',
         signal: AbortSignal.timeout(5_000),
       })
@@ -582,6 +583,34 @@ class ContextEngineService {
       }
     }
   }
+
+  /**
+   * 持久化用户上下文源偏好(转发 ai-service PUT /api/context/sources)。
+   * 2026-08-06 修复:补 userId query 参数——ai-service 端点(user_id: str = "")
+   * 缺失时返回 400,此前转发未接线导致 context 页 toggle/预算持久化一直失败
+   * (PROJECT_PLAN 遗留项"context 页 toggle/预算持久化"根因)。
+   */
+  async updateSources(
+    userId: string,
+    updates: Array<{ type: string; enabled?: boolean; budgetPercent?: number }>,
+  ): Promise<{ saved: number }> {
+    const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+    const resp = await aiServiceFetch(null, `/api/context/sources${qs}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!resp.ok) {
+      throw new Error(`ai-service /api/context/sources PUT HTTP ${resp.status}`)
+    }
+    const json = (await resp.json()) as { code: number; message?: string; data?: { saved?: number } }
+    if (json.code !== 0) {
+      throw new Error(json.message || '保存上下文源偏好失败')
+    }
+    return { saved: json.data?.saved ?? updates.length }
+  }
+
 
   /** 降级:仅用 @ 提及内容拼接 enrichedContext(无 RAG 检索) */
   private _fallbackEnrich(

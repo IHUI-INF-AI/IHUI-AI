@@ -4,6 +4,8 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useQuery } from '@tanstack/react-query'
+import { fetchProvidersV2 } from '../../settings/llm/helpers-v2'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Settings } from 'lucide-react'
 
@@ -24,9 +26,31 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const MODELS = [
-  { value: 'gpt-4', label: 'GPT-4' },
+// 用户已配置的模型列表(settings/llm v2-providers),与默认值兜底合并去重
+function useConfiguredModels() {
+  const { data } = useQuery({
+    queryKey: ['v2-providers'],
+    queryFn: () => fetchProvidersV2(),
+    staleTime: 60_000,
+  })
+  return React.useMemo(() => {
+    const configured = (data?.groups ?? [])
+      .flatMap((g) => g.providers)
+      .flatMap((p) => (p.models ?? []).filter((m) => m.enabled))
+      .map((m) => ({ value: m.modelId, label: m.displayName ?? m.modelId }))
+    const seen = new Set<string>()
+    return [...configured, ...FALLBACK_MODELS].filter((m) => {
+      if (seen.has(m.value)) return false
+      seen.add(m.value)
+      return true
+    })
+  }, [data])
+}
+
+/** 内置兜底模型(用户未配置 LLM 或配置加载失败时使用) */
+const FALLBACK_MODELS = [
   { value: 'gpt-4o', label: 'GPT-4o' },
+  { value: 'gpt-4', label: 'GPT-4' },
   { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
   { value: 'claude-3-opus', label: 'Claude 3 Opus' },
   { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
@@ -35,6 +59,7 @@ const MODELS = [
 export default function ChatSettingsPage() {
   const router = useRouter()
   const t = useTranslations('chatSettingsPage')
+  const MODELS = useConfiguredModels()
 
   const [form, setForm] = React.useState<ChatSettings>({
     model: 'gpt-4o',

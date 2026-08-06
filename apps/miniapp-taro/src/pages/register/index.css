@@ -96,7 +96,7 @@
   width: 532rpx;
   height: 79rpx;
   margin-top: 30rpx;
-  border-radius: 25rpx;
+  border-radius: 12rpx;
   background: conic-gradient(from 180deg at 50% 50%, #CCDAF4 -8deg, #E6CBF9 0deg, #CCDAF4 352deg, #E6CBF9 360deg);
   position: relative;
 }
@@ -109,7 +109,7 @@
   width: 100%;
   height: 100%;
   background: #fff;
-  border-radius: 25rpx;
+  border-radius: 12rpx;
   display: flex;
   align-items: center;
   box-shadow: 0 0 6rpx 0 rgba(0, 0, 0, 0.3);
