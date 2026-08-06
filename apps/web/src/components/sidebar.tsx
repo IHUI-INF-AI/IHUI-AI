@@ -594,13 +594,15 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     createdAt: n.createdAt,
   }))
 
-  // 按钮统一 h-[26px] w-[26px] + svg 14×14 (跟 web 端顶栏 Plus / X / Min 14px 图标一致):
+  // 按钮统一 h-[26px] w-[26px] + svg 18×18 (2026-08-06 立,用户反馈 14px 太小):
   // - 130px 宽侧边栏放不下 4 个 36×36 按钮(需 144+px),保留 26×26 紧凑布局
   // - 改用 TOPBAR_BTN_BASE 共享 bg-card + hover:bg-accent + text-foreground/80 样式,
   //   跟 web 端顶栏按钮视觉统一(原来用 hover:bg-accent/50 50% 不透明度,亮色下 88% L
   //   跟背景 96% L 差距仅 8% 视觉对比弱;改用 bg-accent 后 88% L 对比明显)
-  // - 移除原 [&_svg]:size-5 (20px) 覆盖,改用 [&>svg]:h-3.5 [&>svg]:w-3.5 (14px) 强制统一,
-  //   Flag(原来 20px)现在跟其他 3 个按钮(原本就 14px)完全一致
+  // - 2026-08-06:svg 14px → 18px,用户反馈图标太小。
+  //   ⚠️ 必须用 [&>svg]:!h-[18px] [&>svg]:!w-[18px] 覆盖 TOPBAR_BTN_BASE 内置的
+  //   [&>svg]:!h-3.5 [&>svg]:!w-3.5(14px !important)—— 同为 !important,后写胜出
+  //   (tailwind-merge 识别同 group,后写覆盖前写)。
   // 2026-07-31 立:用户反馈"底部按钮跟 web 端不一致,为什么要单独配置图标"
   // 2026-08-01 立:用户要求这4个工具栏按钮(语言/下载/消息/主题)默认无背景容器色,
   // 用 bg-transparent 覆盖 TOPBAR_BTN_BASE 的 bg-card(tailwind-merge 后写胜出),
@@ -608,7 +610,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const btnClass = cn(
     TOPBAR_BTN_BASE,
     'h-[26px] w-[26px] p-0 bg-transparent',
-    '[&>svg]:h-3.5 [&>svg]:w-3.5',
+    '[&>svg]:!h-[18px] [&>svg]:!w-[18px]',
   )
 
   return (
@@ -675,8 +677,9 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           aria-label={t('language')}
         >
           {/* 2026-07-31 v3: 触发器改为 lucide Flag(通用旗帜),用户要求"类似国旗"的图标;
-              下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)不动;btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
-          <Flag />
+              下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)不动;
+              2026-08-06:svg 显式 18×18,用户反馈图标太小(原依赖 Button 内置 size-4=16px 偏小)。 */}
+          <Flag className="h-[18px] w-[18px]" />
         </Button>
       </Popover>
 
@@ -793,7 +796,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         }
       >
         <Button variant="ghost" size="icon" className={btnClass} aria-label={t('downloadClient')}>
-          <Download className="h-3.5 w-3.5" />
+          <Download className="h-[18px] w-[18px]" />
         </Button>
       </Popover>
 
@@ -815,7 +818,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           className={cn(btnClass, 'relative')}
           aria-label={t('messages')}
         >
-          <Bell className="h-3.5 w-3.5" />
+          <Bell className="h-[18px] w-[18px]" />
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-medium text-white">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -836,7 +839,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           onClick={handleToggleTheme}
           aria-label={isDark ? tt('lightMode') : tt('darkMode')}
         >
-          {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
         </Button>
       </Tooltip>
     </div>
