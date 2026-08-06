@@ -225,7 +225,10 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      // 2026-08-06 修复:必须 return reply,否则 preHandler 未抛错/未返回 reply 时
+      // Fastify 会继续执行 handler,request.userId 为 undefined,
+      // 导致 DrizzleQueryError UNDEFINED_VALUE(owner_uuid = $1 传 undefined)。
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
     }
   })
 
