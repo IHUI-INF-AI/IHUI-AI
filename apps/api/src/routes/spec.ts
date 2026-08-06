@@ -455,50 +455,271 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 以下 7 个端点为前端 spec-panel.tsx 已调用的 spec 高阶能力,后端 spec-service
-  // 尚未实现。补 501 stub 防止 404,并通过守门脚本第 8 项"前端↔后端路由一致性"。
-  // TODO: 待 spec-service 实装后逐个替换为真实业务逻辑(实装需用户确认,AGENTS.md §24)。
+  // 2026-08-06 实装:7 个 spec 高阶能力端点(本地 FS,不依赖 ai-service)
+  // 前端 spec-panel.tsx 已调用,实装后返回真实业务响应(不再 501)。
+  // 持久化路径:.trae-cn/specs/{branches/,backups/,<hash>.md}
   // ===========================================================================
+
+  // POST /spec/full-pipeline — 全流程流水线(apply_spec → apply_patch → typecheck → test → commit)
+  const specFullPipelineSchema = z.object({
+    scope: specScopeSchema.default({ type: 'workspace' }),
+    workspacePath: z.string().min(1),
+    newSpec: z.string().min(1),
+    autoCommit: z.boolean().default(false),
+  })
+
   server.post('/spec/full-pipeline', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /full-pipeline 尚未实装'))
+
+    const parsed = specFullPipelineSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.runFullPipeline(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `流水线执行失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/pipeline-rollback — 按 backupDir 回滚
+  const specPipelineRollbackSchema = z.object({
+    workspacePath: z.string().min(1),
+    backupDir: z.string().min(1),
   })
 
   server.post('/spec/pipeline-rollback', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /pipeline-rollback 尚未实装'))
+
+    const parsed = specPipelineRollbackSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.rollbackPipeline(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `回滚失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/impact-analysis — LLM 评估拟修改内容风险(本地静态分析降级)
+  const specImpactAnalysisSchema = z.object({
+    scope: specScopeSchema.default({ type: 'workspace' }),
+    workspacePath: z.string().min(1),
+    proposedChanges: z.string().min(1),
   })
 
   server.post('/spec/impact-analysis', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /impact-analysis 尚未实装'))
+
+    const parsed = specImpactAnalysisSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.analyzeImpact(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `影响分析失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/branch — 从当前 spec 派生分支
+  const specBranchCreateSchema = z.object({
+    scope: specScopeSchema.default({ type: 'workspace' }),
+    workspacePath: z.string().min(1),
+    branchName: z.string().min(1),
+    baseVersion: z.string().default('latest'),
   })
 
   server.post('/spec/branch', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /branch 尚未实装'))
+
+    const parsed = specBranchCreateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.createBranch(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `分支创建失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/branch/merge — 3-way merge + LLM 冲突解决(本地简化实装)
+  const specBranchMergeSchema = z.object({
+    scope: specScopeSchema.default({ type: 'workspace' }),
+    workspacePath: z.string().min(1),
+    branchName: z.string().min(1),
   })
 
   server.post('/spec/branch/merge', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /branch/merge 尚未实装'))
+
+    const parsed = specBranchMergeSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.mergeBranch(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `合并失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/branch/abandon — 废弃分支
+  const specBranchAbandonSchema = z.object({
+    scope: specScopeSchema.default({ type: 'workspace' }),
+    workspacePath: z.string().min(1),
+    branchName: z.string().min(1),
   })
 
   server.post('/spec/branch/abandon', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /branch/abandon 尚未实装'))
+
+    const parsed = specBranchAbandonSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.abandonBranch(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `废弃失败: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /spec/generate-from-requirement — 从需求描述智能生成 spec 草稿
+  const specGenerateFromRequirementSchema = z.object({
+    workspacePath: z.string().min(1),
+    requirement: z.string().min(1),
+    format: z.enum(['text', 'markdown', 'image_description']).default('text'),
   })
 
   server.post('/spec/generate-from-requirement', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send(error(501, '未实装:spec /generate-from-requirement 尚未实装'))
+
+    const parsed = specGenerateFromRequirementSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const data = await specService.generateFromRequirement(parsed.data)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `智能生成失败: ${(e as Error).message}`))
+    }
+  })
+
+  // ===========================================================================
+  // 2026-08-06 实装(第二轮):前端 spec-panel.tsx 已调用的 3 个 GET 端点
+  // 上一轮实装 7 个 501 端点时遗漏,本次补齐,确保前端版本树/流水线刷新可用。
+  // ===========================================================================
+
+  // GET /spec/branches — 版本树:分支列表
+  const specBranchesQuerySchema = z.object({
+    workspacePath: z.string().min(1),
+    scopeType: z.enum(['file', 'dir', 'workspace']).default('workspace'),
+    scopePath: z.string().optional(),
+  })
+
+  server.get('/spec/branches', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = specBranchesQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const { workspacePath, scopeType, scopePath } = parsed.data
+      const data = await specService.listBranches(workspacePath, {
+        type: scopeType,
+        path: scopePath,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `分支列表获取失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /spec/branch/diff — 版本树:查看分支 diff
+  const specBranchDiffQuerySchema = z.object({
+    workspacePath: z.string().min(1),
+    scopeType: z.enum(['file', 'dir', 'workspace']).default('workspace'),
+    scopePath: z.string().optional(),
+    branchName: z.string().min(1),
+  })
+
+  server.get('/spec/branch/diff', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = specBranchDiffQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const { workspacePath, scopeType, scopePath, branchName } = parsed.data
+      const data = await specService.diffBranch({
+        workspacePath,
+        scope: { type: scopeType, path: scopePath },
+        branchName,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `分支 diff 获取失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /spec/pipeline-status — 全流程:刷新流水线状态
+  const specPipelineStatusQuerySchema = z.object({
+    workspacePath: z.string().min(1),
+    scopeType: z.enum(['file', 'dir', 'workspace']).default('workspace'),
+    scopePath: z.string().optional(),
+    pipelineId: z.string().min(1),
+  })
+
+  server.get('/spec/pipeline-status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = specPipelineStatusQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const { workspacePath, scopeType, scopePath, pipelineId } = parsed.data
+      const data = await specService.getPipelineStatus({
+        workspacePath,
+        scope: { type: scopeType, path: scopePath },
+        pipelineId,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, `流水线状态获取失败: ${(e as Error).message}`))
+    }
   })
 }
 
