@@ -151,7 +151,7 @@ export default function AiGroup() {
                         {name || t('aiGroup.agent')}
                       </Text>
                       {isVip ? (
-                        // TODO: custom color: #d97706 VIP 品牌深金色,无对应 token,保留原值
+                        // 保留:#d97706 VIP 品牌深金色;tokens.css 业务品牌色(--color-vip-*)被 sync-design-tokens.mjs filterTokens 跳过,不同步到 app.css,小程序端无法 var() 引用,保留原值
                         <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
                           VIP
                         </Text>
