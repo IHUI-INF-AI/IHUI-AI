@@ -66,3 +66,75 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     isOfficial: true,
   },
 ]
+
+/**
+ * 演示档位模型(2026-08-06 立,对齐 workbuddy 风格的 5 档展示)
+ *
+ * 设计目的:
+ *   - 当前项目仅配置 stepfun(plan) + cloudflare(free) 两个 provider,真实模型积分倍数
+ *     集中在 0.05x / 免费 档,无法在 UI 上展示 0.12x(标准) / 0.40x(高级) /
+ *     0.77x(旗舰) / 1.65x(锁定) 4 个档位的真实样式。
+ *   - 为让用户**第一眼就能看到完整的 5 档积分展示 + 徽章 + 锁定**,
+ *     新增本演示列表:每个档位 1-2 个 demo 模型,默认 locked=true(明示"需升级")。
+ *   - model-selector 合并 API + FALLBACK + DEMO 三方,真模型优先(同 id 时取真实数据),
+ *     demo 仅作"档位展示"补充,不影响实际计费。
+ *   - demo 模型的 value 用 `tier-demo/` 前缀 + 后端不存在的 id 防止误用:
+ *     ① id 一眼能看出是 demo;② 真正下发到后端会被拒;③ 不污染后端 /llm/models。
+ */
+export const DEMO_TIER_MODELS: FallbackModel[] = [
+  // === Tier 0:免费(zero_cost / 本地)===
+  {
+    value: 'tier-demo/ollama-llama3-8b',
+    label: 'Llama 3 8B (本地 Ollama)',
+    vendor: 'ollama',
+    pointsMultiplier: 0,
+    isOfficial: true,
+  },
+  // === Tier 1:经济(0.05x)===
+  {
+    value: 'tier-demo/gemini-2.0-flash-lite',
+    label: 'Gemini 2.0 Flash Lite',
+    vendor: 'gemini',
+    pointsMultiplier: 0.05,
+    isOfficial: true,
+  },
+  // === Tier 2:标准(0.12x)+ 会员2.5折 徽章 ===
+  {
+    value: 'tier-demo/step-2.1-code',
+    label: 'Step 2.1 Code',
+    vendor: 'stepfun',
+    pointsMultiplier: 0.12,
+    memberDiscountEligible: true,
+  },
+  // === Tier 3:高级(0.40x)+ 专属补贴 徽章(GLM-5.2 经典补贴案例)===
+  {
+    value: 'tier-demo/glm-5.2',
+    label: 'GLM-5.2',
+    vendor: 'zhipu',
+    pointsMultiplier: 0.4,
+    subsidy: true,
+  },
+  // === Tier 4:旗舰(0.77x)+ 会员2.5折 ===
+  {
+    value: 'tier-demo/step-2.1-pro',
+    label: 'Step 2.1 Pro',
+    vendor: 'stepfun',
+    pointsMultiplier: 0.77,
+    memberDiscountEligible: true,
+  },
+  // === Tier 5:超旗舰(1.65x 锁定)===
+  {
+    value: 'tier-demo/kimi-k3',
+    label: 'Kimi K3',
+    vendor: 'moonshot',
+    pointsMultiplier: 1.65,
+    locked: true,
+  },
+  {
+    value: 'tier-demo/gpt-5',
+    label: 'GPT-5',
+    vendor: 'openai',
+    pointsMultiplier: 1.65,
+    locked: true,
+  },
+]
