@@ -176,7 +176,7 @@ export default async function AiEduPage() {
               </thead>
               <tbody>
                 {toolchain.map((t) => (
-                  <tr key={t.name} className="border-t transition-colors hover:bg-muted/30">
+                  <tr key={t.name} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{t.name}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{t.purpose}</td>
                   </tr>
