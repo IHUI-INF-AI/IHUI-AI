@@ -3,8 +3,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarCheck, LogIn, UserCircle2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { fetchApi } from '@/lib/api'
@@ -19,9 +20,9 @@ function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
 
 export function MemberCard() {
   const t = useTranslations('home.memberCard')
+  const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const [checkedIn, setCheckedIn] = React.useState(false)
 
   const { data: stats } = useQuery({
     queryKey: ['home', 'user-stats'],
@@ -37,24 +38,31 @@ export function MemberCard() {
     retry: false,
   })
 
-  React.useEffect(() => {
-    if (!isAuthenticated) return
-    let cancelled = false
-    fetchApi<{ signedIn: boolean }>('/api/user/check-in/status')
-      .then((r) => {
-        if (!cancelled && r.success && r.data) setCheckedIn(r.data.signedIn)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [isAuthenticated])
+  // 签到状态统一走 react-query,与 stats/wallet 同缓存源,避免独立 fetch 不同步
+  const { data: checkInStatus } = useQuery({
+    queryKey: ['home', 'check-in-status'],
+    queryFn: async () => {
+      const r = await fetchApi<{ signedIn: boolean }>('/api/user/check-in/status')
+      return r.success && r.data ? r.data.signedIn : false
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  })
+  const checkedIn = checkInStatus ?? false
 
-  const handleCheckIn = async () => {
-    if (checkedIn) return
-    const r = await fetchApi('/api/user/check-in', { method: 'POST' })
-    if (r.success) setCheckedIn(true)
-  }
+  const checkInMut = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{ signedIn: boolean }>('/api/user/check-in', { method: 'POST' })
+      if (!r.success) throw new Error(r.error)
+      return r.data?.signedIn ?? true
+    },
+    onSuccess: (signedIn) => {
+      qc.setQueryData(['home', 'check-in-status'], signedIn)
+      void qc.invalidateQueries({ queryKey: ['home', 'user-stats'] })
+      toast.success(t('checkInSuccess'))
+    },
+    onError: (e: Error) => toast.error(t('checkInFailed'), { description: e.message }),
+  })
 
   const statItems = [
     { label: t('points'), value: stats?.points ?? 0, href: '/settings' },
@@ -86,7 +94,7 @@ export function MemberCard() {
                 {user?.nickname ?? t('defaultUser')}
               </Link>
               <button
-                onClick={handleCheckIn}
+                onClick={() => checkInMut.mutate()}
                 disabled={checkedIn}
                 className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-xs transition-colors ${
                   checkedIn
