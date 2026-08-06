@@ -295,6 +295,59 @@ export default function DownloadsPage() {
           </div>
         </>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{t('pendingTitle')}</CardTitle>
+          <p className="text-xs text-muted-foreground">{t('pendingDesc')}</p>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="pb-2 font-medium">{t('platform')}</th>
+                <th className="pb-2 font-medium">{t('pendingField')}</th>
+                <th className="pb-2 font-medium">{t('pendingStatus')}</th>
+                <th className="pb-2 font-medium">{t('pendingGuide')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PENDING_PLATFORMS.map((p) => {
+                const hasAssets = PLATFORM_META[p.platformKey].assets.length > 0
+                return (
+                  <tr key={p.field}>
+                    <td className="py-1.5 pr-3 font-medium">{t(p.labelKey)}</td>
+                    <td className="py-1.5 pr-3">
+                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{p.field}</code>
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {p.value ? (
+                        <span className="rounded bg-emerald-600/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600">
+                          {t('pendingConnected')}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                          {t('pendingNotConnected')}
+                        </span>
+                      )}
+                      {hasAssets && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({PLATFORM_META[p.platformKey].assets.length})
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 text-xs text-muted-foreground">{t(p.guideKey)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t('pendingConfigFile')}:{' '}
+            <code className="rounded bg-muted px-1.5 py-0.5">apps/web/src/config/downloads.config.ts</code>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
