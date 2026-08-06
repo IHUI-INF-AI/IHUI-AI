@@ -12,6 +12,7 @@ import logging
 import os
 from collections.abc import AsyncIterator as AsyncIteratorType
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Optional, TYPE_CHECKING, cast
 
 import asyncpg
@@ -303,6 +304,159 @@ def _model_to_provider_code(model: str) -> str:
         if m.startswith(prefix):
             return code
     return "openai"
+
+
+# ============================================================================
+# 跨厂商自动路由(2026-08-06 立,用户反馈"应该是自动切换所有可使用的模型")
+# ============================================================================
+# 触发条件:model == 'auto' 或 model 为空
+# 策略:从 model_availability 拿全厂商可用模型清单,按 tier 优先级选择
+#   - tier 3(0.12x 标准)→ tier 1(0.05x 经济)→ tier 10(0.40x 高级)→ tier 30(0.77x 旗舰)→ free
+#   - 优先 zero_cost / LOCAL(免费),其次 cheap plan(stepfun/agnes),最后按需升级
+#   - tool calling 场景:有 tools 参数时优先选支持 function calling 的模型
+# 兜底:无可用模型时回退 settings.litellm_model
+# ============================================================================
+
+# 模型名关键词 → 推断该模型是否支持 function calling
+_TOOL_CALLING_KEYWORDS = (
+    "gpt-", "o1", "o3", "claude-3", "claude-3.5", "claude-3.7", "claude-sonnet-4",
+    "gemini-1.5", "gemini-2", "qwen2", "qwen3", "deepseek", "glm-4", "kimi",
+    "step-2", "step-3", "mistral", "llama-3.1", "llama-3.2", "llama-3.3",
+    "command-r", "phi-3", "phi-4", "gemma-2",
+)
+
+# 模型名关键词 → 推断 tier(对齐 model-selector.tsx TIER_TO_DISPLAY 5 档)
+_AUTO_TIER_HINTS: list[tuple[tuple[str, ...], int]] = [
+    # (关键词, tier) 顺序敏感,优先匹配更具体
+    (("opus", "gpt-5", "o1-preview", "o3", "thinking", "kimi-k3"), 30),
+    (("sonnet", "gpt-4o", "gpt-4.1", "gpt-4-turbo", "claude-3-opus",
+      "gemini-pro", "gemini-2.5-pro", "deepseek-r1", "qwen-max",
+      "glm-4-plus", "glm-5", "claude-sonnet"), 10),
+    (("deepseek", "qwen-plus", "glm-4", "command-r-plus", "llama-3.1-70b",
+      "llama-3.3-70b", "mixtral-8x22b"), 3),
+    (("flash", "lite", "mini", "nano", "haiku", "small",
+      "gemma", "llama-3.1-8b", "llama-3.2-3b"), 1),
+]
+
+# zero_cost provider 前缀(免费模型,无 key 即可调用)
+_AUTO_FREE_PREFIXES = (
+    "@cf/", "pollinations/", "llm7/", "aihorde/", "opencode/",
+    "ollama/", "lmstudio/", "llamacpp/",
+)
+
+
+def _infer_tier_from_model_id(model_id: str) -> int:
+    """根据 model_id 关键词推断 tier(0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰)。"""
+    mid = (model_id or "").lower()
+    for keywords, tier in _AUTO_TIER_HINTS:
+        if any(k in mid for k in keywords):
+            return tier
+    return 3  # 默认标准档
+
+
+def _supports_tool_calling(model_id: str) -> bool:
+    """根据 model_id 关键词推断是否支持 function calling。"""
+    mid = (model_id or "").lower()
+    return any(k in mid for k in _TOOL_CALLING_KEYWORDS)
+
+
+async def _resolve_auto_model(
+    has_tools: bool = False,
+    messages: Optional[list[dict[str, Any]]] = None,
+) -> str:
+    """跨厂商自动路由:从 model_availability 全量可用模型中选最优。
+
+    选择策略(2026-08-06 立):
+    1. 调用 model_availability.get_available_models() 拿全量可用模型(已过滤 DOWN provider)
+    2. 优先 zero_cost / LOCAL(完全免费)
+    3. 按 tier 选最小可用档(0/1 → 3 → 10 → 30,逐步升级,避免一开始就烧高级模型)
+    4. tool calling 场景(has_tools=True):在前 3 名候选中筛掉不支持 function calling 的
+    5. 全部失败:回退 settings.litellm_model(由运维预设,通常是稳定的 plan 套餐模型)
+
+    行为日志:返回前 logger.info 记录「auto → X」便于审计,生产环境可观测路由决策。
+    """
+    fallback = settings.litellm_model or "stepfun/step-3.7-flash"
+    try:
+        # 延迟导入避免循环(llm_gateway ↔ model_availability)
+        from ..services.model_availability import model_availability
+        from .provider_caps import get_provider_cap
+
+        # 加载 default_models.json(只取 id 字段足够,其他元数据不强制需要)
+        default_file = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
+        all_models: list[dict[str, Any]] = []
+        if default_file.exists():
+            try:
+                raw = json.loads(default_file.read_text(encoding="utf-8"))
+                for m in raw.get("models", []):
+                    if isinstance(m, dict) and m.get("id"):
+                        all_models.append({"id": m["id"]})
+            except Exception as e:
+                logger.warning("[auto-route] 读取 default_models.json 失败: %s", e)
+
+        # 过滤:只保留 model_availability 判定为可用的
+        available = [m for m in all_models if model_availability.is_model_available(m["id"])]
+        if not available:
+            logger.info("[auto-route] 无可用模型,降级到 settings.litellm_model=%r", fallback)
+            return fallback
+
+        # 分桶:free / cheap plan / premium
+        free_pool: list[str] = []
+        cheap_pool: list[dict[str, Any]] = []  # tier 1-3
+        premium_pool: list[dict[str, Any]] = []  # tier 10-30
+        for m in available:
+            mid = m["id"]
+            if any(mid.startswith(p) or mid.startswith(p.rstrip("/"))
+                   for p in _AUTO_FREE_PREFIXES):
+                free_pool.append(mid)
+                continue
+            tier = _infer_tier_from_model_id(mid)
+            if tier >= 10:
+                premium_pool.append({"id": mid, "tier": tier})
+            else:
+                cheap_pool.append({"id": mid, "tier": tier})
+
+        # 优先级:free > cheap tier 1 > cheap tier 3 > premium
+        candidates: list[str] = []
+        candidates.extend(free_pool)
+        candidates.extend(sorted(cheap_pool, key=lambda x: x["tier"])[:5])
+        # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
+        if premium_pool:
+            candidates.append(min(premium_pool, key=lambda x: x["tier"])["id"])
+
+        # tool calling 场景:筛掉不支持 function calling 的模型
+        if has_tools and candidates:
+            before = len(candidates)
+            tool_candidates: list[str] = []
+            for c in candidates:
+                # 先用关键词启发(快路径),再调 provider_caps 二次确认(权威)
+                if not _supports_tool_calling(c):
+                    continue
+                # 从 model id 推断 provider_code,查 cap
+                provider_code = _model_to_provider_code(c)
+                cap = get_provider_cap(provider_code)
+                if cap.supports_tools:
+                    tool_candidates.append(c)
+            if tool_candidates:
+                candidates = tool_candidates
+            else:
+                # 全部被过滤:放宽,不强制 function calling
+                logger.warning(
+                    "[auto-route] tool calling 场景下无可用模型,放宽 function calling 限制"
+                )
+                candidates = free_pool + [c["id"] for c in cheap_pool[:3]]
+                if not candidates:
+                    return fallback
+
+        chosen = candidates[0] if candidates else fallback
+        logger.info(
+            "[auto-route] auto → %r (candidates=%d, free=%d, cheap=%d, premium=%d, has_tools=%s)",
+            chosen, len(candidates), len(free_pool), len(cheap_pool),
+            len(premium_pool), has_tools,
+        )
+        return chosen
+    except Exception as e:
+        logger.warning("[auto-route] 自动路由失败,降级到 fallback=%r: %s", fallback, e)
+        return fallback
 
 
 # 免费/试用 credits provider 的 endpoint 解析表(2026-08-01 立,P0 Phase A H2)。
@@ -724,12 +878,15 @@ class LLMGateway:
         - bedrock/*  → AWS_ACCESS_KEY_ID 等(LiteLLM 原生)
         - gpt-*/o1-* 等 → OPENAI_API_KEY(默认)
         """
-        # 2026-07-31 立:'auto' 或空 model 路由到默认模型(防御性根治)
-        # 前端 web 已降级,但其他端(mobile-rn/miniapp-taro/cli)或第三方 OpenAI SDK 可能仍发 'auto',
-        # 此处兜底路由到 settings.litellm_model,避免 MODEL_NOT_CONFIGURED 错误。
+        # 2026-08-06 立:'auto' 或空 model 走跨厂商自动路由(用户反馈"应该是自动切换所有可使用的模型")
+        # 修复历史:之前 fallback 到 settings.litellm_model(默认 stepfun/step-router-v1),
+        # step-router-v1 是 Step 厂家路由只路由 Step 内部模型,违背"全模型智能路由"语义。
+        # 注:_resolve_provider 是 sync staticmethod,真正的 auto 解析在
+        # LLMGateway.complete() / astream() 入口处执行,解析完成后再调 _resolve_provider。
         if model == "auto" or not model:
-            real_model = settings.litellm_model or "stepfun/step-router-v1"
-            logger.info("[llm_gateway] model=%r 路由到默认模型 %r", model, real_model)
+            real_model = settings.litellm_model or "stepfun/step-3.7-flash"
+            logger.info("[llm_gateway] model=%r 占位(实际路由在 complete() 入口处理),占位模型 %r",
+                       model, real_model)
             model = real_model
         m = model.lower()
         if m.startswith("stepfun/"):
@@ -1022,8 +1179,18 @@ class LLMGateway:
         Returns:
             包含 content/model/usage/stub 字段的字典。
         """
-        # 2026-07-31 立:'auto' 模型路由到默认模型(防御性根治,与 _resolve_provider 同源)
-        used_model = model if model and model != "auto" else settings.litellm_model
+        # 2026-08-06 立:'auto' 模型走跨厂商自动路由(用户反馈"应该是自动切换所有可使用的模型")
+        # 历史:之前 fallback 到 settings.litellm_model(默认 stepfun/step-router-v1),
+        #       step-router-v1 只在 Step 厂家内部路由,不跨厂商,违背"全模型智能路由"语义。
+        # 修复:调 _resolve_auto_model 从 model_availability 全量可用模型池选最优,
+        #       优先 zero_cost / LOCAL → cheap plan → premium,tool calling 场景额外筛 function calling 支持。
+        if not model or model == "auto":
+            used_model = await _resolve_auto_model(
+                has_tools=bool(kwargs.get("tools")),
+                messages=messages,
+            )
+        else:
+            used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         repaired_messages, repair_removed, _ = repair_messages(messages)
         if repair_removed > 0:
@@ -1403,8 +1570,18 @@ class LLMGateway:
             - {"type": "done", "model": ..., "usage": ..., "stub": bool}
             - {"type": "error", "message": ...}
         """
-        # 2026-07-31 立:'auto' 模型路由到默认模型(防御性根治,与 _resolve_provider 同源)
-        used_model = model if model and model != "auto" else settings.litellm_model
+        # 2026-08-06 立:'auto' 模型走跨厂商自动路由(用户反馈"应该是自动切换所有可使用的模型")
+        # 历史:之前 fallback 到 settings.litellm_model(默认 stepfun/step-router-v1),
+        #       step-router-v1 只在 Step 厂家内部路由,不跨厂商,违背"全模型智能路由"语义。
+        # 修复:调 _resolve_auto_model 从 model_availability 全量可用模型池选最优,
+        #       优先 zero_cost / LOCAL → cheap plan → premium,tool calling 场景额外筛 function calling 支持。
+        if not model or model == "auto":
+            used_model = await _resolve_auto_model(
+                has_tools=bool(kwargs.get("tools")),
+                messages=messages,
+            )
+        else:
+            used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         repaired_messages, repair_removed, _ = repair_messages(messages)
         if repair_removed > 0:

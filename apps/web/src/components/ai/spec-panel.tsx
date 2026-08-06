@@ -1179,7 +1179,7 @@ export function SpecPanel({ className }: { className?: string }) {
                 title={opt.label}
                 className={cn(
                   'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
-                  idx < SCOPE_OPTIONS.length - 1 && 'border-r border-border',
+                  idx < SCOPE_OPTIONS.length - 1 && 'border-border',
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80',
@@ -1281,7 +1281,7 @@ export function SpecPanel({ className }: { className?: string }) {
           </div>
 
           {/* 标签页导航 */}
-          <div className="mt-2 flex items-center gap-1 border-b border-border pb-1">
+          <div className="mt-2 flex items-center gap-1 pb-1">
             {TAB_OPTIONS.map((tab) => {
               const isActive = tabMode === tab.mode
               const Icon = tab.icon
@@ -2183,7 +2183,7 @@ export function SpecPanel({ className }: { className?: string }) {
       )}
 
       {/* Watch 控件(始终显示,独立于 spec 生成) */}
-      <div className="mt-3 flex items-center gap-2 border-t border-border pt-2">
+      <div className="mt-3 flex items-center gap-2 pt-2">
         <Eye className="h-3 w-3 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">文件监听</span>
         <button

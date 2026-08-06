@@ -16,7 +16,7 @@ interface StatItem {
   Icon: typeof Users
 }
 
-const STATS: StatItem[] = [
+const SAMPLE_STATS: StatItem[] = [
   { labelKey: 'stats.dau', value: '128,450', trend: '+5.2%', trendUp: true, Icon: Users },
   { labelKey: 'stats.newUsers', value: '3,210', trend: '+12.4%', trendUp: true, Icon: UserPlus },
   { labelKey: 'stats.sessions', value: '456,789', trend: '+3.1%', trendUp: true, Icon: Activity },
@@ -29,9 +29,9 @@ const STATS: StatItem[] = [
   },
 ]
 
-const DAU_TREND_DATA: number[] = [110200, 115600, 118900, 122400, 119800, 126700, 128450]
+const SAMPLE_DAU_TREND_DATA: number[] = [110200, 115600, 118900, 122400, 119800, 126700, 128450]
 
-const DEVICE_DISTRIBUTION: {
+const SAMPLE_DEVICE_DISTRIBUTION: {
   name: 'iOS' | 'Android' | 'others'
   percent: number
   color: string
@@ -41,7 +41,7 @@ const DEVICE_DISTRIBUTION: {
   { name: 'others', percent: 7, color: 'bg-amber-500' },
 ]
 
-const TOP_PAGES: { rank: number; path: string; visits: string; ratio: string }[] = [
+const SAMPLE_TOP_PAGES: { rank: number; path: string; visits: string; ratio: string }[] = [
   { rank: 1, path: '/', visits: '186,302', ratio: '40.8%' },
   { rank: 2, path: '/chat', visits: '92,104', ratio: '20.2%' },
   { rank: 3, path: '/agents', visits: '54,871', ratio: '12.0%' },
@@ -55,6 +55,9 @@ export function MobileDashboardClient() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <BackButton />
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-500">
+        以下为示例数据(尚未接入真实移动端统计),仅用于展示布局与图表形态
+      </div>
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Smartphone className="h-7 w-7 text-primary" />
@@ -65,7 +68,7 @@ export function MobileDashboardClient() {
 
       {/* Stat 卡片 */}
       <div className="grid grid-cols-2 gap-4 min-[768px]:grid-cols-4">
-        {STATS.map(({ labelKey, value, trend, trendUp, Icon }) => (
+        {SAMPLE_STATS.map(({ labelKey, value, trend, trendUp, Icon }) => (
           <Card key={labelKey}>
             <CardContent className="flex items-center gap-3 p-5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -94,7 +97,7 @@ export function MobileDashboardClient() {
           </CardHeader>
           <CardContent>
             <LineChart
-              data={DAU_TREND_DATA}
+              data={SAMPLE_DAU_TREND_DATA}
               xAxis={t.raw('weekdays') as string[]}
               height={240}
               color="var(--primary)"
@@ -109,7 +112,7 @@ export function MobileDashboardClient() {
             <p className="text-xs text-muted-foreground">{t('devices.subtitle')}</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {DEVICE_DISTRIBUTION.map((d) => (
+            {SAMPLE_DEVICE_DISTRIBUTION.map((d) => (
               <div key={d.name} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">
@@ -123,7 +126,7 @@ export function MobileDashboardClient() {
               </div>
             ))}
             <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
-              {DEVICE_DISTRIBUTION.map((d) => (
+              {SAMPLE_DEVICE_DISTRIBUTION.map((d) => (
                 <div key={d.name} className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm ${d.color}`} />
                   {d.name === 'others' ? t('devices.others') : d.name}
@@ -152,7 +155,7 @@ export function MobileDashboardClient() {
                 </tr>
               </thead>
               <tbody>
-                {TOP_PAGES.map((p) => (
+                {SAMPLE_TOP_PAGES.map((p) => (
                   <tr key={p.rank} className="border-b ">
                     <td className="px-5 py-2.5">
                       <span

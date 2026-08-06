@@ -85,10 +85,14 @@ export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
 
       socket.on('close', () => {
         chatServer.leave(roomId, socket)
+        // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
+        chatServer.resetUserRateLimit(userId!)
       })
 
       socket.on('error', () => {
         chatServer.leave(roomId, socket)
+        // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
+        chatServer.resetUserRateLimit(userId!)
       })
     })()
   })
