@@ -432,6 +432,39 @@ export function getPlatformMeta(platform: DownloadPlatform): PlatformMeta {
   return PLATFORM_META[platform]
 }
 
+/** 单端配置状态(运营接入自检用,2026-08-06 新增)。 */
+export interface DownloadsStatusItem {
+  platform: DownloadPlatform
+  /** 该端是否已配置可下载资源(assets 非空 = 可下载) */
+  configured: boolean
+  /** 未配置时提示需填写的 env(配置后即生效,需重新 build) */
+  hint: string
+}
+
+/**
+ * 下载配置自检:返回 8 端配置状态,运营/运维可直接调用确认「哪些端已上架、缺什么」。
+ * 判断口径与详情页一致:platform meta assets 非空 = 已配置;desktop/extension/mobile/cli/web
+ * 为代码内资源(不依赖 env),恒为 configured=true。
+ */
+export function getDownloadsStatus(): DownloadsStatusItem[] {
+  const meta = getPlatformMetaMap()
+  const hints: Record<DownloadPlatform, string> = {
+    web: 'web 为 PWA 入口,无需配置',
+    desktop: 'desktop 安装包随 CI 构建同步,无需配置',
+    mobile: 'mobile 走源码构建(GitHub 链接),无需配置',
+    extension: 'extension 安装包随 CI 构建同步,无需配置',
+    cli: 'cli 走 npm install,无需配置',
+    ios: 'NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID(或 NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL)',
+    'android-apk': 'NEXT_PUBLIC_DOWNLOAD_APK_URL(或 NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL / CDN_BASE)',
+    'wechat-miniapp': 'NEXT_PUBLIC_DOWNLOAD_WECHAT_QR(或 NEXT_PUBLIC_DOWNLOAD_WECHAT_URL)',
+  }
+  return (Object.keys(meta) as DownloadPlatform[]).map((platform) => ({
+    platform,
+    configured: meta[platform].assets.length > 0,
+    hint: hints[platform] ?? '',
+  }))
+}
+
 /**
  * 格式化文件大小为人类可读字符串。
  * - < 1 KB → "123 B"
