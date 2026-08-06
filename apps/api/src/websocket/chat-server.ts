@@ -19,6 +19,20 @@ const MAX_CONTENT_LENGTH = 2000
 const MAX_ROOMS = 1000
 const MAX_CONN_PER_ROOM = 500
 
+// P2 修复(2026-08-06):HTML 转义,防聊天消息 XSS。
+// 消息 content/userName/userAvatar 来自客户端,直接落库+广播会被注入 `<script>` 等
+// 恶意 HTML,在他人浏览器端执行。落库/广播前对 HTML 特殊字符转义(`&` 必须最先转义,
+// 否则 `&lt;` 中的 `&` 会被二次编码),前端以 innerHTML 渲染时显示原文、不执行脚本。
+// 注意:仅转义 HTML 特殊字符,不删除/改写正常文本。
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export interface ChatMessage {
   id: number
   channelId: number
@@ -163,14 +177,23 @@ export class LiveChatServer {
         room.sendTo(ws, JSON.stringify({ type: 'error', code: 400, message: 'roomId 必须为数字' }))
         return
       }
+      // P2 修复(2026-08-06):落库前对 content/userName/userAvatar 做 HTML 转义,
+      // 广播与历史读取均从 DB 取转义后值,杜绝 XSS 注入。
+      const safeContent = escapeHtml(content)
+      const safeUserName =
+        msg.userName !== undefined && msg.userName !== null ? escapeHtml(String(msg.userName)) : null
+      const safeUserAvatar =
+        msg.userAvatar !== undefined && msg.userAvatar !== null
+          ? escapeHtml(String(msg.userAvatar))
+          : null
       const [row] = await db
         .insert(liveComment)
         .values({
           channelId,
           userId,
-          userName: msg.userName ?? null,
-          userAvatar: msg.userAvatar ?? null,
-          content,
+          userName: safeUserName,
+          userAvatar: safeUserAvatar,
+          content: safeContent,
           type: 1,
         })
         .returning()

@@ -18,6 +18,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { promoCoupons } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import { logger } from '../../utils/logger.js'
 import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
@@ -281,6 +282,13 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
           expiresAt: new Date(t.expiresAt),
           enabled: t.enabled,
         },
+      })
+      // P2 修复(2026-08-06):批量生成无操作日志,补记操作人/券模板/数量,便于审计追责。
+      logger.info('admin coupons batch generated', {
+        userId: request.userId,
+        count: created.length,
+        couponType: t.type,
+        couponName: t.name,
       })
       return reply.status(201).send(
         success({

@@ -481,28 +481,31 @@ export async function recordUsageBatch(inputs: readonly RecordUsageInput[]): Pro
   const todayDateStr = getUtc8DateStr()
   try {
     await db.transaction(async (tx) => {
-      for (const input of inputs) {
-        await tx
-          .insert(aiRelayChannelDailyUsage)
-          .values({
+      // P2 修复(2026-08-06):原事务内逐条 insert 循环 → 每输入一次往返查询。
+      // 改为单条批量 upsert(insert().values([...]) + onConflictDoUpdate 引用 excluded),
+      // 一次 SQL 提交完成全部累计,与 id-mapping-queries.ts bulkCreateMappings 同款模式。
+      await tx
+        .insert(aiRelayChannelDailyUsage)
+        .values(
+          inputs.map((input) => ({
             keyPoolId: input.keyPoolId,
             usageDate: todayDateStr,
             callCount: 1,
             totalTokens: input.tokens,
             totalCostCents: input.costCents,
             errorCount: input.isError ? 1 : 0,
-          })
-          .onConflictDoUpdate({
-            target: [aiRelayChannelDailyUsage.keyPoolId, aiRelayChannelDailyUsage.usageDate],
-            set: {
-              callCount: sql`${aiRelayChannelDailyUsage.callCount} + 1`,
-              totalTokens: sql`${aiRelayChannelDailyUsage.totalTokens} + ${input.tokens}`,
-              totalCostCents: sql`${aiRelayChannelDailyUsage.totalCostCents} + ${input.costCents}`,
-              errorCount: sql`${aiRelayChannelDailyUsage.errorCount} + ${input.isError ? 1 : 0}`,
-              updatedAt: new Date(),
-            },
-          })
-      }
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [aiRelayChannelDailyUsage.keyPoolId, aiRelayChannelDailyUsage.usageDate],
+          set: {
+            callCount: sql`${aiRelayChannelDailyUsage.callCount} + excluded.call_count`,
+            totalTokens: sql`${aiRelayChannelDailyUsage.totalTokens} + excluded.total_tokens`,
+            totalCostCents: sql`${aiRelayChannelDailyUsage.totalCostCents} + excluded.total_cost_cents`,
+            errorCount: sql`${aiRelayChannelDailyUsage.errorCount} + excluded.error_count`,
+            updatedAt: new Date(),
+          },
+        })
     })
   } catch (err) {
     logger.warn('[channel-quota] recordUsageBatch failed', {

@@ -200,9 +200,18 @@ export function createUploadPreHandler(opts: UploadScanOptions = {}): preHandler
   return async (request: FastifyRequest, reply: FastifyReply) => {
     // multipart 上传：读取 buffer 做魔数校验
     if (typeof request.isMultipart === 'function' && request.isMultipart()) {
-      const file = await request.file()
+      // P2 修复(2026-08-06):读取前先按 maxSize 约束 busboy 流(limits.fileSize),
+      // 超大文件会被截断(file.file.truncated=true),在 toBuffer() 前直接 400 拒绝,
+      // 避免整个大文件被读入内存后才在 scanFileBuffer 里发现超限(100MB 打爆内存)。
+      const file = await request.file({ limits: { fileSize: maxSize } })
       if (!file) {
         return reply.status(400).send({ code: 400, message: '未检测到上传文件' })
+      }
+      if (file.file.truncated || file.file.bytesRead > maxSize) {
+        return reply.status(400).send({
+          code: 400,
+          message: `文件大小超过 ${Math.floor(maxSize / 1024 / 1024)} MB`,
+        })
       }
       const buffer = await file.toBuffer()
       const result = scanFileBuffer(buffer, file.filename ?? 'unnamed', opts)
