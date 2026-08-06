@@ -22,7 +22,7 @@
   transform: translateY(-50%);
   font-size: 44rpx;
   color: var(--color-foreground);
-  padding: 0 12rpx;
+  padding: 0 20rpx;
   line-height: 1;
 }
 .income-title {
@@ -35,7 +35,7 @@
 .income-card-wrap {
   width: calc(100vw - 36rpx);
   margin: 20rpx 18rpx;
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 1rpx;
   box-sizing: border-box;
   background-image: linear-gradient(307deg,
@@ -47,7 +47,7 @@
 }
 .income-card {
   width: 100%;
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 24rpx 18rpx;
   background-color: #fff;
   box-sizing: border-box;
@@ -184,7 +184,7 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -235,7 +235,7 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
 }

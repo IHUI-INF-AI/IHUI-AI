@@ -89,7 +89,7 @@
 .btn {
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 40rpx;
+  border-radius: 16rpx;
   font-size: 28rpx;
   padding: 0 32rpx;
 }

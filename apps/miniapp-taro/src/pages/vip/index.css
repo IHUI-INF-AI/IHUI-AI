@@ -145,7 +145,7 @@
 .feature-tag {
   padding: 4rpx 16rpx;
   background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   font-size: 20rpx;
   color: var(--vip-bg-dark-2);
   font-weight: bold;
