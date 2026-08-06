@@ -15411,7 +15411,13 @@
       "gisLoadFailedToast": "Google GIS load failed",
       "oneTapNotInitialized": "Google One Tap not initialized",
       "oneTapNotDisplayed": "Google One Tap not displayed"
-    }
+    },
+    "twoFactorTitle": "Two-Factor Authentication",
+    "twoFactorHint": "Enter the 6-digit code from your authenticator app, or a backup code (AAAA-AAAA)",
+    "twoFactorPlaceholder": "6-digit code or backup code",
+    "twoFactorSubmit": "Verify & Sign In",
+    "twoFactorCancel": "Cancel",
+    "twoFactorError": "Invalid or expired code, please try again"
   },
   "title": "Admin Dashboard",
   "errors": {
