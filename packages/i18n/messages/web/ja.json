@@ -473,6 +473,8 @@
       "fans": "ファン",
       "signedIn": "チェックイン済み",
       "signIn": "チェックイン",
+      "checkInSuccess": "チェックイン成功",
+      "checkInFailed": "チェックイン失敗",
       "welcome": "Hi、学習プラットフォームへようこそ",
       "loginHint": "ログインしてさらに多くのサービスを利用",
       "loginNow": "今すぐログイン",
@@ -12478,6 +12480,8 @@
         "deleteGroup": "グループを削除",
         "groupCreated": "グループ「{name}」を作成しました",
         "createFailed": "作成失敗",
+        "groupDeleted": "グループを削除しました",
+        "deleteFailed": "削除失敗",
         "deleteGroupConfirm": "グループ「{name}」を削除しますか?",
         "groupNotEmpty": "グループに {count} 個のプロバイダーが残っています。先に移動してください。",
         "groupDeleteNotSupported": "先に全てのプロバイダーをグループから移動してください"

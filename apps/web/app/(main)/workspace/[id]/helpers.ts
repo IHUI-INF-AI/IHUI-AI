@@ -72,7 +72,8 @@ export async function uploadFile(
     data?: { file: FileItem }
   }
   if (!response.ok || json.code !== 0) throw new Error(json.message || errorMsg)
-  return json.data!.file
+  if (!json.data?.file) throw new Error(json.message || errorMsg)
+  return json.data.file
 }
 
 export async function downloadFile(file: FileItem, errorMsg: string) {

@@ -24,7 +24,6 @@ export type ExtMessage =
   | { type: 'highlight.toggle'; payload: HighlightPayload; requestId: string }
   | { type: 'tab.queryActive'; payload: undefined; requestId: string }
   | { type: 'sidePanel.open'; payload: { tabId?: number }; requestId: string }
-  | { type: 'notification.broadcast'; payload: { notification: unknown }; requestId: string }
   | { type: 'agent.action'; payload: AgentActionRequest; requestId: string }
 
 // ===== Response types (background -> sender) =====

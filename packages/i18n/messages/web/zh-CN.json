@@ -455,6 +455,8 @@
       "fans": "粉丝",
       "signedIn": "已签到",
       "signIn": "签到",
+      "checkInSuccess": "签到成功",
+      "checkInFailed": "签到失败",
       "welcome": "Hi，欢迎来到学习平台",
       "loginHint": "登录后享受更多服务",
       "loginNow": "立即登录",
@@ -12365,6 +12367,8 @@
         "deleteGroup": "删除分组",
         "groupCreated": "已创建分组「{name}」",
         "createFailed": "创建失败",
+        "groupDeleted": "已删除分组",
+        "deleteFailed": "删除失败",
         "deleteGroupConfirm": "确认删除分组「{name}」?",
         "groupNotEmpty": "该分组下还有 {count} 个服务商,请先移走再删",
         "groupDeleteNotSupported": "分组删除需在服务商全部移走后再操作"
