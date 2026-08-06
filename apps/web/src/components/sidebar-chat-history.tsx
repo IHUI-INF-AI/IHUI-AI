@@ -510,7 +510,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span className="min-w-0 truncate">{tc('history')}</span>
           {total > 0 && (
-            <span className="ml-1 shrink-0 rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
+            <span className="ml-1 shrink-0 rounded-sm bg-muted px-2 py-1 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
               {total}
             </span>
           )}
