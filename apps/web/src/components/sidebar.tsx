@@ -1479,7 +1479,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
   )
 })
 
-export function Sidebar({
+const Sidebar = React.memo(function Sidebar({
   id,
   collapsed,
   onToggleCollapse,
@@ -1521,6 +1521,15 @@ export function Sidebar({
     setPendingHref(href)
     startNav()
   }, [startNav])
+
+  // 稳定引用 registerRef(2026-08-05 深度修复):
+  // 原定义在 navContent 内部 → 每次 Sidebar 渲染创建新函数引用 →
+  // 传递给 NavGroupSection(React.memo) 时引用变化导致 memo 失效,所有分组重渲染。
+  // 使用 useCallback + 空依赖确保引用稳定,让 NavGroupSection 的 memo 比较生效。
+  const registerRef = React.useCallback((href: string, el: HTMLElement | null) => {
+    if (el) itemRefs.current.set(href, el)
+    else itemRefs.current.delete(href)
+  }, [])
   const tchat = useTranslations('aiChat')
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
@@ -1808,12 +1817,7 @@ export function Sidebar({
         {/* 侧边栏任务列表卡片(展开态显示) */}
         <SidebarChatHistory collapsed={collapsed} />
 
-        {visibleGroups.map((group, gi) => {
-          const registerRef = (href: string, el: HTMLElement | null) => {
-            if (el) itemRefs.current.set(href, el)
-            else itemRefs.current.delete(href)
-          }
-          return (
+        {visibleGroups.map((group, gi) => (
             <NavGroupSection
               key={group.label || `group-${gi}`}
               group={group}
@@ -1826,8 +1830,7 @@ export function Sidebar({
               isFirst={gi === 0}
               onBeforeNav={handleBeforeNav}
             />
-          )
-        })}
+        ))}
       </nav>
     </TooltipProvider>
   )
@@ -2064,6 +2067,9 @@ export function Sidebar({
       </aside>
     </>
   )
-}
+})
 
+Sidebar.displayName = 'Sidebar'
+
+export { Sidebar }
 export default Sidebar
