@@ -181,7 +181,7 @@ export default function CouponPage() {
         </View>
       )}
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[40rpx] text-[28rpx]"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[16rpx] text-[28rpx]"
         onClick={goList}
       >
         {tt('member.coupon.couponCenter', '领券中心')}
