@@ -53,8 +53,24 @@ export function enrichContext(input: EnrichInput): Promise<EnrichResult> {
   return api('/api/context/enrich', { method: 'POST', body: JSON.stringify(input) })
 }
 
-export function fetchSources(): Promise<ContextSource[]> {
+/** GET /sources 响应(含用户偏好合并后的源列表 + 默认预算) */
+export interface ContextSourcesResult {
+  sources: ContextSource[]
+  defaultBudget: number
+}
+
+export function fetchSources(): Promise<ContextSourcesResult> {
   return api('/api/context/sources')
+}
+
+/** 持久化用户上下文源偏好(开关/预算,PUT /api/context/sources) */
+export function updateSources(
+  updates: Array<{ type: ContextType; enabled?: boolean; budgetPercent?: number }>,
+): Promise<{ saved: number }> {
+  return api('/api/context/sources', {
+    method: 'PUT',
+    body: JSON.stringify({ updates }),
+  })
 }
 
 export function trackVisualization(input: TrackVisualizationInput): Promise<{ recorded: boolean }> {
