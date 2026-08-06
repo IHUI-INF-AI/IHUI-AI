@@ -9,7 +9,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border-radius: 36rpx;
+  border-radius: 12rpx;
   font-size: 26rpx;
 }
 .list {
