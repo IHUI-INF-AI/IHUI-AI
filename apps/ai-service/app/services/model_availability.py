@@ -605,7 +605,9 @@ class ModelAvailabilityService:
         url = api_base.rstrip("/")
         # 2026-08-02 修复:Google AI Studio api_base 以 /openai 结尾(非 /v1),
         # 直接接 /chat/completions(加 /v1 会变 /v1beta/openai/v1/chat/completions → 404)
-        if url.endswith("/v1") or url.endswith("/openai"):
+        # 2026-08-06 修复:智谱 zhipu api_base 以 /v4 结尾(BigModel OpenAI 兼容端点),
+        # 同样直接接 /chat/completions(否则拼成 /v4/v1/chat/completions → 404)
+        if url.endswith("/v1") or url.endswith("/openai") or url.endswith("/v4"):
             url = f"{url}/chat/completions"
         else:
             url = f"{url}/v1/chat/completions"
