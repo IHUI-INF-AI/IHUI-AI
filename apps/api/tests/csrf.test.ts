@@ -56,7 +56,7 @@ vi.mock('@fastify/cookie', async () => {
     if (opts?.httpOnly) parts.push('HttpOnly')
     if (opts?.secure) parts.push('Secure')
     if (opts?.sameSite) parts.push(`SameSite=${opts.sameSite}`)
-    if (opts?.maxAge != null) parts.push(`Max-Age=${opts.maxAge}`)
+    if (opts?.maxAge !== null && opts?.maxAge !== undefined) parts.push(`Max-Age=${opts.maxAge}`)
     return parts.join('; ')
   }
 

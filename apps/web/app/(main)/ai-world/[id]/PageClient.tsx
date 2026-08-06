@@ -2,12 +2,14 @@
 
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { Loader2, ArrowLeft, Eye, Calendar, Tag, Sparkles } from 'lucide-react'
+import { Loader2, ArrowLeft, Eye, Calendar, Tag, Sparkles, Star } from 'lucide-react'
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
 
 interface AiWorldItem {
@@ -44,6 +46,8 @@ async function api<T>(url: string): Promise<T> {
 export default function AiWorldDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const queryClient = useQueryClient()
+  const isAuthed = useAuthStore((s) => s.isAuthenticated)
 
   const {
     data: world,
@@ -54,6 +58,45 @@ export default function AiWorldDetailPage() {
     queryFn: () => api<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
     enabled: !!params.id,
   })
+
+  // 收藏状态(2026-08-06 立,ai-world 收藏闭环:仅登录态查询)
+  const { data: favData } = useQuery({
+    queryKey: ['ai-world', 'favorite', params.id],
+    queryFn: () =>
+      api<{ favorited: boolean }>(`/api/favorites/check/aiworld/${params.id}`).then(
+        (d) => d.favorited,
+      ),
+    enabled: !!params.id && isAuthed,
+  })
+
+  // 收藏/取消收藏切换(写入口,失败回滚提示)
+  const favMutation = useMutation({
+    mutationFn: async (favorited: boolean) => {
+      if (favorited) {
+        const r = await fetchApi<{ favorited: boolean }>(
+          `/api/favorites/aiworld/${params.id}`,
+          { method: 'DELETE' },
+        )
+        if (!r.success) throw new Error(r.error)
+        return false
+      }
+      const r = await fetchApi<{ favorited: boolean }>('/api/favorites', {
+        method: 'POST',
+        body: JSON.stringify({ resourceType: 'aiworld', resourceId: params.id }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return true
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['ai-world', 'favorite', params.id] })
+    },
+    onSuccess: (newVal) => {
+      queryClient.setQueryData(['ai-world', 'favorite', params.id], newVal)
+    },
+  })
+
+  const favorited = favData ?? false
+  const favPending = favMutation.isPending
 
   const { data: catData } = useQuery({
     queryKey: ['ai-world', 'categories'],
@@ -134,7 +177,30 @@ export default function AiWorldDetailPage() {
         )}
         <CardContent className="space-y-4 p-5">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>
+              {isAuthed && (
+                <button
+                  type="button"
+                  onClick={() => favMutation.mutate(favorited)}
+                  disabled={favPending}
+                  aria-pressed={favorited}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                    favorited
+                      ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                      : 'border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  )}
+                >
+                  {favPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Star className={favorited ? 'h-3.5 w-3.5 fill-current' : 'h-3.5 w-3.5'} />
+                  )}
+                  {favorited ? '已收藏' : '收藏'}
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {world.categoryId && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">

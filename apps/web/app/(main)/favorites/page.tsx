@@ -18,6 +18,8 @@ interface Favorite {
   resourceType: ResourceType
   resourceId: string
   createdAt: string
+  /** 关联资源标题(后端 findFavorites 关联资源表返回,2026-08-06 立) */
+  title?: string
 }
 
 const TYPE_ICON: Record<ResourceType, React.ComponentType<{ className?: string }>> = {
@@ -127,8 +129,8 @@ export default function FavoritesPage() {
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {item.resourceType}
                 </span>
-                <span className="min-w-0 flex-1 break-words font-mono text-sm font-medium">
-                  {item.resourceId}
+                <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                  {item.title || item.resourceId}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))}

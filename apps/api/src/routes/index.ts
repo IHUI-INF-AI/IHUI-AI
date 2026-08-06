@@ -331,6 +331,8 @@ import { subagentDispatchRoutes } from './subagent-dispatch.js'
 import { orchestrationRoutes } from './orchestration.js'
 // A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
 import { adminSaasProxyRoutes } from './admin-saas-proxy.js'
+// A 套壳:SaaS 租户配额真实数据源(拦截 /customers/:slug/quota,基于 tenants/tenant_quotas/ai_cost_records)
+import { adminSaasQuotaRoutes } from './admin-saas-quota.js'
 // 资源上游自动同步中心(2026-07-24 立,CRUD + 同步触发 + webhook 接收 + BullMQ 每 6h 定时拉取)
 import { registrySyncRoutes } from './registry-sync.js'
 
@@ -396,6 +398,8 @@ import exportCsvRoutes from './admin/export-csv.js'
 import relayConversationsRoutes from './relay-conversations.js'
 // P0-28 配套(2026-08-01 立):渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
 import channelQuotaAdminRoutes from './admin/channel-quota.js'
+// 移动端运营统计(2026-08-06 立):GET /api/admin/mobile-stats(真实聚合,requireAdmin)
+import mobileStatsRoutes from './admin/mobile-stats.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -976,6 +980,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(agentLanggraphRoutes, { prefix: '/api/agent-langgraph' })
 
   // A 套壳:SaaS Admin API 代理(透传到 admin-api 8830,迁移自 web 端 API route)
+  // 注意:配额真实数据源路由先注册,其更具体的 /customers/:slug/quota 优先于代理的 /* 通配
+  server.register(adminSaasQuotaRoutes, { prefix: '/api/admin-saas' })
   server.register(adminSaasProxyRoutes, { prefix: '/api/admin-saas' })
 
   // 资源上游自动同步中心(8 端点:items/sync-logs/sync/webhooks/webhook/install/upgrade-all + BullMQ 每 6h 定时拉取)
@@ -1086,4 +1092,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayConversationsRoutes, { prefix: '/api' })
   // P0-28 配套:渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
   server.register(channelQuotaAdminRoutes, { prefix: '/api/admin' })
+  // 移动端运营统计(GET /api/admin/mobile-stats,真实聚合,requireAdmin)
+  server.register(mobileStatsRoutes, { prefix: '/api/admin' })
 }
