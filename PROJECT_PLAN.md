@@ -2801,14 +2801,20 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 待运营接入(详情页显示"即将上线"占位)
 
-- [ ] 运营接入 iOS App Store ID(待用户提供数据)
-- [ ] 运营接入 Android APK 下载 URL(待用户提供数据)
-- [ ] 运营接入微信小程序 QR(待用户提供数据)
+> 核查工具已就绪:`scripts/check-downloads-config.mjs` 一键输出 8 端配置状态。运营提供数据 → 填 `apps/web/.env.production` → 重新 build 即生效(无需代码改动)。
 
-### 平台环境限制(待后续构建)
+- [ ] 运营接入 iOS App Store ID(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID`)
+- [ ] 运营接入 Android APK 下载 URL(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_APK_URL` 或 Google Play/CDN)
+- [ ] 运营接入微信小程序 QR(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_WECHAT_QR`)
 
-- [ ] macOS `.dmg` 包构建(需 macOS 环境)
-- [ ] Linux `.deb` / `.AppImage` 包构建(需 Linux 环境)
+### 平台环境限制 → 已由 CI 自动构建闭环(2026-08-06 ✅,commit dd36a23a95)
+
+> 新增 `.github/workflows/desktop-build.yml`(Tauri 多平台 matrix):`workflow_dispatch` 手动触发或推送 `v*` tag 时,在官方 runner 上原生构建 —— **无需本地 macOS/Linux 环境**。
+
+- [x] ✅ macOS `.dmg` 包构建 — CI `macos-latest` runner `tauri build`(产物 artifacts: dmg)
+- [x] ✅ Linux `.deb` / `.AppImage` 包构建 — CI `ubuntu-latest` runner(产物: deb + AppImage)
+- [x] ✅(附带)Windows `.exe` 安装包 — CI `windows-latest` runner(产物: nsis exe + msi)
+- 📌 用法:GitHub Actions 手动 Run workflow,或推 `v*` tag 自动构建;产物在 Actions artifacts 下载;发布到 Release 需在 workflow 加 `softprops/action-gh-release`(当前未配,按需)
 
 ### admin 后台(已完成)
 
