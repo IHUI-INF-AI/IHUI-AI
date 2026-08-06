@@ -566,6 +566,51 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
 
 
+async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
+    """list_files: 列出目录内容(路径必须在工作区白名单内,防 symlink 穿越)。
+
+    2026-08-06 立:LLM(stepfun step_plan 等)高频调用 list_files 列目录,
+    此前无此工具导致"未知工具"工具执行失败(会话 83633a7c 实测)。
+    只返回一层条目(name/type/size),超大目录截断 500 项,避免响应爆炸。
+    """
+    path = arguments.get("path", ".")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "list_files", "path": path, "ok": False, "error": info}
+    resolved = info
+    import os as _os
+    if not _os.path.isdir(resolved):
+        return {
+            "tool": "list_files", "path": resolved, "ok": False,
+            "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
+            "errorCode": "NOT_A_DIRECTORY",
+        }
+    try:
+        names = sorted(_os.listdir(resolved))
+        entries = []
+        for name in names:
+            full = _os.path.join(resolved, name)
+            try:
+                is_dir = _os.path.isdir(full)
+                entries.append({
+                    "name": name,
+                    "type": "dir" if is_dir else "file",
+                    "size": None if is_dir else _os.path.getsize(full),
+                })
+            except OSError:
+                entries.append({"name": name, "type": "unknown", "size": None})
+        return {
+            "tool": "list_files",
+            "path": resolved,
+            "ok": True,
+            "entries": entries[:500],
+            "total": len(entries),
+            "truncated": len(entries) > 500,
+        }
+    except Exception as e:
+        return {"tool": "list_files", "path": resolved, "ok": False, "error": str(e)}
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
@@ -3313,6 +3358,15 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="list_files",
+        description="列出目录内容(返回子项名称/类型/大小;路径必须在工作区白名单内)",
+        input_schema={
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "目录绝对或相对路径,默认当前目录"}},
+            "required": ["path"],
+        },
+    ),
+    MCPTool(
         name="write_file",
         description="写入内容到本地文件",
         input_schema={
@@ -4071,6 +4125,7 @@ def get_registered_tool_names() -> set[str]:
 # 统一映射到实际注册工具名,防止 call_tool 报"未知工具"。
 _TOOL_ALIASES: dict[str, str] = {
     "execute_command": "run_command",  # Claude/Codex 风格 → 本项目 run_command
+    "list_directory": "list_files",
 }
 
 
@@ -4083,6 +4138,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "read_file": _tool_read_file,
+    "list_files": _tool_list_files,
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,

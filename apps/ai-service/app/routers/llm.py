@@ -50,9 +50,11 @@ _delegate_sessions: dict[str, dict[str, Any]] = {}
 _DELEGATE_TIMEOUT = 60  # 秒
 
 # fs 类工具集合(依赖本地文件系统,浏览器端需委托前端执行)
+# 2026-08-06:list_files 移出本集合 —— 只读目录列表已由 mcp_server 本地实现
+# (工作区白名单约束),委托前端反而依赖 workspace 句柄易失败。
 _FS_DEPENDENT_TOOLS = {
     "read_file", "write_file", "file_edit", "file_search",
-    "search_codebase", "list_files", "apply_patch",
+    "search_codebase", "apply_patch",
     "create_file", "delete_file", "move_file",
     "analyze_code", "generate_test",
 }
@@ -62,6 +64,7 @@ _FS_DEPENDENT_TOOLS = {
 # 统一映射到实际注册的工具名(execute_command 是 Claude/Codex 风格别名,本项目为 run_command)。
 _TOOL_ALIASES: dict[str, str] = {
     "execute_command": "run_command",
+    "list_directory": "list_files",
 }
 
 
@@ -556,6 +559,24 @@ def _resolve_owner_uuid(request: Request) -> str | None:
     return str(uid)
 
 
+def _resolve_user_role(request: Request) -> int:
+    """从 JWT(request.state.role_id)派生用户角色(0=普通用户,>=1=admin)。
+
+    2026-08-06 修复:call_tool 权限矩阵(run_command/write_file 等 admin-only 工具)
+    此前未传递 user_role(默认 0),导致 admin 用户调用被 PERMISSION_DENIED
+    (实测:admin 会话调 run_command → '需要 admin 权限(role >= 1),当前 role=0')。
+    system-worker 内部凭证(8802 网关已鉴权)视为 admin。
+    """
+    uid = getattr(request.state, "user_id", None)
+    if uid == "system-worker":
+        return 1
+    raw = getattr(request.state, "role_id", None)
+    try:
+        return int(raw or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -957,6 +978,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
+    # 2026-08-06 修复:透传用户角色给 call_tool(权限矩阵),否则 admin 也按 role=0 拒绝
+    user_role = _resolve_user_role(request)
     # Plan/Act 模式注入:plan 模式前置注入 Plan Mode system prompt(在 workspace memory 之前,
     # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
@@ -1471,7 +1494,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                             else:
                                 try:
-                                    exec_result = await _mcp.call_tool(tool_name, args, user_id=owner_uuid)
+                                    exec_result = await _mcp.call_tool(
+                                        tool_name, args,
+                                        user_id=owner_uuid,
+                                        # 2026-08-06 修复:传真实用户角色,否则 admin 调 run_command 等被 PERMISSION_DENIED
+                                        user_role=user_role,
+                                    )
                                 except Exception as e:
                                     logger.exception("Tool execution exception: %s", tool_name)
                                     exec_result = {
