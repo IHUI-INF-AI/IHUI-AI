@@ -737,6 +737,13 @@
     "modelAutoDescription": "自動選擇最優模型",
     "modelFree": "免費",
     "modelPointsMultiplier": "積分消耗倍數",
+    "modelTagMemberDiscount": "會員2.5折",
+    "modelTagOfficial": "正式版",
+    "modelTagSubsidy": "專屬補貼",
+    "modelLockedHint": "需升級會員才能使用",
+    "modelPopoverMemberTitle": "會員額外 2.5 折",
+    "modelPopoverMemberDesc": "升級付費會員,享受額外 2.5 折,積分消耗速度 {from}x 降至 {to}x",
+    "modelPopoverUpgradeButton": "升級權益",
     "slashCmd": {
       "plan": "切換到規劃模式(AI 只制定計畫,不執行工具)",
       "act": "切換到執行模式(AI 正常執行工具,預設)",
