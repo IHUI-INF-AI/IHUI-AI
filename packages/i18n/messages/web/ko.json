@@ -15408,7 +15408,13 @@
       "gisLoadFailedToast": "Google GIS 로드 실패",
       "oneTapNotInitialized": "Google One Tap이 초기화되지 않았습니다",
       "oneTapNotDisplayed": "Google One Tap이 표시되지 않았습니다"
-    }
+    },
+    "twoFactorTitle": "2단계 인증",
+    "twoFactorHint": "인증 앱의 6자리 코드 또는 백업 코드(AAAA-AAAA)를 입력하세요",
+    "twoFactorPlaceholder": "6자리 코드 또는 백업 코드",
+    "twoFactorSubmit": "확인 및 로그인",
+    "twoFactorCancel": "취소",
+    "twoFactorError": "코드가 유효하지 않거나 만료되었습니다. 다시 시도하세요"
   },
   "title": "관리 대시보드",
   "errors": {
