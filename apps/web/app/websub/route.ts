@@ -95,7 +95,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       subscribers.delete(`${topic}::${request.headers.get('from') || 'anonymous'}`)
     }
 
-    console.log(
+    console.info(
       `[WebSub] ${mode} topic=${topic} lease=${leaseSeconds}s subscribers=${subscribers.size}`,
     )
 
@@ -138,7 +138,7 @@ function handlePublish(url: URL): Response {
     return new Response(`Unsupported feed URL: ${topic}`, { status: 404 })
   }
 
-  console.log(`[WebSub] publish ping received for ${topic}`)
+  console.info(`[WebSub] publish ping received for ${topic}`)
 
   // 真实生产环境:
   //   1. 异步拉取最新 feed 内容

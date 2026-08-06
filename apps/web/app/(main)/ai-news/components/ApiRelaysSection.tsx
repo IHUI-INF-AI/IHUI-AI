@@ -124,7 +124,7 @@ export function ApiRelaysSection() {
       if (matchBillingMode(r.billing, 'subscription')) counts.subscription++
     }
     return counts
-  }, [COMPANY_RELAYS])
+  }, [])
 
   function handleRelayImport(baseUrl: string, name: string) {
     const payload = encodePrefill({

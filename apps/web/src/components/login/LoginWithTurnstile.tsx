@@ -116,7 +116,7 @@ function TurnstileEnabledShell({
         toast.error('请先完成人机验证')
       }
     },
-    [token],
+    [sdkFailed, token],
   )
 
   const contextValue = React.useMemo<TurnstileContextValue>(
