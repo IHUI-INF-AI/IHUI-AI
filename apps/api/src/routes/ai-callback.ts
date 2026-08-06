@@ -32,7 +32,17 @@ const callbackSchema = z.object({
 })
 
 const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
-  server.post('/api/ai/callback', async (request, reply) => {
+  server.post(
+    '/api/ai/callback',
+    {
+      // 2026-08-06 修复:AI 回调内容为 LLM 生成的自由文本,天然含 "#/引号/分号"等字符
+      // (如 markdown 标题 "## 步骤"、编号 "#1")。sqli-guard 强特征正则把 "#" 当 SQL
+      // 注释符拦截 → AI 回复永远无法写库(生产故障:对话只有 user 消息、AI 不回复)。
+      // 本端点为 ai-service(localhost:8803)服务间回调,内容不可预测且非用户输入,
+      // 完全豁免 SQLi 检测;认证由共享密钥(X-Internal-Secret)保证。
+      config: { sqliGuard: { enabled: false } },
+    },
+    async (request, reply) => {
     // 共享密钥校验(可选):配置 AI_CALLBACK_SECRET 后,ai-service 必须带 X-Internal-Secret 头
     if (config.AI_CALLBACK_SECRET) {
       const provided = request.headers['x-internal-secret']
