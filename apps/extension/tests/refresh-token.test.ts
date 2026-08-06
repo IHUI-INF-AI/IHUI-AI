@@ -178,7 +178,7 @@ describe('Extension refresh token 流程', () => {
       const token = makeJwt(futureExp)
       scheduleRefreshAlarm(token)
       expect(chromeAlarmsCreate).toHaveBeenCalledTimes(1)
-      const call = chromeAlarmsCreate.mock.calls[0]
+      const call = chromeAlarmsCreate.mock.calls[0]!
       expect(call[0]).toBe('ihui-refresh-token')
       const opts = call[1] as { delayInMinutes: number }
       expect(opts.delayInMinutes).toBeGreaterThanOrEqual(1)
@@ -335,7 +335,7 @@ describe('Extension refresh token 流程', () => {
       })
       const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
       tokenUtils.scheduleRefreshAlarm(futureJwt)
-      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0][0] as (a: { name: string }) => void
+      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0]![0] as (a: { name: string }) => void
       listener({ name: 'ihui-refresh-token' })
       // 等待 doRefresh 异步完成
       await new Promise((r) => setTimeout(r, 100))
@@ -347,7 +347,7 @@ describe('Extension refresh token 流程', () => {
       const { tokenUtils } = await loadFreshModules()
       const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
       tokenUtils.scheduleRefreshAlarm(futureJwt)
-      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0][0] as (a: { name: string }) => void
+      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0]![0] as (a: { name: string }) => void
       listener({ name: 'other-alarm' })
       await new Promise((r) => setTimeout(r, 50))
       expect(mockRefreshAccessToken).not.toHaveBeenCalled()

@@ -88,6 +88,11 @@ export class WebSocketClient<TMessage = WSNotification> {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private closedByUser = false
   private _isConnected = false
+  // 2026-08-06 修复:连接代际计数。updateToken/disconnect 主动断开旧连接时,
+  // 旧 ws 的 onclose 回调是异步触发的,若不区分代际,旧连接的 onclose 会
+  // 在 closedByUser=false 时调度一次多余的 scheduleReconnect,与 updateToken
+  // 立即发起的新连接竞争,造成双连接/重连风暴。
+  private generation = 0
 
   constructor(
     private readonly options: WebSocketClientOptions<TMessage>,
@@ -118,8 +123,10 @@ export class WebSocketClient<TMessage = WSNotification> {
       return
     }
     this.ws = ws
+    const myGeneration = this.generation
 
     ws.onopen = () => {
+      if (myGeneration !== this.generation) return
       this.reconnectAttempt = 0
       this._isConnected = true
       this.handlers.onOpen?.()
@@ -129,6 +136,7 @@ export class WebSocketClient<TMessage = WSNotification> {
     // WebSocket onmessage 在 DOM(MessageEvent)和 RN(WebSocketMessageEvent)类型不同,
     // 用 WebSocketLike 的 { data: unknown } 统一签名兼容跨端(web/RN/desktop/extension)
     ws.onmessage = (event: { data: unknown }) => {
+      if (myGeneration !== this.generation) return
       const raw = event?.data
       if (raw === 'pong' || raw === '"pong"') return
       if (typeof raw !== 'string') return
@@ -142,6 +150,7 @@ export class WebSocketClient<TMessage = WSNotification> {
     }
 
     ws.onclose = () => {
+      if (myGeneration !== this.generation) return
       this._isConnected = false
       this.handlers.onClose?.()
       this.clearTimers()
@@ -151,6 +160,7 @@ export class WebSocketClient<TMessage = WSNotification> {
     }
 
     ws.onerror = () => {
+      if (myGeneration !== this.generation) return
       this.handlers.onError?.('WebSocket 连接错误')
     }
   }
@@ -185,6 +195,9 @@ export class WebSocketClient<TMessage = WSNotification> {
 
   /** token 刷新后重置连接(断开当前连接,用新 token 重连) */
   updateToken(): void {
+    // 2026-08-06 修复:先递增代际,使旧 ws 的异步 onclose 不再调度重连,
+    // 再 close + connect,消除重连竞态(旧 onclose 与新连接竞争)。
+    this.generation += 1
     if (this.ws) {
       try {
         this.ws.close()
