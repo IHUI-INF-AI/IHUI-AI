@@ -2165,7 +2165,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (request, reply) => {
-      await authenticate(request)
+      // P1 修复(2026-08-06): 全平台待处理订单列表含全量订单信息,普通登录用户可越权查看,改为仅管理员
+      const payload = await authenticate(request)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '需要管理员权限'))
+      }
       const items = await queryPendingOrders()
       return reply.send(success({ count: items.length, items }))
     },
@@ -2181,7 +2185,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (request, reply) => {
-      await authenticate(request)
+      // P1 修复(2026-08-06): 批量关闭全平台过期订单为管理员操作,普通登录用户可越权触发,改为仅管理员
+      const payload = await authenticate(request)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '需要管理员权限'))
+      }
       const pending = await queryPendingOrders()
       const closed: string[] = []
       const failed: Array<{ outTradeNo: string; error: string }> = []

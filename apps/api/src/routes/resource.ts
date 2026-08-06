@@ -38,6 +38,7 @@ import {
   incrementResourceDownloadCount,
 } from '../db/resource-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 
 // 通用响应 schema(data 透传)
 const responseSchema = {
@@ -83,7 +84,8 @@ const resourcesListQuery = z.object({
   ...paginationQuery,
   title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
   categoryId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
-  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
@@ -93,7 +95,8 @@ const byIdsQuery = z.object({
 
 const categoryQuery = z.object({
   pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
-  fetchAll: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  fetchAll: booleanStringSchemaOptional,
 })
 
 const createCategorySchema = z.object({
@@ -155,7 +158,8 @@ const productsListQuery = z.object({
   ...paginationQuery,
   resourceId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
