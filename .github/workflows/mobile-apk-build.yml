@@ -1,0 +1,58 @@
+name: Build Android APK
+
+# Android APK 构建(2026-08-06 立)。
+# 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
+#       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
+# 触发:
+#   - 手动 workflow_dispatch
+#   - 推送 v* tag(发布时自动构建)
+# 产物:Actions artifact(app-release.apk),下载后放入 apps/web/public/apk/ 即完成自托管分发。
+# 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: react-native-community/setup-android@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Android project (expo prebuild)
+        working-directory: apps/mobile-rn
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_WEB_URL: https://aizhs.top
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        working-directory: apps/mobile-rn/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ihui-ai-android-apk
+          path: apps/mobile-rn/android/app/build/outputs/apk/release/*.apk
