@@ -2690,3 +2690,43 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - `cloudflared tunnel run --token-file <path>` 是 Windows 服务模式的最优解(token 不进命令行参数,不进 Process Explorer 可见性)
 - token 结构:`{"a":"<account_id>","t":"<tunnel_id>","s":"<secret_uuid_base64>"}`,rotate 只换 s 字段,a/t 不变 → 守门用 a 字段前缀检测可覆盖所有 rotate 版本
 - subagent 自动化操作 Cloudflare 后台不可靠(会假报"已操作"),关键安全操作必须主 agent 亲自验证(API 调用确认状态变更)
+
+## P0 两步验证(2FA)登录全链路落地(2026-08-06 完成 ✅,登录功能修复 + 功能补齐)
+
+### 触发背景
+
+- 08-05 15:03 admin 在设置页开启 2FA 后,web 端登录被锁死:后端要求 TOTP 二次校验,但前端登录组件没有 2FA 步骤 → 密码再正确也登不进去(共享 LoginForm 判定"无 accessToken = 登录失败")。
+- 08-06 处置分两步:① 立即恢复登录(DB 关闭 admin 2FA + 清 Redis 失败计数)② 本任务:完整实现前端 2FA 登录流程。
+
+### 根因(两层)
+
+1. **前端缺 2FA 登录步骤**:后端 `/api/auth/login` 在账号启用 2FA 时返回 `{twoFactorRequired:true, challengeToken}`(不发 accessToken);前端 `packages/ui-react` 共享 LoginForm 第 156 行 `if (!result.success || !result.data?.accessToken)` 一律判失败。
+2. **后端响应脱敏坑**(比前端缺失更隐蔽):登录接口 2FA 分支未设 `request.skipResponseSanitization`,challengeToken(JWT)被响应脱敏层改写成 `***` → 即使前端做了 2FA 步骤也会 401"challenge token 无效或已过期"。**api.aizhs.top/api/auth/login 实测返回 `"challengeToken":"***"`**。正常登录分支有 skip,2FA 分支漏了。
+
+### 实现(前端共享包 + web + 后端)
+
+- **packages/ui-react**(共享 LoginForm):
+  - `types.ts`:LoginResult 增加 `twoFactorRequired?/challengeToken?`,user 改可选;新增 `TwoFactorChallenge` 类型;LoginApiClient 新增可选 `verifyTwoFactor`
+  - 新组件 `two-factor-panel.tsx`:TOTP 6 位/备用码(AAAA-AAAA)双模式输入 + 提交 + 错误/过期提示 + 返回登录
+  - `login-form.tsx`:2FA challenge 状态机,挑战存在时整体切换为验证面板(替换 Tabs+第三方+注册区)
+  - 3 个表单(password/email/phone):响应 `twoFactorRequired` 时上抛 `onTwoFactorRequired` 而非判失败
+- **apps/web**:LoginFormContent 注入 `verifyTwoFactor`(POST /api/auth/2fa/login-verify)
+- **apps/api**:`auth.ts` export `resolveUserPermissions/publicUser`;两处 2FA 分支补 `skipResponseSanitization`;`auth-extended.ts` login-verify 成功响应补 `user`(与正常登录一致,前端无需再拉 /me)
+- **i18n**:5 语言(zh-CN/en/ja/ko/zh-TW)auth.* 新增 14 个 2FA key
+
+### 验证(E2E 8/8 通过,API 层实测)
+
+注册→登录→2fa/setup→TOTP verify 开启→二次登录返回 twoFactorRequired+完整 JWT challengeToken→错误 TOTP 401→正确 TOTP 登录成功(含 user)→备用码登录成功。前端产物 grep 确认 twoFactorRequired/two-factor-panel/两步验证/login-verify 已编译;公网 chunk + 登录接口实测通过。
+
+### 生产事故记录(同日)
+
+- **admin 曾被 2FA 锁死登录**(08-06 09:52 报障)→ 已 SQL 关闭(备份 secret+10 备用码后清除)
+- **.git 第三次消失**(08-06 10:40,前两次 08-04/08-05)→ 已 clone 远程恢复;同时发现 auth.ts 修改被外部回滚(10:40 文件被重写,原因未明,疑似与 .git 异常相关,已重新落盘并重启验证)
+- 测试用户保留:13900008888 / test2fa2026,2FA secret=RBVHMFANM4CVS2GGFIIRERP6KZTWIDT4(李总实测用,验证后可删)
+
+### 经验沉淀
+
+- **Fastify 响应脱敏层**:任何返回 JWT/敏感串的新端点必须 `request.skipResponseSanitization = true`,否则字段变 `***`(登录 2FA 分支实测踩坑)
+- **前端登录成功判定**不能依赖"accessToken 必须存在",必须识别 twoFactorRequired 中间态
+- 后台任务的 pnpm install 会触发 safe-delete 沙箱拦截 → typecheck/lint 用 `node_modules/.bin/tsc`/`eslint` 直跑绕过
+
