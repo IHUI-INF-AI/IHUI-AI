@@ -80,7 +80,34 @@
           "fetchedAt": "更新時間"
         },
         "empty": "ランキングデータなし,次回同期をお待ちください",
-        "refresh": "5分自動更新"
+        "refresh": "5分自動更新",
+        "leaderboards": {
+          "lmsys": "LMSYS Arena",
+          "opencompass": "OpenCompass",
+          "hf-open-llm": "HF Open LLM",
+          "superclue": "SuperCLUE",
+          "artificial-analysis": "Artificial Analysis"
+        },
+        "categories": {
+          "overall": "Overall",
+          "coding": "Coding",
+          "math": "Math",
+          "reasoning": "Reasoning",
+          "chinese": "Chinese",
+          "english": "English",
+          "multiturn": "Multiturn",
+          "hard-prompts": "Hard Prompts",
+          "expert": "Expert",
+          "creative": "Creative",
+          "instruction": "Instruction",
+          "longer-query": "Longer Query",
+          "knowledge": "Knowledge",
+          "agent": "Agent",
+          "multimodal": "Multimodal",
+          "safety": "Safety",
+          "long-text": "Long Text",
+          "open-source": "Open Source"
+        }
       },
       "trending": {
         "score": "トレンド",
