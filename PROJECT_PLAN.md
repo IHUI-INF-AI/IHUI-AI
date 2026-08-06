@@ -2804,7 +2804,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > 核查工具已就绪:`scripts/check-downloads-config.mjs` 一键输出 8 端配置状态。运营提供数据 → 填 `apps/web/.env.production` → 重新 build 即生效(无需代码改动)。
 
 - [ ] 运营接入 iOS App Store ID(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID`)
-- [ ] 运营接入 Android APK 下载 URL(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_APK_URL` 或 Google Play/CDN)
+- [x] ✅ **Android APK 自托管直连下载(2026-08-06 已落地,commit d1426373a2)**:不备案不上架,APK 放 `apps/web/public/apk/ihui-ai-latest.apk` + 填 `NEXT_PUBLIC_DOWNLOAD_APK_URL=/apk/ihui-ai-latest.apk` + VERSION/RELEASE_DATE → 重新 build 即生效(同源下载,无需 CDN/备案/上架;下载页自动显示 APK 按钮 + 含"允许未知来源"的安装引导)。**待你放入 APK 文件即完全闭合**
 - [ ] 运营接入微信小程序 QR(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_WECHAT_QR`)
 
 ### 平台环境限制 → 已由 CI 自动构建闭环(2026-08-06 ✅,commit dd36a23a95)
