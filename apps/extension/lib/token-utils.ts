@@ -58,12 +58,27 @@ export async function doRefresh(): Promise<boolean> {
   return promise
 }
 
+// 兜底刷新定时器(scheduleRefreshAlarm 的 chrome.alarms 链若意外中断,由它保证 token 仍会续期)
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+const AUTO_REFRESH_INTERVAL_MS = 4 * 60 * 1000 // 4 分钟
+
 export function startAutoRefresh(): void {
   // scheduleOnce 模式下,listener 由 scheduleRefreshAlarm 内部随 handler 绑定注册,
-  // 不再需要常驻 onAlarm listener。保留函数以维持 API 兼容(background.ts 仍调用)。
+  // 无需常驻 onAlarm listener;这里额外挂一个 setInterval 兜底:
+  // - alarm 链递归续期是主路径(MV3 SW 休眠期间仍可触发)
+  // - 若 alarm 链意外断裂(浏览器清理 / schedule 丢失),interval 每 4 分钟兜底 doRefresh
+  // - SW 被回收时 interval 自然失效,下次 startAutoRefresh 重新建立,不会重复注册
+  if (autoRefreshTimer) return
+  autoRefreshTimer = setInterval(() => {
+    void doRefresh()
+  }, AUTO_REFRESH_INTERVAL_MS)
 }
 
 export function stopAutoRefresh(): void {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
   // clearSchedule 内部已封装 removeListener + clear(仅当存在已注册 listener 时移除)
   void platform.scheduler.clearSchedule(REFRESH_ALARM_NAME)
 }
