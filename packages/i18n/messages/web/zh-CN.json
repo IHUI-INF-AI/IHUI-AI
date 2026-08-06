@@ -1561,6 +1561,32 @@
     }
   },
   "admin": {
+    "downloads": {
+      "title": "下载统计",
+      "total": "总下载量",
+      "activePlatforms": "已接入端数",
+      "today": "今日下载",
+      "week": "7 日下载",
+      "platform": "平台",
+      "count": "下载量",
+      "ratio": "占比",
+      "trend": "下载趋势",
+      "distribution": "平台分布",
+      "detail": "平台明细",
+      "filterPlatform": "筛选平台",
+      "allPlatforms": "全部平台",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "noData": "暂无下载记录",
+      "platformWeb": "Web 版",
+      "platformDesktop": "桌面客户端",
+      "platformIos": "iOS App",
+      "platformAndroidApk": "Android APK",
+      "platformMobile": "移动端 H5",
+      "platformWechatMiniapp": "微信小程序",
+      "platformExtension": "浏览器插件",
+      "platformCli": "命令行工具"
+    },
     "relayParamOps": {
       "title": "参数覆盖规则",
       "subtitle": "转发层 applyParamOps 规则管理(15 种 op + 条件 + JSON 路径)",
