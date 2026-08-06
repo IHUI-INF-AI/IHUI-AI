@@ -1,7 +1,12 @@
 import { randomBytes } from 'node:crypto'
-import { eq, and, desc, asc, sql } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
+  comments,
+  circlePosts,
+  docs,
+  files,
+  projects,
   userFollows,
   userFavorites,
   subscriptions,
@@ -192,9 +197,64 @@ export async function isFavorited(input: {
   return rows.length > 0
 }
 
+/** 收藏列表条目(含关联资源标题) */
+export interface FavoriteWithTitle extends UserFavorite {
+  title?: string
+}
+
+/** 按资源类型批量取标题:project/file/doc/post/comment → name/title/content。 */
+async function resolveTitles(favorites: UserFavorite[]): Promise<Map<string, string>> {
+  const byType = new Map<string, string[]>()
+  for (const f of favorites) {
+    const arr = byType.get(f.resourceType) ?? []
+    arr.push(f.resourceId)
+    byType.set(f.resourceType, arr)
+  }
+  const titleById = new Map<string, string>()
+  for (const [type, ids] of byType) {
+    if (ids.length === 0) continue
+    try {
+      if (type === 'project') {
+        const rows = await db
+          .select({ id: projects.id, name: projects.name })
+          .from(projects)
+          .where(inArray(projects.id, ids as never))
+        for (const r of rows) titleById.set(`project:${r.id}`, r.name)
+      } else if (type === 'file') {
+        const rows = await db
+          .select({ id: files.id, name: files.name })
+          .from(files)
+          .where(inArray(files.id, ids as never))
+        for (const r of rows) titleById.set(`file:${r.id}`, r.name)
+      } else if (type === 'doc') {
+        const rows = await db
+          .select({ id: docs.id, title: docs.title })
+          .from(docs)
+          .where(inArray(docs.id, ids as never))
+        for (const r of rows) titleById.set(`doc:${r.id}`, r.title)
+      } else if (type === 'post') {
+        const rows = await db
+          .select({ id: circlePosts.id, title: circlePosts.title })
+          .from(circlePosts)
+          .where(inArray(circlePosts.id, ids as never))
+        for (const r of rows) titleById.set(`post:${r.id}`, r.title)
+      } else if (type === 'comment') {
+        const rows = await db
+          .select({ id: comments.id, content: comments.content })
+          .from(comments)
+          .where(inArray(comments.id, ids as never))
+        for (const r of rows) titleById.set(`comment:${r.id}`, r.content)
+      }
+    } catch {
+      // 单类资源查询失败不影响其余类型
+    }
+  }
+  return titleById
+}
+
 export async function findFavorites(
   opts: PageOpts & { userId: string; resourceType?: string },
-): Promise<{ list: UserFavorite[]; total: number }> {
+): Promise<{ list: FavoriteWithTitle[]; total: number }> {
   const conds = [eq(userFavorites.userId, opts.userId)]
   if (opts.resourceType) conds.push(eq(userFavorites.resourceType, opts.resourceType))
   const where = and(...conds)
@@ -211,7 +271,12 @@ export async function findFavorites(
       .from(userFavorites)
       .where(where),
   ])
-  return { list, total: Number(totalRows[0]?.count ?? 0) }
+  const titles = await resolveTitles(list)
+  const enriched: FavoriteWithTitle[] = list.map((f) => ({
+    ...f,
+    title: titles.get(`${f.resourceType}:${f.resourceId}`),
+  }))
+  return { list: enriched, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 /** 统计用户收藏的资源总数。 */
