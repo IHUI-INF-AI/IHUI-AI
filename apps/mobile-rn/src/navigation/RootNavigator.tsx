@@ -149,6 +149,8 @@ import { useTheme } from '../context/ThemeContext'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
+import AigcCoverScreen from '../screens/AigcCoverScreen'
+import AigcPublishScreen from '../screens/AigcPublishScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -284,6 +286,9 @@ export type RootStackParamList = {
   WorkPanel: { url: string }
   TaskDispatch: undefined
   SharedDemo: undefined
+  Recharge: undefined
+  AigcCover: { id: string; title: string }
+  AigcPublish: undefined
 }
 
 export type HomeStackParamList = {
@@ -582,6 +587,10 @@ function RootNavigatorInner() {
             <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
             <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
+            {/* Recharge 暂复用钱包页(充值页独立实现前,保证导航可达不崩) */}
+            <RootStack.Screen name="Recharge" component={WalletScreen} />
+            <RootStack.Screen name="AigcCover" component={AigcCoverScreen} />
+            <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
           </>
         ) : (
           <>
