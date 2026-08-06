@@ -346,7 +346,7 @@ export default function CliImportPage() {
                 {history.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-xs"
+                    className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-2">

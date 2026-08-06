@@ -7,27 +7,34 @@ import { Globe, AlertCircle, Clock, Loader2, ArrowRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { RingChart } from './RingChart'
-import { MOCK, LOCALE_COLORS, fmtTime } from './helpers'
+import { EMPTY, LOCALE_COLORS, fmtTime } from './helpers'
 import type { I18nOverview } from './types'
 import { BackButton } from '@/components/common'
 
 export default function I18nDashboardPage() {
-  const { data, isLoading } = useQuery<I18nOverview>({
+  const { data, isLoading, error } = useQuery<I18nOverview>({
     queryKey: ['i18n', 'overview'],
     queryFn: async () => {
       const r = await fetchApi<I18nOverview>('/api/admin/i18n-dashboard')
-      return r.success && r.data ? r.data : MOCK
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     staleTime: 60_000,
   })
 
-  const d = data ?? MOCK
+  const d = data ?? EMPTY
   const avgCompletion = Math.round(
     d.languages.reduce((s, l) => s + l.completion, 0) / d.languages.length,
   )
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          i18n 数据加载失败:{(error as Error).message}
+        </div>
+      )}
       <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">

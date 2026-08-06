@@ -60,7 +60,10 @@
     "footer:guard": "node scripts/check-site-footer.mjs",
     "seo:indexnow": "node scripts/notify-indexnow.mjs",
     "social-preview": "node scripts/generate-social-preview.mjs",
-    "guardian:docs": "node scripts/generate-guardian-docs.mjs"
+    "guardian:docs": "node scripts/generate-guardian-docs.mjs",
+    "sync:downloads": "node scripts/sync-downloads.mjs",
+    "sync:downloads:check": "node scripts/sync-downloads.mjs --check",
+    "sync:downloads:dry-run": "node scripts/sync-downloads.mjs --dry-run"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",

@@ -1,7 +1,8 @@
 import { useOutletContext } from 'react-router-dom'
 import { Button, Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useI18n, type Locale } from '../../../src/i18n'
+import { THEME_STORAGE_KEY } from '../../../src/hooks/use-system-theme'
 
 interface Ctx {
   onLogout: () => void
@@ -22,9 +23,32 @@ export default function SettingsPage() {
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
 
+  // 启动时读取持久化主题偏好(键名与 use-system-theme 的 THEME_STORAGE_KEY 一致)
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const result = await chrome.storage.local.get(THEME_STORAGE_KEY)
+        const pref: unknown = result[THEME_STORAGE_KEY]
+        if (!cancelled && (pref === 'dark' || pref === 'light')) {
+          setDark(pref === 'dark')
+        }
+      } catch {
+        // 读取失败保留当前 class 状态
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const onToggleTheme = (v: boolean) => {
     setDark(v)
     document.documentElement.classList.toggle('dark', v)
+    // 持久化:use-system-theme 的 onStorageChanged 会监听到并同步其他 context
+    void chrome.storage.local
+      .set({ [THEME_STORAGE_KEY]: v ? 'dark' : 'light' })
+      .catch(() => {})
   }
 
   return (

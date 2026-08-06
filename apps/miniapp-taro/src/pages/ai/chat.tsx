@@ -61,6 +61,8 @@ export default function ChatPage() {
   const suggestions = tList('ai.suggestions')
   const user = useUserStore((s) => s.user)
   const routeAgentId = router.params.agentId || ''
+  // 支持从历史页(/pages/ai/history?sessionId=)与首页抽屉(/pages/ai/chat?id=)跳转恢复会话
+  const routeSessionId = router.params.sessionId || router.params.id || ''
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
@@ -235,7 +237,23 @@ export default function ChatPage() {
     // 加载历史对话(对标原 ai_assistant.vue 加载历史)
     try {
       const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
-      if (Array.isArray(savedHistory)) setChatHistories(savedHistory)
+      if (Array.isArray(savedHistory)) {
+        setChatHistories(savedHistory)
+        // 带 sessionId/id 参数进入时恢复对应会话(参照 history.tsx:146 / index.tsx:207 传参格式)
+        if (routeSessionId) {
+          const target = (savedHistory as ChatHistoryEntry[]).find(
+            (h) => h.id === routeSessionId && Array.isArray(h.messages) && h.messages.length > 0,
+          )
+          if (target) {
+            setMessages(target.messages)
+            setSessionId('')
+            setImgsList([])
+            setInputValue('')
+            setSelectedMaterial(null)
+            scrollToBottom()
+          }
+        }
+      }
     } catch {
       // 存储读取失败忽略
     }
@@ -804,7 +822,7 @@ export default function ChatPage() {
           />
         ))}
 
-        {thinking && messages[messages.length - 1]?.role !== 'assistant' ? (
+        {thinking && messages[messages.length - 1]?.role === 'assistant' ? (
           <View className="msg-item assistant">
             <View className="avatar assistant">AI</View>
             <View className="bubble">

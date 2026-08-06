@@ -54,8 +54,7 @@ export function CertificateScreen() {
         void load()
       }}
       onPressItem={(item) => {
-        // @ts-expect-error CertificateDetail 路由待在 RootStackParamList 注册(navigation 基础设施,非共享层范围)
-        navigation.navigate('CertificateDetail', { id: item.id })
+        navigation.navigate('CertDetail', { id: item.id })
       }}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
