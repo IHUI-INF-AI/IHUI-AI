@@ -65,7 +65,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // 原 p-3 → laptop:p-8(桌面 32px 四边留白)导致编辑器等所有页面四边有留白,
           // 用户反馈"为啥不占满啊"。现改为无 padding,内容完全贴工作区卡片边缘。
           // 各页面如需内部留白应自行在页面组件内设置(如 about 的 px-4 py-8 已自带)。
-          className="no-scrollbar flex-1 overflow-y-auto"
+          // 2026-08-05 性能优化:content-visibility:auto + contain-intrinsic-size:1000px
+          // 让浏览器跳过副屏外内容的渲染,显著提升首帧渲染速度。
+          className="no-scrollbar flex-1 overflow-y-auto [content-visibility:auto] [contain-intrinsic-size:1000px]"
         >
           {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
               (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}
