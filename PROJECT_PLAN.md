@@ -2988,3 +2988,15 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - ✅ **downloads 配置核查(边界 1 工具化)**:新增 `scripts/check-downloads-config.mjs`——一键输出 8 端配置状态,当前明确 3 端待运营数据(iOS App Store ID / Android APK·Play / 小程序 QR)
 - ⏳ **generate 中间产物清理(边界 4)**:`0204_curvy_swarm.sql`(含 DROP 勿执行)等 4 文件已 gitignore 保护;物理删除曾被用户拒绝沙箱外权限——**保留,待用户授权后清理**
 - ⏳ **ai-service 侧轨迹(边界 2 深层)**:ai-service 9 个文件正被其他会话 WIP 修改,不可触碰(避免污染);派单层 agent_tasks(含 steps 明细)已是该架构下最真实水平——**待 ai-service WIP 结束后可评估深层演进**
+
+## 生产运维:对话链路故障全修复 + 防删库防线(2026-08-06 22:00-23:55 ✅,已推送)
+
+> 用户反馈线上"对话连不上模型/一直重连/工具调用失败",共 5 轮排查修复,全部上线。
+
+- ✅ **sqli-guard 误杀根治(c57b8698e→9a5e66a12→562a00dea)**:① 移除 `#` 单字符特征(#1 误杀);② AI 路径去掉 `--`(Markdown 表格 `| --- |` 误杀,历史含表格后所有对话被 400 拦);③ **最终根治:AI 内容端点(/api/ai/、/api/llm/、/api/chat/)完全跳过检测**——自由文本无 SQL 注入面,非 AI 端点检测不变
+- ✅ **前端 4xx 不重连(562a00dea)**:streamChat 所有 4xx 客户端错误不再自动重试,杜绝重连风暴
+- ✅ **MCP 工具链路(4b5e5ebd6→3706f7a9f→49367dbff)**:MCP_WORKSPACE_ROOTS 配项目根(原回退 ai-service cwd,AI 读不到全项目);read_file 目录检测 IS_A_DIRECTORY;工具别名 execute_command→run_command;user_role 透传(admin 被误判 role=0);新增 list_files 工具
+- ✅ **空回复兜底(f8c168b01)**:模型返回空 content 时生成友好提示,不再出现空白消息
+- ✅ **前端体验(d6657fd1e/33317a29b/fb17948b5)**:等待状态实时小字+光道扫光;AI 消息占满宽度(表格右侧留白修复);按钮/时间戳 hover 显隐
+- ✅ **防删库防线(e262c0e97)**:pre-push + pre-commit 删除守门(删除≥500 文件拦截),防止 `git add -A` 误删全仓库(当日事故:远程 main 曾被删空 9005 文件,本地 force push 恢复)
+- ⏳ **GitHub 分支保护(建议)**:无 API token 无法自动配置,需网页操作——Settings→Branches→main→Require PR reviews + 限制推送
