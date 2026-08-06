@@ -204,7 +204,7 @@
 /* 文本卡片(对标原项目 content-item) */
 .text-card {
   background: #f6f6f6;
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 28rpx;
   box-sizing: border-box;
   border: 1rpx solid #eee;
@@ -266,7 +266,7 @@
 /* 音频卡片(对标原项目 audio-card-item,两列网格) */
 .audio-card {
   background: #f6f6f6;
-  border-radius: 20rpx;
+  border-radius: 10rpx;
   padding: 24rpx 16rpx;
   box-sizing: border-box;
   border: 1rpx solid #eee;

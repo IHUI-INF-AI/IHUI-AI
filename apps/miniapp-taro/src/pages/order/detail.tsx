@@ -119,13 +119,13 @@ export default function OrderDetail() {
         {order.status === 'pending' && (
           <>
             <Button
-              className="mt-[24rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
+              className="mt-[24rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
               onClick={goPay}
             >
               {t('order.goPay')}
             </Button>
             <Button
-              className={`mt-[24rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx] ${canceling ? 'opacity-50' : ''}`}
+              className={`mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx] ${canceling ? 'opacity-50' : ''}`}
               disabled={canceling}
               onClick={onCancel}
             >
@@ -135,14 +135,14 @@ export default function OrderDetail() {
         )}
         {order.status === 'paid' && (
           <Button
-            className="mt-[24rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
+            className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
             onClick={goRefund}
           >
             {t('order.applyRefund')}
           </Button>
         )}
         <Button
-          className="mt-[24rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
+          className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
           onClick={goList}
         >
           {t('order.title')}
