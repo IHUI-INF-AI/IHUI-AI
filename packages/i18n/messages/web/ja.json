@@ -192,6 +192,12 @@
     "collapse": "Show less",
     "language": "言語",
     "downloadClient": "アプリをダウンロード",
+    "downloadAssets": "ダウンロードリソース",
+    "downloadAvailable": "ダウンロード可能",
+    "downloadComingSoon": "近日公開",
+    "downloadComingSoonHint": "{platform} アプリは開発中です。ご期待ください",
+    "downloadComingSoonTitle": "近日公開",
+
     "selfMediaAutomation": "自動化",
     "downloadTitle": "アプリをダウンロード",
     "mainNav": "メインナビゲーション",

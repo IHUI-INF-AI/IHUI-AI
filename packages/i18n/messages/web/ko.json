@@ -189,6 +189,12 @@
     "collapse": "Show less",
     "language": "언어",
     "downloadClient": "앱 다운로드",
+    "downloadAssets": "다운로드 리소스",
+    "downloadAvailable": "다운로드 가능",
+    "downloadComingSoon": "곧 출시",
+    "downloadComingSoonHint": "{platform} 앱이 개발 중입니다. 기대해 주세요!",
+    "downloadComingSoonTitle": "곧 출시",
+
     "selfMediaAutomation": "자동화",
     "downloadTitle": "앱 다운로드",
     "mainNav": "메인 내비게이션",
