@@ -214,13 +214,13 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     {
       key: 'course',
       label: t('chat.navCourse'),
-      onPress: () => navigation.getParent()?.navigate('Tabs'),
+      onPress: () => navigation.navigate('Tabs'),
     },
     { key: 'order', label: t('chat.navOrder'), onPress: () => navigation.navigate('Order') },
     {
       key: 'profile',
       label: t('chat.navProfile'),
-      onPress: () => navigation.getParent()?.navigate('Tabs'),
+      onPress: () => navigation.navigate('Tabs'),
     },
     {
       key: 'settings',
