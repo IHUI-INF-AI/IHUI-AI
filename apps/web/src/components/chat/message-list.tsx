@@ -518,13 +518,16 @@ const MessageItem = React.memo(function MessageItem({
             )}
           </div>
         )}
-        {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue 9 按钮 + _message-list.scss 样式)
-            - opacity:1 始终显示(原项目 _message-list.scss line 199-205)
-            - gap:8px(原项目 .message-actions gap:8px)
-            - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
-            - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply + Token(条件)
-            - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
-        {!streamingThis && m.content.length > 0 && (
+      </div>
+      {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue 9 按钮 + _message-list.scss 样式)
+          - 2026-08-06 修正:从气泡容器内挪到气泡外(与气泡容器同级,作为消息项子节点)
+            避免被 bg-primary 包裹导致按钮显示在气泡内部
+          - opacity:1 始终显示(原项目 _message-list.scss line 199-205)
+          - gap:8px(原项目 .message-actions gap:8px)
+          - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
+          - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply + Token(条件)
+          - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
+      {!streamingThis && m.content.length > 0 && (
           <div
             className="flex items-center gap-2 opacity-100 mt-1"
             data-testid={`message-actions-${m.id}`}
@@ -701,7 +704,6 @@ const MessageItem = React.memo(function MessageItem({
             <UsageBreakdown usage={m.meta?.usage} />
           </div>
         )}
-      </div>
       {showTimestamp && (
         <div
           className={cn(
