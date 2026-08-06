@@ -80,7 +80,34 @@
           "fetchedAt": "更新时间"
         },
         "empty": "暂无排行数据,等待下次同步",
-        "refresh": "5 分钟自动刷新"
+        "refresh": "5 分钟自动刷新",
+        "leaderboards": {
+          "lmsys": "LMSYS 竞技场",
+          "opencompass": "OpenCompass 司南",
+          "hf-open-llm": "Hugging Face 开源榜",
+          "superclue": "SuperCLUE",
+          "artificial-analysis": "Artificial Analysis"
+        },
+        "categories": {
+          "overall": "综合",
+          "coding": "编程",
+          "math": "数学",
+          "reasoning": "推理",
+          "chinese": "中文",
+          "english": "英文",
+          "multiturn": "多轮对话",
+          "hard-prompts": "硬提示",
+          "expert": "专家级",
+          "creative": "创意",
+          "instruction": "指令遵循",
+          "longer-query": "长查询",
+          "knowledge": "知识",
+          "agent": "Agent 智能体",
+          "multimodal": "多模态",
+          "safety": "安全",
+          "long-text": "长文本",
+          "open-source": "开源"
+        }
       },
       "trending": {
         "score": "热度",

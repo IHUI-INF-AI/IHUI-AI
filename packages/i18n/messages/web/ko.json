@@ -80,7 +80,34 @@
           "fetchedAt": "업데이트 시간"
         },
         "empty": "순위 데이터 없음, 다음 동기화 대기 중",
-        "refresh": "5분 자동 새로고침"
+        "refresh": "5분 자동 새로고침",
+        "leaderboards": {
+          "lmsys": "LMSYS Arena",
+          "opencompass": "OpenCompass",
+          "hf-open-llm": "HF Open LLM",
+          "superclue": "SuperCLUE",
+          "artificial-analysis": "Artificial Analysis"
+        },
+        "categories": {
+          "overall": "Overall",
+          "coding": "Coding",
+          "math": "Math",
+          "reasoning": "Reasoning",
+          "chinese": "Chinese",
+          "english": "English",
+          "multiturn": "Multiturn",
+          "hard-prompts": "Hard Prompts",
+          "expert": "Expert",
+          "creative": "Creative",
+          "instruction": "Instruction",
+          "longer-query": "Longer Query",
+          "knowledge": "Knowledge",
+          "agent": "Agent",
+          "multimodal": "Multimodal",
+          "safety": "Safety",
+          "long-text": "Long Text",
+          "open-source": "Open Source"
+        }
       },
       "trending": {
         "score": "인기도",
