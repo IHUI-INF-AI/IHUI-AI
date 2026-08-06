@@ -1577,6 +1577,32 @@
     }
   },
   "admin": {
+    "downloads": {
+      "title": "Download Stats",
+      "total": "Total Downloads",
+      "activePlatforms": "Active Platforms",
+      "today": "Today",
+      "week": "Last 7 Days",
+      "platform": "Platform",
+      "count": "Downloads",
+      "ratio": "Share",
+      "trend": "Download Trend",
+      "distribution": "Platform Distribution",
+      "detail": "Platform Details",
+      "filterPlatform": "Filter Platform",
+      "allPlatforms": "All Platforms",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "noData": "No download records",
+      "platformWeb": "Web",
+      "platformDesktop": "Desktop Client",
+      "platformIos": "iOS App",
+      "platformAndroidApk": "Android APK",
+      "platformMobile": "Mobile H5",
+      "platformWechatMiniapp": "WeChat Mini Program",
+      "platformExtension": "Browser Extension",
+      "platformCli": "CLI Tool"
+    },
     "relayParamOps": {
       "title": "Param Override Rules",
       "subtitle": "Forwarding layer applyParamOps rules (15 ops + conditions + JSON path)",
