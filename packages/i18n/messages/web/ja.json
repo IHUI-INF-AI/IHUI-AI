@@ -12810,6 +12810,7 @@
   "mobileDashboardPage": {
     "title": "モバイルダッシュボード",
     "subtitle": "モバイルの主要運用指標とトレンドを監視。",
+    "noData": "データなし",
     "stats": {
       "trendSuffix": "前日比",
       "dau": "DAU",

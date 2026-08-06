@@ -12783,6 +12783,7 @@
   "mobileDashboardPage": {
     "title": "모바일 대시보드",
     "subtitle": "모바일 핵심 운영 지표 및 트렌드 모니터링.",
+    "noData": "데이터 없음",
     "stats": {
       "trendSuffix": "전일 대비",
       "dau": "DAU",

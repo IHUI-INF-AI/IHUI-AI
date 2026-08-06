@@ -12786,6 +12786,7 @@
   "mobileDashboardPage": {
     "title": "Mobile Dashboard",
     "subtitle": "Monitor core mobile operational metrics and trends.",
+    "noData": "No data yet",
     "stats": {
       "trendSuffix": "vs yesterday",
       "dau": "DAU",
