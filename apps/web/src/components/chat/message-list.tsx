@@ -557,7 +557,8 @@ const MessageItem = React.memo(function MessageItem({
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
           <div
-            className="flex items-center gap-2 opacity-100 mt-1"
+            // 2026-08-06:默认隐藏,仅 hover 消息时显示(触屏常显,animations.css .msg-hover-reveal)
+            className="msg-hover-reveal flex items-center gap-2 mt-1"
             data-testid={`message-actions-${m.id}`}
           >
             {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
@@ -735,7 +736,8 @@ const MessageItem = React.memo(function MessageItem({
       {showTimestamp && (
         <div
           className={cn(
-            'flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
+            // 2026-08-06:时间戳默认隐藏,仅 hover 消息时显示(触屏常显)
+            'msg-hover-reveal flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
             isUser ? 'justify-end' : 'justify-start',
           )}
           data-testid={`message-timestamp-${m.id}`}
