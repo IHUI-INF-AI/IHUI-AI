@@ -141,8 +141,11 @@ function Test-PidAlive([int]$procId) {
 
 # ============================================================
 # 函数:通过 HTTP 探活
+# 2026-08-07 修复:默认超时 3s → 10s。api/ai-service 冷启动首次响应
+# (tsx 编译 + DB 连接 + provider 探活)常超 2s,探针超时短会误判 FAIL
+# ("模型连接失败/任务列表加载失败"排查链中的自检误报根因)。
 # ============================================================
-function Test-HealthUrl([string]$url, [int]$timeoutSec = 3) {
+function Test-HealthUrl([string]$url, [int]$timeoutSec = 10) {
   try {
     $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $timeoutSec -ErrorAction Stop
     return ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500)
@@ -166,7 +169,7 @@ function Wait-Healthy([string]$name, [int]$port, [string]$healthUrl, [int]$timeo
       if ([string]::IsNullOrEmpty($healthUrl)) {
         return $true
       }
-      if (Test-HealthUrl $healthUrl 2) {
+      if (Test-HealthUrl $healthUrl 10) {
         return $true
       }
     }
@@ -213,7 +216,7 @@ function Start-ServiceProcess {
   param(
     [string]$Name,
     [string]$Cmd,
-    [string[]]$Args,
+    [string[]]$ScriptArgs,
     [string]$Cwd,
     [int]$Port,
     [string]$HealthUrl,
@@ -242,7 +245,7 @@ function Start-ServiceProcess {
 
   # 2. 拼 cmd 行(pnpm 在 Windows 是 .cmd shim,Start-Process 调 pnpm.exe
   #    会报 "%1 is not a valid Win32 application"。用 cmd.exe /c 包装最稳。)
-  $argList = $Args | ForEach-Object {
+  $argList = $ScriptArgs | ForEach-Object {
     if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
   }
   $cmdLine = "$Cmd " + ($argList -join ' ')
@@ -334,7 +337,7 @@ function Show-Status {
     $statusColor = if ($portInUse) { 'Green' } else { 'DarkGray' }
     $httpText = ''
     if ($portInUse -and -not [string]::IsNullOrEmpty($health)) {
-      $ok = Test-HealthUrl $health 2
+      $ok = Test-HealthUrl $health 10
       $httpText = if ($ok) { ' / HTTP 200' } else { ' / HTTP NO-RESP' }
     }
     $pidText = if ($pidInfo) { "  [$pidInfo]" } else { '' }
@@ -464,6 +467,35 @@ if ($Clean) {
   exit 0
 }
 
+# ============================================================
+# 启动前硬门禁:三端 env 一致性检查(JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY)
+# 2026-08-07 立:此前 env 漂移导致全站 401(任务列表/模型连接失败)反复出现,
+# 任何不一致直接拒绝启动,绝不带病运行。
+# ============================================================
+function Invoke-EnvConsistencyGate {
+  Write-Hdr "env 一致性门禁(三端 JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY)"
+  $node = Get-Command node -ErrorAction SilentlyContinue
+  if (-not $node) {
+    Write-Err "未找到 node,无法执行一致性门禁(scripts/check-dev-env-consistency.mjs),拒绝启动"
+    return $false
+  }
+  $gateScript = Join-Path $RepoRoot 'scripts\check-dev-env-consistency.mjs'
+  if (-not (Test-Path $gateScript)) {
+    Write-Err "门禁脚本缺失: $gateScript,拒绝启动"
+    return $false
+  }
+  $output = & node $gateScript 2>&1
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -eq 0) {
+    $output | ForEach-Object { Write-Host $_ }
+    Write-Ok "env 一致性门禁通过"
+    return $true
+  }
+  $output | ForEach-Object { Write-Host $_ }
+  Write-Err "env 一致性门禁失败(exit=$exitCode):拒绝启动。请先修复 env 配置再重试。"
+  return $false
+}
+
 # 启动流程
 $registry = Get-ServiceRegistry
 
@@ -491,6 +523,11 @@ if ($toStart.Count -eq 0) {
   exit 1
 }
 
+# 硬门禁:env 一致性(仅实际启动时执行,-Status/-Stop/-Clean 跳过)
+if (-not (Invoke-EnvConsistencyGate)) {
+  exit 1
+}
+
 Write-Hdr "IHUI-AI dev 启动器(后台模式,SIGINT 免疫)"
 Write-Info "启动服务:$($toStart -join ', ')"
 Write-Info "日志目录:  $LogDir"
@@ -502,12 +539,12 @@ foreach ($name in $toStart) {
   Start-ServiceProcess `
     -Name $name `
     -Cmd $svc.cmd `
-    -Args $svc.args `
+    -ScriptArgs $svc.args `
     -Cwd (Join-Path $RepoRoot $svc.cwd) `
     -Port ([int]$svc.port) `
     -HealthUrl $svc.health `
     -TimeoutSec ([int]$svc.timeout_sec) `
-    -IsForeground [bool]$Foreground
+    -IsForeground:([bool]$Foreground)
 }
 
 Write-Hdr "完成"
@@ -522,3 +559,34 @@ foreach ($name in $toStart) {
   }
 }
 Write-Host ''
+
+# ============================================================
+# 启动后端到端自检(2026-08-07 立):所有已启动服务做 HTTP 实测,
+# 不再只信启动器的健康检查(api/ai-service 编译慢常报超时误判)。
+# 每个服务独立等待其 registry timeout_sec(不统一窗口,慢服务给足时间)。
+# 任一服务超时不响应 → 打印红色 FAIL + 日志提示,但仍保留进程排查。
+# ============================================================
+Write-Hdr "端到端自检(HTTP 实测,按服务独立等待)"
+foreach ($name in $toStart) {
+  $svc = $registry.services.$name
+  $port = [int]$svc.port
+  if (-not $svc.health) {
+    Write-Host "  {0,-15} port {1,-5} SKIP(无 HTTP 探针)" -f $name, $port -ForegroundColor DarkGray
+    continue
+  }
+  # 每个服务按自己的 timeout_sec 等待(web 60s / api 120s / ai-service 240s)
+  $svcDeadline = (Get-Date).AddSeconds([int]$svc.timeout_sec)
+  $ok = $false
+  while ((Get-Date) -lt $svcDeadline) {
+    if (Test-HealthUrl $svc.health 10) { $ok = $true; break }
+    Start-Sleep -Milliseconds 1000
+  }
+  if ($ok) {
+    $line = "  {0,-15} port {1,-5} PASS  {2}" -f $name, $port, $svc.health
+    Write-Host $line -ForegroundColor Green
+  } else {
+    $line = "  {0,-15} port {1,-5} FAIL  {2}" -f $name, $port, $svc.health
+    Write-Host $line -ForegroundColor Red
+    Write-Host "          ↳ 请检查日志: $LogDir\$name.log(.err)" -ForegroundColor DarkGray
+  }
+}
