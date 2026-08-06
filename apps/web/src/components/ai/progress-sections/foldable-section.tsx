@@ -124,8 +124,8 @@ export function FoldableSection({
   return (
     <div
       className={cn(
-        'mx-1.5 mt-1.5 rounded-md border border-border/50 bg-muted/30 transition-colors',
-        open && 'bg-muted/50',
+        'mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 transition-colors',
+        open && 'bg-muted/25',
       )}
       data-testid={testId}
     >
@@ -135,15 +135,15 @@ export function FoldableSection({
         aria-expanded={open}
         aria-label={ariaLabel ?? title}
         data-section-header="true"
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
+        className="flex w-full items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/80 transition-colors hover:bg-accent/30 hover:text-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
       >
         <ChevronRight
           className={cn(
-            'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform duration-150',
+            'h-2.5 w-2.5 shrink-0 text-muted-foreground/45 transition-transform duration-150',
             open && 'rotate-90',
           )}
         />
-        {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
+        {Icon && <Icon className="h-2.5 w-2.5 shrink-0 text-muted-foreground/45" />}
         <span className="flex-1 min-w-0 text-left">{title}</span>
         {/* 借鉴 Trae Thinking Process:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
         {summary && !open && (
@@ -183,14 +183,14 @@ export function FoldableSection({
           精美化(2026-07-31):圆角 + 渐变色 + 更明显的高度 */}
       {hasProgress && (
         <div
-          className="mx-2.5 h-1 -mt-0.5 overflow-hidden rounded-md bg-muted/60"
+          className="mx-2 h-0.5 -mt-0.5 overflow-hidden rounded-sm bg-muted/40"
           aria-hidden
           data-testid={`${testId ?? 'foldable'}-progress-bar`}
         >
           <div
             className={cn(
               'h-full rounded-sm transition-all duration-300 ease-out',
-              allDone ? 'bg-emerald-500/80' : 'bg-primary/70',
+              allDone ? 'bg-emerald-500/70' : 'bg-primary/60',
             )}
             style={{ width: `${progressPct}%` }}
           />
@@ -202,7 +202,7 @@ export function FoldableSection({
         style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
       >
         <div className="overflow-hidden">
-          <div className="px-2 pb-1.5 pt-0.5">{children}</div>
+          <div className="px-2 pb-1 pt-0.5">{children}</div>
         </div>
       </div>
     </div>
