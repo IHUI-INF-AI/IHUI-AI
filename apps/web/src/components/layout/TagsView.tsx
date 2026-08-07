@@ -529,8 +529,12 @@ export function TagsView() {
                       //   符合 AGENTS.md "容器完整描边 border border-border" 规则。
                       'bg-card border border-border font-medium text-foreground hover:bg-card'
                     : isPinned
-                      ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
-                        'bg-muted/70 font-medium text-foreground'
+                      ? // pinned 标签(2026-08-07 立):改用专用 token --color-pinned-tag-bg。
+                        //   亮色 88% L 接近 muted(92% L)略深;暗色 24% L 与 tag-inactive-bg 同档,
+                        //   清晰可辨但低调不抢 active 风头。
+                        //   原 bg-muted/70 在暗色下实际显示 14.6% L,几乎与 background 14% L 重合,
+                        //   pinned tab 在深色模式下完全看不出边界。
+                        'bg-pinned-tag-bg font-medium text-foreground'
                       : // 未选中标签:2026-08-07 用户反馈"未激活状态背景色可以再稍微亮一些"。
                         //   改用专用 token --color-tag-inactive-bg(亮色 88% L 同 accent;
                         //   暗色 24% L 提 7% L,与 background 14% L 差 10% L 清晰可辨,

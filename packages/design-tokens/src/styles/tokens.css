@@ -96,6 +96,16 @@
      用户反馈"未激活状态背景色可以再稍微亮一些")。与 border(22% L) 接近提供稳定轮廓,
      不抢 active(bg-card 10% L + border) 的风头。 */
   --color-tag-inactive-bg: hsl(0 0% 88%);
+  /* 2026-08-07 立:标签栏 pinned tab 背景色(Chrome 风格)。亮色 88% L 接近 muted(92% L)略深,
+     暗色 24% L 与 tag-inactive-bg 同档,清晰可辨但低调不抢 active 风头。
+     原 bg-muted/70 在暗色下实际显示 14.6% L,几乎与 background 14% L 重合,pinned tab 看不清。 */
+  --color-pinned-tag-bg: hsl(0 0% 88%);
+  /* 2026-08-07 立:Markdown 流式输出容器背景(图片缩略图 / 文件下载链接 / 视频链接按钮)。
+     亮色 92% L 同 muted,暗色 18% L(比 background 14% L 高 4% L,微提亮) +
+     hover 22% L(再亮 4% L 提供 hover 反馈)。
+     原 bg-muted/40 在暗色下实际显示 14.5% L,几乎与 background 重合,容器完全看不出。 */
+  --color-streamed-container-bg: hsl(0 0% 92%);
+  --color-streamed-container-bg-hover: hsl(0 0% 88%);
 
   --animate-ripple: ripple 0.6s ease-out;
   --animate-success-bounce: success-bounce 0.4s ease;
@@ -333,7 +343,15 @@ select:-webkit-autofill:focus {
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 17%);
+  /* 2026-08-07 立:暗色 accent 17% L → 24% L。原值与 background 14% L 差仅 3% L,
+     在所有"低调容器"位置(下拉菜单 hover/focus、列表项 hover、按钮 hover、侧边栏 hover、
+     聊天组件 hover、卡片 hover、选中态等 80+ 处)都几乎看不出。
+     提到 24% L 后,与 background 差 10% L,与 border 22% L 接近,
+     既清晰可辨又不抢主要元素(card 10% L + 描边)风头。
+     注:深色下 hover:bg-accent/80 仍会"反向变暗 2% L"反人类反馈,
+     但原 17% L 时 hover 反馈已经几乎无感(-0.6% L),改动只让默认态清晰,
+     hover 反馈由各组件 hover:text-* 文字色变化承担。 */
+  --color-accent: hsl(0 0% 24%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -362,6 +380,11 @@ select:-webkit-autofill:focus {
   --color-shell-panel: hsl(220 12% 5%);
   /* 2026-08-07 立:暗色标签栏未激活 tab 提到 24% L(对比 background 14% L 差 10% L 清晰可辨) */
   --color-tag-inactive-bg: hsl(0 0% 24%);
+  /* 2026-08-07 立:暗色 pinned tab 24% L,与 tag-inactive-bg 同档 */
+  --color-pinned-tag-bg: hsl(0 0% 24%);
+  /* 2026-08-07 立:暗色 markdown 流式容器 18% L(比 background 14% L 高 4% L,微提亮) */
+  --color-streamed-container-bg: hsl(0 0% 18%);
+  --color-streamed-container-bg-hover: hsl(0 0% 22%);
 
   /* 图表色板暗色覆盖(2026-07-27):8 主色沿用亮色,仅文字/轴线色下调 */
   --chart-text: #64748b;
