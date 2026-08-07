@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/
 import { cn } from '@/lib/utils'
 import { fetchProvidersHealthSummary } from '@/lib/models-api'
 import type { ProvidersHealthResponse } from '@/lib/models-api'
+import { Tooltip } from '@/components/feedback'
 import { ProviderStatusBadge } from './ProviderStatusBadge'
 
 interface Props {
@@ -145,20 +146,21 @@ function ProviderStatusSummary() {
   return (
     <>
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="h-7 px-2 text-[11px] text-muted-foreground"
-          title="重新检测"
-        >
-          {isFetching ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-        </Button>
+        <Tooltip content="重新检测">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-7 px-2 text-[11px] text-muted-foreground"
+          >
+            {isFetching ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+          </Button>
+        </Tooltip>
         <button
           type="button"
           onClick={() => setOpen(true)}

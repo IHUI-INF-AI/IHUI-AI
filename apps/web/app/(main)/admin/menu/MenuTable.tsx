@@ -44,14 +44,14 @@ export function MenuTable({
       key: 'icon',
       title: t('colIcon'),
       render: (m) => (
-        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground" title={m.icon || ''}>{m.icon || '-'}</code>
+        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground">{m.icon || '-'}</code>
       ),
     },
     {
       key: 'path',
       title: t('colPath'),
       render: (m) => (
-        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground" title={m.path || ''}>{m.path || '-'}</code>
+        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground">{m.path || '-'}</code>
       ),
     },
     {
