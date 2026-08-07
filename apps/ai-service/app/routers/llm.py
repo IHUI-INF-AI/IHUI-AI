@@ -1098,6 +1098,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
                             return
 
+                        # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
+                        # 但不 emit reasoning SSE 事件,导致 tool loop 阶段前端 m.reasoning 永远为空,
+                        # 思考过程区只显示一个加载点(ThinkingSection 收到空 content + isStreaming=true)。
+                        # 修复:在 tool_calls_raw 处理之前,先把 complete() 返回的 reasoning 增量 emit 出去,
+                        # 累加到 accumulated 并推送到前端,与 astream() 行为对齐。
+                        _reasoning_content = complete_result.get("reasoning") or ""
+                        if _reasoning_content:
+                            accumulated["reasoning"] += _reasoning_content
+                            _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
+                            yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+
                         tool_calls_raw = complete_result.get("tool_calls") or []
 
                         # 无 tool_calls:LLM 不再需要工具
