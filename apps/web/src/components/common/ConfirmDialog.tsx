@@ -43,12 +43,14 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           {!hideCancel && (
-            <Button variant="ghost" onClick={onCancel}>
+            <Button variant="ghost" size="sm" className="h-7" onClick={onCancel}>
               {cancelText}
             </Button>
           )}
           <Button
             variant={variant === 'destructive' ? 'destructive' : 'default'}
+            size="sm"
+            className="h-7"
             onClick={onConfirm}
           >
             {confirmText}
