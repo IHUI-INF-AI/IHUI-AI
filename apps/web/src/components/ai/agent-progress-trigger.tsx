@@ -4,6 +4,7 @@ import * as React from 'react'
 import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import {
   hydrateAgentProgressPaneFromStorage,
   useAgentProgressPaneStore,
@@ -178,9 +179,10 @@ export function AgentProgressTrigger({
             aria-hidden="true"
             data-testid="agent-progress-live-spinner"
           />
-          <span className="min-w-0 flex-1 truncate max-w-[180px]" title={liveStatusText}>
-            {liveStatusText}
-          </span>
+          <TruncatedText
+            value={liveStatusText}
+            className="min-w-0 flex-1 max-w-[180px]"
+          />
         </span>
       ) : (
         /* 静态状态:连接状态点 + 任务列表标签(无活动时) */

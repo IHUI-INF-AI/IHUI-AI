@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { TruncatedText } from '@/components/common'
 
 interface PeriodAgg {
   callCount: number
@@ -282,9 +283,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
                         className="inline-block h-2.5 w-2.5 shrink-0"
                         style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }}
                       />
-                      <span className="flex-1 truncate" title={d.model}>
-                        {d.model}
-                      </span>
+                      <TruncatedText value={d.model} className="flex-1" />
                       <span className="tabular-nums text-muted-foreground">
                         {(d.percentage * 100).toFixed(1)}%
                       </span>

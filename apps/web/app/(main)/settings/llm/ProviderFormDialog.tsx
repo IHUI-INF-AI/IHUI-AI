@@ -250,28 +250,29 @@ export function ProviderFormDialog({
                   </button>
                 </Tooltip>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const text = await navigator.clipboard.readText()
-                    if (!text) {
-                      toast.error(t('pasteEmpty'))
-                      return
+              <Tooltip content={t('pasteFromClipboard')}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText()
+                      if (!text) {
+                        toast.error(t('pasteEmpty'))
+                        return
+                      }
+                      setForm({ ...form, apiKey: text.trim() })
+                      toast.success(t('pasteSuccess'))
+                    } catch {
+                      toast.error(t('pasteFailed'))
                     }
-                    setForm({ ...form, apiKey: text.trim() })
-                    toast.success(t('pasteSuccess'))
-                  } catch {
-                    toast.error(t('pasteFailed'))
-                  }
-                }}
-                className="shrink-0 px-2"
-                title={t('pasteFromClipboard')}
-              >
-                <ClipboardPaste className="h-3.5 w-3.5" />
-              </Button>
+                  }}
+                  className="shrink-0 px-2"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                </Button>
+              </Tooltip>
             </div>
             {isEdit ? <p className="text-xs text-muted-foreground">{t('keyKeepEmpty')}</p> : null}
           </div>
