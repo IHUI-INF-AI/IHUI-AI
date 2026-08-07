@@ -61,6 +61,7 @@ export function PaymentScreen() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSync = async (orderNo: string) => {
