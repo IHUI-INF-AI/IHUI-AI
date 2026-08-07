@@ -18,6 +18,7 @@ import {
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
@@ -185,16 +186,17 @@ function ProviderHealthDot({ health }: { health: ProviderHealth }) {
   const t = useTranslations('chat')
   const tip = t('providerHealthTip', { latency: health.latency_ms, count: health.model_count })
   return (
-    <span
-      title={tip}
-      aria-label={tip}
-      className={cn(
-        'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-        health.status === 'ok' && 'bg-green-500',
-        health.status === 'invalid_key' && 'bg-red-500',
-        health.status === 'unreachable' && 'bg-muted-foreground/40',
-      )}
-    />
+    <Tooltip content={tip} side="top">
+      <span
+        aria-label={tip}
+        className={cn(
+          'inline-block h-1.5 w-1.5 shrink-0 cursor-default rounded-full',
+          health.status === 'ok' && 'bg-green-500',
+          health.status === 'invalid_key' && 'bg-red-500',
+          health.status === 'unreachable' && 'bg-muted-foreground/40',
+        )}
+      />
+    </Tooltip>
   )
 }
 
