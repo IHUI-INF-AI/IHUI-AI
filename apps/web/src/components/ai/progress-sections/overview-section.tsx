@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Activity, Loader2, CheckCircle2, XCircle, AlertCircle, Circle, Clipboard, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { buildOverviewSummaryMarkdown } from './overview-summary'
 import type { AgentOverview } from '@/hooks/use-agent-progress'
@@ -198,9 +199,11 @@ export const OverviewSection = React.memo(function OverviewSection({
             {t(STATUS_TKEY[overview.status])}
           </span>
           {overview.error && (
-            <span className="flex-1 break-all text-[10px] text-red-500/80" title={overview.error}>
-              {overview.error}
-            </span>
+            <Tooltip content={overview.error}>
+              <span className="flex-1 break-all text-[10px] text-red-500/80">
+                {overview.error}
+              </span>
+            </Tooltip>
           )}
         </div>
         {/* 统计行 */}
