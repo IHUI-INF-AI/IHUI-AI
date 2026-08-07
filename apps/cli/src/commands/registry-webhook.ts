@@ -122,7 +122,7 @@ export function webhookCommand(): Command {
         RECEIVED_AT: t.receivedAt,
         PROCESSED_AT: t.processedAt ?? '-',
       }));
-      console.table(rows);
+      console.info(rows.map((r) => Object.values(r).join('\t')).join('\n'));
       console.info('');
     });
   cmd.addCommand(listCmd);
