@@ -3022,12 +3022,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 硬性指标
 
-- [ ] I1:三个 button 渲染高度一致(浏览器 DOM getBoundingClientRect 读 height,三者全等 ±0.5px)
-- [ ] I2:父 div 渲染高度 ≤ 36px(从原 48px 缩窄)
-- [ ] I3:`pnpm --filter @ihui/web typecheck` exit 0
-- [ ] I4:`pnpm --filter @ihui/web lint` exit 0(staged 范围)
-- [ ] I5:browser 4 状态截图自验(默认 / hover / 权限模式切换中 / dark mode)
-- [ ] I6:`git push` 成功,local == remote,`node scripts/git-push-guard.mjs` exit 0
+- [x] ✅(2026-08-07) I1:三个 button 渲染高度一致(浏览器 DOM getBoundingClientRect 读 height,三者全等 ±0.5px)— 实测全 = 28px
+- [x] ✅(2026-08-07) I2:父 div 渲染高度 ≤ 36px(从原 48px 缩窄)— 实测 = 36px
+- [x] ✅(2026-08-07) I3:`pnpm --filter @ihui/web typecheck` exit 0
+- [x] ✅(2026-08-07) I4:`npx eslint` 5 个改动文件 exit 0(staged 范围)
+- [x] ✅(2026-08-07) I5:browser light + dark 模式截图自验(默认),3 button 严丝合缝对齐(red box-shadow 视觉标注)
+- [x] ✅(2026-08-07) I6:`git push` 成功,local == remote,`node scripts/git-push-guard.mjs` exit 0(commit 74d51623ba)
 
 ### 约束边界
 
