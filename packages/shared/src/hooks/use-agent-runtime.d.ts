@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import type { AgentRuntimeStatus, AgentRuntimePermissionEvent } from '@ihui/types';
 export interface UseAgentRuntimeReturn {
     status: AgentRuntimeStatus;

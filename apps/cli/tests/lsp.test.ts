@@ -33,13 +33,17 @@ import { spawn, spawnSync } from 'node:child_process';
 // 修复:直接 require 9.0.1 的 lib/node/main.js 来强制安装 RAL。
 try {
   const _vslspPath = require.resolve('vscode-languageserver-protocol/package.json', { paths: [process.cwd()] });
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- vitest 环境需用 require 安装 RAL
   const _vslspDir = require('node:path').dirname(_vslspPath);
   // vscode-languageserver-protocol@3.18.2 的 node_modules/vscode-jsonrpc → 9.0.1
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const _vsjsonrpc9Main = require('node:path').join(_vslspDir, 'node_modules', 'vscode-jsonrpc', 'lib', 'node', 'main.js');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require(_vsjsonrpc9Main);
 } catch {
   // 如果路径解析失败,尝试通过 module.paths 查找
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('vscode-languageserver-protocol/node');
   } catch {
     // 忽略,后续测试会暴露 RAL 未安装的错误
