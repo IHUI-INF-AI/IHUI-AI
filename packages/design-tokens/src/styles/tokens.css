@@ -91,6 +91,11 @@
   /* 侧边栏导航项 hover 背景容器色:亮色纯白,与 sidebar 的 96.1% L 浅灰底形成区分 */
   --color-sidebar-item-hover-bg: hsl(0 0% 100%);
   --color-shell-panel: hsl(0 0% 100%);
+  /* 2026-08-07 立:标签栏未激活 tab 背景色。亮色与 accent 同源(88% L,差 background 8% L 可辨);
+     暗色专门提到 24% L(原 accent 17% L,与 background 14% L 差仅 3% L 在深色下几乎看不出边界,
+     用户反馈"未激活状态背景色可以再稍微亮一些")。与 border(22% L) 接近提供稳定轮廓,
+     不抢 active(bg-card 10% L + border) 的风头。 */
+  --color-tag-inactive-bg: hsl(0 0% 88%);
 
   --animate-ripple: ripple 0.6s ease-out;
   --animate-success-bounce: success-bounce 0.4s ease;
@@ -355,6 +360,8 @@ select:-webkit-autofill:focus {
   --color-sidebar-item-hover-bg: hsl(0 0% 0%);
   /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
   --color-shell-panel: hsl(220 12% 5%);
+  /* 2026-08-07 立:暗色标签栏未激活 tab 提到 24% L(对比 background 14% L 差 10% L 清晰可辨) */
+  --color-tag-inactive-bg: hsl(0 0% 24%);
 
   /* 图表色板暗色覆盖(2026-07-27):8 主色沿用亮色,仅文字/轴线色下调 */
   --chart-text: #64748b;
