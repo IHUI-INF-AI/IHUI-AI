@@ -62,7 +62,7 @@ describe('miniapp-taro SSO 流程', () => {
 
     it('使用默认 webBase', () => {
       const url = getSsoLoginUrl('/pages/test')
-      expect(url).toContain('http://localhost:8801/sso/login?')
+      expect(url).toContain('https://aizhs.top/sso/login?')
     })
   })
 
@@ -82,12 +82,12 @@ describe('miniapp-taro SSO 流程', () => {
     it('成功返回 token 数据', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 200, data: mockTokenData }),
+        json: async () => ({ code: 0, data: mockTokenData }),
       })
       const result = await exchangeSsoCode('valid-code')
       expect(result).toEqual(mockTokenData)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8801/api/auth/sso/exchange',
+        'http://localhost:8802/api/auth/sso/exchange',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -114,7 +114,7 @@ describe('miniapp-taro SSO 流程', () => {
     it('无 data 字段返回 null', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 200 }),
+        json: async () => ({ code: 0 }),
       })
       const result = await exchangeSsoCode('code-no-data')
       expect(result).toBeNull()
@@ -131,12 +131,12 @@ describe('miniapp-taro SSO 流程', () => {
     it('有效 token 返回 true', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 200, data: { valid: true } }),
+        json: async () => ({ code: 0, data: { valid: true } }),
       })
       const result = await validateToken('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8801/api/auth/sso/validate',
+        'http://localhost:8802/api/auth/sso/validate',
         expect.objectContaining({
           headers: { Authorization: 'Bearer valid-token' },
         }),
@@ -146,7 +146,7 @@ describe('miniapp-taro SSO 流程', () => {
     it('无效 token 返回 false', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 200, data: { valid: false } }),
+        json: async () => ({ code: 0, data: { valid: false } }),
       })
       const result = await validateToken('invalid-token')
       expect(result).toBe(false)
@@ -180,7 +180,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await ssoLogout('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8801/api/auth/sso/logout',
+        'http://localhost:8802/api/auth/sso/logout',
         expect.objectContaining({
           method: 'POST',
           headers: { Authorization: 'Bearer valid-token' },
