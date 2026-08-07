@@ -12,6 +12,7 @@ import {
   Button,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { Channel, Rule } from './types'
 
 interface Props {
@@ -104,24 +105,26 @@ export function RuleTable({
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(rule)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(rule)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(rule)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(rule)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>
