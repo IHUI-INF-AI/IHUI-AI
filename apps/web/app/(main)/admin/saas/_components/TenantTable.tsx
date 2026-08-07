@@ -80,17 +80,18 @@ export function TenantTable({
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      asChild
-                      aria-label={t('action.detail')}
-                      title={t('action.detail')}
-                    >
-                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    <Tooltip content={t('action.detail')}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        asChild
+                        aria-label={t('action.detail')}
+                      >
+                        <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </Tooltip>
                     {tn.state === 'paused' ? (
                       <Tooltip content={t('action.resume')}>
                         <Button
@@ -116,17 +117,18 @@ export function TenantTable({
                         </Button>
                       </Tooltip>
                     )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      asChild
-                      aria-label={t('action.backup')}
-                      title={t('action.backup')}
-                    >
-                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
-                        <Database className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    <Tooltip content={t('action.backup')}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        asChild
+                        aria-label={t('action.backup')}
+                      >
+                        <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
+                          <Database className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </Tooltip>
                     <Tooltip content={t('action.destroy')}>
                       <Button
                         size="icon"

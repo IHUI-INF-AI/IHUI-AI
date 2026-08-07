@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { executeAgentStream, cancelAgent } from '@ihui/api-client'
 import type { AgentExecuteRequest, AgentStreamEvent, AgentStreamCallbacks } from '@ihui/api-client'
 import type {
@@ -646,9 +647,11 @@ export function AgentPane() {
             <span>{t('agentPane.clear')}</span>
           </button>
           {taskId && (
-            <span className="ml-auto truncate text-[10px] text-muted-foreground/60" title={taskId}>
-              {t('agentPane.taskId')}: {taskId.slice(0, 8)}
-            </span>
+            <Tooltip content={taskId}>
+              <span className="ml-auto truncate text-[10px] text-muted-foreground/60">
+                {t('agentPane.taskId')}: {taskId.slice(0, 8)}
+              </span>
+            </Tooltip>
           )}
         </div>
       </div>

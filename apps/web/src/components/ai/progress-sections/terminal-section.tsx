@@ -4,6 +4,7 @@ import * as React from 'react'
 import { TerminalSquare, Loader2, Check, X, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
 import type { TerminalTask } from '@/hooks/use-agent-progress'
@@ -79,9 +80,9 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
           {term.command}
         </code>
         {term.status === 'completed' && term.exitCode !== undefined && term.exitCode !== 0 && (
-          <span className="shrink-0 text-[10px] text-red-500" title={`exit ${term.exitCode}`}>
-            exit:{term.exitCode}
-          </span>
+          <Tooltip content={`exit ${term.exitCode}`}>
+            <span className="shrink-0 text-[10px] text-red-500">exit:{term.exitCode}</span>
+          </Tooltip>
         )}
         {term.durationMs !== undefined && term.status !== 'running' && (
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">

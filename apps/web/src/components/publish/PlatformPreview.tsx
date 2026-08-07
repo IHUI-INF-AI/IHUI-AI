@@ -11,6 +11,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Smartphone, Monitor } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 export interface PlatformPreviewProps {
@@ -108,26 +109,28 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
           ))}
         </div>
         <div className="flex items-center gap-0.5">
-          <Button
-            type="button"
-            variant={view === 'mobile' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-9 w-9"
-            title={t('preview.mobile')}
-            onClick={() => setView('mobile')}
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant={view === 'desktop' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-9 w-9"
-            title={t('preview.desktop')}
-            onClick={() => setView('desktop')}
-          >
-            <Monitor className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip content={t('preview.mobile')}>
+            <Button
+              type="button"
+              variant={view === 'mobile' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setView('mobile')}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t('preview.desktop')}>
+            <Button
+              type="button"
+              variant={view === 'desktop' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setView('desktop')}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
