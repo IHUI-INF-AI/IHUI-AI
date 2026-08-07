@@ -11,6 +11,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import type { UserAgentAudio } from './types'
 
 interface Props {
@@ -68,20 +69,23 @@ export function UserAgentAudioTable({ list, isLoading, onEdit, onDelete }: Props
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code="slave:useragentaudit:edit">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="编辑">
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code="slave:useragentaudit:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="删除">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>
