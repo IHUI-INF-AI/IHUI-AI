@@ -2,6 +2,7 @@
   "name": "@ihui/mobile-rn",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "main": "App.tsx",
   "scripts": {
     "start": "expo start --port 8805",
