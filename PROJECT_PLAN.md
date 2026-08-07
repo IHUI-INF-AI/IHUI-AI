@@ -3039,3 +3039,85 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 平台独占
 
 本任务仅 web 端输入框附加栏 UI 修复,不涉及其他端代码改动。
+
+---
+
+## P0 全项目统一 hover tooltip + 禁原生 title 属性(2026-08-07 立,平台独占:apps/web,用户规则)
+
+> 触发:用户浏览器选中 3 个 button(message-list 操作按钮、permission-mode-popover、permission-history-panel),hover 时显示**浏览器原生 title tooltip**(无 border / 无动画 / 字体/颜色与项目不一致 / 延迟 1s+ 才显示),要求"全面统一"+"必须强制统一"+"不允许出现自带的原生提示窗样式"。
+> AGENTS.md §9 平台独占:仅触及 `apps/web/src/**` + `scripts/**`(其他端无 Tooltip 概念:desktop 走 tauri tooltip / mobile-rn 走 react-native-tooltip / extension 无 UI / miniapp-taro 用小程序原生 / cli 终端无 hover 提示)。
+
+### 目标
+
+根因:`apps/web` 249 个文件含 `title=` 属性,其中部分 button/icon/span 直接用 `title=` 作为 hover 提示(浏览器原生 tooltip),与项目统一 `<Tooltip>` 组件(`@/components/feedback` 基于 Radix UI TooltipPrimitive,标准样式:bg-popover 灰底 + border + Arrow + fade/zoom 动画)不一致。
+
+### 任务拆分
+
+- ✅ **第一批(2026-08-07 commit bfcbf555c7)**:用户选中的 3 个 button + message-list 9 个 button + ProviderHealthDot + 守门脚本 bug 修复
+- ⏳ **第二批(P1,后续)**:批量改造剩余 34 处违规 + 全项目 200+ 文件中所有 button/icon/span 上的 `title=` 替换为 `<Tooltip>` 包装
+- ⏳ **第三批(P2,后续)**:扫描其他端(desktop/extension/mobile-rn/miniapp-taro/cli)是否有类似原生 title tooltip,按端特性处理
+
+### 第一批已完成(2026-08-07)
+
+**修复的 button(13 个)**:
+- `permission-mode-popover.tsx`:button 的 `title` 已删除,`aria-label` 合并快捷键提示
+- `permission-history-panel.tsx`:button 的 `title` 已删除,`aria-label` 直接使用 `historyOpenExternal`
+- `model-selector.tsx`:`ProviderHealthDot` 用 `<Tooltip content={tip}>` 包装
+- `message-list.tsx`:9 个消息操作 button(Like/Copy/Download/Share/Toggle metadata/Regenerate/Publish/Edit/Reply/Delete)全部用 `<Tooltip content side="top">` 包装
+
+**守门脚本修复**:
+- 修复 `scripts/check-native-title-tooltip.mjs` 的 `getStagedAddedLines()` bug(原 `+++ b/` 解析在 `diff --git` 块内,导致 curFile 始终 null → staged 模式无法工作)
+- 升级 `scripts/tests/check-native-title-tooltip.test.mjs`:把 2 个 TODO 断言转为正式 test(测试从 13 个 → 16 个,全绿)
+- 该守门已挂载 `scripts/guardian-runner.mjs` id=18 blocking,pre-commit 走 guardian-runner 间接调用
+
+### 验证证据(第一批)
+
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅
+- `node --test scripts/tests/check-native-title-tooltip.test.mjs` 16/16 通过 ✅
+- `git-push-guard` exit 0,local HEAD === origin/main HEAD ✅
+- browser DOM 验证 3 个用户选中的 button `title=null`:
+  - `[data-testid="permission-history-trigger"]` → `aria-label="查看历史"`,`title=null`
+  - `button[aria-label*="Shift+Tab"]` → `aria-label="权限模式 · Shift+Tab 循环切换"`,`title=null`
+- browser DOM 验证 Like button Tooltip 已挂载:
+  - `aria-describedby="_r_5a_"`(Radix UI Tooltip 已正确连接)
+  - hover 后 `[role="tooltip"]` 出现:`text="Like"`,`data-state="delayed-open"`,`bg=rgb(255,255,255)`(bg-popover),`border=1px solid rgb(229,229,229)`,`shadow=...`
+
+### 第二批任务范围(P1,推荐 4 个 subagent 并行)
+
+按目录分批,每批 50-60 个文件:
+- 批 A:`apps/web/src/components/`(50+ 文件,通用组件)
+- 批 B:`apps/web/app/(main)/admin/`(60+ 文件,后台管理)
+- 批 C:`apps/web/app/(main)/settings/`(30+ 文件,设置页)
+- 批 D:`apps/web/app/(main)/` 剩余 + `apps/web/app/(other)/`(60+ 文件,业务页)
+
+每个 subagent 任务清单格式遵循 AGENTS.md §11,验证命令 `pnpm --filter @ihui/web typecheck`。
+
+### 硬性指标(第二批 P1)
+
+- H1:34 处现存违规(`check-native-title-tooltip.mjs` 全量扫描结果)清零
+- H2:所有 button/icon/span 上的 `title=` 改为 `<Tooltip content side="top">` 包装或删除(已在 Popover/Dropdown 内的 button 删 title 即可)
+- H3:`pnpm --filter @ihui/web typecheck` exit 0
+- H4:`node scripts/check-native-title-tooltip.mjs` 全量扫描 0 违规
+- H5:`node --test scripts/tests/check-native-title-tooltip.test.mjs` 16/16 通过
+- H6:每批 commit + push,git-push-guard exit 0
+- H7:browser 自验:hover 关键 button(每个目录抽 2-3 个),Tooltip 弹出样式统一(rounded-md + border + bg-popover + Arrow + delayed-open 状态)
+- H8:README.md 同步(§21 触发:无,纯 refactor 不改对外能力,豁免)
+
+### 约束边界
+
+- 涉及文件:
+  - `apps/web/src/**` + `apps/web/app/**` 全量 .tsx/.ts(约 249 个文件含 title=)
+  - `scripts/check-native-title-tooltip.mjs`(已修 bug)
+  - `scripts/tests/check-native-title-tooltip.test.mjs`(已升级断言)
+- 不可触及:其他端(desktop/extension/mobile-rn/miniapp-taro/cli)代码(平台独占,豁免多端同步)
+- 豁免场景(不视为违规):
+  - `<Modal title=...>` / `<Alert title=...>` / `<Dialog title=...>` 等 component prop
+  - `<Button asChild title=...>`(asChild 透传)
+  - `<iframe title=...>`(a11y 必需,WCAG)
+  - `<Document title=...>` / `<html title=...>`(SEO 元数据)
+  - 注释行
+  - `<a title="RSS Feed">` 等链接 a11y 描述(可保留,但建议用 `<Tooltip>` 统一)
+
+### 平台独占
+
+仅 web 端 UI 改造,desktop/extension/mobile-rn/miniapp-taro/cli 按各自端特性处理(无需同步)。
