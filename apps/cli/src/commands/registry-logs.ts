@@ -106,7 +106,7 @@ export function logsCommand(): Command {
         DURATION_MS: log.durationMs,
         STARTED_AT: log.startedAt,
       }));
-      console.table(rows);
+      console.info(rows.map((r) => Object.values(r).join('\t')).join('\n'));
 
       const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
       console.info(
