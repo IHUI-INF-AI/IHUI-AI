@@ -219,7 +219,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
               >
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <ChevronRight className="h-3 w-3 shrink-0" />
-                  <TruncatedText value={g.groupLabel} />
+                  <TruncatedText value={g.groupLabel} className="max-w-[140px]" />
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {s?.enabled ?? 0}/{s?.total ?? 0}
