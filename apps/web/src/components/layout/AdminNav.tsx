@@ -91,6 +91,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 
 interface AdminNavItem {
@@ -1027,9 +1028,10 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate whitespace-nowrap" title={item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}>
-          {item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}
-        </span>
+        <TruncatedText
+          value={item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}
+          className="min-w-0 flex-1 whitespace-nowrap"
+        />
       </Link>
     )
   }
@@ -1053,9 +1055,10 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           )}
         >
           <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap" title={t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}>
-            {t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}
-          </span>
+          <TruncatedText
+            value={t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}
+            className="min-w-0 flex-1 text-left whitespace-nowrap"
+          />
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
             {group.items.length}
           </span>

@@ -33,6 +33,7 @@ import {
   Label,
   Switch,
 } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 
 import { createModelV2, updateModelV2, modelToForm, EMPTY_MODEL_FORM } from './helpers-v2'
 import type {
@@ -246,16 +247,17 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 <span className="truncate">{tParams('title')}</span>
               </Label>
               <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-1.5 text-xs"
-                  onClick={copyAsJson}
-                  title={tParams('copyAsJson')}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+                <Tooltip content={tParams('copyAsJson')}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-xs"
+                    onClick={copyAsJson}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </Tooltip>
                 <Button
                   type="button"
                   variant="ghost"

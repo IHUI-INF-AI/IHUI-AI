@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Wallet } from 'lucide-
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -158,8 +159,8 @@ export default function OrderDetailPage() {
       <dl className="space-y-2 rounded-lg border p-2">
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderNo')}</dt>
-          <dd className="min-w-0 flex-1 truncate text-right font-mono" title={order.orderNo}>
-            {order.orderNo}
+          <dd className="min-w-0 flex-1 text-right font-mono">
+            <TruncatedText value={order.orderNo} />
           </dd>
         </div>
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">

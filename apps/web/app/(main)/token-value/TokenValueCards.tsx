@@ -2,6 +2,7 @@
 
 import { Coins } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 
 interface Card {
   label: string
@@ -21,7 +22,7 @@ export function TokenValueCards({ cards, isLoading }: Props) {
       {cards.map((c) => (
         <div key={c.label} className="rounded-xl border bg-card p-4 text-card-foreground shadow">
           <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={c.label}>{c.label}</span>
+            <TruncatedText value={c.label} className="min-w-0 flex-1 text-sm text-muted-foreground" />
             {c.big && (
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Coins className="h-4 w-4" />

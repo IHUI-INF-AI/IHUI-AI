@@ -29,6 +29,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import type { SkillMarketEntry, SkillNotification } from '@ihui/shared/skills/market'
 import {
   fetchSkillsMarket,
@@ -343,22 +344,23 @@ function SkillCard({
             <Star className="h-4 w-4" />
             <span>{t('rate')}</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={subscribeMut.isPending}
-            onClick={() => subscribeMut.mutate(!isSubscribed)}
-            className={cn(isSubscribed && 'bg-muted text-foreground')}
-            title={isSubscribed ? t('unsubscribe') : t('subscribe')}
-          >
-            {subscribeMut.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : isSubscribed ? (
-              <BellRing className="h-4 w-4" />
-            ) : (
-              <Bell className="h-4 w-4" />
-            )}
-          </Button>
+          <Tooltip content={isSubscribed ? t('unsubscribe') : t('subscribe')}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={subscribeMut.isPending}
+              onClick={() => subscribeMut.mutate(!isSubscribed)}
+              className={cn(isSubscribed && 'bg-muted text-foreground')}
+            >
+              {subscribeMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isSubscribed ? (
+                <BellRing className="h-4 w-4" />
+              ) : (
+                <Bell className="h-4 w-4" />
+              )}
+            </Button>
+          </Tooltip>
         </div>
       </CardContent>
     </Card>

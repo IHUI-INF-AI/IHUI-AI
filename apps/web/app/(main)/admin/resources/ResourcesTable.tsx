@@ -14,6 +14,7 @@ import {
   Button,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { type Resource, api } from './types'
 
 export function ResourcesTable({
@@ -139,37 +140,40 @@ export function ResourcesTable({
                   <TableCell className="px-4 py-2.5">{res.sort}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => togglePublish(res)}
-                        title={published ? t('unpublish') : t('publish')}
-                        disabled={publishMut.isPending}
-                      >
-                        {published ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(res)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(res)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={published ? t('unpublish') : t('publish')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => togglePublish(res)}
+                          disabled={publishMut.isPending}
+                        >
+                          {published ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={t('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(res)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(res)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>
