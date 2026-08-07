@@ -1273,6 +1273,17 @@ export function useChat(): UseChatReturn {
       // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
       // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
       const effectiveModel = model
+      // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
+      // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
+      let noWorkspaceNoticeShown = false
+      const notifyNoWorkspace = (reason: string): void => {
+        if (noWorkspaceNoticeShown) return
+        noWorkspaceNoticeShown = true
+        toast.warning('未选择工作区,文件类工具无法执行', {
+          description: `${reason}。请在 AI 面板选择一个工作区后再发起对话,或选择不需要文件操作的提问。`,
+          duration: 6000,
+        })
+      }
       try {
         await streamChat({
           model: effectiveModel,
@@ -1442,9 +1453,12 @@ export function useChat(): UseChatReturn {
           // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
           // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
           // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          // 2026-08-07:无工作区提示已移到 sendMessage 顶层,通过 noWorkspaceNoticeShown 去重,
+          // 多个 fs 工具失败时只弹一次 toast,避免刷屏。
           onToolDelegate: async (event: ToolDelegateEvent) => {
             const ws = useAiPanelStore.getState().activeWorkspace
             if (!ws?.name) {
+              notifyNoWorkspace('当前没有活跃工作区')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1455,6 +1469,7 @@ export function useChat(): UseChatReturn {
             }
             const handle = getBrowserWorkspaceHandle(ws.name)
             if (!handle) {
+              notifyNoWorkspace('工作区未授权目录访问权限')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1659,6 +1674,16 @@ export function useChat(): UseChatReturn {
       // 2026-08-06 立:与 sendMessage 对称,删除 'auto' → stepfun/step-router-v1 降级,
       // 让 'auto' 透传到 ai-service 跨厂商路由(详见 line 1246-1249 注释)。
       const effectiveModel = model
+      // 2026-08-07 修复:与 sendMessage 对称,无工作区时给用户一次性 toast(避免 fs 工具静默失败)
+      let noWorkspaceNoticeShown = false
+      const notifyNoWorkspace = (reason: string): void => {
+        if (noWorkspaceNoticeShown) return
+        noWorkspaceNoticeShown = true
+        toast.warning('未选择工作区,文件类工具无法执行', {
+          description: `${reason}。请在 AI 面板选择一个工作区后再发起对话,或选择不需要文件操作的提问。`,
+          duration: 6000,
+        })
+      }
       try {
         await streamChat({
           model: effectiveModel,
@@ -1781,9 +1806,11 @@ export function useChat(): UseChatReturn {
           // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
           // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
           // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          // 2026-08-07:与 sendMessage 对称,无工作区 toast 提示
           onToolDelegate: async (event: ToolDelegateEvent) => {
             const ws = useAiPanelStore.getState().activeWorkspace
             if (!ws?.name) {
+              notifyNoWorkspace('当前没有活跃工作区')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1794,6 +1821,7 @@ export function useChat(): UseChatReturn {
             }
             const handle = getBrowserWorkspaceHandle(ws.name)
             if (!handle) {
+              notifyNoWorkspace('工作区未授权目录访问权限')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
