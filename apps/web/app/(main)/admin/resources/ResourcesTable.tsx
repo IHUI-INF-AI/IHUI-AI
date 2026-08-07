@@ -141,18 +141,20 @@ export function ResourcesTable({
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={published ? t('unpublish') : t('publish')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => togglePublish(res)}
-                          disabled={publishMut.isPending}
-                        >
-                          {published ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Upload className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => togglePublish(res)}
+                            disabled={publishMut.isPending}
+                          >
+                            {published ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Upload className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </span>
                       </Tooltip>
                       <Tooltip content={t('edit')}>
                         <Button
@@ -164,15 +166,17 @@ export function ResourcesTable({
                         </Button>
                       </Tooltip>
                       <Tooltip content={t('delete')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(res)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(res)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </div>
                   </TableCell>
