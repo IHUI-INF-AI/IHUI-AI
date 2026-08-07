@@ -531,10 +531,13 @@ export function TagsView() {
                     : isPinned
                       ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
                         'bg-muted/70 font-medium text-foreground'
-                      : // 未选中标签:2026-08-01 用户反馈"未选中比 active 还突出"→ 对换样式。
-                        //   未选中用 bg-accent(浅色 88% L,深色 17% L),与 background(96.1% / 14%)
-                        //   差 8% L 可辨但不抢眼,低调表示"非当前页";hover 微升提供反馈。
-                        'bg-accent text-muted-foreground hover:bg-accent/80 hover:text-foreground',
+                      : // 未选中标签:2026-08-07 用户反馈"未激活状态背景色可以再稍微亮一些"。
+                        //   改用专用 token --color-tag-inactive-bg(亮色 88% L 同 accent;
+                        //   暗色 24% L 提 7% L,与 background 14% L 差 10% L 清晰可辨,
+                        //   与 border 22% L 接近提供稳定轮廓,不抢 active(bg-card 10% L + border) 风头)。
+                        //   hover 反馈仅靠文字色加深(hover:text-foreground);原 hover:bg-accent/80
+                        //   在暗色基色提高后,会变成"hover 反而变暗 2% L"反人类反馈,故移除。
+                        'bg-tag-inactive-bg text-muted-foreground hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
                   dragIndex === index && 'opacity-40',
