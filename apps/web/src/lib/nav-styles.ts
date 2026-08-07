@@ -116,3 +116,27 @@ export const TOPBAR_BTN_W9 = 'w-9'
  */
 export const MODEL_SELECTOR_TRIGGER_CLASS =
   'inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
+
+/** 消息输入框附加状态栏 — 容器 (2026-08-07 立)
+ *  - 位于 message-input.tsx 顶部第一行(权限模式/历史/添加 三按钮所在)
+ *  - 父 div 高度 = INPUT_ATTACHMENT_BAR_BTN_BASE 的 h-7(28px)+ py-1(8px)= 36px
+ *  - 之前 py-1.5(12px)+ 子按钮最高 h-9(36px)= 48px,缩窄 12px
+ *  - bg-muted/50 + rounded-t-xl:与输入卡片顶部融合(卡片无独立描边时也有视觉分界)
+ *  - 配套按钮类 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7,28px)严格统一
+ */
+export const INPUT_ATTACHMENT_BAR_CLASS =
+  'flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1'
+
+/** 消息输入框附加状态栏 — 按钮基础类 (h-7 = 28px,2026-08-07 立)
+ *  - 高度规整 h-7(28px),与 chip / 状态徽章档一致,小于底部 ai-input-toolbar 的 h-8(32px)
+ *  - 视觉层级:顶部附加栏(状态/切换) < 底部工具栏(主操作),h-7 < h-8 自然分层
+ *  - gap-1.5 + px-2 + leading-none:紧凑可点击,文字图标不偏斜
+ *  - text-xs 字号下,globals.css 专用 0.7px 偏移规则兜底图标/中文对齐
+ *  - 含 disabled 兜底(disabled:cursor-not-allowed disabled:opacity-50)
+ *  - 不含颜色态(text-/bg-/hover-):使用方按场景在 cn() 中追加(权限模式有风险色变体,历史/添加用中性色)
+ *  - 不含 shrink-0 之外的尺寸约束(部分按钮是纯图标如历史,可补 w-7 形成 28×28 正方形)
+ *  - 根治规则(2026-08-07 立):消息输入框附加栏所有 button 必须 import 此常量,禁止各组件独立写 h-*,
+ *    杜绝"h-7 / h-9 / py-1 各写各的"导致高度参差再发生。
+ */
+export const INPUT_ATTACHMENT_BAR_BTN_BASE =
+  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50'
