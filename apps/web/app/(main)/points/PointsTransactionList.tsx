@@ -3,6 +3,7 @@
 import { useTranslations, useLocale } from 'next-intl'
 import { Star, Coins } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import { PointsState } from './PointsState'
 import { TX_ICON } from './types'
 import { createDateFmt } from './helpers'
@@ -49,9 +50,7 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="max-w-[180px] truncate font-medium" title={tx.source}>
-                        {tx.source}
-                      </span>
+                      <TruncatedText value={tx.source} className="max-w-[180px] font-medium" />
                     </div>
                   </td>
                   <td

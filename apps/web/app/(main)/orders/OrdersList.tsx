@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable, type Column } from '@/components/data'
 import { Empty, Loading } from '@/components/common'
+import { TruncatedText } from '@/components/common'
 import { OrderItem } from '@/components/business'
 import { STATUS_CONFIG } from './helpers'
 import type { OrderRow, OrderStatus } from './types'
@@ -45,9 +46,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       key: 'orderNo',
       title: t('orderNo'),
       render: (o) => (
-        <span className="block max-w-[180px] truncate font-mono text-xs" title={o.orderNo}>
-          {o.orderNo}
-        </span>
+        <TruncatedText value={o.orderNo} className="block max-w-[180px] font-mono text-xs" />
       ),
     },
     {
@@ -55,9 +54,10 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       title: t('target'),
       render: (o) => (
         <div className="min-w-0">
-          <div className="max-w-[200px] truncate font-medium" title={o.targetTitle ?? '-'}>
-            {o.targetTitle ?? '-'}
-          </div>
+          <TruncatedText
+            value={o.targetTitle ?? '-'}
+            className="max-w-[200px] font-medium"
+          />
           <div className="text-xs text-muted-foreground">
             {t(TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? 'type.card')}
           </div>

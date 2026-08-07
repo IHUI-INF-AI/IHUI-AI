@@ -3,6 +3,7 @@
 import { Loader2, Trash2, Pencil } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { ROLE_CONFIG } from './types'
 import type { TeamMember } from './types'
@@ -42,9 +43,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                       </span>
                     </div>
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span className="min-w-0 flex-1 truncate" title={m.email}>
-                        {m.email}
-                      </span>
+                      <TruncatedText value={m.email} className="min-w-0 flex-1" />
                       <span className="shrink-0 whitespace-nowrap tabular-nums">
                         · 加入于 {dateFmt.format(new Date(m.joinedAt))}
                       </span>
