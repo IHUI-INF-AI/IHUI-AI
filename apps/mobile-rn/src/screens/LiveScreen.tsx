@@ -32,6 +32,7 @@ export function LiveScreen() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const items: LiveScreenItem[] = lives.map((live) => ({

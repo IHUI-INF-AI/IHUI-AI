@@ -171,6 +171,7 @@ export default function AigcListScreen() {
       const found = items.find((it) => it.id === id)
       if (found) openWork(found)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [items],
   )
 
@@ -185,6 +186,7 @@ export default function AigcListScreen() {
       const found = items.find((it) => it.id === id)
       if (found) openWork(found)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [items],
   )
 

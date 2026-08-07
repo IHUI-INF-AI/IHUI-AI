@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -25,7 +25,7 @@ export function ProfileEditScreen() {
   const [avatarModalVisible, setAvatarModalVisible] = useState(false)
   const [avatarInput, setAvatarInput] = useState('')
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!token) {
       setLoading(false)
       setError(t('profileEdit.notLoggedIn'))
@@ -43,11 +43,11 @@ export function ProfileEditScreen() {
     } else {
       setError(res.error || t('profileEdit.loadFailed'))
     }
-  }
+  }, [token, t])
 
   useEffect(() => {
     void fetchProfile()
-  }, [token])
+  }, [fetchProfile])
 
   const onSave = async () => {
     if (!nickname.trim()) {
