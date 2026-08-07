@@ -17,6 +17,8 @@ import { toast } from 'sonner'
 import { ChevronRight, FolderPlus, Layers, Loader2, Trash2 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 import { createGroupV2, deleteGroupV2 } from './helpers-v2'
 import type { ProviderGroup } from './types-v2'
 
@@ -105,16 +107,17 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
           <Layers className="h-3.5 w-3.5" />
           {t('title')}
         </h2>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={() => setShowAddInput((s) => !s)}
-          title={t('addGroup')}
-        >
-          <FolderPlus className="h-3.5 w-3.5" />
-        </Button>
+        <Tooltip content={t('addGroup')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setShowAddInput((s) => !s)}
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+          </Button>
+        </Tooltip>
       </div>
 
       {showAddInput ? (
@@ -216,22 +219,23 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
               >
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <ChevronRight className="h-3 w-3 shrink-0" />
-                  <span className="truncate" title={g.groupLabel}>{g.groupLabel}</span>
+                  <TruncatedText value={g.groupLabel} />
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {s?.enabled ?? 0}/{s?.total ?? 0}
                 </span>
               </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={(e) => handleDeleteGroup(g, e)}
-                title={t('deleteGroup')}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <Tooltip content={t('deleteGroup')}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={(e) => handleDeleteGroup(g, e)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </Tooltip>
             </div>
           )
         })}

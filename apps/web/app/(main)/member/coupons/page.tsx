@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 type CouponStatus = 'unused' | 'used' | 'expired'
 
@@ -127,9 +128,11 @@ export default function MemberCouponsPage() {
                 <p className="mt-1 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {t('validUntil', { date: dateFmt.format(new Date(c.expiresAt)) })}
                 </p>
-                <p className="truncate font-mono text-xs text-muted-foreground" title={c.code}>
-                  CODE: {c.code}
-                </p>
+                <Tooltip content={c.code}>
+                  <p className="truncate font-mono text-xs text-muted-foreground">
+                    CODE: {c.code}
+                  </p>
+                </Tooltip>
               </div>
             </div>
           ))}

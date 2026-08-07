@@ -50,6 +50,7 @@ const EXCLUDE_DIRS = new Set([
   '.worktrees', '.venv', 'tests', '__tests__', '.trae-cn',
   '.output', '.wxt', 'coverage', 'out',
   'target', // Rust/Cargo 构建输出(rustdoc 生成的 JS 含 HTML 模板字符串,非 JSX,gitignored)
+  'public', // Next.js 静态资源目录(内含 monaco editor minified JS,含 'title=' 字面量但非 JSX)
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
@@ -70,8 +71,12 @@ const HTML_ELEMENTS_WITH_TITLE = /^(button|Button|td|div|span|p|a|img|svg|label|
 
 /**
  * 违规判定 — 返回 true 表示该行违规(应使用 Tooltip 替代)。
+ *
+ * @param line  当前行内容
+ * @param inJsxTag  当前正在跟踪的未关闭 JSX tag(由调用方维护),如 { tagName, hasAsChild }
+ *                  undefined 表示当前不在任何未关闭 tag 内
  */
-function isViolation(line) {
+function isViolation(line, inJsxTag) {
   const trimmed = line.trim()
 
   // 豁免 0: 注释行
@@ -86,27 +91,104 @@ function isViolation(line) {
   // 豁免 3: <Document title=...> / <html title=...> / <head title=...>(SEO 元数据)
   if (/<(?:Document|html|head|title)\b[^>]*\btitle=/.test(trimmed)) return false
 
-  // 豁免 4: component 自己的 prop(<Modal title=...> 等)
-  for (const comp of COMPONENT_TITLE_EXEMPT) {
-    const re = new RegExp(`<${comp}\\b[^>]*\\btitle=`)
-    if (re.test(trimmed)) return false
+  // 豁免 4: component 自己的 prop(<Modal title=...> 等,即使跨多行)
+  if (inJsxTag && COMPONENT_TITLE_EXEMPT.has(inJsxTag.tagName)) return false
+
+  // 违规 1: <Button title=...>(非 asChild,单行)
+  if (/<Button\b[^>]*\btitle=/.test(trimmed)) {
+    // 已经被豁免 1 排除 asChild,此处直接违规
+    return true
   }
 
-  // 违规 1: <Button title=...>(非 asChild)
-  if (/<Button\b[^>]*\btitle=/.test(trimmed)) return true
-
-  // 违规 2: <button title=...>
+  // 违规 2: <button title=...>(单行)
   if (/<button\b[^>]*\btitle=/.test(trimmed)) return true
 
-  // 违规 3: <td|div|span|p|a|img|svg|label|input|textarea|select|li|... title=...>
-  // 匹配 HTML 原生元素(全小写)
+  // 违规 3: 单行 <TagName ... title=...>(HTML 原生元素)
   const m = trimmed.match(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\btitle=/)
   if (m) {
     const tag = m[1]
     if (HTML_ELEMENTS_WITH_TITLE.test(tag)) return true
   }
 
+  // 违规 4: 多行 JSX — title= 单独一行,前面有未关闭的 <Button or <html tag
+  // 例:
+  //   <Button                       (line N, 开启未关闭 tag)
+  //     type="button"               (line N+1)
+  //     title={t('deleteGroup')}    (line N+2, 本行检测到 title=)
+  //   >                             (line N+3, tag 关闭)
+  if (inJsxTag) {
+    if (
+      /\btitle=/.test(trimmed) &&
+      (inJsxTag.tagName === 'Button' || HTML_ELEMENTS_WITH_TITLE.test(inJsxTag.tagName)) &&
+      !inJsxTag.hasAsChild
+    ) {
+      return true
+    }
+  }
+
   return false
+}
+
+/**
+ * 扫描单文件,返回违规列表。
+ *
+ * 多行 JSX 支持(2026-08-07 增强):维护"未关闭 JSX tag"状态机,
+ * 当某行含 title= 但自身无 <TagName 时,检查是否在某个未关闭 tag 内。
+ *
+ * 关键陷阱(2026-08-07 修):关闭判定不能简单看 trimmed.includes('>'),
+ * 因为箭头函数 onClick={() => ...} 也有 `>`,会被误判为 tag 关闭。
+ * 正确做法:仅当整行 trimmed 是 `>` 或 `/>`(纯关闭标记)时才清空 inJsxTag。
+ *
+ * @returns Array<{line: number, col: number, snippet: string}>
+ */
+function scanFile(src) {
+  const lines = src.split('\n')
+  const findings = []
+  // 状态:最近一个未关闭的 JSX tag(同时只能跟踪 1 个,简化复杂度)
+  let inJsxTag = null
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx]
+    const lineNumber = idx + 1
+    const trimmed = line.trim()
+
+    // 1. 检测违规(利用当前 inJsxTag 状态)
+    if (isViolation(line, inJsxTag)) {
+      const m = line.match(/\btitle=/)
+      findings.push({
+        line: lineNumber,
+        col: m ? m.index + 1 : 0,
+        snippet: trimmed.slice(0, 140),
+      })
+    }
+
+    // 2. 更新 inJsxTag 状态
+    // 2a. 检测"开启新 tag 但未在同一行关闭"
+    //   - 模式 A:单行 <TagName ... > (tag 完整,无未关闭)
+    //   - 模式 B:多行 <TagName ... \n  (tag 跨行,设置 inJsxTag)
+    const hasOpening = /<([A-Z][a-zA-Z0-9]*)\b/.exec(trimmed) // 仅大写开头(组件)
+    if (hasOpening) {
+      // 找该行最后一个 > 位置
+      const lastGt = trimmed.lastIndexOf('>')
+      const firstLt = trimmed.indexOf('<')
+      if (lastGt === -1 || lastGt < firstLt) {
+        // tag 未在本行关闭(只有开 tag,没有 >)
+        inJsxTag = {
+          tagName: hasOpening[1],
+          hasAsChild: /\basChild\b/.test(trimmed),
+          startLine: lineNumber,
+        }
+      } else {
+        // tag 完整关闭
+        inJsxTag = null
+      }
+    } else if (inJsxTag && /^\s*\/?>\s*$/.test(line)) {
+      // 2b. 之前有未关闭 tag,本行是纯关闭标记 `>` 或 `/>`
+      // 严格匹配:整行只有 `>`(避免箭头函数 `=>` 误判)
+      inJsxTag = null
+    }
+  }
+  return findings
 }
 
 function collectFiles(dir, result = []) {
@@ -230,24 +312,15 @@ const fileReports = []
 
 for (const file of files) {
   const src = readFileSync(file, 'utf8')
-  const lines = src.split('\n')
-  const findings = []
-
-  lines.forEach((line, idx) => {
-    const lineNumber = idx + 1
-    if (isStaged) {
-      const allowed = addedLinesMap.get(file)
-      if (!allowed || !allowed.has(lineNumber)) return
-    }
-    if (!isViolation(line)) return
-
-    const m = line.match(/\btitle=/)
-    findings.push({
-      line: lineNumber,
-      col: m ? m.index + 1 : 0,
-      snippet: line.trim().slice(0, 140),
-    })
-  })
+  // 2026-08-07:改为文件级扫描,支持多行 JSX title= 检测
+  const allFindings = scanFile(src)
+  // staged 模式只保留 added 行;全量模式保留全部
+  const findings = isStaged
+    ? allFindings.filter((f) => {
+        const allowed = addedLinesMap.get(file)
+        return allowed && allowed.has(f.line)
+      })
+    : allFindings
 
   if (findings.length > 0) {
     totalViolations += findings.length

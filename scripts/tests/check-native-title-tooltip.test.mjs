@@ -315,3 +315,58 @@ test('staged 模式: 修改已有合法文件新增 title 违规 → 仅新增�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ─── 多行 JSX title= 检测(2026-08-07 立,scanFile() 状态机) ───
+
+test('多行 JSX: <Button ...> 跨多行 + title={...} 单独一行 → 报告 [title]', () => {
+  const dir = createTempScanDir({
+    'apps/web/MultiBtn.tsx': `<Button\n  type="button"\n  variant="ghost"\n  size="sm"\n  onClick={() => x()}\n  title="删除"\n>\n  <Trash2 />\n</Button>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /\[title\]/)
+    assert.match(r.stdout, /MultiBtn\.tsx/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('多行 JSX: 箭头函数 onClick={() => x()} 不应误清空 inJsxTag', () => {
+  // 关键陷阱:onClick={() => ...} 行有 `>`,但属于箭头函数非 tag 关闭。
+  // 若误判为关闭,后续 title= 行就检测不到。验证多行 Button+title 仍能命中。
+  const dir = createTempScanDir({
+    'apps/web/Arrow.tsx': `<Button\n  onClick={() => setOpen((s) => !s)}\n  title="切换"\n>\n  x\n</Button>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /\[title\]/)
+    assert.match(r.stdout, /Arrow\.tsx/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('多行 JSX: 自闭合 <Tag /> 单独一行 → 下一行 title 不应误判为多行违规', () => {
+  // <Foo /> 是自闭合,后续的 <span title=...> 是独立元素,应正常检测为单行违规
+  const dir = createTempScanDir({
+    'apps/web/SelfClose.tsx': `<Foo />\n<span title="独立元素">x</span>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /\[title\]/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('豁免: 多行 component prop <Modal title="..."> → 无违规', () => {
+  const dir = createTempScanDir({
+    'apps/web/ModalMulti.tsx': `<Modal\n  open={x}\n  title="对话框"\n  onClose={y}\n>\n  内容\n</Modal>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertPass(r)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
