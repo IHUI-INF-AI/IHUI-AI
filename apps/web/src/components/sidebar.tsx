@@ -38,6 +38,7 @@ import {
   Wallet,
   KeyRound,
   GraduationCap,
+  Landmark,
   Download,
   PlayCircle,
   BookOpen,
@@ -298,6 +299,11 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
   { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },
   { href: '/edu/progress', labelKey: 'eduProgress', icon: BarChart3 },
+  // 2026-08-07 AI 教育特色板块 4 入口(政策库/教师认证/AIGC工具/AI课程)
+  { href: '/edu-ai/policy', labelKey: 'eduAiPolicy', icon: FileText },
+  { href: '/edu-ai/certification', labelKey: 'eduAiCert', icon: GraduationCap },
+  { href: '/edu-ai/aigc-tools', labelKey: 'eduAiAigc', icon: Sparkles },
+  { href: '/edu-ai/courses', labelKey: 'eduAiCourses', icon: Landmark },
 ]
 
 /** /member 12 项整合到交易组下 */
@@ -596,23 +602,17 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     createdAt: n.createdAt,
   }))
 
-  // 按钮统一 h-[26px] w-[26px] + svg 18×18 (2026-08-06 立,用户反馈 14px 太小):
-  // - 130px 宽侧边栏放不下 4 个 36×36 按钮(需 144+px),保留 26×26 紧凑布局
-  // - 改用 TOPBAR_BTN_BASE 共享 bg-card + hover:bg-accent + text-foreground/80 样式,
-  //   跟 web 端顶栏按钮视觉统一(原来用 hover:bg-accent/50 50% 不透明度,亮色下 88% L
-  //   跟背景 96% L 差距仅 8% 视觉对比弱;改用 bg-accent 后 88% L 对比明显)
-  // - 2026-08-06:svg 14px → 18px,用户反馈图标太小。
-  //   ⚠️ 必须用 [&>svg]:!h-[18px] [&>svg]:!w-[18px] 覆盖 TOPBAR_BTN_BASE 内置的
+  // 2026-08-07 升级(用户反馈"图标还是太小,再大点"):
+  // - 容器 26×26 → 28×28 (h-7 w-7),与侧边栏其他图标按钮(NavLink h-5、折叠按钮 h-5)视觉一致
+  // - svg 18×18 → 20×20 (h-5 w-5),跟 NavLink / 新建任务 / 折叠按钮的 20px 图标同尺寸
+  //   ⚠️ 必须用 [&>svg]:!h-5 [&>svg]:!w-5 覆盖 TOPBAR_BTN_BASE 内置的
   //   [&>svg]:!h-3.5 [&>svg]:!w-3.5(14px !important)—— 同为 !important,后写胜出
   //   (tailwind-merge 识别同 group,后写覆盖前写)。
-  // 2026-07-31 立:用户反馈"底部按钮跟 web 端不一致,为什么要单独配置图标"
-  // 2026-08-01 立:用户要求这4个工具栏按钮(语言/下载/消息/主题)默认无背景容器色,
-  // 用 bg-transparent 覆盖 TOPBAR_BTN_BASE 的 bg-card(tailwind-merge 后写胜出),
-  // hover:bg-accent / focus-visible:bg-accent 仍生效(不同状态类不冲突)。
+  // - 4×28 + gap(3×2) + padding(2×4) = 126px ≤ 130px 侧边栏最小宽度,单行排开不折行
   const btnClass = cn(
     TOPBAR_BTN_BASE,
-    'h-[26px] w-[26px] p-0 bg-transparent',
-    '[&>svg]:!h-[18px] [&>svg]:!w-[18px]',
+    'h-7 w-7 p-0 bg-transparent',
+    '[&>svg]:!h-5 [&>svg]:!w-5',
   )
 
   return (
@@ -804,7 +804,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         }
       >
         <Button variant="ghost" size="icon" className={btnClass} aria-label={t('downloadClient')}>
-          <Download className="h-[18px] w-[18px]" />
+          <Download className="h-5 w-5" />
         </Button>
       </Popover>
 
@@ -847,7 +847,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           onClick={handleToggleTheme}
           aria-label={isDark ? tt('lightMode') : tt('darkMode')}
         >
-          {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
       </Tooltip>
     </div>
@@ -928,100 +928,106 @@ function SidebarUserRow({
         - 头像 fallback 加 ring-1 ring-inset ring-border/30,无头像时字符 fallback 有弱边框,
           在白底/灰底上更易辨识
       */}
-      <div
-        className={cn(
-          // 2026-07-21 用户反馈"头像跟名称可以更紧凑一些":把 gap 从 2(8px) 降到 1.5(6px),
-          // 头像 button 从 h-9 w-9(36×36) 缩到 h-7 w-7(28×28),
-          // 让 24px 头像 + 6 字用户名整体宽度收窄 ~10px,视觉上跟 NavLink 行(h-5 w-5 icon + gap-2.5 + 文字)重量更接近。
-          'group/row inline-flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
-        )}
-      >
-        <Dropdown
-          align="start"
-          side="top"
-          items={[
-            {
-              key: 'header',
-              label: (
-                <div className="flex items-center gap-2 px-1 py-1">
-                  <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</div>
-                    {user?.phone && (
-                      <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
-                    )}
-                  </div>
+      {/*
+        2026-08-07 v4 改(根除"只有点头像才弹窗"问题):
+        旧结构:外层 div(只负责 hover 样式) + Dropdown trigger=button(只包头像) + 外面的 span(用户名)
+        → 用户名 span 在 Dropdown 外,点击不弹窗。
+        新结构:把整行(row)合并到 Dropdown 的 trigger button 内,button 成为"头像 + 用户名"整体,
+        任意位置点击都触发 Radix DropdownMenu 打开。
+        - button 继承原外层 div 的所有样式(inline-flex h-9 gap-1.5 rounded-md px-2 hover:bg-sidebar-item-hover-bg
+          group/row transition-colors)以保证视觉零回归,只是把 hover bg 从 div 转移到 button。
+        - 头像原本在 button(h-7 w-7)内有 2px 留白(28×28 button 套 24×24 Avatar);现在 button 变成 row 容器
+          (h-9 高度 + 内边距),用一个内层 span(h-7 w-7 flex items-center justify-center rounded-md)复用
+          同样的 28×28 命中区,把 Avatar 居中放在内层 span 里,视觉与旧版一致。
+        - 用户名 span 移入 button 内,继续走 group-hover/row:text-foreground 的文字变亮效果。
+        - 折叠态(!collapsed=false)只渲染内层 28×28 头像 span,不渲染用户名,行为与旧版一致。
+      */}
+      <Dropdown
+        align="start"
+        side="top"
+        items={[
+          {
+            key: 'header',
+            label: (
+              <div className="flex items-center gap-2 px-1 py-1">
+                <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</div>
+                  {user?.phone && (
+                    <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
+                  )}
                 </div>
-              ),
+              </div>
+            ),
+          },
+          { key: 'div1', divider: true },
+          {
+            key: 'profile',
+            label: t('user'),
+            icon: User,
+            onSelect: () => {
+              router.push('/user/profile')
+              onCloseMobile()
             },
-            { key: 'div1', divider: true },
-            {
-              key: 'profile',
-              label: t('user'),
-              icon: User,
-              onSelect: () => {
-                router.push('/user/profile')
-                onCloseMobile()
-              },
+          },
+          {
+            key: 'settings',
+            label: t('settings'),
+            icon: Settings,
+            onSelect: () => {
+              router.push('/settings')
+              onCloseMobile()
             },
-            {
-              key: 'settings',
-              label: t('settings'),
-              icon: Settings,
-              onSelect: () => {
-                router.push('/settings')
-                onCloseMobile()
-              },
+          },
+          {
+            key: 'vip',
+            label: t('vip'),
+            icon: Crown,
+            onSelect: () => {
+              router.push('/vip')
+              onCloseMobile()
             },
-            {
-              key: 'vip',
-              label: t('vip'),
-              icon: Crown,
-              onSelect: () => {
-                router.push('/vip')
-                onCloseMobile()
-              },
-            },
-            { key: 'div2', divider: true },
-            {
-              key: 'logout',
-              label: tc('logout'),
-              icon: LogOut,
-              danger: true,
-              onSelect: handleLogout,
-            },
-          ]}
-          trigger={
-            <button
-              // 2026-07-21 紧凑化:从 h-9 w-9(36×36) 缩到 h-7 w-7(28×28),
-              // 1) 24×24 头像在 28×28 button 中有 2px 留白,视觉上不再"漂浮"或"装在大盒子里",
-              //    跟 NavLink 的 20×20 icon 在 36×36 行(8px 留白)的视觉重量更协调;
-              // 2) 28×28 仍是合规可点击区(Material 24, Apple HIG 44, 侧边栏列表项惯例 28-32);
-              // 3) 整行 row 高度仍是 h-9(36px)与 NavLink 严格对齐,只缩小头像区域,行高不变。
-              // Radix DropdownMenu.Trigger 注入的 lineHeight 24px 仍可能让 button 略高出 h-7,
-              // 但 h-7=28px + lineHeight 6.66px ≈ 34.66px,仍在 36px row 内,不会撑出。
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={user?.nickname ?? 'User'}
-            >
+          },
+          { key: 'div2', divider: true },
+          {
+            key: 'logout',
+            label: tc('logout'),
+            icon: LogOut,
+            danger: true,
+            onSelect: handleLogout,
+          },
+        ]}
+        trigger={
+          <button
+            aria-label={user?.nickname ?? 'User'}
+            className={cn(
+              // 整行 row 容器样式(继承自旧外层 div):inline-flex + h-9(与 NavLink 行高一致) + gap-1.5 + 圆角 + padding
+              'group/row inline-flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
+              // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
+              'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            )}
+          >
+            {/* 内层 span 复用旧 trigger button 的 28×28 命中区,内含 24×24 Avatar(xs),保留 2px 留白 */}
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
               <Avatar
                 src={user?.avatar ?? undefined}
                 name={user?.nickname ?? 'U'}
                 size="xs"
                 className="ring-1 ring-inset ring-border/30"
               />
-            </button>
-          }
-        />
-        {!collapsed && (
-          <span
-            className={cn(
-              'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+            </span>
+            {!collapsed && (
+              <span
+                className={cn(
+                  'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+                )}
+              >
+                {user?.nickname ?? 'User'}
+              </span>
             )}
-          >
-            {user?.nickname ?? 'User'}
-          </span>
-        )}
-      </div>
+          </button>
+        }
+      />
     </div>
   )
 }
