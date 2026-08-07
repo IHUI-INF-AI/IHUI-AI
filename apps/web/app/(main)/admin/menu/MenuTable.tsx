@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Plus, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { DataTable, type Column } from '@/components/data'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { PAGE_SIZE } from './helpers'
 import type { MenuItem } from './types'
@@ -44,14 +45,14 @@ export function MenuTable({
       key: 'icon',
       title: t('colIcon'),
       render: (m) => (
-        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground">{m.icon || '-'}</code>
+        <TruncatedText value={m.icon || '-'} className="max-w-[200px] font-mono text-xs text-muted-foreground" mono />
       ),
     },
     {
       key: 'path',
       title: t('colPath'),
       render: (m) => (
-        <code className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground">{m.path || '-'}</code>
+        <TruncatedText value={m.path || '-'} className="max-w-[200px] font-mono text-xs text-muted-foreground" mono />
       ),
     },
     {
