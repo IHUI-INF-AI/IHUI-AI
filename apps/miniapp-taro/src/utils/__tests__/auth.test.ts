@@ -4,8 +4,10 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const taroStorage: Record<string, unknown> = {}
-const mockReLaunch = vi.fn()
+const { taroStorage, mockReLaunch } = vi.hoisted(() => ({
+  taroStorage: {} as Record<string, unknown>,
+  mockReLaunch: vi.fn(),
+}))
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',
   setStorageSync: (key: string, val: unknown) => {
@@ -33,6 +35,7 @@ describe('miniapp-taro auth 工具', () => {
   beforeEach(() => {
     Object.keys(taroStorage).forEach((k) => delete taroStorage[k])
     mockReLaunch.mockClear()
+    clearAuth()
   })
 
   it('setToken + getToken 双向正确', () => {
