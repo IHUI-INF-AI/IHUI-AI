@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Button, cn } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
+import { Tooltip } from '@/components/feedback'
 
 type LogType = 'token' | 'tool_call' | 'tool_result' | 'error'
 
@@ -207,9 +208,11 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
               {t('connectionFailed')}
               {connectionError && (
-                <span className="ml-1 text-[10px] text-muted-foreground/60" title={connectionError}>
-                  ({connectionError.slice(0, 30)})
-                </span>
+                <Tooltip content={connectionError}>
+                  <span className="ml-1 text-[10px] text-muted-foreground/60">
+                    ({connectionError.slice(0, 30)})
+                  </span>
+                </Tooltip>
               )}
               <button
                 type="button"
