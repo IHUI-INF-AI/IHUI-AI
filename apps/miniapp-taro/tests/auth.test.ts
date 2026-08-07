@@ -30,6 +30,7 @@ describe('miniapp-taro 认证工具函数', () => {
   beforeEach(() => {
     Object.keys(taroStorage).forEach((k) => delete taroStorage[k])
     vi.clearAllMocks()
+    clearAuth()
   })
 
   describe('token 存取', () => {
