@@ -5,6 +5,7 @@ import { FileText, Plus, Sparkles, Package } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import { Popover } from '@/components/feedback'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { SkillLibrary } from '@/components/chat/skill-library'
@@ -199,9 +200,13 @@ export function AddMenuPopover(props: {
         aria-expanded={open}
         disabled={isStreaming}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-          'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-          'disabled:cursor-not-allowed disabled:opacity-50',
+          // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7 + leading-none + whitespace-nowrap + shrink-0),
+          // 从原 py-1(无 h-,靠 padding + 文字行高 ≈ 22-26px)提到 h-7(28px),与权限/历史按钮严丝合缝对齐,
+          // 根治三个 button 高度参差问题(最大差 10px)
+          INPUT_ATTACHMENT_BAR_BTN_BASE,
+          // 保留原 hover:-translate-y-px 微动效(2026-07-25 立的差异化)
+          'hover:-translate-y-px',
+          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         )}
       >
         <Plus className="h-3.5 w-3.5" />
