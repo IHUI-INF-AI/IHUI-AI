@@ -51,6 +51,7 @@ import type { PlanStep } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 function TypingIndicator({
@@ -580,134 +581,144 @@ const MessageItem = React.memo(function MessageItem({
             )}
             {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
             {!isUser && (
-              <button
-                type="button"
-                onClick={handleLike}
-                data-testid={`message-like-${m.id}`}
-                aria-label="Like"
-                title="Like"
-                className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
-              >
-                <Star className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Like" side="top">
+                <button
+                  type="button"
+                  onClick={handleLike}
+                  data-testid={`message-like-${m.id}`}
+                  aria-label="Like"
+                  className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
+                >
+                  <Star className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
-            <button
-              type="button"
-              onClick={handleCopy}
-              data-testid={`message-copy-${m.id}`}
-              aria-label={copyLabel}
-              title={copyLabel}
-              className={ACTION_BTN_CLASS}
-            >
-              {copied ? (
-                <Check className="h-4 w-4" aria-hidden />
-              ) : (
-                <Copy className="h-4 w-4" aria-hidden />
-              )}
-            </button>
-            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
-            {!isUser && messageImages.length > 0 && (
+            <Tooltip content={copyLabel} side="top">
               <button
                 type="button"
-                onClick={handleDownloadImages}
-                data-testid={`message-download-${m.id}`}
-                aria-label="Download images"
-                title="Download images"
+                onClick={handleCopy}
+                data-testid={`message-copy-${m.id}`}
+                aria-label={copyLabel}
                 className={ACTION_BTN_CLASS}
               >
-                <Download className="h-4 w-4" aria-hidden />
+                {copied ? (
+                  <Check className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Copy className="h-4 w-4" aria-hidden />
+                )}
               </button>
+            </Tooltip>
+            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
+            {!isUser && messageImages.length > 0 && (
+              <Tooltip content="Download images" side="top">
+                <button
+                  type="button"
+                  onClick={handleDownloadImages}
+                  data-testid={`message-download-${m.id}`}
+                  aria-label="Download images"
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Download className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
             {!isUser && (
-              <button
-                type="button"
-                onClick={handleShare}
-                data-testid={`message-share-${m.id}`}
-                aria-label="Share"
-                title="Share"
-                className={ACTION_BTN_CLASS}
-              >
-                <Share2 className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Share" side="top">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  data-testid={`message-share-${m.id}`}
+                  aria-label="Share"
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Share2 className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
             {!isUser && hasMetadata && (
-              <button
-                type="button"
-                onClick={handleToggleMetadata}
-                data-testid={`message-metadata-${m.id}`}
-                aria-label="Toggle metadata"
-                title="Toggle metadata"
-                className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
-              >
-                <Code className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Toggle metadata" side="top">
+                <button
+                  type="button"
+                  onClick={handleToggleMetadata}
+                  data-testid={`message-metadata-${m.id}`}
+                  aria-label="Toggle metadata"
+                  className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
+                >
+                  <Code className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
             {!isUser && (
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                disabled={streamingThis}
-                data-testid={`message-regenerate-${m.id}`}
-                aria-label="Regenerate"
-                title="Regenerate"
-                className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Regenerate" side="top">
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  disabled={streamingThis}
+                  data-testid={`message-regenerate-${m.id}`}
+                  aria-label="Regenerate"
+                  className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
             {!isUser && (
-              <button
-                type="button"
-                onClick={() => setPublishDialogOpen(true)}
-                data-testid={`message-publish-${m.id}`}
-                aria-label="Publish to community"
-                title="Publish to community"
-                className={ACTION_BTN_CLASS}
-              >
-                <Megaphone className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Publish to community" side="top">
+                <button
+                  type="button"
+                  onClick={() => setPublishDialogOpen(true)}
+                  data-testid={`message-publish-${m.id}`}
+                  aria-label="Publish to community"
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Megaphone className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
             {isUser && (
-              <button
-                type="button"
-                onClick={handleEdit}
-                data-testid={`message-edit-${m.id}`}
-                aria-label="Edit"
-                title="Edit"
-                className={ACTION_BTN_CLASS}
-              >
-                <Pencil className="h-4 w-4" aria-hidden />
-              </button>
+              <Tooltip content="Edit" side="top">
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  data-testid={`message-edit-${m.id}`}
+                  aria-label="Edit"
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
-            <button
-              type="button"
-              onClick={handleReply}
-              data-testid={`message-reply-${m.id}`}
-              aria-label="Reply"
-              title="Reply"
-              className={ACTION_BTN_CLASS}
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden />
-            </button>
-            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
-            {isUser && (
+            <Tooltip content="Reply" side="top">
               <button
                 type="button"
-                onClick={handleDelete}
-                data-testid={`message-delete-${m.id}`}
-                aria-label="Delete"
-                title="Delete"
-                className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                onClick={handleReply}
+                data-testid={`message-reply-${m.id}`}
+                aria-label="Reply"
+                className={ACTION_BTN_CLASS}
               >
-                <Trash2 className="h-4 w-4" aria-hidden />
+                <MessageCircle className="h-4 w-4" aria-hidden />
               </button>
+            </Tooltip>
+            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
+            {isUser && (
+              <Tooltip content="Delete" side="top">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  data-testid={`message-delete-${m.id}`}
+                  aria-label="Delete"
+                  className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Token 计数(条件显示)— 原项目 .token-usage,有 metadata.usage 时渲染 */}
             {!isUser && hasMetadata && 'totalTokens' in (m.meta?.usage as object) && (
