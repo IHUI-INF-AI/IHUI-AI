@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -182,9 +183,7 @@ export function NewsArticleTable(props: Props) {
                             {t('pinned')}
                           </span>
                         ) : null}
-                        <span className="block max-w-xs truncate" title={article.title}>
-                          {article.title}
-                        </span>
+                        <TruncatedText value={article.title} className="block max-w-xs" />
                       </div>
                       {article.summary ? (
                         <div className="line-clamp-2 max-w-xs break-words text-xs text-muted-foreground">

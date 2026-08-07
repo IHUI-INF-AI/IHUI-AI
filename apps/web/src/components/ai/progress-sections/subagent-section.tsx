@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Users, Loader2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration, formatRelativeTime } from './foldable-section'
 import { CopyButton } from './copy-button'
 import { ToolCallItem } from './tool-calls-section'
@@ -163,14 +164,18 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
                         {sa.spawnedAt && (
-                          <span title={formatTime(sa.spawnedAt)}>
-                            {t('subagent.startedAt')}{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt, t)})
-                          </span>
+                          <Tooltip content={formatTime(sa.spawnedAt)}>
+                            <span>
+                              {t('subagent.startedAt')}{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt, t)})
+                            </span>
+                          </Tooltip>
                         )}
                         {sa.endedAt && (
-                          <span title={formatTime(sa.endedAt)}>
-                            {t('subagent.endedAt')}{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt, t)})
-                          </span>
+                          <Tooltip content={formatTime(sa.endedAt)}>
+                            <span>
+                              {t('subagent.endedAt')}{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt, t)})
+                            </span>
+                          </Tooltip>
                         )}
                         {sa.durationMs !== undefined && sa.status !== 'running' && (
                           <span>{t('subagent.duration')}{formatDuration(sa.durationMs)}</span>
