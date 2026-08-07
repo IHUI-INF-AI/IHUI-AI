@@ -493,8 +493,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       <button
         type="button"
         disabled={disabled}
-        aria-label={t('buttonLabel')}
-        title={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
+        aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
         className={cn(
           // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7 + leading-none + whitespace-nowrap + shrink-0),
           // 三个 button(权限模式/历史/添加)严丝合缝对齐,根治"h-7 / h-9 / py-1 各写各的高度参差"问题
