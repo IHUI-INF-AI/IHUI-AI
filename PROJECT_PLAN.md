@@ -2988,3 +2988,54 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - ✅ **downloads 配置核查(边界 1 工具化)**:新增 `scripts/check-downloads-config.mjs`——一键输出 8 端配置状态,当前明确 3 端待运营数据(iOS App Store ID / Android APK·Play / 小程序 QR)
 - ⏳ **generate 中间产物清理(边界 4)**:`0204_curvy_swarm.sql`(含 DROP 勿执行)等 4 文件已 gitignore 保护;物理删除曾被用户拒绝沙箱外权限——**保留,待用户授权后清理**
 - ⏳ **ai-service 侧轨迹(边界 2 深层)**:ai-service 9 个文件正被其他会话 WIP 修改,不可触碰(避免污染);派单层 agent_tasks(含 steps 明细)已是该架构下最真实水平——**待 ai-service WIP 结束后可评估深层演进**
+
+## P1 消息输入框附加栏 3 按钮高度统一根治(2026-08-07 立,平台独占:apps/web + apps/web/src/lib/nav-styles.ts,AGENTS.md §3 共享层优先)
+
+### 触发背景(用户反馈 2026-08-07)
+
+> "`div` 高度太高了 请缩窄 并且里面的 `button` `button` `button` 这些按钮的高度应该统一啊 怎么能出现不统一的情况呢 请彻底杜绝根治这种问题再发生"
+
+### 根因审计(Advisor 战略指导 + 代码实证)
+
+`apps/web/src/components/chat/message-input.tsx:371` 容器 div `<div className="flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1.5">` 内 3 个 button 高度各自为政:
+
+| 按钮 | 文件 | 类名 | 实际高度 |
+| --- | --- | --- | --- |
+| 权限模式 | `permission-mode-popover.tsx:500` | `inline-flex h-7 ...` | 28px |
+| 历史 | `permission-history-panel.tsx:345` | `inline-flex h-9 w-9 ...` | **36px(顶天)** |
+| 添加 | `add-menu-popover.tsx:201` | `inline-flex ... py-1`(无 h-) | ~22-26px |
+
+→ 父 div 总高 = max(28, 36, 26) + `py-1.5`(12px) = **48px**,用户感知"高度太高"
+→ 3 button 高度差最大 10px,视觉参差明显
+
+**根本原因**:三个子组件各自独立定义 button className,没有任何共享约束机制(类比 §3 共享层优先要求),`apps/web/src/lib/nav-styles.ts` 有 `TOPBAR_BTN_BASE` / `BTN_NEW_CONVERSATION_CLASS` 等常量但**缺"附加状态栏"档**。
+
+### 修复方案(做减法,1 批 commit)
+
+1. **`nav-styles.ts` 新增 1 个常量**:`INPUT_ATTACHMENT_BAR_CLASS`(容器)+ `INPUT_ATTACHMENT_BAR_BTN_BASE`(按钮基础) — 显式规定 h-7 + 必要属性,新场景必走此常量
+2. **3 个子组件改用常量**:
+   - `permission-mode-popover.tsx`:已 h-7,只把基础串提到常量
+   - `permission-history-panel.tsx`:`h-9 w-9` → `h-7 w-7`
+   - `add-menu-popover.tsx`:补 `h-7`
+3. **父 div**:`py-1.5`(12px) → `py-1`(8px),缩窄 4px
+4. **根治思路**:不写新守门脚本(避免过度工程),靠"在共享层加唯一 base 类 + 三个组件 import"形成事实标准
+
+### 硬性指标
+
+- [ ] I1:三个 button 渲染高度一致(浏览器 DOM getBoundingClientRect 读 height,三者全等 ±0.5px)
+- [ ] I2:父 div 渲染高度 ≤ 36px(从原 48px 缩窄)
+- [ ] I3:`pnpm --filter @ihui/web typecheck` exit 0
+- [ ] I4:`pnpm --filter @ihui/web lint` exit 0(staged 范围)
+- [ ] I5:browser 4 状态截图自验(默认 / hover / 权限模式切换中 / dark mode)
+- [ ] I6:`git push` 成功,local == remote,`node scripts/git-push-guard.mjs` exit 0
+
+### 约束边界
+
+- 仅触及:`message-input.tsx`(父 div class)+ `permission-mode-popover.tsx` / `permission-history-panel.tsx` / `add-menu-popover.tsx`(button className 串提到常量)+ `nav-styles.ts`(新增 2 常量)
+- 不可触及:其他端、其他组件、其他文件
+- 行为零变更:button 的 click 行为 / popover 内容 / 图标 / 颜色变体全部不变
+- 不写新守门脚本:做减法,靠共享常量形成约束
+
+### 平台独占
+
+本任务仅 web 端输入框附加栏 UI 修复,不涉及其他端代码改动。
