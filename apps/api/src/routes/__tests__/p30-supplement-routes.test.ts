@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -124,7 +125,7 @@ describe('P30 补写路由集成测试', () => {
 
     const TEST_SECRET = 'test-secret-for-rewarded-ad'
     const sig = (userId: string, transactionId: string, secret: string): string =>
-      require('node:crypto').createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
+      createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
 
     beforeAll(async () => {
       process.env.REWARDED_AD_SECRET = TEST_SECRET
