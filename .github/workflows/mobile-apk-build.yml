@@ -1,0 +1,77 @@
+name: Build Android APK
+
+# Android APK 全自动构建 + 分发(2026-08-06 立,2026-08-06 增 Release 自动发布)。
+# 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
+#       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
+# 流程(全自动):
+#   - 手动 workflow_dispatch 或推送 v* tag → ubuntu runner 构建 release APK
+#   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.apk)
+#   - 下载页 APK_URL 指向最新 Release 固定地址,引导页自动生效(无需人工放入)
+# 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: react-native-community/setup-android@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Android project (expo prebuild)
+        working-directory: apps/mobile-rn
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_WEB_URL: https://aizhs.top
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        working-directory: apps/mobile-rn/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prepare APK artifact (fixed filename)
+        run: |
+          ls apps/mobile-rn/android/app/build/outputs/apk/release/
+          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk ./ihui-ai-latest.apk
+          ls -lh ihui-ai-latest.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ihui-ai-android-apk
+          path: ihui-ai-latest.apk
+
+      # 自动发布 Release(2026-08-06 增):
+      #   - tag 触发 → 发布到该 tag
+      #   - 手动触发 → 自动创建 nightly 标签发布
+      # 下载页固定地址(指向最新 Release,永远可用):
+      #   https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-ai-latest.apk
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('nightly-{0}', github.run_id) }}
+          files: ihui-ai-latest.apk
+          generate_release_notes: false
+          make_latest: true

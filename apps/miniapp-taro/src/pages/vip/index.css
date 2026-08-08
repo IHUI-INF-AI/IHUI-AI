@@ -4,7 +4,8 @@
 .vip-page {
   --vip-bg-dark: #0f1623;
   --vip-bg-dark-2: #1f2937;
-  --vip-gold: #ffd700;
+/* 已接入 token:var(--color-vip-gold-start)(#ffd700);其余局部金/橙/深色变量无对应 token,保留原值 */
+  --vip-gold: var(--color-vip-gold-start);
   --vip-gold-2: #ffa500;
   --vip-gold-hover: #ffc700;
   --vip-gold-hover-2: #ff9500;

@@ -12,6 +12,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { type ReactNode } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { resetAsyncStorageMock } from './__mocks__/async-storage'
 
 const { apiMocks, tokenMocks, ssoMocks } = vi.hoisted(() => ({
   apiMocks: {
@@ -40,11 +42,21 @@ vi.mock('@ihui/api-client', () => ({
   logout: apiMocks.logout,
 }))
 
-vi.mock('../src/lib/token', () => tokenMocks)
+vi.mock('../src/lib/token', () => ({
+  ...tokenMocks,
+  tokenStore: {
+    getToken: () => tokenMocks.getToken() as string | null,
+    getRefreshToken: () => tokenMocks.getRefreshToken() as string | null,
+    setToken: tokenMocks.setToken,
+    setRefreshToken: tokenMocks.setRefreshToken,
+    clearAll: tokenMocks.clearToken,
+  },
+}))
 
 vi.mock('../src/lib/sso', () => ssoMocks)
 
 import { AuthProvider, useAuth } from '../src/context/AuthContext'
+import { rnAuthStore } from '../src/stores/auth-store'
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
@@ -77,10 +89,20 @@ const mockSsoTokenData = {
 describe('AuthContext 认证流程', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetAsyncStorageMock()
     tokenMocks.getToken.mockReturnValue(null)
     tokenMocks.getRefreshToken.mockReturnValue(null)
     ssoMocks.getInitialSsoCode.mockResolvedValue(null)
     ssoMocks.subscribeSsoDeepLink.mockReturnValue(() => {})
+    // 重置 auth store 状态,防止前序测试的 user 状态泄漏到当前测试
+    rnAuthStore.setState({
+      token: null,
+      refreshToken: null,
+      expiresIn: null,
+      isAuthenticated: false,
+      user: null,
+      ready: false,
+    })
   })
 
   it('initApi 后 ready=true,token 从 getToken 读取', async () => {

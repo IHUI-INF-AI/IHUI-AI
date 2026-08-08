@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Eye, Loader2, Play } from 'lucide-react'
 import { toast } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 import {
   Button,
@@ -101,24 +102,26 @@ export function McpPromptManager() {
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-mono text-sm font-medium">{prompt.name}</span>
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => setPreviewPrompt(prompt)}
-                      title={t('preview')}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => openExecute(prompt)}
-                      title={t('executePrompt')}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </Button>
+                    <Tooltip content={t('preview')}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => setPreviewPrompt(prompt)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('executePrompt')}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => openExecute(prompt)}
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </div>
                 {prompt.description && (

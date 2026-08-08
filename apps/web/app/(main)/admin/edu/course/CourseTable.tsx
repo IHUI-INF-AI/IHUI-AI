@@ -153,15 +153,17 @@ export function CourseTable({
                     </HasPermi>
                     <HasPermi code={`${PERM}remove`}>
                       <Tooltip content={t('deleteTitle')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDelete(r)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDelete(r)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deletePending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </HasPermi>
                     <Button asChild variant="ghost" size="sm" title={t('videoManageTitle')}>

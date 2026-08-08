@@ -174,7 +174,8 @@ export async function generateRegistrationOptions(
   return getServer().generateRegistrationOptions({
     rpName: cfg.rpName,
     rpID: cfg.rpID,
-    userID: userId,
+    // simplewebauthn v13+:userID 必须是 Buffer/Uint8Array,字符串已弃用
+    userID: Buffer.from(userId, 'utf8'),
     userName: email,
     attestationType: 'none',
     excludeCredentials: existingCredentials.map((c) => ({

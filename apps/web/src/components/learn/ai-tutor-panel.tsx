@@ -234,8 +234,15 @@ export function AiTutorPanel() {
               {quiz.quizzes.map((item, i) => (
                 <div key={i} className="space-y-1 rounded-md bg-muted/30 p-3">
                   <div className="text-sm font-medium">
-                    {i + 1}. {item.question}
+                    {i + 1}. {item.question_text}
                   </div>
+                  {item.options && item.options.length > 0 && (
+                    <div className="space-y-0.5 text-xs text-muted-foreground">
+                      {item.options.map((opt, j) => (
+                        <div key={j}>{opt}</div>
+                      ))}
+                    </div>
+                  )}
                   {item.answer && (
                     <div className="text-xs text-emerald-700">
                       答:{item.answer}

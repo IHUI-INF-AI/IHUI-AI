@@ -16,7 +16,7 @@
       "cwd": "apps/api",
       "port": 8802,
       "health": "http://localhost:8802/api/health",
-      "timeout_sec": 60
+      "timeout_sec": 120
     },
     "ai-service": {
       "cmd": "uv",
@@ -24,7 +24,7 @@
       "cwd": "apps/ai-service",
       "port": 8803,
       "health": "http://localhost:8803/health",
-      "timeout_sec": 90
+      "timeout_sec": 240
     },
     "miniapp-taro": {
       "cmd": "pnpm",
@@ -68,7 +68,8 @@
     }
   },
   "all": ["web", "api", "ai-service", "miniapp-taro", "mobile-rn", "desktop", "extension", "cli"],
-  "default": ["web", "api"],
+  "default": ["web", "api", "ai-service"],
+  "_default_note": "2026-08-07 根治:默认组必须含 ai-service。此前仅 web+api,导致前端 /api/llm/* 代理到 8803 连接失败 → '模型连接失败'反复出现。",
   "port_ranges": {
     "app": [8801, 8809],
     "infra": [8810, 8819],

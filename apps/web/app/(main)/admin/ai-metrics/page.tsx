@@ -121,7 +121,7 @@ export default function AiMetricsPage() {
   const showError = error && !sse && !pc && !vip
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

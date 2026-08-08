@@ -1,4 +1,4 @@
-import { fetchApi, fetchAiServiceJson } from '../client'
+import { fetchApi, fetchAiServiceJson, isAbortError } from '../client'
 import type {
   PermissionMode,
   PermissionDecision,
@@ -560,7 +560,7 @@ export async function executeAgentStream(
     }
     if (buffer.trim()) parseSSEBlock(buffer, callbacks)
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err)) {
       callbacks.onDone?.({ type: 'done' })
       return
     }
@@ -712,7 +712,7 @@ export async function executeAgentRuntimeStream(
     }
     if (buffer.trim()) parseAgentRuntimeSSEBlock(buffer, callbacks)
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err)) {
       callbacks.onDone?.({ sessionId: '', status: 'aborted' })
       return
     }
