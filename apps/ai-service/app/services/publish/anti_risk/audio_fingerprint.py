@@ -16,7 +16,10 @@ AnalyserNode.getFloatFrequencyData / AudioBuffer.getChannelData 的浮点数据�
 """
 from __future__ import annotations
 
-from playwright.async_api import BrowserContext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
 
