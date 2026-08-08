@@ -17,6 +17,16 @@ vi.mock('../../services/alipay.js', async (importOriginal) => {
   }
 })
 
+// Mock wechat-pay verifyCallbackSignature:测试 wechat/notify 公开回调时跳过真实验签。
+vi.mock('../../services/wechat-pay.js', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  const actual = await importOriginal<typeof import('../../services/wechat-pay.js')>()
+  return {
+    ...actual,
+    verifyCallbackSignature: vi.fn(() => true),
+  }
+})
+
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from '../payment-gateway.js'
 
 describe('Payment Gateway API', () => {

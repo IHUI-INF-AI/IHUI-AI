@@ -338,6 +338,12 @@ vi.mock('../src/services/points-service.js', () => ({
   earnPoints: mockEarnPoints,
   spendPoints: mockSpendPoints,
 }))
+// P2-20 creditTopupBonus 调用 calculateTopupBonus,该函数依赖 dbRead 查询 systemConfigs,
+// 内存 DB mock 未暴露 dbRead,故 mock 该模块直接返回无赠送结果,防止 getTopupConfig 报错。
+vi.mock('../src/services/topup-discount-service.js', () => ({
+  calculateTopupBonus: vi.fn().mockResolvedValue({ multiplier: 1, bonus: 0, actualCredit: 1 }),
+  getTopupConfig: vi.fn(),
+}))
 
 // 被测函数(commission-queries 不 mock,真实逻辑跑在 mock db 上;order-service 依赖被 mock)
 import { completeOrderWithSaga, refundOrder } from '../src/services/order-service.js'
@@ -494,11 +500,11 @@ describe('资金链路:退款退 token(Bug B2)', () => {
 
     expect(result.success).toBe(true)
     expect(result.order?.status).toBe('refunded')
-    // B2:退款退还 token(50 → 100)
-    expect(marginOf('U4')?.tokenQuantity).toBe(100)
-    // B2:用 refund:ORD-4 作幂等键,与充值流水(ORD-4)不冲突
+    // B2:退款扣回 token(50 → 0,refundTokenDeduct 尽力扣回)
+    expect(marginOf('U4')?.tokenQuantity).toBe(0)
+    // B2:用 refund:ORD-4 作幂等键,opType=3 表示退款扣回,与充值流水(ORD-4)不冲突
     const refundFlow = getRows(tokenFlows).find(
-      (r) => r.relatedOrderNo === 'refund:ORD-4' && r.opType === 0,
+      (r) => r.relatedOrderNo === 'refund:ORD-4' && r.opType === 3,
     )
     expect(refundFlow).toBeDefined()
     expect(refundFlow!.quantity).toBe(50)
@@ -526,8 +532,8 @@ describe('资金链路:退款退 token(Bug B2)', () => {
     const second = await refundOrder('ORD-5')
 
     expect(second.success).toBe(false)
-    // tokenQuantity 只增加一次(50 → 100,不是 150)
-    expect(marginOf('U5')?.tokenQuantity).toBe(100)
+    // tokenQuantity 只扣回一次(50 → 0,不是 -50)
+    expect(marginOf('U5')?.tokenQuantity).toBe(0)
   })
 })
 
