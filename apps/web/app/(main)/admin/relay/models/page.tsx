@@ -276,14 +276,16 @@ export default function AdminRelayModelsPage() {
                           </Button>
                         </Tooltip>
                         <Tooltip content={m.isRelayPublic ? '下架' : '上架'}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={toggleMutation.isPending}
-                            onClick={() => toggleMutation.mutate(m.id)}
-                          >
-                            <Power className="h-4 w-4" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={toggleMutation.isPending}
+                              onClick={() => toggleMutation.mutate(m.id)}
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </div>
                     </td>

@@ -19,6 +19,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AiTutorPanel } from '@/components/learn/ai-tutor-panel'
 import { cn } from '@/lib/utils'
 
 interface Section {
@@ -219,6 +220,9 @@ export default function EduCourseLearnPage() {
               ))}
             </CardContent>
           </Card>
+
+          {/* 2026-08-07 AI 助教:接入学习页侧栏(讲解/提示/出题) */}
+          <AiTutorPanel />
 
           <Card>
             <CardHeader className="pb-2">

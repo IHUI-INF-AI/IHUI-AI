@@ -108,15 +108,17 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
               </TableCell>
               <TableCell className="px-4 py-2.5 text-right">
                 <Tooltip content={t('remove')}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemove(m)}
-                    className="text-destructive hover:text-destructive"
-                    disabled={removePending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemove(m)}
+                      className="text-destructive hover:text-destructive"
+                      disabled={removePending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </span>
                 </Tooltip>
               </TableCell>
             </TableRow>
