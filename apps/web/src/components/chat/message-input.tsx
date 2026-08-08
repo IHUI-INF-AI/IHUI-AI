@@ -39,6 +39,8 @@ import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
+import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
+import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -172,6 +174,10 @@ export function MessageInput({
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   const canSend = !isStreaming && value.trim().length > 0
+  // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
+  const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
+  const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(null)
+  const [skillInvokeError, setSkillInvokeError] = React.useState<string | null>(null)
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
     const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
@@ -211,6 +217,16 @@ export function MessageInput({
     setValue,
     inputCoreRef,
     onSend,
+    React.useCallback(
+      (skillId: string) => {
+        const skill = aiSkills.find((s) => s.id === skillId)
+        if (!skill) return
+        setSkillInvokeSkill(skill)
+        setSkillInvokeResult(null)
+        setSkillInvokeError(null)
+      },
+      [aiSkills],
+    ),
   )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -662,6 +678,49 @@ export function MessageInput({
           - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
           - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
       <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
+      {/* 斜杠命令选中技能时触发的内联调用对话框(2026-08-08 立) */}
+      {skillInvokeSkill && !skillInvokeResult && (
+        <div className="mx-auto mt-2 max-w-3xl px-4">
+          <AiSkillInvokeDialog
+            skill={skillInvokeSkill}
+            error={skillInvokeError}
+            onCancel={() => {
+              setSkillInvokeSkill(null)
+              setSkillInvokeResult(null)
+              setSkillInvokeError(null)
+            }}
+            onSuccess={(result) => {
+              setSkillInvokeResult(result)
+              setSkillInvokeError(null)
+            }}
+            onError={(err) => {
+              setSkillInvokeError(err)
+              setSkillInvokeResult(null)
+            }}
+          />
+        </div>
+      )}
+      {skillInvokeResult && (
+        <div className="mx-auto mt-2 max-w-3xl px-4">
+          <AiSkillResultDialog
+            result={skillInvokeResult}
+            onClose={() => {
+              setSkillInvokeResult(null)
+              setSkillInvokeSkill(null)
+            }}
+            onFillInput={(text) => {
+              setValue(text)
+              setSkillInvokeResult(null)
+              setSkillInvokeSkill(null)
+              requestAnimationFrame(() => {
+                inputCoreRef.current?.focus()
+                inputCoreRef.current?.setSelectionRange(text.length, text.length)
+                inputCoreRef.current?.resize()
+              })
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
