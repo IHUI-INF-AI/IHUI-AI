@@ -181,7 +181,9 @@ describe('api-key-quota — API Key 调用配额管理', () => {
       ])
       mockDbInsert.mockReturnValue({
         values: vi.fn().mockReturnValue({
-          returning: mockReturning,
+          onConflictDoNothing: vi.fn().mockReturnValue({
+            returning: mockReturning,
+          }),
         }),
       })
       const quota = new ApiKeyQuota({ hourlyLimit: 500, dailyLimit: 5000 })
@@ -208,6 +210,14 @@ describe('api-key-quota — API Key 调用配额管理', () => {
 
     it('小时配额不足拒绝', async () => {
       mockExistingQuota({ hourlyUsed: 1000, dailyUsed: 500 })
+      // db.update 返回空 → 0 行影响,触发超限重查
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      })
       const quota = new ApiKeyQuota()
       const result = await quota.checkAndConsume('key-1', 1)
       expect(result.allowed).toBe(false)
@@ -216,6 +226,13 @@ describe('api-key-quota — API Key 调用配额管理', () => {
 
     it('天配额不足拒绝', async () => {
       mockExistingQuota({ hourlyUsed: 100, dailyUsed: 10000 })
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      })
       const quota = new ApiKeyQuota()
       const result = await quota.checkAndConsume('key-1', 1)
       expect(result.allowed).toBe(false)
