@@ -273,16 +273,20 @@ def _try_screenshot_html(html_content: str) -> Optional[str]:
 # ===== 路由 =====
 
 @router.get("", response_model=ApiEnvelope)
-async def list_ai_skills() -> dict[str, Any]:
-    """列出 19 个 AI Skills TOP(供 SkillLibrary 弹窗 ai-skills tab 用)。"""
-    return _ok([_serialize_skill(s) for s in skill_registry.list_ai_top()])
+async def list_ai_skills(category: str = "ai-top") -> dict[str, Any]:
+    """列出 AI Skills。category="all" 返回全部,否则按分类筛选(默认 "ai-top" 向后兼容)。"""
+    if category == "all":
+        skills = skill_registry.list_skills()
+    else:
+        skills = skill_registry.list_by_category(category)
+    return _ok([_serialize_skill(s) for s in skills])
 
 
 @router.get("/{skill_id}", response_model=ApiEnvelope)
 async def get_ai_skill(skill_id: str) -> dict[str, Any]:
-    """获取单个 AI Skill 详情(404 表示不在 ai-top 列表中)。"""
+    """获取单个 AI Skill 详情(按 ID 查找,不限制分类)。"""
     skill = skill_registry.get(skill_id)
-    if not skill or skill.category != "ai-top":
+    if not skill:
         raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
     return _ok(_serialize_skill(skill))
 
@@ -304,7 +308,7 @@ async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
     # scheduler = SkillScheduler()  # 2026-07-23:可选启用 LangGraph 调度(失败重试+token 统计),见 skill_scheduler.py
     t0 = time.monotonic()
     skill = skill_registry.get(skill_id)
-    if not skill or skill.category != "ai-top":
+    if not skill:
         raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
 
     if not skill.available:
