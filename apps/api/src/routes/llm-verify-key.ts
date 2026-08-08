@@ -120,10 +120,13 @@ async function verifyUpstream(params: {
   }
   const baseUrl = params.apiBase ?? cfg.baseUrl
   // P1-9 SSRF 防护:用户可控 apiBase 必须 https + 纯 origin + DNS 解析后全部公网 IP
-  try {
-    await assertSafeApiBase(baseUrl)
-  } catch (e) {
-    return { valid: false, message: (e as Error).message }
+  // 仅对用户自定义 apiBase 做 SSRF 校验(默认 baseUrl 在 PROVIDER_CONFIGS 硬编码,受信任)
+  if (params.apiBase) {
+    try {
+      await assertSafeApiBase(baseUrl)
+    } catch (e) {
+      return { valid: false, message: (e as Error).message }
+    }
   }
   const testModel = params.model ?? cfg.defaultModel
   const start = Date.now()
