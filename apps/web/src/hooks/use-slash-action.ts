@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
-import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { PROMPT_TEMPLATE_IDS } from '@/components/chat/prompt-template-data'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 中的 WebInputCoreHandle 契约一致
@@ -76,9 +75,6 @@ const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
  */
 export function useSlashAction(
   setInputValue: (v: string) => void,
-  // FIXME(any): aiSkills 留作未来 skill 描述/分类查询扩展,先用 void 消费以满足 TS6133
-   
-  aiSkills: AiSkillMeta[],
   inputCoreRef: React.RefObject<SlashActionInputCoreHandle | null>,
   onSend: (content: string) => Promise<boolean> | boolean,
 ): {
@@ -87,9 +83,6 @@ export function useSlashAction(
   handleCommandArgsSelect: (_commandId: string, insertText: string) => void
 } {
   const t = useTranslations('chat')
-
-  // FIXME(any): 临时消费 aiSkills 以满足 TS6133,见函数签名注释
-  void aiSkills
 
   // /permission 切换 toast 首弹记录(2026-07-25 深化):每个子命令模式只 toast 一次,
   // 持久化到 localStorage(跨刷新/跨标签页也只弹一次)。
@@ -219,9 +212,8 @@ export function useSlashAction(
       }
       fillInput(commandTemplates[id] ?? '')
     },
-    // aiSkills 列入依赖数组(2026-07-29 预留):当前 handleCommandSelect 通过 id 前缀识别 skill 命令,
-    // skillName 从 id 切片获取;未来若需要根据 aiSkills 查找 skill 描述/分类等元数据,
-    // 依赖数组已就位,无需再改 hook 签名
+    // aiSkills 依赖已移除(2026-08-08):原参数 unused,已从 hook 签名删除。
+    // 若未来需要 skill 元数据,需重新加回参数并填充依赖数组。
     [
       t,
       fillInput,
@@ -230,7 +222,6 @@ export function useSlashAction(
       inputCoreRef,
       commandTemplates,
       markPermissionToastShown,
-      aiSkills,
     ],
   )
 
