@@ -457,15 +457,17 @@ export function OrdersTab({
                         </HasPermi>
                         <HasPermi code="ai:order:remove">
                           <Tooltip content="删除">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(o)}
-                              className="text-destructive hover:text-destructive"
-                              disabled={deleteMut.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <span className="inline-flex">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(o)}
+                                className="text-destructive hover:text-destructive"
+                                disabled={deleteMut.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </span>
                           </Tooltip>
                         </HasPermi>
                       </div>
