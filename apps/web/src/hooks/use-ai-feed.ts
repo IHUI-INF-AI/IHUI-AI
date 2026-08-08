@@ -34,10 +34,13 @@ export function useAiFeed(): UseAiFeedReturn {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const pageRef = React.useRef(1)
+  // 2026-08-06 修复:请求序号守卫,防止快速翻页时旧请求覆盖新请求结果(竞态)
+  const requestSeqRef = React.useRef(0)
   const [hasMore, setHasMore] = React.useState(true)
 
   const fetchItems = React.useCallback(
     async (reset = false) => {
+      const seq = ++requestSeqRef.current
       const nextPage = reset ? 1 : pageRef.current
       setLoading(true)
       setError(null)
@@ -45,6 +48,8 @@ export function useAiFeed(): UseAiFeedReturn {
         const res = await fetchApi<{ list: AiFeedItem[]; total: number }>(
           `/api/ai-ext/ai-feed/items?page=${nextPage}&pageSize=${PAGE_SIZE}`,
         )
+        // 已有更新的请求发起,丢弃本次结果
+        if (seq !== requestSeqRef.current) return
         if (res.success) {
           const list = res.data.list ?? []
           setItems((prev) => (reset ? list : [...prev, ...list]))
@@ -54,7 +59,7 @@ export function useAiFeed(): UseAiFeedReturn {
           setError(res.error)
         }
       } finally {
-        setLoading(false)
+        if (seq === requestSeqRef.current) setLoading(false)
       }
     },
     [],

@@ -38,7 +38,7 @@ export default function AdminPointsMallPage() {
   const totalPages = Math.max(1, Math.ceil(total / 10))
   const head = ['商品名称', '类型', '积分', '库存', '已兑/限兑', '状态']
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">

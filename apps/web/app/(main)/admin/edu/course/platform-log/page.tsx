@@ -31,7 +31,7 @@ export default function EduCoursePlatformLogPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course-platform-log', params],
     queryFn: () =>
-      eduApi<PageData<PlatformLog>>(`/api/admin/course/platform-logs${buildQs(params)}`),
+      eduApi<PageData<PlatformLog>>(`/api/admin/zhs-legacy/platform-logs${buildQs(params)}`),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -45,11 +45,11 @@ export default function EduCoursePlatformLogPage() {
         createdAt: form.createdAt || undefined,
       }
       return editing
-        ? eduApi(`/api/admin/course/platform-logs/${editing.id}`, {
+        ? eduApi(`/api/admin/zhs-legacy/platform-logs/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : eduApi(`/api/admin/course/platform-logs`, { method: 'POST', body: JSON.stringify(body) })
+        : eduApi(`/api/admin/zhs-legacy/platform-logs`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -60,7 +60,7 @@ export default function EduCoursePlatformLogPage() {
   })
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      eduApi(`/api/admin/course/platform-logs/${id}`, { method: 'DELETE' }),
+      eduApi(`/api/admin/zhs-legacy/platform-logs/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-platform-log'] })
@@ -98,7 +98,7 @@ export default function EduCoursePlatformLogPage() {
   }
   function handleExport() {
     exportFromApi(
-      `/api/admin/course/platform-logs${buildQs({ ...q, pageSize: 10000 })}`,
+      `/api/admin/zhs-legacy/platform-logs${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePlatformLog_${Date.now()}`,
       EXPORT_COLS,
       t,
@@ -117,7 +117,7 @@ export default function EduCoursePlatformLogPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

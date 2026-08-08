@@ -80,64 +80,72 @@ export function TenantTable({
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      asChild
-                      aria-label={t('action.detail')}
-                      title={t('action.detail')}
-                    >
-                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    {tn.state === 'paused' ? (
-                      <Tooltip content={t('action.resume')}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t('action.resume')}
-                          disabled={p !== null}
-                          onClick={() => onResume(tn)}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip content={t('action.pause')}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t('action.pause')}
-                          disabled={p !== null || !tn.exists}
-                          onClick={() => onPause(tn)}
-                        >
-                          <Pause className="h-4 w-4" />
-                        </Button>
-                      </Tooltip>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      asChild
-                      aria-label={t('action.backup')}
-                      title={t('action.backup')}
-                    >
-                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
-                        <Database className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Tooltip content={t('action.destroy')}>
+                    <Tooltip content={t('action.detail')}>
                       <Button
                         size="icon"
                         variant="ghost"
-                        aria-label={t('action.destroy')}
-                        disabled={p !== null}
-                        onClick={() => onDelete(tn)}
-                        className="text-rose-500 hover:text-rose-600"
+                        asChild
+                        aria-label={t('action.detail')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
                       </Button>
+                    </Tooltip>
+                    {tn.state === 'paused' ? (
+                      <Tooltip content={t('action.resume')}>
+                        <span className="inline-flex">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={t('action.resume')}
+                            disabled={p !== null}
+                            onClick={() => onResume(tn)}
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip content={t('action.pause')}>
+                        <span className="inline-flex">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={t('action.pause')}
+                            disabled={p !== null || !tn.exists}
+                            onClick={() => onPause(tn)}
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
+                    <Tooltip content={t('action.backup')}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        asChild
+                        aria-label={t('action.backup')}
+                      >
+                        <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
+                          <Database className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('action.destroy')}>
+                      <span className="inline-flex">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('action.destroy')}
+                          disabled={p !== null}
+                          onClick={() => onDelete(tn)}
+                          className="text-rose-500 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </td>

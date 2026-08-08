@@ -85,3 +85,4 @@ export type RelayWebhookEvent =
   | 'relay.call.completed'
   | 'relay.call.failed'
   | 'relay.balance.low'
+  | 'security.login_anomaly'

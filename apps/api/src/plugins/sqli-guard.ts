@@ -13,8 +13,6 @@
  * - 健康检查 / 监控路径(/api/health, /api/metrics, /business-metrics)
  * - 文件上传(multipart,已由 upload-scanner 处理)
  * - 路由级关闭:routeOptions.config.sqliGuard = { enabled: false }
- * - AI 内容端点(/api/ai/、/api/llm/、/api/chat/ 等,见 AI_CONTENT_PREFIXES):
- *   自由文本无 SQL 注入面,完全跳过(2026-08-06 根治)
  *
  * 设计为防御纵深:xss-protection(onRequest)先做 HTML 实体编码,本插件(preHandler)
  * 再做 SQL 注入检测,两层独立工作互不依赖。
@@ -47,22 +45,16 @@ declare module 'fastify' {
 const SKIP_PATHS = new Set(['/api/health', '/api/metrics', '/business-metrics'])
 
 /**
- * AI 内容端点前缀白名单(2026-08-06 根治:完全跳过 sqli-guard 检测)。
+ * P2 修复(2026-08-06):AI 内容端点白名单。
  *
- * 背景:本插件对 AI 对话路径做过两轮"豁免但仍检测强特征"的折中修复,
- * 均被误杀打回 ——
- *  1. `#` 单字符当 SQL 注释符,误杀用户消息 "#1"(400 拦截 → 无限重连)
- *  2. `--\s` 当 PG 注释,误杀 Markdown 表格分隔行 "| --- |",
- *     历史一旦含表格,之后所有对话(携带完整历史)都被 400 拦截
- * 结论:AI 端点 body 是自由文本(用户 prompt + 对话历史),最终交给 LLM
- * 或参数化入库(chat_messages),**不拼 SQL,无注入面**。对其做任何
- * 关键字/注释符检测都是误杀源。
+ * 背景:全局关键字检测(SELECT/UNION/OR 等)对 AI 类端点是误杀源——
+ * 用户 prompt 是自由文本,天然可能包含 "select/union/or/where" 等词,配合引号/分号
+ * 即命中 InputValidator.checkSqlInjection,导致正常 AI 请求被 400 拒绝。
  *
- * 设计决策:命中以下路径前缀的请求**完全跳过**本插件的所有检测。
- * SQL 注入防护能力不受影响:非 AI 端点(查询参数/表单字段等拼 SQL 场景)
- * 仍走完整检测(SQLI_STRONG_PATTERN + InputValidator.checkSqlInjection);
- * 数据库层 Drizzle/postgres-js 参数化查询是注入防护的根基。
- * 路径按前缀匹配(小写)。
+ * 方案:命中以下路径前缀的请求跳过关键字检测,但仍做强特征检测
+ * (SQL 注释符 `--`/`/*`/`#`,以及分号后的堆叠查询 `; SELECT ...`)。
+ * 这些端点接收的是交给 LLM 的自由文本而非 SQL,关键字本身无注入能力;
+ * 真正危险的注释符/堆叠语句特征仍会被拦截。路径按前缀匹配(小写)。
  */
 const AI_CONTENT_PREFIXES = [
   '/api/llm/',
@@ -78,6 +70,50 @@ const AI_CONTENT_PREFIXES = [
   '/api/workspace/ai/',
   '/v1/',
 ]
+
+/**
+ * 强 SQL 注入特征(非 AI 路径完整检测):
+ * - `--`(后跟空白/行尾,PostgreSQL 注释;`--` 后跟数字如 `1--2` 是减法,非注释)
+ * - 斜杠星号 ... 星号斜杠(PostgreSQL 块注释)
+ * - 分号后的堆叠查询语句(; SELECT/UNION/... )
+ *
+ * 2026-08-06 P2 修复(生产故障):移除 `#` 单字符特征。
+ * PostgreSQL 中 `#` 不是注释符(MySQL/MariaDB 才用),且 `#1`/`#tag`/`C#` 等
+ * 在用户正常文本中出现频率极高,导致 AI 对话内容被误杀(线上用户消息
+ * "[Advisor consultation #1]" 被 400 拦截 → 前端无限重连)。堆叠查询正则
+ * 与关键字检测已足够覆盖真实注入,`#` 对 PG 无威胁。
+ */
+const SQLI_STRONG_PATTERN = /(--\s|--$|\/\*[\s\S]*?\*\/)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/im
+
+/**
+ * AI 内容路径强特征(2026-08-06 生产故障修复):去掉 `--\s`/`--$`。
+ * 根因:Markdown 表格分隔行 `| --- |` 含 "-- " 被误判为 PG 注释 →
+ * 历史消息里只要有表格,之后任何对话(携带完整历史)都被 400 拦截 → 前端无限重连
+ * (实测:AI 回复架构表格后,用户发"架构怎么优化"连续 4 次被拦)。
+ * AI 端点内容交给 LLM 不拼 SQL,仅保留块注释与分号堆叠查询两个真正危险特征。
+ */
+const SQLI_STRONG_PATTERN_AI = /(\/\*[\s\S]*?\*\/)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/im
+
+/** 递归扫描对象/数组中的字符串值,检测强 SQL 注入特征(供豁免路径使用)。 */
+function detectStrongSqli(data: unknown, pattern: RegExp = SQLI_STRONG_PATTERN): string | null {
+    if (typeof data === 'string') {
+        return pattern.test(data) ? data.slice(0, 200) : null
+    }
+    if (Array.isArray(data)) {
+        for (const item of data) {
+            const hit = detectStrongSqli(item, pattern)
+            if (hit) return hit
+        }
+        return null
+    }
+    if (data && typeof data === 'object') {
+        for (const v of Object.values(data as Record<string, unknown>)) {
+            const hit = detectStrongSqli(v, pattern)
+            if (hit) return hit
+        }
+    }
+    return null
+}
 
 /** 递归扫描对象/数组中的字符串值,返回首个命中 SQL 注入的值(截断 200 字符),未命中返回 null。 */
 function detectSqlInjection(data: unknown): string | null {
@@ -116,16 +152,18 @@ const sqliGuardPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         // 文件上传跳过(已由 upload-scanner 处理)
         if (typeof request.isMultipart === 'function' && request.isMultipart()) return
 
-        // 2026-08-06 根治:AI 内容端点完全跳过 sqli-guard —— 自由文本(body 为
-        // prompt + 对话历史)交给 LLM / 参数化入库,不拼 SQL 无注入面。
-        // 曾做两轮"豁免但仍检测强特征"均被误杀(#1、Markdown 表格 | --- |),
-        // 直接跳过是唯一不会误伤的方案,详见 AI_CONTENT_PREFIXES 注释。
-        if (AI_CONTENT_PREFIXES.some((prefix) => path.startsWith(prefix))) return
-
-        const hit =
-            detectSqlInjection(request.body) ??
-            detectSqlInjection(request.query) ??
-            detectSqlInjection(request.params)
+        // P2 修复(2026-08-06):AI 内容端点跳过关键字检测,仅做强特征检测,
+        // 避免用户 prompt 含 "select/union" 等词被误杀。
+        // 2026-08-06 二次修复:AI 路径强特征用 SQLI_STRONG_PATTERN_AI(不含 --\s),
+        // 否则 Markdown 表格分隔行 "| --- |" 被误判 PG 注释 → 历史含表格的对话全被 400 拦。
+        const isAiContentPath = AI_CONTENT_PREFIXES.some((prefix) => path.startsWith(prefix))
+        const hit = isAiContentPath
+            ? (detectStrongSqli(request.body, SQLI_STRONG_PATTERN_AI) ??
+              detectStrongSqli(request.query, SQLI_STRONG_PATTERN_AI) ??
+              detectStrongSqli(request.params, SQLI_STRONG_PATTERN_AI))
+            : (detectSqlInjection(request.body) ??
+              detectSqlInjection(request.query) ??
+              detectSqlInjection(request.params))
 
         if (!hit) return
 

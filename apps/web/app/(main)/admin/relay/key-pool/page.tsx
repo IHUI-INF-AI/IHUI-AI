@@ -35,6 +35,7 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -167,7 +168,7 @@ export default function AdminRelayKeyPoolPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-end justify-between">
         <div>
@@ -299,50 +300,59 @@ export default function AdminRelayKeyPoolPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={act.isPending}
-                          onClick={() =>
-                            act.mutate({
-                              url: `/api/admin/relay/key-pool/${k.id}/health`,
-                              method: 'POST',
-                            })
-                          }
-                          title="健康检查"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={act.isPending}
-                          onClick={() =>
-                            act.mutate({
-                              url: `/api/admin/relay/key-pool/${k.id}/toggle`,
-                              method: 'POST',
-                            })
-                          }
-                          title="切换启用"
-                        >
-                          <Power className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={act.isPending}
-                          onClick={() => {
-                            if (confirm(`删除 Key "${k.name}"?`)) {
-                              act.mutate({
-                                url: `/api/admin/relay/key-pool/${k.id}`,
-                                method: 'DELETE',
-                              })
-                            }
-                          }}
-                          title="删除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content="健康检查">
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={act.isPending}
+                              onClick={() =>
+                                act.mutate({
+                                  url: `/api/admin/relay/key-pool/${k.id}/health`,
+                                  method: 'POST',
+                                })
+                              }
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
+                        <Tooltip content="切换启用">
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={act.isPending}
+                              onClick={() =>
+                                act.mutate({
+                                  url: `/api/admin/relay/key-pool/${k.id}/toggle`,
+                                  method: 'POST',
+                                })
+                              }
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
+                        <Tooltip content="删除">
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={act.isPending}
+                              onClick={() => {
+                                if (confirm(`删除 Key "${k.name}"?`)) {
+                                  act.mutate({
+                                    url: `/api/admin/relay/key-pool/${k.id}`,
+                                    method: 'DELETE',
+                                  })
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

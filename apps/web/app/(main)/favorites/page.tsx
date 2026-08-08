@@ -136,15 +136,17 @@ export default function FavoritesPage() {
                   {dateFmt.format(new Date(item.createdAt))}
                 </span>
                 <Tooltip content={t('remove')}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeMut.mutate(item)}
-                    disabled={removeMut.isPending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => removeMut.mutate(item)}
+                      disabled={removeMut.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
                 </Tooltip>
               </li>
             )

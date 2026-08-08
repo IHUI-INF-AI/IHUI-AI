@@ -115,26 +115,30 @@ export function DemandSquareTable({
                     <div className="flex justify-end gap-1">
                       <HasPermi code="demandsquare:approve">
                         <Tooltip content={t('approve')}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onApprove(r.id)}
-                            disabled={approvePending}
-                          >
-                            <Check className="h-4 w-4 text-emerald-600" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onApprove(r.id)}
+                              disabled={approvePending}
+                            >
+                              <Check className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </HasPermi>
                       <HasPermi code="demandsquare:reject">
                         <Tooltip content={t('reject')}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onReject(r)}
-                            disabled={rejectPending}
-                          >
-                            <X className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onReject(r)}
+                              disabled={rejectPending}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </HasPermi>
                     </div>

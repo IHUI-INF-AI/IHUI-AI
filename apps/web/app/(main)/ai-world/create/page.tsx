@@ -84,7 +84,7 @@ export default function AiWorldCreatePage() {
     'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div className="mx-auto w-full max-w-2xl space-y-4 px-4">
       <Button variant="ghost" size="sm" onClick={() => router.push('/ai-world')}>
         <ArrowLeft className="h-4 w-4" />
         {t('back')}

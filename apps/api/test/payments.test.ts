@@ -737,7 +737,7 @@ describe('payment gateway routes', () => {
     })
 
     it('返回待处理订单列表', async () => {
-      authAs()
+      authAsAdmin()
       mockQueryPendingOrders.mockResolvedValueOnce([makeOrder({ status: 'pending' })])
       const res = await app.inject({
         method: 'GET',
@@ -751,7 +751,7 @@ describe('payment gateway routes', () => {
 
   describe('POST /api/payments/reconciliation/close_expired', () => {
     it('无待处理订单返回空清单', async () => {
-      authAs()
+      authAsAdmin()
       mockQueryPendingOrders.mockResolvedValueOnce([])
       const res = await app.inject({
         method: 'POST',
@@ -765,7 +765,7 @@ describe('payment gateway routes', () => {
     })
 
     it('过期订单关闭成功', async () => {
-      authAs()
+      authAsAdmin()
       mockQueryPendingOrders.mockResolvedValueOnce([
         makeOrder({ orderNo: 'EDU001', paymentMethod: 'wechat' }),
       ])
@@ -781,7 +781,7 @@ describe('payment gateway routes', () => {
     })
 
     it('关闭过程抛错记入 failed', async () => {
-      authAs()
+      authAsAdmin()
       mockIsWechatPayConfigured.mockReturnValue(true) // 触发 wxCloseOrder 调用
       mockQueryPendingOrders.mockResolvedValueOnce([
         makeOrder({ orderNo: 'EDU002', paymentMethod: 'wechat' }),

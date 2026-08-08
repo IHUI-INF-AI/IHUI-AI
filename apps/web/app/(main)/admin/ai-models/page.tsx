@@ -119,7 +119,7 @@ export default function AiModelsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <AiModelsFilter search={search} onSearchChange={setSearch} onCreate={openCreate} />
 

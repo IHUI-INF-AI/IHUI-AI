@@ -79,7 +79,7 @@ export default async function OverviewPage() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('overview.title')}</h1>

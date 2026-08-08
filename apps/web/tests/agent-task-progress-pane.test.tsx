@@ -178,10 +178,16 @@ vi.mock('next-intl', () => ({
 }))
 
 // Mock @ihui/api-client
-vi.mock('@ihui/api-client', () => ({
-  probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
-  takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
 }))
+
+vi.mock('@ihui/api-client', () => ({}))
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
@@ -236,6 +242,7 @@ vi.mock('lucide-react', () => {
     ChevronsDownUp: Icon,
     Zap: Icon,
     Activity: Icon,
+    CheckCircle: Icon,
     CheckCircle2: Icon,
     XCircle: Icon,
     AlertCircle: Icon,
@@ -251,6 +258,7 @@ vi.mock('lucide-react', () => {
     ShieldCheck: Icon,
     ShieldAlert: Icon,
     Hand: Icon,
+    Info: Icon,
     ListTree: Icon,
     Signal: Icon,
     SignalLow: Icon,

@@ -26,7 +26,7 @@ export default function ModelRecordPage() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <Card>
         <CardHeader>
