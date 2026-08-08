@@ -422,6 +422,11 @@ export function MessageInput({
                   setAddMenuOpen(false)
                   setAddMenuMode('menu')
                 }}
+                onSkillSendToChat={(content) => {
+                  useChatStore.setState({ draftInput: content })
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                }}
                 onAddFile={() => {
                   setAddMenuOpen(false)
                   setAddMenuMode('menu')
