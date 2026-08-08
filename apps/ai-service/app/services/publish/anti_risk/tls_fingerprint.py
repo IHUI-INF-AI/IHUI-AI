@@ -18,9 +18,10 @@ JA3 指纹由 5 个字段组成:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from playwright.async_api import BrowserContext
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
 from .stealth import generate_seed
