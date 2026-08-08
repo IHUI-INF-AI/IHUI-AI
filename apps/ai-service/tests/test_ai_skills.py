@@ -414,7 +414,7 @@ async def test_list_ai_skills_returns_envelope(monkeypatch):
     s1 = _make_skill(name="s1")
     s2 = _make_skill(name="s2")
     fake_registry = MagicMock()
-    fake_registry.list_ai_top = MagicMock(return_value=[s1, s2])
+    fake_registry.list_by_category = MagicMock(return_value=[s1, s2])
     monkeypatch.setattr(ai_skills, "skill_registry", fake_registry)
 
     app = _make_app()
@@ -445,8 +445,8 @@ async def test_get_ai_skill_404_when_not_found(monkeypatch):
     assert resp.status_code == 404
 
 
-async def test_get_ai_skill_404_when_not_ai_top_category(monkeypatch):
-    """GET /ai-skills/{id}:skill 存在但 category != ai-top → 404。"""
+async def test_get_ai_skill_returns_any_category(monkeypatch):
+    """GET /ai-skills/{id}:skill 存在(不限 category)返回 200。"""
     s = _make_skill(name="x", category="code")
     fake_registry = MagicMock()
     fake_registry.get = MagicMock(return_value=s)
@@ -455,7 +455,8 @@ async def test_get_ai_skill_404_when_not_ai_top_category(monkeypatch):
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.get("/ai-skills/x")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    assert resp.json()["data"]["id"] == "x"
 
 
 async def test_get_ai_skill_returns_meta(monkeypatch):
