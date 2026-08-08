@@ -323,20 +323,22 @@ export function ProviderCardV2({
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
                     <Tooltip content={t('test')}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => testModelMut.mutate(m.id)}
-                        disabled={testModelMut.isPending || !provider.hasApiKey}
-                      >
-                        {testModelMut.isPending ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Zap className="h-3 w-3" />
-                        )}
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => testModelMut.mutate(m.id)}
+                          disabled={testModelMut.isPending || !provider.hasApiKey}
+                        >
+                          {testModelMut.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Zap className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </span>
                     </Tooltip>
                     <Tooltip content={t('compare')}>
                       <Button
@@ -372,16 +374,18 @@ export function ProviderCardV2({
                       </Button>
                     </Tooltip>
                     <Tooltip content={t('delete')}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteModel(m)}
-                        disabled={delModelMut.isPending}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteModel(m)}
+                          disabled={delModelMut.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </li>
@@ -428,20 +432,22 @@ export function ProviderCardV2({
         <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2">
           <div className="flex shrink-0 flex-nowrap items-center gap-1">
             <Tooltip content={!provider.hasApiKey ? t('needKeyFirst') : t('test')}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
-                onClick={() => testProvMut.mutate()}
-                disabled={testProvMut.isPending || !provider.hasApiKey}
-              >
-                {testProvMut.isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 shrink-0 animate-spin" />
-                ) : (
-                  <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />
-                )}
-                {t('test')}
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+                  onClick={() => testProvMut.mutate()}
+                  disabled={testProvMut.isPending || !provider.hasApiKey}
+                >
+                  {testProvMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 shrink-0 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />
+                  )}
+                  {t('test')}
+                </Button>
+              </span>
             </Tooltip>
             <Tooltip content={t('fetchModels')}>
               <Button
@@ -468,19 +474,21 @@ export function ProviderCardV2({
             </Button>
           </div>
           <Tooltip content={t('delete')}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-              onClick={handleDeleteProvider}
-              disabled={delProvMut.isPending}
-            >
-              {delProvMut.isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-            </Button>
+            <span className="inline-flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                onClick={handleDeleteProvider}
+                disabled={delProvMut.isPending}
+              >
+                {delProvMut.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+              </Button>
+            </span>
           </Tooltip>
         </div>
       </CardContent>

@@ -128,7 +128,7 @@ export default function AdminInvoiceTitlesPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -214,15 +214,17 @@ export default function AdminInvoiceTitlesPage() {
                         </Button>
                       </Tooltip>
                       <Tooltip content="删除">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(t)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(t)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </div>
                   </TableCell>

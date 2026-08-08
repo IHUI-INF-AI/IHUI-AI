@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
+import { TruncatedText } from '@/components/common'
 import {
   useAgentProgressPaneStore,
   hydrateAgentProgressPaneFromStorage,
@@ -1458,9 +1459,7 @@ export function AgentTaskProgressPane() {
                   data-task-kind={currentTask.kind}
                 >
                   <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate" title={currentTask.label}>
-                    {currentTask.label}
-                  </span>
+                  <TruncatedText value={currentTask.label} className="min-w-0 flex-1" />
                 </div>
               )}
               <ToolCallsSection tools={tools} />

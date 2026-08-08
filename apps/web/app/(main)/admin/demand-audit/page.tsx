@@ -61,7 +61,7 @@ export default function DemandAuditPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>

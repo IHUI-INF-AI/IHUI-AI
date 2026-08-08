@@ -11,17 +11,17 @@ interface RankUser {
   commission: number
 }
 
-// 保留:#FFD700(金)/#C0C0C0(银)/#CD7F32(铜) 排名色;tokens.css 已定义 --color-rank-gold/silver/bronze 同值,但被 sync-design-tokens.mjs filterTokens 跳过,不同步到 app.css,小程序端无法 var() 引用,保留原值
+// 排名金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#FFD700/#C0C0C0/#CD7F32,由 sync-design-tokens.mjs 同步自 tokens.css;className 走 weapp-tailwindcss 编译,var() 生效)
 const RANK_BG: Record<string, string> = {
-  '1': 'bg-[#FFD700]',
-  '2': 'bg-[#C0C0C0]',
-  '3': 'bg-[#CD7F32]',
+  '1': 'bg-[var(--color-rank-gold)]',
+  '2': 'bg-[var(--color-rank-silver)]',
+  '3': 'bg-[var(--color-rank-bronze)]',
 }
 
 const RANK_BORDER: Record<string, string> = {
-  '1': 'border-[#FFD700]',
-  '2': 'border-[#C0C0C0]',
-  '3': 'border-[#CD7F32]',
+  '1': 'border-[var(--color-rank-gold)]',
+  '2': 'border-[var(--color-rank-silver)]',
+  '3': 'border-[var(--color-rank-bronze)]',
 }
 
 export default function DistributionRank() {

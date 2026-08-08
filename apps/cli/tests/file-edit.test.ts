@@ -16,9 +16,9 @@ import type { ToolContext } from '../src/tools/index.js';
 describe('createFileEditTools 注册', () => {
   it('返回 3 个工具:write_file / edit_file / delete_file', () => {
     const tools = createFileEditTools({ workspacePath: '.' });
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(6);
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual(['delete_file', 'edit_file', 'write_file']);
+    expect(names).toEqual(['batch_edit', 'batch_preview', 'batch_undo', 'delete_file', 'edit_file', 'write_file']);
   });
 
   it('危险级别:write/edit 为 write,delete 为 dangerous', () => {

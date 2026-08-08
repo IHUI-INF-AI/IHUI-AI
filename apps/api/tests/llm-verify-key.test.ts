@@ -21,6 +21,10 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn().mockResolvedValue([{ address: '1.1.1.1', family: 4 }]),
+}))
+
 const mockAuthenticate = vi.fn()
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
@@ -187,10 +191,11 @@ describe('llmVerifyKeyRoutes', () => {
     await server.inject({
       method: 'POST',
       url: '/api/llm/verify-key',
-      body: { providerCode: 'openai', apiKey: 'sk-x', apiBase: 'https://my-proxy.example.com/v1' },
+      // P1-9 SSRF 防护:apiBase 必须纯 origin,不能含路径。路由层会自动追加 /chat/completions。
+      body: { providerCode: 'openai', apiKey: 'sk-x', apiBase: 'https://my-proxy.example.com' },
     })
     const callUrl = fetchSpy.mock.calls[0]?.[0] as string
-    expect(callUrl).toBe('https://my-proxy.example.com/v1/chat/completions')
+    expect(callUrl).toBe('https://my-proxy.example.com/chat/completions')
   })
 
   it('不支持的厂商返回 valid=false + 提示', async () => {

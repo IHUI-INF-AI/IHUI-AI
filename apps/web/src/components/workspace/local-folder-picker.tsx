@@ -754,17 +754,19 @@ export function LocalFolderPicker({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={goParent}
-                      disabled={!canGoParent || openMutation.isPending}
-                      aria-label={t('parent')}
-                      className="h-8 w-8 shrink-0"
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </Button>
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={goParent}
+                        disabled={!canGoParent || openMutation.isPending}
+                        aria-label={t('parent')}
+                        className="h-8 w-8 shrink-0"
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>{t('parent')}</TooltipContent>
                 </Tooltip>
@@ -779,17 +781,19 @@ export function LocalFolderPicker({
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => void handleNativePick()}
-                        disabled={openMutation.isPending}
-                        aria-label={t('nativePick')}
-                        className="h-8 w-8 shrink-0"
-                      >
-                        <HardDrive className="h-3.5 w-3.5" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => void handleNativePick()}
+                          disabled={openMutation.isPending}
+                          aria-label={t('nativePick')}
+                          className="h-8 w-8 shrink-0"
+                        >
+                          <HardDrive className="h-3.5 w-3.5" />
+                        </Button>
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent>{t('nativePick')}</TooltipContent>
                   </Tooltip>

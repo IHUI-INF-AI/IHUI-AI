@@ -133,7 +133,7 @@ export default function AdminRolesPage() {
   const roles = rolesQ.data ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <RoleFilter onCreate={openCreate} />
 

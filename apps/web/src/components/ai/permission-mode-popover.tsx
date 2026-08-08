@@ -23,6 +23,7 @@ import {
 
 import { Popover } from '@/components/feedback'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import { cn } from '@/lib/utils'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
 
@@ -492,12 +493,14 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       <button
         type="button"
         disabled={disabled}
-        aria-label={t('buttonLabel')}
-        title={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
+        aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
         className={cn(
+          // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7 + leading-none + whitespace-nowrap + shrink-0),
+          // 三个 button(权限模式/历史/添加)严丝合缝对齐,根治"h-7 / h-9 / py-1 各写各的高度参差"问题
+          INPUT_ATTACHMENT_BAR_BTN_BASE,
           // 2026-07-25 深化:加 duration-150 ease-out 让 bypass ↔ default ↔ accept-edits
           // 模式切换时背景色平滑过渡(原 transition-colors 无 duration 是瞬变)
-          'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ease-out',
+          'duration-150 ease-out',
           // 模式风险色:default=中性 / accept-edits=绿 / bypass=琥珀
           // 2026-07-25 深化:disabled 时(streaming)不应用 hover 类,防止 hover 变背景色
           currentMode === 'bypass-permissions'
@@ -514,7 +517,6 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                   'bg-muted text-muted-foreground',
                   !disabled && 'hover:bg-accent hover:text-accent-foreground',
                 ),
-          'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
         <CurrentIcon

@@ -38,12 +38,12 @@ export default function StudyRank() {
         <Text className="block text-primary-foreground/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
       </View>
 
-      {/* TODO: custom color: #ffd700(金)/#c0c0c0(银)/#cd7f32(铜) 排名奖牌色,无对应 token,保留原值 */}
+      {/* 排名奖牌金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#ffd700/#c0c0c0/#cd7f32) */}
       {list.length >= 3 && (
         <View className="flex items-end justify-center py-4 bg-card">
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[#c0c0c0]"
+              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[var(--color-rank-silver)]"
               src={list[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -51,13 +51,13 @@ export default function StudyRank() {
             <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[1]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#c0c0c0]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[var(--color-rank-silver)]">
               2
             </Text>
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 border-[#ffd700]"
+              className="w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 border-[var(--color-rank-gold)]"
               src={list[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -65,13 +65,13 @@ export default function StudyRank() {
             <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[0]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#ffd700]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[var(--color-rank-gold)]">
               1
             </Text>
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[#cd7f32]"
+              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[var(--color-rank-bronze)]"
               src={list[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -79,7 +79,7 @@ export default function StudyRank() {
             <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[2]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#cd7f32]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[var(--color-rank-bronze)]">
               3
             </Text>
           </View>
