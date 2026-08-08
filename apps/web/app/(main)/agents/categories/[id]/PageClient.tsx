@@ -95,7 +95,7 @@ export default function AgentCategoryDetailPage() {
 
   if (error || !category) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
         <Link
           href="/agents"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -111,7 +111,7 @@ export default function AgentCategoryDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <Link
         href="/agents"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

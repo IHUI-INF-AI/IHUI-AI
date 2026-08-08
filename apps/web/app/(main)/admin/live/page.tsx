@@ -90,7 +90,7 @@ export default function AdminLivePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>

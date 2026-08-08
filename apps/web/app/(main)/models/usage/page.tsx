@@ -33,7 +33,7 @@ export default async function UsagePage() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex justify-end">
         <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">

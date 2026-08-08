@@ -106,7 +106,7 @@ export default function AdminSystemTasksPage() {
   const failedCount = list.filter((t) => t.status === 'failed').length
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
