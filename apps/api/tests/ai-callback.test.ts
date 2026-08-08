@@ -33,6 +33,7 @@ describe('AI callback route', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {/* 缺 content */},
     })
     expect(res.statusCode).toBe(400)
@@ -44,6 +45,7 @@ describe('AI callback route', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复内容',
         model: 'stepfun/step-3.7-flash',
@@ -68,6 +70,7 @@ describe('AI callback route', () => {
     const res = await serverWithQueue.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
         model: 'stepfun/step-3.7-flash',
@@ -110,6 +113,7 @@ describe('AI callback route', () => {
     const res = await serverNoQueue.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
         metadata: {
@@ -139,6 +143,7 @@ describe('AI callback route', () => {
     const res = await serverQueueErr.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
         metadata: {
@@ -164,6 +169,7 @@ describe('AI callback route', () => {
     const res = await serverWithQueue2.inject({
       method: 'POST',
       url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
         metadata: {
