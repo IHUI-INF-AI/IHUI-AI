@@ -159,28 +159,32 @@ export function DynamicsTable({
                     <div className="flex flex-nowrap items-center justify-end gap-1">
                       {canPublish && (
                         <Tooltip content={t('auditPublish')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onAudit(item, 'published')}
-                            disabled={auditPending}
-                            className="shrink-0 text-emerald-600 hover:text-emerald-700"
-                          >
-                            <CheckCircle2 className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onAudit(item, 'published')}
+                              disabled={auditPending}
+                              className="shrink-0 text-emerald-600 hover:text-emerald-700"
+                            >
+                              <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       )}
                       {canReject && (
                         <Tooltip content={t('auditReject')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onAudit(item, 'rejected')}
-                            disabled={auditPending}
-                            className="shrink-0 text-rose-600 hover:text-rose-700"
-                          >
-                            <XCircle className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onAudit(item, 'rejected')}
+                              disabled={auditPending}
+                              className="shrink-0 text-rose-600 hover:text-rose-700"
+                            >
+                              <XCircle className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       )}
                       <Tooltip content={t('comments')}>
@@ -195,15 +199,17 @@ export function DynamicsTable({
                       </Tooltip>
                       {canAudit && (
                         <Tooltip content={t('delete')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(item)}
-                            className="shrink-0 text-destructive hover:text-destructive"
-                            disabled={deletePending}
-                          >
-                            <Trash2 className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(item)}
+                              className="shrink-0 text-destructive hover:text-destructive"
+                              disabled={deletePending}
+                            >
+                              <Trash2 className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       )}
                     </div>
