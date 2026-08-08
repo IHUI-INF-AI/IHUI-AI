@@ -107,7 +107,7 @@ export default function WorkflowDetailPage() {
   const insts = instQ.data ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <button
         type="button"
         onClick={() => router.push('/workflows')}

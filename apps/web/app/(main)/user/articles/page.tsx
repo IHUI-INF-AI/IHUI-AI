@@ -62,7 +62,7 @@ export default function MyArticlesPage() {
   const totalPages = Math.max(1, Math.ceil(total / 20))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <header className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
