@@ -50,9 +50,10 @@ export interface AiSkillInvokeResponse {
   model: string
 }
 
-/** 列出全部 19 个 AI Skills TOP */
-export function listAiSkills() {
-  return fetchApi<AiSkillMeta[]>('/api/ai-skills')
+/** 列出 AI Skills。可传 category 筛选(默认 ai-top,传 'all' 返回全部)。 */
+export function listAiSkills(params?: { category?: string }) {
+  const qs = params?.category ? `?category=${encodeURIComponent(params.category)}` : ''
+  return fetchApi<AiSkillMeta[]>(`/api/ai-skills${qs}`)
 }
 
 /** 获取单个 AI Skill 详情 */
