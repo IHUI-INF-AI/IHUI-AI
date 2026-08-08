@@ -9,6 +9,7 @@
  * 测试模式: vi.hoisted + vi.mock + Fastify inject + Promise.all(对齐 ai-generation-idor.test.ts)。
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
+import { createHash } from 'node:crypto'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
@@ -78,7 +79,7 @@ describe('rewarded-video-ad 并发安全', () => {
   const TEST_SECRET = 'test-secret-for-rewarded-ad'
   const TEST_USER_ID = '00000000-0000-0000-0000-000000000001'
   const sig = (userId: string, transactionId: string, secret: string): string =>
-    require('node:crypto').createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
+    createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
 
   beforeAll(async () => {
     // 设置 REWARDED_AD_SECRET(P0-3 安全修复要求)
