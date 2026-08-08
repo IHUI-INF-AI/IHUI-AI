@@ -1304,6 +1304,12 @@ class LLMGateway:
             reasoning = getattr(response.choices[0].message, "reasoning_content", None)
             if reasoning:
                 result["reasoning"] = reasoning
+            # 2026-08-07 修复(stepfun 推理模型兼容):推理模型的 message.content 常为空,
+            # 实际回复在 reasoning_content。ai_tutor 等 JSON 服务依赖 content,
+            # content 为空会导致 _extract_json('') 解析失败 → 返回空 answer。
+            # 降级策略:content 为空且 reasoning 存在时,用 reasoning 兜底 content。
+            if not (result.get("content") or "").strip() and reasoning:
+                result["content"] = reasoning
             # 提取 tool_calls(OpenAI function calling 格式)
             raw_tool_calls = getattr(response.choices[0].message, "tool_calls", None)
             if raw_tool_calls:

@@ -14,11 +14,13 @@ import { createElement, type ReactNode } from 'react'
 const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
     getBalance: vi.fn(),
+    fetchApi: vi.fn(),
   },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   getBalance: apiMocks.getBalance,
+  fetchApi: apiMocks.fetchApi,
 }))
 
 vi.mock('../src/i18n', () => ({
@@ -41,7 +43,16 @@ vi.mock('react-native', async () => {
   const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      return createElement(tag, props, props.children)
+      const { style, onPress, onChangeText, ...rest } = props
+      const mergedStyle = Array.isArray(style)
+        ? Object.assign({}, ...style.filter(Boolean))
+        : style
+      const extra: Record<string, unknown> = {}
+      if (onPress) extra.onClick = onPress
+      if (onChangeText) extra.onChange = (e: { target: { value: string } }) => {
+        onChangeText(e.target.value)
+      }
+      return createElement(tag, { ...rest, ...extra, style: mergedStyle }, props.children)
     }
   return {
     View: mk('div'),
@@ -49,6 +60,8 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     TouchableOpacity: mk('button'),
     TextInput: mk('input'),
+    RefreshControl: () => null,
+    useColorScheme: () => 'light',
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
@@ -102,33 +115,37 @@ describe('WalletScreen 余额查询', () => {
     await waitFor(() => {
       expect(apiMocks.getBalance).toHaveBeenCalledTimes(1)
     })
-    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
-    expect(getByText('冻结金额')).toBeTruthy()
-    expect(getByText('累计充值')).toBeTruthy()
-    expect(getByText('累计提现')).toBeTruthy()
+    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
+    expect(getByText('wallet.frozen')).toBeTruthy()
+    expect(getByText('wallet.totalRecharge')).toBeTruthy()
+    expect(getByText('wallet.totalWithdraw')).toBeTruthy()
   })
 
   it('余额数值格式化:显示 ¥ 前缀 + 两位小数', async () => {
     apiMocks.getBalance.mockResolvedValue({ success: true, data: mockBalance })
     const { getByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
-    expect(getByText(/1,000\.50/)).toBeTruthy()
-    expect(getByText(/2,000\.00/)).toBeTruthy()
+    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
+    expect(getByText(/1000\.50/)).toBeTruthy()
+    expect(getByText(/2000\.00/)).toBeTruthy()
   })
 
   it('加载失败:显示错误信息', async () => {
     apiMocks.getBalance.mockResolvedValue({ success: false, error: '余额查询失败' })
-    const { getByText } = render(<WalletScreen />)
+    const { getAllByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('余额查询失败')).toBeTruthy())
+    await waitFor(() => {
+      expect(getAllByText('wallet.loadFailed').length).toBeGreaterThanOrEqual(1)
+    })
   })
 
   it('加载失败无 error 字段:使用默认消息', async () => {
     apiMocks.getBalance.mockResolvedValue({ success: false })
-    const { getByText } = render(<WalletScreen />)
+    const { getAllByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('加载失败')).toBeTruthy())
+    await waitFor(() => {
+      expect(getAllByText('wallet.loadFailed').length).toBeGreaterThanOrEqual(1)
+    })
   })
 
   it('余额为 null 时显示 — 占位符', async () => {
@@ -138,7 +155,7 @@ describe('WalletScreen 余额查询', () => {
     })
     const { getByText, getAllByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
+    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
     expect(getAllByText((content: string) => content.includes('—')).length).toBeGreaterThanOrEqual(
       1,
     )
@@ -182,8 +199,7 @@ describe('WithdrawScreen 提现流程', () => {
   })
 
   it('提现成功:显示成功 toast', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
-    vi.stubGlobal('fetch', fetchMock)
+    apiMocks.fetchApi.mockResolvedValue({ success: true })
 
     const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
 
@@ -192,17 +208,16 @@ describe('WithdrawScreen 提现流程', () => {
     fireEvent.click(getByText('withdraw.submit'))
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0]!
-    expect(url).toContain('/api/wallet/withdraw')
+    expect(apiMocks.fetchApi).toHaveBeenCalledTimes(1)
+    const [url, init] = apiMocks.fetchApi.mock.calls[0]!
+    expect(url).toContain('/wallet/withdraw')
     expect(init.method).toBe('POST')
     const body = JSON.parse(init.body)
     expect(body.amount).toBe(100)
-    expect(init.headers.Authorization).toBe('Bearer test-token')
   })
 
   it('提现失败(HTTP 非 200):显示 failed', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+    apiMocks.fetchApi.mockResolvedValue({ success: false })
 
     const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
 
@@ -214,7 +229,7 @@ describe('WithdrawScreen 提现流程', () => {
   })
 
   it('提现失败(网络异常):显示 failed', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')))
+    apiMocks.fetchApi.mockRejectedValue(new Error('network'))
 
     const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
 
@@ -226,8 +241,7 @@ describe('WithdrawScreen 提现流程', () => {
   })
 
   it('银行卡片号可选:不填也能提交', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
-    vi.stubGlobal('fetch', fetchMock)
+    apiMocks.fetchApi.mockResolvedValue({ success: true })
 
     const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
 
@@ -236,7 +250,7 @@ describe('WithdrawScreen 提现流程', () => {
     fireEvent.click(getByText('withdraw.submit'))
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body)
+    const body = JSON.parse(apiMocks.fetchApi.mock.calls[0]![1].body)
     expect(body.bankCardId).toBeUndefined()
   })
 })

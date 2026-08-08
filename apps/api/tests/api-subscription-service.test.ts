@@ -54,16 +54,31 @@ function insertChain(returnValue: unknown): { values: ReturnType<typeof vi.fn> }
 // Mock 声明
 // =============================================================================
 
-const { mockDbReadSelect, mockDbInsert, mockDbUpdate } = vi.hoisted(() => ({
+const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockTxSelect } = vi.hoisted(() => ({
   mockDbReadSelect: vi.fn(),
   mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
+  // db.transaction 内 tx.select 的 mock,默认返回空(无已发放流水)
+  mockTxSelect: vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  }),
 }))
 
 vi.mock('../src/db/index.js', () => ({
   db: {
     insert: mockDbInsert,
     update: mockDbUpdate,
+    transaction: vi.fn((cb: (tx: any) => any) =>
+      cb({
+        select: mockTxSelect,
+        update: mockDbUpdate,
+        insert: mockDbInsert,
+      }),
+    ),
   },
   dbRead: {
     select: mockDbReadSelect,
@@ -107,11 +122,20 @@ vi.mock('@ihui/database', () => ({
     permissions: 'permissions',
     rateLimit: 'rate_limit',
   },
+  tokenFlows: {
+    id: 'id',
+    userId: 'user_id',
+    opType: 'op_type',
+    quantity: 'quantity',
+    balanceAfter: 'balance_after',
+    remark: 'remark',
+    relatedOrderNo: 'related_order_no',
+  },
 }))
 
 vi.mock('../src/utils/api-key-hash.js', () => ({
-  generateApiKey: vi.fn().mockReturnValue({ key: 'ihui_test_key', secret: 'sk_test_secret' }),
-  hashSecret: vi.fn().mockReturnValue('sha256:hashed_secret'),
+  generateApiKey: () => ({ key: 'ihui_test_key', secret: 'sk_test_secret' }),
+  hashSecret: () => 'sha256:hashed_secret',
 }))
 
 import {
@@ -127,7 +151,7 @@ import {
 
 describe('api-subscription-service — API 订阅核心 service', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   // ===========================================================================
@@ -196,13 +220,9 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           },
         ]),
       )
-      // 第 2 次:查 paid 订单(existingPaid),返回 1 条
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
-      // 第 3 次:查 paid 订单 count,返回 1(只有当前订单)
-      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 1 }]))
-      // 第 4 次:查用户 active Key
+      // 第 2 次:查用户 active Key
       mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: 1000 }]))
-      // db.update 链
+      // db.update 链(事务内 tx.update)
       const updateResult = updateChain()
       mockDbUpdate.mockReturnValueOnce(updateResult)
 
@@ -222,11 +242,9 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           { id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }],
         ),
       )
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 1 }]))
       // 查 active Key 返回空
       mockDbReadSelect.mockReturnValueOnce(chain([]))
-      // db.insert 链
+      // db.insert 链(事务内 tx.insert)
       const insertResult = insertChain([{ id: 'new-key-1' }])
       mockDbInsert.mockReturnValueOnce(insertResult)
 
@@ -240,15 +258,14 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(valuesArg.userId).toBe('user-2')
     })
 
-    it('幂等:已有 ≥2 条 paid 订单 → 跳过返回 already_activated', async () => {
+    it('幂等:已有激活流水(同 orderNo) → 跳过返回 already_activated', async () => {
       mockDbReadSelect.mockReturnValueOnce(
         chain([{ id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }]),
       )
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
-      // 第 3 次:count 返回 2(已有 1 条历史 + 当前 1 条)
-      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 2 }]))
+      // 查 tokenFlows 发现已为该 orderNo 发放过配额流水 → already_activated
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'flow-1' }]))
 
-      const result = await activateApiSubscription('user-1', 'plan-1')
+      const result = await activateApiSubscription('user-1', 'plan-1', 'order-1')
       expect(result.success).toBe(false)
       expect(result.reason).toBe('already_activated')
       // 不应调用 update / insert
@@ -281,8 +298,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       mockDbReadSelect.mockReturnValueOnce(
         chain([{ id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }]),
       )
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 1 }]))
+      // 查 active Key 返回 tokenBalance=-1
       mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: -1 }]))
 
       const result = await activateApiSubscription('user-1', 'plan-1')

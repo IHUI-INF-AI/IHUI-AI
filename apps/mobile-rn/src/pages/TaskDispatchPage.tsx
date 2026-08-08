@@ -364,7 +364,6 @@ export function TaskDispatchPage(_: Props) {
     t,
     fileFilename,
     fileContent,
-    fileMime,
     pendingFilePayload,
     b64DecodedBytes,
   ])

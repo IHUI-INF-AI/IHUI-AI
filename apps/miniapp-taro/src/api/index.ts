@@ -363,10 +363,17 @@ export const chatStream = (
           const err = new Error(`请求失败(${res.statusCode})`) as Error & { code: number }
           err.name = 'SSEError'
           err.code = res.statusCode
+          cleanupAbort()
           reject(err)
-        } else resolve()
+        } else {
+          cleanupAbort()
+          resolve()
+        }
       },
-      fail: (err) => reject(new Error(err.errMsg || '请求失败')),
+      fail: (err) => {
+        cleanupAbort()
+        reject(new Error(err.errMsg || '请求失败'))
+      },
     })
 
     task.onChunkReceived(({ data }) => {
@@ -379,13 +386,19 @@ export const chatStream = (
           dispatch(evt)
           if (errored) return
         } catch (e) {
+          cleanupAbort()
           reject(e)
           return
         }
       }
     })
 
-    if (signal) signal.addEventListener('abort', () => task.abort(), { once: true })
+    // 2026-08-06 修复:请求结束(成功/失败)后移除 abort 监听器,
+    // 防止复用同一 AbortSignal 时监听器累积泄漏(原实现 { once: true }
+    // 只在 signal 真正 abort 时移除,正常完成路径监听器残留)。
+    const onAbort = () => task.abort()
+    const cleanupAbort = () => signal?.removeEventListener('abort', onAbort)
+    if (signal) signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 

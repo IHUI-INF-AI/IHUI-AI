@@ -129,7 +129,7 @@ export default function AdminCirclesPage() {
   const mockMode = !!error && list.length === 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <CirclesFilter
         search={search}

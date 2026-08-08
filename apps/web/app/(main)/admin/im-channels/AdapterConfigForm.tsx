@@ -141,7 +141,7 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
           <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
               {platform.icon ? <span aria-hidden className="shrink-0">{platform.icon}</span> : null}
-              <span className="truncate" title={platform.displayName}>{platform.displayName}</span>
+              <span className="truncate">{platform.displayName}</span>
             </CardTitle>
             <CardDescription className="break-all">
               入站:{platform.inboundFieldType}

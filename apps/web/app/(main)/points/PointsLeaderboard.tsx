@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
+import { TruncatedText } from '@/components/common'
 import { PointsState } from './PointsState'
 import type { LeaderboardUser } from './types'
 
@@ -55,9 +56,10 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
                 <td className="px-4 py-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <Avatar src={u.avatar ?? undefined} name={u.nickname ?? 'U'} size="xs" />
-                    <span className="max-w-[140px] truncate font-medium" title={u.nickname}>
-                      {u.nickname}
-                    </span>
+                    <TruncatedText
+                      value={u.nickname}
+                      className="max-w-[140px] font-medium"
+                    />
                     {u.isMe && (
                       <span className="shrink-0 whitespace-nowrap text-xs text-primary">
                         ({t('you')})

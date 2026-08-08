@@ -71,7 +71,7 @@ export default function EduReportsCompanyStudyPage() {
   const noEndpoint = isNotFound(error)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">公司学习报表</h1>

@@ -215,7 +215,6 @@ class FakeDatabase implements IDBDatabaseLike {
   }
   transaction(stores: string | string[], mode: 'readonly' | 'readwrite' = 'readonly') {
     const names = Array.isArray(stores) ? stores : [stores]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FakeTransaction 多接口组合 mock,用 any 简化类型断言
     return new FakeTransaction(this.stores, mode, names) as any
   }
   createObjectStore(name: string) {

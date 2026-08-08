@@ -24,6 +24,7 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -156,7 +157,7 @@ export default function AdminRelayModelsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -269,18 +270,23 @@ export default function AdminRelayModelsPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(m)} title="编辑">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={toggleMutation.isPending}
-                          onClick={() => toggleMutation.mutate(m.id)}
-                          title={m.isRelayPublic ? '下架' : '上架'}
-                        >
-                          <Power className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content="编辑">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(m)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
+                        <Tooltip content={m.isRelayPublic ? '下架' : '上架'}>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={toggleMutation.isPending}
+                              onClick={() => toggleMutation.mutate(m.id)}
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

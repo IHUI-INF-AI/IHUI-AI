@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -53,7 +53,7 @@ export default function AiWorldHistoryPage() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <Link
         href="/ai-world"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

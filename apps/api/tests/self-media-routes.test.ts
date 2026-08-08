@@ -39,6 +39,11 @@ vi.mock('@ihui/auth', () => ({
 // Mock jose:decodeJwt — 默认返回非 challenge token
 vi.mock('jose', () => ({ decodeJwt: mockDecodeJwt }))
 
+// P2-14 fix:authenticate 调用 getUserStatus 查询用户状态,需 mock 返回 active
+vi.mock('../src/db/usercenter-queries.js', () => ({
+  getUserStatus: vi.fn().mockResolvedValue(1),
+}))
+
 // Mock db:避免真实 DB 连接(/koubo/generate 不读库,但模块加载时导入 db)
 vi.mock('../src/db/index.js', () => ({
   db: {

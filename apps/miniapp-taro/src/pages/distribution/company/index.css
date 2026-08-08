@@ -33,8 +33,8 @@
   display: block;
   font-size: 36rpx;
   font-weight: bold;
-  /* TODO: custom color: 原项目金色 #ffd700,无对应 token,保留原值 */
-  color: #ffd700;
+  /* 原项目金色 #ffd700 已接入 token:var(--color-rank-gold) */
+  color: var(--color-rank-gold);
 }
 .cp-stat-label {
   display: block;
