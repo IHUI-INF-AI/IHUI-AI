@@ -67,10 +67,12 @@ function safeT(
   if (v === key || !v) {
     if (!warnedTimelineKeys.has(key)) {
       warnedTimelineKeys.add(key)
-
-      console.warn(
-        `[timeline-tab] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
-      )
+      // 开发环境警告 i18n key 缺失;生产环境静默降级
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          `[timeline-tab] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
+        )
+      }
     }
     return fallback
   }
