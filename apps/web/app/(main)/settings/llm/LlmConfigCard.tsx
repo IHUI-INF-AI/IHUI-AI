@@ -238,20 +238,22 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <Tooltip content={!config.hasApiKey ? t('needKeyFirst') : t('test')}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => testMut.mutate()}
-                disabled={testMut.isPending || !config.hasApiKey}
-              >
-                {testMut.isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <ShieldCheck className="mr-1 h-3 w-3" />
-                )}
-                {t('test')}
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => testMut.mutate()}
+                  disabled={testMut.isPending || !config.hasApiKey}
+                >
+                  {testMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                  )}
+                  {t('test')}
+                </Button>
+              </span>
             </Tooltip>
             <Tooltip content={t('fetchModels')}>
               <Button
@@ -280,19 +282,21 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
             </Button>
           </div>
           <Tooltip content={t('delete')}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
-              onClick={handleDelete}
-              disabled={deleteMut.isPending}
-            >
-              {deleteMut.isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-            </Button>
+            <span className="inline-flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
+                onClick={handleDelete}
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+              </Button>
+            </span>
           </Tooltip>
         </div>
       </CardContent>
