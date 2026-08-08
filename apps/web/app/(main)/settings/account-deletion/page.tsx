@@ -135,7 +135,7 @@ export default function AccountDeletionPage() {
       : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <Alert variant="warning" title={t('accountDeletionWarning')} />
 

@@ -8,9 +8,10 @@ import { z } from 'zod'
 import PDFKit from 'pdfkit'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { db } from '../db/index.js'
-import { learnTopicLesson, lessons, examSignUp, examExam } from '@ihui/database'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { learnTopicLesson, lessons, eduOrders, eduLiveCategory, eduLiveChannel } from '@ihui/database'
+import { eq, and, desc, asc, sql } from 'drizzle-orm'
 import { findCertificates, findCertificateById } from '../db/certificate-queries.js'
 import {
   findLessonById,
@@ -94,6 +95,28 @@ const createRateSchema = z.object({
 const lessonCompleteSchema = z.object({
   status: z.number().int().min(0).max(3).optional(),
   progress: z.number().int().min(0).max(100).optional(),
+})
+
+// 教育端直播查询 schema(edu_live_channel / edu_live_category,serial id)。
+// category: 分类 id(整数);isLive: "true"/"false" 显式解析,避免 z.coerce.boolean 误判。
+const liveChannelsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  category: z.coerce.number().int().positive().optional(),
+  isLive: booleanStringSchemaOptional,
+})
+
+const createEduOrderSchema = z.object({
+  orderType: z.enum(['course', 'card']).default('course'),
+  targetId: z.string().min(1, '课程 ID 不能为空').max(64),
+  targetTitle: z.string().min(1, '课程名称不能为空').max(200),
+  quantity: z.number().int().min(1).max(99).default(1),
+})
+
+const myEduOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['pending', 'paid', 'cancelled']).optional(),
 })
 
 export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
@@ -349,25 +372,20 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       userId,
       status: 1,
     })
+    // 2026-08-07 修复:返回结构与前端契约对齐(平铺字段)。
+    // 此前返回 list[] 分组结构,前端读 data.totalCourses 等恒为 0 → 仪表盘全 0。
     return reply.send(
       success({
-        list: [
-          {
-            type: 'lessons',
-            total: lessonsResult.total,
-            completed: completedLessons,
-            inProgress: inProgressLessons,
-            avgProgress,
-          },
-          {
-            type: 'exams',
-            total: examResult.total,
-            passed: passedExams,
-            avgScore,
-          },
-          { type: 'certificates', total: certResult.total },
-        ],
-        total: 3,
+        totalCourses: lessonsResult.total,
+        completedCourses: completedLessons,
+        inProgressCourses: inProgressLessons,
+        avgProgress,
+        studyHours: 0,
+        totalExams: examResult.total,
+        passedExams,
+        avgScore,
+        totalCerts: certResult.total,
+        recentCourses: [],
       }),
     )
   })
@@ -405,30 +423,12 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /edu/schedule - 我的考试报名日程
-  server.get('/edu/schedule', async (request, reply) => {
-    const rows = await db
-      .select({
-        signup: examSignUp,
-        examName: examExam.name,
-        examImage: examExam.image,
-        startTime: examExam.startTime,
-        endTime: examExam.endTime,
-      })
-      .from(examSignUp)
-      .leftJoin(examExam, eq(examSignUp.examId, examExam.id))
-      .where(eq(examSignUp.memberId, sql`(${request.userId})::bigint`))
-      .orderBy(desc(examSignUp.createdAt))
-      .limit(100)
-    const list = rows.map((r) => ({
-      id: r.signup.id,
-      examId: r.signup.examId,
-      status: r.signup.status,
-      examName: r.examName,
-      examImage: r.examImage,
-      startTime: r.startTime ? r.startTime.toISOString() : null,
-      endTime: r.endTime ? r.endTime.toISOString() : null,
-    }))
-    return reply.send(success({ list, total: list.length }))
+  // 2026-08-07 修复:原实现查历史旧表 exam_sign_up(member_id integer),
+  // 而当前用户体系为 UUID(userId),`::bigint` 转换直接报错 500。
+  // 新表 exam_signups(user_id uuid + paper_id uuid)数据模型未迁移到此端点,
+  // 故降级为安全空列表(不报错),待考试报名模块适配新表后恢复。
+  server.get('/edu/schedule', async (_request, reply) => {
+    return reply.send(success({ list: [], total: 0 }))
   })
 
   // ===========================================================================
@@ -499,6 +499,37 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       }
       throw e
     }
+  })
+
+  // GET /edu/notes - 我的笔记列表
+  // 2026-08-07 补:前端 edu/notes 页调用此路由,此前仅 POST/PUT/DELETE,
+  // 无 GET 列表 → 前端 404"加载失败"。复用 findNotesList(与 /edu/my-notes 同源)。
+  server.get('/edu/notes', async (request, reply) => {
+    const parsed = searchSchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { findNotesList } = await import('../db/edu-extended-queries.js')
+    const result = await findNotesList({ ...parsed.data, userId: request.userId! })
+    return reply.send(success(result))
+  })
+
+  // GET /edu/qa - 综合问答帖列表(不绑定课程)
+  // 2026-08-07 补:前端 edu/qa 页调用此路由,此前仅 POST 无 GET → 前端 404。
+  // 复用 findAllCommunityPosts(与 /learn 社区帖子同源,lessonId 为空的问答帖)。
+  server.get('/edu/qa', async (request, reply) => {
+    const parsed = searchSchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const status = parsed.data.search === undefined ? 'published' : undefined
+    const result = await findAllCommunityPosts({
+      page: parsed.data.page,
+      pageSize: parsed.data.pageSize,
+      search: parsed.data.search,
+      status,
+    })
+    return reply.send(success(result))
   })
 
   // POST /edu/qa - 综合问答帖创建(不绑定课程)
@@ -688,5 +719,174 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       isAnonymous: bodyParsed.data.isAnonymous,
     })
     return reply.status(201).send(success({ rate }))
+  })
+
+  // ===========================================================================
+  // 课程商城订单 (/edu/orders)
+  // ===========================================================================
+
+  // POST /edu/orders - 创建课程订单(仅 pending,下单后待支付)
+  server.post(
+    '/edu/orders',
+    {
+      schema: {
+        summary: '创建课程订单',
+        tags: ['edu'],
+        body: { type: 'object', additionalProperties: true },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = createEduOrderSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { orderType, targetId, targetTitle, quantity } = parsed.data
+      // 服务端反查课程真实价格与标题(防客户端篡改金额/标题)
+      const [course] = await db
+        .select({ id: lessons.id, title: lessons.title, price: lessons.price, isFree: lessons.isFree })
+        .from(lessons)
+        .where(and(eq(lessons.id, targetId), eq(lessons.isPublished, true)))
+        .limit(1)
+      const finalTitle = course?.title ?? targetTitle
+      const payAmount = course ? (course.isFree ? '0.00' : Number(course.price).toFixed(2)) : '0.00'
+      const orderNo = `EDU${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`
+      const [order] = await db
+        .insert(eduOrders)
+        .values({
+          orderNo,
+          userId: request.userId!,
+          orderType,
+          targetId,
+          targetTitle: finalTitle,
+          quantity,
+          originalPrice: payAmount,
+          discountAmount: '0.00',
+          payAmount,
+          status: 'pending',
+        })
+        .returning()
+      return reply.status(201).send(success({ order }))
+    },
+  )
+
+  // GET /edu/orders/my - 我的课程订单列表(status 过滤 + 分页)
+  server.get('/edu/orders/my', async (request, reply) => {
+    const parsed = myEduOrdersQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status } = parsed.data
+    const conds = [eq(eduOrders.userId, request.userId!), eq(eduOrders.orderType, 'course')]
+    if (status) conds.push(eq(eduOrders.status, status))
+    const whereCond = and(...conds)
+    const [rows, countRows] = await Promise.all([
+      db
+        .select()
+        .from(eduOrders)
+        .where(whereCond)
+        .orderBy(desc(eduOrders.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ count: sql<number>`count(*)::int` }).from(eduOrders).where(whereCond),
+    ])
+    return reply.send(
+      success({ list: rows, total: countRows[0]?.count ?? 0, page, pageSize }),
+    )
+  })
+
+  // POST /edu/orders/:id/cancel - 取消课程订单(仅本人,pending → cancelled)
+  server.post(
+    '/edu/orders/:id/cancel',
+    {
+      schema: {
+        summary: '取消课程订单',
+        tags: ['edu'],
+        body: { type: 'object', additionalProperties: true },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const [existing] = await db
+        .select()
+        .from(eduOrders)
+        .where(and(eq(eduOrders.id, parsed.data.id), eq(eduOrders.userId, request.userId!)))
+        .limit(1)
+      if (!existing) return reply.status(404).send(error(404, '订单不存在'))
+      if (existing.status !== 'pending') {
+        return reply.status(400).send(error(400, '订单状态不允许取消'))
+      }
+      const [order] = await db
+        .update(eduOrders)
+        .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
+        .where(eq(eduOrders.id, parsed.data.id))
+        .returning()
+      return reply.send(success({ order }))
+    },
+  )
+
+  // ===========================================================================
+  // 教育端直播 (/edu/live,数据源 edu_live_channel / edu_live_category)
+  // 2026-08-07 立:与 legacy live(基于 liveChannels uuid 表,路径 /live/*)区分,
+  // 使用 /edu/live/* 命名空间,避免 FST_ERR_DUPLICATED_ROUTE 冲突。
+  // ===========================================================================
+
+  // GET /edu/live/channels - 已发布直播频道列表(分页 + 分类/直播状态过滤)
+  server.get('/edu/live/channels', async (request, reply) => {
+    const parsed = liveChannelsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, category, isLive } = parsed.data
+    const conds = [
+      eq(eduLiveChannel.isPublished, true),
+      eq(eduLiveChannel.status, 1),
+    ]
+    if (category !== undefined) conds.push(eq(eduLiveChannel.categoryId, category))
+    if (isLive !== undefined) conds.push(eq(eduLiveChannel.isLive, isLive))
+    const whereCond = and(...conds)
+    const [rows, countRows] = await Promise.all([
+      db
+        .select()
+        .from(eduLiveChannel)
+        .where(whereCond)
+        .orderBy(desc(eduLiveChannel.isLive), asc(eduLiveChannel.sort), desc(eduLiveChannel.startTime))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ count: sql<number>`count(*)::int` }).from(eduLiveChannel).where(whereCond),
+    ])
+    const list = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      categoryId: r.categoryId ?? null,
+      cover: r.coverImage ?? null,
+      streamUrl: r.playUrl ?? null,
+      isLive: r.isLive,
+      startTime: r.startTime ? r.startTime.toISOString() : null,
+      endTime: r.endTime ? r.endTime.toISOString() : null,
+      description: r.intro ?? null,
+    }))
+    return reply.send(
+      success({ list, total: countRows[0]?.count ?? 0, page, pageSize }),
+    )
+  })
+
+  // GET /edu/live/categories - 直播分类列表(启用状态)
+  server.get('/edu/live/categories', async (_request, reply) => {
+    const rows = await db
+      .select({ id: eduLiveCategory.id, name: eduLiveCategory.name, sort: eduLiveCategory.sort })
+      .from(eduLiveCategory)
+      .where(eq(eduLiveCategory.status, 1))
+      .orderBy(asc(eduLiveCategory.sort), asc(eduLiveCategory.id))
+    return reply.send(
+      success({
+        list: rows.map((r) => ({ id: r.id, name: r.name })),
+        total: rows.length,
+      }),
+    )
   })
 }

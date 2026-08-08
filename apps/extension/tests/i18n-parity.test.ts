@@ -39,7 +39,9 @@ const locales: Record<string, MsgObj> = {
   'zh-TW': zhTW as MsgObj,
 }
 
-const baseKeys = new Set(collectLeafKeys(locales[BASE_LANG]))
+// 2026-08-06 修复:noUncheckedIndexedAccess 下 locales[lang] 可能 undefined,
+// 统一经非空断言(测试数据静态定义,必然存在)。
+const baseKeys = new Set(collectLeafKeys(locales[BASE_LANG]!))
 const baseKeyCount = baseKeys.size
 
 describe('Extension i18n key parity', () => {
@@ -51,7 +53,7 @@ describe('Extension i18n key parity', () => {
     if (lang === BASE_LANG) continue
 
     it(`${lang} 与 ${BASE_LANG} key 集合完全一致`, () => {
-      const langKeys = new Set(collectLeafKeys(locales[lang]))
+      const langKeys = new Set(collectLeafKeys(locales[lang]!))
       const missing = [...baseKeys].filter((k) => !langKeys.has(k))
       const extra = [...langKeys].filter((k) => !baseKeys.has(k))
       if (missing.length > 0) {
@@ -71,9 +73,9 @@ describe('Extension i18n key parity', () => {
   it('所有语言 key 总数一致', () => {
     const counts = Object.entries(locales).map(([lang, obj]) => ({
       lang,
-      count: collectLeafKeys(obj).length,
+      count: collectLeafKeys(obj!).length,
     }))
-    const first = counts[0].count
+    const first = counts[0]!.count
     for (const { count } of counts) {
       expect.soft(count).toBe(first)
     }

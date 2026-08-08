@@ -131,15 +131,17 @@ export function AgentsTable({
                       </Button>
                     </Tooltip>
                     <Tooltip content={tc('delete')}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="shrink-0"
-                        onClick={() => onDelete(a)}
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4 shrink-0" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0"
+                          onClick={() => onDelete(a)}
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4 shrink-0" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </TableCell>

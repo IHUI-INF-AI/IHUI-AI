@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, or, desc, sql, lt } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { tPrivateLetter, users } from '@ihui/database'
+import { messagePrivateLetter as tPrivateLetter, users } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -155,9 +155,10 @@ const privateLetterRoutes: FastifyPluginAsync = async (server) => {
         counterpartName: users.nickname,
       })
       .from(tPrivateLetter)
-      .leftJoin(users, eq(users.id, counterpartExpr))
+      // sender_id/receiver_id 是 varchar(可存邮箱或 UUID),users.id 是 uuid → 显式 ::text 对齐
+      .leftJoin(users, sql`${users.id}::text = ${counterpartExpr}`)
       .where(baseFilter)
-      .orderBy(desc(tPrivateLetter.createTime))
+      .orderBy(desc(tPrivateLetter.createdAt))
       .limit(pageSize)
       .offset(offset)
 
@@ -187,7 +188,7 @@ const privateLetterRoutes: FastifyPluginAsync = async (server) => {
           and(eq(tPrivateLetter.senderId, memberId), eq(tPrivateLetter.receiverId, userId)),
         ),
       )
-      .orderBy(desc(tPrivateLetter.createTime))
+      .orderBy(desc(tPrivateLetter.createdAt))
       .limit(1)
     return reply.send(success(record))
   })
