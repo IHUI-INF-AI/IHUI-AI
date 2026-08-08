@@ -241,24 +241,26 @@ export function ProvidersHealthTab() {
             </div>
             <div className="flex items-center gap-1">
               <Tooltip content={tm('previewSyncTooltip')}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => dryRunMutation.mutate()}
-                  disabled={
-                    dryRunMutation.isPending ||
-                    syncMutation.isPending ||
-                    syncStatus?.is_syncing === true
-                  }
-                  className="h-7 px-2.5 text-xs"
-                >
-                  {dryRunMutation.isPending ? (
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Eye className="mr-1 h-3.5 w-3.5" />
-                  )}
-                  {tm('previewSync')}
-                </Button>
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => dryRunMutation.mutate()}
+                    disabled={
+                      dryRunMutation.isPending ||
+                      syncMutation.isPending ||
+                      syncStatus?.is_syncing === true
+                    }
+                    className="h-7 px-2.5 text-xs"
+                  >
+                    {dryRunMutation.isPending ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Eye className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    {tm('previewSync')}
+                  </Button>
+                </span>
               </Tooltip>
               <Button
                 size="sm"
@@ -514,16 +516,18 @@ function ProviderRow({
           </Badge>
         )}
         <Tooltip content={tm('syncProviderOnly', { provider: provider.provider })}>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onSync}
-            disabled={isSyncing}
-            className="h-7 px-2.5 text-xs"
-          >
-            {isSyncing ? <Loader2 className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            <span className="ml-1">{tm('sync')}</span>
-          </Button>
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onSync}
+              disabled={isSyncing}
+              className="h-7 px-2.5 text-xs"
+            >
+              {isSyncing ? <Loader2 className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              <span className="ml-1">{tm('sync')}</span>
+            </Button>
+          </span>
         </Tooltip>
         {syncError && (
           <p className="w-full text-[10px] text-red-600 dark:text-red-500">{syncError.message}</p>
@@ -908,16 +912,18 @@ function ResetProviderButton({ provider, disabled }: { provider: string; disable
   return (
     <>
       <Tooltip content={tm('resetProvider')}>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setOpen(true)}
-          disabled={disabled}
-          className="h-6 px-2 text-[10px]"
-        >
-          <RotateCcw className="mr-1 h-3 w-3" />
-          {tm('resetProvider')}
-        </Button>
+        <span className="inline-flex">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setOpen(true)}
+            disabled={disabled}
+            className="h-6 px-2 text-[10px]"
+          >
+            <RotateCcw className="mr-1 h-3 w-3" />
+            {tm('resetProvider')}
+          </Button>
+        </span>
       </Tooltip>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">

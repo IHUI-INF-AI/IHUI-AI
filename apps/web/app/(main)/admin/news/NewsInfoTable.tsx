@@ -246,15 +246,17 @@ export function NewsInfoTable(props: Props) {
                       </HasPermi>
                       <HasPermi code="ai:information:remove">
                         <Tooltip content="删除">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteInfo(info)}
-                            className="text-destructive hover:text-destructive"
-                            disabled={deleteInfoMut.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteInfo(info)}
+                              className="text-destructive hover:text-destructive"
+                              disabled={deleteInfoMut.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </HasPermi>
                     </div>
