@@ -174,7 +174,7 @@ describe('miniapp-taro SSE 流解析', () => {
     // proto 9: 格式可正确解析为 reasoning(见 proto 格式测试组)。
     it('JSON type=reasoning + delta 因 delta 检查优先被解析为 chunk(已知 bug)', () => {
       const { events } = parseSSEChunk('data: {"type":"reasoning","delta":"thinking..."}\n')
-      expect(events[0]).toEqual({ type: 'chunk', content: 'thinking...' })
+      expect(events[0]).toEqual({ type: 'reasoning', content: 'thinking...' })
     })
   })
 
