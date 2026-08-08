@@ -127,7 +127,7 @@ export default function AdminArticlesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">文章管理</h1>

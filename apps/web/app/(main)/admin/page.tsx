@@ -29,7 +29,7 @@ export default function AdminDashboardPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <PageHeader
         title={t('title')}
         subtitle={t('subtitle')}

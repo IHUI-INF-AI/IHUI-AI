@@ -49,7 +49,7 @@ export default function EduTeacherDetailPage() {
 
   if (!id)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/teacher">
             <ChevronLeft className="h-4 w-4" />
@@ -68,7 +68,7 @@ export default function EduTeacherDetailPage() {
     )
   if (error || !data)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/teacher">
             <ChevronLeft className="h-4 w-4" />
@@ -80,7 +80,7 @@ export default function EduTeacherDetailPage() {
     )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu/teacher">
