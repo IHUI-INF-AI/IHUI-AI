@@ -46,13 +46,17 @@ def test_skill_render_value_coerced_to_str():
 
 
 def test_builtin_skills_count():
-    """预置 6 个 skill。"""
-    assert len(_BUILTIN_SKILLS) == 6
+    """预置 13 个 skill(6 代码类 + 7 聊天模板类)。"""
+    assert len(_BUILTIN_SKILLS) == 13
 
 
 @pytest.mark.parametrize(
     "name",
-    ["code-review", "debug-fix", "test-generator", "doc-writer", "refactor-helper", "api-designer"],
+    [
+        "code-review", "debug-fix", "test-generator", "doc-writer", "refactor-helper", "api-designer",
+        "text-summary", "text-translate", "text-explain", "text-code", "text-polish",
+        "wechat-article", "koubo-script",
+    ],
 )
 def test_builtin_skill_present(name):
     """每个预置 skill 名称可查询。"""
@@ -71,10 +75,10 @@ def test_registry_exists_unknown_returns_false():
 
 
 def test_registry_list_returns_all():
-    """list 返回全部 skill(6 个预置 + 19 个 AI Skills TOP + auto 动态 = 至少 25)。"""
+    """list 返回全部 skill(13 个预置 + 19 个 AI Skills TOP + auto 动态 = 至少 32)。"""
     skills = skill_registry.list_skills()
-    # 2026-07-23 新增 19 个 AI Skills TOP 后,总数从 6 提升到至少 25
-    assert len(skills) >= 25
+    # 2026-08-09 新增 7 个聊天模板类内置 skill 后,总数从 25 提升到至少 32
+    assert len(skills) >= 32
     names = {s.name for s in skills}
     # 老 6 个预置必须全部存在(向后兼容)
     assert {"code-review", "debug-fix", "test-generator",
@@ -90,7 +94,7 @@ def test_registry_list_returns_copy():
     """list 返回的列表是副本,修改不影响内部状态。"""
     lst = skill_registry.list_skills()
     lst.clear()
-    assert len(skill_registry.list_skills()) >= 25
+    assert len(skill_registry.list_skills()) >= 32
 
 
 def test_registry_independent_instance():
@@ -262,22 +266,27 @@ class TestSkillDefaults:
 
 
 # ------------------------------------------------------------
-# 6 个预置 skill 默认字段
+# 预置 skill 字段测试
 # ------------------------------------------------------------
+
+_ORIGINAL_6 = {"code-review", "debug-fix", "test-generator", "doc-writer", "refactor-helper", "api-designer"}
+_NEW_7 = {"text-summary", "text-translate", "text-explain", "text-code", "text-polish", "wechat-article", "koubo-script"}
 
 
 class TestBuiltinSkillDefaults:
-    """6 个预置 skill 默认 icon/category/source/available。"""
+    """预置 skill 默认字段。"""
 
-    def test_all_builtin_default_icon_sparkles(self):
+    def test_original_6_default_icon_sparkles(self):
         for s in _BUILTIN_SKILLS:
-            assert s.icon == "sparkles", f"{s.name} icon 应为 sparkles"
+            if s.name in _ORIGINAL_6:
+                assert s.icon == "sparkles", f"{s.name} icon 应为 sparkles"
 
-    def test_all_builtin_default_category_code(self):
+    def test_original_6_default_category_code(self):
         for s in _BUILTIN_SKILLS:
-            assert s.category == "code", f"{s.name} category 应为 code"
+            if s.name in _ORIGINAL_6:
+                assert s.category == "code", f"{s.name} category 应为 code"
 
-    def test_all_builtin_default_source_builtin(self):
+    def test_all_builtin_source_builtin(self):
         for s in _BUILTIN_SKILLS:
             assert s.source == "builtin", f"{s.name} source 应为 builtin"
 
@@ -289,9 +298,29 @@ class TestBuiltinSkillDefaults:
         for s in _BUILTIN_SKILLS:
             assert s.source_url == "", f"{s.name} source_url 应为空"
 
-    def test_all_builtin_tags_empty(self):
+    def test_original_6_tags_empty(self):
         for s in _BUILTIN_SKILLS:
-            assert s.tags == [], f"{s.name} tags 应为空"
+            if s.name in _ORIGINAL_6:
+                assert s.tags == [], f"{s.name} tags 应为空"
+
+    def test_new_7_category_code_or_media(self):
+        """新 7 个聊天模板类 skill: text-* 为 code, wechat/koubo 为 media。"""
+        for s in _BUILTIN_SKILLS:
+            if s.name in _NEW_7:
+                if s.name in ("wechat-article", "koubo-script"):
+                    assert s.category == "media", f"{s.name} category 应为 media"
+                else:
+                    assert s.category == "code", f"{s.name} category 应为 code"
+
+    def test_new_7_tags_not_empty(self):
+        for s in _BUILTIN_SKILLS:
+            if s.name in _NEW_7:
+                assert len(s.tags) > 0, f"{s.name} tags 不应为空"
+
+    def test_new_7_prompt_has_variables(self):
+        for s in _BUILTIN_SKILLS:
+            if s.name in _NEW_7:
+                assert "{" in s.prompt_template, f"{s.name} prompt 应包含变量占位符"
 
 
 # ------------------------------------------------------------
