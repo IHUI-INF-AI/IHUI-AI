@@ -228,3 +228,5 @@ export * from './user-token-balance.js'
 export * from './download-stats.js'
 // 崩溃上报表(2026-08-06 新增,打通崩溃率链路:各端全局错误捕获上报,admin 聚合真实崩溃率)
 export * from './crash-reports.js'
+// 商业化服务询价表(2026-08-08 新增,询价表单持久化 + admin 管理)
+export * from './service-inquiries.js'
