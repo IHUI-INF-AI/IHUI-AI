@@ -37,6 +37,9 @@ export const VARIABLE_LABEL_KEY: Record<string, string> = {
   text: 'inputText',
   language: 'inputLanguage',
   input: 'inputInput',
+  code: 'inputCode',
+  error: 'inputError',
+  framework: 'inputFramework',
 }
 
 /** 变量 → placeholder i18n key(aiSkillDetail 命名空间) */
@@ -56,6 +59,9 @@ export const VARIABLE_PLACEHOLDER_KEY: Record<string, string> = {
   text: 'placeholderText',
   language: 'placeholderLanguage',
   input: 'placeholderInput',
+  code: 'placeholderCode',
+  error: 'placeholderError',
+  framework: 'placeholderFramework',
 }
 
 /** 变量 → 最大长度(防止超长输入) */
@@ -75,6 +81,9 @@ export const VARIABLE_MAX_LEN: Record<string, number> = {
   text: 4000,
   language: 50,
   input: 1000,
+  code: 4000,
+  error: 2000,
+  framework: 100,
 }
 
 /** 多行 textarea 变量集合(长文本输入) */
@@ -85,6 +94,8 @@ export const LONG_TEXT_VARS = new Set<string>([
   'platforms',
   'text',
   'input',
+  'code',
+  'error',
 ])
 
 /** 解析 promptTemplate 中的 {key} 变量,去重保序 */
