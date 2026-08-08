@@ -22,15 +22,8 @@ export interface TranslateOptions {
   params?: Record<string, string | number>
 }
 
-export function translate(messages: Messages, key: string, options?: TranslateOptions): string {
-  let value = getValueByPath(messages, key)
-  if (value === undefined && options?.fallback) {
-    value = getValueByPath(options.fallback, key)
-  }
-  if (typeof value !== 'string') return key
-  if (!options?.params) return value
-  const params = options.params
-  return value
+function interpolate(text: string, params: Record<string, string | number>): string {
+  return text
     .replace(/\{\{(\w+)\}\}/g, (_, name: string) => {
       const v = params[name]
       return v !== undefined ? String(v) : ''
@@ -39,6 +32,20 @@ export function translate(messages: Messages, key: string, options?: TranslateOp
       const v = params[name]
       return v !== undefined ? String(v) : ''
     })
+}
+
+export function translate(messages: Messages, key: string, options?: TranslateOptions): string {
+  let value = getValueByPath(messages, key)
+  if (value === undefined && options?.fallback) {
+    value = getValueByPath(options.fallback, key)
+  }
+  if (typeof value !== 'string') {
+    if (!options?.params) return key
+    // 当 key 未找到且有 params 时,对 key 本身做插值(如 t('hello {{name}}', {name:'IHUI'}))
+    return interpolate(key, options.params)
+  }
+  if (!options?.params) return value
+  return interpolate(value, options.params)
 }
 
 export function resolveList(messages: Messages, key: string, fallback?: Messages): string[] {
