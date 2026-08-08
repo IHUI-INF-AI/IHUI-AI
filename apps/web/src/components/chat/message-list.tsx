@@ -77,7 +77,7 @@ function TypingIndicator({
         className="bg-clip-text text-xs font-medium text-transparent"
         style={{
           backgroundImage:
-            'linear-gradient(90deg, hsl(var(--muted-foreground)) 0%, hsl(var(--primary)) 50%, hsl(var(--muted-foreground)) 100%)',
+            'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 100%)',
           backgroundSize: '200% 100%',
           animation: 'shimmer 2.2s linear infinite',
           WebkitBackgroundClip: 'text',
