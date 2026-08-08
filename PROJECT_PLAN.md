@@ -2989,20 +2989,135 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - ⏳ **generate 中间产物清理(边界 4)**:`0204_curvy_swarm.sql`(含 DROP 勿执行)等 4 文件已 gitignore 保护;物理删除曾被用户拒绝沙箱外权限——**保留,待用户授权后清理**
 - ⏳ **ai-service 侧轨迹(边界 2 深层)**:ai-service 9 个文件正被其他会话 WIP 修改,不可触碰(避免污染);派单层 agent_tasks(含 steps 明细)已是该架构下最真实水平——**待 ai-service WIP 结束后可评估深层演进**
 
-## 生产运维:对话链路故障全修复 + 防删库防线(2026-08-06 22:00-23:55 ✅,已推送)
+## P1 消息输入框附加栏 3 按钮高度统一根治(2026-08-07 立,平台独占:apps/web + apps/web/src/lib/nav-styles.ts,AGENTS.md §3 共享层优先)
 
-> 用户反馈线上"对话连不上模型/一直重连/工具调用失败",共 5 轮排查修复,全部上线。
+### 触发背景(用户反馈 2026-08-07)
 
-- ✅ **sqli-guard 误杀根治(c57b8698e→9a5e66a12→562a00dea)**:① 移除 `#` 单字符特征(#1 误杀);② AI 路径去掉 `--`(Markdown 表格 `| --- |` 误杀,历史含表格后所有对话被 400 拦);③ **最终根治:AI 内容端点(/api/ai/、/api/llm/、/api/chat/)完全跳过检测**——自由文本无 SQL 注入面,非 AI 端点检测不变
-- ✅ **前端 4xx 不重连(562a00dea)**:streamChat 所有 4xx 客户端错误不再自动重试,杜绝重连风暴
-- ✅ **MCP 工具链路(4b5e5ebd6→3706f7a9f→49367dbff)**:MCP_WORKSPACE_ROOTS 配项目根(原回退 ai-service cwd,AI 读不到全项目);read_file 目录检测 IS_A_DIRECTORY;工具别名 execute_command→run_command;user_role 透传(admin 被误判 role=0);新增 list_files 工具
-- ✅ **空回复兜底(f8c168b01)**:模型返回空 content 时生成友好提示,不再出现空白消息
-- ✅ **前端体验(d6657fd1e/33317a29b/fb17948b5)**:等待状态实时小字+光道扫光;AI 消息占满宽度(表格右侧留白修复);按钮/时间戳 hover 显隐
-- ✅ **防删库防线(e262c0e97)**:pre-push + pre-commit 删除守门(删除≥500 文件拦截),防止 `git add -A` 误删全仓库(当日事故:远程 main 曾被删空 9005 文件,本地 force push 恢复)
-- ⏳ **GitHub 分支保护(建议)**:无 API token 无法自动配置,需网页操作——Settings→Branches→main→Require PR reviews + 限制推送
+> "`div` 高度太高了 请缩窄 并且里面的 `button` `button` `button` 这些按钮的高度应该统一啊 怎么能出现不统一的情况呢 请彻底杜绝根治这种问题再发生"
 
-## 长期待办闭合(2026-08-07 00:10 ✅,已推送)
+### 根因审计(Advisor 战略指导 + 代码实证)
 
-- ✅ **web 端登录 2FA 流程(commit 99760d47b)**:后端 2FA 早已实现但前端登录缺流程,开启 2FA 的用户无法登录。已实现:api-client `verifyTwoFactorLogin`(POST /auth/2fa/login-verify,TOTP 6 位或备用码自动识别);LoginApiClient 可选 `request2faCode` 钩子;LoginFormContent 登录拦截 twoFactorRequired → 2FA 验证面板 → 验证后正常登录;i18n 5 语言 6 个新 key。验证:tsc 0 错、i18n parity OK、端点契约 400/401 正确。构建 BUILD_ID=R8K5agnpbPxnXUzZiZvGJ 已上线。
-- ✅ **ai_feed 真实采集**:确认 9 条源中 7 条成功(Verge/HuggingFace/arXiv 等,数据已入库,同步调度 0/12 点运行);openai-blog 与 mistral 官网 RSS 已停用(实测空 feed/解析失败,外部原因)→ 已置 enabled=false,保留 7 健康源。
-- ✅ **generate 中间产物清理**:确认相关文件已不存在(meta/0204_*、scripts/tmp-cur-snapshot.* 均无),待办过时关闭。
+`apps/web/src/components/chat/message-input.tsx:371` 容器 div `<div className="flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1.5">` 内 3 个 button 高度各自为政:
+
+| 按钮 | 文件 | 类名 | 实际高度 |
+| --- | --- | --- | --- |
+| 权限模式 | `permission-mode-popover.tsx:500` | `inline-flex h-7 ...` | 28px |
+| 历史 | `permission-history-panel.tsx:345` | `inline-flex h-9 w-9 ...` | **36px(顶天)** |
+| 添加 | `add-menu-popover.tsx:201` | `inline-flex ... py-1`(无 h-) | ~22-26px |
+
+→ 父 div 总高 = max(28, 36, 26) + `py-1.5`(12px) = **48px**,用户感知"高度太高"
+→ 3 button 高度差最大 10px,视觉参差明显
+
+**根本原因**:三个子组件各自独立定义 button className,没有任何共享约束机制(类比 §3 共享层优先要求),`apps/web/src/lib/nav-styles.ts` 有 `TOPBAR_BTN_BASE` / `BTN_NEW_CONVERSATION_CLASS` 等常量但**缺"附加状态栏"档**。
+
+### 修复方案(做减法,1 批 commit)
+
+1. **`nav-styles.ts` 新增 1 个常量**:`INPUT_ATTACHMENT_BAR_CLASS`(容器)+ `INPUT_ATTACHMENT_BAR_BTN_BASE`(按钮基础) — 显式规定 h-7 + 必要属性,新场景必走此常量
+2. **3 个子组件改用常量**:
+   - `permission-mode-popover.tsx`:已 h-7,只把基础串提到常量
+   - `permission-history-panel.tsx`:`h-9 w-9` → `h-7 w-7`
+   - `add-menu-popover.tsx`:补 `h-7`
+3. **父 div**:`py-1.5`(12px) → `py-1`(8px),缩窄 4px
+4. **根治思路**:不写新守门脚本(避免过度工程),靠"在共享层加唯一 base 类 + 三个组件 import"形成事实标准
+
+### 硬性指标
+
+- [x] ✅(2026-08-07) I1:三个 button 渲染高度一致(浏览器 DOM getBoundingClientRect 读 height,三者全等 ±0.5px)— 实测全 = 28px
+- [x] ✅(2026-08-07) I2:父 div 渲染高度 ≤ 36px(从原 48px 缩窄)— 实测 = 36px
+- [x] ✅(2026-08-07) I3:`pnpm --filter @ihui/web typecheck` exit 0
+- [x] ✅(2026-08-07) I4:`npx eslint` 5 个改动文件 exit 0(staged 范围)
+- [x] ✅(2026-08-07) I5:browser light + dark 模式截图自验(默认),3 button 严丝合缝对齐(red box-shadow 视觉标注)
+- [x] ✅(2026-08-07) I6:`git push` 成功,local == remote,`node scripts/git-push-guard.mjs` exit 0(commit 74d51623ba)
+
+### 约束边界
+
+- 仅触及:`message-input.tsx`(父 div class)+ `permission-mode-popover.tsx` / `permission-history-panel.tsx` / `add-menu-popover.tsx`(button className 串提到常量)+ `nav-styles.ts`(新增 2 常量)
+- 不可触及:其他端、其他组件、其他文件
+- 行为零变更:button 的 click 行为 / popover 内容 / 图标 / 颜色变体全部不变
+- 不写新守门脚本:做减法,靠共享常量形成约束
+
+### 平台独占
+
+本任务仅 web 端输入框附加栏 UI 修复,不涉及其他端代码改动。
+
+---
+
+## P0 全项目统一 hover tooltip + 禁原生 title 属性(2026-08-07 立,平台独占:apps/web,用户规则)
+
+> 触发:用户浏览器选中 3 个 button(message-list 操作按钮、permission-mode-popover、permission-history-panel),hover 时显示**浏览器原生 title tooltip**(无 border / 无动画 / 字体/颜色与项目不一致 / 延迟 1s+ 才显示),要求"全面统一"+"必须强制统一"+"不允许出现自带的原生提示窗样式"。
+> AGENTS.md §9 平台独占:仅触及 `apps/web/src/**` + `scripts/**`(其他端无 Tooltip 概念:desktop 走 tauri tooltip / mobile-rn 走 react-native-tooltip / extension 无 UI / miniapp-taro 用小程序原生 / cli 终端无 hover 提示)。
+
+### 目标
+
+根因:`apps/web` 249 个文件含 `title=` 属性,其中部分 button/icon/span 直接用 `title=` 作为 hover 提示(浏览器原生 tooltip),与项目统一 `<Tooltip>` 组件(`@/components/feedback` 基于 Radix UI TooltipPrimitive,标准样式:bg-popover 灰底 + border + Arrow + fade/zoom 动画)不一致。
+
+### 任务拆分
+
+- ✅ **第一批(2026-08-07 commit bfcbf555c7)**:用户选中的 3 个 button + message-list 9 个 button + ProviderHealthDot + 守门脚本 bug 修复
+- ⏳ **第二批(P1,后续)**:批量改造剩余 34 处违规 + 全项目 200+ 文件中所有 button/icon/span 上的 `title=` 替换为 `<Tooltip>` 包装
+- ⏳ **第三批(P2,后续)**:扫描其他端(desktop/extension/mobile-rn/miniapp-taro/cli)是否有类似原生 title tooltip,按端特性处理
+
+### 第一批已完成(2026-08-07)
+
+**修复的 button(13 个)**:
+- `permission-mode-popover.tsx`:button 的 `title` 已删除,`aria-label` 合并快捷键提示
+- `permission-history-panel.tsx`:button 的 `title` 已删除,`aria-label` 直接使用 `historyOpenExternal`
+- `model-selector.tsx`:`ProviderHealthDot` 用 `<Tooltip content={tip}>` 包装
+- `message-list.tsx`:9 个消息操作 button(Like/Copy/Download/Share/Toggle metadata/Regenerate/Publish/Edit/Reply/Delete)全部用 `<Tooltip content side="top">` 包装
+
+**守门脚本修复**:
+- 修复 `scripts/check-native-title-tooltip.mjs` 的 `getStagedAddedLines()` bug(原 `+++ b/` 解析在 `diff --git` 块内,导致 curFile 始终 null → staged 模式无法工作)
+- 升级 `scripts/tests/check-native-title-tooltip.test.mjs`:把 2 个 TODO 断言转为正式 test(测试从 13 个 → 16 个,全绿)
+- 该守门已挂载 `scripts/guardian-runner.mjs` id=18 blocking,pre-commit 走 guardian-runner 间接调用
+
+### 验证证据(第一批)
+
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅
+- `node --test scripts/tests/check-native-title-tooltip.test.mjs` 16/16 通过 ✅
+- `git-push-guard` exit 0,local HEAD === origin/main HEAD ✅
+- browser DOM 验证 3 个用户选中的 button `title=null`:
+  - `[data-testid="permission-history-trigger"]` → `aria-label="查看历史"`,`title=null`
+  - `button[aria-label*="Shift+Tab"]` → `aria-label="权限模式 · Shift+Tab 循环切换"`,`title=null`
+- browser DOM 验证 Like button Tooltip 已挂载:
+  - `aria-describedby="_r_5a_"`(Radix UI Tooltip 已正确连接)
+  - hover 后 `[role="tooltip"]` 出现:`text="Like"`,`data-state="delayed-open"`,`bg=rgb(255,255,255)`(bg-popover),`border=1px solid rgb(229,229,229)`,`shadow=...`
+
+### 第二批任务范围(P1,推荐 4 个 subagent 并行)
+
+按目录分批,每批 50-60 个文件:
+- 批 A:`apps/web/src/components/`(50+ 文件,通用组件)
+- 批 B:`apps/web/app/(main)/admin/`(60+ 文件,后台管理)
+- 批 C:`apps/web/app/(main)/settings/`(30+ 文件,设置页)
+- 批 D:`apps/web/app/(main)/` 剩余 + `apps/web/app/(other)/`(60+ 文件,业务页)
+
+每个 subagent 任务清单格式遵循 AGENTS.md §11,验证命令 `pnpm --filter @ihui/web typecheck`。
+
+### 硬性指标(第二批 P1)
+
+- H1:34 处现存违规(`check-native-title-tooltip.mjs` 全量扫描结果)清零
+- H2:所有 button/icon/span 上的 `title=` 改为 `<Tooltip content side="top">` 包装或删除(已在 Popover/Dropdown 内的 button 删 title 即可)
+- H3:`pnpm --filter @ihui/web typecheck` exit 0
+- H4:`node scripts/check-native-title-tooltip.mjs` 全量扫描 0 违规
+- H5:`node --test scripts/tests/check-native-title-tooltip.test.mjs` 16/16 通过
+- H6:每批 commit + push,git-push-guard exit 0
+- H7:browser 自验:hover 关键 button(每个目录抽 2-3 个),Tooltip 弹出样式统一(rounded-md + border + bg-popover + Arrow + delayed-open 状态)
+- H8:README.md 同步(§21 触发:无,纯 refactor 不改对外能力,豁免)
+
+### 约束边界
+
+- 涉及文件:
+  - `apps/web/src/**` + `apps/web/app/**` 全量 .tsx/.ts(约 249 个文件含 title=)
+  - `scripts/check-native-title-tooltip.mjs`(已修 bug)
+  - `scripts/tests/check-native-title-tooltip.test.mjs`(已升级断言)
+- 不可触及:其他端(desktop/extension/mobile-rn/miniapp-taro/cli)代码(平台独占,豁免多端同步)
+- 豁免场景(不视为违规):
+  - `<Modal title=...>` / `<Alert title=...>` / `<Dialog title=...>` 等 component prop
+  - `<Button asChild title=...>`(asChild 透传)
+  - `<iframe title=...>`(a11y 必需,WCAG)
+  - `<Document title=...>` / `<html title=...>`(SEO 元数据)
+  - 注释行
+  - `<a title="RSS Feed">` 等链接 a11y 描述(可保留,但建议用 `<Tooltip>` 统一)
+
+### 平台独占
+
+仅 web 端 UI 改造,desktop/extension/mobile-rn/miniapp-taro/cli 按各自端特性处理(无需同步)。

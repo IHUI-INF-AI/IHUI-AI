@@ -67,7 +67,7 @@ export default function FeedbackDetailPage() {
 
   if (error || !fb) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Link
           href="/feedback"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -89,7 +89,7 @@ export default function FeedbackDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <FeedbackDetailHeader fb={fb} />
       <FeedbackDetailBody fb={fb} />
       {isAdmin && (

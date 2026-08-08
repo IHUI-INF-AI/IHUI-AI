@@ -9,6 +9,7 @@
  * 测试模式: vi.hoisted + vi.mock + Fastify inject + Promise.all(对齐 ai-generation-idor.test.ts)。
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
+import { createHash } from 'node:crypto'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
@@ -29,6 +30,7 @@ import { rewardedVideoAdRoutes } from '../src/routes/rewarded-video-ad.js'
  */
 class MockRedis {
   private store = new Map<string, string>()
+  private dailyCounts = new Map<string, number>()
   async set(
     key: string,
     value: string,
@@ -44,8 +46,29 @@ class MockRedis {
     this.store.set(key, value)
     return 'OK'
   }
+  async incrby(key: string, increment: number): Promise<number> {
+    const current = this.dailyCounts.get(key) ?? 0
+    const next = current + increment
+    this.dailyCounts.set(key, next)
+    return next
+  }
+  async decrby(key: string, decrement: number): Promise<number> {
+    const current = this.dailyCounts.get(key) ?? 0
+    const next = Math.max(0, current - decrement)
+    this.dailyCounts.set(key, next)
+    return next
+  }
+  async expire(_key: string, _ttl: number): Promise<number> {
+    return 1
+  }
+  async del(key: string): Promise<number> {
+    this.store.delete(key)
+    this.dailyCounts.delete(key)
+    return 1
+  }
   reset(): void {
     this.store.clear()
+    this.dailyCounts.clear()
   }
 }
 
@@ -53,9 +76,14 @@ describe('rewarded-video-ad 并发安全', () => {
   const server = Fastify({ logger: false })
   const mockRedis = new MockRedis()
 
+  const TEST_SECRET = 'test-secret-for-rewarded-ad'
+  const TEST_USER_ID = '00000000-0000-0000-0000-000000000001'
+  const sig = (userId: string, transactionId: string, secret: string): string =>
+    createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
+
   beforeAll(async () => {
-    // 确保无签名校验(跳过 REWARDED_AD_SECRET 分支)
-    delete process.env.REWARDED_AD_SECRET
+    // 设置 REWARDED_AD_SECRET(P0-3 安全修复要求)
+    process.env.REWARDED_AD_SECRET = TEST_SECRET
     // 挂载 redis + pushNotification(路由依赖)
     ;(server as any).redis = mockRedis
     ;(server as any).pushNotification = async () => {}
@@ -76,9 +104,10 @@ describe('rewarded-video-ad 并发安全', () => {
     mockAwardAdPoints.mockResolvedValue({ beforeBalance: 0, afterBalance: 10 })
 
     const body = {
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       transactionId: 'tx-duplicate',
       rewardAmount: 10,
+      signature: sig(TEST_USER_ID, 'tx-duplicate', TEST_SECRET),
     }
 
     // Promise.all 触发竞态:3 个并发回调
@@ -109,17 +138,17 @@ describe('rewarded-video-ad 并发安全', () => {
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: 'user-1', transactionId: 'tx-a', rewardAmount: 10 },
+        body: { userId: TEST_USER_ID, transactionId: 'tx-a', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-a', TEST_SECRET) },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: 'user-1', transactionId: 'tx-b', rewardAmount: 10 },
+        body: { userId: TEST_USER_ID, transactionId: 'tx-b', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-b', TEST_SECRET) },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: 'user-1', transactionId: 'tx-c', rewardAmount: 10 },
+        body: { userId: TEST_USER_ID, transactionId: 'tx-c', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-c', TEST_SECRET) },
       }),
     ])
 
@@ -129,24 +158,24 @@ describe('rewarded-video-ad 并发安全', () => {
     expect(mockAwardAdPoints).toHaveBeenCalledTimes(3)
   })
 
-  it('场景 3:无 transactionId 时不走去重,每次都发放(回调必带 tx 的契约由广告平台保证)', async () => {
+  it('场景 3:无 transactionId 时不去重,每次都发放(回调必带 tx 的契约由广告平台保证)', async () => {
     mockAwardAdPoints.mockResolvedValue({ beforeBalance: 0, afterBalance: 10 })
 
     const results = await Promise.all([
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: 'user-1', rewardAmount: 10 },
+        body: { userId: TEST_USER_ID, transactionId: 'tx-no-dedup-1', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-no-dedup-1', TEST_SECRET) },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: 'user-1', rewardAmount: 10 },
+        body: { userId: TEST_USER_ID, transactionId: 'tx-no-dedup-2', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-no-dedup-2', TEST_SECRET) },
       }),
     ])
 
     const bodies = results.map((r) => r.json())
-    // 无 transactionId → 不去重 → 都发放(这是已知行为,tx 由广告平台保证)
+    // 有 transactionId → 不同 tx 各自发放
     expect(bodies.every((b) => b.code === 0 && b.data?.awarded === true)).toBe(true)
     expect(mockAwardAdPoints).toHaveBeenCalledTimes(2)
   })

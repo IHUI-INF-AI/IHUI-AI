@@ -28,6 +28,7 @@ import {
 } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 interface Course {
   id: string
@@ -88,7 +89,7 @@ export default function EduCourseTrashPage() {
   const rows = data?.list ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -176,29 +177,35 @@ export default function EduCourseTrashPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => restoreMut.mutate(c.id)}
-                        title={t('restore')}
-                        disabled={restoreMut.isPending}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        {t('restore')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
-                        }}
-                        title={t('destroy')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={destroyMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {t('destroy')}
-                      </Button>
+                      <Tooltip content={t('restore')}>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => restoreMut.mutate(c.id)}
+                            disabled={restoreMut.isPending}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            {t('restore')}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip content={t('destroy')}>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
+                            }}
+                            className="text-destructive hover:text-destructive"
+                            disabled={destroyMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {t('destroy')}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

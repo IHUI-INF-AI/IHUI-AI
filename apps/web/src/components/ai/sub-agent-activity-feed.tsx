@@ -63,52 +63,52 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
   }, [active, hasStreaming])
 
   return (
-    <div className="text-sm">
+    <div className="text-[11px]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         title={statusLabel}
-        className="flex w-full items-center gap-2 text-left"
+        className="flex w-full items-center gap-1.5 text-left"
       >
         <span
           className={cn(
-            'inline-block h-2 w-2 shrink-0 rounded-full transition-colors duration-150',
+            'inline-block h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-150',
             STATUS_DOT_COLOR[agent.status],
             active && 'animate-pulse',
           )}
         />
-        <span className="font-medium">{agent.name || agent.type || defaultName}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground/80">{agent.name || agent.type || defaultName}</span>
+        <span className="rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground/70">
           {badgeLabel}
         </span>
         <ChevronDown
           className={cn(
-            'ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
+            'ml-auto h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
             open && 'rotate-180',
           )}
         />
       </button>
 
       {open && (
-        <div className="ml-4 mt-1 space-y-1.5 border-l pl-3">
+        <div className="ml-3 mt-0.5 space-y-1 border-l border-border/20 pl-2">
           {(agent.completedSteps.length > 0 || agent.currentStep) && (
             <div className="space-y-0.5">
               {agent.completedSteps.map((step, i) => (
                 <div
                   key={`${agent.agentId}-${i}-${step.createdAt}`}
-                  className="flex items-center gap-1.5 text-xs"
+                  className="flex items-center gap-1 text-[10px]"
                 >
-                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-                  <span className="text-muted-foreground">{step.stepAction}</span>
+                  <Check className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+                  <span className="text-muted-foreground/70">{step.stepAction}</span>
                 </div>
               ))}
               {agent.currentStep && active && (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
-                  <span>{agent.currentStep}</span>
+                <div className="flex items-center gap-1 text-[10px]">
+                  <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin text-primary/70" />
+                  <span className="text-foreground/70">{agent.currentStep}</span>
                   {agent.progressIteration !== undefined && agent.progressIteration > 1 && (
-                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+                    <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/45">
                       ·{agent.progressIteration}轮
                     </span>
                   )}
@@ -119,18 +119,18 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
 
           {/* 工具调用计数 + 输出预览(2026-07-28 立,subagent_progress 事件驱动) */}
           {agent.toolCallsCount !== undefined && agent.toolCallsCount > 0 && (
-            <div className="text-[10px] tabular-nums text-muted-foreground/50">
+            <div className="text-[9px] tabular-nums text-muted-foreground/45">
               {agent.toolCallsCount} 次工具调用
             </div>
           )}
           {agent.outputPreview && active && (
-            <div className="rounded-sm bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground/70 line-clamp-2">
+            <div className="rounded-sm bg-muted/20 px-1.5 py-0.5 text-[10px] text-muted-foreground/60 line-clamp-2">
               {agent.outputPreview}
             </div>
           )}
 
           {hasStreaming && streaming && (
-            <div className="rounded-md bg-muted/40 p-2">
+            <div className="rounded-sm bg-muted/30 p-1.5">
               <MarkdownStream content={streaming} isStreaming={!agent.streamingDone} />
             </div>
           )}
@@ -160,30 +160,30 @@ export function SubAgentActivityFeed({
   return (
     <div
       className={cn(
-        'rounded-lg border bg-card',
-        completed && 'border-emerald-500/30 bg-emerald-500/[0.03]',
+        'rounded-sm border border-border/30 bg-card/50',
+        completed && 'border-emerald-500/25 bg-emerald-500/[0.02]',
       )}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between px-3 py-2 text-left"
+        className="flex w-full items-center justify-between px-2 py-1 text-left"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {!completed && hasRunning ? (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <Loader2 className="h-3 w-3 animate-spin text-primary/70" />
           ) : completed ? (
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
           ) : (
-            <Zap className="h-4 w-4 text-amber-500" />
+            <Zap className="h-3 w-3 text-amber-500" />
           )}
-          <span className="text-sm font-medium">
+          <span className="text-[11px] font-medium text-foreground/80">
             {completed ? (
               <>
                 {t('coordinated', { count: activities.length })}
                 {totalSteps > 0 && (
-                  <span className="ml-1 text-muted-foreground">
+                  <span className="ml-1 text-muted-foreground/60">
                     {t('totalSteps', { count: totalSteps })}
                   </span>
                 )}
@@ -194,14 +194,14 @@ export function SubAgentActivityFeed({
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <ChevronUp className="h-3 w-3 text-muted-foreground/50" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
         )}
       </button>
 
       {expanded && (
-        <div className="space-y-2 border-t px-3 py-2">
+        <div className="space-y-1.5 border-t border-border/20 px-2 py-1.5">
           {activities.map((agent) => (
             <SubAgentCard
               key={agent.agentId}

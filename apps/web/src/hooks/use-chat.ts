@@ -1069,6 +1069,10 @@ export function useChat(): UseChatReturn {
   // #10 sendAnswer 错误重试(2026-07-25 立):保存最后回答内容,toast 加 retry 按钮
   // 与 lastSentContentRef 对称,sendAnswer catch 块复用 sendMessage 路径的 retry 模式
   const lastSentAnswerRef = React.useRef<{ answer: string; questionId: string } | null>(null)
+  // 2026-08-06 修复:聊天发送在途锁。原防重仅靠 store.isStreaming,但 sendMessage
+  // 在 createConversation 网络往返完成后才 setStreaming(true),期间用户快速连按
+  // Enter/双击发送可重复建会话/发消息。此 ref 在函数入口即置位,覆盖所有 await 间隙。
+  const sendInFlightRef = React.useRef(false)
 
   // P3 修复:切换会话时清空 lastSentContentRef/lastSentAnswerRef,释放大文本引用
   // (用户输入可能含大段粘贴代码,ref 不会自动释放;retry toast 在切换会话后不再有意义)
@@ -1082,25 +1086,41 @@ export function useChat(): UseChatReturn {
     async (content: string): Promise<boolean> => {
       const text = content.trim()
       if (!text) return false
-      lastSentContentRef.current = text
+      // 2026-08-06 修复:入口即置在途锁,覆盖 createConversation/斜杠命令等
+      // await 间隙,防止快速连按 Enter/双击重复发送(原仅靠 isStreaming 防重,
+      // 但 setStreaming(true) 在网络往返之后才执行,存在竞态窗口)。
+      if (sendInFlightRef.current) return false
 
       const store = useChatStore.getState()
       if (store.isStreaming) return false
 
+      sendInFlightRef.current = true
+      // 所有提前 return 前必须解锁(见下方各处 sendInFlightRef.current = false)
+      lastSentContentRef.current = text
+
       // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 Trae SOLO Plan 模式):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈
-      if (tryHandlePlanModeSlash(text)) return true
+      if (tryHandlePlanModeSlash(text)) {
+        sendInFlightRef.current = false
+        return true
+      }
 
       // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
       // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-      if (tryHandleChatModeSlash(text, t)) return true
+      if (tryHandleChatModeSlash(text, t)) {
+        sendInFlightRef.current = false
+        return true
+      }
 
       // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
-      if (await tryHandlePermissionSlash(text)) return true
+      if (await tryHandlePermissionSlash(text)) {
+        sendInFlightRef.current = false
+        return true
+      }
 
       // AI 自动判断 ChatMode(2026-07-28 立,移除 4 按钮后由 AI 决定用哪种模式):
       // - 时机:所有 /命令拦截后、createConversation 前(用户敲完按发送才触发)
@@ -1121,6 +1141,7 @@ export function useChat(): UseChatReturn {
           description: '登录后即可与 AI 对话',
         })
         useLoginDialogStore.getState().open('login')
+        sendInFlightRef.current = false
         return false
       }
 
@@ -1131,7 +1152,10 @@ export function useChat(): UseChatReturn {
         store.addMessage({ role: 'user', content: text, model: m })
         store.addMessage({ role: 'assistant', content: assistantContent, model: m })
       })
-      if (slashHit) return true
+      if (slashHit) {
+        sendInFlightRef.current = false
+        return true
+      }
 
       const model = store.currentModel
 
@@ -1163,6 +1187,7 @@ export function useChat(): UseChatReturn {
             })
             store.setError(createRes.error)
           }
+          sendInFlightRef.current = false
           return false
         }
         conversationId = createRes.data.conversation.id
@@ -1248,6 +1273,17 @@ export function useChat(): UseChatReturn {
       // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
       // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
       const effectiveModel = model
+      // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
+      // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
+      let noWorkspaceNoticeShown = false
+      const notifyNoWorkspace = (reason: string): void => {
+        if (noWorkspaceNoticeShown) return
+        noWorkspaceNoticeShown = true
+        toast.warning('未选择工作区,文件类工具无法执行', {
+          description: `${reason}。请在 AI 面板选择一个工作区后再发起对话,或选择不需要文件操作的提问。`,
+          duration: 6000,
+        })
+      }
       try {
         await streamChat({
           model: effectiveModel,
@@ -1417,9 +1453,12 @@ export function useChat(): UseChatReturn {
           // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
           // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
           // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          // 2026-08-07:无工作区提示已移到 sendMessage 顶层,通过 noWorkspaceNoticeShown 去重,
+          // 多个 fs 工具失败时只弹一次 toast,避免刷屏。
           onToolDelegate: async (event: ToolDelegateEvent) => {
             const ws = useAiPanelStore.getState().activeWorkspace
             if (!ws?.name) {
+              notifyNoWorkspace('当前没有活跃工作区')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1430,6 +1469,7 @@ export function useChat(): UseChatReturn {
             }
             const handle = getBrowserWorkspaceHandle(ws.name)
             if (!handle) {
+              notifyNoWorkspace('工作区未授权目录访问权限')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1542,6 +1582,8 @@ export function useChat(): UseChatReturn {
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
+        // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
+        sendInFlightRef.current = false
       }
       // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
       return true
@@ -1632,6 +1674,16 @@ export function useChat(): UseChatReturn {
       // 2026-08-06 立:与 sendMessage 对称,删除 'auto' → stepfun/step-router-v1 降级,
       // 让 'auto' 透传到 ai-service 跨厂商路由(详见 line 1246-1249 注释)。
       const effectiveModel = model
+      // 2026-08-07 修复:与 sendMessage 对称,无工作区时给用户一次性 toast(避免 fs 工具静默失败)
+      let noWorkspaceNoticeShown = false
+      const notifyNoWorkspace = (reason: string): void => {
+        if (noWorkspaceNoticeShown) return
+        noWorkspaceNoticeShown = true
+        toast.warning('未选择工作区,文件类工具无法执行', {
+          description: `${reason}。请在 AI 面板选择一个工作区后再发起对话,或选择不需要文件操作的提问。`,
+          duration: 6000,
+        })
+      }
       try {
         await streamChat({
           model: effectiveModel,
@@ -1754,9 +1806,11 @@ export function useChat(): UseChatReturn {
           // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
           // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
           // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          // 2026-08-07:与 sendMessage 对称,无工作区 toast 提示
           onToolDelegate: async (event: ToolDelegateEvent) => {
             const ws = useAiPanelStore.getState().activeWorkspace
             if (!ws?.name) {
+              notifyNoWorkspace('当前没有活跃工作区')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,
@@ -1767,6 +1821,7 @@ export function useChat(): UseChatReturn {
             }
             const handle = getBrowserWorkspaceHandle(ws.name)
             if (!handle) {
+              notifyNoWorkspace('工作区未授权目录访问权限')
               await postToolResult(
                 event.session_id,
                 event.tool_call_id,

@@ -59,7 +59,7 @@ export default function Carousel({
         setCurrent(idx)
       }
     },
-    [current, width, banner.length],
+    [current, width, banner.length, setCurrent],
   )
 
   if (!banner || banner.length === 0) {

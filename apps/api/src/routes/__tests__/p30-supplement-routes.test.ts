@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -122,16 +123,41 @@ describe('P30 补写路由集成测试', () => {
   describe('rewarded-video-ad 不需要用户鉴权但需要数据库', () => {
     let app: FastifyInstance
 
+    const TEST_SECRET = 'test-secret-for-rewarded-ad'
+    const sig = (userId: string, transactionId: string, secret: string): string =>
+      createHash('sha256').update(`${userId}${transactionId}${secret}`).digest('hex')
+
     beforeAll(async () => {
+      process.env.REWARDED_AD_SECRET = TEST_SECRET
       app = Fastify({ logger: false })
       // mock redis:SET key value EX ttl NX 行为(首次返回 'OK',重复 key 返回 null)
+      // + incrby/decrby/expire/del(P0-5 每日积分上限需要)
       const seenTxKeys = new Set<string>()
+      const dailyCounts = new Map<string, number>()
       app.decorate('redis', {
         // mock ioredis set: NX 语义(首次 'OK',重复 null);类型断言避开 ioredis 完整 Redis 类型签名
         set: vi.fn(async (key: string): Promise<'OK' | null> => {
           if (seenTxKeys.has(key)) return null
           seenTxKeys.add(key)
           return 'OK'
+        }),
+        incrby: vi.fn(async (key: string, increment: number): Promise<number> => {
+          const current = dailyCounts.get(key) ?? 0
+          const next = current + increment
+          dailyCounts.set(key, next)
+          return next
+        }),
+        decrby: vi.fn(async (key: string, decrement: number): Promise<number> => {
+          const current = dailyCounts.get(key) ?? 0
+          const next = Math.max(0, current - decrement)
+          dailyCounts.set(key, next)
+          return next
+        }),
+        expire: vi.fn(async (): Promise<number> => 1),
+        del: vi.fn(async (key: string): Promise<number> => {
+          seenTxKeys.delete(key)
+          dailyCounts.delete(key)
+          return 1
         }),
       } as never)
       app.decorate('pushNotification', vi.fn<(userId: string, payload: unknown) => void>())
@@ -154,14 +180,17 @@ describe('P30 补写路由集成测试', () => {
     })
 
     it('POST /notify 成功发放积分', async () => {
+      const userId = '00000000-0000-0000-0000-000000000001'
+      const transactionId = 'tx-001'
       const res = await app.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
         payload: {
-          userId: 'user-test-1',
+          userId,
           adType: 'rewarded',
           rewardAmount: 20,
-          transactionId: 'tx-001',
+          transactionId,
+          signature: sig(userId, transactionId, TEST_SECRET),
         },
       })
       expect(res.statusCode).toBe(200)
@@ -172,13 +201,16 @@ describe('P30 补写路由集成测试', () => {
     })
 
     it('POST /notify 重复 transactionId 返回 duplicated', async () => {
+      const userId = '00000000-0000-0000-0000-000000000002'
+      const transactionId = 'tx-001'
       const res = await app.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
         payload: {
-          userId: 'user-test-2',
+          userId,
           rewardAmount: 10,
-          transactionId: 'tx-001',
+          transactionId,
+          signature: sig(userId, transactionId, TEST_SECRET),
         },
       })
       expect(res.statusCode).toBe(200)

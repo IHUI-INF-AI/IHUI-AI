@@ -40,7 +40,7 @@ export default function AdminLotteryPage() {
   const totalPages = Math.max(1, Math.ceil(total / 10))
   const head = ['活动名称', '消耗积分', '参与/中奖', '奖品数', '状态', '时间']
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
