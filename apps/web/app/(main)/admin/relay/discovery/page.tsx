@@ -318,35 +318,39 @@ export default function AdminRelayDiscoveryPage() {
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
                         <Tooltip content="审批通过">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={
-                              approveMutation.isPending ||
-                              d.status === 'approved' ||
-                              d.status === 'rejected'
-                            }
-                            onClick={() => approveMutation.mutate(d.id)}
-                          >
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={
+                                approveMutation.isPending ||
+                                d.status === 'approved' ||
+                                d.status === 'rejected'
+                              }
+                              onClick={() => approveMutation.mutate(d.id)}
+                            >
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                          </span>
                         </Tooltip>
                         <Tooltip content="驳回">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={
-                              rejectMutation.isPending ||
-                              d.status === 'approved' ||
-                              d.status === 'rejected'
-                            }
-                            onClick={() => {
-                              setRejectTarget(d)
-                              setRejectNote('')
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 text-red-600" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={
+                                rejectMutation.isPending ||
+                                d.status === 'approved' ||
+                                d.status === 'rejected'
+                              }
+                              onClick={() => {
+                                setRejectTarget(d)
+                                setRejectNote('')
+                              }}
+                            >
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </div>
                     </td>
