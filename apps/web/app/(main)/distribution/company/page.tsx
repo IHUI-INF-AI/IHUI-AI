@@ -113,7 +113,7 @@ export default function DistributionCompanyPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

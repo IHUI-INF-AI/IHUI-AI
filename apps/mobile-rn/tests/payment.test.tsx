@@ -48,7 +48,12 @@ vi.mock('react-native', async () => {
   const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      return createElement(tag, props, props.children)
+      const { style: rawStyle, onPress, ...rest } = props
+      const style = typeof rawStyle === 'function' ? rawStyle({ pressed: false }) : rawStyle
+      const mergedStyle = Array.isArray(style)
+        ? Object.assign({}, ...style.filter(Boolean))
+        : style
+      return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
     }
   const FlatList = (props: {
     data?: Array<Record<string, unknown>>
@@ -74,9 +79,13 @@ vi.mock('react-native', async () => {
     View: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),
+    Pressable: mk('button'),
     FlatList,
     ActivityIndicator: () => createElement('div', null, 'loading'),
+    Modal: (props: { visible?: boolean; children?: ReactNode }) =>
+      props?.visible ? createElement('div', null, props.children) : null,
     RefreshControl: () => null,
+    useColorScheme: () => 'light',
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
@@ -266,10 +275,16 @@ describe('PaymentScreen 支付流程', () => {
     })
     wechatPayMock.openWeChatPayment.mockResolvedValue(true)
 
-    const { getByText } = render(<PaymentScreen />)
+    const { getByText, getAllByText } = render(<PaymentScreen />)
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.payNow'))
+    // ConfirmPurchasePopUp 弹窗,"确认支付"同时出现在 title 和 button 上,点击第二个(button)
+    await waitFor(() => {
+      const confirmBtns = getAllByText('确认支付')
+      expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
+    })
+    fireEvent.click(getAllByText('确认支付')[1])
     await waitFor(() =>
       expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
         amount: 9950,
@@ -302,10 +317,17 @@ describe('PaymentScreen 支付流程', () => {
     })
     wechatPayMock.openWeChatPayment.mockResolvedValue(false)
 
-    const { getByText } = render(<PaymentScreen />)
+    const { getByText, getAllByText } = render(<PaymentScreen />)
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.payNow'))
+    // ConfirmPurchasePopUp 弹窗,点击"确认支付"按钮后用户取消微信支付
+    await waitFor(() => {
+      const confirmBtns = getAllByText('确认支付')
+      expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
+    })
+    fireEvent.click(getAllByText('确认支付')[1])
+    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
     await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
   })
 
@@ -331,10 +353,16 @@ describe('PaymentScreen 支付流程', () => {
     })
     wechatPayMock.openWeChatPayment.mockRejectedValue(new Error('WECHAT_NOT_INSTALLED'))
 
-    const { getByText } = render(<PaymentScreen />)
+    const { getByText, getAllByText } = render(<PaymentScreen />)
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.payNow'))
+    // 先弹出 ConfirmPurchasePopUp,点击确认按钮后再触发微信支付
+    await waitFor(() => {
+      const confirmBtns = getAllByText('确认支付')
+      expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
+    })
+    fireEvent.click(getAllByText('确认支付')[1])
     await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })

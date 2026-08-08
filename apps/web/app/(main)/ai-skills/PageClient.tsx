@@ -42,7 +42,7 @@ const CATEGORY_LABEL_KEY: Record<AiSkillMeta['category'], string> = {
 }
 
 async function fetchAll(): Promise<AiSkillMeta[]> {
-  const r = await listAiSkills()
+  const r = await listAiSkills({ category: 'all' })
   if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
   return r.data
 }
@@ -82,7 +82,7 @@ export default function AiSkillsPageClient() {
   }, [data, activeTab, keyword])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
       <BackButton />
       {/* 顶部:标题 + 统计 */}
       <header className="space-y-1">

@@ -61,7 +61,7 @@ export function listCommand(): Command {
         HEAT: it.heatScore,
         QUALITY: it.qualityScore,
       }));
-      console.table(rows);
+      console.info(rows.map((r) => Object.values(r).join('\t')).join('\n'));
       console.info(chalk.dim(`  已安装: ${result.installedIds.length} 个`));
       console.info('');
     });

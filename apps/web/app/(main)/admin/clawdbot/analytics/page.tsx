@@ -99,7 +99,7 @@ export default function ClawdbotAnalyticsPage() {
   const maxBotCount = Math.max(...summary.callsByBot.map((b) => b.count), 1)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <BarChart className="h-6 w-6 text-primary" /> 分析统计

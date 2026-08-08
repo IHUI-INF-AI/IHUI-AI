@@ -114,7 +114,7 @@ export default function DataExportPage() {
   const hasExport = Boolean(lastExport.url)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
 

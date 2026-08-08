@@ -53,8 +53,11 @@ SUBJECT_PERSONAS: dict[str, str] = {
 
 SUBJECT_VALID: set[str] = set(SUBJECT_PERSONAS.keys())
 
-# 用 None 表示走 llm_gateway 默认模型(settings.litellm_model)
-_DEFAULT_MODEL: str | None = None
+# 2026-08-07 修复:显式指定非推理模型(step-3.7-flash)而非默认 step-router-v1。
+# 原因:推理模型(step-router-v1)JSON 输出易混入非法 \\ 转义 → json.loads 抛
+# "Invalid \\escape" → ai_tutor explain/hint/quiz 返回空 answer(实测复现)。
+# step-3.7-flash 为指令跟随模型,JSON 输出干净(实测 13.9s 完整返回合法 JSON)。
+_DEFAULT_MODEL: str | None = "stepfun/step-3.7-flash"
 
 # 匹配 ```json ... ``` 或 ``` ... ``` 代码块
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL)
@@ -82,6 +85,13 @@ def _extract_json(content: str) -> Any:
         json.JSONDecodeError: 无法解析为 JSON。
     """
     text = content.strip()
+
+    # 0. 预处理:LLM 常在 JSON 字符串值里输出裸反斜杠(如 "a\b"、路径、换行转义失误),
+    #    导致 json.loads 抛 "Invalid \\escape"。做一次宽松转义修复:
+    #    - 把不在合法转义集合中的 "\x" 替换为 "\\x"
+    if "\\" in text:
+        text = _repair_escapes(text)
+
     # 1. 直接尝试解析
     try:
         return json.loads(text)
@@ -90,14 +100,52 @@ def _extract_json(content: str) -> Any:
     # 2. 尝试提取 fenced code block(```json ... ``` 或 ``` ... ```)
     m = _JSON_FENCE_RE.search(text)
     if m:
-        return json.loads(m.group(1))
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
     # 3. 尝试提取首个 { ... } 或 [ ... ](兜底,处理 LLM 把 JSON 包在散文里的情况)
     for opener, closer in (("{", "}"), ("[", "]")):
         start = text.find(opener)
         end = text.rfind(closer)
         if start != -1 and end > start:
-            return json.loads(text[start : end + 1])
+            try:
+                return json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                continue
     raise json.JSONDecodeError("LLM 输出非 JSON,无法解析", text, 0)
+
+
+# 合法 JSON 转义序列(其余 \x 视为 LLM 笔误,修复为 \\x)
+_JSON_VALID_ESCAPES = frozenset('"\\/bfnrtu')
+
+
+def _repair_escapes(text: str) -> str:
+    """修复 LLM JSON 输出中的非法反斜杠转义。
+
+    例:"a\\b"(路径/换行笔误)→ "a\\\\b";保留合法 \\" \\\\ \\n \\t 等。
+    """
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            nxt = text[i + 1]
+            # 合法转义:保留原样(含 \uXXXX 的 u 也在此集合,后面字符不检查)
+            if nxt in _JSON_VALID_ESCAPES:
+                out.append(ch)
+                out.append(nxt)
+                i += 2
+                continue
+            # 非法转义:\x → \\x
+            out.append("\\\\")
+            out.append(nxt)
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 def _build_context_str(context: dict[str, Any] | None) -> str:

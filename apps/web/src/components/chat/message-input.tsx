@@ -26,6 +26,7 @@ import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
+import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
@@ -38,6 +39,8 @@ import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
+import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
+import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -171,6 +174,10 @@ export function MessageInput({
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   const canSend = !isStreaming && value.trim().length > 0
+  // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
+  const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
+  const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(null)
+  const [skillInvokeError, setSkillInvokeError] = React.useState<string | null>(null)
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
     const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
@@ -208,9 +215,18 @@ export function MessageInput({
   // hook 内部有独立的 fillInput(不导出),两者职责清晰分离
   const { promptTemplates, handleCommandSelect, handleCommandArgsSelect } = useSlashAction(
     setValue,
-    aiSkills,
     inputCoreRef,
     onSend,
+    React.useCallback(
+      (skillId: string) => {
+        const skill = aiSkills.find((s) => s.id === skillId)
+        if (!skill) return
+        setSkillInvokeSkill(skill)
+        setSkillInvokeResult(null)
+        setSkillInvokeError(null)
+      },
+      [aiSkills],
+    ),
   )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -368,18 +384,21 @@ export function MessageInput({
                 {floatHeader}
               </div>
             )}
-            <div className="flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1.5">
+            <div className={cn(INPUT_ATTACHMENT_BAR_CLASS)}>
               {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
-                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
+                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。
+                  高度由 PermissionModePopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)。 */}
               <PermissionModePopover disabled={isStreaming} />
               {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
+                  - 高度走 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7)+ w-7(28×28 正方形),与权限/添加按钮严丝合缝
                   - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
               <PermissionHistoryPanel />
               {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
                   收纳 5 类动作,内部按 mode 切换 content(menu/prompt/skill 三态)
+                  高度由 AddMenuPopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
               <AddMenuPopover
                 open={addMenuOpen}
@@ -659,6 +678,49 @@ export function MessageInput({
           - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
           - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
       <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
+      {/* 斜杠命令选中技能时触发的内联调用对话框(2026-08-08 立) */}
+      {skillInvokeSkill && !skillInvokeResult && (
+        <div className="mx-auto mt-2 max-w-3xl px-4">
+          <AiSkillInvokeDialog
+            skill={skillInvokeSkill}
+            error={skillInvokeError}
+            onCancel={() => {
+              setSkillInvokeSkill(null)
+              setSkillInvokeResult(null)
+              setSkillInvokeError(null)
+            }}
+            onSuccess={(result) => {
+              setSkillInvokeResult(result)
+              setSkillInvokeError(null)
+            }}
+            onError={(err) => {
+              setSkillInvokeError(err)
+              setSkillInvokeResult(null)
+            }}
+          />
+        </div>
+      )}
+      {skillInvokeResult && (
+        <div className="mx-auto mt-2 max-w-3xl px-4">
+          <AiSkillResultDialog
+            result={skillInvokeResult}
+            onClose={() => {
+              setSkillInvokeResult(null)
+              setSkillInvokeSkill(null)
+            }}
+            onFillInput={(text) => {
+              setValue(text)
+              setSkillInvokeResult(null)
+              setSkillInvokeSkill(null)
+              requestAnimationFrame(() => {
+                inputCoreRef.current?.focus()
+                inputCoreRef.current?.setSelectionRange(text.length, text.length)
+                inputCoreRef.current?.resize()
+              })
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }

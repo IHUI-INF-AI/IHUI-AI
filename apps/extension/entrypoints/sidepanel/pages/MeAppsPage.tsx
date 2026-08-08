@@ -118,6 +118,11 @@ export default function MeAppsPage() {
     descKey: 'apps.messagesDesc',
   }
   // 插入到 dashboard 之后
-  const finalItems = [items[0], notifItem, msgItem, ...items.slice(1)]
+  // 2026-08-06 修复:noUncheckedIndexedAccess 下 items[0] 可能 undefined,
+  // 用 filter 守卫避免把 undefined 传入 AppListPage(原实现仅靠索引访问)。
+  const first = items[0]
+  const finalItems = first
+    ? [first, notifItem, msgItem, ...items.slice(1)]
+    : [notifItem, msgItem, ...items]
   return <AppListPage titleKey="apps.meTitle" items={finalItems} />
 }

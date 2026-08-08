@@ -51,6 +51,8 @@ from app.services.im_bridge import im_bridge_service
 from app.routers.legacy import router as legacy_router
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
+# AI 批改(AI 自动评分练习答案,2026-08-07 立)
+from app.routers.ai_marking import router as ai_marking_router
 from app.routers.langgraph import router as langgraph_router
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
@@ -467,6 +469,8 @@ def create_app() -> FastAPI:
     app.include_router(legacy_router)
     # P3 深度层:AI 助教(学科讲解/提示/出题)+ LangGraph(interrupt/resume/state/history/stream)
     app.include_router(ai_tutor_router)
+    # AI 批改(学科讲解/提示/出题之外新增评分能力)
+    app.include_router(ai_marking_router)
     app.include_router(langgraph_router)
     # L4 自进化 admin 端点(meta_learner 状态/lessons/history + 手动触发聚类,2026-07-25 立)
     app.include_router(meta_learning_router)

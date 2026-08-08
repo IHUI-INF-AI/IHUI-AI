@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
-import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { PROMPT_TEMPLATE_IDS } from '@/components/chat/prompt-template-data'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 中的 WebInputCoreHandle 契约一致
@@ -76,20 +75,16 @@ const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
  */
 export function useSlashAction(
   setInputValue: (v: string) => void,
-  // FIXME(any): aiSkills 留作未来 skill 描述/分类查询扩展,先用 void 消费以满足 TS6133
-   
-  aiSkills: AiSkillMeta[],
   inputCoreRef: React.RefObject<SlashActionInputCoreHandle | null>,
   onSend: (content: string) => Promise<boolean> | boolean,
+  /** 技能命令选中时触发的回调,skillId 为 skill- 前缀后的实际技能 ID */
+  onOpenSkillInvoke?: (skillId: string) => void,
 ): {
   promptTemplates: PromptTemplate[]
   handleCommandSelect: (id: string) => void
   handleCommandArgsSelect: (_commandId: string, insertText: string) => void
 } {
   const t = useTranslations('chat')
-
-  // FIXME(any): 临时消费 aiSkills 以满足 TS6133,见函数签名注释
-  void aiSkills
 
   // /permission 切换 toast 首弹记录(2026-07-25 深化):每个子命令模式只 toast 一次,
   // 持久化到 localStorage(跨刷新/跨标签页也只弹一次)。
@@ -210,18 +205,17 @@ export function useSlashAction(
         void onSend(`/${id.replace('-', ' ')}`)
         return
       }
-      // skill 命令(2026-07-29 二次深化):id 形如 "skill-<skillId>",
-      // 填充 "/skill <skillName> " 到 textarea 让用户确认或追加参数
+      // skill 命令(2026-08-08 深化):id 形如 "skill-<skillId>",
+      // 触发 onOpenSkillInvoke 回调打开技能调用对话框,而非填充 textarea
       if (id.startsWith('skill-')) {
-        const skillName = id.slice('skill-'.length)
-        fillInput(`/skill ${skillName} `)
+        const skillId = id.slice('skill-'.length)
+        onOpenSkillInvoke?.(skillId)
         return
       }
       fillInput(commandTemplates[id] ?? '')
     },
-    // aiSkills 列入依赖数组(2026-07-29 预留):当前 handleCommandSelect 通过 id 前缀识别 skill 命令,
-    // skillName 从 id 切片获取;未来若需要根据 aiSkills 查找 skill 描述/分类等元数据,
-    // 依赖数组已就位,无需再改 hook 签名
+    // aiSkills 依赖已移除(2026-08-08):原参数 unused,已从 hook 签名删除。
+    // 若未来需要 skill 元数据,需重新加回参数并填充依赖数组。
     [
       t,
       fillInput,
@@ -230,7 +224,7 @@ export function useSlashAction(
       inputCoreRef,
       commandTemplates,
       markPermissionToastShown,
-      aiSkills,
+      onOpenSkillInvoke,
     ],
   )
 

@@ -17,6 +17,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, ExternalLink, Maximize2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 
 interface GrafanaFrameProps {
   /** 当前租户标识(注入到 Grafana 模板变量 $tenant) */
@@ -132,28 +133,30 @@ export function GrafanaFrame({
             {resolvedTitle}
           </CardTitle>
           <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              asChild
-              className="h-7 px-2 text-xs"
-              title={t('openNewWindow')}
-            >
-              <a href={src} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              asChild
-              className="h-7 px-2 text-xs"
-              title={t('openNewWindow')}
-            >
-              <a href={`${DEFAULT_BASE}/d/${uid}`} target="_blank" rel="noreferrer">
-                <Maximize2 className="h-3 w-3" />
-              </a>
-            </Button>
+            <Tooltip content={t('openNewWindow')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+                className="h-7 px-2 text-xs"
+              >
+                <a href={src} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </Button>
+            </Tooltip>
+            <Tooltip content={t('openNewWindow')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+                className="h-7 px-2 text-xs"
+              >
+                <a href={`${DEFAULT_BASE}/d/${uid}`} target="_blank" rel="noreferrer">
+                  <Maximize2 className="h-3 w-3" />
+                </a>
+              </Button>
+            </Tooltip>
           </div>
         </div>
       </CardHeader>

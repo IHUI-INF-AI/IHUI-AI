@@ -156,15 +156,26 @@ export function normalizeUrlPublic(url: string): string {
  */
 export function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): AbortSignal {
   const controller = new AbortController()
-  const onAbort = () => controller.abort()
+  const onAbort = () => {
+    cleanup()
+    controller.abort()
+  }
+  const sources: AbortSignal[] = []
   for (const sig of signals) {
     if (!sig) continue
     if (sig.aborted) {
       controller.abort()
-      break
+      return controller.signal
     }
+    sources.push(sig)
     sig.addEventListener('abort', onAbort, { once: true })
   }
+  // 2026-08-06 修复:合并 signal 被 abort 后清理所有源 signal 的监听器,
+  // 防止 listener 泄漏(源 signal 生命周期更长时,重复调用会造成内存增长)。
+  const cleanup = () => {
+    for (const sig of sources) sig.removeEventListener('abort', onAbort)
+  }
+  controller.signal.addEventListener('abort', cleanup, { once: true })
   return controller.signal
 }
 
@@ -261,9 +272,25 @@ async function fetchOnce<T>(
 /** ApiResult 失败分支类型(用于错误归一化) */
 type ApiFailure = Extract<ApiResult<unknown>, { success: false }>
 
+/**
+ * 2026-08-06 修复:安全地判断 AbortError。
+ * 原实现直接 `err instanceof DOMException`,在微信小程序(weapp)等
+ * 无 DOMException 全局对象的运行环境下会抛 ReferenceError,导致
+ * 网络失败路径崩溃。改为特性检测:DOMException 存在时才用 instanceof,
+ * 否则回退为检查 err.name === 'AbortError'。
+ */
+export function isAbortError(err: unknown): boolean {
+  const name = (err as { name?: unknown } | null)?.name
+  if (name !== 'AbortError') return false
+  if (typeof DOMException !== 'undefined') {
+    return err instanceof DOMException
+  }
+  return true
+}
+
 /** 把内部抛出的错误归一化为 ApiFailure(CircuitOpenError 由调用方处理) */
 function normalizeErrorToResult(err: unknown): ApiFailure {
-  if (err instanceof DOMException && err.name === 'AbortError') {
+  if (isAbortError(err)) {
     return { success: false, error: '请求已取消' }
   }
   const errAny = err as Error & { status?: number; errorCode?: string; retryAfter?: number }
@@ -366,7 +393,7 @@ export async function fetchApi<T>(
           return result as ApiResult<T>
         } catch (err) {
           // AbortError:用户主动取消或超时,直接返回,不重试
-          if (err instanceof DOMException && err.name === 'AbortError') {
+          if (isAbortError(err)) {
             // 区分用户取消 vs 超时:timeoutController 已 abort 说明是超时
             return {
               success: false,
@@ -405,7 +432,7 @@ export async function fetchApi<T>(
       return result as ApiResult<T>
     } catch (err) {
       if (err instanceof CircuitOpenError) throw err
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         return {
           success: false,
           error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
@@ -429,17 +456,25 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
-  const response = await getTransport()(normalizedUrl, {
-    method: options.method,
-    headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
-    signal: options.signal ?? undefined,
-  })
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(`${response.status}: ${text}`)
+  // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
+  // 调用方已传 signal 时不覆盖(尊重外部取消)。
+  const timeoutController = new AbortController()
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000)
+  try {
+    const response = await getTransport()(normalizedUrl, {
+      method: options.method,
+      headers,
+      body: typeof options.body === 'string' ? options.body : undefined,
+      signal: options.signal ?? timeoutController.signal,
+    })
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`${response.status}: ${text}`)
+    }
+    return response.text()
+  } finally {
+    clearTimeout(timeoutId)
   }
-  return response.text()
 }
 
 /**
@@ -531,7 +566,7 @@ export async function fetchAiServiceJson<T>(
     const json = (await response.json()) as T
     return { success: true, data: json }
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err)) {
       return {
         success: false,
         error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
@@ -555,20 +590,27 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
-  const response = await getTransport()(normalizedUrl, {
-    method: options.method,
-    headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
-    signal: options.signal ?? undefined,
-  })
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(`${response.status}: ${text}`)
+  // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
+  const timeoutController = new AbortController()
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000)
+  try {
+    const response = await getTransport()(normalizedUrl, {
+      method: options.method,
+      headers,
+      body: typeof options.body === 'string' ? options.body : undefined,
+      signal: options.signal ?? timeoutController.signal,
+    })
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`${response.status}: ${text}`)
+    }
+    if (!response.blob) {
+      throw new Error('当前 transport 不支持 blob 下载(小程序环境请用 native downloadFile)')
+    }
+    return response.blob()
+  } finally {
+    clearTimeout(timeoutId)
   }
-  if (!response.blob) {
-    throw new Error('当前 transport 不支持 blob 下载(小程序环境请用 native downloadFile)')
-  }
-  return response.blob()
 }
 
 // ==================== SSE 流式对话 ====================
@@ -1205,7 +1247,7 @@ export function formatSSEError(
       requireReauth: false,
     }
   }
-  if (err instanceof DOMException && err.name === 'AbortError') {
+  if (isAbortError(err)) {
     return {
       code,
       errorCode,
@@ -1302,16 +1344,30 @@ const STREAM_MAX_RETRIES = 3
 const STREAM_INITIAL_RETRY_DELAY = 1000
 const STREAM_MAX_RETRY_DELAY = 30_000
 
+/**
+ * 2026-08-06 修复:创建 AbortError 的安全工厂。
+ * 微信小程序(weapp)等运行环境无 DOMException 全局对象,
+ * `new DOMException(...)` 会抛 ReferenceError。回退到普通 Error。
+ */
+function createAbortError(message = 'Aborted'): Error {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException(message, 'AbortError')
+  }
+  const err = new Error(message)
+  err.name = 'AbortError'
+  return err
+}
+
 /** 指数退避等待,支持 AbortSignal 中断(用户主动取消重连) */
 function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new DOMException('Aborted', 'AbortError'))
+      reject(createAbortError())
       return
     }
     const onAbort = () => {
       clearTimeout(timer)
-      reject(new DOMException('Aborted', 'AbortError'))
+      reject(createAbortError())
     }
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort)
@@ -1963,7 +2019,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       opts.onDone?.()
       return
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         opts.onDone?.()
         return
       }
@@ -1971,12 +2027,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const code = info?.code
       // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
       // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
-      // 2026-08-06 根治:所有 4xx 客户端错误一律不重试 —— 请求体未变,重试必然
-      // 再次失败(曾因后端 sqli-guard 误杀返回 400,前端无限重连形成风暴)。
-      // 仅 429+retryAfter(服务端协商等待)与网络错误(无 code)可走重连路径。
       const isBusinessError =
-        (code !== undefined && code >= 400 && code < 500 && code !== 429) ||
-        (code === 429 && info?.retryAfter === undefined)
+        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
       const canRetry = !isBusinessError && attempt < maxRetries
       if (!canRetry) {
         const message = err instanceof Error ? err.message : '网络异常'
@@ -2022,9 +2074,30 @@ export async function postToolResult(
       ? env.NEXT_PUBLIC_AI_SERVICE_URL
       : undefined
   const aiServiceUrl = baseUrl || 'http://localhost:8803'
-  await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tool_call_id: toolCallId, result, error }),
-  })
+  // 2026-08-06 修复:原实现忽略 fetch 结果,失败时既不抛错也不重试,
+  // ai-service 工具循环等待的 asyncio.Event 永远不唤醒 → 前端工具代理流程挂死。
+  // 现在检查 resp.ok,失败抛错让调用方重试(调用方已有重试/降级策略)。
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool_call_id: toolCallId, result, error }),
+    })
+  } catch (e) {
+    throw new Error(
+      `postToolResult network error (session=${sessionId}, tool=${toolCallId}): ${(e as Error).message}`,
+    )
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(
+      `postToolResult failed: HTTP ${resp.status} (session=${sessionId}, tool=${toolCallId})${detail ? `: ${detail}` : ''}`,
+    )
+  }
 }

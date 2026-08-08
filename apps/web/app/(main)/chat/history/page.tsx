@@ -10,6 +10,7 @@ import { Clock, Loader2, Plus, Search, Star } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { Button, Input } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
 interface ConversationsResponse {
@@ -42,7 +43,7 @@ export default function ChatHistoryPage() {
   const total = data?.total ?? items.length
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4 px-4">
       <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -58,17 +59,13 @@ export default function ChatHistoryPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            asChild
-            title={t('viewFavorites')}
-          >
-            <Link href="/chat/favorites">
-              <Star className="h-4 w-4" />
-            </Link>
-          </Button>
+          <Tooltip content={t('viewFavorites')}>
+            <Button variant="outline" size="icon" className="h-9 w-9" asChild>
+              <Link href="/chat/favorites">
+                <Star className="h-4 w-4" />
+              </Link>
+            </Button>
+          </Tooltip>
           <Button size="sm" onClick={() => router.push('/chat')}>
             <Plus className="mr-1.5 h-4 w-4" />
             {t('newChat')}

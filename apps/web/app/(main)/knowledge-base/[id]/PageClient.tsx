@@ -84,7 +84,7 @@ export default function KBDetailPage() {
   const toc = extractToc(article.content)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
       <Link
         href="/knowledge-base"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

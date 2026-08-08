@@ -113,14 +113,14 @@ function getByPath(obj: unknown, path: string): unknown {
 
 describe('miniapp-taro · next-intl ICU 反模式回归', () => {
   describe('1) 5 语言 i18n JSON 含 ICU 占位符 parity', () => {
-    it.each(ICU_KEYS)('$key 在 5 语言中均含 {{$placeholder}}', ({ key, placeholder }) => {
+    it.each(ICU_KEYS)('$key 在 5 语言中均含 {$placeholder}', ({ key, placeholder }) => {
       for (const [locale, msgs] of Object.entries(ALL_MSGS)) {
         const v = getByPath(msgs, key)
         expect(v, `${locale}.${key} 必须存在`).toBeDefined()
         expect(typeof v, `${locale}.${key} 必须是 string`).toBe('string')
-        // 实际 JSON 用 {{n}} 双大括号
-        expect(v as string, `${locale}.${key} 必须含 ICU 占位符 {{${placeholder}}}`).toContain(
-          `{{${placeholder}}}`,
+        // 实际 JSON 用 {n} 单大括号
+        expect(v as string, `${locale}.${key} 必须含 ICU 占位符 {${placeholder}}`).toContain(
+          `{${placeholder}}`,
         )
       }
     })

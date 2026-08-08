@@ -377,9 +377,6 @@ async function sendEmailNotification(
 /**
  * Webhook:若用户订阅了 security 事件,复用 notifyRelayEvent。
  *
- * FIXME(type): RelayWebhookEvent union 暂未包含 'security.*' 事件类型,
- * 主 agent 集成时需在 packages/database/src/schema/webhook-subscriptions.ts
- * 扩展 RelayWebhookEvent。此处用类型断言传递,DB jsonb 列支持任意字符串。
  */
 async function sendWebhookNotification(
   input: LoginAnomalyInput,
@@ -387,7 +384,7 @@ async function sendWebhookNotification(
   content: string,
 ): Promise<void> {
   try {
-    const securityEvent = 'security.login_anomaly' as RelayWebhookEvent
+    const securityEvent: RelayWebhookEvent = 'security.login_anomaly'
     await notifyRelayEvent({
       userId: input.userId,
       event: securityEvent,

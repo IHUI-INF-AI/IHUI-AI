@@ -9,19 +9,23 @@
  * - GET  /admin/:id                  admin,单条询价详情
  * - PATCH /admin/:id/status          admin,更新询价状态
  *
- * 存储:内存 Map(无数据库表,重启丢失;后续可迁移到 service_inquiries 表)。
- * 邮件通知:占位 console.log(后续接入 mail 服务)。
+ * 存储:service_inquiries 表(Drizzle ORM,持久化)。
+ * 邮件通知:sendEmail 异步发送到 business@aizhs.top。
  *
  * 配套前端:apps/web/app/(main)/services/ServicesContent.tsx + InquiryForm.tsx
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { serviceInquiries } from '@ihui/database'
+import { db } from '../db/index.js'
+import { sendEmail } from '../services/email-service.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { eq, and, desc, sql } from 'drizzle-orm'
 
 // =============================================================================
-// 内存存储(模块级,单进程内有效;后续可迁移到 service_inquiries 表)
+// 类型定义
 // =============================================================================
 
 export type InquiryStatus = 'pending' | 'contacted' | 'quoted' | 'won' | 'lost'
@@ -40,8 +44,6 @@ export interface ServiceInquiry {
   createdAt: string
   updatedAt: string
 }
-
-const inquiryStore = new Map<string, ServiceInquiry>()
 
 // =============================================================================
 // Zod schemas
@@ -79,6 +81,41 @@ const updateStatusSchema = z.object({
 })
 
 // =============================================================================
+// 数据库辅助函数
+// =============================================================================
+
+/** 将数据库行转换为 ServiceInquiry 响应对象 */
+function rowToInquiry(row: {
+  id: string
+  name: string
+  company: string | null
+  email: string
+  phone: string | null
+  serviceType: string
+  budget: string
+  description: string
+  timeline: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}): ServiceInquiry {
+  return {
+    id: row.id,
+    name: row.name,
+    company: row.company,
+    email: row.email,
+    phone: row.phone,
+    serviceType: row.serviceType,
+    budget: row.budget,
+    description: row.description,
+    timeline: row.timeline,
+    status: row.status as InquiryStatus,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
+// =============================================================================
 // 路由
 // =============================================================================
 
@@ -95,33 +132,38 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ id: randomUUID() }))
     }
 
-    const now = new Date().toISOString()
-    const inquiry: ServiceInquiry = {
-      id: randomUUID(),
-      name: body.name,
-      company: body.company ?? null,
-      email: body.email,
-      phone: body.phone ?? null,
-      serviceType: body.serviceType,
-      budget: body.budget,
-      description: body.description,
-      timeline: body.timeline,
-      status: 'pending',
-      createdAt: now,
-      updatedAt: now,
-    }
-    inquiryStore.set(inquiry.id, inquiry)
+    const [row] = await db
+      .insert(serviceInquiries)
+      .values({
+        name: body.name,
+        company: body.company ?? null,
+        email: body.email,
+        phone: body.phone ?? null,
+        serviceType: body.serviceType,
+        budget: body.budget,
+        description: body.description,
+        timeline: body.timeline,
+      })
+      .returning()
 
-    // 邮件通知占位(后续接入 mail 服务:business@aizhs.top)
-    request.log.info(
-      {
-        id: inquiry.id,
-        name: inquiry.name,
-        email: inquiry.email,
-        serviceType: inquiry.serviceType,
-      },
-      '[service-inquiry] 新询价提交,待发送邮件通知到 business@aizhs.top',
-    )
+    // row 应始终存在(returning 带新插入行),加守卫满足类型系统
+    const inquiry = rowToInquiry(row!)
+
+    // 异步发送邮件通知(不阻塞响应)
+    sendEmail({
+      to: 'business@aizhs.top',
+      subject: `新询价通知 - ${inquiry.serviceType}`,
+      html: `
+        <h1>新询价提交</h1>
+        <p>姓名: ${inquiry.name}</p>
+        <p>邮箱: ${inquiry.email}</p>
+        <p>服务类型: ${inquiry.serviceType}</p>
+        <p>需求描述: ${inquiry.description}</p>
+      `,
+      scene: 'notification',
+    }).catch((err) => {
+      request.log.error({ err: (err as Error).message }, '[service-inquiry] 邮件发送失败')
+    })
 
     return reply.send(success({ id: inquiry.id }))
   })
@@ -139,18 +181,30 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize, status, serviceType } = parsed.data
-      let items = Array.from(inquiryStore.values())
-      if (status) items = items.filter((i) => i.status === status)
-      if (serviceType) items = items.filter((i) => i.serviceType === serviceType)
-      items.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
-      const total = items.length
-      const start = (page - 1) * pageSize
-      const paged = items.slice(start, start + pageSize)
+      // 构建筛选条件
+      const filters: ReturnType<typeof eq>[] = []
+      if (status) filters.push(eq(serviceInquiries.status, status))
+      if (serviceType) filters.push(eq(serviceInquiries.serviceType, serviceType))
+      const where = filters.length > 0 ? and(...filters) : undefined
+
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(serviceInquiries)
+        .where(where)
+
+      const total = Number(countResult?.count ?? 0)
+      const rows = await db
+        .select()
+        .from(serviceInquiries)
+        .where(where)
+        .orderBy(desc(serviceInquiries.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
 
       return reply.send(
         success({
-          items: paged,
+          items: rows.map(rowToInquiry),
           total,
           page,
           pageSize,
@@ -161,25 +215,33 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
     // GET /admin/:id — 单条询价详情
     adminServer.get('/admin/:id', async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      const inquiry = inquiryStore.get(id)
-      if (!inquiry) {
+      const [row] = await db
+        .select()
+        .from(serviceInquiries)
+        .where(eq(serviceInquiries.id, id))
+        .limit(1)
+
+      if (!row) {
         return reply.status(404).send(error(404, '询价不存在'))
       }
-      return reply.send(success(inquiry))
+      return reply.send(success(rowToInquiry(row)))
     })
 
     // PATCH /admin/:id/status — 更新询价状态
     adminServer.patch('/admin/:id/status', async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
       const body = parseOrThrow(updateStatusSchema, request.body)
-      const inquiry = inquiryStore.get(id)
-      if (!inquiry) {
+
+      const [row] = await db
+        .update(serviceInquiries)
+        .set({ status: body.status, updatedAt: sql`now()` })
+        .where(eq(serviceInquiries.id, id))
+        .returning()
+
+      if (!row) {
         return reply.status(404).send(error(404, '询价不存在'))
       }
-      inquiry.status = body.status
-      inquiry.updatedAt = new Date().toISOString()
-      inquiryStore.set(id, inquiry)
-      return reply.send(success(inquiry))
+      return reply.send(success(rowToInquiry(row)))
     })
   })
 }

@@ -67,7 +67,7 @@ describe('i18n / I18nProvider', () => {
     await act(async () => {
       await result.current.setLocale('ko')
     })
-    expect(await AsyncStorage.getItem('ihui_locale')).toBe('ko')
+    expect(await AsyncStorage.getItem('ihui-locale')).toBe('ko')
   })
 
   it('I18nProvider 从 AsyncStorage 恢复已保存的 locale', async () => {

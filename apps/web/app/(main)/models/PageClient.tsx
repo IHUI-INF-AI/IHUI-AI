@@ -40,7 +40,7 @@ export default function ModelsPageClient() {
   const highlightCount = list.filter((m) => m.highlight).length
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       {isError && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

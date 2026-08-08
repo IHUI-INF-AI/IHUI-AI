@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { DescriptionList } from '@/components/data/DescriptionList'
+import { TruncatedText } from '@/components/common'
 import type { AuthUser } from '@/stores/auth'
 import type { ProfileResponse } from './types'
 
@@ -20,11 +21,7 @@ export function ProfileAccountInfo({ user, data }: Props) {
         items={[
           {
             label: t('userId'),
-            value: (
-              <span className="block truncate font-mono" title={user?.id ?? ''}>
-                {user?.id ?? '—'}
-              </span>
-            ),
+            value: <TruncatedText value={user?.id ?? '—'} className="block font-mono" />,
           },
           {
             label: t('nickname'),
@@ -33,11 +30,7 @@ export function ProfileAccountInfo({ user, data }: Props) {
           { label: t('phone'), value: <span className="whitespace-nowrap">{user?.phone ?? '—'}</span> },
           {
             label: t('email'),
-            value: (
-              <span className="block truncate" title={data?.user?.email ?? ''}>
-                {data?.user?.email ?? '—'}
-              </span>
-            ),
+            value: <TruncatedText value={data?.user?.email ?? '—'} className="block" />,
           },
           {
             label: t('bio'),
