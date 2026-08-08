@@ -51,7 +51,7 @@ export default function VisitTrendPage() {
   const totalSrc = stats.bySource.reduce((s, x) => s + x.pv, 0) || 1
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>

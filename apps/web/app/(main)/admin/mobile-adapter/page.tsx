@@ -65,7 +65,7 @@ export default function MobileAdapterPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
