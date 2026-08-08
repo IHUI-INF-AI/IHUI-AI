@@ -96,14 +96,13 @@ import { llmModelsRoutes } from './llm-models.js'
 // M-20 补建：14 个 API 模块路由
 import toolsRoutes from './tools.js'
 import rankingRoutes from './ranking.js'
-import checkinRoutes, { adminCheckinRoutes } from './checkin.js'
+import { adminGamificationRoutes } from './gamification-admin.js'
 import developerRoutes from './developer.js'
 import appVersionRoutes from './app-version.js'
 import monitorRoutes from './monitor.js'
 import webhooksRoutes from './webhooks.js'
 import webhookTriggerRoutes from './webhooks-trigger.js'
 import packagesRoutes from './packages.js'
-import fundRoutes from './fund.js'
 import walletRoutes, { adminWalletRoutes } from './wallet.js'
 import traderRoutes from './trader.js'
 import sdksRoutes from './sdks.js'
@@ -120,7 +119,7 @@ import { srsReviewRoutes } from './srs-review.js'
 import { agentLanggraphRoutes } from './agent-langgraph.js'
 import { adminZoneRoutes } from './admin-zone.js'
 import { adminDemandSquareRoutes } from './admin-demand-square.js'
-import { zhsCourseRoutes, adminZhsCourseRoutes } from './zhs-course.js'
+import { zhsLegacyRoutes } from './zhs-legacy.js'
 import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organization.js'
 import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
@@ -616,9 +615,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(toolsRoutes, { prefix: '/api/tools' })
   // 排行榜系统：/api/ranking/*
   server.register(rankingRoutes, { prefix: '/api/ranking' })
-  // 签到体系：/api/checkin/* + /api/admin/checkin/*
-  server.register(checkinRoutes, { prefix: '/api/checkin' })
-  server.register(adminCheckinRoutes, { prefix: '/api/admin/checkin' })
+  // 签到体系(2026-08-08 重组):checkin.ts 已废弃,admin 规则 CRUD 迁移至 gamification-admin
+  server.register(adminGamificationRoutes, { prefix: '/api/admin' })
   // 开发者 API 密钥管理：/api/developer/*
   server.register(developerRoutes, { prefix: '/api/developer' })
   // 应用版本管理：/api/app-version/*
@@ -631,8 +629,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(webhookTriggerRoutes, { prefix: '/api/webhooks' })
   // 套餐管理：/api/packages/*
   server.register(packagesRoutes, { prefix: '/api/packages' })
-  // 资金管理：/api/fund/*
-  server.register(fundRoutes, { prefix: '/api/fund' })
   // 钱包管理：/api/wallet/*
   server.register(walletRoutes, { prefix: '/api/wallet' })
   // 钱包管理后台(统计聚合 + 全量流水审计 + 管理员余额调整)
@@ -668,9 +664,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 需求广场管理：/api/admin/demand-square/*
   server.register(adminDemandSquareRoutes, { prefix: '/api/admin/demand-square' })
 
-  // ZHS 课程模块 CRUD：/api/course/*（迁移自 ZHS_Server_java 历史项目）
-  server.register(zhsCourseRoutes, { prefix: '/api/course' })
-  server.register(adminZhsCourseRoutes, { prefix: '/api/admin/course' })
+  // ZHS 历史遗留(2026-08-08 重组):zhs-course.ts 已废弃,admin 独有端点迁移至 zhs-legacy
+  server.register(zhsLegacyRoutes, { prefix: '/api/admin/zhs-legacy' })
   // ZHS 组织机构管理：/api/organization/* + /api/admin/organization/*
   server.register(zhsOrganizationRoutes, { prefix: '/api/organization' })
   server.register(adminZhsOrganizationRoutes, { prefix: '/api/admin/organization' })
