@@ -70,7 +70,7 @@ export default function AdminHelpPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <HelpFilter onCreate={openCreate} />
 

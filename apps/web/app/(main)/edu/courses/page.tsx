@@ -75,7 +75,7 @@ export default function EduCoursesPage() {
   const courses = data?.list ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

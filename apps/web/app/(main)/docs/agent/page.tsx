@@ -53,7 +53,7 @@ export const metadata: Metadata = {
 
 export default function AgentDocsPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(agentJsonLd) }}

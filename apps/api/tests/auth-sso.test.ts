@@ -33,6 +33,10 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('fam-mock'),
 }))
 
+// 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
+// mock 返回 status=1(active),避免 401 '用户不存在'
+vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',

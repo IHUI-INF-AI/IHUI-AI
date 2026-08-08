@@ -1,4 +1,4 @@
-/* TODO: custom color: #ffd700 / #ffc107 / #d4a017 / #ff6b00 / #1a1a2e 为会员品牌金/橙色,无对应 token,保留原值 */
+/* 会员页品牌色:#ffd700 已接入 token(var(--color-vip-gold-start));#ffc107 / #d4a017 / #ff6b00 / #1a1a2e 等会员金/橙/深色无对应 token,保留原值 */
 .member-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -45,7 +45,8 @@
   align-items: center;
 }
 .member-vip-text {
-  background: #ffd700;
+  /* 已接入 token:var(--color-vip-gold-start)(#ffd700) */
+  background: var(--color-vip-gold-start);
   color: var(--color-foreground);
   font-size: 24rpx;
   font-weight: 700;
@@ -94,8 +95,8 @@
   box-sizing: border-box;
 }
 .member-level-current {
-  /* TODO: custom color: 当前等级金色徽章边框 + 浅金背景,无对应 token,保留原值 */
-  border-color: #ffd700;
+  /* 已接入 token:var(--color-vip-gold-start)(#ffd700);浅金背景 rgba(255,215,0,*) 无对应 token,保留原值 */
+  border-color: var(--color-vip-gold-start);
   background: rgba(255, 215, 0, 0.1);
   box-shadow: 0 0 12rpx rgba(255, 215, 0, 0.3);
 }
@@ -282,8 +283,9 @@
   border: 2rpx solid var(--color-primary);
 }
 .member-vip-permanent {
+  /* 渐变多段色保留原值;边框已接入 token:var(--color-vip-gold-start) */
   background: linear-gradient(135deg, #ffd700, #ffc107);
-  border-color: #ffd700;
+  border-color: var(--color-vip-gold-start);
 }
 .member-permanent-badge {
   display: flex;

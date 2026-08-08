@@ -157,14 +157,16 @@ describe('wechat-pay — 微信支付服务', () => {
   })
 
   describe('verifyCallbackSignature', () => {
-    it('无平台证书 + test 环境跳过验签返回 true', () => {
+    // P1-1 安全修复(2026-08-05):verifyCallbackSignature 改为 fail-closed,
+    // 无平台证书时一律返回 false,不再区分环境。
+    it('无平台证书 + test 环境返回 false(fail-closed)', () => {
       vi.stubEnv('NODE_ENV', 'test')
-      expect(verifyCallbackSignature('1700000000', 'nonce', '{"a":1}', 'sig')).toBe(true)
+      expect(verifyCallbackSignature('1700000000', 'nonce', '{"a":1}', 'sig')).toBe(false)
     })
 
-    it('无平台证书 + development 环境跳过验签返回 true', () => {
+    it('无平台证书 + development 环境返回 false(fail-closed)', () => {
       vi.stubEnv('NODE_ENV', 'development')
-      expect(verifyCallbackSignature('1700000000', 'nonce', '{"a":1}', 'sig')).toBe(true)
+      expect(verifyCallbackSignature('1700000000', 'nonce', '{"a":1}', 'sig')).toBe(false)
     })
 
     it('无平台证书 + production 环境返回 false', () => {

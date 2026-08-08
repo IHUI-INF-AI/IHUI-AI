@@ -19,6 +19,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AiTutorPanel } from '@/components/learn/ai-tutor-panel'
 import { cn } from '@/lib/utils'
 
 interface Section {
@@ -107,7 +108,7 @@ export default function EduCourseLearnPage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <button
           type="button"
           onClick={() => router.push(`/edu/courses/${id}`)}
@@ -125,7 +126,7 @@ export default function EduCourseLearnPage() {
   const active = currentSec ?? sections[0] ?? null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <Link
         href={`/edu/courses/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -219,6 +220,9 @@ export default function EduCourseLearnPage() {
               ))}
             </CardContent>
           </Card>
+
+          {/* 2026-08-07 AI 助教:接入学习页侧栏(讲解/提示/出题) */}
+          <AiTutorPanel />
 
           <Card>
             <CardHeader className="pb-2">

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 import { useMetricsSummaryQuery } from '@/hooks/use-saas-tenants'
 import { GrafanaFrame, GrafanaUnavailableHint } from '../_components/GrafanaFrame'
@@ -37,7 +38,7 @@ export default function MetricsComparisonPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackBar />
 
       {/* 标题 + 刷新 */}
@@ -65,21 +66,22 @@ export default function MetricsComparisonPage() {
               <Layers className="h-3 w-3" />
               <CenteredText>{t('compareTitle')}</CenteredText>
             </CardTitle>
-            <Button
-              size="sm"
-              variant="ghost"
-              asChild
-              className="h-7 px-2 text-xs"
-              title={t('openNewWindow')}
-            >
-              <a
-                href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'}/d/saas-tenant-comparison`}
-                target="_blank"
-                rel="noreferrer"
+            <Tooltip content={t('openNewWindow')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+                className="h-7 px-2 text-xs"
               >
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </Button>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'}/d/saas-tenant-comparison`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </Button>
+            </Tooltip>
           </div>
         </CardHeader>
         <CardContent>

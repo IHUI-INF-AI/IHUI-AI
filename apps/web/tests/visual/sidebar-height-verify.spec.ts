@@ -5,6 +5,8 @@ import path from 'node:path'
 /**
  * 侧边栏按钮高度统一改造 — 4 态强制验证
  * 改动:主导航层 h-10(40px)→h-9(36px);header 按钮 h-7(28px)→h-[26px](26px)
+ * 2026-08-07 升级:底部工具栏 4 按钮(语言/下载/消息/主题)h-[26px] w-[26px] + svg 18×18
+ *   → h-7 w-7 (28×28) + svg h-5 w-5 (20×20),与 NavLink / 新建任务 / 折叠按钮图标一致
  *
  * 本脚本用 headless chromium 实际渲染 + 读 DOM 数值 + 4 态截图,
  * 完全独立于 Trae 内置浏览器面板。
@@ -128,10 +130,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
     expect(data.navLink0_height).toBe(36)
     expect(data.newTask_height).toBe(36)
     expect(data.collapseBtn_height).toBe(26)
-    // 底部工具栏 icon 按钮:已渲染的(高度>0)应全部为 26px
+    // 底部工具栏 icon 按钮:2026-08-07 升级为 28×28 (h-7 w-7)
     const footerHeights = (data.footerBtn_heights as number[]).filter((h) => h > 0)
     expect(footerHeights.length).toBeGreaterThanOrEqual(1)
-    expect(footerHeights.every((h) => h === 26)).toBe(true)
+    expect(footerHeights.every((h) => h === 28)).toBe(true)
   })
 
   test('hover 态', async ({ page }) => {

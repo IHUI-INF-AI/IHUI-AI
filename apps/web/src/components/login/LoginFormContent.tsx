@@ -67,6 +67,7 @@ function TwoFactorPanel({
           setErr('')
         }}
         placeholder={t('twoFactorPlaceholder')}
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- 两步验证码输入框需要自动聚焦，提升用户体验
         autoFocus
         className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}

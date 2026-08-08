@@ -100,15 +100,17 @@ export function StudentTable({ rows, isLoading, error, onEdit, onDelete, deleteP
                       </Button>
                     </Tooltip>
                     <Tooltip content={t('delete')}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(s)}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(s)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </TableCell>
