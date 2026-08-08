@@ -78,6 +78,7 @@ export interface BuiltinSkill {
 export interface SkillLibraryProps {
   onSelect: (template: string) => void
   onClose: () => void
+  onSendToChat?: (content: string) => void
 }
 
 type TabKey = 'all' | 'template' | 'slash' | 'self-media' | 'ai-skills' | 'custom'
@@ -113,7 +114,7 @@ const SCENARIO_LABEL_KEY: Record<ChatSkillScenario, string> = {
   custom: 'scenarioCustom',
 }
 
-export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
+export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryProps) {
   const t = useTranslations('chat.skillLibrary')
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [activeTab, setActiveTab] = React.useState<TabKey>('all')
@@ -187,7 +188,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
     setAiSkillsLoading(true)
     setError(null)
     try {
-      const res = await listAiSkills()
+      const res = await listAiSkills({ category: 'all' })
       // 后端 ai-skills.py 直接返回 list(SkillMeta),fetchApi 包装成 ApiResult
       if (res.success && res.data) {
         setAiSkills(res.data)
@@ -598,6 +599,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
             onSelect(text)
             onClose()
           }}
+          onSendToChat={onSendToChat}
         />
       )}
       <ConfirmDialogRenderer />
@@ -810,6 +812,13 @@ interface AiSkillItemProps {
 
 function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
   const t = useTranslations('chat.skillLibrary')
+  const tp = useTranslations('aiSkillsPage')
+  const categoryLabel =
+    skill.category === 'ai-top'
+      ? tp('categoryAiTop')
+      : skill.category === 'code'
+        ? tp('categoryCode')
+        : tp('categoryMedia')
   return (
     <button
       type="button"
@@ -825,6 +834,9 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-1.5">
           <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
+          <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
+            {categoryLabel}
+          </span>
           <span
             className={cn(
               'rounded-sm px-1 text-[9px]',
@@ -859,7 +871,7 @@ interface AiSkillInvokeDialogProps {
  *  - 真集成 skill: 根据 skill.promptTemplate 解析 {key} 变量,动态渲染对应输入框(支持全部 19 个 skill 的 15 个变量)
  *  - 占位 skill: 显示 skill 介绍 + GitHub 链接 + 关闭按钮
  */
-function AiSkillInvokeDialog({
+export function AiSkillInvokeDialog({
   skill,
   error,
   onCancel,
@@ -871,10 +883,13 @@ function AiSkillInvokeDialog({
   const [running, setRunning] = React.useState(false)
   // 动态变量态(键为变量名,值为用户输入)
   const [variables, setVariables] = React.useState<Record<string, string>>({})
+  // 字段级验证:记录缺失的字段名(2026-08-08 深化)
+  const [missingFields, setMissingFields] = React.useState<Set<string>>(new Set())
 
   // 切换 skill 时重置变量态
   React.useEffect(() => {
     setVariables({})
+    setMissingFields(new Set())
   }, [skill.id])
 
   // 占位 skill:显示引导 + GitHub 链接
@@ -923,12 +938,19 @@ function AiSkillInvokeDialog({
   // 真集成 skill:动态渲染参数输入
   const handleSubmit = async () => {
     if (running) return
-    // 校验必填(所有渲染变量都需要值)
-    const missing = fallbackVars.find((k) => !variables[k]?.trim())
-    if (missing) {
+    // 字段级校验:标记所有缺失字段(2026-08-08 深化)
+    const newMissing = new Set<string>()
+    for (const k of fallbackVars) {
+      if (!variables[k]?.trim()) {
+        newMissing.add(k)
+      }
+    }
+    if (newMissing.size > 0) {
+      setMissingFields(newMissing)
       onError(t('invokeMissingVariable'))
       return
     }
+    setMissingFields(new Set())
     setRunning(true)
     try {
       const res = await invokeAiSkill(skill.id, { variables })
@@ -973,42 +995,72 @@ function AiSkillInvokeDialog({
         const maxLen = getMaxLen(key)
         const labelKey = getLabelKey(key) as 'inputContent'
         const placeholderKey = getPlaceholderKey(key) as 'placeholderContent'
+        const isMissing = missingFields.has(key)
         const val = variables[key] ?? ''
         return (
           <div key={key} className="space-y-1">
-            <label htmlFor={`inv-var-${key}`} className="text-[10px] font-medium text-foreground">
+            <label
+              htmlFor={`inv-var-${key}`}
+              className={cn(
+                'text-[10px] font-medium',
+                isMissing ? 'text-destructive' : 'text-foreground',
+              )}
+            >
               {td(labelKey)}
+              {isMissing && (
+                <span className="ml-1 text-[9px] text-destructive">*{t('invokeRequired')}</span>
+              )}
             </label>
             {long ? (
               <textarea
                 id={`inv-var-${key}`}
                 value={val}
-                onChange={(e) =>
+                onChange={(e) => {
                   setVariables((prev) => ({
                     ...prev,
                     [key]: e.target.value.slice(0, maxLen),
                   }))
-                }
+                  if (isMissing && e.target.value.trim()) {
+                    setMissingFields((prev) => {
+                      const next = new Set(prev)
+                      next.delete(key)
+                      return next
+                    })
+                  }
+                }}
                 placeholder={td(placeholderKey)}
                 aria-label={td(labelKey)}
                 maxLength={maxLen}
                 rows={key === 'content' || key === 'text' ? 3 : 2}
-                className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
+                className={cn(
+                  'thin-scroll w-full resize-none rounded-md border bg-background px-2 py-1 text-xs leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  isMissing ? 'border-destructive/60' : 'border-border',
+                )}
               />
             ) : (
               <input
                 id={`inv-var-${key}`}
                 type="text"
                 value={val}
-                onChange={(e) =>
+                onChange={(e) => {
                   setVariables((prev) => ({
                     ...prev,
                     [key]: e.target.value,
                   }))
-                }
+                  if (isMissing && e.target.value.trim()) {
+                    setMissingFields((prev) => {
+                      const next = new Set(prev)
+                      next.delete(key)
+                      return next
+                    })
+                  }
+                }}
                 placeholder={td(placeholderKey)}
                 aria-label={td(labelKey)}
-                className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
+                className={cn(
+                  'w-full rounded-md border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  isMissing ? 'border-destructive/60' : 'border-border',
+                )}
               />
             )}
           </div>
@@ -1049,10 +1101,11 @@ interface AiSkillResultDialogProps {
   result: AiSkillInvokeResponse
   onClose: () => void
   onFillInput: (text: string) => void
+  onSendToChat?: (content: string) => void
 }
 
 /** AI Skill 调用结果展示(支持 text/html/json 三种 contentType) */
-function AiSkillResultDialog({ result, onClose, onFillInput }: AiSkillResultDialogProps) {
+export function AiSkillResultDialog({ result, onClose, onFillInput, onSendToChat }: AiSkillResultDialogProps) {
   const t = useTranslations('chat.skillLibrary')
   return (
     <div className="space-y-2 rounded-md border border-border bg-card p-2">
@@ -1109,6 +1162,18 @@ function AiSkillResultDialog({ result, onClose, onFillInput }: AiSkillResultDial
         >
           {t('invokeBackToList')}
         </button>
+        {result.ok && onSendToChat && (
+          <button
+            type="button"
+            onClick={() => {
+              onSendToChat(result.content)
+              onClose()
+            }}
+            className="rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            {t('invokeSendToChat')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onFillInput(result.content)}
