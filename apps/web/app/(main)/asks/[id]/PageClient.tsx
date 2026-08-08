@@ -146,7 +146,7 @@ export default function AskDetailPage() {
     : null
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
       {askJsonLd ? (
         <script
           type="application/ld+json"

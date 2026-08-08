@@ -149,7 +149,7 @@ export default function SecurityPage() {
   const dateFmt = createDateFmt(locale)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <PasswordSection pwMsg={pwMsg} pwLoading={pwLoading} onSubmit={onPasswordSubmit} />
       <PhoneSection

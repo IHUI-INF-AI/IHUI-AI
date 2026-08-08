@@ -72,7 +72,7 @@ export default function RedisMonitorPage() {
   const tp = p.reduce((a, x) => a + x.count, 0) || 1
   const bc = mp > 80 ? 'bg-red-500/70' : mp > 60 ? 'bg-amber-500/70' : 'bg-emerald-500/70'
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Cpu className="h-6 w-6 text-primary" />

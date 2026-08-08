@@ -69,7 +69,7 @@ export default function EduExamTakePage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <button
           type="button"
           onClick={() => router.push('/edu/exam')}
@@ -101,7 +101,7 @@ export default function EduExamTakePage() {
 
   if (!q) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Link
           href="/edu/exam"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -115,7 +115,7 @@ export default function EduExamTakePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <div className="flex items-center justify-between">
         <Link
           href="/edu/exam"

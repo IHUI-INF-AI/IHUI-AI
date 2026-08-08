@@ -60,6 +60,15 @@ vi.mock('next-intl', () => ({
   useTranslations: () => mockT,
 }))
 
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
+}))
+
 vi.mock('@ihui/api-client', () => ({}))
 
 vi.mock('lucide-react', () => {
@@ -68,11 +77,13 @@ vi.mock('lucide-react', () => {
     __esModule: true,
     Sparkles: Icon,
     AlertCircle: Icon,
+    AlertTriangle: Icon,
     Loader2: Icon,
     ChevronDown: Icon,
     ShieldCheck: Icon,
     ShieldAlert: Icon,
     Hand: Icon,
+    Info: Icon,
     MessageSquare: Icon,
     ListTree: Icon,
     Copy: Icon,
@@ -95,9 +106,11 @@ vi.mock('lucide-react', () => {
     Download: Icon,
     Code: Icon,
     Megaphone: Icon,
+    CheckCircle: Icon,
     CheckCircle2: Icon,
     Terminal: Icon,
     X: Icon,
+    XCircle: Icon,
     Brain: Icon,
     FileSearch: Icon,
     Globe: Icon,

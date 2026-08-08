@@ -123,7 +123,7 @@ export default function EduStudentDetailPage() {
 
   if (!id) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">
             <ChevronLeft className="h-4 w-4" />
@@ -144,7 +144,7 @@ export default function EduStudentDetailPage() {
     )
   if (error || !data)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">
             <ChevronLeft className="h-4 w-4" />
@@ -160,7 +160,7 @@ export default function EduStudentDetailPage() {
     : `L${data.level}`
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
