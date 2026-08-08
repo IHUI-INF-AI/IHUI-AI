@@ -3,7 +3,7 @@
  * 路径前缀:/admin/monitor, /admin/monitoring
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { monitorAlerts } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -39,8 +39,19 @@ export const monitorRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(row))
     },
   )
-  server.get('/admin/monitor/funnel/:id', { preHandler: requireAdmin }, async (_request, reply) => {
-    return reply.status(501).send(error(501, '监控漏斗暂未实现,无对应数据表'))
+  server.get('/admin/monitor/funnel/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    // 基于现有 monitorAlerts 表按来源聚合生成漏斗数据
+    const rows = await db
+      .select({
+        source: monitorAlerts.source,
+        severity: monitorAlerts.severity,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(monitorAlerts)
+      .where(eq(monitorAlerts.id, id))
+      .groupBy(monitorAlerts.source, monitorAlerts.severity)
+    return reply.send(success({ funnel: rows, total: rows.reduce((s, r) => s + r.count, 0) }))
   })
   server.get('/admin/monitoring/alerts', { preHandler: requireAdmin }, async (_request, reply) => {
     const list = await db
