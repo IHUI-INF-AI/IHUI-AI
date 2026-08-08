@@ -176,6 +176,9 @@ __*
 # 豁免:__tests__ 是合法测试目录,不允许被 __* 误伤(lint-staged re-add 失败根因)
 !**/__tests__/
 !**/__tests__/**
+# 豁免:__mocks__ 是 vitest/jest 标准 mock 目录,不允许被 __* 误伤
+!**/__mocks__/
+!**/__mocks__/**
 check_guard_final*.log
 deep_audit_round*.log
 stub_audit_round*.log
