@@ -216,17 +216,19 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
           />
           <div className="flex w-full items-center gap-2">
             <Tooltip content={t('cropRotateLeft')}>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setRotation((r) => (r + 270) % 360)}
-                disabled={!loaded}
-                aria-label={t('cropRotateLeft')}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setRotation((r) => (r + 270) % 360)}
+                  disabled={!loaded}
+                  aria-label={t('cropRotateLeft')}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              </span>
             </Tooltip>
             <span className="text-xs text-muted-foreground">{t('cropScale')}</span>
             <input
@@ -244,17 +246,19 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
               {userScale.toFixed(2)}x
             </span>
             <Tooltip content={t('cropRotateRight')}>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setRotation((r) => (r + 90) % 360)}
-                disabled={!loaded}
-                aria-label={t('cropRotateRight')}
-              >
-                <RotateCw className="h-3.5 w-3.5" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  disabled={!loaded}
+                  aria-label={t('cropRotateRight')}
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                </Button>
+              </span>
             </Tooltip>
           </div>
           <div className="flex items-center gap-2">

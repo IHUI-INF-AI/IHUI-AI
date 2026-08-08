@@ -78,9 +78,12 @@ export interface HintResult {
   encouragement?: string
 }
 export interface QuizItem {
-  question: string
+  question_text: string
+  options?: string[]
   answer?: string
   explanation?: string
+  knowledge_points?: string[]
+  difficulty?: string
 }
 export interface QuizResult {
   quizzes: QuizItem[]

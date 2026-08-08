@@ -100,7 +100,9 @@ export function ThirdPartyLoginButtons({ t, config, className }: ThirdPartyLogin
 
             return tooltipContent ? (
               <Tooltip key={p.key}>
-                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">{button}</span>
+                </TooltipTrigger>
                 <TooltipContent>{tooltipContent}</TooltipContent>
               </Tooltip>
             ) : (

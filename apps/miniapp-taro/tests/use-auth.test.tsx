@@ -51,6 +51,7 @@ import type { TokenStore } from '@ihui/shared/auth'
 import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
+  USER_INFO_STORAGE_KEY,
 } from '@ihui/shared/constants'
 import { tokenStore as taroTokenStore } from '../src/utils/auth'
 
@@ -425,8 +426,7 @@ interface TestUser {
 
 const mockUser: TestUser = { id: 'u-1', nickname: 'tester' }
 
-// miniapp-taro src/utils/auth.ts 中 USER_INFO_KEY 的值(本地常量,未导出)
-const USER_INFO_KEY = 'ihui_user_info'
+// USER_INFO_STORAGE_KEY 从 @ihui/shared/constants 导入
 
 describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
   let store: TokenStore
@@ -732,12 +732,12 @@ describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
       // getUserInfo:读取 Taro.storage 返回的对象
       expect(taroTokenStore.getUserInfo()).toEqual(userInfo)
       // 验证 Taro.storage 被写入
-      expect(taroStorage[USER_INFO_KEY]).toEqual(userInfo)
+      expect(taroStorage[USER_INFO_STORAGE_KEY]).toEqual(userInfo)
 
       // clearAll(clearAuth)清除后 getUserInfo 返回 null
       taroTokenStore.clearAll?.()
       expect(taroTokenStore.getUserInfo()).toBeNull()
-      expect(taroStorage[USER_INFO_KEY]).toBeUndefined()
+      expect(taroStorage[USER_INFO_STORAGE_KEY]).toBeUndefined()
     })
   })
 })

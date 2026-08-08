@@ -17,6 +17,7 @@ import {
   Code, Quote, List, ListOrdered, Table as TableIcon, Minus,
 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 export interface RichTextEditorProps {
@@ -241,30 +242,34 @@ export function RichTextEditor({
           {ACTIONS.map((act, i) => {
             const Icon = act.icon
             return (
-              <Button
+              <Tooltip
                 key={`${act.labelKey}-${i}`}
+                content={t(act.labelKey as never) + (act.shortcut ? ` (${act.shortcut})` : '')}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => applyWrap(act.wrap)}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </Button>
+              </Tooltip>
+            )
+          })}
+          {onImageUpload && (
+            <Tooltip content={t('editor.image')}>
+              <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9"
-                title={t(act.labelKey as never) + (act.shortcut ? ` (${act.shortcut})` : '')}
-                onClick={() => applyWrap(act.wrap)}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <ImageIcon className="h-3.5 w-3.5" />
               </Button>
-            )
-          })}
-          {onImageUpload && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              title={t('editor.image')}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <ImageIcon className="h-3.5 w-3.5" />
-            </Button>
+            </Tooltip>
           )}
           <input
             ref={fileInputRef}

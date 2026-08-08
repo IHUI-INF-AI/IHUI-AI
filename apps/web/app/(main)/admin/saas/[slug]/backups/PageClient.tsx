@@ -252,27 +252,31 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
               <td className="px-4 py-2.5">
                 <div className="flex items-center justify-end gap-1">
                   <Tooltip content={t('restore')}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onRestore(b)}
-                      disabled={pending !== null}
-                      aria-label={t('restore')}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onRestore(b)}
+                        disabled={pending !== null}
+                        aria-label={t('restore')}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </span>
                   </Tooltip>
                   <Tooltip content={t('delete')}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-rose-500 hover:text-rose-600"
-                      onClick={() => onDelete(b)}
-                      disabled={pending !== null}
-                      aria-label={t('delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-500 hover:text-rose-600"
+                        onClick={() => onDelete(b)}
+                        disabled={pending !== null}
+                        aria-label={t('delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </span>
                   </Tooltip>
                   <Tooltip content={t('download')}>
                     <Button size="sm" variant="ghost" asChild aria-label={t('download')}>

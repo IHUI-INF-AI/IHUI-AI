@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 
 interface StatCardProps {
   title: string
@@ -17,7 +18,10 @@ export function StatCard({ title, value, icon: Icon, trend, trendLabel, loading 
   return (
     <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-muted-foreground" title={title}>{title}</span>
+        <TruncatedText
+          value={title}
+          className="min-w-0 flex-1 whitespace-nowrap text-sm text-muted-foreground"
+        />
         {Icon && (
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Icon className="h-4 w-4" />
