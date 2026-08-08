@@ -18,7 +18,12 @@ from __future__ import annotations
 
 import re
 
-from playwright.async_api import BrowserContext, Error as PlaywrightError, Page
+from typing import TYPE_CHECKING
+
+from playwright.async_api import Error as PlaywrightError
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext, Page
 
 from app.core.logging import get_logger
 

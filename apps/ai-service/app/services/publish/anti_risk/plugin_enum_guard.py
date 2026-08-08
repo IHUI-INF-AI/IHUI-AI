@@ -14,7 +14,10 @@ plugins 或异常 permissions,被检测为"无头浏览器"。
 """
 from __future__ import annotations
 
-from playwright.async_api import BrowserContext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
 
