@@ -248,17 +248,21 @@ vi.mock('../src/utils/crypto-random.js', () => ({
   generateShortCode: vi.fn(),
 }))
 
-vi.mock('@ihui/database', () => ({
-  users: {},
-  invitationCodes: {
-    id: 'id',
-    code: 'code',
-    userId: 'user_id',
-    usedAt: 'used_at',
-    createdAt: 'created_at',
-    expiresAt: 'expires_at',
-  },
-}))
+vi.mock('@ihui/database', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    users: {},
+    invitationCodes: {
+      id: 'id',
+      code: 'code',
+      userId: 'user_id',
+      usedAt: 'used_at',
+      createdAt: 'created_at',
+      expiresAt: 'expires_at',
+    },
+  }
+})
 
 vi.mock('../src/db/index.js', () => ({
   db: {},
