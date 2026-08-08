@@ -14,7 +14,10 @@ navigator.connection(网络信息)、performance.memory(JS 堆内存)是稳定�
 """
 from __future__ import annotations
 
-from playwright.async_api import BrowserContext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
 
