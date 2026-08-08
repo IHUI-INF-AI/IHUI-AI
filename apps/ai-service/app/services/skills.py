@@ -53,7 +53,9 @@ class Skill:
         return template
 
 
-# 6 个预置 skill
+# 6 个预置 skill(代码类)
+# 2026-08-09 扩展:新增 7 个聊天模板类内置 skill(text-summary/text-translate/text-explain/text-code/text-polish/
+# wechat-article/koubo-script),让 AI Skills 独立页完整展示所有内置 skill。
 _BUILTIN_SKILLS: list[Skill] = [
     Skill(
         name="code-review",
@@ -111,6 +113,70 @@ _BUILTIN_SKILLS: list[Skill] = [
             "需求: {requirements}\n\n"
             "输出: 端点列表、请求/响应 schema、状态码、示例"
         ),
+    ),
+    # 2026-08-09 新增:聊天模板类内置 skill(对齐前端 skill-library.tsx builtinSkills)
+    Skill(
+        name="text-summary",
+        description="文本总结: 对给定文本进行简洁的总结",
+        prompt_template=(
+            "请对以下文本进行简洁的总结,抓住核心要点:\n\n{content}"
+        ),
+        category="code",
+        tags=["summary", "text"],
+    ),
+    Skill(
+        name="text-translate",
+        description="翻译: 将文本翻译成指定语言",
+        prompt_template=(
+            "请将以下文本翻译成 {language}:\n\n{content}"
+        ),
+        category="code",
+        tags=["translate", "text"],
+    ),
+    Skill(
+        name="text-explain",
+        description="解释说明: 对概念或代码进行通俗易懂的解释",
+        prompt_template=(
+            "请对以下内容进行通俗易懂的解释,适合初学者理解:\n\n{content}"
+        ),
+        category="code",
+        tags=["explain", "text"],
+    ),
+    Skill(
+        name="text-code",
+        description="代码生成: 根据需求生成代码",
+        prompt_template=(
+            "请根据以下需求生成 {language} 代码:\n\n{content}"
+        ),
+        category="code",
+        tags=["code", "generation"],
+    ),
+    Skill(
+        name="text-polish",
+        description="文本润色: 优化文本的表达和流畅度",
+        prompt_template=(
+            "请优化以下文本的表达,使其更流畅、简洁、专业:\n\n{content}"
+        ),
+        category="code",
+        tags=["polish", "text"],
+    ),
+    Skill(
+        name="wechat-article",
+        description="公众号文章: 生成微信公众号文章排版格式",
+        prompt_template=(
+            "请根据以下主题生成一篇微信公众号文章,包含标题、正文、排版建议:\n\n{topic}"
+        ),
+        category="media",
+        tags=["wechat", "article", "media"],
+    ),
+    Skill(
+        name="koubo-script",
+        description="口播稿: 生成短视频口播稿",
+        prompt_template=(
+            "请根据以下主题生成一篇短视频口播稿,包含开场、正文、结尾:\n\n{topic}"
+        ),
+        category="media",
+        tags=["koubo", "script", "media"],
     ),
 ]
 
