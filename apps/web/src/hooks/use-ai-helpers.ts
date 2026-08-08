@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import { fetchApi } from '@/lib/api'
+import type { ApiResult } from '@ihui/types'
 import type { AgentContentListItem, TaskPollingResult } from './types/ai-talk'
 
 /** 模型清单条目(用于 getModelCode / getModelCodeByName) */
@@ -177,10 +178,20 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
           onFailed('轮询超时')
           return
         }
-        const res = await fetchApi<TaskPollingResult>('/api/ai/keling/audio/end', {
-          method: 'POST',
-          body: JSON.stringify({ task_id: taskId }),
-        })
+        // 2026-08-06 修复:async 回调内 catch 网络/熔断异常,
+        // 防止 unhandled rejection + 轮询悬挂(CircuitOpenError 等由 fetchApi 抛出)
+        let res: ApiResult<TaskPollingResult>
+        try {
+          res = await fetchApi<TaskPollingResult>('/api/ai/keling/audio/end', {
+            method: 'POST',
+            body: JSON.stringify({ task_id: taskId }),
+          })
+        } catch (e) {
+          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
+          audioPollingRef.current = null
+          onFailed(e instanceof Error ? e.message : '音频生成查询失败')
+          return
+        }
         if (!res.success) {
           if (audioPollingRef.current) clearInterval(audioPollingRef.current)
           audioPollingRef.current = null
@@ -220,10 +231,19 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
           onFailed('轮询超时')
           return
         }
-        const res = await fetchApi<TaskPollingResult>('/api/ai/sora/request/end', {
-          method: 'POST',
-          body: JSON.stringify({ task_id: taskId }),
-        })
+        // 2026-08-06 修复:async 回调内 catch 网络/熔断异常
+        let res: ApiResult<TaskPollingResult>
+        try {
+          res = await fetchApi<TaskPollingResult>('/api/ai/sora/request/end', {
+            method: 'POST',
+            body: JSON.stringify({ task_id: taskId }),
+          })
+        } catch (e) {
+          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
+          videoPollingRef.current = null
+          onFailed(e instanceof Error ? e.message : '视频生成查询失败')
+          return
+        }
         if (!res.success) {
           if (videoPollingRef.current) clearInterval(videoPollingRef.current)
           videoPollingRef.current = null

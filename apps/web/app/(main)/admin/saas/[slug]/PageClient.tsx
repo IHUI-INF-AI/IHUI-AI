@@ -118,7 +118,7 @@ export default function TenantDetailPage() {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <BackBar />
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
           {error.message}
@@ -129,7 +129,7 @@ export default function TenantDetailPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <BackBar />
         <Skeleton variant="card" count={3} />
       </div>

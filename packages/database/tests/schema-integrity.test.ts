@@ -535,7 +535,7 @@ describe('commission schema', () => {
   it('commissionFlows 三外键 + 状态默认值', () => {
     expect(commissionFlows.beneficiaryId).toBeDefined()
     expect(getColumnType(commissionFlows.beneficiaryId)).toBe('uuid')
-    expect(isColumnNotNull(commissionFlows.beneficiaryId)).toBe(true)
+    // beneficiaryId 可空：用户删除时保留佣金凭证，beneficiaryId 置 NULL
     expect(commissionFlows.invitedUserId).toBeDefined()
     expect(getColumnType(commissionFlows.invitedUserId)).toBe('uuid')
     expect(commissionFlows.orderId).toBeDefined()
@@ -546,7 +546,7 @@ describe('commission schema', () => {
 
   it('withdrawalFlows 关键字段 + 状态', () => {
     expect(withdrawalFlows.userId).toBeDefined()
-    expect(isColumnNotNull(withdrawalFlows.userId)).toBe(true)
+    // userId 可空：用户删除时保留提现财务凭证，userId 置 NULL
     expect(withdrawalFlows.amount).toBeDefined()
     expect(isColumnNotNull(withdrawalFlows.amount)).toBe(true)
     expect(withdrawalFlows.status).toBeDefined()

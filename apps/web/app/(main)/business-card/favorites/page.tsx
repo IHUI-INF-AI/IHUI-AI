@@ -66,7 +66,7 @@ export default function CardFavoritesPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <Link
         href="/business-card"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -144,15 +144,17 @@ export default function CardFavoritesPage() {
                             <Share2 className="h-3.5 w-3.5" />
                           </Link>
                           <Tooltip content="取消收藏">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => removeMut.mutate(entry.favoriteId)}
-                              disabled={removeMut.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <span className="inline-flex">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => removeMut.mutate(entry.favoriteId)}
+                                disabled={removeMut.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </span>
                           </Tooltip>
                         </div>
                       </div>

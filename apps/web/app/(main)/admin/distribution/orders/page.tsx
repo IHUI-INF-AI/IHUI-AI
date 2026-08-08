@@ -63,7 +63,7 @@ export default function AdminDistributionOrdersPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <Link
         href="/admin/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

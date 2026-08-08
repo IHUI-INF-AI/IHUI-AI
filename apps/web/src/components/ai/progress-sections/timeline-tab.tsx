@@ -55,8 +55,7 @@ type LooseTranslator = (key: string) => string
 /**
  * 动态 key 访问包装:next-intl 的 useTranslations 返回字面量联合类型,
  * 动态 key 必须用 `as unknown as` 绕过类型(2026-07-28 立)。
- * FIXME(any): 用于支持新加的 ai.pane.timeline.* key,
- *             i18n 5 语言补完任务应改为显式 key 类型(消除 unsafe 断言)
+ * i18n 5 语言补完任务应改为显式 key 类型(消除 unsafe 断言)。
  */
 function safeT(
   t: ReturnType<typeof useTranslations<'ai.pane'>>,
@@ -68,10 +67,12 @@ function safeT(
   if (v === key || !v) {
     if (!warnedTimelineKeys.has(key)) {
       warnedTimelineKeys.add(key)
-
-      console.warn(
-        `[timeline-tab] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
-      )
+      // 开发环境警告 i18n key 缺失;生产环境静默降级
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          `[timeline-tab] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
+        )
+      }
     }
     return fallback
   }

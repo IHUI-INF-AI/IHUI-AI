@@ -86,7 +86,7 @@ export default function CreateThemePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <h1 className="text-2xl font-bold tracking-tight">创建主题</h1>
 
       <form onSubmit={submit} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">

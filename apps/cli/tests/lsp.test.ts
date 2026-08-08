@@ -33,13 +33,17 @@ import { spawn, spawnSync } from 'node:child_process';
 // 修复:直接 require 9.0.1 的 lib/node/main.js 来强制安装 RAL。
 try {
   const _vslspPath = require.resolve('vscode-languageserver-protocol/package.json', { paths: [process.cwd()] });
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- vitest 环境需用 require 安装 RAL
   const _vslspDir = require('node:path').dirname(_vslspPath);
   // vscode-languageserver-protocol@3.18.2 的 node_modules/vscode-jsonrpc → 9.0.1
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const _vsjsonrpc9Main = require('node:path').join(_vslspDir, 'node_modules', 'vscode-jsonrpc', 'lib', 'node', 'main.js');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require(_vsjsonrpc9Main);
 } catch {
   // 如果路径解析失败,尝试通过 module.paths 查找
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('vscode-languageserver-protocol/node');
   } catch {
     // 忽略,后续测试会暴露 RAL 未安装的错误
@@ -83,7 +87,8 @@ function encodeLspMessage(msg: Record<string, unknown>): string {
 }
 
 /** 按方法返回模拟 LSP 响应 result */
-function getLspResult(method: string, _params: unknown): unknown {
+function getLspResult(method: string, _params: unknown, workspacePath?: string): unknown {
+  const baseUri = 'file://' + (workspacePath ? workspacePath.replace(/\\/g, '/') : '/test');
   switch (method) {
     case 'initialize':
       return { capabilities: { workspaceSymbolProvider: true, renameProvider: true, codeActionProvider: true } };
@@ -92,14 +97,14 @@ function getLspResult(method: string, _params: unknown): unknown {
         {
           name: 'AuthService',
           kind: 5,
-          location: { uri: 'file:///test/src/auth.ts', range: { start: { line: 0, character: 0 }, end: { line: 0, character: 11 } } },
+          location: { uri: baseUri + '/src/auth.ts', range: { start: { line: 0, character: 0 }, end: { line: 0, character: 11 } } },
           containerName: 'src',
         },
       ];
     case 'textDocument/rename':
       return {
         changes: {
-          'file:///test/src/auth.ts': [
+          [baseUri + '/src/auth.ts']: [
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 11 } }, newText: 'NewAuth' },
           ],
         },
@@ -111,7 +116,7 @@ function getLspResult(method: string, _params: unknown): unknown {
   }
 }
 
-function createMockLspChild(): MockLspChild {
+function createMockLspChild(workspacePath?: string): MockLspChild {
   // 用 PassThrough 模拟 stdout(vscode-jsonrpc 的 StreamMessageReader 需要 Readable Stream),
   // 用 setImmediate 异步 write data,避免在 stdin.on('data') 回调内同步写 stdout 导致重入
   const stdout = new PassThrough();
@@ -150,7 +155,7 @@ function createMockLspChild(): MockLspChild {
           sent.push({ method: msg.method, params: msg.params, id: msg.id });
           // 请求(id 存在)自动回复,用 setImmediate 异步发送避免重入
           if (msg.id !== undefined) {
-            const result = getLspResult(msg.method, msg.params);
+            const result = getLspResult(msg.method, msg.params, workspacePath);
             const respStr = encodeLspMessage({ jsonrpc: '2.0', id: msg.id, result });
             setImmediate(() => {
               stdout.write(Buffer.from(respStr));
@@ -181,7 +186,7 @@ beforeEach(() => {
   // 默认 mock:spawn 返回可自动回复的 LSP server
   vi.mocked(spawn).mockImplementation(
     (() => {
-      const mock = createMockLspChild();
+      const mock = createMockLspChild(workspace);
       lastMock = mock;
       return mock.child;
     }) as any,
@@ -459,7 +464,7 @@ describe('LSP 消息解码(从 buffer 解析)', () => {
     let initId: number | string | undefined;
     vi.mocked(spawn).mockImplementation(
       (() => {
-        const mock = createMockLspChild();
+        const mock = createMockLspChild(workspace);
         // 覆盖 stdin data handler 实现粘包
         mock.stdin.removeAllListeners('data');
         let buf = '';
@@ -675,7 +680,7 @@ describe('lsp_workspace_symbol(workspace/symbol 请求 + query 透传)', () => {
     // 自定义 mock 返回空结果
     vi.mocked(spawn).mockImplementation(
       (() => {
-        const mock = createMockLspChild();
+        const mock = createMockLspChild(workspace);
         // 覆盖 workspace/symbol 响应为空
         mock.stdin.removeAllListeners('data');
         let buf = '';
@@ -822,7 +827,7 @@ describe('lsp_code_actions(textDocument/codeAction 请求 + range 透传)', () =
     // 自定义 mock 返回空 codeAction
     vi.mocked(spawn).mockImplementation(
       (() => {
-        const mock = createMockLspChild();
+        const mock = createMockLspChild(workspace);
         mock.stdin.removeAllListeners('data');
         let buf = '';
         mock.stdin.on('data', (chunk: Buffer) => {
