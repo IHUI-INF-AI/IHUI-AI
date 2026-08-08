@@ -81,7 +81,7 @@ export function EnterpriseContent() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-5xl space-y-10 py-6">
+      <div className="mx-auto w-full max-w-5xl space-y-10 px-4 py-6">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/">

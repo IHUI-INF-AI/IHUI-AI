@@ -21,7 +21,7 @@ export default async function RedeemPage() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       {/* 兑换码输入 */}
       <Card>

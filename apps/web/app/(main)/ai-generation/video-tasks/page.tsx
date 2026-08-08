@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -91,7 +91,7 @@ export default function VideoTasksPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
