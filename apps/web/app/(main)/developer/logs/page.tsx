@@ -10,6 +10,7 @@ import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 interface LogItem {
   id: string
@@ -166,14 +167,16 @@ export default function LogsPage() {
                   {expanded[log.id] && (
                     <div className="min-w-0 space-y-2 bg-muted/30 px-4 py-3 text-xs">
                       {log.keyName && (
-                        <p className="truncate text-muted-foreground" title={log.keyName}>
-                          {t('keyValue', { value: log.keyName })}
-                        </p>
+                        <Tooltip content={log.keyName}>
+                          <p className="truncate text-muted-foreground">
+                            {t('keyValue', { value: log.keyName })}
+                          </p>
+                        </Tooltip>
                       )}
                       {log.ip && (
-                        <p className="truncate text-muted-foreground" title={log.ip}>
-                          IP: {log.ip}
-                        </p>
+                        <Tooltip content={log.ip}>
+                          <p className="truncate text-muted-foreground">IP: {log.ip}</p>
+                        </Tooltip>
                       )}
                       {log.request && (
                         <div>

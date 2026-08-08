@@ -153,27 +153,31 @@ export function AsksTable({
             </Tooltip>
             {row.original.status !== 1 && (
               <Tooltip content={t('audit')}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => onAudit(row.original)}
-                  disabled={auditPending}
-                >
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                </Button>
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => onAudit(row.original)}
+                    disabled={auditPending}
+                  >
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  </Button>
+                </span>
               </Tooltip>
             )}
             <Tooltip content={t('delete')}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onDelete(row.original)}
-                className="shrink-0 text-destructive hover:text-destructive"
-                disabled={deletePending}
-              >
-                <Trash2 className="h-4 w-4 shrink-0" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(row.original)}
+                  className="shrink-0 text-destructive hover:text-destructive"
+                  disabled={deletePending}
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                </Button>
+              </span>
             </Tooltip>
           </div>
         ),

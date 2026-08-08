@@ -10,6 +10,7 @@ import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, excerptFromContent, type HelpCategory, type HelpArticleSummary } from '@/lib/content'
 import { BackButton } from '@/components/common'
+import { TruncatedText } from '@/components/common'
 
 export default function HelpPage() {
   const t = useTranslations('help')
@@ -98,9 +99,7 @@ export default function HelpPage() {
               className={catCls(active === c.slug)}
             >
               <HelpCircle className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-left" title={c.name}>
-                {c.name}
-              </span>
+              <TruncatedText value={c.name} className="min-w-0 flex-1 text-left" />
               {typeof c.articleCount === 'number' && (
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">{c.articleCount}</span>
               )}

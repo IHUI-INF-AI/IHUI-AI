@@ -1098,6 +1098,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
                             return
 
+                        # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
+                        # 但不 emit reasoning SSE 事件,导致 tool loop 阶段前端 m.reasoning 永远为空,
+                        # 思考过程区只显示一个加载点(ThinkingSection 收到空 content + isStreaming=true)。
+                        # 修复:在 tool_calls_raw 处理之前,先把 complete() 返回的 reasoning 增量 emit 出去,
+                        # 累加到 accumulated 并推送到前端,与 astream() 行为对齐。
+                        _reasoning_content = complete_result.get("reasoning") or ""
+                        if _reasoning_content:
+                            accumulated["reasoning"] += _reasoning_content
+                            _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
+                            yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+
                         tool_calls_raw = complete_result.get("tool_calls") or []
 
                         # 无 tool_calls:LLM 不再需要工具
@@ -1830,9 +1841,15 @@ async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, 
     }
     if payload.get("reasoning"):
         body["reasoning"] = payload["reasoning"]
-    headers: dict[str, str] = {}
-    if settings.ai_callback_secret:
-        headers["X-Internal-Secret"] = settings.ai_callback_secret
+    # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
+    # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
+    # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
+    if not settings.ai_callback_secret:
+        logger.error(
+            "LLM callback skipped: ai_callback_secret 未配置(API 侧 AI_CALLBACK_SECRET 缺失时拒绝回调)"
+        )
+        return
+    headers: dict[str, str] = {"X-Internal-Secret": settings.ai_callback_secret}
 
     max_attempts = 3  # 首次 + 2 次重试
     for attempt in range(max_attempts):

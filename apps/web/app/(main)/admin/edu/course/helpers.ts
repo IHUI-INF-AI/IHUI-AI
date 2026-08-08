@@ -16,7 +16,7 @@ export const EMPTY: CForm = {
 
 export const PAGE_SIZE = 10
 export const PERM = 'course:course:'
-export const API = '/api/admin/course'
+export const API = '/api/admin/zhs-legacy'
 
 /** 课程阶段 i18n key 静态映射表(数字枚值 0/1/2):stage.${num} — 用于消除 `t(`stage.${var}`)` 动态拼接 */
 export const STAGE_KEY: Record<number, string> = {

@@ -203,7 +203,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
     <button
       type="button"
       onClick={handleOpen}
-      className="my-2 block max-w-full overflow-hidden rounded-md bg-muted/40 transition-colors hover:bg-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+      className="my-2 block max-w-full overflow-hidden rounded-md bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
       aria-label={alt ? `图片: ${alt}` : '点击放大图片'}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- AI 返回的图片 URL 可能是任意来源,不走 next/image 优化 */}
@@ -258,7 +258,7 @@ function MarkdownLink({ href, children }: { href?: string; children?: React.Reac
         target="_blank"
         rel="noopener noreferrer"
         download={fileName}
-        className="my-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm transition-colors hover:bg-muted/70"
+        className="my-2 flex items-center gap-2 rounded-md border border-border bg-streamed-container-bg px-3 py-2 text-sm transition-colors hover:bg-streamed-container-bg-hover"
       >
         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="truncate">{fileName}</span>
@@ -277,7 +277,7 @@ function MarkdownLink({ href, children }: { href?: string; children?: React.Reac
         href={hrefStr}
         target="_blank"
         rel="noopener noreferrer"
-        className="my-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1 text-sm transition-colors hover:bg-muted/70"
+        className="my-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-streamed-container-bg px-2.5 py-1 text-sm transition-colors hover:bg-streamed-container-bg-hover"
       >
         <Play className="h-3.5 w-3.5" aria-hidden />
         <span>{children}</span>

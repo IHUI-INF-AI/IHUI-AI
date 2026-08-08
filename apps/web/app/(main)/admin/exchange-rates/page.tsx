@@ -104,7 +104,7 @@ export default function ExchangeRatesPage() {
   const list = data?.list ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

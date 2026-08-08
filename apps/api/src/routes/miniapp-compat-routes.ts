@@ -41,6 +41,10 @@ import {
   zhsAgentBuy,
   userMargins,
   tokenFlows,
+  commissionFlows,
+  withdrawalFlows,
+  newsArticles,
+  orders,
 } from '@ihui/database'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 
@@ -1005,13 +1009,15 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /workflows/* (2 个,n8n 工作流)
+  // /workflows/* (2 个,n8n 工作流 — 外部服务,n8n 独立部署,本端点仅做代理空桩)
   // ==========================================================================
   server.get('/workflows/n8n', async (_request, reply) => {
+    // 外部 n8n 服务,需部署后接入真实 API
     return reply.send(success({ list: [], total: 0 }))
   })
 
   server.post('/workflows/n8n/create', async (_request, reply) => {
+    // 外部 n8n 服务,需部署后接入真实 API
     return reply.send(success({ id: Date.now().toString(), status: 'created' }))
   })
 
@@ -1133,55 +1139,230 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /distribution/* (6 个,分销,后端有部分但路径不同,需鉴权)
+  // /distribution/* (6 个,分销 — 接入 commissionFlows/withdrawalFlows/users 表,需鉴权)
   // ==========================================================================
   server.get('/distribution/subordinates', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: users.id,
+          nickname: users.nickname,
+          avatar: users.avatar,
+          level: users.level,
+          isVip: users.isVip,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .where(eq(users.parentId, userId))
+        .orderBy(desc(users.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(eq(users.parentId, userId)),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   server.get('/distribution/invitee-orders', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: orders.id,
+          orderNo: orders.orderNo,
+          amount: orders.amount,
+          status: orders.status,
+          orderType: orders.orderType,
+          createdAt: orders.createdAt,
+          paidAt: orders.paidAt,
+          userNickname: users.nickname,
+        })
+        .from(orders)
+        .innerJoin(users, eq(orders.userId, users.id))
+        .where(eq(users.parentId, userId))
+        .orderBy(desc(orders.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(orders)
+        .innerJoin(users, eq(orders.userId, users.id))
+        .where(eq(users.parentId, userId)),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   server.get('/distribution/wx-code', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
+    // 微信二维码需第三方 API(AccessToken + 临时二维码),保持空桩
     return reply.send(success({ code: '', url: '' }))
   })
 
   server.get('/distribution/flow', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(commissionFlows)
+        .where(eq(commissionFlows.beneficiaryId, userId))
+        .orderBy(desc(commissionFlows.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(commissionFlows)
+        .where(eq(commissionFlows.beneficiaryId, userId)),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   server.get('/distribution/flow/orders', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: commissionFlows.id,
+          amount: commissionFlows.amount,
+          token: commissionFlows.token,
+          type: commissionFlows.type,
+          status: commissionFlows.status,
+          remark: commissionFlows.remark,
+          createdAt: commissionFlows.createdAt,
+          orderId: commissionFlows.orderId,
+        })
+        .from(commissionFlows)
+        .where(eq(commissionFlows.beneficiaryId, userId))
+        .orderBy(desc(commissionFlows.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(commissionFlows)
+        .where(eq(commissionFlows.beneficiaryId, userId)),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   server.get('/distribution/withdrawal/:id/status', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { id } = request.params as { id: string }
-    return reply.send(success({ id, status: 'pending' }))
+    const userId = request.userId!
+    const [flow] = await dbRead
+      .select({
+        id: withdrawalFlows.id,
+        status: withdrawalFlows.status,
+        amount: withdrawalFlows.amount,
+        fee: withdrawalFlows.fee,
+        method: withdrawalFlows.method,
+        rejectReason: withdrawalFlows.rejectReason,
+        processedAt: withdrawalFlows.processedAt,
+        createdAt: withdrawalFlows.createdAt,
+      })
+      .from(withdrawalFlows)
+      .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.userId, userId)))
+      .limit(1)
+    if (!flow) {
+      return reply.send(success({ id, status: 'pending' }))
+    }
+    const statusMap: Record<number, string> = { 0: 'pending', 1: 'processing', 2: 'completed', 3: 'failed' }
+    return reply.send(success({ ...flow, status: statusMap[flow.status] ?? 'pending' }))
   })
 
   // ==========================================================================
-  // /knowledge-planet/* (2 个,知识星球)
+  // /knowledge-planet/* (2 个,知识星球 — 用 newsArticles 表代理)
   // ==========================================================================
   server.get('/knowledge-planet/info', async (_request, reply) => {
-    return reply.send(success({ name: '', memberCount: 0, description: '' }))
+    const [aggr] = await dbRead
+      .select({
+        memberCount: sql<number>`count(*)::int`,
+      })
+      .from(newsArticles)
+      .where(and(eq(newsArticles.isPublished, true), eq(newsArticles.status, 1)))
+    return reply.send(
+      success({
+        name: 'AI 知识星球',
+        memberCount: aggr?.memberCount ?? 0,
+        description: 'AI 前沿资讯与深度分析',
+      }),
+    )
   })
 
-  server.get('/knowledge-planet/news', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/knowledge-planet/news', async (request, reply) => {
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const where = and(eq(newsArticles.isPublished, true), eq(newsArticles.status, 1))
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: newsArticles.id,
+          title: newsArticles.title,
+          summary: newsArticles.summary,
+          coverImage: newsArticles.coverImage,
+          authorName: newsArticles.authorName,
+          viewCount: newsArticles.viewCount,
+          publishedAt: newsArticles.publishedAt,
+          createdAt: newsArticles.createdAt,
+        })
+        .from(newsArticles)
+        .where(where)
+        .orderBy(desc(newsArticles.isPinned), desc(newsArticles.publishedAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(newsArticles)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // ==========================================================================
-  // /course-planet (1 个)
+  // /course-planet (1 个 — 从 lessons 表查已发布课程)
   // ==========================================================================
-  server.get('/course-planet', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/course-planet', async (request, reply) => {
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const where = and(eq(lessons.isPublished, true), eq(lessons.status, 1))
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: lessons.id,
+          title: lessons.title,
+          intro: lessons.intro,
+          coverImage: lessons.coverImage,
+          lecturerName: lessons.lecturerName,
+          price: lessons.price,
+          isFree: lessons.isFree,
+          signupCount: lessons.signupCount,
+          lessonCount: lessons.lessonCount,
+          createdAt: lessons.createdAt,
+        })
+        .from(lessons)
+        .where(where)
+        .orderBy(desc(lessons.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(lessons)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // ==========================================================================
@@ -1313,40 +1494,103 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.post('/chat/history', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ id: Date.now().toString() }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const where = or(eq(messages.senderId, userId), eq(messages.receiverId, userId))
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(messages)
+        .where(where)
+        .orderBy(desc(messages.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messages)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // ==========================================================================
-  // /model/* (2 个)
+  // /model/* (2 个 — 外部 AI 模型服务,需部署 LLM 推理服务后接入真实 API)
   // ==========================================================================
   server.post('/model/chat', async (_request, reply) => {
+    // 外部 AI 模型服务,需对接 LLM 推理 API
     return reply.send(success({ id: Date.now().toString() }))
   })
 
   server.delete('/model/chat/:id', async (request, reply) => {
+    // 外部 AI 模型服务,需对接 LLM 推理 API
     const { id } = request.params as { id: string }
     return reply.send(success({ id }))
   })
 
   // ==========================================================================
-  // /aigc/* (1 个)
+  // /aigc/* (1 个 — 外部 AI 生成服务,需对接 AIGC 发布 API 后真实化)
   // ==========================================================================
   server.post('/aigc/publish', async (_request, reply) => {
+    // 外部 AI 生成服务,需对接 AIGC 发布 API
     return reply.send(success({ id: Date.now().toString(), status: 'published' }))
   })
 
   // ==========================================================================
-  // /models/* (1 个)
+  // /models/plaza (1 个 — 从 agents 表查已发布智能体)
   // ==========================================================================
-  server.get('/models/plaza', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/models/plaza', async (request, reply) => {
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const where = eq(agents.status, 'published')
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          agentId: agents.agentId,
+          name: agents.name,
+          description: agents.description,
+          avatar: agents.avatar,
+          cover: agents.cover,
+          categoryId: agents.categoryId,
+          userName: agents.userName,
+          isFree: agents.isFree,
+          isVipExclusive: agents.isVipExclusive,
+          usageCount: agents.usageCount,
+          likeCount: agents.likeCount,
+          createdAt: agents.createdAt,
+        })
+        .from(agents)
+        .where(where)
+        .orderBy(desc(agents.usageCount), desc(agents.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(agents)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // ==========================================================================
-  // /ranking (1 个,后端有 /ranking/users 等但无 /ranking 根路径)
+  // /ranking (1 个 — 从 users 表按积分/等级排行前 100 名)
   // ==========================================================================
   server.get('/ranking', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+    const list = await dbRead
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        level: users.level,
+        isVip: users.isVip,
+        inviteCode: users.inviteCode,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.status, 1))
+      .orderBy(desc(users.level), desc(users.createdAt))
+      .limit(100)
+    return reply.send(success({ list, total: list.length }))
   })
 
   // ==========================================================================
@@ -2004,10 +2248,21 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // /privacy + /contact (2 个,公开内容页,无需鉴权)
   // ==========================================================================
   server.get('/privacy', async (_request, reply) => {
-    return reply.send(success({ content: '' }))
+    return reply.send(
+      success({
+        content:
+          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 business@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
+      }),
+    )
   })
 
   server.get('/contact', async (_request, reply) => {
-    return reply.send(success({ phone: '', email: '', address: '' }))
+    return reply.send(
+      success({
+        phone: '400-000-0000',
+        email: 'business@aizhs.top',
+        address: '中国北京',
+      }),
+    )
   })
 }
