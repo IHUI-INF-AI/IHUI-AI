@@ -42,6 +42,8 @@ export function AddMenuPopover(props: {
   onSkillSelect: (template: string) => void
   /** SkillLibrary 关闭回调(主组件负责关闭 + 重置 mode) */
   onSkillClose: () => void
+  /** SkillLibrary 发送到聊天回调(将 AI Skill 结果内容发送到对话输入框) */
+  onSkillSendToChat?: (content: string) => void
   /** "添加附件"回调(主组件负责关闭 + 重置 mode + 触发 file input click) */
   onAddFile: () => void
   /** "添加引用"回调(主组件负责关闭 + 重置 mode + addTextReference + 清空 + resize) */
@@ -63,6 +65,7 @@ export function AddMenuPopover(props: {
     onTemplateSelect,
     onSkillSelect,
     onSkillClose,
+    onSkillSendToChat,
     onAddFile,
     onAddTextReference,
     onOpenPluginMarket,
@@ -94,6 +97,7 @@ export function AddMenuPopover(props: {
             onClose={() => {
               onSkillClose()
             }}
+            onSendToChat={onSkillSendToChat}
           />
         ) : (
           <div
