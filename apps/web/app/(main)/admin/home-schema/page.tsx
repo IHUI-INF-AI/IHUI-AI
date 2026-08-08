@@ -284,19 +284,21 @@ export default function HomeSchemaEditorPage() {
                   : '删除草稿,重置为生产 schema'
             }
           >
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => discardDraftMut.mutate()}
-              disabled={!draftConfigId || draftEqualsProduction || discardDraftMut.isPending}
-            >
-              {discardDraftMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              丢弃草稿
-            </Button>
+            <span className="inline-flex">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => discardDraftMut.mutate()}
+                disabled={!draftConfigId || draftEqualsProduction || discardDraftMut.isPending}
+              >
+                {discardDraftMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                丢弃草稿
+              </Button>
+            </span>
           </Tooltip>
           <Button
             variant="outline"
@@ -324,19 +326,21 @@ export default function HomeSchemaEditorPage() {
           <Tooltip
             content={!hasDraftDiff ? '草稿与生产一致,无需发布' : '把当前草稿同步到生产 schema'}
           >
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => publishMut.mutate()}
-              disabled={!hasDraftDiff || publishMut.isPending}
-            >
-              {publishMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              发布
-            </Button>
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => publishMut.mutate()}
+                disabled={!hasDraftDiff || publishMut.isPending}
+              >
+                {publishMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                发布
+              </Button>
+            </span>
           </Tooltip>
         </div>
       </div>

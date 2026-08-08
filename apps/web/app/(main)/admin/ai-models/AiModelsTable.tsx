@@ -102,14 +102,16 @@ export function AiModelsTable({
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
                       <Tooltip content="测试连通">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onTest(item.id)}
-                          disabled={testPending}
-                        >
-                          <Zap className="h-3.5 w-3.5" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onTest(item.id)}
+                            disabled={testPending}
+                          >
+                            <Zap className="h-3.5 w-3.5" />
+                          </Button>
+                        </span>
                       </Tooltip>
                       <Tooltip content="编辑">
                         <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>

@@ -446,20 +446,22 @@ export function ConversationList({ items }: { items: Conversation[] }) {
             </button>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
               <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => favMutation.mutate(item.id)}
-                  // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
-                  // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
-                  disabled={favMutation.isPending && favMutation.variables === item.id}
-                  aria-label={item.favorite ? t('unfavorite') : t('favorite')}
-                >
-                  <Star
-                    className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
-                  />
-                </Button>
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => favMutation.mutate(item.id)}
+                    // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
+                    // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
+                    disabled={favMutation.isPending && favMutation.variables === item.id}
+                    aria-label={item.favorite ? t('unfavorite') : t('favorite')}
+                  >
+                    <Star
+                      className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
+                    />
+                  </Button>
+                </span>
               </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

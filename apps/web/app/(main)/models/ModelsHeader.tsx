@@ -147,19 +147,21 @@ function ProviderStatusSummary() {
     <>
       <div className="flex items-center gap-1">
         <Tooltip content="重新检测">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="h-7 px-2 text-[11px] text-muted-foreground"
-          >
-            {isFetching ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3 w-3" />
-            )}
-          </Button>
+          <span className="inline-flex">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="h-7 px-2 text-[11px] text-muted-foreground"
+            >
+              {isFetching ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+            </Button>
+          </span>
         </Tooltip>
         <button
           type="button"

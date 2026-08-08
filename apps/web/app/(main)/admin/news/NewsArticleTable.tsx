@@ -235,15 +235,17 @@ export function NewsArticleTable(props: Props) {
                         </HasPermi>
                         <HasPermi code="system:news:remove">
                           <Tooltip content={t('delete')}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(article)}
-                              className="shrink-0 text-destructive hover:text-destructive"
-                              disabled={deleteMut.isPending}
-                            >
-                              <Trash2 className="h-4 w-4 shrink-0" />
-                            </Button>
+                            <span className="inline-flex">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(article)}
+                                className="shrink-0 text-destructive hover:text-destructive"
+                                disabled={deleteMut.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 shrink-0" />
+                              </Button>
+                            </span>
                           </Tooltip>
                         </HasPermi>
                       </div>

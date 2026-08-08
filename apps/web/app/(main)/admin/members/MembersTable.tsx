@@ -155,55 +155,63 @@ export function MembersTable({
                       {status === 0 ? (
                         <>
                           <Tooltip content={t('approve')}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="shrink-0"
-                              onClick={() =>
-                                actionMut.mutate({ action: 'approved', id: member.id })
-                              }
-                              disabled={actionMut.isPending}
-                            >
-                              <CheckCircle2 className="h-4 w-4 shrink-0" />
-                            </Button>
+                            <span className="inline-flex">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0"
+                                onClick={() =>
+                                  actionMut.mutate({ action: 'approved', id: member.id })
+                                }
+                                disabled={actionMut.isPending}
+                              >
+                                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                              </Button>
+                            </span>
                           </Tooltip>
                           <Tooltip content={t('reject')}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="shrink-0"
-                              onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
-                              disabled={actionMut.isPending}
-                            >
-                              <XCircle className="h-4 w-4 shrink-0" />
-                            </Button>
+                            <span className="inline-flex">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0"
+                                onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
+                                disabled={actionMut.isPending}
+                              >
+                                <XCircle className="h-4 w-4 shrink-0" />
+                              </Button>
+                            </span>
                           </Tooltip>
                         </>
                       ) : null}
                       {status === 1 ? (
                         <Tooltip content={t('seal')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() => actionMut.mutate({ action: 'seal', id: member.id })}
-                            disabled={actionMut.isPending}
-                          >
-                            <Ban className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0"
+                              onClick={() => actionMut.mutate({ action: 'seal', id: member.id })}
+                              disabled={actionMut.isPending}
+                            >
+                              <Ban className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       ) : null}
                       {status === 2 ? (
                         <Tooltip content={t('unseal')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() => actionMut.mutate({ action: 'unseal', id: member.id })}
-                            disabled={actionMut.isPending}
-                          >
-                            <Unlock className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0"
+                              onClick={() => actionMut.mutate({ action: 'unseal', id: member.id })}
+                              disabled={actionMut.isPending}
+                            >
+                              <Unlock className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       ) : null}
                       <Tooltip content={t('resetPwd')}>
@@ -217,15 +225,17 @@ export function MembersTable({
                         </Button>
                       </Tooltip>
                       <Tooltip content={t('delete')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(member)}
-                          className="shrink-0 text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4 shrink-0" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(member)}
+                            className="shrink-0 text-destructive hover:text-destructive"
+                            disabled={deleteMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 shrink-0" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </div>
                   </TableCell>

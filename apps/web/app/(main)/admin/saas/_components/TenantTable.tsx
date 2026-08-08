@@ -94,27 +94,31 @@ export function TenantTable({
                     </Tooltip>
                     {tn.state === 'paused' ? (
                       <Tooltip content={t('action.resume')}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t('action.resume')}
-                          disabled={p !== null}
-                          onClick={() => onResume(tn)}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={t('action.resume')}
+                            disabled={p !== null}
+                            onClick={() => onResume(tn)}
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     ) : (
                       <Tooltip content={t('action.pause')}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t('action.pause')}
-                          disabled={p !== null || !tn.exists}
-                          onClick={() => onPause(tn)}
-                        >
-                          <Pause className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={t('action.pause')}
+                            disabled={p !== null || !tn.exists}
+                            onClick={() => onPause(tn)}
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     )}
                     <Tooltip content={t('action.backup')}>
@@ -130,16 +134,18 @@ export function TenantTable({
                       </Button>
                     </Tooltip>
                     <Tooltip content={t('action.destroy')}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={t('action.destroy')}
-                        disabled={p !== null}
-                        onClick={() => onDelete(tn)}
-                        className="text-rose-500 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('action.destroy')}
+                          disabled={p !== null}
+                          onClick={() => onDelete(tn)}
+                          className="text-rose-500 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </td>

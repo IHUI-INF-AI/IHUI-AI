@@ -116,15 +116,17 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                         </Button>
                       </Tooltip>
                       <Tooltip content={t('delete')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDelete(item)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending || item.isDeleted}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDelete(item)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deletePending || item.isDeleted}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </div>
                   </TableCell>

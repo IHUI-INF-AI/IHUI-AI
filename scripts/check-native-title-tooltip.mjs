@@ -291,6 +291,9 @@ console.log(
 )
 console.log('')
 
+// ============================================================
+// 文件收集(供 title 检测 + Tooltip+disabled 检测共用)
+// ============================================================
 let files = []
 let addedLinesMap = new Map()
 
@@ -307,6 +310,101 @@ if (isStaged) {
   }
 }
 
+// ============================================================
+// 新增:Tooltip + disabled Button 检测
+// 根因:Radix UI TooltipTrigger 对 disabled 元素不触发 pointer 事件,
+// 必须用 <span className="inline-flex"> 包裹 disabled Button。
+// ============================================================
+console.log(`${C.cyan}${C.bold}[Tooltip + disabled 检测] 扫描 Tooltip 直接包裹 disabled Button...${C.reset}`)
+console.log(`${C.dim}规则: <Tooltip> 内 <Button disabled> 必须用 <span className="inline-flex"> 包裹${C.reset}`)
+console.log('')
+
+/**
+ * 扫描文件中 Tooltip 直接包裹 disabled Button 的模式。
+ * 使用正则查找 <Tooltip...>...</Tooltip> 块,检查其中是否含 disabled= 且无 span 包裹。
+ */
+function checkDisabledTooltip(src) {
+  const findings = []
+  const tooltipRe = /<Tooltip[\s\S]*?<\/Tooltip>/g
+  let match
+  while ((match = tooltipRe.exec(src)) !== null) {
+    const block = match[0]
+    // 跳过不含 disabled 的 Tooltip 块
+    if (!block.includes('disabled=')) continue
+    // 跳过不含 Button 的 Tooltip 块
+    if (!block.includes('Button')) continue
+    // 检查是否已有 span 包裹
+    if (/<span[^>]*>[\s\S]*?disabled=/.test(block)) continue
+
+    // 未包裹 — 计算行号
+    const before = src.slice(0, match.index)
+    const line = (before.match(/\n/g) || []).length + 1
+    const disabledMatch = block.match(/disabled=\{([^}]+)\}/)
+    const disabledVal = disabledMatch ? disabledMatch[1].slice(0, 60) : '?'
+    const contentMatch = block.match(/content=\{([^}]+)\}/)
+    const tooltipContent = contentMatch ? contentMatch[1].slice(0, 40) : '?'
+
+    findings.push({
+      line,
+      snippet: `Tooltip content="${tooltipContent}" wraps disabled Button (disabled=${disabledVal})`,
+    })
+  }
+  return findings
+}
+
+let dtViolations = 0
+const dtFileReports = []
+
+for (const file of files) {
+  const src = readFileSync(file, 'utf8')
+  if (!src.includes('Tooltip') || !src.includes('disabled=')) continue
+  const findings = checkDisabledTooltip(src)
+  // staged 模式只保留 added 行
+  const dtFindings = isStaged
+    ? findings.filter((f) => {
+        const allowed = addedLinesMap.get(file)
+        return allowed && allowed.has(f.line)
+      })
+    : findings
+
+  if (dtFindings.length > 0) {
+    dtViolations += dtFindings.length
+    dtFileReports.push({ file: relative(ROOT, file), findings: dtFindings })
+  }
+}
+
+if (dtViolations > 0) {
+  console.log(`${C.red}${C.bold}❌ 发现 ${dtViolations} 处 Tooltip + disabled Button 违规:${C.reset}`)
+  console.log('')
+  for (const { file, findings } of dtFileReports) {
+    console.log(`${C.red}${file}${C.reset}`)
+    for (const f of findings) {
+      console.log(
+        `  ${C.dim}行 ${f.line}${C.reset} ${C.red}[disabled]${C.reset} ${f.snippet}`,
+      )
+    }
+    console.log('')
+  }
+  console.log(`${C.dim}修复方法:${C.reset}`)
+  console.log(`  <Tooltip content={...}>`)
+  console.log(`    <span className="inline-flex">`)
+  console.log(`      <Button disabled={...}>...</Button>`)
+  console.log(`    </span>`)
+  console.log(`  </Tooltip>`)
+  console.log('')
+  console.log(`${C.dim}根因: Radix UI TooltipTrigger 对 disabled 元素不触发 pointer 事件,`)
+  console.log(`${C.dim}必须用 <span> 包裹使 TooltipTrigger 挂在 span 上(非 disabled)。${C.reset}`)
+  console.log('')
+}
+
+console.log(`${C.bold}Tooltip + disabled 检测结果:${C.reset}`)
+console.log(`  扫描文件: ${files.length} 个`)
+console.log(`  违规数:   ${dtViolations} 处`)
+console.log('')
+
+// ============================================================
+// 原有 title 检测逻辑
+// ============================================================
 let totalViolations = 0
 const fileReports = []
 
@@ -333,42 +431,42 @@ console.log(`  扫描文件: ${files.length} 个`)
 console.log(`  违规数:   ${totalViolations} 处`)
 console.log('')
 
-if (totalViolations === 0) {
-  console.log(
-    `${C.green}${C.bold}✅ 原生 title tooltip 守门通过${C.reset}`,
-  )
-  process.exit(0)
-}
-
-console.log(`${C.red}${C.bold}❌ 发现 ${totalViolations} 处违规:${C.reset}`)
-console.log('')
-for (const { file, findings } of fileReports) {
-  console.log(`${C.red}${file}${C.reset}`)
-  for (const f of findings) {
-    console.log(
-      `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.red}[title]${C.reset} ${f.snippet}`,
-    )
+if (totalViolations > 0) {
+  console.log(`${C.red}${C.bold}❌ 发现 ${totalViolations} 处原生 title 违规:${C.reset}`)
+  console.log('')
+  for (const { file, findings } of fileReports) {
+    console.log(`${C.red}${file}${C.reset}`)
+    for (const f of findings) {
+      console.log(
+        `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.red}[title]${C.reset} ${f.snippet}`,
+      )
+    }
+    console.log('')
   }
+  console.log(`${C.dim}修复方法:${C.reset}`)
+  console.log(
+    `  1. <Button title="编辑"> → <Tooltip content="编辑"><Button>...</Button></Tooltip>`,
+  )
+  console.log(
+    `  2. <td className="truncate" title={value}>{value}</td> → <td><TruncatedText value={value} /></td>`,
+  )
+  console.log(
+    `  3. <div title={value}>...</div> → <Tooltip content={value}><div>...</div></Tooltip>`,
+  )
+  console.log(
+    `  4. component prop(如 <Modal title=...>) 不算违规,无需修改`,
+  )
   console.log('')
 }
-console.log(`${C.dim}修复方法:${C.reset}`)
-console.log(
-  `  1. <Button title="编辑"> → <Tooltip content="编辑"><Button>...</Button></Tooltip>`,
-)
-console.log(
-  `  2. <td className="truncate" title={value}>{value}</td> → <td><TruncatedText value={value} /></td>`,
-)
-console.log(
-  `  3. <div title={value}>...</div> → <Tooltip content={value}><div>...</div></Tooltip>`,
-)
-console.log(
-  `  4. component prop(如 <Modal title=...>) 不算违规,无需修改`,
-)
-console.log('')
 
-if (isStaged) {
-  console.log(`${C.red}${C.bold}❌ 原生 title tooltip 守门失败 — 提交已阻止${C.reset}`)
+const anyViolation = totalViolations > 0 || dtViolations > 0
+
+if (isStaged && anyViolation) {
+  console.log(`${C.red}${C.bold}❌ 守门失败 — 提交已阻止${C.reset}`)
   process.exit(1)
+} else if (!anyViolation) {
+  console.log(`${C.green}${C.bold}✅ 所有守门检查通过${C.reset}`)
+  process.exit(0)
 } else {
   console.log(`${C.yellow}${C.bold}⚠️  全量模式仅警告(exit 0)${C.reset}`)
   process.exit(0)

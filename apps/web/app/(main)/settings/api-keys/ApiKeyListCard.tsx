@@ -169,41 +169,45 @@ export function ApiKeyListCard({
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Tooltip content="轮换 secret">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={pendingRotate}
-                        onClick={() =>
-                          ask(
-                            k,
-                            '轮换密钥 Secret',
-                            `轮换「${k.name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?`,
-                            false,
-                            onRotate,
-                          )
-                        }
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={pendingRotate}
+                          onClick={() =>
+                            ask(
+                              k,
+                              '轮换密钥 Secret',
+                              `轮换「${k.name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?`,
+                              false,
+                              onRotate,
+                            )
+                          }
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </span>
                     </Tooltip>
                     <Tooltip content="删除">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        disabled={pendingDelete}
-                        onClick={() =>
-                          ask(
-                            k,
-                            '删除 API 密钥',
-                            `确定删除「${k.name}」?删除后该密钥立即失效,且无法恢复。`,
-                            true,
-                            onDelete,
-                          )
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={pendingDelete}
+                          onClick={() =>
+                            ask(
+                              k,
+                              '删除 API 密钥',
+                              `确定删除「${k.name}」?删除后该密钥立即失效,且无法恢复。`,
+                              true,
+                              onDelete,
+                            )
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
                     </Tooltip>
                   </div>
                 </div>

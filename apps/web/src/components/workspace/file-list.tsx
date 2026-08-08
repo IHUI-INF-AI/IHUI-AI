@@ -96,19 +96,21 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                       </Tooltip>
                     )}
                     <Tooltip content={t('download')}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => onDownload(file)}
-                        disabled={isDownloading}
-                      >
-                        {isDownloading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <span className="inline-flex">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => onDownload(file)}
+                          disabled={isDownloading}
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </span>
                     </Tooltip>
                     <Tooltip content={t('deleteFile')}>
                       <Button

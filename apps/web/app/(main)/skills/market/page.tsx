@@ -345,21 +345,23 @@ function SkillCard({
             <span>{t('rate')}</span>
           </Button>
           <Tooltip content={isSubscribed ? t('unsubscribe') : t('subscribe')}>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={subscribeMut.isPending}
-              onClick={() => subscribeMut.mutate(!isSubscribed)}
-              className={cn(isSubscribed && 'bg-muted text-foreground')}
-            >
-              {subscribeMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isSubscribed ? (
-                <BellRing className="h-4 w-4" />
-              ) : (
-                <Bell className="h-4 w-4" />
-              )}
-            </Button>
+            <span className="inline-flex">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={subscribeMut.isPending}
+                onClick={() => subscribeMut.mutate(!isSubscribed)}
+                className={cn(isSubscribed && 'bg-muted text-foreground')}
+              >
+                {subscribeMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isSubscribed ? (
+                  <BellRing className="h-4 w-4" />
+                ) : (
+                  <Bell className="h-4 w-4" />
+                )}
+              </Button>
+            </span>
           </Tooltip>
         </div>
       </CardContent>
