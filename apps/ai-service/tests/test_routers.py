@@ -321,12 +321,12 @@ async def test_mcp_invoke_prompt_endpoint(client):
 
 
 async def test_mcp_list_skills_endpoint(client):
-    """GET /api/mcp/skills 返回 6 个 skill。"""
+    """GET /api/mcp/skills 返回全部 skill(13 预置 + 19 AI TOP = 32)。"""
     resp = await client.get("/api/mcp/skills")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 6
-    assert len(data["skills"]) == 6
+    assert data["count"] == 32
+    assert len(data["skills"]) == 32
 
 
 async def test_mcp_get_skill_endpoint(client):
