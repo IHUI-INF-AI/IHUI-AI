@@ -126,7 +126,15 @@ export function writeClipboard(text: string): boolean {
 /** 检测当前平台是否有可用的剪贴板工具(用于测试跳过 + 友好错误) */
 export function isClipboardAvailable(): boolean {
   const platform = currentPlatform();
-  if (platform === 'win32' || platform === 'darwin') return true;
+  if (platform === 'win32') {
+    // Windows 需要 pwsh.exe(PowerShell Core) 或 powershell.exe(标准 Windows PowerShell)
+    // 优先检测 pwsh.exe, 再检测 powershell.exe
+    const pwsh = spawnSync('where', ['pwsh.exe'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    if (!pwsh.error && pwsh.status === 0) return true;
+    const ps = spawnSync('where', ['powershell.exe'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    return !ps.error && ps.status === 0;
+  }
+  if (platform === 'darwin') return true;
   if (platform === 'linux') {
     // 检测 xclip 或 xsel 是否存在
     const xclip = spawnSync('which', ['xclip'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
