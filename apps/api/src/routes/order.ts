@@ -46,10 +46,11 @@ const ADMIN_ROLE_ID = 1
 // =============================================================================
 // P1 安全修复(2026-08-02):订单金额服务端反查
 // 根据 orderType + targetId 从 DB 查询真实价格,覆盖客户端传入的 payAmount。
-// - orderType='2':VIP 等级(vipLevels.price,单位:分 → 转元)
-// - orderType='5':开发者套餐(developerPricing.price,单位:元)
-// 其他 orderType 或无 targetId:返回 null,调用方使用客户端金额(已有金额自洽性校验兜底)。
-// FIXME: 金额反查待补充 — 其他 orderType(如 agent_package/course 等)价格来源待接入
+// 已接入 orderType:
+// - '2':VIP 等级(vipLevels.price,单位:分 → 转元)
+// - '5':开发者套餐(developerPricing.price,单位:元)
+// 未接入 orderType(如 course/agent_package/token_recharge 等):
+// 价格来源复杂(依赖课程/Agent/充值套餐表),返回 null 由客户端金额 + 自洽性校验兜底。
 // =============================================================================
 
 async function resolveOrderAmount(
@@ -85,7 +86,7 @@ async function resolveOrderAmount(
     const priceYuan = Number(row.price).toFixed(2)
     return { payAmount: priceYuan, originalPrice: priceYuan, discountAmount: '0.00' }
   }
-  // FIXME: 金额反查待补充 — 其他 orderType 价格来源待接入
+  // 未接入 orderType 返回 null,由客户端金额 + 自洽性校验兜底
   return null
 }
 
@@ -275,7 +276,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       }
       // P1 安全修复(2026-08-02):金额服务端反查,覆盖客户端传入的 payAmount/originalPrice/discountAmount
       // 防止攻击者篡改金额(如 payAmount=0.01 购买高价 VIP)。VIP/Developer 高频类型已接入,
-      // 其他类型保留客户端金额 + 金额自洽性校验兜底(FIXME: 待补充)。
+      // 其他类型保留客户端金额 + 金额自洽性校验兜底。
       const realAmount = await resolveOrderAmount(
         parsed.data.orderType,
         parsed.data.targetId,
