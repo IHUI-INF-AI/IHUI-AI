@@ -10,7 +10,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { db } from '../db/index.js'
-import { learnTopicLesson, lessons, eduOrders, eduLiveCategory, eduLiveChannel } from '@ihui/database'
+import { learnTopicLesson, lessons, lessonRecords, eduOrders, eduLiveCategory, eduLiveChannel, examSignups, examPapers, eduClassesSchedules, eduClassesMembers } from '@ihui/database'
 import { eq, and, desc, asc, sql } from 'drizzle-orm'
 import { findCertificates, findCertificateById } from '../db/certificate-queries.js'
 import {
@@ -40,7 +40,7 @@ import {
   submitExamRecord,
   createExamRecord,
 } from '../db/exam-queries.js'
-import { getLessonProgress } from '../db/learn-record-queries.js'
+import { getLessonProgress, getProgressOverview } from '../db/learn-record-queries.js'
 
 // =============================================================================
 // Zod schemas
@@ -62,6 +62,7 @@ const createNoteSchema = z.object({
   title: z.string().max(200).nullable().optional(),
   content: z.string().min(1).max(10000),
   isPublic: z.boolean().optional(),
+  sectionId: z.string().optional(),
 })
 
 const createQASchema = z.object({
@@ -348,7 +349,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/dashboard', async (request, reply) => {
     const userId = request.userId!
     const lessonsResult = await findMyLessons(userId, { page: 1, pageSize: 100 })
-    const completedLessons = lessonsResult.list.filter((s) => s.status === 2).length
+    const completedCourses = lessonsResult.list.filter((s) => s.status === 2).length
     const inProgressLessons = lessonsResult.list.filter((s) => s.status === 1).length
     const avgProgress =
       lessonsResult.list.length > 0
@@ -372,39 +373,54 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       userId,
       status: 1,
     })
+    // 学习时长(从 lessonRecords 聚合)
+    const [durationRow] = await db
+      .select({ total: sql<number>`COALESCE(sum(${lessonRecords.watchDuration})::int, 0)` })
+      .from(lessonRecords)
+      .where(eq(lessonRecords.userId, userId))
+    const studyHours = Math.round(((durationRow?.total ?? 0) / 3600) * 10) / 10
+    // 最近学习的课程(按 updatedAt 倒序取前 6)
+    const recentRecords = await db
+      .select({
+        id: lessonRecords.lessonId,
+        title: lessons.title,
+        progress: lessonRecords.progress,
+        lastLearnAt: lessonRecords.updatedAt,
+      })
+      .from(lessonRecords)
+      .innerJoin(lessons, eq(lessonRecords.lessonId, lessons.id))
+      .where(eq(lessonRecords.userId, userId))
+      .orderBy(desc(lessonRecords.updatedAt))
+      .limit(6)
+    const recentCourses = recentRecords.map((r) => ({
+      id: r.id,
+      title: r.title,
+      progress: r.progress,
+      lastLearnAt: r.lastLearnAt.toISOString(),
+    }))
     // 2026-08-07 修复:返回结构与前端契约对齐(平铺字段)。
     // 此前返回 list[] 分组结构,前端读 data.totalCourses 等恒为 0 → 仪表盘全 0。
     return reply.send(
       success({
         totalCourses: lessonsResult.total,
-        completedCourses: completedLessons,
+        completedCourses,
         inProgressCourses: inProgressLessons,
         avgProgress,
-        studyHours: 0,
+        studyHours,
         totalExams: examResult.total,
         passedExams,
         avgScore,
         totalCerts: certResult.total,
-        recentCourses: [],
+        recentCourses,
       }),
     )
   })
 
-  // GET /edu/progress - 我的学习进度概览
+  // GET /edu/progress - 我的学习进度概览(聚合统计)
   server.get('/edu/progress', async (request, reply) => {
-    const parsed = paginationSchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const result = await findMyLessons(request.userId!, parsed.data)
-    const list = result.list.map((s) => ({
-      courseId: s.id,
-      title: s.title,
-      progress: s.progress,
-      status: s.status,
-      lastStudiedAt: s.updatedAt,
-    }))
-    return reply.send(success({ list, total: result.total }))
+    const userId = request.userId!
+    const overview = await getProgressOverview(userId)
+    return reply.send(success(overview))
   })
 
   // GET /edu/nav - 学习导航(分类+地图)
@@ -422,13 +438,89 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // GET /edu/schedule - 我的考试报名日程
-  // 2026-08-07 修复:原实现查历史旧表 exam_sign_up(member_id integer),
-  // 而当前用户体系为 UUID(userId),`::bigint` 转换直接报错 500。
-  // 新表 exam_signups(user_id uuid + paper_id uuid)数据模型未迁移到此端点,
-  // 故降级为安全空列表(不报错),待考试报名模块适配新表后恢复。
-  server.get('/edu/schedule', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  // GET /edu/schedule - 我的课程表(考试报名+班级课程)
+  server.get('/edu/schedule', async (request, reply) => {
+    const userId = request.userId!
+    const items: Array<{
+      id: string
+      title: string
+      instructor: string
+      weekday: number
+      startTime: string
+      endTime: string
+      location?: string
+      type: string
+    }> = []
+
+    // 1. 考试报名日程
+    const examRows = await db
+      .select({
+        id: examSignups.id,
+        paperTitle: examPapers.title,
+        createdAt: examSignups.createdAt,
+        status: examSignups.status,
+      })
+      .from(examSignups)
+      .innerJoin(examPapers, eq(examSignups.paperId, examPapers.id))
+      .where(eq(examSignups.userId, userId))
+      .orderBy(desc(examSignups.createdAt))
+      .limit(20)
+    for (const row of examRows) {
+      const d = new Date(row.createdAt)
+      items.push({
+        id: `exam_${row.id}`,
+        title: row.paperTitle,
+        instructor: '',
+        weekday: (d.getDay() + 6) % 7, // 0=周一
+        startTime: d.toISOString().slice(11, 16),
+        endTime: '',
+        type: 'exam',
+      })
+    }
+
+    // 2. 班级课程排期(表可能尚未迁移,优雅降级)
+    try {
+      const classRows = await db
+        .select({
+          id: eduClassesSchedules.id,
+          lessonName: eduClassesSchedules.lessonName,
+          teacherName: eduClassesSchedules.teacherName,
+          scheduledAt: eduClassesSchedules.scheduledAt,
+          durationMinutes: eduClassesSchedules.durationMinutes,
+          location: eduClassesSchedules.location,
+          status: eduClassesSchedules.status,
+        })
+        .from(eduClassesSchedules)
+        .innerJoin(
+          eduClassesMembers,
+          and(
+            eq(eduClassesSchedules.classId, eduClassesMembers.classId),
+            eq(eduClassesMembers.userId, userId),
+            eq(eduClassesMembers.status, 'active'),
+          ),
+        )
+        .where(eq(eduClassesSchedules.status, 'scheduled'))
+        .orderBy(desc(eduClassesSchedules.scheduledAt))
+        .limit(50)
+      for (const row of classRows) {
+        const d = new Date(row.scheduledAt)
+        const end = new Date(d.getTime() + (row.durationMinutes ?? 60) * 60000)
+        items.push({
+          id: `class_${row.id}`,
+          title: row.lessonName ?? '',
+          instructor: row.teacherName ?? '',
+          weekday: (d.getDay() + 6) % 7,
+          startTime: d.toISOString().slice(11, 16),
+          endTime: end.toISOString().slice(11, 16),
+          location: row.location ?? undefined,
+          type: 'class',
+        })
+      }
+    } catch {
+      // edu_classes_schedules / edu_classes_members 表尚未迁移,跳过班级课程排期
+    }
+
+    return reply.send(success({ list: items, total: items.length }))
   })
 
   // ===========================================================================

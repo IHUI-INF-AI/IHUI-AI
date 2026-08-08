@@ -5,6 +5,8 @@ import {
   lessonRecordLogs,
   lessonChapterSections,
   lessonSignUps,
+  lessons,
+  learnCategories,
   users,
   type LessonRecord,
   type LessonRecordLog,
@@ -344,6 +346,127 @@ export async function updateWatchPosition(
     record: afterRecord ?? updatedRecord,
     log,
     autoCompleted,
+  }
+}
+
+// =============================================================================
+// 7. getProgressOverview — 学习进度概览(聚合统计,供 /edu/progress 使用)
+// =============================================================================
+
+export interface ProgressOverview {
+  totalStudyHours: number
+  totalCourses: number
+  completedCourses: number
+  avgProgress: number
+  weeklyHours: { date: string; hours: number }[]
+  categoryProgress: { name: string; total: number; completed: number; progress: number }[]
+  recentMilestones: { id: string; title: string; type: string; achievedAt: string }[]
+}
+
+/**
+ * 聚合用户的整体学习进度概览。
+ * 从 lessonRecords(学习时长)、lessonRecordLogs(每周时长)、lessonSignUps(课程进度/分类)计算。
+ */
+export async function getProgressOverview(userId: string): Promise<ProgressOverview> {
+  // 1. 总学习时长(秒→小时)
+  const durationRows = await db
+    .select({ total: sql<number>`COALESCE(sum(${lessonRecords.watchDuration})::int, 0)` })
+    .from(lessonRecords)
+    .where(eq(lessonRecords.userId, userId))
+  const totalSeconds = durationRows[0]?.total ?? 0
+  const totalStudyHours = Math.round((totalSeconds / 3600) * 10) / 10
+
+  // 2. 报名课程统计
+  const signups = await db
+    .select({
+      id: lessonSignUps.id,
+      lessonId: lessonSignUps.lessonId,
+      progress: lessonSignUps.progress,
+      status: lessonSignUps.status,
+      title: lessons.title,
+      categoryName: learnCategories.name,
+    })
+    .from(lessonSignUps)
+    .innerJoin(lessons, eq(lessonSignUps.lessonId, lessons.id))
+    .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
+    .where(eq(lessonSignUps.userId, userId))
+
+  const totalCourses = signups.length
+  const completedCourses = signups.filter((s) => s.status === 2).length
+  const avgProgress =
+    totalCourses > 0
+      ? Math.round(signups.reduce((sum, s) => sum + (s.progress ?? 0), 0) / totalCourses)
+      : 0
+
+  // 3. 分类进度聚合
+  const categoryMap = new Map<string, { total: number; completed: number; progress: number }>()
+  for (const s of signups) {
+    // 处理分类名,含中文逗号分隔的多个分类
+    const names = s.categoryName ? s.categoryName.split(/[,，]/).map((n) => n.trim()).filter(Boolean) : ['未分类']
+    for (const name of names) {
+      const entry = categoryMap.get(name) ?? { total: 0, completed: 0, progress: 0 }
+      entry.total++
+      if (s.status === 2) entry.completed++
+      entry.progress += s.progress ?? 0
+      categoryMap.set(name, entry)
+    }
+  }
+  const categoryProgress = Array.from(categoryMap.entries()).map(([name, data]) => ({
+    name,
+    total: data.total,
+    completed: data.completed,
+    progress: data.total > 0 ? Math.round(data.progress / data.total) : 0,
+  }))
+
+  // 4. 最近7天每周学习时长(从 lessonRecordLogs 读取)
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  sevenDaysAgo.setHours(0, 0, 0, 0)
+  const logRows = await db
+    .select({
+      date: sql<string>`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`,
+      duration: sql<number>`COALESCE(sum(${lessonRecordLogs.duration})::int, 0)`,
+    })
+    .from(lessonRecordLogs)
+    .where(
+      and(
+        eq(lessonRecordLogs.userId, userId),
+        sql`${lessonRecordLogs.createdAt} >= ${sevenDaysAgo.toISOString()}::timestamptz`,
+      ),
+    )
+    .groupBy(sql`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`)
+    .orderBy(sql`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`)
+  const logMap = new Map<string, number>()
+  for (const r of logRows) {
+    logMap.set(r.date, Math.round((r.duration / 3600) * 10) / 10)
+  }
+  const weeklyHours: { date: string; hours: number }[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const dateStr = d.toISOString().slice(0, 10)
+    weeklyHours.push({ date: dateStr, hours: logMap.get(dateStr) ?? 0 })
+  }
+
+  // 5. 最近完成的课程(里程碑)
+  const completedLessons = signups
+    .filter((s) => s.status === 2)
+    .slice(0, 10)
+    .map((s) => ({
+      id: s.lessonId,
+      title: s.title,
+      type: 'course_completed' as const,
+      achievedAt: new Date().toISOString(), // lessonSignUps 无 completedAt,用当前时间代理
+    }))
+
+  return {
+    totalStudyHours,
+    totalCourses,
+    completedCourses,
+    avgProgress,
+    weeklyHours,
+    categoryProgress,
+    recentMilestones: completedLessons,
   }
 }
 
