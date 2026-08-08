@@ -250,6 +250,14 @@ vi.mock('../src/utils/crypto-random.js', () => ({
 
 vi.mock('@ihui/database', () => ({
   users: {},
+  invitationCodes: {
+    id: 'id',
+    code: 'code',
+    userId: 'user_id',
+    usedAt: 'used_at',
+    createdAt: 'created_at',
+    expiresAt: 'expires_at',
+  },
 }))
 
 vi.mock('../src/db/index.js', () => ({

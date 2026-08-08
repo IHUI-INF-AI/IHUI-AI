@@ -13,6 +13,11 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('fam-mock'),
 }))
 
+// P2-14 fix:authenticate 调用 getUserStatus 查询用户状态,需 mock 返回 active
+vi.mock('../src/db/usercenter-queries.js', () => ({
+  getUserStatus: vi.fn().mockResolvedValue(1),
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',

@@ -146,17 +146,19 @@ export default function SubscriptionsPage() {
                   {dateFmt.format(new Date(s.createdAt))}
                 </span>
                 <Tooltip content={t('cancel')}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() =>
-                      cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })
-                    }
-                    disabled={cancelMut.isPending}
-                  >
-                    <BellOff className="h-3.5 w-3.5" />
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() =>
+                        cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })
+                      }
+                      disabled={cancelMut.isPending}
+                    >
+                      <BellOff className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
                 </Tooltip>
               </li>
             )
