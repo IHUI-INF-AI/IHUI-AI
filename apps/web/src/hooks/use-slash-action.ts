@@ -77,6 +77,8 @@ export function useSlashAction(
   setInputValue: (v: string) => void,
   inputCoreRef: React.RefObject<SlashActionInputCoreHandle | null>,
   onSend: (content: string) => Promise<boolean> | boolean,
+  /** 技能命令选中时触发的回调,skillId 为 skill- 前缀后的实际技能 ID */
+  onOpenSkillInvoke?: (skillId: string) => void,
 ): {
   promptTemplates: PromptTemplate[]
   handleCommandSelect: (id: string) => void
@@ -203,11 +205,11 @@ export function useSlashAction(
         void onSend(`/${id.replace('-', ' ')}`)
         return
       }
-      // skill 命令(2026-07-29 二次深化):id 形如 "skill-<skillId>",
-      // 填充 "/skill <skillName> " 到 textarea 让用户确认或追加参数
+      // skill 命令(2026-08-08 深化):id 形如 "skill-<skillId>",
+      // 触发 onOpenSkillInvoke 回调打开技能调用对话框,而非填充 textarea
       if (id.startsWith('skill-')) {
-        const skillName = id.slice('skill-'.length)
-        fillInput(`/skill ${skillName} `)
+        const skillId = id.slice('skill-'.length)
+        onOpenSkillInvoke?.(skillId)
         return
       }
       fillInput(commandTemplates[id] ?? '')
@@ -222,6 +224,7 @@ export function useSlashAction(
       inputCoreRef,
       commandTemplates,
       markPermissionToastShown,
+      onOpenSkillInvoke,
     ],
   )
 
