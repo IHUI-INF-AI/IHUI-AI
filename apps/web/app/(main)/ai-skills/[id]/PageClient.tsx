@@ -209,7 +209,7 @@ export default function AiSkillDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-4">
       <BackLink />
 
       {/* 头部:icon + name + 状态徽章 + sourceUrl */}

@@ -428,7 +428,7 @@ export default function LoginSecurityPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       {/* 自动登录 */}
       <Card>
