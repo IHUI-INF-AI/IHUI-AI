@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import {
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Send,
   XCircle,
+  MessageSquare,
 } from 'lucide-react'
 
 import {
@@ -26,21 +27,32 @@ import {
 } from '@ihui/api-client/endpoints/ai-skills'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
+import {
+  getLabelKey,
+  getPlaceholderKey,
+  getMaxLen,
+  isLongText,
+  parseVariables,
+} from '@/lib/ai-skill-variables'
+import { useChatStore } from '@/stores/chat'
 
 /**
- * AI Skill 详情页 — 2026-07-23 新增
+ * AI Skill 详情页 — 2026-07-23 新增, 2026-08-08 深度重构
  *
  * 路由:`/ai-skills/[id]`
  *
  * 行为:
  * - 顶部:返回 + skill icon/name/status/sourceUrl
  * - 元数据区:description + tags + source 链接(若 available=false)
- * - 调用区(available=true):动态参数表单(根据 promptTemplate 解析 {key} 变量)
- *   - nuwa-skill:{content} + {style}
- *   - hugshu-design:{requirements}
- *   - guizang-ppt-skill / auto-redbook-skills:{topic}
- * - 结果区:text / html iframe / json 三种 contentType
+ * - 调用区(available=true):动态参数表单(基于共享 ai-skill-variables 模块)
+ * - 结果区:text / html iframe / json 三种 contentType + 发送到聊天
  * - 占位 skill:不显示调用区,显示引导 + GitHub 链接
+ *
+ * 2026-08-08 深度重构:
+ * - 使用共享 @ihui/shared/utils/ai-skill-variables 模块替代重复代码
+ * - 使用 draftInput + router.push 实现无缝"发送到聊天"流程
+ * - 结果区添加"发送到聊天"快捷按钮
+ * - 输入字段级验证提示
  */
 
 const CATEGORY_ICON: Record<
@@ -52,70 +64,6 @@ const CATEGORY_ICON: Record<
   'ai-top': Sparkles,
 }
 
-/** 把变量名映射到 i18n key(13 个已知变量,覆盖全部 19 个真集成 skill) */
-const VARIABLE_LABEL_KEY: Record<string, string> = {
-  content: 'inputContent',
-  style: 'inputStyle',
-  requirements: 'inputRequirements',
-  topic: 'inputTopic',
-  domain: 'inputDomain',
-  platform: 'inputPlatform',
-  concept: 'inputConcept',
-  title: 'inputTitle',
-  subtitle: 'inputSubtitle',
-  platforms: 'inputPlatforms',
-  usecase: 'inputUsecase',
-  task: 'inputTask',
-}
-
-const VARIABLE_PLACEHOLDER_KEY: Record<string, string> = {
-  content: 'placeholderContent',
-  style: 'placeholderStyle',
-  requirements: 'placeholderRequirements',
-  topic: 'placeholderTopic',
-  domain: 'placeholderDomain',
-  platform: 'placeholderPlatform',
-  concept: 'placeholderConcept',
-  title: 'placeholderTitle',
-  subtitle: 'placeholderSubtitle',
-  platforms: 'placeholderPlatforms',
-  usecase: 'placeholderUsecase',
-  task: 'placeholderTask',
-}
-
-/** 已知变量的多行大小限制(防止超长输入) */
-const VARIABLE_MAX_LEN: Record<string, number> = {
-  content: 4000,
-  style: 200,
-  requirements: 1000,
-  topic: 500,
-  domain: 200,
-  platform: 100,
-  concept: 500,
-  title: 200,
-  subtitle: 200,
-  platforms: 500,
-  usecase: 500,
-  task: 500,
-}
-
-/** 解析 promptTemplate 中的 {key} 变量,去重保序 */
-function parseVariables(template: string): string[] {
-  if (!template) return []
-  const re = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g
-  const seen = new Set<string>()
-  const out: string[] = []
-  let m: RegExpExecArray | null
-  while ((m = re.exec(template)) !== null) {
-    const k = m[1] ?? ''
-    if (k && !seen.has(k)) {
-      seen.add(k)
-      out.push(k)
-    }
-  }
-  return out
-}
-
 async function fetchSkill(id: string): Promise<AiSkillMeta> {
   const r = await getAiSkill(id)
   if (!r.success || !r.data) throw new Error(r.error ?? 'not found')
@@ -124,6 +72,7 @@ async function fetchSkill(id: string): Promise<AiSkillMeta> {
 
 export default function AiSkillDetailPage() {
   const params = useParams<{ id: string }>()
+  const router = useRouter()
   const id = params.id
   const t = useTranslations('aiSkillDetail')
   const tp = useTranslations('aiSkillsPage')
@@ -143,6 +92,8 @@ export default function AiSkillDetailPage() {
   const [running, setRunning] = React.useState(false)
   const [result, setResult] = React.useState<AiSkillInvokeResponse | null>(null)
   const [invokeError, setInvokeError] = React.useState<string | null>(null)
+  // 字段级验证:记录缺失的字段名
+  const [missingFields, setMissingFields] = React.useState<Set<string>>(new Set())
 
   // 切换 skill 时重置
   React.useEffect(() => {
@@ -150,7 +101,17 @@ export default function AiSkillDetailPage() {
     setResult(null)
     setInvokeError(null)
     setRunning(false)
+    setMissingFields(new Set())
   }, [id])
+
+  /** 发送结果到对话:设置 draftInput 后跳转到 /chat */
+  const sendToChat = React.useCallback(
+    (content: string) => {
+      useChatStore.setState({ draftInput: content })
+      router.push('/chat')
+    },
+    [router],
+  )
 
   if (isLoading) {
     return (
@@ -176,17 +137,23 @@ export default function AiSkillDetailPage() {
 
   const Icon = CATEGORY_ICON[skill.category] ?? Wand2
   const detectedVars = parseVariables(skill.promptTemplate)
-  // 用 4 个已知变量的顺序 + 检测到的补全顺序
   const renderVars = detectedVars.length > 0 ? detectedVars : skill.available ? ['content'] : []
 
   const handleSubmit = async () => {
     if (running) return
-    // 校验必填
-    const missing = renderVars.find((k) => !variables[k]?.trim())
-    if (missing) {
+    // 字段级校验:标记所有缺失字段
+    const newMissing = new Set<string>()
+    for (const k of renderVars) {
+      if (!variables[k]?.trim()) {
+        newMissing.add(k)
+      }
+    }
+    if (newMissing.size > 0) {
+      setMissingFields(newMissing)
       setInvokeError(t('invokeMissingVariable'))
       return
     }
+    setMissingFields(new Set())
     setRunning(true)
     setInvokeError(null)
     setResult(null)
@@ -209,7 +176,7 @@ export default function AiSkillDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-4">
       <BackLink />
 
       {/* 头部:icon + name + 状态徽章 + sourceUrl */}
@@ -275,52 +242,76 @@ export default function AiSkillDetailPage() {
 
           <div className="space-y-2.5">
             {renderVars.map((key) => {
-              const isLong =
-                key === 'content' ||
-                key === 'requirements' ||
-                key === 'topic' ||
-                key === 'platforms'
-              const maxLen = VARIABLE_MAX_LEN[key] ?? 1000
-              const labelKey = (VARIABLE_LABEL_KEY[key] ??
-                `input${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'inputContent'
-              const placeholderKey = (VARIABLE_PLACEHOLDER_KEY[key] ??
-                `placeholder${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'placeholderContent'
+              const labelKey = getLabelKey(key) as 'inputContent'
+              const placeholderKey = getPlaceholderKey(key) as 'placeholderContent'
+              const maxLen = getMaxLen(key)
+              const long = isLongText(key)
+              const isMissing = missingFields.has(key)
               const val = variables[key] ?? ''
               return (
                 <div key={key} className="space-y-1">
-                  <label htmlFor={`var-${key}`} className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor={`var-${key}`}
+                    className={cn(
+                      'text-xs font-medium',
+                      isMissing ? 'text-destructive' : 'text-foreground',
+                    )}
+                  >
                     {t(labelKey)}
+                    {isMissing && (
+                      <span className="ml-1 text-[10px] text-destructive">*{t('invokeRequired')}</span>
+                    )}
                   </label>
-                  {isLong ? (
+                  {long ? (
                     <textarea
                       id={`var-${key}`}
                       value={val}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setVariables((prev) => ({
                           ...prev,
                           [key]: e.target.value.slice(0, maxLen),
                         }))
-                      }
+                        if (isMissing && e.target.value.trim()) {
+                          setMissingFields((prev) => {
+                            const next = new Set(prev)
+                            next.delete(key)
+                            return next
+                          })
+                        }
+                      }}
                       placeholder={t(placeholderKey)}
                       aria-label={t(labelKey)}
                       maxLength={maxLen}
-                      rows={key === 'content' ? 4 : 3}
-                      className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+                      rows={key === 'content' || key === 'text' ? 4 : 3}
+                      className={cn(
+                        'thin-scroll w-full resize-none rounded-md border bg-background px-3 py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        isMissing ? 'border-destructive/60' : 'border-border',
+                      )}
                     />
                   ) : (
                     <input
                       id={`var-${key}`}
                       type="text"
                       value={val}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setVariables((prev) => ({
                           ...prev,
                           [key]: e.target.value,
                         }))
-                      }
+                        if (isMissing && e.target.value.trim()) {
+                          setMissingFields((prev) => {
+                            const next = new Set(prev)
+                            next.delete(key)
+                            return next
+                          })
+                        }
+                      }}
                       placeholder={t(placeholderKey)}
                       aria-label={t(labelKey)}
-                      className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+                      className={cn(
+                        'w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        isMissing ? 'border-destructive/60' : 'border-border',
+                      )}
                     />
                   )}
                 </div>
@@ -388,14 +379,15 @@ export default function AiSkillDetailPage() {
             </div>
           </div>
           <ResultContent result={result} />
-          <div className="flex justify-end pt-1">
-            <Link
-              href={`/chat?prefill=${encodeURIComponent(result.content.slice(0, 2000))}`}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => sendToChat(result.content)}
               className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              <Send className="h-3 w-3" />
-              {t('fillToChat')}
-            </Link>
+              <MessageSquare className="h-3 w-3" />
+              {t('sendToChat')}
+            </button>
           </div>
         </section>
       )}

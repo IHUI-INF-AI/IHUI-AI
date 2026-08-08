@@ -15,9 +15,9 @@
 
 import type { FastifyRequest } from 'fastify'
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import { readFile, readdir } from 'node:fs/promises'
-import { join, resolve, basename, relative, isAbsolute } from 'node:path'
+import { createHash, randomUUID } from 'node:crypto'
+import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises'
+import { join, resolve, basename, relative, isAbsolute, dirname } from 'node:path'
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecGenerateInput, SpecScope, SpecTemplate } from '@ihui/shared'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -215,6 +215,115 @@ export interface SpecEnhanceResult {
   /** LLM 不可用时含 error 字段 */
   error?: string
   message?: string
+}
+
+// ---------------------------------------------------------------------------
+// 2026-08-06 实装:全流程 / 回滚 / 影响分析 / 分支 / 智能生成(本地 FS,不依赖 ai-service)
+// ---------------------------------------------------------------------------
+
+/** 流水线阶段名(与前端 spec-panel.tsx stageLabel 对齐) */
+export type SpecPipelineStageName = 'apply_spec' | 'apply_patch' | 'typecheck' | 'test' | 'commit'
+
+/** 流水线阶段状态 */
+export type SpecPipelineStageStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped'
+
+/** 单个流水线阶段 */
+export interface SpecPipelineStage {
+  name: SpecPipelineStageName
+  status: SpecPipelineStageStatus
+  log: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+/** POST /spec/full-pipeline 响应 data 字段 */
+export interface SpecFullPipelineResult {
+  pipelineId: string
+  stages: SpecPipelineStage[]
+  overallStatus: 'running' | 'success' | 'failed' | 'partial'
+  backupDir: string
+  commitSha: string
+  error?: string
+}
+
+/** POST /spec/pipeline-rollback 响应 data 字段 */
+export interface SpecPipelineRollbackResult {
+  rolled: number
+  errors: string[]
+  backupDir: string
+  error?: string
+}
+
+/** POST /spec/impact-analysis 响应 data 字段 */
+export interface SpecImpactAnalysisResult {
+  affectedFiles: string[]
+  affectedTests: string[]
+  downstreamSpecs: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+  llmAnalysis: {
+    summary?: string
+    riskReason?: string
+    recommendations?: string[]
+    error?: string
+    message?: string
+  }
+  recommendations: string[]
+}
+
+/** Spec 分支 */
+export interface SpecBranch {
+  specId: string
+  name: string
+  baseVersion: string
+  currentVersion: string
+  createdAt: string
+  status: 'active' | 'merged' | 'abandoned'
+  filePath?: string
+}
+
+/** GET /spec/branches 响应 data 字段 */
+export interface SpecBranchesResult {
+  branches: SpecBranch[]
+}
+
+/** POST /spec/branch/merge 响应 data 字段 */
+export interface SpecBranchMergeResult {
+  merged: boolean
+  conflicts: string[]
+  mergedContent: string
+  branchName: string
+  error?: string
+}
+
+/** POST /spec/branch/abandon 响应 data 字段 */
+export interface SpecBranchAbandonResult {
+  abandoned: boolean
+  branchName: string
+}
+
+/** POST /spec/generate-from-requirement 响应 data 字段 */
+export interface SpecGenerateFromRequirementResult {
+  spec: string
+  sections: Array<{ title: string; level: number }>
+  format: string
+  error?: string
+  message?: string
+}
+
+/** GET /spec/branch/diff 响应 data 字段(与前端 spec-panel.tsx SpecBranchDiffResult 对齐) */
+export interface SpecBranchDiffResult {
+  diff: string
+  addedLines: number
+  removedLines: number
+  branchName: string
+  specId: string
+  error?: string
+}
+
+/** GET /spec/pipeline-status 响应 data 字段(extends 全流程结果,含状态查询附加字段) */
+export interface SpecPipelineStatusResult extends SpecFullPipelineResult {
+  logs?: string[]
+  ran?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -797,6 +906,695 @@ class SpecService {
       throw new Error(json.message || 'spec 增强失败')
     }
     return json.data
+  }
+
+  // -------------------------------------------------------------------------
+  // 2026-08-06 实装:全流程 / 回滚 / 影响分析 / 分支 / 智能生成
+  // (本地 FS 实装,ai-service 无对应端点;与 getHistory/loadSpec/getVariables 本地模式一致)
+  // -------------------------------------------------------------------------
+
+  /**
+   * 读取分支索引(内部辅助)。
+   * 路径:<workspacePath>/.trae-cn/specs/branches/index.json
+   * 文件不存在时返回空数组(不抛错)。
+   */
+  private async readBranchIndex(root: string): Promise<SpecBranch[]> {
+    const indexFile = join(root, '.trae-cn', 'specs', 'branches', 'index.json')
+    try {
+      const content = await readFile(indexFile, 'utf-8')
+      return JSON.parse(content) as SpecBranch[]
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * 写入分支索引(内部辅助)。
+   * 自动创建目录,JSON pretty-print(2 空格缩进)。
+   */
+  private async writeBranchIndex(root: string, branches: SpecBranch[]): Promise<void> {
+    const indexFile = join(root, '.trae-cn', 'specs', 'branches', 'index.json')
+    await mkdir(dirname(indexFile), { recursive: true })
+    await writeFile(indexFile, JSON.stringify(branches, null, 2), 'utf-8')
+  }
+
+  /**
+   * POST /spec/generate-from-requirement — 从需求描述智能生成 spec 草稿。
+   *
+   * 本地实装(不依赖 ai-service / LLM):基于需求文本生成结构化 5 章节 spec 模板。
+   * 响应包含 spec markdown + sections 章节(与前端 SpecGenerateFromRequirementResult 对齐)。
+   */
+  async generateFromRequirement(input: {
+    workspacePath: string
+    requirement: string
+    format: string
+  }): Promise<SpecGenerateFromRequirementResult> {
+    const { requirement, format } = input
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const requirementPreview = requirement.length > 500 ? requirement.slice(0, 500) + '...' : requirement
+
+    const sections: Array<{ title: string; level: number }> = [
+      { title: '概述', level: 1 },
+      { title: '模块结构', level: 1 },
+      { title: 'API 契约', level: 1 },
+      { title: '数据模型', level: 1 },
+      { title: '测试用例', level: 1 },
+    ]
+
+    const spec = `# Spec 草稿(${timestamp})
+
+> 由需求智能生成(本地模板,LLM 未参与)
+
+## 概述
+
+**需求描述:**
+
+${requirementPreview}
+
+**输入格式:** ${format}
+
+**生成时间:** ${timestamp}
+
+## 模块结构
+
+- 建议模块划分(基于需求关键词推断,待 LLM 增强):
+  - 核心模块:承载主业务逻辑
+  - 辅助模块:工具函数 + 类型定义
+  - 接入层:API 路由 + 请求校验
+
+## API 契约
+
+- 建议 endpoint(待 LLM 增强,基于需求推断):
+  - \`GET /api/resource\` — 列表查询
+  - \`POST /api/resource\` — 新建
+  - \`GET /api/resource/:id\` — 详情
+  - \`PUT /api/resource/:id\` — 更新
+  - \`DELETE /api/resource/:id\` — 删除
+
+## 数据模型
+
+- 建议数据实体(待 LLM 增强):
+  - \`id\` — 主键
+  - \`createdAt\` — 创建时间
+  - \`updatedAt\` — 更新时间
+  - 业务字段:从需求推断
+
+## 测试用例
+
+- 建议测试覆盖(待 LLM 增强):
+  - 正向流程:CRUD 基础场景
+  - 异常处理:参数校验 + 权限 + 资源不存在
+  - 边界条件:空值 + 最大长度 + 并发
+`
+
+    return {
+      spec,
+      sections,
+      format,
+      message: '本地模板生成(LLM 未参与),建议结合「智能分析」标签页深化',
+    }
+  }
+
+  /**
+   * POST /spec/branch — 从当前 spec 派生分支。
+   *
+   * 本地实装:
+   * - 从 baseVersion(latest 或历史时间戳)读取 spec 内容
+   * - 复制到 .trae-cn/specs/branches/<branchName>.md
+   * - 在 branches/index.json 注册分支元数据(active 状态)
+   */
+  async createBranch(input: {
+    scope: SpecScope
+    workspacePath: string
+    branchName: string
+    baseVersion: string
+  }): Promise<SpecBranch> {
+    const root = resolve(input.workspacePath)
+    const scopeHash = computeScopeHash(input.scope)
+    const branchesDir = join(root, '.trae-cn', 'specs', 'branches')
+    const branchFile = join(branchesDir, `${input.branchName}.md`)
+
+    await mkdir(branchesDir, { recursive: true })
+
+    // 读取 base spec 内容
+    let baseSpec = ''
+    if (input.baseVersion === 'latest') {
+      baseSpec = await readFile(
+        join(root, '.trae-cn', 'specs', `${scopeHash}.md`),
+        'utf-8',
+      ).catch(() => '')
+    } else {
+      baseSpec = await readFile(
+        join(root, '.trae-cn', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
+        'utf-8',
+      ).catch(() => '')
+    }
+
+    // 写入分支文件(即使 baseSpec 为空也写入,前端可后续编辑)
+    await writeFile(branchFile, baseSpec, 'utf-8')
+
+    // 更新 index.json(覆盖同名旧分支)
+    const branches = await this.readBranchIndex(root)
+    const now = new Date().toISOString()
+    const branch: SpecBranch = {
+      specId: scopeHash,
+      name: input.branchName,
+      baseVersion: input.baseVersion,
+      currentVersion: now,
+      createdAt: now,
+      status: 'active',
+      filePath: relative(root, branchFile).replace(/\\/g, '/'),
+    }
+    const filtered = branches.filter(
+      (b) => !(b.specId === scopeHash && b.name === input.branchName),
+    )
+    filtered.push(branch)
+    await this.writeBranchIndex(root, filtered)
+
+    return branch
+  }
+
+  /**
+   * POST /spec/branch/merge — 3-way merge + LLM 冲突解决。
+   *
+   * 本地实装(简化):
+   * - 读取分支内容 + main spec 内容
+   * - 用 unified diff 检测修改点(连续 - + 行),标记为"冲突(LLM 已自动解决)"
+   * - 合并策略:用分支内容覆盖 main spec(简化,无真正 3-way base 对比)
+   * - 更新分支状态为 merged
+   */
+  async mergeBranch(input: {
+    scope: SpecScope
+    workspacePath: string
+    branchName: string
+  }): Promise<SpecBranchMergeResult> {
+    const root = resolve(input.workspacePath)
+    const scopeHash = computeScopeHash(input.scope)
+    const branchFile = join(root, '.trae-cn', 'specs', 'branches', `${input.branchName}.md`)
+    const mainFile = join(root, '.trae-cn', 'specs', `${scopeHash}.md`)
+
+    // 读取分支内容
+    const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
+    if (!branchContent) {
+      return {
+        merged: false,
+        conflicts: [],
+        mergedContent: '',
+        branchName: input.branchName,
+        error: `分支文件不存在: ${input.branchName}`,
+      }
+    }
+
+    // 读取 main spec(可能不存在,降级为空)
+    const mainContent = await readFile(mainFile, 'utf-8').catch(() => '')
+
+    // 检测冲突行(unified diff 中连续 - + 行视为修改点)
+    const conflicts: string[] = []
+    const { diff } = computeUnifiedDiff(mainContent, branchContent)
+    const diffLines = diff.split('\n')
+    for (let i = 0; i < diffLines.length; i++) {
+      const line = diffLines[i]!
+      if (line.startsWith('-') && !line.startsWith('---')) {
+        const next = diffLines[i + 1]
+        if (next && next.startsWith('+') && !next.startsWith('+++')) {
+          const oldSnippet = line.slice(1, 50).trim() || '(空行)'
+          const newSnippet = next.slice(1, 50).trim() || '(空行)'
+          conflicts.push(`行 ${i}: ${oldSnippet} → ${newSnippet}`)
+        }
+      }
+    }
+
+    // 合并:用分支内容覆盖 main spec
+    await mkdir(dirname(mainFile), { recursive: true })
+    await writeFile(mainFile, branchContent, 'utf-8')
+
+    // 更新分支状态为 merged
+    const branches = await this.readBranchIndex(root)
+    const updated = branches.map((b) =>
+      b.specId === scopeHash && b.name === input.branchName
+        ? { ...b, status: 'merged' as const }
+        : b,
+    )
+    await this.writeBranchIndex(root, updated)
+
+    return {
+      merged: true,
+      conflicts,
+      mergedContent: branchContent,
+      branchName: input.branchName,
+    }
+  }
+
+  /**
+   * POST /spec/branch/abandon — 废弃分支。
+   *
+   * 本地实装:在 branches/index.json 标记分支 status='abandoned'。
+   * 不删除分支文件(保留历史,可后续恢复)。
+   */
+  async abandonBranch(input: {
+    scope: SpecScope
+    workspacePath: string
+    branchName: string
+  }): Promise<SpecBranchAbandonResult> {
+    const root = resolve(input.workspacePath)
+    const scopeHash = computeScopeHash(input.scope)
+
+    const branches = await this.readBranchIndex(root)
+    const target = branches.find(
+      (b) => b.specId === scopeHash && b.name === input.branchName,
+    )
+    if (!target) {
+      return { abandoned: false, branchName: input.branchName }
+    }
+
+    const updated = branches.map((b) =>
+      b.specId === scopeHash && b.name === input.branchName
+        ? { ...b, status: 'abandoned' as const }
+        : b,
+    )
+    await this.writeBranchIndex(root, updated)
+
+    return { abandoned: true, branchName: input.branchName }
+  }
+
+  /**
+   * POST /spec/impact-analysis — LLM 评估拟修改内容风险。
+   *
+   * 本地实装(静态分析,LLM 降级):
+   * - 扫描工作区文件,基于关键词匹配找出可能受影响的文件
+   * - 风险评分:高风险关键词(删除/迁移/重构)→ high;受影响文件 >5 → medium;否则 low
+   * - llmAnalysis.error='llm_unavailable',前端显示"仅展示静态扫描结果"
+   */
+  async analyzeImpact(input: {
+    scope: SpecScope
+    workspacePath: string
+    proposedChanges: string
+  }): Promise<SpecImpactAnalysisResult> {
+    const root = resolve(input.workspacePath)
+    const changes = input.proposedChanges.toLowerCase()
+
+    const HIGH_RISK_KEYWORDS = [
+      'delete', 'remove', 'drop', 'migrate', 'refactor', 'breaking',
+      '删除', '移除', '迁移', '重构', '破坏性',
+    ]
+    const TEST_KEYWORDS = ['test', 'spec', '__tests__', '测试', 'e2e']
+
+    const isHighRisk = HIGH_RISK_KEYWORDS.some((kw) => changes.includes(kw))
+
+    const affectedFiles: string[] = []
+    const affectedTests: string[] = []
+    const downstreamSpecs: string[] = []
+
+    // 扫描工作区文件(限制深度 3,跳过 node_modules/dist/build/.git)
+    const scanDir = async (dir: string, depth: number): Promise<void> => {
+      if (depth > 3) return
+      const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+      for (const entry of entries) {
+        if (
+          entry.name.startsWith('.') ||
+          entry.name === 'node_modules' ||
+          entry.name === 'dist' ||
+          entry.name === 'build' ||
+          entry.name === 'target'
+        ) {
+          continue
+        }
+        const fullPath = join(dir, entry.name)
+        if (entry.isDirectory()) {
+          await scanDir(fullPath, depth + 1)
+        } else if (entry.isFile()) {
+          const rel = relative(root, fullPath).replace(/\\/g, '/')
+          const relLower = rel.toLowerCase()
+          // 文件名或路径出现在拟修改内容中 → 标记受影响
+          if (changes.includes(entry.name.toLowerCase()) || changes.includes(relLower)) {
+            affectedFiles.push(rel)
+          }
+          if (TEST_KEYWORDS.some((kw) => relLower.includes(kw))) {
+            affectedTests.push(rel)
+          }
+        }
+      }
+    }
+    await scanDir(root, 0).catch(() => {
+      // 扫描失败降级,返回空列表
+    })
+
+    // 扫描下游 specs(.trae-cn/specs/*.md,排除 history/branches/backups 子目录)
+    const specsDir = join(root, '.trae-cn', 'specs')
+    const specEntries = await readdir(specsDir, { withFileTypes: true }).catch(() => [])
+    for (const entry of specEntries) {
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        downstreamSpecs.push(relative(root, join(specsDir, entry.name)).replace(/\\/g, '/'))
+      }
+    }
+
+    const riskLevel: 'low' | 'medium' | 'high' = isHighRisk
+      ? 'high'
+      : affectedFiles.length > 5
+        ? 'medium'
+        : 'low'
+
+    const recommendations: string[] = []
+    if (isHighRisk) {
+      recommendations.push('检测到高风险关键词(删除/迁移/重构),建议先备份再操作')
+    }
+    if (affectedFiles.length > 0) {
+      recommendations.push(`检查 ${affectedFiles.length} 个可能受影响的文件`)
+    }
+    if (affectedTests.length > 0) {
+      recommendations.push(`运行 ${affectedTests.length} 个相关测试用例验证回归`)
+    }
+    if (recommendations.length === 0) {
+      recommendations.push('未检测到明显风险,建议常规 code review')
+    }
+
+    return {
+      affectedFiles,
+      affectedTests,
+      downstreamSpecs,
+      riskLevel,
+      llmAnalysis: {
+        error: 'llm_unavailable',
+        message: 'LLM 未参与,仅展示静态扫描结果',
+      },
+      recommendations,
+    }
+  }
+
+  /**
+   * POST /spec/full-pipeline — 全流程流水线。
+   *
+   * 本地实装(5 阶段编排):
+   * - apply_spec:保存 spec 到 .trae-cn/specs/<hash>.md(成功)+ 备份原文件到 backups/<pipelineId>/
+   * - apply_patch:skipped(需 LLM 生成 patch,本地无此能力)
+   * - typecheck:skipped(无代码改动)
+   * - test:skipped(无代码改动)
+   * - commit:autoCommit=true 时 git add + commit spec 文件;否则 skipped
+   *
+   * 整体状态:apply_patch skipped → partial(spec 已保存但未生成代码)
+   */
+  async runFullPipeline(input: {
+    scope: SpecScope
+    workspacePath: string
+    newSpec: string
+    autoCommit: boolean
+  }): Promise<SpecFullPipelineResult> {
+    const root = resolve(input.workspacePath)
+    const scopeHash = computeScopeHash(input.scope)
+    const pipelineId = randomUUID().slice(0, 8)
+    const backupDir = join(root, '.trae-cn', 'specs', 'backups', pipelineId)
+    const stages: SpecPipelineStage[] = []
+    const now = () => new Date().toISOString()
+
+    // 阶段 1: apply_spec — 保存 spec 文件 + 备份原文件
+    const stage1Start = now()
+    try {
+      const specsDir = join(root, '.trae-cn', 'specs')
+      await mkdir(specsDir, { recursive: true })
+      const specFile = join(specsDir, `${scopeHash}.md`)
+      // 备份原文件(如果存在)
+      await mkdir(backupDir, { recursive: true })
+      const oldSpec = await readFile(specFile, 'utf-8').catch(() => '')
+      if (oldSpec) {
+        await writeFile(join(backupDir, `${scopeHash}.md.bak`), oldSpec, 'utf-8')
+      }
+      await writeFile(specFile, input.newSpec, 'utf-8')
+      stages.push({
+        name: 'apply_spec',
+        status: 'success',
+        log: `spec 已保存到 ${relative(root, specFile).replace(/\\/g, '/')}`,
+        startedAt: stage1Start,
+        finishedAt: now(),
+      })
+    } catch (e) {
+      stages.push({
+        name: 'apply_spec',
+        status: 'failed',
+        log: `保存失败: ${(e as Error).message}`,
+        startedAt: stage1Start,
+        finishedAt: now(),
+      })
+      return {
+        pipelineId,
+        stages,
+        overallStatus: 'failed',
+        backupDir: relative(root, backupDir).replace(/\\/g, '/'),
+        commitSha: '',
+        error: 'apply_spec 阶段失败',
+      }
+    }
+
+    // 阶段 2: apply_patch — skipped(本地无 LLM patch 生成能力)
+    stages.push({
+      name: 'apply_patch',
+      status: 'skipped',
+      log: 'LLM 未参与,跳过 patch 生成(spec 已保存,可用「代码生成」标签页手动生成 patch)',
+      startedAt: now(),
+      finishedAt: now(),
+    })
+
+    // 阶段 3: typecheck — skipped(无代码改动)
+    stages.push({
+      name: 'typecheck',
+      status: 'skipped',
+      log: '无代码改动,跳过 typecheck',
+      startedAt: now(),
+      finishedAt: now(),
+    })
+
+    // 阶段 4: test — skipped(无代码改动)
+    stages.push({
+      name: 'test',
+      status: 'skipped',
+      log: '无代码改动,跳过 test',
+      startedAt: now(),
+      finishedAt: now(),
+    })
+
+    // 阶段 5: commit — autoCommit=true 时提交 spec 文件
+    let commitSha = ''
+    if (input.autoCommit) {
+      const stage5Start = now()
+      try {
+        const specRelPath = relative(
+          root,
+          join(root, '.trae-cn', 'specs', `${scopeHash}.md`),
+        ).replace(/\\/g, '/')
+        execSync(
+          `git add ${specRelPath} && git commit -m "chore(spec): pipeline ${pipelineId} 更新 spec"`,
+          {
+            cwd: root,
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'ignore'],
+          },
+        )
+        commitSha = execSync('git rev-parse HEAD', {
+          cwd: root,
+          encoding: 'utf-8',
+          timeout: 5000,
+          stdio: ['pipe', 'pipe', 'ignore'],
+        }).trim()
+        stages.push({
+          name: 'commit',
+          status: 'success',
+          log: `commit: ${commitSha.slice(0, 8)}`,
+          startedAt: stage5Start,
+          finishedAt: now(),
+        })
+      } catch (e) {
+        stages.push({
+          name: 'commit',
+          status: 'failed',
+          log: `commit 失败: ${(e as Error).message}`,
+          startedAt: stage5Start,
+          finishedAt: now(),
+        })
+      }
+    } else {
+      stages.push({
+        name: 'commit',
+        status: 'skipped',
+        log: 'autoCommit=false,跳过 commit',
+        startedAt: now(),
+        finishedAt: now(),
+      })
+    }
+
+    // 整体状态:apply_patch skipped → partial(spec 已保存但未生成代码);有 failed 阶段也仍 partial(已部分完成)
+    const hasFailed = stages.some((s) => s.status === 'failed')
+    const overallStatus: SpecFullPipelineResult['overallStatus'] = 'partial'
+
+    return {
+      pipelineId,
+      stages,
+      overallStatus,
+      backupDir: relative(root, backupDir).replace(/\\/g, '/'),
+      commitSha,
+      error: hasFailed ? '部分阶段失败,详情见 stages' : undefined,
+    }
+  }
+
+  /**
+   * GET /spec/branches — 返回指定 scope 的全部分支列表(含 merged/abandoned)。
+   *
+   * 本地实装:读取 .trae-cn/specs/branches/index.json。
+   * scope 给定时按 specId 过滤,否则返回全部(不同 scope 的分支)。
+   */
+  async listBranches(
+    workspacePath: string,
+    scope?: SpecScope,
+  ): Promise<SpecBranchesResult> {
+    const root = resolve(workspacePath)
+    const branches = await this.readBranchIndex(root)
+    const filtered = scope
+      ? branches.filter((b) => b.specId === computeScopeHash(scope))
+      : branches
+    return { branches: filtered }
+  }
+
+  /**
+   * GET /spec/branch/diff — 对比分支内容与 main spec 的 unified diff。
+   *
+   * 本地实装:
+   * - 读取 .trae-cn/specs/branches/<branchName>.md 与 .trae-cn/specs/<scopeHash>.md
+   * - computeUnifiedDiff(main, branch) 输出标准 unified diff
+   * - 分支文件不存在时返回 error 字段(不抛错,前端 toast 提示)
+   */
+  async diffBranch(input: {
+    workspacePath: string
+    scope: SpecScope
+    branchName: string
+  }): Promise<SpecBranchDiffResult> {
+    const root = resolve(input.workspacePath)
+    const scopeHash = computeScopeHash(input.scope)
+    const branchFile = join(root, '.trae-cn', 'specs', 'branches', `${input.branchName}.md`)
+    const mainFile = join(root, '.trae-cn', 'specs', `${scopeHash}.md`)
+
+    const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
+    if (!branchContent) {
+      return {
+        diff: '',
+        addedLines: 0,
+        removedLines: 0,
+        branchName: input.branchName,
+        specId: scopeHash,
+        error: `分支文件不存在: ${input.branchName}`,
+      }
+    }
+    const mainContent = await readFile(mainFile, 'utf-8').catch(() => '')
+
+    const { diff, addedLines, removedLines } = computeUnifiedDiff(mainContent, branchContent)
+    return {
+      diff,
+      addedLines,
+      removedLines,
+      branchName: input.branchName,
+      specId: scopeHash,
+    }
+  }
+
+  /**
+   * GET /spec/pipeline-status — 查询流水线执行状态。
+   *
+   * 本地实装(同步流水线,无异步任务):
+   * - 检查 .trae-cn/specs/backups/<pipelineId>/ 备份目录是否存在
+   * - 存在且含 .bak 文件 → ran=true, overallStatus=success
+   * - 存在但无 .bak → failed;不存在 → ran=false, error 说明
+   * - 局限:本地流水线同步执行,状态查询仅反映"是否执行过",无逐阶段实时进度
+   */
+  async getPipelineStatus(input: {
+    workspacePath: string
+    scope: SpecScope
+    pipelineId: string
+  }): Promise<SpecPipelineStatusResult> {
+    const root = resolve(input.workspacePath)
+    const backupDir = join(root, '.trae-cn', 'specs', 'backups', input.pipelineId)
+    const relBackup = relative(root, backupDir).replace(/\\/g, '/')
+
+    const statResult = await stat(backupDir).catch(() => null)
+    if (!statResult || !statResult.isDirectory()) {
+      return {
+        pipelineId: input.pipelineId,
+        stages: [],
+        overallStatus: 'failed',
+        backupDir: relBackup,
+        commitSha: '',
+        ran: false,
+        error: `未找到流水线记录: ${input.pipelineId}`,
+      }
+    }
+
+    const entries = await readdir(backupDir).catch(() => [] as string[])
+    const bakCount = entries.filter((f) => f.endsWith('.bak')).length
+    return {
+      pipelineId: input.pipelineId,
+      stages: [],
+      overallStatus: bakCount > 0 ? 'success' : 'failed',
+      backupDir: relBackup,
+      commitSha: '',
+      ran: true,
+      logs: [`备份目录存在,共 ${entries.length} 个文件(${bakCount} 个 spec 备份)`],
+    }
+  }
+
+  /**
+   * POST /spec/pipeline-rollback — 按 backupDir 回滚。
+   *
+   * 本地实装:
+   * - 读取 backupDir 下的 *.bak 文件
+   * - 恢复到 .trae-cn/specs/<原文件名>(去掉 .bak 后缀)
+   * - 返回 rolled 文件数 + errors
+   */
+  async rollbackPipeline(input: {
+    workspacePath: string
+    backupDir: string
+  }): Promise<SpecPipelineRollbackResult> {
+    const root = resolve(input.workspacePath)
+    const backupPath = isAbsolute(input.backupDir)
+      ? input.backupDir
+      : resolve(root, input.backupDir)
+
+    const errors: string[] = []
+    let rolled = 0
+
+    const statResult = await stat(backupPath).catch(() => null)
+    if (!statResult || !statResult.isDirectory()) {
+      return {
+        rolled: 0,
+        errors: [`备份目录不存在: ${input.backupDir}`],
+        backupDir: input.backupDir,
+        error: '备份目录不存在',
+      }
+    }
+
+    try {
+      const entries = await readdir(backupPath, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile()) continue
+        const match = entry.name.match(/^(.+)\.bak$/)
+        if (!match) continue
+        const originalName = match[1]!
+        const backupFile = join(backupPath, entry.name)
+        const targetFile = join(root, '.trae-cn', 'specs', originalName)
+        try {
+          const content = await readFile(backupFile, 'utf-8')
+          await mkdir(dirname(targetFile), { recursive: true })
+          await writeFile(targetFile, content, 'utf-8')
+          rolled++
+        } catch (e) {
+          errors.push(`恢复 ${entry.name} 失败: ${(e as Error).message}`)
+        }
+      }
+    } catch (e) {
+      errors.push(`回滚失败: ${(e as Error).message}`)
+    }
+
+    return {
+      rolled,
+      errors,
+      backupDir: input.backupDir,
+    }
   }
 }
 

@@ -4,7 +4,7 @@ import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Check, ChevronDown, Folder, FolderPlus, Loader2, X } from 'lucide-react'
+import { Check, Folder, FolderPlus, Loader2, X } from 'lucide-react'
 import {
   browseDirectory,
   getRecentWorkspaces,
@@ -124,19 +124,16 @@ export function WorkspaceSelector() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             className={cn(
-              'inline-flex h-6 shrink-0 items-center gap-0.5 rounded px-1.5 text-xs font-medium transition-colors',
-              'bg-muted/60 text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+              'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
               'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-              // 2026-07-19 中文 + 图标垂直对齐:文字 span 视觉居中(此处只有图标 + chevron,无中文 span)
             )}
           >
             {hasActive ? (
-              <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <Folder className="h-4 w-4 shrink-0 text-amber-500" />
             ) : (
-              <FolderPlus className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <FolderPlus className="h-4 w-4 shrink-0 text-primary" />
             )}
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>

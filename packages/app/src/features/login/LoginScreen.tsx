@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -665,7 +666,6 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
   // RN 端打开 web 端扫码页面(Linking)
   const handleOpenWeb = () => {
     if (!currentPlatform?.webUrl) return
-    const { Linking } = require('react-native')
     Linking.openURL(currentPlatform.webUrl).catch(() => {})
   }
 

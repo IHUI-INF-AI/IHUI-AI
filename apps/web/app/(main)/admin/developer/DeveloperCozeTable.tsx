@@ -157,18 +157,20 @@ export function DeveloperCozeTable({
                       </HasPermi>
                       <HasPermi code="ai:developer:remove">
                         <Tooltip content={t('delete')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            disabled={deletePending}
-                            onClick={() => {
-                              if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
-                                onDelete(c.id)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={deletePending}
+                              onClick={() => {
+                                if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
+                                  onDelete(c.id)
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </HasPermi>
                     </div>

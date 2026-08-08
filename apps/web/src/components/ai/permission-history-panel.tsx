@@ -33,6 +33,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Popover, Tooltip } from '@/components/feedback'
+import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import { cn } from '@/lib/utils'
 import {
   getRecentHistory,
@@ -338,11 +339,13 @@ export function PermissionHistoryPanel() {
         <button
           ref={triggerRef}
           type="button"
-          aria-label={t('historyOpenButton')}
-          title={t('historyOpenExternal')}
+          aria-label={t('historyOpenExternal')}
           data-testid="permission-history-trigger"
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+            // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7),从原 h-9 降到 h-7 与权限/添加按钮统一;
+            // 补 w-7 形成 28×28 正方形(原 h-9 w-9 是 36×36,缩窄 8px 高度,根治三个 button 高度参差问题)
+            INPUT_ATTACHMENT_BAR_BTN_BASE,
+            'w-7 justify-center',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}

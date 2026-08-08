@@ -31,7 +31,7 @@ export default function AdminTaxPage() {
   const totalPages = Math.max(1, Math.ceil(total / 10))
   const head = ['规则名称', '类别', '税率', '起征额', '生效时间', '状态']
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
