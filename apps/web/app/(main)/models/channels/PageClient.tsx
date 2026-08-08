@@ -147,7 +147,7 @@ export default function PageClient() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">

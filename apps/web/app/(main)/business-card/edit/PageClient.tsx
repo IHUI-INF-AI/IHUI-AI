@@ -137,7 +137,7 @@ export default function BusinessCardEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <CreditCard className="h-6 w-6 text-primary" />

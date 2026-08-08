@@ -81,7 +81,7 @@ export default function AuthUserPage() {
     return <div className="py-8 text-center text-muted-foreground">缺少 roleId 参数</div>
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Shield className="h-6 w-6 text-primary" />

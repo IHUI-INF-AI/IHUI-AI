@@ -95,7 +95,7 @@ export default function CertificatesPage() {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <BackBar />
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
           {error.message}
@@ -106,7 +106,7 @@ export default function CertificatesPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <BackBar />
         <Skeleton variant="card" count={2} />
       </div>
@@ -116,7 +116,7 @@ export default function CertificatesPage() {
   const { certificates, total, healthy, warning, critical, expired, acmePath, acmeExists, generatedAt } = data
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackBar />
 
       {/* 标题 + 刷新 */}

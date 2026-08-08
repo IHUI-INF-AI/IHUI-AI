@@ -168,7 +168,7 @@ export default function AdminAsksPage() {
     : EMPTY_ASK_FORM
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <AsksFilter search={search} setSearch={setSearch} onCreate={openCreate} mockMode={mockMode} />
       <div className="flex items-center gap-2 text-sm">
