@@ -52,6 +52,7 @@ export interface CreateNoteInput {
   title?: string | null;
   content: string;
   isPublic?: boolean;
+  sectionId?: string | null;
   attachments?: AttachmentItem[];
 }
 
