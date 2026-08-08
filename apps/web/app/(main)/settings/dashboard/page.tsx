@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const t = useTranslations('settings')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
         <BackButton />
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {LINKS.map((item) => {

@@ -140,7 +140,7 @@ export default function AiWorldDetailPage() {
 
   if (error || !world) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
         <Link
           href="/ai-world"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -156,7 +156,7 @@ export default function AiWorldDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
       <Link
         href="/ai-world"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

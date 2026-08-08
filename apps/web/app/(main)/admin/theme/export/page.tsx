@@ -104,7 +104,7 @@ export default function ExportPage() {
   if (loading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">导出 / 导入</h1>

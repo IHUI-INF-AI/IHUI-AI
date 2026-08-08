@@ -116,7 +116,7 @@ export default function MetaLearnerPage() {
   const status = statusQuery.data
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">

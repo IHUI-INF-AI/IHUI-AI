@@ -83,7 +83,7 @@ export default function AiWorldPage() {
   }, [activeTab])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

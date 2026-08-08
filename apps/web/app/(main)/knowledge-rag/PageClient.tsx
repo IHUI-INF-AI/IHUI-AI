@@ -90,7 +90,7 @@ export default function KnowledgeRagPageClient() {
   const sourceLabel = (s: string) => labels[s] ?? s
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
       <BackButton />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
