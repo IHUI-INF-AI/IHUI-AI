@@ -13,7 +13,7 @@ export const EMPTY: CForm = {
 
 export const PAGE_SIZE = 10
 export const PERM = 'course:coursepaylog:'
-export const API = '/api/admin/course/pay-logs'
+export const API = '/api/admin/zhs-legacy/pay-logs'
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },

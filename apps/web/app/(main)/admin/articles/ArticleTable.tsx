@@ -193,15 +193,17 @@ export function ArticleTable(props: ArticleTableProps) {
                           </Button>
                         </Tooltip>
                         <Tooltip content="删除">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(a)}
-                            className="shrink-0 text-destructive hover:text-destructive"
-                            disabled={deletePending}
-                          >
-                            <Trash2 className="h-4 w-4 shrink-0" />
-                          </Button>
+                          <span className="inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(a)}
+                              className="shrink-0 text-destructive hover:text-destructive"
+                              disabled={deletePending}
+                            >
+                              <Trash2 className="h-4 w-4 shrink-0" />
+                            </Button>
+                          </span>
                         </Tooltip>
                       </div>
                     </TableCell>
