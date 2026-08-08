@@ -71,7 +71,7 @@ export const BTN_NEW_CONVERSATION_CLASS =
  *  - text-xs 字号小,自动走 globals.css text-xs 专用 0.7px 偏移规则
  */
 export const CHIP_BASE_CLASS =
-  'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors'
+  'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2.5 py-0 text-xs leading-none transition-colors'
 
 /** 顶部标题栏 (h-14 = 56px,含主标题 + 副标题)
  *  - 用于 ai-side-panel / chat-header 等场景

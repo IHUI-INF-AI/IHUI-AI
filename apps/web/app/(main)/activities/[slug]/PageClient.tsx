@@ -99,7 +99,7 @@ export default function ActivityDetailPage() {
 
   if (error || !data)
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
         <button
           type="button"
           onClick={() => router.push('/activities')}
@@ -120,7 +120,7 @@ export default function ActivityDetailPage() {
   const mut = a.joined ? leaveMut : joinMut
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <button
         type="button"
         onClick={() => router.push('/activities')}

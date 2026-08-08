@@ -108,7 +108,7 @@ export default function EduCourseLearnPage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-6">
         <button
           type="button"
           onClick={() => router.push(`/edu/courses/${id}`)}
@@ -126,7 +126,7 @@ export default function EduCourseLearnPage() {
   const active = currentSec ?? sections[0] ?? null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <Link
         href={`/edu/courses/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
