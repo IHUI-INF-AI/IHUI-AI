@@ -123,6 +123,11 @@ vi.mock('../src/services/order-service.js', () => ({
 }))
 vi.mock('../src/services/audit-service.js', () => ({ logAction: mockLogAction }))
 
+// ---------- 链式 db mock 控制变量 ----------
+const { mockDbChainResult } = vi.hoisted(() => ({
+  mockDbChainResult: { value: [] as unknown[] },
+}))
+
 // ---------- db / dbRead / @ihui/database 链式 mock ----------
 vi.mock('../src/db/index.js', () => {
   const chain = () => {
@@ -130,6 +135,11 @@ vi.mock('../src/db/index.js', () => {
     const handler: ProxyHandler<Record<string, unknown>> = {
       get(_t, prop) {
         if (prop === 'then' || prop === 'catch') return undefined
+        if (prop === Symbol.iterator) {
+          return function* () {
+            yield* mockDbChainResult.value
+          }
+        }
         if (!obj[prop as string]) obj[prop as string] = vi.fn().mockReturnValue(proxy)
         return obj[prop as string]
       },
@@ -163,6 +173,7 @@ vi.mock('../src/db/index.js', () => {
 vi.mock('@ihui/database', () => ({
   eduOrders: { id: 'id', status: 'status', payAmount: 'payAmount', createdAt: 'createdAt' },
   eduRefunds: { id: 'id', refundAmount: 'refundAmount', status: 'status' },
+  eduInvoiceTitles: { id: 'id', userId: 'userId' },
   users: { id: 'id', nickname: 'nickname', avatar: 'avatar' },
 }))
 
@@ -262,6 +273,8 @@ describe('order routes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // 重置 db 链式查询结果(默认空数组 → 记录不存在)
+    mockDbChainResult.value = []
     // 默认鉴权失败(checkAuth 发送 401 并返回 false)
     mockCheckAuth.mockImplementation((_req, reply) => {
       reply.status(401).send({ code: 401, message: 'Authentication required' })
@@ -678,6 +691,7 @@ describe('order routes', () => {
 
     it('DELETE /api/invoices/titles/:id 删除成功返回 200', async () => {
       authAs()
+      mockDbChainResult.value = [{ userId: 'user-001' }]
       mockDeleteInvoiceTitle.mockResolvedValueOnce(undefined)
       const res = await app.inject({
         method: 'DELETE',
