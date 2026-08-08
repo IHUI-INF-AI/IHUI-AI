@@ -209,7 +209,6 @@ export function MessageInput({
   // hook 内部有独立的 fillInput(不导出),两者职责清晰分离
   const { promptTemplates, handleCommandSelect, handleCommandArgsSelect } = useSlashAction(
     setValue,
-    aiSkills,
     inputCoreRef,
     onSend,
   )
