@@ -57,7 +57,7 @@ export default function HotArticlesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Flame className="h-6 w-6 text-orange-500" />
