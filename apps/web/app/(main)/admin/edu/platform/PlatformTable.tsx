@@ -99,15 +99,17 @@ export function PlatformTable({ rows, isLoading, error, onEdit, onDelete, delete
                     </HasPermi>
                     <HasPermi code={`${PERM}remove`}>
                       <Tooltip content={t('delete')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDelete(r)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDelete(r)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deletePending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </HasPermi>
                   </div>

@@ -96,15 +96,17 @@ export function TeamMembersList({
                   {m.role === 'admin' ? t('makeMember') : t('makeAdmin')}
                 </Button>
                 <Tooltip content={t('removeMember')}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => onRemove(m.userId)}
-                    disabled={removePending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => onRemove(m.userId)}
+                      disabled={removePending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </span>
                 </Tooltip>
               </div>
             )}

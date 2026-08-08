@@ -39,6 +39,10 @@ import {
   KeyRound,
   GraduationCap,
   Landmark,
+  Map as MapIcon,
+  Radio,
+  ShoppingCart,
+  PenTool,
   Download,
   PlayCircle,
   BookOpen,
@@ -58,6 +62,7 @@ import {
   Key,
   Terminal,
   TrendingUp,
+  LineChart,
   Flame,
   FlaskConical,
   Gauge,
@@ -83,6 +88,7 @@ import {
   Mail,
   ShieldCheck,
   Receipt,
+  Clapperboard,
   Sparkles,
   Cable,
   Rocket,
@@ -92,10 +98,14 @@ import {
   ClipboardList,
   Circle as CircleIcon,
   Network,
+  Server,
   Database,
   Activity,
   Zap,
   ExternalLink,
+  PhoneCall,
+  Cpu,
+  PieChart,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -304,6 +314,15 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu-ai/certification', labelKey: 'eduAiCert', icon: GraduationCap },
   { href: '/edu-ai/aigc-tools', labelKey: 'eduAiAigc', icon: Sparkles },
   { href: '/edu-ai/courses', labelKey: 'eduAiCourses', icon: Landmark },
+  // 2026-08-07 P1/P2 4 入口(学习地图/直播课堂/课程商城/AI 批改)
+  { href: '/edu-ai/map', labelKey: 'eduAiMap', icon: MapIcon },
+  { href: '/live', labelKey: 'eduAiLive', icon: Radio },
+  { href: '/edu/shop', labelKey: 'eduAiShop', icon: ShoppingCart },
+  { href: '/edu-ai/marking', labelKey: 'eduAiMarking', icon: PenTool },
+  // 2026-08-07 feature-connect:AI 视频编排(脚本→素材→合成→字幕 一键编排)
+  { href: '/edu-ai/video-compose', labelKey: 'eduAiVideo', icon: Clapperboard },
+  // 2026-08-08 feature-final2:WebRTC 实时语音通话
+  { href: '/edu-ai/voice', labelKey: 'eduAiVoice', icon: PhoneCall },
 ]
 
 /** /member 12 项整合到交易组下 */
@@ -341,6 +360,10 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/playground', labelKey: 'playground', icon: FlaskConical },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
   { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
+  // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)
+  { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu },
+  // 2026-08-08 feature-final2:自进化系统管理(Meta-Learner)
+  { href: '/admin/meta-learner', labelKey: 'eduAiMetaLearner', icon: Brain },
   { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },
   { href: '/developer/logs', labelKey: 'developerLogs', icon: FileText },
   { href: '/developer/versions', labelKey: 'developerVersions', icon: GitBranch },
@@ -389,6 +412,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
       { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
       { href: '/registry', labelKey: 'registry', icon: RefreshCw },
+      // 2026-08-07 feature-final:A2A 智能体互联(注册智能体/派发任务)
+      { href: '/a2a', labelKey: 'eduAiA2a', icon: Network },
+      // 2026-08-07 feature-final:Personas 人设中心(查看人设契约)
+      { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
+      // 2026-08-07 feature-final:编排中心(中枢状态/仪表盘/事件流)
+      { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
       // 自动化任务调度器已于 2026-07-22 移至侧边栏快捷区(插件市场按钮下方),不再占用 AI 分组位置。
     ],
   },
@@ -457,6 +486,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
       { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
       { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
+      // 2026-08-07 feature-connect2:AI 语音转写(上传音频转文字)
+      { href: '/tools/voice-stt', labelKey: 'eduAiStt', icon: Mic },
+      // 2026-08-07 feature-connect:私信(用户间 1对1 私密聊天)
+      { href: '/letters', labelKey: 'eduAiLetters', icon: Mail },
+      // 2026-08-07 feature-connect:群组(用户自建群组与成员管理)
+      { href: '/groups', labelKey: 'eduAiGroups', icon: UsersRound },
       // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
       { href: '/publish', labelKey: 'publishPlatform', icon: Send },
       // 技术博客(2026-07-27 新增,docs/blog 10 篇技术文章对外曝光用)
@@ -467,6 +502,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'tradeGroup',
     items: [
       { href: '/earnings', labelKey: 'earnings', icon: TrendingUp },
+      // 2026-08-07 feature-connect2:AI 股票分析(输入代码+问题,AI 智能分析)
+      { href: '/stock', labelKey: 'eduAiStock', icon: LineChart },
+      // 2026-08-07 feature-final:交易员入驻(申请认证交易员)
+      { href: '/traders', labelKey: 'eduAiTraders', icon: TrendingUp },
+      // 2026-08-08 feature-final2:外呼营销(批量外呼任务编排)
+      { href: '/edu-ai/outbound', labelKey: 'eduAiOutbound', icon: Megaphone },
+      // 2026-08-08 feature-final2:基金数据(基金列表/详情/净值)
+      { href: '/edu-ai/fund-data', labelKey: 'eduAiFundData', icon: PieChart },
       { href: '/vip', labelKey: 'vip', icon: Crown },
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
       { href: '/payment', labelKey: 'payment', icon: CreditCard },
@@ -501,6 +544,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       },
       { href: '/student', labelKey: 'student', icon: GraduationCap },
       { href: '/settings', labelKey: 'settings', icon: Settings },
+      // 2026-08-07 feature-connect2:数据权利(GDPR 导出/可携带/擦除)
+      { href: '/settings/data-rights', labelKey: 'eduAiDataRights', icon: Download },
       { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
       { href: '/help', labelKey: 'help', icon: HelpCircle },
     ],
