@@ -178,29 +178,33 @@ export default function EduCourseTrashPage() {
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('restore')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => restoreMut.mutate(c.id)}
-                          disabled={restoreMut.isPending}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                          {t('restore')}
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => restoreMut.mutate(c.id)}
+                            disabled={restoreMut.isPending}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            {t('restore')}
+                          </Button>
+                        </span>
                       </Tooltip>
                       <Tooltip content={t('destroy')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
-                          }}
-                          className="text-destructive hover:text-destructive"
-                          disabled={destroyMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t('destroy')}
-                        </Button>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
+                            }}
+                            className="text-destructive hover:text-destructive"
+                            disabled={destroyMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {t('destroy')}
+                          </Button>
+                        </span>
                       </Tooltip>
                     </div>
                   </TableCell>

@@ -243,6 +243,13 @@ const nextConfig: NextConfig = {
           source: '/api/browser/sessions/:path*',
           destination: 'http://localhost:8803/api/browser/sessions/:path*',
         },
+        // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
+        // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/admin/meta-learner/:path*',
+          destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
