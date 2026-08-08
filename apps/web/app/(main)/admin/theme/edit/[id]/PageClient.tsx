@@ -138,7 +138,7 @@ export default function EditThemePage() {
   if (loading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-6">
       <BackButton />
       <h1 className="text-2xl font-bold tracking-tight">编辑主题</h1>
 

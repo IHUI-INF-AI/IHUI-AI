@@ -94,7 +94,7 @@ export default function AnnouncementDetailPage() {
   const isRead = list?.find((x) => x.id === a.id)?.isRead
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-4">
       <Link
         href="/announcements"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
