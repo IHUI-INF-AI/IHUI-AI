@@ -11,11 +11,48 @@ const { apiClientMocks, sharedMocks } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({
   setBaseUrl: apiClientMocks.setBaseUrl,
+  setDeviceFingerprintProvider: vi.fn(),
 }))
 
-vi.mock('@ihui/shared/auth', () => ({
-  bindTokenStoreToApiClient: sharedMocks.bindTokenStoreToApiClient,
-}))
+vi.mock('@ihui/shared/auth', () => {
+  const createMockStore = (config?: {
+    onSetToken?: (t: string | null) => Promise<void>
+    onSetRefreshToken?: (t: string | null) => Promise<void>
+    onClearAll?: () => Promise<void>
+  }) => {
+    let _token: string | null = null
+    let _refreshToken: string | null = null
+    return {
+      getToken: () => _token,
+      getRefreshToken: () => _refreshToken,
+      setToken: async (t: string | null) => {
+        _token = t
+        await config?.onSetToken?.(t)
+      },
+      setRefreshToken: async (t: string | null) => {
+        _refreshToken = t
+        await config?.onSetRefreshToken?.(t)
+      },
+      clearAll: async () => {
+        _token = null
+        _refreshToken = null
+        await config?.onClearAll?.()
+      },
+      setCachedWithoutPersist: (vals: { token?: string | null; refreshToken?: string | null }) => {
+        if (vals.token !== undefined) _token = vals.token
+        if (vals.refreshToken !== undefined) _refreshToken = vals.refreshToken
+      },
+      getExpiresIn: () => null,
+      setExpiresIn: async () => {},
+    }
+  }
+  return {
+    bindTokenStoreToApiClient: sharedMocks.bindTokenStoreToApiClient,
+    createInMemoryTokenStore: vi.fn(
+      (config?: Parameters<typeof createMockStore>[0]) => createMockStore(config),
+    ),
+  }
+})
 
 import {
   initApi,
@@ -37,7 +74,7 @@ describe('lib/token', () => {
 
   it('initApi 调用 setBaseUrl 设置 API_BASE_URL', async () => {
     await initApi()
-    expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:8801')
+    expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:8802')
   })
 
   it('initApi 调用 bindTokenStoreToApiClient 注册 token 提供器', async () => {

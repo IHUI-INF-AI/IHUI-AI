@@ -25,7 +25,7 @@ export function WalletScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const cards: Array<{ label: string; value: number; tone: 'primary' | 'muted' }> = balance
+  const cards: Array<{ label: string; value: number | null; tone: 'primary' | 'muted' }> = balance
     ? [
         { label: t('wallet.balance'), value: balance.balance, tone: 'primary' },
         { label: t('wallet.frozen'), value: balance.frozenBalance, tone: 'muted' },
@@ -62,7 +62,7 @@ export function WalletScreen({
             <View key={c.label} style={styles.card}>
               <Text style={styles.cardLabel}>{c.label}</Text>
               <Text style={[styles.cardValue, c.tone === 'muted' && styles.cardValueMuted]}>
-                ¥ {c.value.toFixed(2)}
+                {c.value !== null && c.value !== undefined ? `¥ ${c.value.toFixed(2)}` : '—'}
               </Text>
             </View>
           ))
