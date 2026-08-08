@@ -74,7 +74,7 @@ export function useAiSkills(open: boolean): {
     if (!open || skillsLoadedRef.current) return
     skillsLoadedRef.current = true
     setSkillsLoading(true)
-    listAiSkills()
+    listAiSkills({ category: 'all' })
       .then((res) => {
         if (!res.success) {
           // 失败:重置 ref 允许下次打开时重试(避免一次性失败永久锁死)
