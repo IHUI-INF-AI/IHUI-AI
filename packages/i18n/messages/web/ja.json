@@ -207,6 +207,10 @@
     "adminGroupLabel": "管理",
     "topupConfig": "チャージ設定",
     "relayParamOps": "パラメータオーバーライド",
+    "adminSkills": "スキル管理",
+    "adminSkillCategories": "スキルカテゴリ",
+    "adminSkillStats": "スキル統計",
+    "adminSkillVersions": "スキルバージョン",
     "eduGroup": "AI教育",
     "contentGroup": "コンテンツ",
     "tradeGroup": "取引",
@@ -465,7 +469,8 @@
     "eduAiOutbound": "アウトバウンド",
     "eduAiTbox": "IoT デバイス",
     "fundData": "ファンドデータ",
-    "eduAiMetaLearner": "メタラーナー"
+    "eduAiMetaLearner": "メタラーナー",
+    "adminSkillBatch": "一括操作"
   },
   "home": {
     "announcement": {
@@ -865,11 +870,11 @@
       "invokeResult": "結果",
       "invokeFillInput": "入力欄に挿入",
       "invokeSendToChat": "チャットに送信",
-      "invokeRequired": "必須",
       "invokeClose": "閉じる",
       "invokeBackToList": "リストに戻る",
       "invokeMissingVariable": "必須パラメータを入力してください",
       "invokeError": "呼び出しに失敗しました",
+      "invokeRequired": "必須",
       "comingSoonHint": "この skill は近日公開予定です。GitHub で詳細を確認できます。",
       "viewAll": "すべて表示"
     },
@@ -1690,8 +1695,132 @@
       "dryRunInput": "サンプル本文(JSON)",
       "dryRunRun": "プレビュー実行",
       "dryRunOriginal": "元の body",
-      "dryRunModified": "変更後 body",
-      "dryRunNoChange": "変更後 body(変更なし)"
+      "dryRunNoChange": "変更後 body(変更なし)",
+      "dryRunModified": "変更後 body"
+    },
+    "skills": {
+      "title": "スキル管理",
+      "subtitle": "プラットフォームの全スキルを管理",
+      "name": "名称",
+      "version": "バージョン",
+      "tags": "タグ",
+      "createdAt": "作成日時",
+      "total": "合計 {total} 件",
+      "loading": "読み込み中...",
+      "noData": "スキルデータがありません",
+      "actions": "操作",
+      "create": "新規スキル",
+      "createTitle": "新規スキル",
+      "createDesc": "新しいスキルを作成",
+      "editTitle": "スキルを編集",
+      "editDesc": "スキル情報を変更",
+      "namePlaceholder": "スキル名を入力してください",
+      "nameRequired": "スキル名は必須です",
+      "description": "説明",
+      "descPlaceholder": "スキルの説明を入力（任意）",
+      "versionPlaceholder": "バージョン番号",
+      "tagsPlaceholder": "タグ（カンマ区切り）",
+      "deleteTitle": "スキルを削除",
+      "deleteConfirm": "この操作は元に戻せません。スキルを削除してもよろしいですか？",
+      "searchPlaceholder": "スキル名を検索...",
+      "market": "マーケット",
+      "browseMarket": "マーケットを閲覧",
+      "marketTitle": "スキルマーケット",
+      "marketDesc": "マーケットのスキルを閲覧・インストール",
+      "searchMarketPlaceholder": "マーケットのスキルを検索...",
+      "search": "検索",
+      "noMarketData": "マーケットスキルがありません",
+      "author": "作者",
+      "installCount": "{count} 回インストール",
+      "install": "インストール",
+      "installed": "インストール済み",
+      "unlist": "非公開",
+      "pageInfo": "第 {page} / {total} ページ",
+      "prevPage": "前のページ",
+      "nextPage": "次のページ",
+      "viewDetail": "詳細を見る"
+    },
+    "skillCategories": {
+      "title": "スキルカテゴリ管理",
+      "subtitle": "スキルカテゴリを管理",
+      "name": "名称",
+      "slug": "識別子",
+      "icon": "アイコン",
+      "sort": "並び順",
+      "createdAt": "作成日時",
+      "total": "合計 {total} 件",
+      "loading": "読み込み中...",
+      "noData": "カテゴリデータがありません",
+      "actions": "操作",
+      "create": "新規カテゴリ",
+      "createTitle": "新規カテゴリ",
+      "createDesc": "新しいカテゴリを作成",
+      "editTitle": "カテゴリを編集",
+      "editDesc": "カテゴリ情報を変更",
+      "namePlaceholder": "カテゴリ名を入力してください",
+      "nameRequired": "カテゴリ名は必須です",
+      "slugPlaceholder": "カテゴリ識別子を入力してください",
+      "deleteTitle": "カテゴリを削除",
+      "deleteConfirm": "この操作は元に戻せません。カテゴリを削除してもよろしいですか？"
+    },
+    "skillBatch": {
+      "title": "スキル一括操作",
+      "marketTab": "マーケットスキル",
+      "userTab": "マイスキル",
+      "batchInstall": "一括インストール",
+      "batchInstallTooltip": "選択したマーケットスキルをインストール",
+      "batchDelete": "一括削除",
+      "batchDeleteTooltip": "選択したインストール済みスキルを削除",
+      "batchUpdate": "一括更新",
+      "batchUpdateTooltip": "選択したスキルのバージョン/タグを更新",
+      "exportImport": "エクスポート/インポート",
+      "exportImportTooltip": "スキルをJSONにエクスポート、またはJSONからインポート",
+      "refreshTooltip": "データを更新",
+      "marketTitle": "マーケットスキル一覧",
+      "userTitle": "インストール済みスキル一覧",
+      "selectedCount": "選択済み {count} 件",
+      "loading": "読み込み中...",
+      "noMarketSkills": "マーケットスキルがありません",
+      "noUserSkills": "インストール済みスキルがありません",
+      "nameColumn": "名称",
+      "descriptionColumn": "説明",
+      "versionColumn": "バージョン",
+      "installsColumn": "インストール数",
+      "sourceColumn": "ソース",
+      "selectAll": "全選択/解除",
+      "installed": "インストール済み",
+      "progress": "処理中 {current}/{total}...",
+      "batchSuccess": "成功 {count} 件",
+      "batchFailed": "失敗 {count} 件",
+      "dismiss": "閉じる",
+      "refreshed": "更新完了",
+      "batchInstallSuccess": "インストール成功 {count} 件のスキル",
+      "batchInstallPartial": "インストール完了:成功 {success} 件、失敗 {failed} 件",
+      "batchDeleteSuccess": "削除成功 {count} 件のスキル",
+      "batchDeletePartial": "削除完了:成功 {success} 件、失敗 {failed} 件",
+      "batchUpdateSuccess": "更新成功 {count} 件のスキル",
+      "batchUpdatePartial": "更新完了:成功 {success} 件、失敗 {failed} 件",
+      "updateDialogTitle": "一括更新",
+      "updateDialogDesc": "選択した {count} 件のスキルにバージョンとタグを一括設定",
+      "versionLabel": "バージョン番号",
+      "versionPlaceholder": "空欄の場合は元のバージョンを保持",
+      "tagsLabel": "タグ（カンマ区切り）",
+      "tagsPlaceholder": "空欄の場合は元のタグを保持",
+      "cancel": "キャンセル",
+      "confirmUpdate": "更新を確認",
+      "exportImportTitle": "スキルのエクスポート/インポート",
+      "exportImportDesc": "スキルをJSONファイルにエクスポート、またはJSONファイルからインポート",
+      "exportTab": "エクスポート",
+      "importTab": "インポート",
+      "exportHint": "現在 {count} 件のインストール済みスキル、エクスポートしてJSONファイルに保存",
+      "exportButton": "スキルをエクスポート",
+      "exportSuccess": "エクスポート成功",
+      "importHint": "JSONファイルを選択してスキルをインポート（ファイル形式: { skills: [...] }）",
+      "importingProgress": "インポート中 {current}/{total}...",
+      "importSuccess": "インポート成功 {count} 件のスキル",
+      "importFailed": "失敗 {count} 件",
+      "importPartial": "インポート完了:成功 {success} 件、失敗 {failed} 件",
+      "close": "閉じる"
     },
     "refund": {
       "title": "APIテスト",
@@ -5993,6 +6122,33 @@
       "abilityRadar": "レーダーチャート",
       "weeklyTrend": "トレンド"
     },
+    "skillStats": {
+      "title": "スキル使用統計",
+      "subtitle": "マーケットスキルとプライベートスキルの使用データ分析",
+      "refresh": "更新",
+      "loading": "読み込み中...",
+      "loadFailed": "読み込み失敗: {message}",
+      "totalSkills": "総スキル数",
+      "onlineCount": "公開中",
+      "totalInstallCount": "総インストール数",
+      "avgRating": "平均評価",
+      "topTitle": "人気スキルトップ10",
+      "noData": "データなし",
+      "rank": "#",
+      "skillName": "スキル名",
+      "installCount": "インストール数",
+      "rating": "評価",
+      "tags": "タグ",
+      "categoryDist": "カテゴリ分布",
+      "availabilityRate": "可用率",
+      "availableSkills": "利用可能",
+      "placeholderSkills": "プレースホルダー",
+      "pctOfTotal": "全体の {pct}%",
+      "trendTitle": "使用傾向",
+      "trendWeek": "7日間",
+      "trendMonth": "30日間",
+      "trendQuarter": "90日間"
+    },
     "behavior": {
       "weekday": {
         "mon": "月",
@@ -8453,13 +8609,66 @@
     },
     "detail": {
       "trigger": "トリガー",
-      "definition": "ステップ",
+      "definition": "ステップ定義",
       "noInstances": "インスタンスがありません",
       "startedAt": "開始時間",
       "completedAt": "完了日時",
       "viewInstance": "テーブル",
       "cancel": "キャンセル",
-      "retry": "再試行"
+      "retry": "再試行",
+      "tab_instances": "実行インスタンス",
+      "tab_definition": "ステップ定義",
+      "delete": "削除",
+      "deleteConfirm": "ワークフロー「{name}」を削除してもよろしいですか？この操作は元に戻せません。",
+      "deleteSuccess": "ワークフローを削除しました",
+      "deactivate": "無効化",
+      "activate": "有効化",
+      "editInfo": "基本情報を編集",
+      "saveInfo": "基本情報を保存",
+      "name": "名前",
+      "description": "説明",
+      "triggerType": "トリガータイプ",
+      "updateSuccess": "更新しました",
+      "confirmDelete": "削除確認"
+    },
+    "instanceStatus": {
+      "pending": "待機中",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み",
+      "unknown": "不明な状態"
+    },
+    "status": {
+      "active": "有効",
+      "inactive": "無効"
+    },
+    "editor": {
+      "palette": "ノードパレット",
+      "properties": "プロパティ",
+      "selectNode": "ノードを選択してプロパティを編集",
+      "name": "名前",
+      "input": "入力内容",
+      "skill": "AIスキル",
+      "condition": "条件式",
+      "duration": "遅延時間",
+      "count": "ループ回数",
+      "continueOnFail": "失敗時に続行",
+      "editSteps": "ステップを編集",
+      "edit": "編集",
+      "save": "保存",
+      "cancel": "キャンセル",
+      "types": {
+        "trigger": "トリガー",
+        "echo": "テストエコー",
+        "skill": "AIスキル",
+        "llm": "LLM呼び出し",
+        "condition": "条件分岐",
+        "delay": "遅延",
+        "loop": "ループ",
+        "parallel": "並列実行",
+        "tool": "MCPツール"
+      }
     },
     "instanceDetail": {
       "backToWorkflow": "ワークフローにる",
@@ -8472,7 +8681,8 @@
       "allLevels": "てレベル",
       "noLogs": "セキュリティログはありません",
       "input": "入力",
-      "output": "出力"
+      "output": "出力",
+      "error": "エラー情報"
     }
   },
   "activities": {
@@ -9074,6 +9284,7 @@
     "fieldAgentId": "エージェント ID",
     "fieldWorkspace": "ワークスペース",
     "fieldRemark": "備考",
+    "fieldSkills": "スキルを紐付け",
     "marketTab": "Agent マーケット",
     "mineTab": "マイ Agent",
     "tabProgress": "進捗",
@@ -14525,8 +14736,9 @@
     "comingSoonTitle": "このスキルは近日公開",
     "comingSoonHint": "このスキルはまだ本プラットフォームに統合されていません。GitHub で詳細を確認するか、次の統合をお待ちください。",
     "openGitHub": "GitHub を開く",
-    "statusAvailable": "公開済み",
+    "statusAvailable": "利用可能",
     "statusComingSoon": "近日公開",
+    "addToAgent": "Agentに追加",
     "invokeRequired": "必須",
     "sendToChat": "チャットに送信",
     "inputContent": "内容",
@@ -14564,7 +14776,22 @@
     "placeholderInput": "入力してください…",
     "placeholderCode": "コードを貼り付けてください…",
     "placeholderError": "エラーメッセージを貼り付けてください…",
-    "placeholderFramework": "例: Jest/Vitest/pytest…"
+    "placeholderFramework": "例: Jest/Vitest/pytest…",
+    "relatedTitle": "関連スキル",
+    "relatedHint": "あなたにおすすめのスキル",
+    "relatedEmpty": "おすすめはありません",
+    "relatedLoading": "おすすめを読み込み中…",
+    "feedbackTitle": "フィードバック",
+    "feedbackRating": "評価",
+    "feedbackComment": "コメント(任意)",
+    "feedbackCommentPlaceholder": "ご感想をお聞かせください…",
+    "feedbackSubmit": "送信",
+    "feedbackSubmitted": "フィードバックありがとうございます!",
+    "feedbackError": "送信に失敗しました。もう一度お試しください",
+    "feedbackRequired": "評価を選択してください",
+    "versionLabel": "バージョン",
+    "updatedAt": "更新日",
+    "reason": "おすすめ理由:"
   },
   "design": {
     "title": "デザインモード",
@@ -15595,59 +15822,6 @@
       "failed": "失敗"
     }
   },
-  "a11y": {
-    "copyResponse": "レスポンスをコピー",
-    "searchOption": "オプションを検索",
-    "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
-    "codeCopied": "コピー済み",
-    "breadcrumb": "パンくずナビ",
-    "hidePassword": "パスワードを隠す"
-  },
-  "help": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "allArticles": "すべての",
-    "searchPlaceholder": "を",
-    "empty": "がありません",
-    "backToList": "るリスト",
-    "updatedAt": "しいしい",
-    "viewCount": "{count}",
-    "prev": "へ",
-    "next": "へ",
-    "notFound": "つかりません"
-  },
-  "searchHistory": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "clearAll": "クリアて",
-    "empty": "コンテンツはまだありません。おしみに",
-    "resultCount": "{count}の"
-  },
-  "agreement": {
-    "title": "と",
-    "subtitle": "请仔细閲覧以下利用規約",
-    "userAgreement": "ユーザー",
-    "effectiveDate": "生效日付",
-    "staticContent1": "ようこそせるプラットフォーム。せるプラットフォームサービスのすべて。",
-    "staticContent2": "のメッセージセンター，のへ。",
-    "staticContent3": "へあり，プラットフォームカスタマーサポート。"
-  },
-  "routes": {
-    "userAgreement": "ユーザー",
-    "aboutUs": "について",
-    "contactUs": "おいわせ"
-  },
-  "themeToggle": {
-    "lightMode": "ライト模式",
-    "darkMode": "ダーク模式"
-  },
-  "themeBackup": {
-    "title": "テーマ"
-  },
-  "forbidden": {
-    "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
-    "backToHome": "ホームへ戻る"
-  },
   "eduAi": {
     "policy": {
       "title": "AI 教育政策库",
@@ -15885,6 +16059,7 @@
       "suggestions": "改进建议",
       "loading": "加载中...",
       "empty": "输入题目与答案,开始 AI 批改",
+      "error": "採点失敗",
       "loadFailed": "批改失败,请重试",
       "noResult": "暂无批改结果"
     },
@@ -16234,7 +16409,6 @@
       "ack": "確認済み",
       "failed": "失敗"
     },
-    
     "metaLearner": {
       "title": "メタラーナー",
       "subtitle": "メタ学習と自己進化システム管理",
@@ -16285,5 +16459,58 @@
     "search": "コードまたは名称で検索",
     "active": "アクティブ",
     "inactive": "非アクティブ"
+  },
+  "a11y": {
+    "copyResponse": "レスポンスをコピー",
+    "searchOption": "オプションを検索",
+    "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
+    "codeCopied": "コピー済み",
+    "breadcrumb": "パンくずナビ",
+    "hidePassword": "パスワードを隠す"
+  },
+  "help": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "allArticles": "すべての",
+    "searchPlaceholder": "を",
+    "empty": "がありません",
+    "backToList": "るリスト",
+    "updatedAt": "しいしい",
+    "viewCount": "{count}",
+    "prev": "へ",
+    "next": "へ",
+    "notFound": "つかりません"
+  },
+  "searchHistory": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "clearAll": "クリアて",
+    "empty": "コンテンツはまだありません。おしみに",
+    "resultCount": "{count}の"
+  },
+  "agreement": {
+    "title": "と",
+    "subtitle": "请仔细閲覧以下利用規約",
+    "userAgreement": "ユーザー",
+    "effectiveDate": "生效日付",
+    "staticContent1": "ようこそせるプラットフォーム。せるプラットフォームサービスのすべて。",
+    "staticContent2": "のメッセージセンター，のへ。",
+    "staticContent3": "へあり，プラットフォームカスタマーサポート。"
+  },
+  "routes": {
+    "userAgreement": "ユーザー",
+    "aboutUs": "について",
+    "contactUs": "おいわせ"
+  },
+  "themeToggle": {
+    "lightMode": "ライト模式",
+    "darkMode": "ダーク模式"
+  },
+  "themeBackup": {
+    "title": "テーマ"
+  },
+  "forbidden": {
+    "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
+    "backToHome": "ホームへ戻る"
   }
 }
