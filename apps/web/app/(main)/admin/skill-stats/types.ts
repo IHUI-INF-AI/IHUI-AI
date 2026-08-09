@@ -18,3 +18,10 @@ export interface SkillStatsData {
   successRate: { available: number; placeholder: number }
   categoryDist: CategoryDistribution[]
 }
+
+export interface TrendDataPoint {
+  label: string
+  count: number
+}
+
+export type TrendRange = 'week' | 'month' | 'quarter'
