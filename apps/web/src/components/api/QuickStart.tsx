@@ -80,7 +80,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         )}
       </button>
       {language && (
-        <div className="border-b border-border/50 px-3 py-1 text-xs text-muted-foreground">
+        <div className="bg-muted/80 px-3 py-1 text-xs text-muted-foreground">
           {language}
         </div>
       )}
