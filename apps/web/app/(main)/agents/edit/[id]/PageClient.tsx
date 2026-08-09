@@ -38,6 +38,7 @@ function agentToForm(a: Agent): AgentForm {
     isFree: a.isFree ?? false,
     sort: String(a.sort ?? 0),
     remark: a.remark ?? '',
+    skillIds: [],
   }
 }
 

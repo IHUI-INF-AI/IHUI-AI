@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useQuery } from '@tanstack/react-query'
 import {
   Button,
   Input,
@@ -14,6 +15,7 @@ import {
   SelectValue,
   Switch,
 } from '@ihui/ui-react'
+import { listAiSkills } from '@ihui/api-client/endpoints/ai-skills'
 import { selectClass, STATUS_OPTIONS, STATUS_KEY } from './helpers'
 import type { AgentForm, Category } from './types'
 
@@ -167,6 +169,15 @@ export function AgentCreateForm({
         />
       </div>
 
+      {/* 绑定技能 */}
+      <div className="space-y-2">
+        <Label>{t('fieldSkills')}</Label>
+        <SkillCheckboxList
+          selected={form.skillIds}
+          onChange={(ids) => update('skillIds', ids)}
+        />
+      </div>
+
       {err && (
         <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>
       )}
@@ -181,5 +192,84 @@ export function AgentCreateForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+interface SkillCheckboxListProps {
+  selected: string[]
+  onChange: (ids: string[]) => void
+}
+
+function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
+  const t = useTranslations('agent')
+  const ta = useTranslations('aiSkillsPage')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['ai-skills', 'list'],
+    queryFn: () => listAiSkills({ category: 'all' }),
+  })
+
+  const skills = React.useMemo(() => {
+    if (!data?.success || !data.data) return []
+    return data.data.filter((s) => s.available)
+  }, [data])
+
+  const toggle = (id: string) => {
+    const next = selected.includes(id)
+      ? selected.filter((s) => s !== id)
+      : [...selected, id]
+    onChange(next)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        {t('loading')}
+      </div>
+    )
+  }
+
+  if (skills.length === 0) {
+    return <p className="text-xs text-muted-foreground">{ta('recommendEmpty')}</p>
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-1.5 min-[480px]:grid-cols-2">
+      {skills.map((skill) => {
+        const checked = selected.includes(skill.id)
+        return (
+          <label
+            key={skill.id}
+            className="flex cursor-pointer items-start gap-2 rounded-md border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggle(skill.id)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
+            />
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 shrink-0 text-primary" />
+                <span className="text-xs font-medium">{skill.name}</span>
+              </div>
+              {skill.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {skill.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </label>
+        )
+      })}
+    </div>
   )
 }
