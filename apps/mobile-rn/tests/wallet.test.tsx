@@ -49,8 +49,8 @@ vi.mock('react-native', async () => {
         : style
       const extra: Record<string, unknown> = {}
       if (onPress) extra.onClick = onPress
-      if (onChangeText) extra.onChange = (e: { target: { value: string } }) => {
-        onChangeText(e.target.value)
+      if (typeof onChangeText === 'function') extra.onChange = (e: { target: { value: string } }) => {
+        ;(onChangeText as (v: string) => void)(e.target.value)
       }
       return createElement(tag, { ...rest, ...extra, style: mergedStyle }, props.children)
     }
