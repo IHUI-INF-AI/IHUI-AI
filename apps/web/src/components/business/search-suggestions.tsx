@@ -123,7 +123,7 @@ export function SuggestionsSection({ items, onItemClick }: SuggestionsSectionPro
   )
 }
 
-/** 段与段之间的水平分隔线(单边 border-t,作为容器内分段分隔,AGENTS.md §4 注释允许) */
+/** 段与段之间的水平分隔线(背景色分割,替代单边 border-t) */
 export function SectionDivider() {
-  return <div role="separator" className="my-1 border-t border-border/50" />
+  return <div role="separator" className="my-1 h-px bg-muted/30" />
 }

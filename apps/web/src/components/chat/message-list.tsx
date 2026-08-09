@@ -142,7 +142,7 @@ function UsageBreakdown({ usage }: { usage: unknown }) {
 // --fcd-btn-size:28px → h-7 w-7 | --fcd-btn-radius:6px → rounded-md | --fcd-btn-icon-size:16px → h-4 w-4
 // _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
 const ACTION_BTN_CLASS =
-  'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary'
+  'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 /** P0 流式性能优化(2026-07-23):抽取消息项组件 + React.memo,
  * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染
@@ -766,7 +766,7 @@ const MessageItem = React.memo(function MessageItem({
           className={cn(
             'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
             'text-[11px] text-muted-foreground transition-colors',
-            'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+            'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
           <RefreshCw className="h-3 w-3" aria-hidden />
@@ -1897,7 +1897,7 @@ export function MessageList({
             'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-md',
             'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
             'transition-all duration-150 hover:bg-accent hover:shadow-lg',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'animate-in fade-in-0 slide-in-from-bottom-2',
           )}
         >

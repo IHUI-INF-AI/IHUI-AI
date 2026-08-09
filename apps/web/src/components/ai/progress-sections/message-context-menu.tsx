@@ -313,7 +313,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
 
   return (
     <div
-      className="sticky top-0 z-30 flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="sticky top-0 z-30 flex shrink-0 items-center gap-1.5 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       data-testid="message-search-bar"
       role="search"
       aria-label={t('search')}
@@ -349,7 +349,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         data-testid="message-search-prev"
         className={cn(
           'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           prevDisabled &&
             'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
         )}
@@ -365,7 +365,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         data-testid="message-search-next"
         className={cn(
           'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           nextDisabled &&
             'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
         )}
@@ -380,7 +380,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         data-testid="message-search-close"
         className={cn(
           'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         )}
       >
         ×
