@@ -315,7 +315,7 @@ export const TimelineTab = React.memo(function TimelineTab({
       {/* Filter row(只在有事件时显示) */}
       {events.length > 0 && (
         <div
-          className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border/40 bg-background/30 px-2 py-1"
+          className="flex shrink-0 flex-wrap items-center gap-1 bg-muted/20 px-2 py-1"
           data-testid="timeline-filter-row"
         >
           {TYPE_FILTERS.map((f) => {
@@ -392,7 +392,7 @@ export const TimelineTab = React.memo(function TimelineTab({
       {/* Search row(只在有事件时显示) */}
       {events.length > 0 && (
         <div
-          className="relative shrink-0 border-b border-border/40 px-2 py-1"
+          className="relative shrink-0 bg-muted/20 px-2 py-1"
           data-testid="timeline-search-row"
         >
           <Search
