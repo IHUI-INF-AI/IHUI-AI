@@ -50,8 +50,8 @@ export function PromotionScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={onRefresh}
-      onUse={() => {
-        // TODO: 跳转到可用优惠券对应的商品/订单页
+      onUse={(_item: PromotionCoupon) => {
+        navigation.navigate('Order')
       }}
       onBack={() => navigation.goBack()}
     />
