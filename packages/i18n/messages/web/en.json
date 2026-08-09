@@ -462,7 +462,7 @@
     "eduAiVoice": "Voice Call",
     "eduAiOutbound": "Outbound",
     "eduAiTbox": "IoT Devices",
-    "eduAiFundData": "Fund Data",
+    "fundData": "Fund Data",
     "eduAiMetaLearner": "Meta-Learner"
   },
   "home": {
@@ -4076,7 +4076,16 @@
       "viewTitle": "Workflow Details",
       "deleteTitle": "Delete Workflow",
       "deleteConfirm": "This action cannot be undone. Are you sure you want to delete this workflow?",
-      "stepsCount": "{count} steps"
+      "stepsCount": "{count} steps",
+      "trigger_manual": "Manual",
+      "trigger_schedule": "Schedule",
+      "trigger_event": "Event",
+      "trigger_webhook": "Webhook",
+      "trigger_unknown": "Unknown Trigger",
+      "status_active": "Active",
+      "status_draft": "Draft",
+      "status_archived": "Archived",
+      "status_unknown": "Unknown Status"
     },
     "tags": {
       "title": "Tag Management",
@@ -8396,6 +8405,8 @@
     "subtitle": "Manage automated workflows",
     "loading": "Loading...",
     "noData": "No workflows found",
+    "prev": "Previous",
+    "next": "Next",
     "backToList": "Back to Workflows",
     "notFound": "Workflow not found or no access",
     "stepsCount": "{count} steps",
@@ -8403,7 +8414,8 @@
       "manual": "Manual",
       "schedule": "Schedule",
       "event": "Event",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "unknown": "Unknown Trigger"
     },
     "create": {
       "title": "New Workflow",
@@ -14469,7 +14481,10 @@
     "comingCount": "Coming soon {count}",
     "categoryAiTop": "AI Top",
     "categoryCode": "Coding",
-    "categoryMedia": "Media"
+    "categoryMedia": "Media",
+    "recommendTitle": "Recommended Skills",
+    "recommendHint": "Based on your usage",
+    "recommendEmpty": "No recommendations"
   },
   "aiSkillDetail": {
     "backToList": "Back to list",
@@ -16180,24 +16195,7 @@
       "ack": "Acked",
       "failed": "Failed"
     },
-    "fundData": {
-      "title": "Fund Data",
-      "subtitle": "Fund list, details and net value history",
-      "fundCode": "Code",
-      "fundName": "Fund Name",
-      "fundType": "Type",
-      "fundStatus": "Status",
-      "netValue": "Net Value",
-      "date": "Date",
-      "viewDetail": "Details",
-      "history": "Net Value History",
-      "noFunds": "No funds found",
-      "loading": "Loading...",
-      "error": "Failed to load",
-      "search": "Search by code or name",
-      "active": "Active",
-      "inactive": "Inactive"
-    },
+    
     "metaLearner": {
       "title": "Meta-Learner",
       "subtitle": "Meta-learning and self-evolution system management",
@@ -16230,5 +16228,23 @@
       "improvementTip": "Improvement Tip",
       "bestPractice": "Best Practice"
     }
+  },
+  "fundData": {
+    "title": "Fund Data",
+    "subtitle": "Fund list, details and net value history",
+    "fundCode": "Code",
+    "fundName": "Fund Name",
+    "fundType": "Type",
+    "fundStatus": "Status",
+    "netValue": "Net Value",
+    "date": "Date",
+    "viewDetail": "Details",
+    "history": "Net Value History",
+    "noFunds": "No funds found",
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "search": "Search by code or name",
+    "active": "Active",
+    "inactive": "Inactive"
   }
 }
