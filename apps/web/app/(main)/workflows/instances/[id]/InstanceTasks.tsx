@@ -68,22 +68,30 @@ function TaskRow({ task }: { task: Task }) {
         </span>
       </button>
       {open && (
-        <div className="grid grid-cols-1 gap-2 px-4 py-2 text-xs min-[640px]:grid-cols-2">
-          <div>
-            <div className="mb-1 font-medium text-muted-foreground">
-              {t('instanceDetail.input')}
+        <div className="space-y-2 px-4 py-2 text-xs">
+          {task.error && (
+            <div className="rounded-md bg-destructive/10 p-2 text-destructive">
+              <div className="mb-1 font-medium">{t('instanceDetail.error')}</div>
+              <pre className="overflow-auto leading-relaxed">{task.error}</pre>
             </div>
-            <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
-              {JSON.stringify(task.input ?? null, null, 2)}
-            </pre>
-          </div>
-          <div>
-            <div className="mb-1 font-medium text-muted-foreground">
-              {t('instanceDetail.output')}
+          )}
+          <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
+            <div>
+              <div className="mb-1 font-medium text-muted-foreground">
+                {t('instanceDetail.input')}
+              </div>
+              <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
+                {JSON.stringify(task.input ?? null, null, 2)}
+              </pre>
             </div>
-            <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
-              {JSON.stringify(task.output ?? null, null, 2)}
-            </pre>
+            <div>
+              <div className="mb-1 font-medium text-muted-foreground">
+                {t('instanceDetail.output')}
+              </div>
+              <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
+                {JSON.stringify(task.output ?? null, null, 2)}
+              </pre>
+            </div>
           </div>
         </div>
       )}
