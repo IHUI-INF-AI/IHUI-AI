@@ -9,6 +9,7 @@ export interface SkillCategory {
 
 export interface SkillCategoryForm {
   name: string
+  slug: string
   icon: string
   sort: number
 }
