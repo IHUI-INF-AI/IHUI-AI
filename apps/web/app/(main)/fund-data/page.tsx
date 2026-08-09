@@ -58,7 +58,7 @@ function formatValue(v: string | null): string {
 }
 
 export default function FundDataPage() {
-  const t = useTranslations('eduAi.fundData')
+  const t = useTranslations('fundData')
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [selectedCode, setSelectedCode] = React.useState<string | null>(null)
