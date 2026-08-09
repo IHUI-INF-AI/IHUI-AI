@@ -12,7 +12,6 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  TooltipProvider,
 } from '@ihui/ui-react'
 import { rollbackSkill } from './helpers'
 import { VersionDiffDialog } from './VersionDiffDialog'
@@ -93,7 +92,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
   }
 
   return (
-    <TooltipProvider>
+    <>
       <div className="space-y-3">
         {skills.map((skill) => {
           const isExpanded = expanded.has(skill.name)
@@ -235,6 +234,6 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
         oldVersion={selectedA}
         newVersion={selectedB}
       />
-    </TooltipProvider>
+    </>
   )
 }

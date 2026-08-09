@@ -24,7 +24,6 @@ import {
   CardTitle,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@ihui/ui-react'
 import { fetchPremiumLessons, loadTopic, type TopicLesson } from '../helpers'
@@ -106,8 +105,7 @@ export default function LearnTopicDetailPage() {
             ) : (
               <Layers className="h-12 w-12 text-primary/40" />
             )}
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
+            <Tooltip>
                 <TooltipTrigger asChild>
                   <span
                     className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
@@ -130,7 +128,6 @@ export default function LearnTopicDetailPage() {
                   {source === 'premium' ? t('premiumTip') : t('courseTip')}
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
           </div>
           <div className="flex-1 min-w-0 space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>

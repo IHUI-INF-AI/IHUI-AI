@@ -62,7 +62,7 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>
-            <th className={cn(th, 'w-10')}></th>
+            <th className={cn(th, 'w-10')} />
             <th className={th}>{t('name')}</th>
             <th className={th}>{t('slug')}</th>
             <th className={th}>{t('sort')}</th>
