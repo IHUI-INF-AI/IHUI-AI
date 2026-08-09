@@ -27,4 +27,5 @@ export interface AgentForm {
   isFree: boolean
   sort: string
   remark: string
+  skillIds: string[]
 }
