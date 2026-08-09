@@ -56,6 +56,8 @@ from app.routers.ai_marking import router as ai_marking_router
 from app.routers.langgraph import router as langgraph_router
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
+# Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
+from app.routers import workflow as workflow_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
@@ -474,6 +476,8 @@ def create_app() -> FastAPI:
     app.include_router(langgraph_router)
     # L4 自进化 admin 端点(meta_learner 状态/lessons/history + 手动触发聚类,2026-07-25 立)
     app.include_router(meta_learning_router)
+    # Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
+    app.include_router(workflow_router.router, prefix="/api", tags=["workflows"])
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
