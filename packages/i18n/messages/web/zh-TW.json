@@ -206,6 +206,10 @@
     "adminGroupLabel": "管理",
     "topupConfig": "儲值配置",
     "relayParamOps": "參數覆蓋",
+    "adminSkills": "技能管理",
+    "adminSkillCategories": "技能分類",
+    "adminSkillStats": "技能統計",
+    "adminSkillVersions": "技能版本",
     "eduGroup": "AI 教育",
     "contentGroup": "內容",
     "tradeGroup": "交易",
@@ -441,7 +445,6 @@
       "developer": "開發者中心",
       "saas": "SaaS 平臺"
     },
-    "settings": "設定",
     "eduAiPolicy": "AI 政策庫",
     "eduAiCert": "教師 AI 認證",
     "eduAiAigc": "AIGC 工具庫",
@@ -465,7 +468,9 @@
     "eduAiOutbound": "外呼行銷",
     "eduAiTbox": "IoT 設備",
     "fundData": "基金資料",
-    "eduAiMetaLearner": "自進化系統"
+    "eduAiMetaLearner": "自進化系統",
+    "adminSkillBatch": "批量操作",
+    "settings": "設定"
   },
   "home": {
     "announcement": {
@@ -865,11 +870,11 @@
       "invokeResult": "呼叫結果",
       "invokeFillInput": "填入輸入框",
       "invokeSendToChat": "發送到對話",
-      "invokeRequired": "必填",
       "invokeClose": "關閉",
       "invokeBackToList": "返回列表",
       "invokeMissingVariable": "請填寫必填引數",
       "invokeError": "呼叫失敗",
+      "invokeRequired": "必填",
       "comingSoonHint": "該 skill 即將上線,可前往 GitHub 瞭解詳情",
       "viewAll": "檢視全部"
     },
@@ -1690,8 +1695,132 @@
       "dryRunInput": "樣例請求體(JSON)",
       "dryRunRun": "執行預覽",
       "dryRunOriginal": "原始 body",
-      "dryRunModified": "修改後 body",
-      "dryRunNoChange": "修改後 body(無變化)"
+      "dryRunNoChange": "修改後 body(無變化)",
+      "dryRunModified": "修改後 body"
+    },
+    "skills": {
+      "title": "技能管理",
+      "subtitle": "管理平臺所有技能",
+      "name": "名稱",
+      "version": "版本",
+      "tags": "標籤",
+      "createdAt": "創建時間",
+      "total": "共 {total} 個",
+      "loading": "加載中...",
+      "noData": "暫無技能數據",
+      "actions": "操作",
+      "create": "新建技能",
+      "createTitle": "新建技能",
+      "createDesc": "創建一個新技能",
+      "editTitle": "編輯技能",
+      "editDesc": "修改技能信息",
+      "namePlaceholder": "請輸入技能名稱",
+      "nameRequired": "技能名稱不能為空",
+      "description": "描述",
+      "descPlaceholder": "請輸入技能描述（可選）",
+      "versionPlaceholder": "版本號",
+      "tagsPlaceholder": "標籤,用逗號分隔",
+      "deleteTitle": "刪除技能",
+      "deleteConfirm": "該操作不可撤銷，請確認是否刪除該技能？",
+      "searchPlaceholder": "搜索技能名稱...",
+      "market": "市場",
+      "browseMarket": "瀏覽市場",
+      "marketTitle": "技能市場",
+      "marketDesc": "瀏覽和安裝市場中的技能",
+      "searchMarketPlaceholder": "搜索市場技能...",
+      "search": "搜索",
+      "noMarketData": "暫無市場技能",
+      "author": "作者",
+      "installCount": "{count} 次安裝",
+      "install": "安裝",
+      "installed": "已安裝",
+      "unlist": "下架",
+      "pageInfo": "第 {page} / {total} 頁",
+      "prevPage": "上一頁",
+      "nextPage": "下一頁",
+      "viewDetail": "查看詳情"
+    },
+    "skillCategories": {
+      "title": "技能分類管理",
+      "subtitle": "管理技能分類",
+      "name": "名稱",
+      "slug": "標識",
+      "icon": "圖標",
+      "sort": "排序",
+      "createdAt": "創建時間",
+      "total": "共 {total} 個",
+      "loading": "加載中...",
+      "noData": "暫無分類數據",
+      "actions": "操作",
+      "create": "新建分類",
+      "createTitle": "新建分類",
+      "createDesc": "創建一個新分類",
+      "editTitle": "編輯分類",
+      "editDesc": "修改分類信息",
+      "namePlaceholder": "請輸入分類名稱",
+      "nameRequired": "分類名稱不能為空",
+      "slugPlaceholder": "請輸入分類標識",
+      "deleteTitle": "刪除分類",
+      "deleteConfirm": "該操作不可撤銷，請確認是否刪除該分類？"
+    },
+    "skillBatch": {
+      "title": "技能批量操作",
+      "marketTab": "市場技能",
+      "userTab": "我的技能",
+      "batchInstall": "批量安裝",
+      "batchInstallTooltip": "安裝選中的市場技能",
+      "batchDelete": "批量刪除",
+      "batchDeleteTooltip": "刪除選中的已安裝技能",
+      "batchUpdate": "批量更新",
+      "batchUpdateTooltip": "更新選中技能的版本號/標籤",
+      "exportImport": "導出/導入",
+      "exportImportTooltip": "導出技能為 JSON 或從 JSON 導入",
+      "refreshTooltip": "刷新數據",
+      "marketTitle": "市場技能列表",
+      "userTitle": "已安裝技能列表",
+      "selectedCount": "已選 {count} 項",
+      "loading": "加載中...",
+      "noMarketSkills": "暫無市場技能",
+      "noUserSkills": "暫無已安裝技能",
+      "nameColumn": "名稱",
+      "descriptionColumn": "描述",
+      "versionColumn": "版本",
+      "installsColumn": "安裝數",
+      "sourceColumn": "來源",
+      "selectAll": "全選/取消全選",
+      "installed": "已安裝",
+      "progress": "正在處理 {current}/{total}...",
+      "batchSuccess": "成功 {count} 項",
+      "batchFailed": "失敗 {count} 項",
+      "dismiss": "關閉",
+      "refreshed": "已刷新",
+      "batchInstallSuccess": "成功安裝 {count} 個技能",
+      "batchInstallPartial": "安裝完成:成功 {success} 個,失敗 {failed} 個",
+      "batchDeleteSuccess": "成功刪除 {count} 個技能",
+      "batchDeletePartial": "刪除完成:成功 {success} 個,失敗 {failed} 個",
+      "batchUpdateSuccess": "成功更新 {count} 個技能",
+      "batchUpdatePartial": "更新完成:成功 {success} 個,失敗 {failed} 個",
+      "updateDialogTitle": "批量更新",
+      "updateDialogDesc": "為選中的 {count} 個技能統一設置版本號和標籤",
+      "versionLabel": "版本號",
+      "versionPlaceholder": "留空保留原版本",
+      "tagsLabel": "標籤(逗號分隔)",
+      "tagsPlaceholder": "留空保留原標籤",
+      "cancel": "取消",
+      "confirmUpdate": "確認更新",
+      "exportImportTitle": "導出/導入技能",
+      "exportImportDesc": "將技能導出為 JSON 文件或從 JSON 文件導入",
+      "exportTab": "導出",
+      "importTab": "導入",
+      "exportHint": "當前共 {count} 個已安裝技能,點擊導出保存為 JSON 文件",
+      "exportButton": "導出技能",
+      "exportSuccess": "導出成功",
+      "importHint": "選擇 JSON 文件導入技能(文件格式: { skills: [...] })",
+      "importingProgress": "正在導入 {current}/{total}...",
+      "importSuccess": "成功導入 {count} 個技能",
+      "importFailed": "失敗 {count} 個",
+      "importPartial": "導入完成:成功 {success} 個,失敗 {failed} 個",
+      "close": "關閉"
     },
     "refund": {
       "title": "退款審核管理",
@@ -5993,6 +6122,33 @@
       "abilityRadar": "能力雷達圖",
       "weeklyTrend": "周度趨勢對比"
     },
+    "skillStats": {
+      "title": "技能使用統計",
+      "subtitle": "市場技能與私有技能的使用數據分析",
+      "refresh": "刷新",
+      "loading": "載入中...",
+      "loadFailed": "載入失敗: {message}",
+      "totalSkills": "總技能數",
+      "onlineCount": "已上線",
+      "totalInstallCount": "總呼叫次數",
+      "avgRating": "平均評分",
+      "topTitle": "熱門技能排行 Top 10",
+      "noData": "暫無數據",
+      "rank": "#",
+      "skillName": "技能名",
+      "installCount": "安裝量",
+      "rating": "評分",
+      "tags": "標籤",
+      "categoryDist": "分類分佈",
+      "availabilityRate": "可用率",
+      "availableSkills": "可用技能",
+      "placeholderSkills": "佔位技能",
+      "pctOfTotal": "佔總技能 {pct}%",
+      "trendTitle": "使用趨勢",
+      "trendWeek": "近7天",
+      "trendMonth": "近30天",
+      "trendQuarter": "近90天"
+    },
     "behavior": {
       "weekday": {
         "mon": "週一",
@@ -8411,7 +8567,60 @@
       "completedAt": "完成時間",
       "viewInstance": "檢視詳情",
       "cancel": "取消",
-      "retry": "重試"
+      "retry": "重試",
+      "tab_instances": "運行實例",
+      "tab_definition": "步驟定義",
+      "delete": "刪除",
+      "deleteConfirm": "確定要刪除工作流 \"{name}\" 嗎？該操作不可撤銷。",
+      "deleteSuccess": "工作流已刪除",
+      "deactivate": "停用",
+      "activate": "啟用",
+      "editInfo": "編輯基本資訊",
+      "saveInfo": "儲存基本資訊",
+      "name": "名稱",
+      "description": "描述",
+      "triggerType": "觸發型別",
+      "updateSuccess": "更新成功",
+      "confirmDelete": "確認刪除"
+    },
+    "instanceStatus": {
+      "pending": "等待中",
+      "running": "運行中",
+      "completed": "已完成",
+      "failed": "失敗",
+      "cancelled": "已取消",
+      "unknown": "未知狀態"
+    },
+    "status": {
+      "active": "啟用",
+      "inactive": "停用"
+    },
+    "editor": {
+      "palette": "節點面板",
+      "properties": "屬性",
+      "selectNode": "選擇一個節點編輯屬性",
+      "name": "名稱",
+      "input": "輸入內容",
+      "skill": "AI 技能",
+      "condition": "條件表達式",
+      "duration": "延遲時長",
+      "count": "循環次數",
+      "continueOnFail": "失敗時繼續執行",
+      "editSteps": "編輯步驟",
+      "edit": "編輯",
+      "save": "儲存",
+      "cancel": "取消",
+      "types": {
+        "trigger": "觸發器",
+        "echo": "測試回顯",
+        "skill": "AI 技能",
+        "llm": "LLM 呼叫",
+        "condition": "條件分支",
+        "delay": "延遲",
+        "loop": "循環",
+        "parallel": "並行執行",
+        "tool": "MCP 工具"
+      }
     },
     "instanceDetail": {
       "backToWorkflow": "返回工作流",
@@ -8424,7 +8633,8 @@
       "allLevels": "全部級別",
       "noLogs": "暫無日誌",
       "input": "輸入",
-      "output": "輸出"
+      "output": "輸出",
+      "error": "錯誤資訊"
     }
   },
   "activities": {
@@ -9021,6 +9231,7 @@
     "fieldAgentId": "智慧體 ID",
     "fieldWorkspace": "工作區",
     "fieldRemark": "備註",
+    "fieldSkills": "綁定技能",
     "marketTab": "Agent 市場",
     "mineTab": "我的 Agent",
     "tabProgress": "進度",
@@ -14470,6 +14681,7 @@
     "openGitHub": "開啟 GitHub",
     "statusAvailable": "已上線",
     "statusComingSoon": "即將上線",
+    "addToAgent": "添加到Agent",
     "invokeRequired": "必填",
     "sendToChat": "發送到聊天",
     "inputContent": "內容",
@@ -14507,7 +14719,22 @@
     "placeholderInput": "請輸入…",
     "placeholderCode": "請貼上程式碼…",
     "placeholderError": "請貼上錯誤訊息…",
-    "placeholderFramework": "e.g. Jest/Vitest/pytest…"
+    "placeholderFramework": "e.g. Jest/Vitest/pytest…",
+    "relatedTitle": "相關推薦",
+    "relatedHint": "你可能也會喜歡這些技能",
+    "relatedEmpty": "暫無推薦",
+    "relatedLoading": "載入推薦中…",
+    "feedbackTitle": "使用回饋",
+    "feedbackRating": "評分",
+    "feedbackComment": "評價(可選)",
+    "feedbackCommentPlaceholder": "分享你的使用體驗…",
+    "feedbackSubmit": "提交回饋",
+    "feedbackSubmitted": "感謝你的回饋!",
+    "feedbackError": "提交失敗,請重試",
+    "feedbackRequired": "請先評分",
+    "versionLabel": "版本",
+    "updatedAt": "更新於",
+    "reason": "推薦理由:"
   },
   "design": {
     "title": "設計模式",
@@ -15538,39 +15765,6 @@
       "failed": "失敗"
     }
   },
-  "a11y": {
-    "pieChart": "圓餅圖",
-    "send": "傳送",
-    "uploadAvatar": "上傳大頭貼",
-    "copyCode": "複製程式碼",
-    "collapse": "摺疊"
-  },
-  "help": {
-    "title": "幫助中心",
-    "contactSupport": "聯絡支援",
-    "loading": "載入中...",
-    "backToList": "返回幫助中心"
-  },
-  "searchHistory": {
-    "loading": "載入中..."
-  },
-  "agreement": {
-    "loading": "載入中...",
-    "userAgreement": "使用者協議",
-    "staticContent2": "我們將嚴格保護您的個人隱私資訊，不會在未經您許可的情況下向第三方洩露。",
-    "staticContent3": "如對本協議有任何疑問，請聯絡平臺客戶服務。"
-  },
-  "routes": {
-    "userAgreement": "使用者協議",
-    "contactUs": "聯絡我們"
-  },
-  "themeBackup": {
-    "import": "匯入"
-  },
-  "forbidden": {
-    "title": "無許可權造訪",
-    "description": "抱歉，您沒有造訪該頁面的許可權。如需開通許可權，請聯絡管理員。"
-  },
   "eduAi": {
     "policy": {
       "title": "AI 教育政策库",
@@ -15808,6 +16002,7 @@
       "suggestions": "改进建议",
       "loading": "加载中...",
       "empty": "输入题目与答案,开始 AI 批改",
+      "error": "批改失敗",
       "loadFailed": "批改失败,请重试",
       "noResult": "暂无批改结果"
     },
@@ -16207,5 +16402,38 @@
     "search": "搜尋基金代碼或名稱",
     "active": "活躍",
     "inactive": "停用"
+  },
+  "a11y": {
+    "pieChart": "圓餅圖",
+    "send": "傳送",
+    "uploadAvatar": "上傳大頭貼",
+    "copyCode": "複製程式碼",
+    "collapse": "摺疊"
+  },
+  "help": {
+    "title": "幫助中心",
+    "contactSupport": "聯絡支援",
+    "loading": "載入中...",
+    "backToList": "返回幫助中心"
+  },
+  "searchHistory": {
+    "loading": "載入中..."
+  },
+  "agreement": {
+    "loading": "載入中...",
+    "userAgreement": "使用者協議",
+    "staticContent2": "我們將嚴格保護您的個人隱私資訊，不會在未經您許可的情況下向第三方洩露。",
+    "staticContent3": "如對本協議有任何疑問，請聯絡平臺客戶服務。"
+  },
+  "routes": {
+    "userAgreement": "使用者協議",
+    "contactUs": "聯絡我們"
+  },
+  "themeBackup": {
+    "import": "匯入"
+  },
+  "forbidden": {
+    "title": "無許可權造訪",
+    "description": "抱歉，您沒有造訪該頁面的許可權。如需開通許可權，請聯絡管理員。"
   }
 }

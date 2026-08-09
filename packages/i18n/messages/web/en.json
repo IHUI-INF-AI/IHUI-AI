@@ -1735,7 +1735,8 @@
       "unlist": "Unlist",
       "pageInfo": "Page {page} / {total}",
       "prevPage": "Previous",
-      "nextPage": "Next"
+      "nextPage": "Next",
+      "viewDetail": "View Details"
     },
     "skillCategories": {
       "title": "Skill Categories",
@@ -1756,6 +1757,7 @@
       "editDesc": "Modify category information",
       "namePlaceholder": "Enter category name",
       "nameRequired": "Category name is required",
+      "slugPlaceholder": "Enter category slug",
       "deleteTitle": "Delete Category",
       "deleteConfirm": "This action cannot be undone. Are you sure you want to delete this category?"
     },
@@ -6117,6 +6119,33 @@
     "extraCharts": {
       "abilityRadar": "Ability Radar",
       "weeklyTrend": "Weekly Trend Compare"
+    },
+    "skillStats": {
+      "title": "Skill Usage Stats",
+      "subtitle": "Usage data analysis of marketplace and private skills",
+      "refresh": "Refresh",
+      "loading": "Loading...",
+      "loadFailed": "Load failed: {message}",
+      "totalSkills": "Total Skills",
+      "onlineCount": "Online",
+      "totalInstallCount": "Total Installations",
+      "avgRating": "Avg Rating",
+      "topTitle": "Top 10 Skills",
+      "noData": "No data",
+      "rank": "#",
+      "skillName": "Skill Name",
+      "installCount": "Installs",
+      "rating": "Rating",
+      "tags": "Tags",
+      "categoryDist": "Category Distribution",
+      "availabilityRate": "Availability Rate",
+      "availableSkills": "Available",
+      "placeholderSkills": "Placeholder",
+      "pctOfTotal": "{pct}% of total",
+      "trendTitle": "Usage Trend",
+      "trendWeek": "7 Days",
+      "trendMonth": "30 Days",
+      "trendQuarter": "90 Days"
     },
     "behavior": {
       "weekday": {
@@ -14685,6 +14714,7 @@
     "openGitHub": "Open GitHub",
     "statusAvailable": "Available",
     "statusComingSoon": "Coming soon",
+    "addToAgent": "Add to Agent",
     "invokeRequired": "Required",
     "sendToChat": "Send to chat",
     "inputContent": "Content",
@@ -14722,7 +14752,22 @@
     "placeholderInput": "Enter input…",
     "placeholderCode": "Paste code here…",
     "placeholderError": "Paste error message here…",
-    "placeholderFramework": "e.g. Jest/Vitest/pytest…"
+    "placeholderFramework": "e.g. Jest/Vitest/pytest…",
+    "relatedTitle": "Related Skills",
+    "relatedHint": "You may also like these skills",
+    "relatedEmpty": "No recommendations",
+    "relatedLoading": "Loading recommendations…",
+    "feedbackTitle": "Feedback",
+    "feedbackRating": "Rating",
+    "feedbackComment": "Comment (optional)",
+    "feedbackCommentPlaceholder": "Share your experience…",
+    "feedbackSubmit": "Submit Feedback",
+    "feedbackSubmitted": "Thank you for your feedback!",
+    "feedbackError": "Submission failed, please try again",
+    "feedbackRequired": "Please rate first",
+    "versionLabel": "Version",
+    "updatedAt": "Updated",
+    "reason": "Reason:"
   },
   "design": {
     "title": "Design Mode",
