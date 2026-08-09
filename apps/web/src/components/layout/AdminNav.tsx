@@ -232,6 +232,11 @@ interface AdminNavItem {
     | 'imChannels'
     | 'topupConfig'
     | 'relayParamOps'
+    | 'adminSkills'
+    | 'adminSkillCategories'
+    | 'adminSkillStats'
+    | 'adminSkillVersions'
+    | 'adminSkillBatch'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -298,6 +303,11 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/permissions', labelKey: 'permissions', icon: Lock },
   { href: '/admin/workflows', labelKey: 'workflows', icon: Workflow },
   { href: '/admin/tags', labelKey: 'tags', icon: Tag },
+  { href: '/admin/skills', labelKey: 'adminSkills', icon: Sparkles },
+  { href: '/admin/skill-categories', labelKey: 'adminSkillCategories', icon: Tag },
+  { href: '/admin/skill-stats', labelKey: 'adminSkillStats', icon: BarChart3 },
+  { href: '/admin/skill-versions', labelKey: 'adminSkillVersions', icon: GitBranch },
+  { href: '/admin/skill-batch', labelKey: 'adminSkillBatch', icon: Download },
   { href: '/admin/configs', labelKey: 'configs', icon: SlidersHorizontal },
   { href: '/admin/home-schema', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: '首页布局' },
   { href: '/admin/integrations', labelKey: 'integrations', icon: Plug },
@@ -932,6 +942,11 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   imChannels: 'nav.imChannels',
   topupConfig: 'nav.topupConfig',
   relayParamOps: 'nav.relayParamOps',
+  adminSkills: 'nav.adminSkills',
+  adminSkillCategories: 'nav.adminSkillCategories',
+  adminSkillStats: 'nav.adminSkillStats',
+  adminSkillVersions: 'nav.adminSkillVersions',
+  adminSkillBatch: 'nav.adminSkillBatch',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */
