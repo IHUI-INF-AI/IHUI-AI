@@ -130,7 +130,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                         {skill.version}
                       </code>
                     ) : null}
-                    {skill.rating != null ? (
+                    {skill.rating !== null && skill.rating !== undefined ? (
                       <span className="inline-flex items-center gap-0.5 text-xs text-amber-500">
                         <Star className="h-3 w-3 fill-current" />
                         {skill.rating.toFixed(1)}
@@ -142,7 +142,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                   ) : null}
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {skill.author ? <span>{t('author')}: {skill.author}</span> : null}
-                    {skill.installCount != null ? (
+                    {skill.installCount !== null && skill.installCount !== undefined ? (
                       <span>{t('installCount', { count: skill.installCount })}</span>
                     ) : null}
                     {skill.createdAt ? (

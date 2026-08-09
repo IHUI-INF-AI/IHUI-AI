@@ -149,7 +149,7 @@ export function AgentSwarmMonitor({
                     </thead>
                     <tbody>
                       {agentList.map((a, idx) => (
-                        <tr key={`${a.name}-${idx}`} className="border-t">
+                        <tr key={`${a.name}-${idx}`} className="even:bg-muted/[0.03]">
                           <td className="px-3 py-2 font-medium">{a.name}</td>
                           <td className="px-3 py-2 text-muted-foreground">{a.type}</td>
                           <td className="px-3 py-2">

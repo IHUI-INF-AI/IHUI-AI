@@ -201,7 +201,7 @@ export function SubAgentActivityFeed({
       </button>
 
       {expanded && (
-        <div className="space-y-1.5 border-t border-border/20 px-2 py-1.5">
+        <div className="space-y-1.5 bg-muted/20 px-2 py-1.5">
           {activities.map((agent) => (
             <SubAgentCard
               key={agent.agentId}
