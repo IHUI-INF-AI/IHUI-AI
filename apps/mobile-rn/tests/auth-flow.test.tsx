@@ -12,7 +12,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { type ReactNode } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { resetAsyncStorageMock } from './__mocks__/async-storage'
 
 const { apiMocks, tokenMocks, ssoMocks } = vi.hoisted(() => ({

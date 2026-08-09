@@ -284,7 +284,7 @@ describe('PaymentScreen 支付流程', () => {
       const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1])
+    fireEvent.click(getAllByText('确认支付')[1]!)
     await waitFor(() =>
       expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
         amount: 9950,
@@ -326,7 +326,7 @@ describe('PaymentScreen 支付流程', () => {
       const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1])
+    fireEvent.click(getAllByText('确认支付')[1]!)
     await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
     await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
   })
@@ -362,7 +362,7 @@ describe('PaymentScreen 支付流程', () => {
       const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1])
+    fireEvent.click(getAllByText('确认支付')[1]!)
     await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })
