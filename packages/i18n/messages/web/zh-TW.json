@@ -464,7 +464,7 @@
     "eduAiVoice": "語音通話",
     "eduAiOutbound": "外呼行銷",
     "eduAiTbox": "IoT 設備",
-    "eduAiFundData": "基金資料",
+    "fundData": "基金資料",
     "eduAiMetaLearner": "自進化系統"
   },
   "home": {
@@ -4078,7 +4078,16 @@
       "viewTitle": "工作流詳情",
       "deleteTitle": "刪除工作流",
       "deleteConfirm": "該操作不可撤銷，請確認是否刪除該工作流？",
-      "stepsCount": "{count} 個步驟"
+      "stepsCount": "{count} 個步驟",
+      "trigger_manual": "手動",
+      "trigger_schedule": "定時",
+      "trigger_event": "事件",
+      "trigger_webhook": "Webhook",
+      "trigger_unknown": "未知觸發類型",
+      "status_active": "啟用",
+      "status_draft": "草稿",
+      "status_archived": "已歸檔",
+      "status_unknown": "未知狀態"
     },
     "tags": {
       "title": "標籤管理",
@@ -8370,6 +8379,8 @@
     "subtitle": "管理自動化工作流",
     "loading": "載入中...",
     "noData": "暫無工作流",
+    "prev": "上一頁",
+    "next": "下一頁",
     "backToList": "返回工作流列表",
     "notFound": "工作流不存在或無權造訪",
     "stepsCount": "{count} 個步驟",
@@ -8377,7 +8388,8 @@
       "manual": "手動",
       "schedule": "定時",
       "event": "事件",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "unknown": "未知觸發類型"
     },
     "create": {
       "title": "新建工作流",
@@ -14436,7 +14448,10 @@
     "comingCount": "即將上線 {count}",
     "categoryAiTop": "AI精選",
     "categoryCode": "程式設計",
-    "categoryMedia": "自媒體"
+    "categoryMedia": "自媒體",
+    "recommendTitle": "推薦技能",
+    "recommendHint": "基於你的使用習慣推薦",
+    "recommendEmpty": "暫無推薦"
   },
   "aiSkillDetail": {
     "backToList": "返回列表",
@@ -16142,24 +16157,6 @@
       "ack": "已確認",
       "failed": "失敗"
     },
-    "fundData": {
-      "title": "基金資料",
-      "subtitle": "基金列表、詳情與淨值歷史查詢",
-      "fundCode": "基金代碼",
-      "fundName": "基金名稱",
-      "fundType": "基金類型",
-      "fundStatus": "狀態",
-      "netValue": "淨值",
-      "date": "日期",
-      "viewDetail": "查看詳情",
-      "history": "淨值歷史",
-      "noFunds": "暫無基金資料",
-      "loading": "載入中...",
-      "error": "載入失敗",
-      "search": "搜尋基金代碼或名稱",
-      "active": "活躍",
-      "inactive": "停用"
-    },
     "metaLearner": {
       "title": "自進化系統",
       "subtitle": "Meta-Learner 元學習與自進化運行狀態管理",
@@ -16192,5 +16189,23 @@
       "improvementTip": "改進建議",
       "bestPractice": "最佳實踐"
     }
+  },
+  "fundData": {
+    "title": "基金資料",
+    "subtitle": "基金列表、詳情與淨值歷史查詢",
+    "fundCode": "基金代碼",
+    "fundName": "基金名稱",
+    "fundType": "基金類型",
+    "fundStatus": "狀態",
+    "netValue": "淨值",
+    "date": "日期",
+    "viewDetail": "查看詳情",
+    "history": "淨值歷史",
+    "noFunds": "暫無基金資料",
+    "loading": "載入中...",
+    "error": "載入失敗",
+    "search": "搜尋基金代碼或名稱",
+    "active": "活躍",
+    "inactive": "停用"
   }
 }
