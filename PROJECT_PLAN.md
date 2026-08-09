@@ -3123,3 +3123,160 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 平台独占
 
 仅 web 端 UI 改造,desktop/extension/mobile-rn/miniapp-taro/cli 按各自端特性处理(无需同步)。
+
+---
+
+## P0 aiSkill 系统深度开发 — 对标 Trae/Codex/WorkBuddy 核心能力(2026-08-09 立,跨端:apps/ai-service + apps/web + packages/{api-client,shared,i18n})
+
+> **触发**:用户要求"继续深度开发 aiSkill 系统,抄袭借鉴 Trae/Codex/WorkBuddy"——在现有 32 技能 + 自进化闭环 + 多智能体编排的基础上,补齐 4 大核心能力:技能推荐引擎、可视化工作流编排、统计看板、技能市场分享。
+>
+> **现状审计**:
+> - ✅ 后端:32 技能(13 内置 + 19 AI TOP)、SkillRegistry、SkillEvolutionService、SkillEvolutionLoop
+> - ✅ 后端 API:列表/详情/调用三端点,统一 ApiEnvelope 响应
+> - ✅ 多智能体编排:AgentOrchestrator(串行/并行/辩论/投票/批判/任务分解/协作通信)
+> - ✅ 调度器:SkillScheduler(LangGraph 风格,重试/上下文传递/Token 统计)
+> - ✅ 反馈闭环:SkillFeedbackTracker + SkillTester(59 用例) + SkillIterator + SkillEvolutionScheduler(40 用例)
+> - ✅ 元学习:MetaLearner + MetaLearnerScheduler,admin 端暴露状态/历史/手动触发
+> - ✅ 前端:AI Skills 列表页(搜索/Tab 分类/响应式网格) + 详情页(动态表单/调用/结果)
+> - ✅ 前端:SkillLibrary 弹窗组件(聊天中调用),导航栏 /ai-skills 入口
+> - ✅ i18n:aiSkillsPage + aiSkillDetail 共 70+ keys(5 语言)
+> - ✅ 测试:363+ 用例覆盖(49 ai_skills + 121 skills + 31 orchestrator + 5 scheduler + 59 tester + 40 evolution + 58 feedback)
+> - ✅ SDK 集成:api-client 端 points/ai-skills.ts 完整封装
+>
+> **借鉴分析**:
+> - **Trae**:MCP 集成(已有)、技能市场(已有 SkillLibrary + 列表页)、上下文感知技能推荐(缺失)
+> - **Codex**:Agent 任务进度可视化(已有 AgentTaskProgressPane)、技能编排工作流(已有 SkillScheduler 但缺可视化)、代码变更管理(缺失)
+> - **WorkBuddy**:工作流自动化编排(已有 AgentOrchestrator 但缺可视化编辑器)、技能管理市场(已有但缺分享/评分/版本)、任务调度(已有 SkillEvolutionScheduler)
+
+### 硬性指标(H1-H5)
+
+- H1:Skill 推荐引擎 — 后端 `/api/ai-skills/recommendations` 端点返回推荐列表(基于用户使用历史 + 当前上下文),前端详情页底部展示"推荐技能"区域
+- H2:可视化工作流编辑器 — 支持拖拽多技能串行/并行编排,保存/加载工作流模板,一键执行
+- H3:Skill 统计看板 — admin 端 `/admin/ai-skills` 展示技能使用量/成功率/Token 消耗/失败趋势,含图表
+- H4:Skill 市场/分享 — 技能 JSON 导入/导出,技能评分(1-5 星),评论(可选)
+- H5:全链路验证 — `pnpm --filter @ihui/ai-service typecheck test` + `pnpm --filter @ihui/web typecheck` + 新增 E2E 测试 100% 覆盖新功能
+
+### 任务拆分
+
+#### Phase 1:Skill 推荐引擎(2026-08-09)
+
+**后端(ai-service)**:
+- `app/services/skill_recommender.py`:SkillRecommender 类,基于用户使用历史 + 当前上下文 + 技能标签相似度计算推荐
+  - `recommend(user_id, context, top_k=5)`:主入口,返回推荐列表
+  - `_by_usage_history()`:基于用户历史使用频率推荐
+  - `_by_tag_similarity()`:基于技能标签与当前上下文匹配度推荐
+  - `_by_freshness()`:新技能提权(上线 7 天内 + 0.2 权重)
+  - 结果融合:加权求和(历史 0.4 + 标签 0.4 + 新鲜度 0.2)
+- `app/routers/ai_skills.py`:新增 `GET /api/ai-skills/recommendations` 端点
+  - 参数:`context`(可选,当前对话上下文)、`top_k`(默认 5)
+  - 未登录用户返回全量技能随机 5 个(兜底)
+- 测试:新增 `tests/test_skill_recommender.py`(≥15 用例)
+
+**前端(web)**:
+- `apps/web/app/(main)/ai-skills/PageClient.tsx`:底部新增"推荐技能"区域
+  - 加载 `GET /api/ai-skills/recommendations?context=...`
+  - 横向滚动卡片式展示 5 个推荐技能
+  - 点击跳到详情页
+- i18n:新增 `aiSkillsPage.recommendTitle` / `recommendHint` / `recommendEmpty`
+
+**i18n keys(5 语言,新增 3 个)**:
+- `aiSkillsPage.recommendTitle`: "推荐技能" / "Recommended Skills" / "おすすめスキル" / "추천 스킬" / "推薦技能"
+- `aiSkillsPage.recommendHint`: "基于你的使用习惯推荐" / "Based on your usage" / "使用履歴に基づく" / "사용 패턴 기반" / "基於你的使用習慣推薦"
+- `aiSkillsPage.recommendEmpty`: "暂无推荐" / "No recommendations" / "おすすめなし" / "추천 없음" / "暫無推薦"
+
+#### Phase 2:可视化工作流编辑器(2026-08-09)
+
+**后端(ai-service)**:
+- `app/services/workflow_engine.py`:WorkflowEngine 类
+  - `WorkflowTemplate` 数据类:id/name/description/steps/created_at/updated_at
+  - `WorkflowStep` 数据类:skill_id/variables_map(前一步输出→当前步输入映射)/parallel_group(并行组标识)
+  - `save_template(template)`:保存到 Redis(降级内存)
+  - `load_template(template_id)`:加载模板
+  - `execute_template(template_id, initial_input)`:按序执行所有步骤,并行组内同时执行
+  - `list_templates()`:列出所有模板
+- `app/routers/workflow.py`:5 个端点
+  - `POST /api/workflows` — 创建工作流模板
+  - `GET /api/workflows` — 列出所有模板
+  - `GET /api/workflows/{id}` — 获取模板详情
+  - `PUT /api/workflows/{id}` — 更新模板
+  - `DELETE /api/workflows/{id}` — 删除模板
+  - `POST /api/workflows/{id}/execute` — 执行工作流
+- 测试:新增 `tests/test_workflow_engine.py`(≥20 用例)
+
+**前端(web)**:
+- `apps/web/app/(main)/workflows/page.tsx` + `PageClient.tsx`:工作流列表页
+  - 卡片式展示所有模板,含技能数/步骤数/创建时间
+  - 新建/编辑/删除/执行按钮
+- `apps/web/app/(main)/workflows/[id]/page.tsx` + `PageClient.tsx`:工作流编辑器页
+  - 左侧:可用技能列表(可拖拽,从 API 获取)
+  - 中间:画布区(拖拽放置技能,连线编排顺序)
+  - 右侧:步骤配置区(变量映射/并行组)
+  - 底部:执行按钮 + 结果展示
+- i18n:新增 `workflowPage` 命名空间(约 15 keys)
+
+#### Phase 3:Skill 统计看板(2026-08-09)
+
+**后端(ai-service)**:
+- `app/routers/ai_skills.py`:新增 `GET /api/ai-skills/stats` 端点
+  - 聚合:总调用次数/成功次数/失败次数/平均耗时/Token 消耗
+  - 按技能维度:每个技能的调用量/成功率/平均耗时
+  - 时间维度:近 7 天/30 天趋势
+  - 数据源:SkillFeedbackTracker 的统计聚合
+- 测试:补充 stats 端点测试(≥5 用例)
+
+**前端(web)**:
+- `apps/web/app/(main)/admin/ai-skills/page.tsx` + `PageClient.tsx`:admin 技能统计看板
+  - 顶部:4 个统计卡片(总调用/成功率/平均耗时/Token 总计)
+  - 图表:调用量趋势图(近 7 天,柱状图)
+  - 表格:技能维度列表(调用量/成功率/平均耗时,可排序)
+  - 底部:失败技能 Top 5 列表(跳转详情页优化)
+- 图标库:使用已有 recharts(项目中已安装)
+- i18n:新增 `adminAiSkills` 命名空间(约 20 keys)
+
+#### Phase 4:Skill 市场/分享(2026-08-09)
+
+**后端(ai-service)**:
+- `app/routers/ai_skills.py`:新增 3 个端点
+  - `POST /api/ai-skills/export/{skill_id}` — 导出技能为 JSON(含 name/description/prompt_template/icon/tags)
+  - `POST /api/ai-skills/import` — 导入技能 JSON(创建自定义 skill,source=imported)
+  - `POST /api/ai-skills/{skill_id}/rate` — 评分(1-5 星,body: {rating, comment?})
+  - `GET /api/ai-skills/{skill_id}/ratings` — 获取评分列表
+- 数据存储:内存降级(优先 Redis,降级内存字典)
+- 测试:新增 export/import/rating 测试(≥15 用例)
+
+**前端(web)**:
+- `apps/web/app/(main)/ai-skills/[id]/PageClient.tsx`:
+  - 元数据区新增"导出"按钮(下载 JSON)
+  - 底部新增评分区(星选 1-5 + 可选评论 + 提交按钮)
+  - 评分列表展示(平均分 + 各评分条)
+- 列表页新增"导入"入口(右上角按钮,弹出 JSON 粘贴对话框)
+- i18n:新增 `aiSkillDetail.exportBtn` / `importBtn` / `rateTitle` / `rateSubmit` / `ratingList`等(约 10 keys)
+
+### 约束边界
+
+- 涉及文件:
+  - `apps/ai-service/app/services/skill_recommender.py`(新增)
+  - `apps/ai-service/app/routers/ai_skills.py`(修改,追加端点)
+  - `apps/ai-service/app/services/workflow_engine.py`(新增)
+  - `apps/ai-service/app/routers/workflow.py`(新增)
+  - `apps/ai-service/app/main.py`(注册 workflow 路由)
+  - `apps/ai-service/tests/test_skill_recommender.py`(新增)
+  - `apps/ai-service/tests/test_workflow_engine.py`(新增)
+  - `apps/web/app/(main)/ai-skills/PageClient.tsx`(修改)
+  - `apps/web/app/(main)/ai-skills/[id]/PageClient.tsx`(修改)
+  - `apps/web/app/(main)/workflows/`(新增目录+页面)
+  - `apps/web/app/(main)/admin/ai-skills/`(新增目录+页面)
+  - `packages/api-client/src/endpoints/ai-skills.ts`(修改,追加推荐/统计/评分/导出导入方法)
+  - `packages/i18n/messages/web/*.json`(5 语言,追加键)
+  - `packages/shared/src/utils/`(可能追加类型)
+- 不可触及:其他端(desktop/extension/mobile-rn/miniapp-taro/cli),其他模块代码
+- 测试隔离:MockRedis + MockLLM,不调真实 LLM/Redis
+- 环境变量:无新增(复用已有 Redis 配置)
+
+### 平台独占
+
+本任务仅 apps/ai-service(Python, FastAPI) + apps/web(TS, Next.js) + packages/ 共享层,其他端无跨端契约。
+
+### 执行顺序
+
+按 Phase 1→2→3→4 串行执行,每个 Phase 独立 commit + push + 验证。Phase 内后端先完成(含测试),前端再对接。
