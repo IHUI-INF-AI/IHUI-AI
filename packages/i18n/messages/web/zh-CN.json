@@ -15704,6 +15704,7 @@
       "suggestions": "改进建议",
       "loading": "加载中...",
       "empty": "输入题目与答案,开始 AI 批改",
+      "error": "批改失败",
       "loadFailed": "批改失败,请重试",
       "noResult": "暂无批改结果"
     },

@@ -9,6 +9,7 @@ import {
   lessonSignUps,
   users,
   learnLearnMapTopic,
+  learnTopicLesson,
   learnTopic,
   lessonTask,
   lessonRate,
@@ -574,6 +575,39 @@ export async function updateTopicRow(
 
 export async function deleteTopicRow(id: string): Promise<void> {
   await db.delete(learnTopic).where(eq(learnTopic.id, id))
+}
+
+export async function findTopicLessons(topicId: string): Promise<
+  {
+    id: string
+    title: string
+    coverImage: string | null
+    intro: string | null
+    lecturerName: string | null
+    isFree: boolean
+    lessonCount: number
+    signupCount: number
+    price: string
+    originalPrice: string | null
+  }[]
+> {
+  const rows = await db
+    .select({
+      id: lessons.id,
+      title: lessons.title,
+      coverImage: lessons.coverImage,
+      intro: lessons.intro,
+      lecturerName: lessons.lecturerName,
+      isFree: lessons.isFree,
+      lessonCount: lessons.lessonCount,
+      signupCount: lessons.signupCount,
+      price: lessons.price,
+      originalPrice: lessons.originalPrice,
+    })
+    .from(learnTopicLesson)
+    .innerJoin(lessons, eq(learnTopicLesson.lessonId, lessons.id))
+    .where(eq(learnTopicLesson.topicId, topicId))
+  return rows
 }
 
 // =============================================================================
