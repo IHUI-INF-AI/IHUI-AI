@@ -206,5 +206,22 @@ class SkillFeedbackTracker:
             return history
         return list(self._iter_store.get(skill_name, []))
 
+    async def get_all_stats(self) -> dict[str, dict[str, Any]]:
+        """获取所有技能的聚合统计(2026-08-09 新增,供 SkillRecommender 使用)。
+
+        遍历所有已注册 skill,返回 {skill_name: stats} 字典。
+        失败时返回空字典(不阻塞调用方)。
+        """
+        from .skills import skill_registry
+
+        result: dict[str, dict[str, Any]] = {}
+        for skill in skill_registry.list_skills():
+            try:
+                stats = await self.get_stats(skill.name)
+                result[skill.name] = stats
+            except Exception:
+                continue
+        return result
+
 
 skill_feedback_tracker = SkillFeedbackTracker()

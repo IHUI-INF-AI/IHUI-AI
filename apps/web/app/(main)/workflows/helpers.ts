@@ -46,7 +46,7 @@ export const DETAIL_TAB_KEYS: Record<'instances' | 'definition', string> = {
 }
 
 export const DEFAULT_STEPS = `[
-  { "name": "step1", "type": "task", "action": "echo" }
+  { "name": "步骤 1", "type": "echo", "input": "hello world" }
 ]`
 
 export const EMPTY_FORM: WorkflowForm = {
