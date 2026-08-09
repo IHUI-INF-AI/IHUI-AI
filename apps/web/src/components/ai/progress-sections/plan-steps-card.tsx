@@ -513,7 +513,7 @@ function PlanStepItem({
                 'inline-flex h-5 items-center gap-1 rounded-sm px-1.5 text-[10px]',
                 'text-muted-foreground/70 transition-colors',
                 'hover:bg-accent/60 hover:text-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}
             >
               {copied ? (

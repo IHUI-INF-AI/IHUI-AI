@@ -24,7 +24,6 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  TooltipProvider,
 } from '@ihui/ui-react'
 
 import { fetchMarketSkills, fetchUserSkills, classifyTags } from './helpers'
@@ -263,33 +262,29 @@ export default function StatsDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">可用技能</span>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="tabular-nums font-medium text-green-600 dark:text-green-400 cursor-help">
-                              {successRate!.available}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            占总技能 {totalCount > 0 ? ((successRate!.available / totalCount) * 100).toFixed(1) : 0}%
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="tabular-nums font-medium text-green-600 dark:text-green-400 cursor-help">
+                            {successRate!.available}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          占总技能 {totalCount > 0 ? ((successRate!.available / totalCount) * 100).toFixed(1) : 0}%
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">占位技能</span>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="tabular-nums font-medium text-muted-foreground cursor-help">
-                              {successRate!.placeholder}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            占总技能 {totalCount > 0 ? ((successRate!.placeholder / totalCount) * 100).toFixed(1) : 0}%
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="tabular-nums font-medium text-muted-foreground cursor-help">
+                            {successRate!.placeholder}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          占总技能 {totalCount > 0 ? ((successRate!.placeholder / totalCount) * 100).toFixed(1) : 0}%
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                     <div className="h-2 w-full rounded-sm bg-muted/60">
                       <div
