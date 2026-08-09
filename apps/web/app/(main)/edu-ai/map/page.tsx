@@ -117,7 +117,7 @@ interface LessonItem {
   signupCount?: number
 }
 
-/** 专题课程列表响应:GET /api/learn/topics/:id/lessons */
+/** 专题课程列表响应:GET /api/learn/premium-topics/:id/lessons */
 interface LearnTopicLessonsData {
   list: LessonItem[]
   total: number
@@ -165,7 +165,7 @@ export default function EduAiLearnMapPage() {
   // 学习地图列表
   const mapQuery = useQuery({
     queryKey: ['edu-ai', 'learn-map', 'maps'],
-    queryFn: () => api<LearnMapListData>('/api/learn/map'),
+    queryFn: () => api<LearnMapListData>('/api/learn/maps'),
   })
 
   // 专题列表(分页 + 搜索)
@@ -178,7 +178,7 @@ export default function EduAiLearnMapPage() {
         status: 'published',
       })
       if (debounced) qs.set('search', debounced)
-      return api<LearnTopicListData>(`/api/learn/topics?${qs.toString()}`)
+      return api<LearnTopicListData>(`/api/learn/premium-topics?${qs.toString()}`)
     },
   })
 
@@ -197,7 +197,7 @@ export default function EduAiLearnMapPage() {
     queryKey: ['edu-ai', 'learn-map', 'topic-detail', selectedTopicId],
     queryFn: () => {
       if (selectedTopicId === null) throw new Error('missing topic id')
-      return api<LearnTopicDetailData>(`/api/learn/topics/${selectedTopicId}`)
+      return api<LearnTopicDetailData>(`/api/learn/premium-topics/${selectedTopicId}`)
     },
     enabled: selectedTopicId !== null,
   })
@@ -207,9 +207,9 @@ export default function EduAiLearnMapPage() {
     queryKey: ['edu-ai', 'learn-map', 'topic-lessons', selectedTopicId],
     queryFn: () => {
       if (selectedTopicId === null) throw new Error('missing topic id')
-      return api<LearnTopicLessonsData>(`/api/learn/topics/${selectedTopicId}/lessons`)
+      return api<LearnTopicLessonsData>(`/api/learn/premium-topics/${selectedTopicId}/lessons`)
     },
-    enabled: selectedTopicId !== null,
+    enabled: selectedTopicId !== null && topicDetailOpen,
   })
 
   const maps = mapQuery.data?.list ?? []
