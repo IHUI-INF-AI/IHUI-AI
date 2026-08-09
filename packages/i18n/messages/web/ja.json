@@ -464,7 +464,7 @@
     "eduAiVoice": "音声通話",
     "eduAiOutbound": "アウトバウンド",
     "eduAiTbox": "IoT デバイス",
-    "eduAiFundData": "ファンドデータ",
+    "fundData": "ファンドデータ",
     "eduAiMetaLearner": "メタラーナー"
   },
   "home": {
@@ -4078,7 +4078,16 @@
       "viewTitle": "ワークフロー",
       "deleteTitle": "タイトル",
       "deleteConfirm": "これ？",
-      "stepsCount": "{count}ステップ"
+      "stepsCount": "{count}ステップ",
+      "trigger_manual": "手動",
+      "trigger_schedule": "スケジュール",
+      "trigger_event": "イベント",
+      "trigger_webhook": "ウェブフック",
+      "trigger_unknown": "不明なトリガー",
+      "status_active": "有効",
+      "status_draft": "下書き",
+      "status_archived": "アーカイブ",
+      "status_unknown": "不明なステータス"
     },
     "tags": {
       "title": "APIテスト",
@@ -8418,6 +8427,8 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "loading": "読み込み中...",
     "noData": "なしデータ",
+    "prev": "前へ",
+    "next": "次へ",
     "backToList": "るリスト",
     "notFound": "つかりません",
     "stepsCount": "{count}ステップ",
@@ -8425,7 +8436,8 @@
       "manual": "手動",
       "schedule": "スケジュール",
       "event": "イベント",
-      "webhook": "ウェブフック"
+      "webhook": "ウェブフック",
+      "unknown": "不明なトリガー"
     },
     "create": {
       "title": "APIテスト",
@@ -14493,7 +14505,10 @@
     "comingCount": "近日公開 {count}",
     "categoryAiTop": "AI おすすめ",
     "categoryCode": "プログラミング",
-    "categoryMedia": "メディア"
+    "categoryMedia": "メディア",
+    "recommendTitle": "おすすめスキル",
+    "recommendHint": "使用履歴に基づく",
+    "recommendEmpty": "おすすめなし"
   },
   "aiSkillDetail": {
     "backToList": "一覧に戻る",
@@ -16219,24 +16234,7 @@
       "ack": "確認済み",
       "failed": "失敗"
     },
-    "fundData": {
-      "title": "ファンドデータ",
-      "subtitle": "ファンド一覧・詳細・基準価額履歴",
-      "fundCode": "コード",
-      "fundName": "ファンド名",
-      "fundType": "種類",
-      "fundStatus": "状態",
-      "netValue": "基準価額",
-      "date": "日付",
-      "viewDetail": "詳細",
-      "history": "基準価額履歴",
-      "noFunds": "ファンドなし",
-      "loading": "読み込み中...",
-      "error": "読み込み失敗",
-      "search": "コードまたは名称で検索",
-      "active": "アクティブ",
-      "inactive": "非アクティブ"
-    },
+    
     "metaLearner": {
       "title": "メタラーナー",
       "subtitle": "メタ学習と自己進化システム管理",
@@ -16269,5 +16267,23 @@
       "improvementTip": "改善提案",
       "bestPractice": "ベストプラクティス"
     }
+  },
+  "fundData": {
+    "title": "ファンドデータ",
+    "subtitle": "ファンド一覧・詳細・基準価額履歴",
+    "fundCode": "コード",
+    "fundName": "ファンド名",
+    "fundType": "種類",
+    "fundStatus": "状態",
+    "netValue": "基準価額",
+    "date": "日付",
+    "viewDetail": "詳細",
+    "history": "基準価額履歴",
+    "noFunds": "ファンドなし",
+    "loading": "読み込み中...",
+    "error": "読み込み失敗",
+    "search": "コードまたは名称で検索",
+    "active": "アクティブ",
+    "inactive": "非アクティブ"
   }
 }
