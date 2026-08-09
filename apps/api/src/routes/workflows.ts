@@ -44,7 +44,7 @@ function evaluateCondition(condition: string, context: unknown): boolean {
 // =============================================================================
 
 const TRIGGER_TYPES = ['manual', 'schedule', 'event', 'webhook'] as const
-const STEP_TYPES = ['action', 'condition', 'loop', 'delay', 'parallel'] as const
+const STEP_TYPES = ['echo', 'skill', 'llm', 'condition', 'delay', 'loop', 'parallel', 'tool', 'action'] as const
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -505,9 +505,24 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
         const type =
           typeof step.type === 'string' && (STEP_TYPES as readonly string[]).includes(step.type)
             ? step.type
-            : 'action'
+            : 'echo'
 
-        if (type === 'condition') {
+        const stepName =
+          typeof step.name === 'string' && step.name.length > 0
+            ? step.name
+            : `step-${stepIdx + 1}`
+        const stepInput = step.input ?? step.config
+
+        // echo / skill / llm / tool / action 均创建可执行任务
+        if (type === 'echo' || type === 'skill' || type === 'llm' || type === 'tool' || type === 'action') {
+          taskInputs.push({
+            instanceId: instance.id,
+            stepIndex: stepIdx++,
+            name: stepName,
+            type,
+            input: stepInput,
+          })
+        } else if (type === 'condition') {
           const conditionStr = typeof step.condition === 'string' ? step.condition : ''
           const condResult = evaluateCondition(conditionStr, triggerContext)
           await createLog({
@@ -519,31 +534,17 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
           if (Array.isArray(branchSteps)) {
             for (const bs of branchSteps) {
               const b = (bs ?? {}) as Record<string, unknown>
-              if (b.type === 'action') {
-                const name =
-                  typeof b.name === 'string' && b.name.length > 0 ? b.name : `action-${stepIdx + 1}`
-                taskInputs.push({
-                  instanceId: instance.id,
-                  stepIndex: stepIdx++,
-                  name,
-                  type: 'action',
-                  input: b.config,
-                })
-              }
+              const bName =
+                typeof b.name === 'string' && b.name.length > 0 ? b.name : `action-${stepIdx + 1}`
+              taskInputs.push({
+                instanceId: instance.id,
+                stepIndex: stepIdx++,
+                name: bName,
+                type: 'action',
+                input: b.config,
+              })
             }
           }
-        } else if (type === 'action') {
-          const name =
-            typeof step.name === 'string' && step.name.length > 0
-              ? step.name
-              : `step-${stepIdx + 1}`
-          taskInputs.push({
-            instanceId: instance.id,
-            stepIndex: stepIdx++,
-            name,
-            type: 'action',
-            input: step.config,
-          })
         } else if (type === 'delay') {
           const duration = typeof step.duration === 'number' ? step.duration : 0
           await createLog({
@@ -553,36 +554,35 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
           })
         } else if (type === 'loop') {
           const count = typeof step.count === 'number' ? step.count : 0
-          const baseName =
-            typeof step.name === 'string' && step.name.length > 0 ? step.name : 'loop'
           for (let i = 0; i < count; i++) {
             taskInputs.push({
               instanceId: instance.id,
               stepIndex: stepIdx++,
-              name: `${baseName}[${i}]`,
+              name: `${stepName}[${i}]`,
               type: 'loop',
-              input: step.config,
+              input: stepInput,
             })
           }
         } else if (type === 'parallel' && Array.isArray(step.steps)) {
-          // 并行步骤：所有 action 子步骤同时创建为任务
           let parallelCount = 0
           for (const subRaw of step.steps) {
             const subStep = (subRaw ?? {}) as Record<string, unknown>
-            if (subStep.type === 'action') {
-              const name =
-                typeof subStep.name === 'string' && subStep.name.length > 0
-                  ? subStep.name
-                  : `parallel-${stepIdx + 1}`
-              taskInputs.push({
-                instanceId: instance.id,
-                stepIndex: stepIdx++,
-                name,
-                type: 'action',
-                input: subStep.config,
-              })
-              parallelCount++
-            }
+            const subType =
+              typeof subStep.type === 'string' && (STEP_TYPES as readonly string[]).includes(subStep.type)
+                ? subStep.type
+                : 'echo'
+            const subName =
+              typeof subStep.name === 'string' && subStep.name.length > 0
+                ? subStep.name
+                : `parallel-${stepIdx + 1}`
+            taskInputs.push({
+              instanceId: instance.id,
+              stepIndex: stepIdx++,
+              name: subName,
+              type: subType,
+              input: subStep.input ?? subStep.config,
+            })
+            parallelCount++
           }
           await createLog({
             instanceId: instance.id,
