@@ -72,7 +72,7 @@ export function WorkflowsTable({
             </tr>
           ) : (
             list.map((w) => {
-              const status: WfStatus = w.isActive ? 'active' : 'archived'
+              const status: WfStatus = w.isActive ? 'active' : 'draft'
               const sc = STATUS_BADGE[status] ?? STATUS_BADGE.draft
               const stepCount = Array.isArray(w.steps) ? w.steps.length : 0
               return (
