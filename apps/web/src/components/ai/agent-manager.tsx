@@ -38,7 +38,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
 
   return (
     <div className="flex h-full flex-col rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b p-4">
+      <div className="flex items-center justify-between bg-muted/30 p-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
           <h3 className="text-sm font-semibold">{t('title')}</h3>
@@ -48,7 +48,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
           {t('create')}
         </Button>
       </div>
-      <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5 text-xs">
+      <div className="flex items-center gap-4 bg-muted/30 px-4 py-2.5 text-xs">
         <span className="text-muted-foreground">
           {t('active')} <span className="font-semibold text-primary">{active}</span>
         </span>

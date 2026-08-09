@@ -67,7 +67,7 @@ export default function LogDetailDialog({
           className,
         )}
       >
-        <div className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center justify-between bg-muted/30 px-5 py-3">
           <h3 className="text-base font-medium">日志详情</h3>
           <button
             type="button"
