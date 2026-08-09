@@ -12,6 +12,7 @@ export const EMPTY_FORM: AgentForm = {
   isFree: true,
   sort: '0',
   remark: '',
+  skillIds: [],
 }
 
 export const STATUS_OPTIONS = ['pending', 'published', 'rejected', 'offline']
