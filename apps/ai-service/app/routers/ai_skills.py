@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_scheduler import SkillScheduler  # 2026-07-23:可选 LangGraph 调度器
+from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
 from app.services.skills import Skill, skill_registry
 
 router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
@@ -280,6 +281,32 @@ async def list_ai_skills(category: str = "ai-top") -> dict[str, Any]:
     else:
         skills = skill_registry.list_by_category(category)
     return _ok([_serialize_skill(s) for s in skills])
+
+
+@router.get("/recommendations", response_model=ApiEnvelope)
+async def get_recommendations(
+    context: str = "",
+    top_k: int = 5,
+) -> dict[str, Any]:
+    """获取 AI Skill 推荐列表(2026-08-09 新增,Phase 1)。
+
+    基于用户使用历史 + 当前上下文 + 技能标签相似度计算推荐。
+    匿名用户返回随机推荐(兜底)。
+
+    Args:
+        context: 当前对话上下文(可选,用于标签匹配)。
+        top_k: 返回数量(默认 5,最大 10)。
+
+    Returns:
+        [{skill_id, name, description, icon, category, tags, score, reason, available}, ...]。
+    """
+    top_k = max(1, min(top_k, 10))
+    recommendations = await skill_recommender.recommend(
+        user_id=None,  # 当前无用户认证,暂返回匿名推荐
+        context=context or None,
+        top_k=top_k,
+    )
+    return _ok(recommendations)
 
 
 @router.get("/{skill_id}", response_model=ApiEnvelope)
