@@ -446,7 +446,7 @@
     "eduAiVoice": "实时语音",
     "eduAiOutbound": "外呼营销",
     "eduAiTbox": "IoT 设备",
-    "eduAiFundData": "基金数据",
+    "fundData": "基金数据",
     "eduAiMetaLearner": "自进化系统"
   },
   "home": {
@@ -4060,7 +4060,16 @@
       "viewTitle": "工作流详情",
       "deleteTitle": "删除工作流",
       "deleteConfirm": "该操作不可撤销，请确认是否删除该工作流？",
-      "stepsCount": "{count} 个步骤"
+      "stepsCount": "{count} 个步骤",
+      "trigger_manual": "手动",
+      "trigger_schedule": "定时",
+      "trigger_event": "事件",
+      "trigger_webhook": "Webhook",
+      "trigger_unknown": "未知触发类型",
+      "status_active": "启用",
+      "status_draft": "草稿",
+      "status_archived": "已归档",
+      "status_unknown": "未知状态"
     },
     "tags": {
       "title": "标签管理",
@@ -8316,6 +8325,8 @@
     "subtitle": "管理自动化工作流",
     "loading": "加载中...",
     "noData": "暂无工作流",
+    "prev": "上一页",
+    "next": "下一页",
     "backToList": "返回工作流列表",
     "notFound": "工作流不存在或无权访问",
     "stepsCount": "{count} 个步骤",
@@ -8323,7 +8334,8 @@
       "manual": "手动",
       "schedule": "定时",
       "event": "事件",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "unknown": "未知触发类型"
     },
     "create": {
       "title": "新建工作流",
@@ -8333,7 +8345,7 @@
       "nameRequired": "工作流名称不能为空",
       "description": "描述",
       "triggerType": "触发类型",
-      "steps": "步骤定义 (JSON)",
+      "steps": "步骤定义",
       "submit": "创建",
       "invalidSteps": "步骤 JSON 格式错误"
     },
@@ -8345,7 +8357,60 @@
       "completedAt": "完成时间",
       "viewInstance": "查看详情",
       "cancel": "取消",
-      "retry": "重试"
+      "retry": "重试",
+      "tab_instances": "运行实例",
+      "tab_definition": "步骤定义",
+      "delete": "删除",
+      "deleteConfirm": "确定要删除工作流 \"{name}\" 吗？该操作不可撤销。",
+      "deleteSuccess": "工作流已删除",
+      "deactivate": "禁用",
+      "activate": "启用",
+      "editInfo": "编辑基本信息",
+      "saveInfo": "保存基本信息",
+      "name": "名称",
+      "description": "描述",
+      "triggerType": "触发类型",
+      "updateSuccess": "更新成功",
+      "confirmDelete": "确认删除"
+    },
+    "instanceStatus": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "unknown": "未知状态"
+    },
+    "status": {
+      "active": "启用",
+      "inactive": "禁用"
+    },
+    "editor": {
+      "palette": "节点面板",
+      "properties": "属性",
+      "selectNode": "选择一个节点编辑属性",
+      "name": "名称",
+      "input": "输入内容",
+      "skill": "AI 技能",
+      "condition": "条件表达式",
+      "duration": "延迟时长",
+      "count": "循环次数",
+      "continueOnFail": "失败时继续执行",
+      "editSteps": "编辑步骤",
+      "edit": "编辑",
+      "save": "保存",
+      "cancel": "取消",
+      "types": {
+        "trigger": "触发器",
+        "echo": "测试回显",
+        "skill": "AI 技能",
+        "llm": "LLM 调用",
+        "condition": "条件分支",
+        "delay": "延迟",
+        "loop": "循环",
+        "parallel": "并行执行",
+        "tool": "MCP 工具"
+      }
     },
     "instanceDetail": {
       "backToWorkflow": "返回工作流",
@@ -8358,7 +8423,8 @@
       "allLevels": "全部级别",
       "noLogs": "暂无日志",
       "input": "输入",
-      "output": "输出"
+      "output": "输出",
+      "error": "错误信息"
     }
   },
   "activities": {
@@ -14380,7 +14446,10 @@
     "comingCount": "即将上线 {count}",
     "categoryAiTop": "AI精选",
     "categoryCode": "编程",
-    "categoryMedia": "自媒体"
+    "categoryMedia": "自媒体",
+    "recommendTitle": "推荐技能",
+    "recommendHint": "基于你的使用习惯推荐",
+    "recommendEmpty": "暂无推荐"
   },
   "aiSkillDetail": {
     "backToList": "返回列表",
@@ -16054,24 +16123,7 @@
       "ack": "已确认",
       "failed": "失败"
     },
-    "fundData": {
-      "title": "基金数据",
-      "subtitle": "基金列表、详情与净值历史查询",
-      "fundCode": "基金代码",
-      "fundName": "基金名称",
-      "fundType": "基金类型",
-      "fundStatus": "状态",
-      "netValue": "净值",
-      "date": "日期",
-      "viewDetail": "查看详情",
-      "history": "净值历史",
-      "noFunds": "暂无基金数据",
-      "loading": "加载中...",
-      "error": "加载失败",
-      "search": "搜索基金代码或名称",
-      "active": "活跃",
-      "inactive": "停用"
-    },
+    
     "metaLearner": {
       "title": "自进化系统",
       "subtitle": "Meta-Learner 元学习与自进化运行状态管理",
@@ -16104,5 +16156,23 @@
       "improvementTip": "改进建议",
       "bestPractice": "最佳实践"
     }
+  },
+  "fundData": {
+      "title": "基金数据",
+      "subtitle": "基金列表、详情与净值历史查询",
+      "fundCode": "基金代码",
+      "fundName": "基金名称",
+      "fundType": "基金类型",
+      "fundStatus": "状态",
+      "netValue": "净值",
+      "date": "日期",
+      "viewDetail": "查看详情",
+      "history": "净值历史",
+      "noFunds": "暂无基金数据",
+      "loading": "加载中...",
+      "error": "加载失败",
+      "search": "搜索基金代码或名称",
+      "active": "活跃",
+      "inactive": "停用"
   }
 }
