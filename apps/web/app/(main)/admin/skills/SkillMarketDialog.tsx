@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Search, Download, Star, X } from 'lucide-react'
+import { Loader2, Search, Download, Star, X, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 
 import {
@@ -125,6 +126,15 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{skill.name}</span>
+                    <Link
+                      href={`/ai-skills/${skill.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {t('viewDetail')}
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
                     {skill.version ? (
                       <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                         {skill.version}

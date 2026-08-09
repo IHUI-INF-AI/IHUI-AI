@@ -12,8 +12,28 @@ export async function fetchCategories(): Promise<SkillCategory[]> {
   return data?.categories ?? []
 }
 
+export async function createCategory(
+  data: { name: string; slug: string; icon?: string; sort?: number },
+): Promise<SkillCategory> {
+  return api<SkillCategory>('/api/skill-categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateCategory(
+  id: string,
+  data: Partial<{ name: string; slug: string; icon: string; sort: number }>,
+): Promise<SkillCategory> {
+  return api<SkillCategory>(`/api/skill-categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
 export const EMPTY_FORM: SkillCategoryForm = {
   name: '',
+  slug: '',
   icon: 'Tag',
   sort: 0,
 }
@@ -21,6 +41,7 @@ export const EMPTY_FORM: SkillCategoryForm = {
 export function categoryToForm(item: SkillCategory): SkillCategoryForm {
   return {
     name: item.name,
+    slug: item.slug,
     icon: item.icon ?? 'Tag',
     sort: item.sort,
   }

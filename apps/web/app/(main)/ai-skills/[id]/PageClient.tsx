@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import {
   ArrowLeft,
+  Bot,
   Code,
   ExternalLink,
   FileText,
@@ -17,14 +18,18 @@ import {
   Send,
   XCircle,
   MessageSquare,
+  Star,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import {
   getAiSkill,
   invokeAiSkill,
+  getAiSkillRecommendations,
   type AiSkillMeta,
   type AiSkillInvokeResponse,
 } from '@ihui/api-client/endpoints/ai-skills'
+import { fetchApi } from '@ihui/api-client'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
 import {
@@ -190,6 +195,15 @@ export default function AiSkillDetailPage() {
             <Badge variant={skill.available ? 'success' : 'default'}>
               {skill.available ? t('statusAvailable') : t('statusComingSoon')}
             </Badge>
+            {skill.available && (
+              <Link
+                href="/models/openclaw"
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                {t('addToAgent')}
+              </Link>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {tp(
@@ -231,6 +245,20 @@ export default function AiSkillDetailPage() {
             <ExternalLink className="h-3 w-3" />
           </a>
         )}
+        {/* 版本信息 */}
+        {(skill as unknown as Record<string, unknown>).version || (skill as unknown as Record<string, unknown>).updatedAt ? (
+          <p className="text-xs text-muted-foreground">
+            {(skill as unknown as Record<string, unknown>).version
+              ? <>{t('versionLabel')}: v{String((skill as unknown as Record<string, unknown>).version)}</>
+              : null}
+            {(skill as unknown as Record<string, unknown>).version && (skill as unknown as Record<string, unknown>).updatedAt ? (
+              <span className="mx-1">·</span>
+            ) : null}
+            {(skill as unknown as Record<string, unknown>).updatedAt
+              ? <>{t('updatedAt')} {String((skill as unknown as Record<string, unknown>).updatedAt).slice(0, 10)}</>
+              : null}
+          </p>
+        ) : null}
       </section>
 
       {/* 调用区(available=true) */}
@@ -391,6 +419,14 @@ export default function AiSkillDetailPage() {
           </div>
         </section>
       )}
+
+      {/* 使用反馈(仅当有调用结果时) */}
+      {result && (
+        <FeedbackSection skillId={skill.id} t={t} />
+      )}
+
+      {/* 相关推荐 */}
+      <RecommendationsSection skillName={skill.name} t={t} />
     </div>
   )
 }
@@ -441,5 +477,180 @@ function ResultContent({ result }: ResultContentProps) {
     <div className="thin-scroll max-h-[280px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
       {result.content || t('resultEmpty')}
     </div>
+  )
+}
+
+/** 使用反馈区块 */
+function FeedbackSection({ skillId, t }: { skillId: string; t: ReturnType<typeof useTranslations<'aiSkillDetail'>> }) {
+  const [rating, setRating] = React.useState(0)
+  const [hoverRating, setHoverRating] = React.useState(0)
+  const [comment, setComment] = React.useState('')
+  const [submitting, setSubmitting] = React.useState(false)
+  const [submitted, setSubmitted] = React.useState(false)
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      toast.error(t('feedbackRequired'))
+      return
+    }
+    setSubmitting(true)
+    try {
+      const r = await fetchApi<{ ok: boolean }>(`/api/ai-skills/${encodeURIComponent(skillId)}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ skillId, rating, comment: comment.trim() || undefined }),
+      })
+      if (r.success) {
+        setSubmitted(true)
+        toast.success(t('feedbackSubmitted'))
+      } else {
+        toast.error(t('feedbackError'))
+      }
+    } catch {
+      toast.error(t('feedbackError'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border bg-card p-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('feedbackTitle')}
+      </h2>
+      {submitted ? (
+        <p className="flex items-center gap-1.5 text-sm text-emerald-600">
+          <CheckCircle2 className="h-4 w-4" />
+          {t('feedbackSubmitted')}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {/* 评分 */}
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-foreground">{t('feedbackRating')}</span>
+            <div className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  className="transition-colors hover:text-amber-400"
+                  aria-label={`${star} star`}
+                >
+                  <Star
+                    className={cn(
+                      'h-5 w-5',
+                      star <= (hoverRating || rating)
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-muted-foreground/30',
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 评价 */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-foreground">{t('feedbackComment')}</label>
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder={t('feedbackCommentPlaceholder')}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+            />
+          </div>
+          {/* 提交按钮 */}
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                submitting
+                  ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              )}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{t('feedbackSubmit')}</span>
+                </>
+              ) : (
+                <span>{t('feedbackSubmit')}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** 相关推荐技能区块 */
+function RecommendationsSection({ skillName, t }: { skillName: string; t: ReturnType<typeof useTranslations<'aiSkillDetail'>> }) {
+  const { data: result, isLoading } = useQuery({
+    queryKey: ['ai-skills', 'recommendations', skillName],
+    queryFn: () => getAiSkillRecommendations({ context: skillName, top_k: 4 }),
+    enabled: !!skillName,
+  })
+
+  const recommendations = result?.success ? result.data : []
+
+  return (
+    <section className="space-y-3 rounded-lg border bg-card p-4">
+      <div className="space-y-0.5">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('relatedTitle')}
+        </h2>
+        <p className="text-[11px] text-muted-foreground/70">{t('relatedHint')}</p>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>{t('relatedLoading')}</span>
+        </div>
+      ) : recommendations.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('relatedEmpty')}</p>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {recommendations.map((rec) => (
+            <Link
+              key={rec.skill_id}
+              href={`/ai-skills/${rec.skill_id}`}
+              className="group flex w-64 shrink-0 flex-col gap-2 rounded-md border border-border bg-background p-3 transition-colors hover:border-foreground/20 hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Wand2 className="h-4 w-4" />
+                </div>
+                <span className="truncate text-sm font-medium">{rec.name}</span>
+              </div>
+              <p className="line-clamp-1 text-xs text-muted-foreground">{rec.description}</p>
+              {rec.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {rec.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {rec.reason && (
+                <p className="text-[10px] leading-tight text-muted-foreground/60">
+                  {t('reason')} {rec.reason}
+                </p>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

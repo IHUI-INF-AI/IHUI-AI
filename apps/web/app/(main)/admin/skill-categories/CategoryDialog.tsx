@@ -93,6 +93,18 @@ export function CategoryFormDialog({
             />
             {nameErr ? <p className="text-xs text-destructive">{nameErr}</p> : null}
           </div>
+          {!editing && (
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-slug">{t('slug')}</Label>
+              <Input
+                id="cat-slug"
+                value={form.slug}
+                onChange={(e) => update('slug', e.target.value)}
+                placeholder={t('slugPlaceholder')}
+                maxLength={64}
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>{t('icon')}</Label>
             <div className="flex flex-wrap gap-2">
