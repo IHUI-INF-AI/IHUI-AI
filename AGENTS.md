@@ -259,6 +259,15 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - **锁异常处理**:锁等待超时会报错并提示;超过 300s 的悬挂锁会自动抢占;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
   - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
 
+### 部署/构建全局锁(2026-08-09 立,并发部署事故根治)
+
+- **事故背景**(8-09 实锤):多 Agent/自动化任务并行触发 `build-next-prod.ps1` 时,两个构建同时备份/清理/写入 `apps/web/.next` → 8801 短暂 502 + 监控报警,产物存在损坏风险。原 `apps/web/scripts/check-lock.js` 只有 dev-vs-build 互斥,**没有 build-vs-build 互斥**;且 `build-next-prod.ps1` 曾引用不存在的 `scripts/check-lock.js`,锁从未生效。
+- **锁机制**:`node scripts/deploy-lock.mjs acquire|release|check`(锁 = 项目根 `.deploy.lock` 目录,mkdir 原子性)。build 与 build/dev 全部互斥;dev+dev 共存;stale(10min)+ 超时(10min)自动兜底。
+- **已自动生效**:`build-next-prod.ps1` [0/6] 阶段自动 acquire、[7/6] release;web 包 `prebuild`/`predev` 已接入。**agent 无需额外操作,直接跑构建脚本即可**。
+- **手动构建必须遵守**:触发 web 构建前先 `node scripts/deploy-lock.mjs check`(exit 0=可构建;exit 1=有其他构建/部署进行中,等待后重试)。**禁止**绕过锁直接 `next build` 或并发触发 `build-next-prod.ps1`。
+- **锁异常处理**:超时自动报错;超过 10min 的悬挂锁(持锁进程已死)自动抢占;紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
+- **禁止**用 `-CleanCache` 或其它参数绕过锁;多 Agent 协作时若需排队构建,等待而不是强删锁。
+
 ---
 
 ## 13. 文件修改持久化强制规则(强制)
