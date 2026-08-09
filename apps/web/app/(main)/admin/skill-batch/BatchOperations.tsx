@@ -284,9 +284,25 @@ export function BatchOperations() {
         </div>
 
       {batchRunning && (
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {t('progress', { current: progress.current, total: progress.total })}
+        <div className="space-y-2 rounded-md border bg-muted/30 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t('progress', { current: progress.current, total: progress.total })}
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-primary/20">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
+                backgroundColor:
+                  progress.total > 0 && progress.current / progress.total <= 0.3
+                    ? 'var(--color-destructive)'
+                    : progress.total > 0 && progress.current / progress.total <= 0.7
+                      ? 'var(--color-warning)'
+                      : 'var(--color-primary)',
+              }}
+            />
+          </div>
         </div>
       )}
 
