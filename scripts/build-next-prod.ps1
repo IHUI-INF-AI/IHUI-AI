@@ -60,6 +60,21 @@ Write-Host "API base  : '$env:NEXT_PUBLIC_API_BASE_URL' (空=生产同源)"
 if ($RestartService) { Write-Host "构建后    : 自动重启 IHUI-WEB" }
 Write-Host ""
 
+# ----------------------------- [0/6] 部署全局锁 -----------------------------
+# 2026-08-09 根治并发部署:在任何 .next 操作(备份/清理)之前获取部署锁。
+# 多个 Agent/自动化任务并行触发构建时,后到者等待超时后直接退出,避免互相破坏产物。
+Write-Host "[0/6] 获取部署锁 (deploy-lock)" -ForegroundColor Yellow
+& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" acquire --mode build --timeout 600000 --stale 600000 2>&1 | Tee-Object -FilePath $BuildLog
+$lockExit = $LASTEXITCODE
+if ($lockExit -ne 0) {
+    Write-Host ""
+    Write-Host "[FATAL] 无法获取部署锁(退出码 $lockExit)" -ForegroundColor Red
+    Write-Host "  原因: 已有其他构建/部署在运行,或 .deploy.lock 残留"
+    Write-Host "  处理: 等待其完成;若确认无构建在跑,可删除 D:\IHUI-AI\.deploy.lock 后重试"
+    Write-Host "  日志: $BuildLog"
+    exit $lockExit
+}
+
 # 切换到 web 目录
 Set-Location $WebDir
 
@@ -103,19 +118,24 @@ if ($CleanCache) {
 }
 Write-Host "  旧产物清理完成"
 
-# ----------------------------- [3/6] prebuild (check-lock) -----------------------------
-Write-Host "[3/6] prebuild: check-lock.js" -ForegroundColor Yellow
+# ----------------------------- [3/6] prebuild (lock verify) -----------------------------
+# 2026-08-09:锁已在 [0/6] 获取,这里做幂等校验——若锁丢失(被误删)则终止,
+# 避免无锁状态下继续写 .next 造成并发损坏。
+# deploy-lock.mjs check 语义: exit 0=无锁(异常), exit 1=有锁(正常)
+Write-Host "[3/6] prebuild: lock verify" -ForegroundColor Yellow
 $prebuildStart = Get-Date
-& $Node22 scripts/check-lock.js build 2>&1 | Tee-Object -FilePath $BuildLog
+& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" check 2>&1 | Tee-Object -FilePath $BuildLog
 $prebuildExit = $LASTEXITCODE
 $prebuildDuration = (Get-Date) - $prebuildStart
 
-if ($prebuildExit -ne 0) {
+if ($prebuildExit -eq 1) {
+    Write-Host "  锁持有中,继续构建"
+} else {
     Write-Host ""
-    Write-Host "[FAILED] prebuild (check-lock) 失败,退出码 $prebuildExit" -ForegroundColor Red
-    Write-Host "  耗时: $($prebuildDuration.ToString('mm\分ss\秒'))"
+    Write-Host "[FAILED] prebuild 校验失败:部署锁丢失(exit=$prebuildExit),终止构建" -ForegroundColor Red
+    Write-Host "  原因: .deploy.lock 被外部删除(可能与其他 Agent 冲突)"
     Write-Host "  日志: $BuildLog"
-    exit $prebuildExit
+    exit 1
 }
 Write-Host "  prebuild 通过 ($($prebuildDuration.ToString('mm\分ss\秒')))"
 
@@ -287,5 +307,10 @@ if ($RestartService) {
     Write-Host "  Restart-Service IHUI-WEB -Force" -ForegroundColor DarkGray
     Write-Host "  (run-web.ps1 会检测到 BUILD_ID 存在,跳过 build 直接 next start)" -ForegroundColor DarkGray
 }
+
+# ----------------------------- [7/6] 释放部署锁 -----------------------------
+Write-Host ""
+Write-Host "释放部署锁..." -ForegroundColor Yellow
+& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" release --mode build 2>&1 | Tee-Object -FilePath $BuildLog
 
 Write-Host ""
