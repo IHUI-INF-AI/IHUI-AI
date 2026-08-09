@@ -38,6 +38,8 @@ export interface PayButtonProps {
   t?: TFunction
   /** Toast 回调(原 Taro.showToast 等价);未传则在控制台输出 */
   onShowToast?: (message: string) => void
+  /** 动态价格获取函数(传入 agentId 返回价格);不传则用 DEFAULT_PRICE */
+  onFetchPrice?: (agentId: string) => Promise<number>
 }
 
 interface TypeConfig {
@@ -252,13 +254,12 @@ export function PayButton({
   colorScheme = 'light',
   t,
   onShowToast,
+  onFetchPrice,
 }: PayButtonProps) {
   const tk = getTokens(colorScheme)
   const [popupVisible, setPopupVisible] = useState(false)
   const [count, setCount] = useState(1)
-  // 默认单价 0.01 元(1 分),实际由后端 getChargeInfoById 返回
-  // TODO: 接入后端后改为 useState + setPrice 动态设置
-  const price = DEFAULT_PRICE
+  const [price, setPrice] = useState<number>(DEFAULT_PRICE)
 
   const cfg = TYPE_CONFIG[type]
   const showToast = useCallback(
@@ -273,7 +274,9 @@ export function PayButton({
     if (disabled) return
     if (cfg.showPurchasePopup) {
       setPopupVisible(true)
-      // TODO: 实际接入后端 getChargeInfoById(agentId) 获取真实价格
+      if (onFetchPrice && agentId) {
+        onFetchPrice(agentId).then(setPrice).catch(() => setPrice(DEFAULT_PRICE))
+      }
       return
     }
     onClick?.(type, agentId)
