@@ -52,7 +52,7 @@ export default function ResponseViewer({
 
   return (
     <div className={cn('rounded-xl border bg-card shadow', className)}>
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      <div className="flex items-center justify-between bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-3 text-xs">
           <span className={cn('font-medium', statusColor(status))}>
             {status ? `HTTP ${status}` : '未发送'}
