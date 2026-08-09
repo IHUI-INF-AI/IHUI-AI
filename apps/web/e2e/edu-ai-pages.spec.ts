@@ -1,7 +1,7 @@
 import { setupTest as test, expect } from './fixtures'
 
 /**
- * AI 教育板块 11 页面完整验证。
+ * AI 教育板块 10 页面完整验证。
  *
  * 覆盖:
  * - 页面加载无 500 错误
@@ -15,7 +15,6 @@ const EDU_AI_PAGES = [
   { path: '/edu-ai/certification', name: '证书认证' },
   { path: '/edu-ai/aigc-tools', name: 'AIGC 工具库' },
   { path: '/edu-ai/courses', name: 'AI 课程' },
-  { path: '/edu-ai/fund-data', name: '基金数据' },
   { path: '/edu-ai/map', name: '学习地图' },
   { path: '/edu-ai/marking', name: 'AI 批改' },
   { path: '/edu-ai/outbound', name: '外呼业务' },
@@ -24,7 +23,7 @@ const EDU_AI_PAGES = [
   { path: '/edu-ai/voice', name: '语音通话' },
 ]
 
-test.describe('AI 教育板块 11 页面验证', () => {
+test.describe('AI 教育板块 10 页面验证', () => {
   for (const { path, name } of EDU_AI_PAGES) {
     test(`${name} 页面可访问 (${path})`, async ({ adminPage: page }) => {
       const serverErrors: string[] = []

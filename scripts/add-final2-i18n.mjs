@@ -1,6 +1,7 @@
 /**
- * feature-final2 i18n: eduAi.{voice, outbound, tbox, fundData, metaLearner} x 5 langs + nav keys
+ * feature-final2 i18n: eduAi.{voice, outbound, tbox, metaLearner} + fundData (top-level) x 5 langs + nav keys
  * Idempotent: existing keys are not overwritten. Usage: node scripts/add-final2-i18n.mjs
+ * 2026-08-09: fundData moved from eduAi.fundData to top-level fundData (金融板块)
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 

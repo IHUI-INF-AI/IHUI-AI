@@ -10,6 +10,7 @@ export interface Instance {
   completedAt?: string
   input?: unknown
   output?: unknown
+  error?: string
 }
 
 export interface Task {
@@ -20,6 +21,7 @@ export interface Task {
   status: InstStatus
   input?: unknown
   output?: unknown
+  error?: string
 }
 
 export interface Log {
