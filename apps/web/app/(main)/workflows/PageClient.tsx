@@ -26,10 +26,10 @@ export default function WorkflowsPageClient() {
   const [formErr, setFormErr] = React.useState<string | null>(null)
 
   const createMut = useMutation({
-    mutationFn: () => {
+    mutationFn: (stepsToSubmit: string) => {
       let steps: unknown
       try {
-        steps = JSON.parse(form.steps)
+        steps = JSON.parse(stepsToSubmit)
       } catch {
         throw new Error(t('create.invalidSteps'))
       }
@@ -48,20 +48,21 @@ export default function WorkflowsPageClient() {
       setCreateOpen(false)
       setForm(EMPTY_FORM)
       setFormErr(null)
-      const created = d as { id?: string }
-      if (created?.id) router.push(`/workflows/${created.id}`)
+      const created = d as { workflow?: { id?: string } }
+      const wfId = created?.workflow?.id
+      if (wfId) router.push(`/workflows/${wfId}`)
     },
     onError: (e: Error) => setFormErr(e.message),
   })
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent, steps: string) => {
     e.preventDefault()
     setFormErr(null)
     if (!form.name.trim()) {
       setFormErr(t('create.nameRequired'))
       return
     }
-    createMut.mutate()
+    createMut.mutate(steps)
   }
 
   const handleOpenChange = (o: boolean) => {
