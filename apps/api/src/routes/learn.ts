@@ -88,6 +88,7 @@ import {
   findCompanyStudyReport,
   findAllTopics,
   findTopicRowById,
+  findTopicLessons,
   createTopicRow,
   updateTopicRow,
   deleteTopicRow,
@@ -921,6 +922,41 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     const list = await findMyHomeworkRecords(userId, parsed.data.status)
     return reply.send(success({ list }))
   })
+
+  // ----- Public Topics (话题浏览 — learn_topic 表) -----
+
+  // GET /learn/premium-topics - 话题列表(分页,支持 search/status 筛选)
+  server.get('/learn/premium-topics', async (request, reply) => {
+    const parsed = topicListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findAllTopics(parsed.data)
+    return reply.send(success(result))
+  })
+
+  // GET /learn/premium-topics/:id - 话题详情
+  server.get('/learn/premium-topics/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const topic = await findTopicRowById(idParsed.data.id)
+    if (!topic) {
+      return reply.status(404).send(error(404, '话题不存在'))
+    }
+    return reply.send(success({ topic }))
+  })
+
+  // GET /learn/premium-topics/:id/lessons - 专题关联课程列表
+  server.get('/learn/premium-topics/:id/lessons', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const lessons = await findTopicLessons(idParsed.data.id)
+    return reply.send(success({ list: lessons, total: lessons.length }))
+  })
 }
 
 // =============================================================================
@@ -1567,6 +1603,16 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '话题不存在'))
     }
     return reply.send(success({ topic }))
+  })
+
+  // GET /learn/premium-topics/:id/lessons - 专题关联课程列表
+  server.get('/learn/premium-topics/:id/lessons', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const lessons = await findTopicLessons(idParsed.data.id)
+    return reply.send(success({ list: lessons, total: lessons.length }))
   })
 
   // POST /learn/premium-topics - 创建话题
