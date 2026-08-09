@@ -11,6 +11,9 @@ export interface WorkflowItem {
   createdAt: string
 }
 
+/** 工作流步骤类型(从 editor/types 重导出,供 create dialog 使用) */
+export type { WorkflowStep } from './editor/types'
+
 export interface WorkflowForm {
   name: string
   description: string
