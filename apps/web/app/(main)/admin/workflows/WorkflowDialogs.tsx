@@ -55,10 +55,10 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
               <span
                 className={cn(
                   'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
-                  (STATUS_BADGE[item.isActive ? 'active' : 'archived'] ?? STATUS_BADGE.draft).cls,
+                  (STATUS_BADGE[item.isActive ? 'active' : 'draft'] ?? STATUS_BADGE.draft).cls,
                 )}
               >
-                {t(STATUS_KEY[item.isActive ? 'active' : 'archived'] ?? 'status_unknown')}
+                {t(STATUS_KEY[item.isActive ? 'active' : 'draft'] ?? 'status_unknown')}
               </span>
             </div>
             {item.description ? <p className="text-muted-foreground">{item.description}</p> : null}
