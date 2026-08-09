@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText, ChevronRight } from 'lucide-react'
 
-import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
+import { listAiSkills, getAiSkillRecommendations, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
@@ -99,7 +99,7 @@ export default function AiSkillsPageClient() {
       </header>
 
       {/* 推荐技能区 */}
-      <RecommendSection data={data} />
+      <RecommendSection />
 
       {/* 搜索框 + Tab 栏 */}
       <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
@@ -238,27 +238,47 @@ function SkillCard({ skill }: SkillCardProps) {
   )
 }
 
-interface RecommendSectionProps {
-  data: AiSkillMeta[] | undefined
-}
-
-function RecommendSection({ data }: RecommendSectionProps) {
+function RecommendSection() {
   const t = useTranslations('aiSkillsPage')
 
-  const recommendations = React.useMemo(() => {
-    if (!data) return []
-    const available = data.filter((s) => s.available)
-    // Fisher-Yates shuffle
-    const shuffled: AiSkillMeta[] = [...available]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      const tmp = shuffled[i] as AiSkillMeta
-      shuffled[i] = shuffled[j] as AiSkillMeta
-      shuffled[j] = tmp
-    }
-    return shuffled.slice(0, 4)
-  }, [data])
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['ai-skills', 'recommendations'],
+    queryFn: () => getAiSkillRecommendations({ top_k: 6 }),
+  })
 
+  const recommendations = React.useMemo(() => {
+    if (!response?.success || !response.data) return []
+    return response.data.filter((s) => s.available)
+  }, [response])
+
+  // loading: 显示旋转加载图标
+  if (isLoading) {
+    return (
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            <h2 className="text-sm font-semibold">{t('recommendTitle')}</h2>
+          </div>
+          <Link
+            href="/ai-skills"
+            className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t('recommendHint')}
+            <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      </section>
+    )
+  }
+
+  // error: 静默不显示
+  if (response && !response.success) return null
+
+  // empty: 不显示该区块
   if (recommendations.length === 0) return null
 
   return (
@@ -278,11 +298,11 @@ function RecommendSection({ data }: RecommendSectionProps) {
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar">
         {recommendations.map((skill) => {
-          const Icon = CATEGORY_ICON[skill.category] ?? Wand2
+          const Icon = CATEGORY_ICON[skill.category as keyof typeof CATEGORY_ICON] ?? Wand2
           return (
             <Link
-              key={skill.id}
-              href={`/ai-skills/${skill.id}`}
+              key={skill.skill_id}
+              href={`/ai-skills/${skill.skill_id}`}
               className="group flex min-w-[200px] max-w-[240px] shrink-0 snap-start flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30"
             >
               <div className="flex items-start gap-2.5">
@@ -294,7 +314,7 @@ function RecommendSection({ data }: RecommendSectionProps) {
                     {skill.name}
                   </span>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                    {t(CATEGORY_LABEL_KEY[skill.category] as 'categoryCode')}
+                    {t(CATEGORY_LABEL_KEY[skill.category as keyof typeof CATEGORY_LABEL_KEY] as 'categoryCode')}
                   </div>
                 </div>
               </div>
@@ -312,6 +332,12 @@ function RecommendSection({ data }: RecommendSectionProps) {
                     </span>
                   ))}
                 </div>
+              )}
+              {/* 推荐理由 */}
+              {skill.reason && (
+                <p className="text-[10px] leading-relaxed text-muted-foreground/60 italic">
+                  {skill.reason}
+                </p>
               )}
             </Link>
           )

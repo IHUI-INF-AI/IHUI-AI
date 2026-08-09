@@ -9,7 +9,7 @@ import { Button } from '@ihui/ui-react'
 
 import { CategoryTable } from './CategoryTable'
 import { CategoryFormDialog, CategoryDeleteDialog } from './CategoryDialog'
-import { api, fetchCategories, EMPTY_FORM, categoryToForm } from './helpers'
+import { api, fetchCategories, createCategory, updateCategory, EMPTY_FORM, categoryToForm } from './helpers'
 import type { SkillCategory, SkillCategoryForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,18 +27,20 @@ export default function AdminSkillCategoriesPage() {
 
   const saveMut = useMutation({
     mutationFn: (input: SkillCategoryForm) => {
-      const body: Record<string, unknown> = {
-        name: input.name.trim(),
-        icon: input.icon || undefined,
-        sort: input.sort,
-      }
       if (editing) {
-        return api(`/api/skill-categories/${editing.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
+        return updateCategory(editing.id, {
+          name: input.name.trim(),
+          slug: input.slug.trim() || undefined,
+          icon: input.icon || undefined,
+          sort: input.sort,
         })
       }
-      return api('/api/skill-categories', { method: 'POST', body: JSON.stringify(body) })
+      return createCategory({
+        name: input.name.trim(),
+        slug: input.slug.trim(),
+        icon: input.icon || undefined,
+        sort: input.sort,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skill-categories'] })
