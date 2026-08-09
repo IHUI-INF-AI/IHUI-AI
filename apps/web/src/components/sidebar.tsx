@@ -126,7 +126,7 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { useNotificationStore } from '@/stores/notification'
 import { Avatar } from '@/components/data/Avatar'
-import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
+import { Tooltip, Dropdown, Popover } from '@/components/feedback'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
@@ -508,8 +508,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/traders', labelKey: 'eduAiTraders', icon: TrendingUp },
       // 2026-08-08 feature-final2:外呼营销(批量外呼任务编排)
       { href: '/edu-ai/outbound', labelKey: 'eduAiOutbound', icon: Megaphone },
-      // 2026-08-08 feature-final2:基金数据(基金列表/详情/净值)
-      { href: '/edu-ai/fund-data', labelKey: 'eduAiFundData', icon: PieChart },
+      // 2026-08-09 moved from edu-ai/fund-data:基金数据(基金列表/详情/净值)
+      { href: '/fund-data', labelKey: 'fundData', icon: PieChart },
       { href: '/vip', labelKey: 'vip', icon: Crown },
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
       { href: '/payment', labelKey: 'payment', icon: CreditCard },
@@ -1817,7 +1817,6 @@ const Sidebar = React.memo(function Sidebar({
   }, [activeHref])
 
   const navContent = (navId: string, ref: React.Ref<HTMLElement>, scope: 'desktop' | 'mobile') => (
-    <TooltipProvider>
       <nav
         ref={ref}
         id={navId}
@@ -1963,16 +1962,13 @@ const Sidebar = React.memo(function Sidebar({
             />
         ))}
       </nav>
-    </TooltipProvider>
   )
 
   const footer = (
-    <TooltipProvider>
       <div className="shrink-0">
         <SidebarActions collapsed={collapsed} />
         <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
       </div>
-    </TooltipProvider>
   )
 
   // 桌面端 logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
