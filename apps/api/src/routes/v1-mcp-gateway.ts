@@ -35,6 +35,12 @@ import { recordCall } from '../services/relay-billing-service.js'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
+// MCP tool 按次计费基准(非 token 计费,每次调用固定 1000 token 基准)。
+// 后续可扩展为 per-tool 定价表,按 tool name 返回不同定价。
+// =============================================================================
+const MCP_TOOL_BASE_TOKENS = 1000
+
+// =============================================================================
 // 配置:ai-service 内部调用 token
 // =============================================================================
 
@@ -200,9 +206,6 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
     )
 
     if (!result.ok) {
-      // 记录失败调用(计费 TODO:由主 agent 后续整合按 tool 调用次数计费逻辑)
-      // TODO(主 agent):MCP tool 计费整合 — 目前按 0 token 记录,model=mcp-tool-{name},
-      // 后续需接入 per-tool 定价表(部分 tool 可能按调用次数收费,而非 token)
       void recordCall({
         apiKeyId: apiKey.id,
         userId: apiKey.userId,
@@ -211,7 +214,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
         response: null,
         promptTokens: 0,
         completionTokens: 0,
-        totalTokens: 0,
+        totalTokens: MCP_TOOL_BASE_TOKENS,
         latencyMs: Date.now() - startTime,
         status: 'error',
         errorMessage: result.message,
@@ -221,7 +224,6 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(result.httpStatus).send(error(result.code, result.message))
     }
 
-    // 记录成功调用(计费 TODO:同上)
     void recordCall({
       apiKeyId: apiKey.id,
       userId: apiKey.userId,
@@ -230,7 +232,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
       response: JSON.stringify(result.data).slice(0, 2000),
       promptTokens: 0,
       completionTokens: 0,
-      totalTokens: 0,
+      totalTokens: MCP_TOOL_BASE_TOKENS,
       latencyMs: Date.now() - startTime,
       status: 'success',
       metadata: { protocol: 'mcp-gateway', toolName: name },

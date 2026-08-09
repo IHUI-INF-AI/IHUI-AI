@@ -12,7 +12,7 @@
  *
  * 鉴权:Bearer API Key(轻量级校验,TODO 由主 agent 替换为共享 requireApiKeyAuth)。
  * 计费:按次计费(imagine=1 unit,upscale=0.5 unit,variation/reroll=1 unit),model='midjourney-v6',
- *      TODO 由主 agent 整合 relay-billing-service.recordCall。
+ *      通过 relay-billing-service.recordCall 写入 llm_call_logs + 扣减余额。
  *
  * 响应格式统一 { code, message, data },code=0 成功。
  * 上游未配置时返回 5016 "Midjourney-Proxy 渠道未配置"。
@@ -24,6 +24,7 @@ import { dbRead } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
 import { success, error } from '../utils/response.js'
+import { recordCall } from '../services/relay-billing-service.js'
 
 // =============================================================================
 // 常量
@@ -172,24 +173,42 @@ async function mjFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 // =============================================================================
-// 计费桩
+// 计费
 // =============================================================================
 
+/** MJ 操作计费单位(1 unit = 1000 totalTokens 基准) */
+const MJ_BILLING_UNITS: Record<MjOpType, number> = {
+  imagine: 1,
+  upscale: 0.5,
+  variation: 1,
+  reroll: 1,
+  action: 1,
+}
+
 /**
- * MJ 按次计费(桩函数)。
- * TODO(主 agent): 整合 relay-billing-service.recordCall:
- *   - model: 'midjourney-v6'
- *   - 按 MJ_BILLING_UNITS[op] 折算 unit(1 unit = 1 次调用基准)
- *   - 扣减 developerApiKeys.tokenBalance / costBalanceCents
- *   - 记录 llm_call_logs(model='midjourney-v6', metadata.op=op, metadata.task_id=taskId)
- * 当前为桩实现,仅占位保证调用链完整,不实际扣费。
+ * MJ 按次计费。调用 relay-billing-service.recordCall 写入 llm_call_logs + 扣减余额。
+ * 计费失败不阻塞主链路(void + .catch)。
  */
 async function chargeMjCall(
-  _apiKey: AuthenticatedApiKey,
-  _op: MjOpType,
-  _taskId: string,
+  apiKey: AuthenticatedApiKey,
+  op: MjOpType,
+  taskId: string,
 ): Promise<void> {
-  // TODO(主 agent): await recordCall({ apiKeyId: _apiKey.id, userId: _apiKey.userId, model: 'midjourney-v6', ... })
+  void recordCall({
+    apiKeyId: apiKey.id,
+    userId: apiKey.userId,
+    model: 'midjourney-v6',
+    prompt: op,
+    response: taskId,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: Math.round(1000 * MJ_BILLING_UNITS[op]),
+    latencyMs: 0,
+    status: 'success',
+    providerCode: 'midjourney',
+    clientIp: '',
+    metadata: { endpoint: `mj_${op}`, task_id: taskId },
+  }).catch(() => {})
 }
 
 // =============================================================================

@@ -31,6 +31,8 @@ export interface PayButtonProps {
   /** 是否禁用 */
   disabled?: boolean
   onClick?: (type: PayButtonType, agentId?: string) => void
+  /** 动态价格获取函数(传入 agentId 返回价格);不传则用默认值 */
+  onFetchPrice?: (agentId: string) => Promise<number>
 }
 
 interface TypeConfig {
@@ -91,13 +93,12 @@ export default function PayButton({
   agentAvatar = '',
   disabled = false,
   onClick,
+  onFetchPrice,
 }: PayButtonProps) {
   const tt = useTt()
   const [popupVisible, setPopupVisible] = useState(false)
   const [count, setCount] = useState(1)
-  // 默认单价 0.01 元(1 分),实际由后端 getChargeInfoById 返回
-  // TODO: 接入后端后改为 useState + setPrice 动态设置
-  const price = 0.01
+  const [price, setPrice] = useState<number>(0.01)
 
   const cfg = TYPE_CONFIG[type]
 
@@ -105,7 +106,9 @@ export default function PayButton({
     if (disabled) return
     if (cfg.showPurchasePopup) {
       setPopupVisible(true)
-      // TODO: 实际接入后端 getChargeInfoById(agentId) 获取真实价格
+      if (onFetchPrice && agentId) {
+        onFetchPrice(agentId).then(setPrice).catch(() => setPrice(0.01))
+      }
       return
     }
     onClick?.(type, agentId)
