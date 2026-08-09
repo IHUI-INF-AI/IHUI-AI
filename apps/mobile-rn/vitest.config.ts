@@ -22,7 +22,7 @@ export default defineConfig({
     hookTimeout: 15_000,
     server: {
       deps: {
-        inline: ['react-native', '@react-navigation/native'],
+        inline: ['react-native', '@react-navigation/native', '@ihui/api-client'],
       },
     },
   },
