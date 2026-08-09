@@ -54,7 +54,7 @@ export default function RequestBuilder({
 
   return (
     <div className={cn('rounded-xl border bg-card shadow', className)}>
-      <div className="flex items-center gap-2 border-b p-3">
+      <div className="flex items-center gap-2 bg-muted/30 p-3">
         <select
           value={method}
           onChange={(e) =>
@@ -89,8 +89,8 @@ export default function RequestBuilder({
           发送
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-0 min-[1024px]:grid-cols-2">
-        <div className="border-b p-3 min-[1024px]:border-b-0 min-[1024px]:border-r">
+      <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
+        <div className="p-3">
           <div className="mb-1.5 text-xs font-medium text-muted-foreground">Headers</div>
           <textarea
             value={headerText}

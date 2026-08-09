@@ -17,7 +17,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  TooltipProvider,
   Select,
   SelectTrigger,
   SelectValue,
@@ -132,7 +131,6 @@ function FieldRenderer({
         {field.required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
       {field.helpText && (
-        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -147,8 +145,7 @@ function FieldRenderer({
               {field.helpText}
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
-      )}
+        )}
     </div>
   )
 

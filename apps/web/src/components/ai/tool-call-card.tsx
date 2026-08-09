@@ -392,7 +392,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
         <span className={cn('shrink-0 text-[10px]', config.className)}>{t(config.labelKey)}</span>
       </button>
       {expanded && (
-        <div className="space-y-1.5 border-t border-border/20 px-2 pb-1.5 pt-1 text-[11px]">
+        <div className="space-y-1.5 bg-muted/20 px-2 pb-1.5 pt-1 text-[11px]">
           {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
           {showInlineDiff && diffInfo && (
             <InlineDiffCard

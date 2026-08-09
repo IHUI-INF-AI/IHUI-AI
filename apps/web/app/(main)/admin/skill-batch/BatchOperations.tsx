@@ -40,7 +40,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  TooltipProvider,
 } from '@ihui/ui-react'
 import { fetchUserSkills, fetchMarketSkills, batchInstallSkills, batchDeleteSkills, batchUpdateSkills } from './helpers'
 import { ExportImportDialog } from './ExportImportDialog'
@@ -74,7 +73,7 @@ export function BatchOperations() {
     queryFn: fetchMarketSkills,
   })
 
-  const userSkills = userSkillsData?.skills ?? []
+  const userSkills = React.useMemo(() => userSkillsData?.skills ?? [], [userSkillsData])
   const marketSkills = marketSkillsData?.items ?? []
 
   const userSkillNames = React.useMemo(() => new Set(userSkills.map((s) => s.name)), [userSkills])
@@ -186,11 +185,10 @@ export function BatchOperations() {
 
         <div className="flex-1" />
 
-        <TooltipProvider>
-          {tab === 'market' && (
+        {tab === 'market' && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span tabIndex={0}>
+                <span>
                   <Button
                     size="sm"
                     variant="default"
@@ -213,7 +211,7 @@ export function BatchOperations() {
             <>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span tabIndex={0}>
+                  <span>
                     <Button
                       size="sm"
                       variant="destructive"
@@ -233,7 +231,7 @@ export function BatchOperations() {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span tabIndex={0}>
+                  <span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -251,7 +249,7 @@ export function BatchOperations() {
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <span tabIndex={0}>
+              <span>
                 <Button
                   size="sm"
                   variant="outline"
@@ -267,7 +265,7 @@ export function BatchOperations() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span tabIndex={0}>
+              <span>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -283,8 +281,7 @@ export function BatchOperations() {
             </TooltipTrigger>
             <TooltipContent>{t('refreshTooltip')}</TooltipContent>
           </Tooltip>
-        </TooltipProvider>
-      </div>
+        </div>
 
       {batchRunning && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">

@@ -46,7 +46,7 @@ function SectionBlock({
   action?: React.ReactNode
 }) {
   return (
-    <section className="border-b border-border/60 p-4 last:border-b-0">
+    <section className="bg-muted/30 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">{title}</h3>
         {action}

@@ -1224,7 +1224,7 @@ export function AgentTaskProgressPane() {
       {/* v13: 完成态庆祝横幅(全部 plan steps completed 时显示 3s) */}
       {showCelebration && (
         <div
-          className="flex shrink-0 items-center gap-1.5 border-b border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+          className="flex shrink-0 items-center gap-1.5 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
           role="status"
           aria-live="polite"
           data-testid="pane-celebration-banner"
@@ -1239,7 +1239,7 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={scrollToFirstFailure}
-          className="flex shrink-0 w-full items-center gap-1.5 border-b border-destructive/30 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
+          className="flex shrink-0 w-full items-center gap-1.5 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
           aria-live="polite"
           data-testid="pane-failure-banner"
         >
@@ -1306,7 +1306,7 @@ export function AgentTaskProgressPane() {
       {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
       {planSteps.length > 0 && (
         <div
-          className="border-b border-border/40 px-2 py-1 min-[640px]:hidden"
+          className="bg-muted/30 px-2 py-1 min-[640px]:hidden"
           data-testid="pane-step-budget-block-wrapper"
         >
           <ResourceBudget
