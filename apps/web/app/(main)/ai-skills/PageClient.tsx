@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText } from 'lucide-react'
+import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText, ChevronRight } from 'lucide-react'
 
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { BackButton } from '@/components/common'
@@ -97,6 +97,9 @@ export default function AiSkillsPageClient() {
           <Badge variant="default">{t('comingCount', { count: comingCount })}</Badge>
         </div>
       </header>
+
+      {/* 推荐技能区 */}
+      <RecommendSection data={data} />
 
       {/* 搜索框 + Tab 栏 */}
       <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
@@ -232,5 +235,88 @@ function SkillCard({ skill }: SkillCardProps) {
         )}
       </div>
     </Link>
+  )
+}
+
+interface RecommendSectionProps {
+  data: AiSkillMeta[] | undefined
+}
+
+function RecommendSection({ data }: RecommendSectionProps) {
+  const t = useTranslations('aiSkillsPage')
+
+  const recommendations = React.useMemo(() => {
+    if (!data) return []
+    const available = data.filter((s) => s.available)
+    // Fisher-Yates shuffle
+    const shuffled: AiSkillMeta[] = [...available]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = shuffled[i] as AiSkillMeta
+      shuffled[i] = shuffled[j] as AiSkillMeta
+      shuffled[j] = tmp
+    }
+    return shuffled.slice(0, 4)
+  }, [data])
+
+  if (recommendations.length === 0) return null
+
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-amber-500" />
+          <h2 className="text-sm font-semibold">{t('recommendTitle')}</h2>
+        </div>
+        <Link
+          href="/ai-skills"
+          className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t('recommendHint')}
+          <ChevronRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar">
+        {recommendations.map((skill) => {
+          const Icon = CATEGORY_ICON[skill.category] ?? Wand2
+          return (
+            <Link
+              key={skill.id}
+              href={`/ai-skills/${skill.id}`}
+              className="group flex min-w-[200px] max-w-[240px] shrink-0 snap-start flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <span className="text-sm font-semibold leading-tight text-foreground">
+                    {skill.name}
+                  </span>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                    {t(CATEGORY_LABEL_KEY[skill.category] as 'categoryCode')}
+                  </div>
+                </div>
+              </div>
+              <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                {skill.description}
+              </p>
+              {skill.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {skill.tags.slice(0, 2).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+    </section>
   )
 }
