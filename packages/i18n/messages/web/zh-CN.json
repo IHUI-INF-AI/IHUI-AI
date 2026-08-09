@@ -1718,7 +1718,8 @@
       "unlist": "下架",
       "pageInfo": "第 {page} / {total} 页",
       "prevPage": "上一页",
-      "nextPage": "下一页"
+      "nextPage": "下一页",
+      "viewDetail": "查看详情"
     },
     "skillCategories": {
       "title": "技能分类管理",
@@ -1739,6 +1740,7 @@
       "editDesc": "修改分类信息",
       "namePlaceholder": "请输入分类名称",
       "nameRequired": "分类名称不能为空",
+      "slugPlaceholder": "请输入分类标识",
       "deleteTitle": "删除分类",
       "deleteConfirm": "该操作不可撤销，请确认是否删除该分类？"
     },
@@ -6100,6 +6102,33 @@
     "extraCharts": {
       "abilityRadar": "能力雷达图",
       "weeklyTrend": "周度趋势对比"
+    },
+    "skillStats": {
+      "title": "技能使用统计",
+      "subtitle": "市场技能与私有技能的使用数据分析",
+      "refresh": "刷新",
+      "loading": "加载中...",
+      "loadFailed": "加载失败: {message}",
+      "totalSkills": "总技能数",
+      "onlineCount": "已上线",
+      "totalInstallCount": "总调用次数",
+      "avgRating": "平均评分",
+      "topTitle": "热门技能排行 Top 10",
+      "noData": "暂无数据",
+      "rank": "#",
+      "skillName": "技能名",
+      "installCount": "安装量",
+      "rating": "评分",
+      "tags": "标签",
+      "categoryDist": "分类分布",
+      "availabilityRate": "可用率",
+      "availableSkills": "可用技能",
+      "placeholderSkills": "占位技能",
+      "pctOfTotal": "占总技能 {pct}%",
+      "trendTitle": "使用趋势",
+      "trendWeek": "近7天",
+      "trendMonth": "近30天",
+      "trendQuarter": "近90天"
     },
     "behavior": {
       "weekday": {
@@ -14595,6 +14624,7 @@
     "openGitHub": "打开 GitHub",
     "statusAvailable": "已上线",
     "statusComingSoon": "即将上线",
+    "addToAgent": "添加到Agent",
     "invokeRequired": "必填",
     "sendToChat": "发送到聊天",
     "inputContent": "内容",
@@ -14632,7 +14662,22 @@
     "placeholderInput": "请输入…",
     "placeholderCode": "请粘贴代码…",
     "placeholderError": "请粘贴错误信息…",
-    "placeholderFramework": "e.g. Jest/Vitest/pytest…"
+    "placeholderFramework": "e.g. Jest/Vitest/pytest…",
+    "relatedTitle": "相关推荐",
+    "relatedHint": "你可能也会喜欢这些技能",
+    "relatedEmpty": "暂无推荐",
+    "relatedLoading": "加载推荐…",
+    "feedbackTitle": "使用反馈",
+    "feedbackRating": "评分",
+    "feedbackComment": "评价(可选)",
+    "feedbackCommentPlaceholder": "分享你的使用体验…",
+    "feedbackSubmit": "提交反馈",
+    "feedbackSubmitted": "感谢你的反馈!",
+    "feedbackError": "提交失败,请重试",
+    "feedbackRequired": "请先评分",
+    "versionLabel": "版本",
+    "updatedAt": "更新于",
+    "reason": "推荐理由:"
   },
   "design": {
     "title": "设计模式",
