@@ -56,6 +56,28 @@ export function listAiSkills(params?: { category?: string }) {
   return fetchApi<AiSkillMeta[]>(`/api/ai-skills${qs}`)
 }
 
+/** 推荐结果项 */
+export interface AiSkillRecommendation {
+  skill_id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  tags: string[]
+  score: number
+  reason: string
+  available: boolean
+}
+
+/** 获取 AI Skill 推荐列表(2026-08-09 新增,Phase 1) */
+export function getAiSkillRecommendations(params?: { context?: string; top_k?: number }) {
+  const qs = new URLSearchParams()
+  if (params?.context) qs.set('context', params.context)
+  if (params?.top_k) qs.set('top_k', String(params.top_k))
+  const qstr = qs.toString()
+  return fetchApi<AiSkillRecommendation[]>(`/api/ai-skills/recommendations${qstr ? `?${qstr}` : ''}`)
+}
+
 /** 获取单个 AI Skill 详情 */
 export function getAiSkill(skillId: string) {
   return fetchApi<AiSkillMeta>(`/api/ai-skills/${encodeURIComponent(skillId)}`)
