@@ -42,6 +42,7 @@ import {
   FolderTree,
   ListChecks,
   BarChart3,
+  MousePointerClick,
   Code2,
   BookMarked,
   MessageSquareReply,
@@ -213,6 +214,7 @@ interface AdminNavItem {
     | 'notificationDispatch'
     | 'messageOverview'
     | 'visitTracking'
+    | 'behaviorAnalytics'
     | 'examMarking'
     | 'crew'
     | 'knowledgeRag'
@@ -395,6 +397,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   // R90: 运营监控 + 教育批阅
   { href: '/admin/message-overview', labelKey: 'messageOverview', icon: BarChart3 },
   { href: '/admin/visit-tracking', labelKey: 'visitTracking', icon: BarChart3 },
+  { href: '/admin/behavior-analytics', labelKey: 'behaviorAnalytics', icon: MousePointerClick },
   {
     href: '/admin/plugins-stats',
     labelKey: 'pluginsStats',
@@ -923,6 +926,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   notificationDispatch: 'nav.notificationDispatch',
   messageOverview: 'nav.messageOverview',
   visitTracking: 'nav.visitTracking',
+  behaviorAnalytics: 'nav.behaviorAnalytics',
   examMarking: 'nav.examMarking',
   crew: 'nav.crew',
   knowledgeRag: 'nav.knowledgeRag',
