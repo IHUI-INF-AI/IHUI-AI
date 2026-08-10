@@ -6761,7 +6761,9 @@
           "error": "异常"
         }
       }
-    }
+    },
+    "visitTracking": "访问统计",
+    "behaviorAnalytics": "行为埋点"
   },
   "knowledgeGraph": {
     "title": "知识图谱",
@@ -16295,7 +16297,6 @@
       "ack": "已确认",
       "failed": "失败"
     },
-    
     "metaLearner": {
       "title": "自进化系统",
       "subtitle": "Meta-Learner 元学习与自进化运行状态管理",
@@ -16330,21 +16331,21 @@
     }
   },
   "fundData": {
-      "title": "基金数据",
-      "subtitle": "基金列表、详情与净值历史查询",
-      "fundCode": "基金代码",
-      "fundName": "基金名称",
-      "fundType": "基金类型",
-      "fundStatus": "状态",
-      "netValue": "净值",
-      "date": "日期",
-      "viewDetail": "查看详情",
-      "history": "净值历史",
-      "noFunds": "暂无基金数据",
-      "loading": "加载中...",
-      "error": "加载失败",
-      "search": "搜索基金代码或名称",
-      "active": "活跃",
-      "inactive": "停用"
+    "title": "基金数据",
+    "subtitle": "基金列表、详情与净值历史查询",
+    "fundCode": "基金代码",
+    "fundName": "基金名称",
+    "fundType": "基金类型",
+    "fundStatus": "状态",
+    "netValue": "净值",
+    "date": "日期",
+    "viewDetail": "查看详情",
+    "history": "净值历史",
+    "noFunds": "暂无基金数据",
+    "loading": "加载中...",
+    "error": "加载失败",
+    "search": "搜索基金代码或名称",
+    "active": "活跃",
+    "inactive": "停用"
   }
 }
