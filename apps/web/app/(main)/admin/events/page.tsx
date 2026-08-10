@@ -159,7 +159,7 @@ export default function AdminEventsPage() {
           {delTarget && (
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
-                <span className={cn('h-2 w-2 rounded-full', TYPE_DOT[delTarget.type])} />
+                <span className={cn('h-2 w-2 rounded-sm', TYPE_DOT[delTarget.type])} />
                 <span className="font-medium">{t(TYPE_KEY[delTarget.type] ?? 'types.unknown')}</span>
                 <span
                   className={cn(
