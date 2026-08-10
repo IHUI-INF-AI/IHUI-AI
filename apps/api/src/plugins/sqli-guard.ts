@@ -69,6 +69,9 @@ const AI_CONTENT_PREFIXES = [
   '/api/workspace-ai/',
   '/api/workspace/ai/',
   '/v1/',
+  // 2026-08-10:访问埋点,body 是用户浏览的 URL 文本(可能含 -- / ; 等字符),
+  // 仅写 visit_logs 一条记录,无 SQL 拼接风险,按自由文本处理
+  '/api/visit-tracking/',
 ]
 
 /**
