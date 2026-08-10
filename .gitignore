@@ -179,6 +179,8 @@ __*
 # 豁免:__mocks__ 是 vitest/jest 标准 mock 目录,不允许被 __* 误伤
 !**/__mocks__/
 !**/__mocks__/**
+# 豁免:__init__.py 是 Python 包标记文件,不允许被 __* 误伤
+!**/__init__.py
 check_guard_final*.log
 deep_audit_round*.log
 stub_audit_round*.log
