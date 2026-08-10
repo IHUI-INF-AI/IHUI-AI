@@ -43,7 +43,7 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
               key={ev.id}
               className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
             >
-              <span className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-full', TYPE_DOT[ev.type])} />
+              <span className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-sm', TYPE_DOT[ev.type])} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-muted-foreground">

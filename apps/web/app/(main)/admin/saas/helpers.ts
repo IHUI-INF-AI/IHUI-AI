@@ -12,4 +12,4 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /** 共享 Select 样式 */
 export const selectClass =
-  'h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30'
+  'h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30'

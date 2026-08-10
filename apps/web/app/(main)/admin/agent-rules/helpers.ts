@@ -40,7 +40,7 @@ export function badgeCls(enabled: boolean) {
 }
 
 export function dotCls(enabled: boolean) {
-  return cn('h-1.5 w-1.5 rounded-full', enabled ? 'bg-emerald-500' : 'bg-muted-foreground')
+  return cn('h-1.5 w-1.5 rounded-sm', enabled ? 'bg-emerald-500' : 'bg-muted-foreground')
 }
 
 export const RULES_EXPORT_COLS = [
