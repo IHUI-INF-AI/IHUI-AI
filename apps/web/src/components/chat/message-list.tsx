@@ -394,8 +394,8 @@ const MessageItem = React.memo(function MessageItem({
       className={cn(
         'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
-        isHighlighted && 'ring-1 ring-primary/30 animate-message-highlight-pulse',
-        isFocused && 'ring-1 ring-primary/40',
+        isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
+        isFocused && 'ring-1 ring-ring/40',
         // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
         isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
         isSearchCurrent && 'ring-2 ring-yellow-400',
