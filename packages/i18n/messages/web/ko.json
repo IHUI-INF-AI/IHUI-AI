@@ -6777,7 +6777,9 @@
           "error": "오류"
         }
       }
-    }
+    },
+    "visitTracking": "방문 통계",
+    "behaviorAnalytics": "행동 분석"
   },
   "knowledgeGraph": {
     "title": "지식 그래프",
