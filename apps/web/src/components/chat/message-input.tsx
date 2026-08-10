@@ -356,7 +356,7 @@ export function MessageInput({
               'rounded-xl border bg-card transition-colors focus-within:border-foreground/20',
               // 互斥的边框逻辑:拖拽 > 高风险 > 默认
               isDragOver
-                ? 'border-primary ring-2 ring-primary/20'
+                ? 'border-primary ring-2 ring-ring/20'
                 : isHighRisk
                   ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
                   : 'border-input',
