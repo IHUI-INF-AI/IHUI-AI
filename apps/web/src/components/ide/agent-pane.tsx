@@ -535,7 +535,7 @@ export function AgentPane() {
           rows={3}
           disabled={isRunning}
           aria-label={t('agentPane.placeholder')}
-          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
         />
         <div className="flex items-center gap-1.5">
           <select
@@ -543,7 +543,7 @@ export function AgentPane() {
             onChange={(e) => setModel(e.target.value)}
             disabled={isRunning}
             aria-label={t('agentPane.modelSelect')}
-            className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+            className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
           >
             {MODEL_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
