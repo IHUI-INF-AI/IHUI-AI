@@ -1,5 +1,6 @@
 .next/
 .turbo/
+out/
 node_modules/
 *.tsbuildinfo
 .env*.local
