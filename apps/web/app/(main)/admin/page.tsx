@@ -10,6 +10,7 @@ import { AdminStatCards } from './AdminStatCards'
 import { AdminOverviewCharts } from './AdminOverviewCharts'
 import { AdminDistributionCharts } from './AdminDistributionCharts'
 import { AdminExtraCharts } from './AdminExtraCharts'
+import { AdminDataMonitor } from './AdminDataMonitor'
 
 export default function AdminDashboardPage() {
   const t = useTranslations('dashboard.admin')
@@ -44,6 +45,9 @@ export default function AdminDashboardPage() {
       />
 
       <AdminStatCards stats={stats} isLoading={isLoading} numFmt={numFmt} />
+
+      {/* 数据监测概览 + 快捷入口(2026-08-10 立) */}
+      <AdminDataMonitor />
 
       <AdminOverviewCharts stats={stats} numFmt={numFmt} />
 
