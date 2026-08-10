@@ -4,19 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.ihui.ai</groupId>
-    <artifactId>sdk</artifactId>
+    <groupId>com.ihui</groupId>
+    <artifactId>ihui-ai-java</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
-    <name>IHUI-AI Java SDK</name>
-    <description>IHUI-AI 官方 Java SDK(OpenAI 兼容)</description>
+    <name>IHUI AI Java SDK</name>
+    <description>IHUI-AI 平台官方 Java SDK，封装 105+ 个 /v1/* API 端点，涵盖 chat / embeddings / agents / audio / images / videos / 3D / knowledge / tools / memory / messages / files / user 13 大模块。</description>
     <url>https://github.com/IHUI-INF-AI/IHUI-AI</url>
-
-    <properties>
-        <maven.compiler.release>17</maven.compiler.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
 
     <licenses>
         <license>
@@ -25,12 +20,24 @@
         </license>
     </licenses>
 
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jackson.version>2.17.2</jackson.version>
+    </properties>
+
     <dependencies>
-        <!-- JDK 内置 java.net.http.HttpClient;Jackson 用于 JSON 序列化 -->
+        <!-- 使用 JDK 17+ 内置 java.net.http.HttpClient -->
+        <!-- Jackson 用于 JSON 序列化/反序列化 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.17.2</version>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
     </dependencies>
 
