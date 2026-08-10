@@ -165,6 +165,26 @@ const msg = await client.messages.create({
 console.log(msg.content[0].text)`,
       },
       {
+        title: '@ihui/sdk',
+        code: `import { createClient } from "@ihui/sdk"
+
+const client = createClient({
+  apiKey: "{{API_KEY}}",
+  baseUrl: "https://api.ihui.ai",
+})
+
+// 非流式对话
+const resp = await client.ai.completions({
+  model: "gpt-4o-mini",
+  messages: [{ role: "user", content: "你好" }],
+})
+console.log(resp.choices[0].message.content)
+
+// 获取模型列表
+const models = await client.ai.listModels()
+console.log(models.data)`,
+      },
+      {
         title: 'fetch',
         code: `const resp = await fetch("https://api.ihui.ai/v1/chat/completions", {
   method: "POST",
