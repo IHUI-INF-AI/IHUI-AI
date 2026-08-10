@@ -6780,7 +6780,9 @@
           "error": "異常"
         }
       }
-    }
+    },
+    "visitTracking": "訪問統計",
+    "behaviorAnalytics": "行為埋點"
   },
   "knowledgeGraph": {
     "title": "知識圖譜",
