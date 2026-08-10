@@ -198,20 +198,22 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                             {v.content && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    disabled={rollbackMut.isPending}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (window.confirm(`确定回滚到 ${v.name}@${v.version} 吗？`)) {
-                                        rollbackMut.mutate({ name: v.name, content: v.content! })
-                                      }
-                                    }}
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                  </Button>
+                                  <span className="inline-flex">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      disabled={rollbackMut.isPending}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (window.confirm(`确定回滚到 ${v.name}@${v.version} 吗？`)) {
+                                          rollbackMut.mutate({ name: v.name, content: v.content! })
+                                        }
+                                      }}
+                                    >
+                                      <RotateCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </span>
                                 </TooltipTrigger>
                                 <TooltipContent>回滚到该版本</TooltipContent>
                               </Tooltip>
