@@ -22,6 +22,11 @@
       "cache": false,
       "persistent": true
     },
+    "ai-service": {
+      "dependsOn": [],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {
       "dependsOn": [],
       "inputs": ["src/**", "*.config.*", "package.json"]
