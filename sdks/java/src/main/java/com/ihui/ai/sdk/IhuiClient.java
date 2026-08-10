@@ -1,118 +1,198 @@
 package com.ihui.ai.sdk;
 
-// IHUI-AI Java SDK(骨架,后续真发布时填实现)
-// OpenAI 兼容:POST /api/chat/completions + GET /api/models
-// 使用 JDK 17+ 内置 java.net.http.HttpClient + Jackson(JSON)
+import com.ihui.ai.sdk.module.AgentsApi;
+import com.ihui.ai.sdk.module.AiApi;
+import com.ihui.ai.sdk.module.AudioApi;
+import com.ihui.ai.sdk.module.FilesApi;
+import com.ihui.ai.sdk.module.GenerationApi;
+import com.ihui.ai.sdk.module.ImagesApi;
+import com.ihui.ai.sdk.module.KnowledgeApi;
+import com.ihui.ai.sdk.module.MemoryApi;
+import com.ihui.ai.sdk.module.MessagesApi;
+import com.ihui.ai.sdk.module.ThreeDApi;
+import com.ihui.ai.sdk.module.ToolsApi;
+import com.ihui.ai.sdk.module.UserApi;
+import com.ihui.ai.sdk.module.VideosApi;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.List;
-
-/** HTTP 4xx/5xx 异常,含 statusCode 与 body。 */
-class IhuiException extends RuntimeException {
-    private final int statusCode;
-    private final String body;
-
-    public IhuiException(int statusCode, String body) {
-        super("IHUI API 错误 [" + statusCode + "]: " + body);
-        this.statusCode = statusCode;
-        this.body = body;
-    }
-
-    public int getStatusCode() {
-        return statusCode;
-    }
-
-    public String getBody() {
-        return body;
-    }
-}
-
-/** 单条对话消息。 */
-record Message(String role, String content) {}
-
-/** 对话补全请求(OpenAI 兼容)。 */
-record ChatCompletionRequest(
-        String model,
-        List<Message> messages,
-        Double temperature,
-        Integer maxTokens,
-        Boolean stream) {}
-
-/** 对话补全响应。 */
-record ChatCompletionResponse(
-        String id,
-        String object,
-        long created,
-        String model,
-        List<Choice> choices,
-        Usage usage) {
-    record Choice(int index, Message message, String finishReason) {}
-    record Usage(int promptTokens, int completionTokens, int totalTokens) {}
-}
-
-/** 单个模型信息。 */
-record ModelInfo(String id, String object, long created, String ownedBy) {}
-
-/** 模型列表响应。 */
-record ModelsListResponse(String object, List<ModelInfo> data) {}
 
 /**
- * IHUI-AI 客户端,内部封装 HttpClient,统一加 Authorization + 错误抛出。
- * 用法:IhuiClient client = new IhuiClient("https://api.aizhs.top", "your-api-key");
+ * IHUI SDK 客户端,聚合 13 个功能模块,封装 105+ 个 /v1/* API 端点。
+ *
+ * <p>用法:
+ * <pre>
+ * IhuiClient client = IhuiClient.builder()
+ *     .apiKey("ihui_xxx")
+ *     .baseUrl("http://localhost:8802")
+ *     .build();
+ *
+ * ChatCompletionResponse resp = client.ai.completions(
+ *     ChatCompletionRequest.builder()
+ *         .model("gpt-4o")
+ *         .addMessage("user", "\u4f60\u597d")
+ *         .build()
+ * );
+ * </pre>
+ *
+ * <p>流式响应(try-with-resources):
+ * <pre>
+ * try (StreamResponse stream = client.ai.completionsStream(req)) {
+ *     while (stream.hasNext()) {
+ *         JsonNode chunk = stream.next();
+ *         // 处理 chunk
+ *     }
+ * }
+ * </pre>
  */
-public class IhuiClient {
+public final class IhuiClient {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+    /** AI 核心:chat / embeddings / vision / moa / models / userModels(13 端点)。 */
+    public final AiApi ai;
 
-    private final String apiBase;
-    private final String apiKey;
-    private final HttpClient http;
+    /** Agent:列表 / 调用 / 高级执行 / Pipeline / 并行(12 端点)。 */
+    public final AgentsApi agents;
 
-    public IhuiClient(String apiBase, String apiKey) {
-        this.apiBase = apiBase.endsWith("/") ? apiBase.substring(0, apiBase.length() - 1) : apiBase;
-        this.apiKey = apiKey;
-        this.http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+    /** 音频:TTS / ASR / 语音对话 / 声纹 / 音乐(8 端点)。 */
+    public final AudioApi audio;
+
+    /** 图像:文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景(6 端点)。 */
+    public final ImagesApi images;
+
+    /** 视频:生成 / 任务查询 / 编排(3 端点)。 */
+    public final VideosApi videos;
+
+    /** 3D 模型生成(1 端点)。 */
+    public final ThreeDApi threed;
+
+    /** 生成队列:入队 / 状态 / 取消(3 端点)。 */
+    public final GenerationApi generation;
+
+    /** 知识库 / RAG / 知识图谱(13 端点)。 */
+    public final KnowledgeApi knowledge;
+
+    /** MCP 工具 / 技能 / 人格 / 代码搜索 / 截图(16 端点)。 */
+    public final ToolsApi tools;
+
+    /** 记忆:保存 / 召回 / 搜索 / Dream / 分类记忆(8 端点)。 */
+    public final MemoryApi memory;
+
+    /** 消息:发布 / 订阅 / 状态(4 端点)。 */
+    public final MessagesApi messages;
+
+    /** 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传(9 端点)。 */
+    public final FilesApi files;
+
+    /** 用户 / 工作区 / 工作流 / 统计(9 端点)。 */
+    public final UserApi user;
+
+    private final BaseClient baseClient;
+
+    /**
+     * 用 SdkConfig 构造 IhuiClient。
+     *
+     * @param config SDK 配置
+     */
+    public IhuiClient(SdkConfig config) {
+        this.baseClient = new BaseClient(config);
+        this.ai = new AiApi(baseClient);
+        this.agents = new AgentsApi(baseClient);
+        this.audio = new AudioApi(baseClient);
+        this.images = new ImagesApi(baseClient);
+        this.videos = new VideosApi(baseClient);
+        this.threed = new ThreeDApi(baseClient);
+        this.generation = new GenerationApi(baseClient);
+        this.knowledge = new KnowledgeApi(baseClient);
+        this.tools = new ToolsApi(baseClient);
+        this.memory = new MemoryApi(baseClient);
+        this.messages = new MessagesApi(baseClient);
+        this.files = new FilesApi(baseClient);
+        this.user = new UserApi(baseClient);
     }
 
-    /** 统一请求封装:4xx/5xx 抛 IhuiException。 */
-    private String request(String path, String method, Object body) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(apiBase + path))
-                .timeout(Duration.ofSeconds(30))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey);
-        if (body != null) {
-            String json = MAPPER.writeValueAsString(body);
-            builder.method(method, HttpRequest.BodyPublishers.ofString(json));
-        } else {
-            builder.method(method, HttpRequest.BodyPublishers.noBody());
+    /** @return 底层 BaseClient(供高级用户扩展)。 */
+    public BaseClient getBaseClient() {
+        return baseClient;
+    }
+
+    /**
+     * 创建 Builder。
+     *
+     * @return 新的 Builder 实例
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /** IhuiClient builder。 */
+    public static final class Builder {
+
+        private final SdkConfig.Builder configBuilder = SdkConfig.builder();
+
+        private Builder() {
         }
-        HttpResponse<String> resp = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() >= 400) {
-            throw new IhuiException(resp.statusCode(), resp.body());
+
+        /**
+         * 设置 API Key(必需)。
+         *
+         * @param apiKey API Key(格式 ihui_xxx)
+         * @return 当前 builder
+         */
+        public Builder apiKey(String apiKey) {
+            configBuilder.apiKey(apiKey);
+            return this;
         }
-        return resp.body();
-    }
 
-    /** POST /api/chat/completions — 创建对话补全(OpenAI 兼容)。 */
-    public ChatCompletionResponse chatCompletionsCreate(ChatCompletionRequest body) throws Exception {
-        String json = request("/api/chat/completions", "POST", body);
-        return MAPPER.readValue(json, ChatCompletionResponse.class);
-    }
+        /**
+         * 设置 API Secret(可选)。
+         *
+         * @param secret API Secret
+         * @return 当前 builder
+         */
+        public Builder secret(String secret) {
+            configBuilder.secret(secret);
+            return this;
+        }
 
-    /** GET /api/models — 模型列表。 */
-    public ModelsListResponse modelsList() throws Exception {
-        String json = request("/api/models", "GET", null);
-        return MAPPER.readValue(json, ModelsListResponse.class);
+        /**
+         * 设置基础 URL。
+         *
+         * @param baseUrl 基础 URL(默认 http://localhost:8802)
+         * @return 当前 builder
+         */
+        public Builder baseUrl(String baseUrl) {
+            configBuilder.baseUrl(baseUrl);
+            return this;
+        }
+
+        /**
+         * 设置请求超时。
+         *
+         * @param timeout 超时时长(默认 30s)
+         * @return 当前 builder
+         */
+        public Builder timeout(Duration timeout) {
+            configBuilder.timeout(timeout);
+            return this;
+        }
+
+        /**
+         * 设置最大重试次数。
+         *
+         * @param maxRetries 最大重试次数(默认 2)
+         * @return 当前 builder
+         */
+        public Builder maxRetries(int maxRetries) {
+            configBuilder.maxRetries(maxRetries);
+            return this;
+        }
+
+        /**
+         * 构建 IhuiClient。
+         *
+         * @return IhuiClient 实例
+         */
+        public IhuiClient build() {
+            return new IhuiClient(configBuilder.build());
+        }
     }
 }
