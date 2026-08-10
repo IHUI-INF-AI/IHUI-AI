@@ -2,11 +2,10 @@
  * 其他补充端点(5 个:/vip/benefits + /notifications/:id + /messages/:id + /categories + /analytics/track)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { success, error } from '../../utils/response.js'
+import { success } from '../../utils/response.js'
 import { findNotificationById } from '../../db/notification-queries.js'
 import { findMessageById } from '../../db/chat-queries.js'
 import { findSiteCategories } from '../../db/site-categories-queries.js'
-import { createAnalyticsEvent } from '../../db/analytics-queries.js'
 import { listVipLevels } from '../../db/vip-queries.js'
 import { parseIdParam } from './_shared.js'
 
@@ -36,18 +35,9 @@ const miscRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
-  server.post('/analytics/track', async (request, reply) => {
-    const body = (request.body as { event?: string; properties?: unknown } | null) ?? {}
-    if (!body.event) return reply.status(400).send(error(400, '缺少 event'))
-    await createAnalyticsEvent({
-      userId: request.userId,
-      event: body.event,
-      properties: body.properties,
-      ip: request.ip,
-      userAgent: (request.headers['user-agent'] as string | undefined) ?? null,
-    })
-    return reply.send(success({ success: true }))
-  })
+  // 2026-08-10:原 /analytics/track 已迁移至 routes/analytics.ts(公开匿名上报,
+  // 兼容批量/单事件)。本文件保留其他端点,不再定义 track 避免重复。
+
 }
 
 export default miscRoutes
