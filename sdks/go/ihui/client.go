@@ -1,140 +1,503 @@
-// Package ihui 是 IHUI-AI 官方 Go SDK(骨架,后续真发布时填实现)。
-// OpenAI 兼容:POST /api/chat/completions + GET /api/models
+// Package ihui 提供 IHUI-AI 平台的 Go SDK,封装全部 /v1/* 对外开放 API 端点。
+//
+// 用法:
+//
+//	client := ihui.NewIhuiClient(
+//	    ihui.WithAPIKey("ihui_xxx"),
+//	    ihui.WithBaseURL("http://localhost:8802"),
+//	)
+//	resp, err := client.AI.Completions(ctx, &ihui.ChatCompletionRequest{
+//	    Model:    "gpt-4o",
+//	    Messages: []ihui.Message{{Role: "user", Content: "你好"}},
+//	})
+//
+// 流式响应:
+//
+//	stream, err := client.AI.CompletionsStream(ctx, req)
+//	for chunk := range stream {
+//	    fmt.Printf("%v\n", chunk)
+//	}
 package ihui
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
-// IhuiError HTTP 4xx/5xx 异常,含 StatusCode 与 Body。
-type IhuiError struct {
-	StatusCode int
-	Body       string
+// 默认配置常量。
+const (
+	DefaultBaseURL    = "http://localhost:8802"
+	DefaultTimeout    = 30 * time.Second
+	DefaultMaxRetries = 2
+)
+
+// retryDelays 为重试退避时长,对应第 1 次 / 第 2 次重试。
+var retryDelays = []time.Duration{500 * time.Millisecond, 1000 * time.Millisecond}
+
+// ============================================================================
+// 配置 & 选项
+// ============================================================================
+
+// Config 是 SDK 客户端配置,通过 Option 函数式选项构建。
+type Config struct {
+	APIKey     string
+	Secret     string
+	BaseURL    string
+	Timeout    time.Duration
+	MaxRetries int
+	HTTPClient *http.Client
 }
 
-func (e *IhuiError) Error() string {
-	return fmt.Sprintf("IHUI API 错误 [%d]: %s", e.StatusCode, e.Body)
+// Option 是 NewIhuiClient 的函数式选项。
+type Option func(*Config)
+
+// WithAPIKey 设置 API Key(必需,格式 ihui_xxx)。
+func WithAPIKey(key string) Option {
+	return func(c *Config) { c.APIKey = key }
 }
 
-// Message 单条对话消息。
-type Message struct {
-	Role    string `json:"role"`    // system | user | assistant
-	Content string `json:"content"`
+// WithSecret 设置可选的 API Secret。
+func WithSecret(secret string) Option {
+	return func(c *Config) { c.Secret = secret }
 }
 
-// ChatCompletionRequest 对话补全请求(OpenAI 兼容)。
-type ChatCompletionRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Temperature *float64  `json:"temperature,omitempty"`
-	MaxTokens   *int      `json:"max_tokens,omitempty"`
-	Stream      bool      `json:"stream,omitempty"`
+// WithBaseURL 设置基础 URL,默认 http://localhost:8802。
+func WithBaseURL(u string) Option {
+	return func(c *Config) { c.BaseURL = u }
 }
 
-// ChatCompletionResponse 对话补全响应。
-type ChatCompletionResponse struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	Model   string `json:"model"`
-	Choices []struct {
-		Index        int     `json:"index"`
-		Message      Message `json:"message"`
-		FinishReason string  `json:"finish_reason"`
-	} `json:"choices"`
-	Usage *struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage,omitempty"`
+// WithTimeout 设置请求超时,默认 30s;流式请求不受此限制。
+func WithTimeout(d time.Duration) Option {
+	return func(c *Config) { c.Timeout = d }
 }
 
-// ModelInfo 单个模型信息。
-type ModelInfo struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
+// WithMaxRetries 设置最大重试次数,默认 2;网络错误与 5xx 自动重试,429 不重试。
+func WithMaxRetries(n int) Option {
+	return func(c *Config) { c.MaxRetries = n }
 }
 
-// ModelsListResponse 模型列表响应。
-type ModelsListResponse struct {
-	Object string      `json:"object"`
-	Data   []ModelInfo `json:"data"`
+// WithHTTPClient 注入自定义 http.Client(测试 / 拦截用)。
+func WithHTTPClient(h *http.Client) Option {
+	return func(c *Config) { c.HTTPClient = h }
 }
 
-// IhuiClient IHUI-AI 客户端,内部封装 http.Client,统一加 Authorization + 错误抛出。
-type IhuiClient struct {
-	apiBase  string
-	apiKey   string
-	http     *http.Client
+// ============================================================================
+// BaseClient 基础客户端
+// ============================================================================
+
+// BaseClient 是 SDK 基础客户端,封装鉴权、重试、超时与错误处理。
+//
+// 所有业务模块共享一个 BaseClient 实例。
+type BaseClient struct {
+	apiKey     string
+	secret     string
+	baseURL    string
+	timeout    time.Duration
+	maxRetries int
+	httpClient *http.Client
 }
 
-// NewIhuiClient 构造客户端。
-func NewIhuiClient(apiBase, apiKey string) *IhuiClient {
-	return &IhuiClient{
-		apiBase: strings.TrimRight(apiBase, "/"),
-		apiKey:  apiKey,
-		http:    &http.Client{Timeout: 30 * time.Second},
+// newClient 用 Option 构造 BaseClient。
+func newClient(opts ...Option) (*BaseClient, error) {
+	cfg := &Config{
+		BaseURL:    DefaultBaseURL,
+		Timeout:    DefaultTimeout,
+		MaxRetries: DefaultMaxRetries,
 	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: cfg.Timeout}
+	}
+	return &BaseClient{
+		apiKey:     cfg.APIKey,
+		secret:     cfg.Secret,
+		baseURL:    strings.TrimRight(cfg.BaseURL, "/"),
+		timeout:    cfg.Timeout,
+		maxRetries: cfg.MaxRetries,
+		httpClient: httpClient,
+	}, nil
 }
 
-// request 统一请求封装:4xx/5xx 返回 *IhuiError。
-func (c *IhuiClient) request(path, method string, body any) ([]byte, error) {
-	var reader io.Reader
+// BaseURL 返回当前基础 URL(无尾部斜杠)。
+func (c *BaseClient) BaseURL() string {
+	return c.baseURL
+}
+
+// Validate 校验配置(apiKey 必需),返回错误时表示配置不完整。
+func (c *BaseClient) Validate() error {
+	if strings.TrimSpace(c.apiKey) == "" {
+		return &AuthenticationError{SdkError{
+			Status:  401,
+			Code:    "missing_api_key",
+			Details: map[string]any{"message": "apiKey is required"},
+		}}
+	}
+	return nil
+}
+
+// buildHeaders 构造鉴权 + Content-Type 头。
+func (c *BaseClient) buildHeaders() http.Header {
+	h := http.Header{}
+	h.Set("Authorization", "Bearer "+c.apiKey)
+	h.Set("Content-Type", "application/json")
+	if c.secret != "" {
+		h.Set("X-Api-Secret", c.secret)
+	}
+	return h
+}
+
+// buildURL 拼接完整 URL,path 不含 /v1 前缀(由本方法添加)。
+func (c *BaseClient) buildURL(path string) string {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return c.baseURL + "/v1" + path
+}
+
+// Encode 对路径段进行 URL 编码。
+func Encode(segment string) string {
+	return url.PathEscape(segment)
+}
+
+// Request 发起 JSON 请求并将响应反序列化到 out。
+//
+// method 为 HTTP 方法;path 不含 /v1 前缀;body 为请求体对象(可为 nil)。
+// 网络错误与 5xx 自动重试(指数退避 500ms / 1000ms),429 与 4xx 不重试。
+// 空响应体保留 out 不变。
+func (c *BaseClient) Request(ctx context.Context, method, path string, body, out any) error {
+	raw, err := c.requestRaw(ctx, method, path, body)
+	if err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+	if out == nil {
+		return nil
+	}
+	return json.Unmarshal(raw, out)
+}
+
+// RequestRaw 发起 JSON 请求并返回原始响应字节。
+func (c *BaseClient) RequestRaw(ctx context.Context, method, path string, body any) ([]byte, error) {
+	return c.requestRaw(ctx, method, path, body)
+}
+
+// requestRaw 是核心请求实现,含重试逻辑。
+func (c *BaseClient) requestRaw(ctx context.Context, method, path string, body any) ([]byte, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	var bodyBuf []byte
 	if body != nil {
-		b, err := json.Marshal(body)
+		buf, err := json.Marshal(body)
 		if err != nil {
+			return nil, fmt.Errorf("ihui sdk: marshal request body: %w", err)
+		}
+		bodyBuf = buf
+	}
+
+	maxAttempts := c.maxRetries
+	if maxAttempts < 0 {
+		maxAttempts = 0
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		reader = bytes.NewReader(b)
+		if attempt > 0 {
+			delay := retryDelay(attempt - 1)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		var reqBody io.Reader
+		if body != nil {
+			reqBody = bytes.NewReader(bodyBuf)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, c.buildURL(path), reqBody)
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+		req.Header = c.buildHeaders()
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			lastErr = NewNetworkError(readErr.Error())
+			continue
+		}
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return respBody, nil
+		}
+
+		lastErr = NewErrorFromStatus(resp.StatusCode, respBody)
+		if resp.StatusCode == 429 || resp.StatusCode < 500 {
+			break
+		}
 	}
-	req, err := http.NewRequest(method, c.apiBase+path, reader)
-	if err != nil {
-		return nil, err
+
+	if lastErr == nil {
+		lastErr = &SdkError{
+			Status:  500,
+			Code:    "unknown_error",
+			Details: map[string]any{"message": "Unknown error"},
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		return nil, &IhuiError{StatusCode: resp.StatusCode, Body: string(data)}
-	}
-	return data, nil
+	return nil, lastErr
 }
 
-// ChatCompletionsCreate POST /api/chat/completions — 创建对话补全。
-func (c *IhuiClient) ChatCompletionsCreate(body *ChatCompletionRequest) (*ChatCompletionResponse, error) {
-	data, err := c.request("/api/chat/completions", http.MethodPost, body)
+// RequestStream 发起流式请求,返回原始 HTTP 响应(调用方负责关闭 Body)。
+//
+// 流式请求不重试,但 timeout 仍生效(除非用 context 控制)。
+// 调用方应使用 StreamSSE 解析响应体。
+func (c *BaseClient) RequestStream(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	var reqBody io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("ihui sdk: marshal stream body: %w", err)
+		}
+		reqBody = bytes.NewReader(buf)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, c.buildURL(path), reqBody)
 	if err != nil {
-		return nil, err
+		return nil, NewNetworkError(err.Error())
 	}
-	var out ChatCompletionResponse
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, err
+	req.Header = c.buildHeaders()
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, NewNetworkError(err.Error())
 	}
-	return &out, nil
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return nil, NewErrorFromStatus(resp.StatusCode, respBody)
+	}
+	return resp, nil
 }
 
-// ModelsList GET /api/models — 模型列表。
-func (c *IhuiClient) ModelsList() (*ModelsListResponse, error) {
-	data, err := c.request("/api/models", http.MethodGet, nil)
-	if err != nil {
+// RequestMultipart 发起 multipart/form-data 上传请求。
+//
+// contentType 必须包含 boundary(如 multipart.Writer 的 FormDataContentType())。
+// bodyBuf 为已构造好的 multipart 字节缓冲。
+func (c *BaseClient) RequestMultipart(ctx context.Context, path, contentType string, bodyBuf []byte, out any) error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	maxAttempts := c.maxRetries
+	if maxAttempts < 0 {
+		maxAttempts = 0
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if attempt > 0 {
+			delay := retryDelay(attempt - 1)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.buildURL(path), bytes.NewReader(bodyBuf))
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		if c.secret != "" {
+			req.Header.Set("X-Api-Secret", c.secret)
+		}
+		req.Header.Set("Content-Type", contentType)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			lastErr = NewNetworkError(readErr.Error())
+			continue
+		}
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			if out == nil || len(respBody) == 0 {
+				return nil
+			}
+			return json.Unmarshal(respBody, out)
+		}
+
+		lastErr = NewErrorFromStatus(resp.StatusCode, respBody)
+		if resp.StatusCode == 429 || resp.StatusCode < 500 {
+			break
+		}
+	}
+	if lastErr == nil {
+		lastErr = &SdkError{
+			Status:  500,
+			Code:    "unknown_error",
+			Details: map[string]any{"message": "Unknown error"},
+		}
+	}
+	return lastErr
+}
+
+// RequestBytes 发起 GET 请求并返回原始字节数组(用于文件内容下载)。
+func (c *BaseClient) RequestBytes(ctx context.Context, path string) ([]byte, error) {
+	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	var out ModelsListResponse
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, err
+	maxAttempts := c.maxRetries
+	if maxAttempts < 0 {
+		maxAttempts = 0
 	}
-	return &out, nil
+
+	var lastErr error
+	for attempt := 0; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if attempt > 0 {
+			delay := retryDelay(attempt - 1)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.buildURL(path), nil)
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+		req.Header = c.buildHeaders()
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = NewNetworkError(err.Error())
+			continue
+		}
+		respBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			lastErr = NewNetworkError(readErr.Error())
+			continue
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return respBody, nil
+		}
+		lastErr = NewErrorFromStatus(resp.StatusCode, respBody)
+		if resp.StatusCode == 429 || resp.StatusCode < 500 {
+			break
+		}
+	}
+	if lastErr == nil {
+		lastErr = &SdkError{
+			Status:  500,
+			Code:    "unknown_error",
+			Details: map[string]any{"message": "Unknown error"},
+		}
+	}
+	return nil, lastErr
+}
+
+// retryDelay 返回第 idx 次重试的退避时长(超出数组范围时取最后一项)。
+func retryDelay(idx int) time.Duration {
+	if idx < 0 {
+		return retryDelays[0]
+	}
+	if idx >= len(retryDelays) {
+		return retryDelays[len(retryDelays)-1]
+	}
+	return retryDelays[idx]
+}
+
+// ============================================================================
+// IhuiClient 主客户端
+// ============================================================================
+
+// IhuiClient 是 IHUI SDK 主客户端,聚合 13 个功能模块。
+type IhuiClient struct {
+	AI         *AiApi
+	Agents     *AgentsApi
+	Audio      *AudioApi
+	Images     *ImagesApi
+	Videos     *VideosApi
+	ThreeD     *ThreeDApi
+	Generation *GenerationApi
+	Knowledge  *KnowledgeApi
+	Tools      *ToolsApi
+	Memory     *MemoryApi
+	Messages   *MessagesApi
+	Files      *FilesApi
+	User       *UserApi
+
+	base *BaseClient
+}
+
+// NewIhuiClient 用 Option 构造 IhuiClient。
+//
+// apiKey 缺失时不返回错误,会在第一次请求时返回 AuthenticationError。
+// 调用方可主动调用 client.BaseClient().Validate() 提前校验。
+func NewIhuiClient(opts ...Option) *IhuiClient {
+	base, _ := newClient(opts...)
+	return &IhuiClient{
+		AI:         NewAiApi(base),
+		Agents:     NewAgentsApi(base),
+		Audio:      NewAudioApi(base),
+		Images:     NewImagesApi(base),
+		Videos:     NewVideosApi(base),
+		ThreeD:     NewThreeDApi(base),
+		Generation: NewGenerationApi(base),
+		Knowledge:  NewKnowledgeApi(base),
+		Tools:      NewToolsApi(base),
+		Memory:     NewMemoryApi(base),
+		Messages:   NewMessagesApi(base),
+		Files:      NewFilesApi(base),
+		User:       NewUserApi(base),
+		base:       base,
+	}
+}
+
+// BaseClient 返回底层 BaseClient(供高级用户扩展使用)。
+func (c *IhuiClient) BaseClient() *BaseClient {
+	return c.base
 }
