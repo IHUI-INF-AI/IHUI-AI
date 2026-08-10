@@ -5,35 +5,23 @@ import { db } from '../db/index.js'
 import { analyticsEvents } from '@ihui/database'
 import { eq, and, gte, lte, desc, sql, isNotNull } from 'drizzle-orm'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { createAnalyticsEvent } from '../db/analytics-queries.js'
 
 // =============================================================================
 // 行为埋点事件模块(2026-08-10 立)
-//   - POST /api/analytics/track        前端批量上报埋点事件(匿名/登录均可)
-//   - 管理端聚合:/api/admin/analytics/* 事件类型排行 / 行为热度 / 概览
+//   - 公共上报 POST /api/analytics/track 由 routes/user/misc-routes.ts 提供
+//     (兼容批量 {events:[]} 与单事件 {event})
+//   - 本文件:管理端聚合 /api/admin/analytics/* 事件类型排行 / 行为热度 / 概览
 // 事件命名约定(properties 自由扩展):
 //   page_view       页面访问  { path, title, referer, sessionId }
-//   stay_duration   停留时长  { path, seconds }
+//   page_time       页面停留  { path, seconds }
 //   click           按钮/链接点击 { target, label, category }
 //   search          站内搜索  { keyword }
 //   download        下载行为  { name, type }
-//   ai_call         AI 调用  { model, provider }
+//   form_submit     表单提交  { keyword }
+//   link_out        站外跳转  { url }
 //   login           登录成功
 // =============================================================================
-
-const trackEventSchema = z.object({
-  events: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(100),
-        category: z.string().max(100).optional(),
-        label: z.string().max(300).optional(),
-        value: z.number().optional(),
-        props: z.record(z.string(), z.unknown()).optional(),
-      }),
-    )
-    .min(1)
-    .max(100),
-})
 
 const dateRangeQuery = z.object({
   startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
@@ -65,6 +53,7 @@ const dateRangeProps = {
 
 // =============================================================================
 // 公共上报(匿名/登录均可,前端埋点批量上报)
+// 注意:不可挂在带 authenticate 的 user/ 子路由下,否则匿名访客无法上报。
 // =============================================================================
 
 export const analyticsRoutes: FastifyPluginAsync = async (server) => {
@@ -72,11 +61,10 @@ export const analyticsRoutes: FastifyPluginAsync = async (server) => {
     '/analytics/track',
     {
       schema: {
-        summary: '批量上报埋点事件',
+        summary: '批量上报埋点事件(兼容单事件)',
         tags: ['analytics'],
         body: {
           type: 'object',
-          required: ['events'],
           properties: {
             events: {
               type: 'array',
@@ -91,41 +79,54 @@ export const analyticsRoutes: FastifyPluginAsync = async (server) => {
                 },
               },
             },
+            event: { type: 'string' },
+            properties: { type: 'object', additionalProperties: true },
           },
         },
         response: { 200: dataObjSchema, 400: dataObjSchema },
       },
     },
     async (request, reply) => {
-      const parsed = trackEventSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+      const body = (request.body as { event?: string; events?: Array<{ name?: string; category?: string; label?: string; value?: number; props?: Record<string, unknown> }>; properties?: unknown } | null) ?? {}
       const ip = request.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ?? request.ip
       const ua = request.headers['user-agent']?.slice(0, 500) ?? null
-      // 已登录:从 request.userId 取(Fastify decorateRequest 由 authenticate 注入)
       const userId = (request as { userId?: string }).userId ?? null
 
-      const rows = parsed.data.events.map((ev) => ({
-        userId: userId ? userId as string : null,
-        event: ev.name,
-        properties: {
-          category: ev.category,
-          label: ev.label,
-          value: ev.value,
-          ...(ev.props ?? {}),
-        },
-        ip: ip?.slice(0, 45) ?? null,
-        userAgent: ua,
-      }))
-      // 批量插入(失败静默,不影响用户体验)
+      // 批量格式 {events: [...]}
+      if (Array.isArray(body.events) && body.events.length > 0) {
+        let inserted = 0
+        for (const ev of body.events.slice(0, 100)) {
+          if (!ev?.name) continue
+          try {
+            await createAnalyticsEvent({
+              userId,
+              event: String(ev.name).slice(0, 100),
+              properties: { category: ev.category, label: ev.label, value: ev.value, ...(ev.props ?? {}) },
+              ip: ip?.slice(0, 45) ?? null,
+              userAgent: ua,
+            })
+            inserted++
+          } catch {
+            /* 单条失败跳过 */
+          }
+        }
+        return reply.send(success({ success: true, inserted }))
+      }
+
+      // 单事件格式 {event, properties}
+      if (!body.event) return reply.status(400).send(error(400, '缺少 event 或 events'))
       try {
-        await db.insert(analyticsEvents).values(rows)
+        await createAnalyticsEvent({
+          userId,
+          event: String(body.event).slice(0, 100),
+          properties: body.properties,
+          ip: ip?.slice(0, 45) ?? null,
+          userAgent: ua,
+        })
       } catch (e) {
         server.log.warn({ err: e }, 'analytics track insert failed')
-        return reply.send(success({ inserted: 0 }))
       }
-      return reply.send(success({ inserted: rows.length }))
+      return reply.send(success({ success: true }))
     },
   )
 }
