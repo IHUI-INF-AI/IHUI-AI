@@ -42,6 +42,7 @@ import { messageRoutes, adminMessageRoutes } from './message.js'
 import { topicRoutes, adminTopicRoutes } from './topic.js'
 import { behaviorRoutes, adminBehaviorRoutes } from './behavior.js'
 import { visitTrackingRoutes, adminVisitTrackingRoutes } from './visit-tracking.js'
+import { analyticsRoutes, adminAnalyticsRoutes } from './analytics.js'
 import { ossRoutes, adminOssRoutes } from './oss.js'
 import { settingRoutes, adminSettingRoutes } from './setting.js'
 import { carouselPublicRoutes } from './carousel.js'
@@ -486,6 +487,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 访问追踪：/api/visit-tracking/* + /api/admin/visit-tracking/*
   server.register(visitTrackingRoutes, { prefix: '/api' })
   server.register(adminVisitTrackingRoutes, { prefix: '/api/admin' })
+  server.register(analyticsRoutes, { prefix: '/api' })
+  server.register(adminAnalyticsRoutes, { prefix: '/api/admin' })
   // 对象存储：/api/oss/* + /api/admin/oss/*
   server.register(ossRoutes, { prefix: '/api' })
   server.register(adminOssRoutes, { prefix: '/api/admin' })
