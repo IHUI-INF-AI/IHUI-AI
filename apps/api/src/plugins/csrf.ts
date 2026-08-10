@@ -55,6 +55,10 @@ const PUBLIC_PREFIXES = [
   // 下载量统计 track(2026-08-06 立,公开分析端点,匿名用户也记录;
   // 风险低:仅记录点击事件,无敏感操作;anomaly-detector + 全局限流已防自动化滥用)
   '/api/downloads/track',
+  // 访问埋点(2026-08-10 立,公开分析端点,匿名访客也上报页面访问;
+  // 风险低:仅写 visit_logs 一条访问记录,无敏感操作;全局限流防滥用;
+  // 已登录请求走 Bearer JWT 豁免,此白名单主要覆盖未登录访客)
+  '/api/visit-tracking/',
   // P2 修复(2026-08-06):移除 '/api/vip/' 前缀豁免——该前缀下无服务端回调,
   // 全部写端点(purchase/order/levels CRUD/users cancel)均需 authenticate 鉴权,
   // 已登录请求走下方 Bearer JWT / auth_token cookie 豁免,未登录应返 401 而非绕过 CSRF。
