@@ -1,14 +1,38 @@
 {
   "name": "@ihui/sdk",
-  "version": "0.1.0",
-  "description": "IHUI-AI 官方 TypeScript SDK(OpenAI 兼容)",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "version": "0.2.0",
+  "description": "IHUI-AI 官方 TypeScript SDK — 完整封装 13 个功能模块,105+ 个 /v1/* API 端点",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "license": "MIT",
-  "keywords": ["ihui", "ai", "sdk", "openai-compatible"],
+  "keywords": [
+    "ihui",
+    "ai",
+    "sdk",
+    "openai-compatible",
+    "typescript",
+    "api-client"
+  ],
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "typescript": "^5.5.0"
