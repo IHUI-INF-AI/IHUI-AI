@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay, NavigationProgress, VisitTracker } from '@/components/common'
+import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay, NavigationProgress, VisitTracker, AnalyticsCapture } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
@@ -317,6 +317,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       <QuitUpdateOverlay />
       {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
       <VisitTracker />
+      {/* 全局行为埋点(2026-08-10 立):自动采集点击/搜索/下载/表单提交 → analytics_events */}
+      <AnalyticsCapture />
       {/*
         Agent 任务进度 popover(2026-07-27 v6):
         trigger + popover 已内嵌到 MessageInput 输入框附加栏(上方居中),
