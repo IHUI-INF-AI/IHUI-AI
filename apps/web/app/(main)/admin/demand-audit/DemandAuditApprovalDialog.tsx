@@ -100,7 +100,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <span
                 className={cn(
-                  'h-2 w-2 rounded-full',
+                  'h-2 w-2 rounded-sm',
                   isConnected ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                 )}
               />

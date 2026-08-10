@@ -148,7 +148,7 @@ export function DynamicsTable({
                         STATUS_STYLE[item.status],
                       )}
                     >
-                      <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[item.status])} />
+                      <span className={cn('h-1.5 w-1.5 rounded-sm', STATUS_DOT[item.status])} />
                       {t(STATUS_LABEL[item.status])}
                     </span>
                   </TableCell>
