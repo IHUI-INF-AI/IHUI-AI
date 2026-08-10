@@ -6778,7 +6778,9 @@
           "error": "Error"
         }
       }
-    }
+    },
+    "visitTracking": "Visit Stats",
+    "behaviorAnalytics": "Behavior Analytics"
   },
   "knowledgeGraph": {
     "title": "Knowledge Graph",
@@ -16423,7 +16425,6 @@
       "ack": "Acked",
       "failed": "Failed"
     },
-    
     "metaLearner": {
       "title": "Meta-Learner",
       "subtitle": "Meta-learning and self-evolution system management",
