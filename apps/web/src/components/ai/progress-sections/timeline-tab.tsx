@@ -405,7 +405,7 @@ export const TimelineTab = React.memo(function TimelineTab({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={safeT(t, 'timelineSearchPlaceholder', 'Search timeline...')}
             aria-label={safeT(t, 'timelineSearchAriaLabel', 'Search timeline events')}
-            className="w-full rounded-sm border border-border/60 bg-background/40 py-0.5 pl-6 pr-14 text-[10px] placeholder:text-muted-foreground/50 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            className="w-full rounded-sm border border-border/60 bg-background/40 py-0.5 pl-6 pr-14 text-[10px] placeholder:text-muted-foreground/50 focus:border-ring/40 focus:outline-none focus:ring-1 focus:ring-ring/20"
             data-testid="timeline-search-input"
           />
           {/* Phase 20 P1-3: 导出 Markdown 按钮 */}
