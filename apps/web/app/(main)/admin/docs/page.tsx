@@ -141,7 +141,7 @@ export default function AdminDocsPage() {
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
                     <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
-                      <span className={cn('h-1.5 w-1.5 rounded-full', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
+                      <span className={cn('h-1.5 w-1.5 rounded-sm', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
                       {t(DOC_STATUS_KEYS[d.status as keyof typeof DOC_STATUS_KEYS]!)}
                     </span>
                   </td>
