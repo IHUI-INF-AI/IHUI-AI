@@ -377,7 +377,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                     // 键盘聚焦但未选中:虚线 ring 提示(双重高亮:选中 + 聚焦)
                     isFocused &&
                       !isSel &&
-                      'ring-1 ring-primary/40 ring-offset-1 ring-offset-popover',
+                      'ring-1 ring-ring/40 ring-offset-1 ring-offset-popover',
                     // 高风险 + 选中:琥珀色边框强化警告
                     isSel && opt.risk === 'high' && 'border-amber-500/60 bg-amber-500/5',
                   )}
