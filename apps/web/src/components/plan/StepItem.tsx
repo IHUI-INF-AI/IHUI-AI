@@ -50,7 +50,7 @@ export function StepItem({
       className={cn(
         'group flex items-start gap-2 rounded-md border border-border bg-card p-2.5 transition-colors hover:bg-accent/40',
         isDragging && 'opacity-40',
-        isDragOver && 'ring-2 ring-primary/30',
+        isDragOver && 'ring-2 ring-ring/30',
       )}
       draggable={draggable}
       onDragStart={onDragStart}

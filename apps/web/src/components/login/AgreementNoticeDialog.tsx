@@ -94,7 +94,7 @@ export function AgreementNoticeDialog({ open, onAgree, onCancel }: AgreementNoti
           <div
             className={cn(
               'mb-4 flex h-12 w-12 items-center justify-center rounded-lg',
-              'bg-primary/10 text-primary ring-1 ring-primary/20',
+              'bg-primary/10 text-primary ring-1 ring-ring/20',
             )}
           >
             <Shield className="h-6 w-6" strokeWidth={2} />
