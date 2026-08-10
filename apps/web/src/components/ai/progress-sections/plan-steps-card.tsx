@@ -41,7 +41,7 @@ const STATUS_CLS: Record<PlanStepStatus, string> = {
 const STATUS_DOT_CLS: Record<PlanStepStatus, string> = {
   // 修复 #8:加 ring 让 pending 圆点在 bg-muted/40 容器上可见
   pending: 'bg-muted-foreground/25 ring-2 ring-muted-foreground/30',
-  in_progress: 'bg-primary/15 ring-2 ring-primary/20',
+  in_progress: 'bg-primary/15 ring-2 ring-ring/20',
   completed: 'bg-emerald-500/15',
 }
 

@@ -370,7 +370,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
         className={cn(
           'flex cursor-pointer items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
           step.status === 'in_progress' && 'bg-primary/10',
-          isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
+          isHighlighted && 'bg-primary/5 ring-1 ring-ring/30',
         )}
         aria-label={stepLabel}
         data-testid={`plan-step-${step.id}`}
