@@ -76,7 +76,7 @@ export function IntegrationTable({
               >
                 <span
                   className={cn(
-                    'h-1.5 w-1.5 rounded-full',
+                    'h-1.5 w-1.5 rounded-sm',
                     i.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                   )}
                 />

@@ -411,7 +411,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('tools.searchPlaceholder')}
-              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/50"
               data-testid="tool-search-input"
             />
           </div>
