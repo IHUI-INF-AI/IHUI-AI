@@ -100,7 +100,7 @@ export function AnnouncementTable({
                   >
                     <span
                       className={cn(
-                        'h-1.5 w-1.5 rounded-full',
+                        'h-1.5 w-1.5 rounded-sm',
                         a.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                       )}
                     />
