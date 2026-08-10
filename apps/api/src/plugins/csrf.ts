@@ -59,6 +59,9 @@ const PUBLIC_PREFIXES = [
   // 风险低:仅写 visit_logs 一条访问记录,无敏感操作;全局限流防滥用;
   // 已登录请求走 Bearer JWT 豁免,此白名单主要覆盖未登录访客)
   '/api/visit-tracking/',
+  // 行为埋点(2026-08-10 立,公开分析端点,匿名访客也上报行为事件;
+  // 风险低:仅写 analytics_events 记录,无敏感操作;全局限流防滥用)
+  '/api/analytics/track',
   // P2 修复(2026-08-06):移除 '/api/vip/' 前缀豁免——该前缀下无服务端回调,
   // 全部写端点(purchase/order/levels CRUD/users cancel)均需 authenticate 鉴权,
   // 已登录请求走下方 Bearer JWT / auth_token cookie 豁免,未登录应返 401 而非绕过 CSRF。
