@@ -4,11 +4,26 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
+import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText, ChevronRight, Upload } from 'lucide-react'
 
-import { listAiSkills, getAiSkillRecommendations, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
+import {
+  listAiSkills,
+  getAiSkillRecommendations,
+  importAiSkill,
+  type AiSkillMeta,
+} from '@ihui/api-client/endpoints/ai-skills'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -49,13 +64,58 @@ async function fetchAll(): Promise<AiSkillMeta[]> {
 
 export default function AiSkillsPageClient() {
   const t = useTranslations('aiSkillsPage')
+  const td = useTranslations('aiSkillDetail')
   const [activeTab, setActiveTab] = React.useState<TabKey>('all')
   const [keyword, setKeyword] = React.useState('')
+  const [importOpen, setImportOpen] = React.useState(false)
+  const [importJson, setImportJson] = React.useState('')
+  const [importing, setImporting] = React.useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-skills', 'list'],
     queryFn: fetchAll,
   })
+
+  const handleImport = async () => {
+    if (!importJson.trim()) {
+      toast.error(t('importJsonEmpty'))
+      return
+    }
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(importJson.trim())
+    } catch {
+      toast.error(t('importJsonInvalid'))
+      return
+    }
+    if (!parsed.name || typeof parsed.name !== 'string') {
+      toast.error(t('importNameRequired'))
+      return
+    }
+    setImporting(true)
+    try {
+      const r = await importAiSkill({
+        name: parsed.name as string,
+        description: (parsed.description as string) ?? '',
+        icon: (parsed.icon as string) ?? 'wand2',
+        category: (parsed.category as string) ?? 'ai-top',
+        tags: Array.isArray(parsed.tags) ? (parsed.tags as string[]) : [],
+        promptTemplate: (parsed.promptTemplate as string) ?? '',
+        sourceUrl: (parsed.sourceUrl as string) ?? '',
+      })
+      if (r.success) {
+        toast.success(t('importSuccess', { name: parsed.name as string }))
+        setImportOpen(false)
+        setImportJson('')
+      } else {
+        toast.error(r.error ?? t('importFailed'))
+      }
+    } catch {
+      toast.error(t('importFailed'))
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const availableCount = data?.filter((s) => s.available).length ?? 0
   const comingCount = (data?.length ?? 0) - availableCount
@@ -86,9 +146,19 @@ export default function AiSkillsPageClient() {
       <BackButton />
       {/* 顶部:标题 + 统计 */}
       <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {td('importBtn')}
+          </button>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
@@ -166,6 +236,52 @@ export default function AiSkillsPageClient() {
           ))}
         </div>
       )}
+
+      {/* 导入对话框 */}
+      <Dialog open={importOpen} onOpenChange={(v) => { if (!v) setImportOpen(false) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('importTitle')}</DialogTitle>
+            <DialogDescription>{t('importDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <textarea
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              placeholder={t('importPlaceholder')}
+              rows={10}
+              className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs font-mono outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportOpen(false)
+                setImportJson('')
+              }}
+            >
+              {t('importCancel')}
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={importing}
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  {t('importing')}
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  {t('importConfirm')}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
