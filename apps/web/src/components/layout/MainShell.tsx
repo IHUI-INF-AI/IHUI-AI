@@ -67,7 +67,11 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // 各页面如需内部留白应自行在页面组件内设置(如 about 的 px-4 py-8 已自带)。
           // 2026-08-05 性能优化:content-visibility:auto + contain-intrinsic-size:1000px
           // 让浏览器跳过副屏外内容的渲染,显著提升首帧渲染速度。
-          className="no-scrollbar flex-1 overflow-y-auto [content-visibility:auto] [contain-intrinsic-size:1000px]"
+          // 2026-08-11 移除 content-visibility + contain-intrinsic-size:
+          // 根因:content-visibility:auto 是已知浏览器渲染 bug 来源,
+          // 部分浏览器会错误跳过应当可见的内容渲染,导致页面空白/不显示。
+          // 用户反馈"点击页面按钮后右侧工作展示区显示错误,没有页面,程序崩溃"。
+          className="no-scrollbar flex-1 overflow-y-auto"
         >
           {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
               (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}
