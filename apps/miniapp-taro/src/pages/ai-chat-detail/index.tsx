@@ -433,7 +433,7 @@ export default function AiChatDetail() {
             </View>
             {inputValue.length > 0 && !sending ? (
               <View
-                className="w-[40rpx] h-[40rpx] flex items-center justify-center rounded-full bg-muted ml-[8rpx]"
+                className="w-[40rpx] h-[40rpx] flex items-center justify-center rounded-md bg-muted ml-[8rpx]"
                 onClick={handleClear}
               >
                 <Text className="text-[24rpx] text-muted-foreground leading-none">×</Text>
