@@ -10,7 +10,7 @@
 
 ## 轮次 2 — 路由注册 + 集成验证 + 提交
 
-- **状态**: 执行中
+- **状态**: 已完成
 - **执行摘要**: 注册 usage/prompts/eval 三个新路由到 main.py；运行 107 个 pytest 全部通过；web/api/cli/extension 四端 typecheck 全部通过；web lint 通过（仅 1 个预存 warning）；api lint 的 8 个错误均来自预存文件（analytics.ts 5 个 + edu-ai-management.ts 3 个），非本任务新增代码导致
 - **工具调用统计**: 15
 - **评估结论**: yes
