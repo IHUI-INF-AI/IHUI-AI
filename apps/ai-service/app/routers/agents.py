@@ -304,3 +304,26 @@ async def get_agent_trace(session_id: str) -> dict[str, Any]:
     if not trace:
         raise HTTPException(status_code=404, detail="Trace not found")
     return {"code": 0, "message": "success", "data": trace}
+
+
+@router.get("/agent/traces")
+async def list_agent_traces() -> dict[str, Any]:
+    """列出所有可用的 Agent 执行轨迹。
+
+    返回每个 trace 的元数据（session_id、timestamp、goal/task 摘要等），
+    按 timestamp 降序排列，最多返回 50 条。
+    """
+    traces: list[dict[str, Any]] = []
+    for session_id, trace_data in _trace_store.items():
+        goal_raw = trace_data.get("goal", "")
+        goal = (goal_raw[:100] + "...") if len(goal_raw) > 100 else goal_raw
+        traces.append({
+            "session_id": session_id,
+            "timestamp": trace_data.get("timestamp", 0),
+            "goal": goal,
+            "steps": trace_data.get("iterations", 0) or len(trace_data.get("steps", [])),
+            "status": trace_data.get("status", "completed"),
+        })
+
+    traces.sort(key=lambda t: t["timestamp"], reverse=True)
+    return {"code": 0, "message": "success", "data": traces[:50]}
