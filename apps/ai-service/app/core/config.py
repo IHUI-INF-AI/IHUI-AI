@@ -113,6 +113,11 @@ class Settings(BaseSettings):
     # MCP / Publish 工具配置(2026-07-27 统一 secret 管理)
     # MCP_WORKSPACE_ROOTS:工作区根目录白名单(分隔符 os.pathsep),空=用当前工作目录
     mcp_workspace_roots: str = ""
+    # MCP Client 配置(2026-08-11 立,连接外部 MCP Server)
+    # JSON 格式的多 MCP Server 配置数组:
+    # [{"name":"...", "transport":"stdio|sse", "command":"...", "args":[...], "url":"...",
+    #   "timeout":30, "reconnect":true, "max_reconnect_attempts":3, "env":{...}}]
+    mcp_client_configs: str = ""
     # PUBLISH_UPLOAD_DIR:发布上传根目录,空=默认 .uploads/publish(已在 .gitignore)
     publish_upload_dir: str = ""
     # GITHUB_TOKEN:MCP review_pr 工具调 GitHub API,空=匿名调用受 rate limit(60/h)
