@@ -318,6 +318,8 @@
     "modelsUsers": "ユーザー",
     "modelsGroups": "グループ",
     "modelsUsage": "使用量",
+    "modelsPrompts": "プロンプト管理",
+    "modelsEval": "評価",
     "modelsBilling": "請求",
     "modelsRedeem": "引き換え",
     "modelsReferral": "リファラル",
@@ -479,7 +481,8 @@
     "eduAiTbox": "IoT デバイス",
     "fundData": "ファンドデータ",
     "eduAiMetaLearner": "メタラーナー",
-    "adminSkillBatch": "一括操作"
+    "adminSkillBatch": "一括操作",
+    "eduParentPortal": "保護者ポータル"
   },
   "home": {
     "announcement": {
@@ -8061,6 +8064,8 @@
     "navSkills": "スキル",
     "navChats": "チャット",
     "navUsageStats": "使用量",
+    "navPrompts": "プロンプト管理",
+    "navEval": "評価",
     "navLogs": "ログ",
     "navApiKeys": "APIキー",
     "navRedeem": "引換コード",
@@ -8271,6 +8276,12 @@
         "tokens": "トークン",
         "cost": "消費",
         "share": "割合"
+      },
+      "chart": {
+        "title": "使用量トレンド",
+        "calls": "呼び出し回数",
+        "tokens": "トークン",
+        "noData": "データなし"
       }
     },
     "billing": {
@@ -8563,6 +8574,166 @@
         "holiday": "祝日",
         "closed": "休業"
       }
+    },
+    "retry": "再試行",
+    "eval": {
+      "title": "評価",
+      "subtitle": "テストデータセットの管理、自動評価の実行、結果の比較",
+      "tabs": {
+        "datasets": "データセット",
+        "runs": "実行記録"
+      },
+      "datasets": {
+        "title": "データセット",
+        "create": "データセット作成",
+        "delete": "削除",
+        "view": "表示",
+        "table": {
+          "name": "名前",
+          "description": "説明",
+          "items": "項目数",
+          "createdAt": "作成日時",
+          "actions": "操作"
+        },
+        "form": {
+          "name": "名前",
+          "namePlaceholder": "データセット名を入力",
+          "description": "説明",
+          "descriptionPlaceholder": "データセットの説明を入力(任意)",
+          "items": "テスト項目",
+          "input": "入力",
+          "inputPlaceholder": "テストテキストを入力",
+          "expectedOutput": "期待される出力",
+          "expectedOutputPlaceholder": "期待される出力を入力(任意)",
+          "addItem": "項目を追加",
+          "submit": "作成",
+          "cancel": "キャンセル"
+        },
+        "detail": {
+          "title": "データセット詳細",
+          "item": "項目 {index}",
+          "input": "入力",
+          "expectedOutput": "期待される出力",
+          "close": "閉じる"
+        },
+        "messages": {
+          "createSuccess": "作成成功",
+          "createFailed": "作成失敗",
+          "deleteSuccess": "削除成功",
+          "deleteFailed": "削除失敗",
+          "deleteConfirm": "データセット \"{name}\" を削除しますか？"
+        },
+        "empty": "データセットがありません",
+        "loading": "読み込み中..."
+      },
+      "runs": {
+        "title": "実行記録",
+        "create": "評価を実行",
+        "view": "結果を表示",
+        "table": {
+          "id": "実行 ID",
+          "dataset": "データセット",
+          "model": "モデル",
+          "prompt": "プロンプト",
+          "avgScore": "平均スコア",
+          "duration": "所要時間",
+          "createdAt": "時間",
+          "actions": "操作"
+        },
+        "form": {
+          "datasetName": "データセット",
+          "datasetNamePlaceholder": "データセット名を選択",
+          "model": "モデル",
+          "modelPlaceholder": "モデル名を入力 (例: stepfun/step-3.7-flash)",
+          "promptName": "プロンプト",
+          "promptNamePlaceholder": "プロンプト名を入力",
+          "submit": "評価を開始",
+          "cancel": "キャンセル",
+          "running": "評価中..."
+        },
+        "detail": {
+          "title": "評価結果",
+          "summary": "評価概要",
+          "avgScore": "平均スコア",
+          "totalDuration": "合計所要時間",
+          "items": "評価項目",
+          "item": "項目 {index}",
+          "input": "入力",
+          "expectedOutput": "期待される出力",
+          "actualOutput": "実際の出力",
+          "score": "スコア",
+          "duration": "所要時間",
+          "error": "エラー",
+          "close": "閉じる",
+          "scoreHigh": "優秀",
+          "scoreMedium": "普通",
+          "scoreLow": "低い"
+        },
+        "messages": {
+          "createSuccess": "評価の実行が作成されました",
+          "createFailed": "作成失敗",
+          "loadFailed": "読み込み失敗"
+        },
+        "empty": "実行記録がありません",
+        "loading": "読み込み中..."
+      }
+    },
+    "prompts": {
+      "title": "プロンプト管理",
+      "subtitle": "プロンプトテンプレートとバージョンの作成・編集・管理",
+      "create": "プロンプト作成",
+      "edit": "編集",
+      "delete": "削除",
+      "view": "表示",
+      "rollback": "ロールバック",
+      "history": {
+        "title": "バージョン履歴",
+        "version": "バージョン {version}",
+        "description": "説明",
+        "createdAt": "作成日時",
+        "rollbackConfirm": "バージョン {version} にロールバックしますか？",
+        "rollbackSuccess": "ロールバック成功",
+        "rollbackFailed": "ロールバック失敗",
+        "current": "現在のバージョン"
+      },
+      "searchPlaceholder": "プロンプト名を検索...",
+      "table": {
+        "name": "名前",
+        "description": "説明",
+        "latestVersion": "最新バージョン",
+        "updatedAt": "更新日時",
+        "actions": "操作"
+      },
+      "form": {
+        "name": "名前",
+        "namePlaceholder": "プロンプト名を入力",
+        "content": "内容",
+        "contentPlaceholder": "プロンプトテンプレートの内容を入力...",
+        "description": "説明",
+        "descriptionPlaceholder": "プロンプトの説明を入力(任意)",
+        "submit": "送信",
+        "cancel": "キャンセル",
+        "nameRequired": "名前を入力してください",
+        "contentRequired": "内容を入力してください"
+      },
+      "detail": {
+        "title": "プロンプト詳細",
+        "version": "バージョン {version}",
+        "content": "内容",
+        "close": "閉じる"
+      },
+      "messages": {
+        "createSuccess": "作成成功",
+        "createFailed": "作成失敗",
+        "updateSuccess": "更新成功",
+        "updateFailed": "更新失敗",
+        "deleteSuccess": "削除成功",
+        "deleteFailed": "削除失敗",
+        "deleteConfirm": "プロンプト \"{name}\" を削除しますか？",
+        "loadFailed": "読み込み失敗"
+      },
+      "empty": "プロンプトがありません",
+      "loading": "読み込み中..."
     }
   },
   "dashboard": {
@@ -12023,6 +12194,57 @@
       "empty": "質問はまだありません",
       "answered": "回答済み",
       "pending": "未回答"
+    },
+    "eduAttendancePage": {
+      "title": "出席管理",
+      "subtitle": "学生の出欠、退席と休暇管理",
+      "checkIn": "出勤",
+      "checkOut": "退勤",
+      "leave": "休暇",
+      "stats": "出勤統計"
+    },
+    "eduGradePage": {
+      "title": "成績管理",
+      "subtitle": "試験成績の入力、統計と順位",
+      "input": "成績入力",
+      "stats": "成績統計",
+      "rank": "順位",
+      "trend": "トレンド分析"
+    },
+    "eduHomeworkPage": {
+      "title": "宿題管理",
+      "subtitle": "宿題の提出、採点と統計",
+      "submit": "宿題を提出",
+      "grade": "宿題を採点",
+      "stats": "完了統計"
+    },
+    "eduEnrollmentPage": {
+      "title": "入学者管理",
+      "subtitle": "リード追跡、体験予約と登録管理",
+      "lead": "リード管理",
+      "trial": "体験予約",
+      "enroll": "登録記録"
+    },
+    "eduFinancePage": {
+      "title": "財務管理",
+      "subtitle": "授業料基準、支払いと返金管理",
+      "fee": "授業料基準",
+      "payment": "支払い記録",
+      "refund": "返金管理"
+    },
+    "eduEmpty": {
+      "noSchedule": "予定はありません",
+      "noMeal": "献立記録はありません",
+      "noPlan": "学習計画はありません",
+      "noAttendance": "出席記録はありません",
+      "noGrade": "成績記録はありません",
+      "noLead": "リード記録はありません",
+      "noTrial": "体験予約はありません",
+      "noEnrollment": "登録記録はありません",
+      "noHomework": "宿題提出はありません",
+      "noRule": "割り当てルールはありません",
+      "noPayment": "支払い記録はありません",
+      "noRefund": "返金記録はありません"
     }
   },
   "marketing": {
@@ -16557,5 +16779,57 @@
   "forbidden": {
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
     "backToHome": "ホームへ戻る"
+  },
+  "parentPortal": {
+    "dashboard": {
+      "title": "保護者ポータル",
+      "subtitle": "お子様の学習状況を確認",
+      "bindChild": "お子様を紐付け",
+      "pendingBindings": "確認待ちの紐付けが {count} 件",
+      "noChildren": "お子様は未紐付け",
+      "noChildrenHint": "先にお子様を紐付けして学習データを確認してください",
+      "bindNow": "今すぐ紐付け",
+      "childLabel": "{relationship} の保護"
+    },
+    "bind": {
+      "title": "紐付け管理",
+      "subtitle": "保護者とお子様の紐付けを管理",
+      "createTitle": "紐付けを作成",
+      "studentIdLabel": "お子様のユーザーID",
+      "studentIdPlaceholder": "お子様のユーザーIDを入力",
+      "relationshipLabel": "関係",
+      "submit": "紐付けを送信",
+      "success": "紐付け申請を送信しました",
+      "listTitle": "紐付けリスト",
+      "empty": "紐付け記録がありません",
+      "relationship": "関係",
+      "confirm": "確認",
+      "reject": "拒否",
+      "deleteTitle": "紐付けを削除",
+      "deleteConfirm": "この紐付け関係を削除しますか？"
+    },
+    "child": {
+      "courses": "時間割",
+      "coursesHint": "お子様の授業予定を確認",
+      "meals": "今日の献立",
+      "mealsHint": "今日の食事予定を確認",
+      "studyPlans": "学習計画",
+      "studyPlansHint": "お子様の学習計画を確認",
+      "attendance": "出席記録",
+      "attendanceHint": "出欠状況を確認",
+      "grades": "試験成績",
+      "gradesHint": "試験の成績を確認",
+      "empty": "データなし",
+      "monthlyPlan": "月間プラン",
+      "weeklyPlan": "週間プラン"
+    },
+    "attendance": {
+      "rate": "出席率",
+      "records": "チェックイン記録"
+    },
+    "grades": {
+      "detail": "成績詳細",
+      "examCount": "合計 {count} 回の試験"
+    }
   }
 }

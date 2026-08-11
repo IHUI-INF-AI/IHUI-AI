@@ -23,7 +23,7 @@ async def get_usage_stats(
     uid = user_id or getattr(request.state, "user_id", None)
     if not uid:
         raise HTTPException(status_code=400, detail="缺少 user_id 参数或 JWT 未登录")
-    return {"code": 200, "message": "ok", "data": usage_service.get_user_stats(uid, days=days)}
+    return {"code": 0, "message": "ok", "data": usage_service.get_user_stats(uid, days=days)}
 
 
 @router.get("/global")
@@ -31,7 +31,7 @@ async def get_global_stats(
     days: int = Query(7, ge=1, le=365, description="统计天数范围"),
 ) -> dict[str, Any]:
     """获取全局用量统计。"""
-    return {"code": 200, "message": "ok", "data": usage_service.get_global_stats(days=days)}
+    return {"code": 0, "message": "ok", "data": usage_service.get_global_stats(days=days)}
 
 
 @router.get("/quota")
@@ -43,7 +43,7 @@ async def get_quota_info(
     uid = user_id or getattr(request.state, "user_id", None)
     if not uid:
         raise HTTPException(status_code=400, detail="缺少 user_id 参数或 JWT 未登录")
-    return {"code": 200, "message": "ok", "data": usage_service.get_quota_info(uid)}
+    return {"code": 0, "message": "ok", "data": usage_service.get_quota_info(uid)}
 
 
 @router.post("/record")
@@ -75,7 +75,7 @@ async def record_usage(
         session_id=session_id,
     )
     return {
-        "code": 200,
+        "code": 0,
         "message": "ok",
         "data": {
             "id": record.id,

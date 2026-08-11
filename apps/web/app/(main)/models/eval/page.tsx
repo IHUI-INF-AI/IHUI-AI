@@ -48,7 +48,9 @@ interface Dataset {
   name: string
   description?: string | null
   items: DatasetItem[]
-  created_at: string
+  /** list 接口仅返回计数,详情接口才带 items */
+  item_count?: number
+  created_at?: string | null
 }
 
 interface EvalRunResult {
@@ -214,7 +216,7 @@ export default function EvalPage() {
                     size="sm"
                     onClick={() => datasetsQ.refetch()}
                   >
-                    {t('eval.datasets.messages.createFailed')}
+                    {t('retry')}
                   </Button>
                 </div>
               ) : datasets.length === 0 ? (
@@ -245,9 +247,9 @@ export default function EvalPage() {
                           <td className="px-4 py-2.5 text-muted-foreground">
                             {ds.description || '—'}
                           </td>
-                          <td className="px-4 py-2.5 tabular-nums">{ds.items.length}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{ds.item_count ?? ds.items.length}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">
-                            {timeFmt(ds.created_at)}
+                            {ds.created_at ? timeFmt(ds.created_at) : '—'}
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center justify-end gap-1">
@@ -306,7 +308,7 @@ export default function EvalPage() {
                       : t('eval.runs.messages.loadFailed')}
                   </p>
                   <Button variant="outline" size="sm" onClick={() => runsQ.refetch()}>
-                    {t('eval.runs.messages.loadFailed')}
+                    {t('retry')}
                   </Button>
                 </div>
               ) : runs.length === 0 ? (
