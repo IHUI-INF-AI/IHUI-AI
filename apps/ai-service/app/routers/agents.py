@@ -1,6 +1,6 @@
-"""Agent 路由(8 端点)。
+"""Agent 路由(9 端点)。
 
-提供 agent 执行、状态查询、取消,以及会话记忆管理。
+提供 agent 执行、状态查询、取消、trace 可视化,以及会话记忆管理。
 新增 SSE 流式执行端点(事件缓冲 + 断线重连重放 + SSE event 字段 + 心跳保活)。
 """
 
@@ -21,6 +21,21 @@ from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Trace 存储(进程内 LRU,供 agent 执行轨迹可视化)
+# ---------------------------------------------------------------------------
+
+_trace_store: dict[str, dict] = {}
+_MAX_TRACES = 100
+
+
+def store_trace(session_id: str, trace_data: dict) -> None:
+    """存储 agent 执行 trace。"""
+    _trace_store[session_id] = trace_data
+    if len(_trace_store) > _MAX_TRACES:
+        oldest = min(_trace_store.keys(), key=lambda k: _trace_store[k].get("timestamp", 0))
+        del _trace_store[oldest]
 
 
 # ---------------------------------------------------------------------------
@@ -276,3 +291,16 @@ async def agent_debate(request: Request) -> dict[str, Any]:
         "message": "ok",
         "data": AgentOrchestrator.orchestration_to_dict(result),
     }
+
+
+@router.get("/agent/trace/{session_id}")
+async def get_agent_trace(session_id: str) -> dict[str, Any]:
+    """获取 Agent 执行轨迹。
+
+    返回该 session 的完整 trace(每轮迭代的推理/工具调用/结果/耗时)。
+    数据由 AgentLoopV2 执行完成后通过 store_trace 写入。
+    """
+    trace = _trace_store.get(session_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail="Trace not found")
+    return {"code": 0, "message": "success", "data": trace}

@@ -30,6 +30,8 @@ from .agent_checkpoint import (
 if TYPE_CHECKING:
     from .memory_service import MemoryService
 
+from .hook_engine import HookEngine, hook_engine
+
 logger = logging.getLogger(__name__)
 
 # L4 自进化:持有 fire-and-forget evaluate_and_record task 引用,
@@ -222,6 +224,16 @@ class AgentLoopV2:
         - 出口:成功完成后自动提取记忆写回 API(失败不阻塞,不覆盖 result)
         """
         self._reset_run_state()
+        # Hook 引擎: session.start
+        try:
+            await hook_engine.emit("session.start", {
+                "session_id": self._session_id or "",
+                "user_id": self._user_id or "",
+                "conversation_id": self._conversation_id or "",
+                "max_iterations": self.max_iterations,
+            })
+        except Exception:
+            logger.warning("hook_engine.emit(session.start) 失败(降级,不阻塞)")
         self._ensure_session_id()
         self._messages = messages
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
@@ -279,6 +291,18 @@ class AgentLoopV2:
                 logger.warning(
                     "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
                 )
+        # Hook 引擎: session.end
+        try:
+            await hook_engine.emit("session.end", {
+                "session_id": self._session_id or "",
+                "user_id": self._user_id or "",
+                "success": result.success,
+                "stop_reason": result.stop_reason,
+                "total_iterations": len(result.iterations),
+                "total_duration_ms": result.total_duration_ms,
+            })
+        except Exception:
+            logger.warning("hook_engine.emit(session.end) 失败(降级,不阻塞)")
         return result
 
     # ------------------------------------------------------------------
@@ -412,6 +436,16 @@ class AgentLoopV2:
             iteration = LoopIteration(iteration=i, start_time=iter_start.isoformat())
 
             try:
+                # Hook 引擎: tool.before
+                try:
+                    await hook_engine.emit("tool.before", {
+                        "session_id": self._session_id or "",
+                        "iteration": i,
+                        "messages_count": len(messages),
+                        "tools_count": len(tools_schema) if tools_schema else 0,
+                    })
+                except Exception:
+                    logger.warning("hook_engine.emit(tool.before) 失败(降级,不阻塞)")
                 # 1. 调 LLM(带 tools)
                 llm_response = await self._llm_complete(messages, tools_schema)
 
@@ -430,6 +464,17 @@ class AgentLoopV2:
                         (datetime.now(timezone.utc) - iter_start).total_seconds() * 1000
                     )
                     iterations.append(iteration)
+
+                    # Hook 引擎: message.receive
+                    try:
+                        await hook_engine.emit("message.receive", {
+                            "session_id": self._session_id or "",
+                            "iteration": i,
+                            "content_length": len(content),
+                            "stop_reason": "completed",
+                        })
+                    except Exception:
+                        logger.warning("hook_engine.emit(message.receive) 失败(降级,不阻塞)")
 
                     return AgentLoopResult(
                         success=True,
@@ -469,6 +514,17 @@ class AgentLoopV2:
 
                 # 5. 执行工具
                 tool_results = await self._execute_tools(tool_calls)
+                # Hook 引擎: tool.after
+                try:
+                    await hook_engine.emit("tool.after", {
+                        "session_id": self._session_id or "",
+                        "iteration": i,
+                        "tool_calls_count": len(tool_calls),
+                        "tool_results_count": len(tool_results),
+                        "duration_ms": iteration.duration_ms,
+                    })
+                except Exception:
+                    logger.warning("hook_engine.emit(tool.after) 失败(降级,不阻塞)")
                 iteration.tool_results = tool_results
 
                 # 6. 把工具结果加入 messages
@@ -505,6 +561,15 @@ class AgentLoopV2:
 
             except Exception as e:
                 logger.error("Agent 循环第 %d 轮异常: %s", i, e)
+                # Hook 引擎: error
+                try:
+                    await hook_engine.emit("error", {
+                        "session_id": self._session_id or "",
+                        "iteration": i,
+                        "error": str(e),
+                    })
+                except Exception:
+                    pass  # 异常中 emit 失败不记录日志(避免日志级联)
                 iteration.end_time = datetime.now(timezone.utc).isoformat()
                 iteration.duration_ms = (
                     (datetime.now(timezone.utc) - iter_start).total_seconds() * 1000
