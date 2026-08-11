@@ -175,8 +175,8 @@ export default function BehaviorAnalyticsPage() {
                       <span className={`font-medium ${evColor(r.event)}`}>{evLabel(r.event)}</span>
                       <span className="text-muted-foreground">{numFmt.format(r.count)} 次 / {numFmt.format(r.uniqueUsers)} 用户</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary/70" style={{ width: `${(r.count / maxRank) * 100}%` }} />
+                    <div className="h-2 overflow-hidden rounded bg-muted">
+                      <div className="h-full rounded bg-primary/70" style={{ width: `${(r.count / maxRank) * 100}%` }} />
                     </div>
                   </div>
                 ))}
