@@ -146,6 +146,7 @@ import { adminContentCrudRoutes } from './admin/content/crud.js'
 import aiFeedRoutes from './ai-feed.js'
 import leaderboardRoutes from './leaderboard.js'
 import aiEducationRoutes from './ai-education.js'
+import eduAiManagementRoutes from './edu-ai-management.js'
 import { fileVersionRoutes } from './file-version.js'
 import { callbackLogRoutes } from './callback-log.js'
 
@@ -712,6 +713,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(leaderboardRoutes, { prefix: '/api' })
   // AI 教育模块：5 张表 CRUD（policy/teacher-certification/aigc-tool/k12-curriculum/university-course）
   server.register(aiEducationRoutes, { prefix: '/api/ai-education' })
+  // AI 教育管理：学期/班级/课程表/菜谱/学习计划 7 表 CRUD（2026-08-11 立）
+  server.register(eduAiManagementRoutes, { prefix: '/api/edu-ai-management' })
 
   // 文件版本管理：版本创建/列表/详情/回滚/删除/对比
   server.register(fileVersionRoutes, { prefix: '/api' })
