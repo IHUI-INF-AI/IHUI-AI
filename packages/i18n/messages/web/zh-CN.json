@@ -334,10 +334,13 @@
     "eduSchedule": "课程表",
     "eduScheduleMgr": "课程表管理",
     "eduMealMgr": "菜谱管理",
+    "eduGradeMgr": "成绩管理",
     "eduStudyPlanMgr": "学习计划管理",
+    "eduAttendanceMgr": "考勤管理",
     "eduNotes": "笔记",
     "eduQa": "问答",
     "eduProgress": "学习进度",
+    "eduParentPortal": "家长端",
     "memberDashboard": "会员中心",
     "memberBenefits": "会员权益",
     "memberCoupons": "优惠券",
@@ -14780,7 +14783,18 @@
     "categoryMedia": "自媒体",
     "recommendTitle": "推荐技能",
     "recommendHint": "基于你的使用习惯推荐",
-    "recommendEmpty": "暂无推荐"
+    "recommendEmpty": "暂无推荐",
+    "importTitle": "导入 AI Skill",
+    "importDesc": "粘贴 JSON 格式的 AI Skill 数据以导入",
+    "importPlaceholder": "{\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n}",
+    "importConfirm": "导入",
+    "importCancel": "取消",
+    "importing": "导入中…",
+    "importSuccess": "已导入 {name}",
+    "importFailed": "导入失败",
+    "importJsonEmpty": "请粘贴 JSON 数据",
+    "importJsonInvalid": "JSON 格式无效",
+    "importNameRequired": "缺少 name 字段"
   },
   "aiSkillDetail": {
     "backToList": "返回列表",
@@ -14852,7 +14866,30 @@
     "feedbackRequired": "请先评分",
     "versionLabel": "版本",
     "updatedAt": "更新于",
-    "reason": "推荐理由:"
+    "reason": "推荐理由:",
+    "exportBtn": "导出",
+    "exportSuccess": "导出成功",
+    "exportError": "导出失败",
+    "importBtn": "导入",
+    "rateTitle": "评分",
+    "rateSubmit": "提交评分",
+    "ratingList": "评分列表"
+  },
+  "adminAiSkills": {
+    "title": "AI技能统计",
+    "subtitle": "AI Skill 使用统计概览,包含成功率、耗时趋势等",
+    "totalCalls": "总调用",
+    "successRate": "成功率",
+    "avgDuration": "平均耗时",
+    "totalTokens": "总Token",
+    "callTrend": "调用趋势(最近7天)",
+    "perSkillTable": "各技能统计",
+    "failedSkills": "失败率最高技能(优化建议)",
+    "skillName": "技能名称",
+    "callCount": "调用次数",
+    "successCount": "成功次数",
+    "failureCount": "失败次数",
+    "loadFailed": "加载统计失败"
   },
   "design": {
     "title": "设计模式",
@@ -16520,5 +16557,57 @@
     "search": "搜索基金代码或名称",
     "active": "活跃",
     "inactive": "停用"
+  },
+  "parentPortal": {
+    "dashboard": {
+      "title": "家长端",
+      "subtitle": "查看孩子的学习情况",
+      "bindChild": "绑定孩子",
+      "pendingBindings": "有 {count} 个待确认的绑定",
+      "noChildren": "暂未绑定孩子",
+      "noChildrenHint": "请先绑定孩子后查看学习数据",
+      "bindNow": "立即绑定",
+      "childLabel": "{relationship}看护"
+    },
+    "bind": {
+      "title": "绑定管理",
+      "subtitle": "管理家长与孩子的绑定关系",
+      "createTitle": "创建绑定",
+      "studentIdLabel": "孩子用户ID",
+      "studentIdPlaceholder": "输入孩子的用户ID",
+      "relationshipLabel": "关系",
+      "submit": "提交绑定",
+      "success": "绑定申请已提交",
+      "listTitle": "绑定列表",
+      "empty": "暂无绑定记录",
+      "relationship": "关系",
+      "confirm": "确认",
+      "reject": "拒绝",
+      "deleteTitle": "删除绑定",
+      "deleteConfirm": "确定要删除此绑定关系吗？"
+    },
+    "child": {
+      "courses": "课程表",
+      "coursesHint": "查看孩子的课程安排",
+      "meals": "今日菜谱",
+      "mealsHint": "查看孩子今日的饮食安排",
+      "studyPlans": "学习计划",
+      "studyPlansHint": "查看孩子的学习计划",
+      "attendance": "考勤记录",
+      "attendanceHint": "查看孩子的出勤情况",
+      "grades": "考试成绩",
+      "gradesHint": "查看孩子的考试成绩",
+      "empty": "暂无数据",
+      "monthlyPlan": "月计划",
+      "weeklyPlan": "周计划"
+    },
+    "attendance": {
+      "rate": "出勤率",
+      "records": "签到记录"
+    },
+    "grades": {
+      "detail": "成绩明细",
+      "examCount": "共 {count} 次考试"
+    }
   }
 }
