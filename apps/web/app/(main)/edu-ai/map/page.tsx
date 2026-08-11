@@ -467,7 +467,7 @@ export default function EduAiLearnMapPage() {
                   <ol className="space-y-2">
                     {extractNodes(mapDetail.content).map((node, idx) => (
                       <li key={node.id ?? `${idx}-${node.title ?? ''}`} className="flex items-start gap-2">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-medium text-primary">
                           {idx + 1}
                         </span>
                         <div className="min-w-0">

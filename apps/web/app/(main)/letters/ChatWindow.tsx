@@ -113,7 +113,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
     <div className="flex h-full flex-col">
       {/* 会话标题栏 */}
       <div className="flex items-center gap-2.5 border-b px-4 py-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-medium text-muted-foreground">
           {(memberName || '?').slice(0, 1)}
         </div>
         <p className="truncate text-sm font-medium">{memberName}</p>
