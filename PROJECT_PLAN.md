@@ -201,6 +201,38 @@
 - desktop tauri dev 编译成功(58.45s)+ app 运行 ✅
 - plans 表列补齐后 subscriptions 端点 200(修复前 500)✅
 
+## P0 全项目 Bug 排查 + 修复批次(2026-08-11 立,2026-08-12 完成 ✅,跨端:apps/web + apps/api + apps/ai-service + packages/i18n)
+
+> 用户指令:"检查本项目bug" → "你自己思考 做完整"。全项目 bug 排查(未提交改动审查 + typecheck 门禁 + 运行时日志扫描)后一次性修复。
+
+### 目标
+
+现状:未提交改动新增 `/models/prompts`、`/models/eval` 导航与 3 条 ai-service 反向代理,但(1)页面依赖的 prompts API 返回 `{ok:true}` 不符合 api-client `code===0` 契约;(2)usage API 返回 `code:200` 同样不兼容;(3)web i18n 5 语言 parity 漂移(zh-CN 缺 113 key / 其他语言各缺 45 key + zh-TW 186 处简体残留)导致 guardian 2n-web/2b blocking 拦提交;(4)crew-role-loader 内置 json 加载静默失败;(5)sidebar 重复 `/live` 导航引发 React key 冲突。
+
+### 硬性指标(H1-H8)— 全部达成 ✅
+
+- [x] ✅(2026-08-12) H1:ai-service 响应格式对齐 `{code:0,message,data}` 契约 — `routers/usage.py` 4 端点 `code:200→0`;`routers/prompts.py` 7 端点 `{ok:true}→{code:0,message:"success",data}`(删除端点返回 `data:{deleted,name}`)
+- [x] ✅(2026-08-12) H2:`apps/api/src/services/crew-role-loader.ts` parseRoles 兼容 `string|Record` 入参(require 返回对象不再 JSON.parse);loadBuiltin 传对象。内置 crew-roles.json 恢复真实加载(修复前永远 fallback),crew-role-loader.test.ts 10/10 通过
+- [x] ✅(2026-08-12) H3:sidebar.tsx 删除 eduAi 组重复 `/live`(保留 eduGroup 组),同步删 Radio import — 消除 React key 冲突警告
+- [x] ✅(2026-08-12) H4:新建 `/models/prompts`、`/models/eval` 页面(2026-08-11 用户已建)审查修复:prompts 页错误态按钮文案(`prompts.create`→`retry`)、详情版本标签空插值;eval 页数据集表格 `ds.items.length`→`item_count`(list 接口无 items,原会崩溃)、`created_at` 缺失防御、2 处错误态按钮文案
+- [x] ✅(2026-08-12) H5:web i18n 5 语言 parity 全绿 — zh-CN 补 113 key(parentPortal/settings/user/help/faq/agreement/common 等,从 en 翻译)+ 4 语言各补 45 key(parentPortal 41 + models.usage.chart 4 + nav.eduParentPortal 1)+ zh-CN models 命名空间补 `retry` + 修复 `admin.relayParamOps.dryRunModified` 缺失;zh-TW 186 处简体残留按 scan 脚本建议自动修复;`check-i18n-keys --parity-only` 通过、`scan-i18n-zh-residue zh-TW/ko` 通过、`check-i18n-broken-en` 通过
+- [x] ✅(2026-08-12) H6:ai-service pytest 71/71 通过(test_prompt_registry + test_eval_service + test_llm_usage_service);crew-role-loader 10/10 通过;改动文件 eslint 0 错误
+- [x] ✅(2026-08-12) H7:`pnpm --filter @ihui/api typecheck` exit 0(tsc --noEmit 0 错误)
+- [x] ✅(2026-08-12) H8:`pnpm --filter @ihui/web typecheck` exit 0(后台全量,2026-08-12 凌晨验证)
+
+### 约束边界
+
+- 后端只改响应格式(契约对齐),不改路由结构/业务逻辑;service 层零改动
+- 前端只修既有页面缺陷,不重构页面结构
+- i18n 补 key 严格按 zh-CN 已有值翻译,新增 key 5 语言同步
+- 环境类问题(Redis 5.0.14.1 版本过低、publish.scheduler 启动顺序、registry-sync 外部源)属运维/外部依赖,不在本批次代码修复范围,单独记录
+
+### 遗留观察(非本批次修复)
+
+- Redis 版本 5.0.14.1 低于 Bull 要求的 6.2(Aug7 曾 2597 条 MISCONF,当前已恢复)— 建议升级
+- ai-service `publish.scheduler` 在 Postgres 未启动时每 62s 重试(Aug8 历史)— 建议退避重试
+- registry-sync 外部源 mcp.so/smithery.ai/glama.ai 404 + GitHub rate limit — 需配置 githubToken
+
 ---
 
 ## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)
