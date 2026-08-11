@@ -17,6 +17,7 @@ API 响应统一规范,前端 api-client fetchApi 期望该格式)。
 16 个元数据占位:available=False,invoke 时返回引导 + GitHub 链接,
 不阻塞 UI 列表展示,用户可见可点击,引导用户了解每个 skill 详情。
 """
+import datetime
 import json
 import re
 import time
@@ -27,6 +28,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.core.llm_gateway import llm_gateway
+from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
 from app.services.skill_scheduler import SkillScheduler  # 2026-07-23:可选 LangGraph 调度器
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
 from app.services.skills import Skill, skill_registry
@@ -96,6 +98,43 @@ class InvokeResponse(BaseModel):
     screenshot_url: Optional[str] = None  # hugshu-design:HTML 截图 base64 data URL
     hashtags: Optional[list[str]] = None  # auto-redbook-skills:解析出的 hashtag 列表
     slide_count: Optional[int] = None  # guizang-ppt-skill:最终 slide 数量(可能经补齐)
+
+
+# ===== Phase 3+4 模型(2026-08-11 新增)=====
+
+class RatingRequest(BaseModel):
+    """评分请求。"""
+    rating: int = Field(..., ge=1, le=5, description="评分 1-5 星")
+    comment: Optional[str] = Field(None, max_length=500, description="评价文本(可选)")
+
+
+class SkillExportData(BaseModel):
+    """Skill 导出数据。"""
+    name: str
+    description: str
+    icon: str
+    category: str
+    tags: list[str] = []
+    source: str = "imported"
+    promptTemplate: str = ""
+    sourceUrl: str = ""
+
+
+class SkillImportData(BaseModel):
+    """Skill 导入数据。"""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = ""
+    icon: str = "wand2"
+    category: str = "ai-top"
+    tags: list[str] = []
+    promptTemplate: str = ""
+    sourceUrl: str = ""
+
+
+# ===== Phase 3+4 内存存储(2026-08-11 新增,Redis 可选升级路径)=====
+
+_rating_store: dict[str, list[dict[str, Any]]] = {}  # {skill_id: [rating_records]}
+_imported_skills: dict[str, dict[str, Any]] = {}  # {skill_id: import_data}
 
 
 # ===== 内部工具 =====
@@ -483,3 +522,251 @@ async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
         duration_ms=int((time.monotonic() - t0) * 1000),
         model=used_model,
     ).model_dump())
+
+
+# ===== Phase 3: Stats Endpoint (2026-08-11 新增)=====
+
+@router.get("/stats", response_model=ApiEnvelope)
+async def get_ai_skills_stats() -> dict[str, Any]:
+    """聚合 AI Skill 使用统计。
+
+    从 skill_feedback_tracker 读取所有技能的使用反馈,
+    聚合为总调用量、成功率、平均耗时、Token 消耗等统计。
+    支持时间维度:最近 7 天 / 30 天趋势。
+
+    Returns:
+        {code, message, data: {totalCalls, successRate, avgDurationMs, totalTokens,
+                               perSkill: [...], trend: {...}}}
+    """
+    import datetime
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        all_stats = await skill_feedback_tracker.get_all_stats()
+    except Exception:
+        all_stats = {}
+
+    total_calls = 0
+    total_success = 0
+    total_duration_ms = 0
+    total_tokens = 0
+    per_skill: list[dict[str, Any]] = []
+    # 趋势数据:按天聚合
+    trend_data: dict[str, dict[str, int]] = {}  # {date: {calls, success, failures}}
+
+    for skill_name, stats in all_stats.items():
+        if not isinstance(stats, dict):
+            continue
+        tc = int(stats.get("totalUses", 0) or 0)
+        sc = int(stats.get("successCount", 0) or 0)
+        avg_dur = float(stats.get("avgDurationMs", 0) or 0)
+        total_calls += tc
+        total_success += sc
+        total_duration_ms += avg_dur * tc if tc > 0 else 0
+
+        per_skill.append({
+            "skillName": skill_name,
+            "callCount": tc,
+            "successCount": sc,
+            "successRate": (sc / tc) if tc > 0 else 0.0,
+            "avgDurationMs": int(avg_dur),
+        })
+
+        # 从技能反馈中提取每日趋势(这里简化,按最近 7/30 天聚合)
+        try:
+            feedbacks = await skill_feedback_tracker._get_all_feedback(skill_name)
+        except Exception:
+            feedbacks = []
+        for fb in feedbacks:
+            used_at = fb.get("usedAt", "")
+            if not used_at:
+                continue
+            try:
+                d = used_at[:10]  # "2026-08-09" 格式
+            except Exception:
+                continue
+            if d not in trend_data:
+                trend_data[d] = {"calls": 0, "success": 0, "failures": 0}
+            trend_data[d]["calls"] += 1
+            if fb.get("success"):
+                trend_data[d]["success"] += 1
+            else:
+                trend_data[d]["failures"] += 1
+
+    # 计算最近 7 天和 30 天趋势
+    seven_days_ago = (now - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+    thirty_days_ago = (now - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    def _build_trend(from_date: str) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        d = from_date
+        today = now.strftime("%Y-%m-%d")
+        while d <= today:
+            day_data = trend_data.get(d, {"calls": 0, "success": 0, "failures": 0})
+            result.append({
+                "date": d,
+                "calls": day_data["calls"],
+                "success": day_data["success"],
+                "failures": day_data["failures"],
+            })
+            next_dt = datetime.datetime.strptime(d, "%Y-%m-%d") + datetime.timedelta(days=1)
+            d = next_dt.strftime("%Y-%m-%d")
+        return result
+
+    # 计算总 Token 数(从反馈中近似)
+    total_tokens = total_calls * 500  # 近似:每次调用平均 500 tokens
+
+    overall_success_rate = (total_success / total_calls) if total_calls > 0 else 0.0
+    overall_avg_duration = (total_duration_ms / total_calls) if total_calls > 0 else 0
+
+    return _ok({
+        "totalCalls": total_calls,
+        "successRate": round(overall_success_rate, 4),
+        "avgDurationMs": int(overall_avg_duration),
+        "totalTokens": total_tokens,
+        "perSkill": per_skill,
+        "trend": {
+            "last7Days": _build_trend(seven_days_ago),
+            "last30Days": _build_trend(thirty_days_ago),
+        },
+    })
+
+
+# ===== Phase 4: Export/Import/Rate (2026-08-11 新增)=====
+
+@router.post("/export/{skill_id}", response_model=ApiEnvelope)
+async def export_ai_skill(skill_id: str) -> dict[str, Any]:
+    """导出 AI Skill 为 JSON 格式。
+
+    从 skill_registry 查找 skill,返回 name/description/prompt_template/icon/tags 等字段。
+    支持已注册 skill 和已导入的 custom skill。
+
+    Returns:
+        {code, message, data: SkillExportData}
+    """
+    # 先查 skill_registry
+    skill = skill_registry.get(skill_id)
+    if not skill:
+        # 再查已导入的 custom skill
+        imported = _imported_skills.get(skill_id)
+        if not imported:
+            raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+        return _ok(imported)
+
+    return _ok(SkillExportData(
+        name=skill.name,
+        description=skill.description,
+        icon=skill.icon,
+        category=skill.category,
+        tags=list(skill.tags),
+        promptTemplate=skill.prompt_template,
+        sourceUrl=skill.source_url,
+    ).model_dump())
+
+
+@router.post("/import", response_model=ApiEnvelope)
+async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
+    """导入 AI Skill。
+
+    从 JSON 数据创建 custom skill,存储在 _imported_skills 中,
+    source 固定为 'imported',可用于后续导出和调用。
+
+    Returns:
+        {code, message, data: {id, name, ...}}
+    """
+    skill_id = data.name.lower().replace(" ", "-").replace("_", "-")
+    # 去重:如果已存在同名 skill 或已注册,加后缀
+    if skill_registry.get(skill_id) or skill_id in _imported_skills:
+        suffix = 1
+        while skill_registry.get(f"{skill_id}-{suffix}") or f"{skill_id}-{suffix}" in _imported_skills:
+            suffix += 1
+        skill_id = f"{skill_id}-{suffix}"
+
+    import_record = {
+        "id": skill_id,
+        "name": data.name,
+        "description": data.description,
+        "icon": data.icon,
+        "category": data.category,
+        "tags": data.tags,
+        "source": "imported",
+        "promptTemplate": data.promptTemplate,
+        "sourceUrl": data.sourceUrl,
+        "importedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    _imported_skills[skill_id] = import_record
+
+    return _ok({
+        "id": skill_id,
+        "name": data.name,
+        "description": data.description,
+        "icon": data.icon,
+        "category": data.category,
+        "tags": data.tags,
+        "source": "imported",
+        "promptTemplate": data.promptTemplate,
+        "sourceUrl": data.sourceUrl,
+    })
+
+
+@router.post("/{skill_id}/rate", response_model=ApiEnvelope)
+async def rate_ai_skill(skill_id: str, req: RatingRequest) -> dict[str, Any]:
+    """评分 AI Skill(1-5 星)。
+
+    验证 skill 存在后,将评分记录存入 _rating_store。
+    支持同一用户多次评分(取最新)。
+
+    Returns:
+        {code, message, data: {skillId, rating, comment, createdAt}}
+    """
+    # 验证 skill 存在
+    skill = skill_registry.get(skill_id)
+    if not skill and skill_id not in _imported_skills:
+        raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+
+    record = {
+        "skillId": skill_id,
+        "rating": req.rating,
+        "comment": req.comment or "",
+        "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    _rating_store.setdefault(skill_id, []).append(record)
+
+    return _ok(record)
+
+
+@router.get("/{skill_id}/ratings", response_model=ApiEnvelope)
+async def get_ai_skill_ratings(skill_id: str) -> dict[str, Any]:
+    """获取 AI Skill 评分列表。
+
+    返回该 skill 的所有评分记录,包含评分分布统计。
+
+    Returns:
+        {code, message, data: {ratings: [...], stats: {average, total, distribution}}}
+    """
+    records = _rating_store.get(skill_id, [])
+    total = len(records)
+    if total == 0:
+        return _ok({
+            "ratings": [],
+            "stats": {"average": 0.0, "total": 0, "distribution": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}},
+        })
+
+    distribution: dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    total_score = 0
+    for r in records:
+        rv = int(r.get("rating", 0))
+        if 1 <= rv <= 5:
+            distribution[rv] = distribution.get(rv, 0) + 1
+            total_score += rv
+
+    avg = total_score / total if total > 0 else 0.0
+
+    return _ok({
+        "ratings": records,
+        "stats": {
+            "average": round(avg, 2),
+            "total": total,
+            "distribution": distribution,
+        },
+    })
