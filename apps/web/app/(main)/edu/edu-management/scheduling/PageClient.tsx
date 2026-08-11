@@ -18,7 +18,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -887,8 +887,8 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-xs font-medium">{c.courseName}</td>
                           <td className="px-4 py-3 text-xs">{c.originalTime}</td>
                           <td className="px-4 py-3 text-xs">{c.newTime}</td>
-                          <td className="max-w-[150px] truncate px-4 py-3 text-xs text-muted-foreground" title={c.reason}>
-                            {c.reason}
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            <TruncatedText value={c.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
                             <Badge
