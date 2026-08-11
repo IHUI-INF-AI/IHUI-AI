@@ -230,3 +230,5 @@ export * from './download-stats.js'
 export * from './crash-reports.js'
 // 商业化服务询价表(2026-08-08 新增,询价表单持久化 + admin 管理)
 export * from './service-inquiries.js'
+// AI 教育管理新增表(2026-08-11 立,学期/班级/课程表/菜谱/学习计划 7 表)
+export * from './edu-ai-management.js'
