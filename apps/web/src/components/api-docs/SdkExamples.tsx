@@ -146,7 +146,7 @@ const resp = await client.chat.completions.create({
   model: "gpt-4o-mini",
   messages: [{ role: "user", content: "你好" }],
 })
-console.log(resp.choices[0].message.content)`,
+console.log(resp.choices[0].message.content) // 生产环境应替换为 UI 展示`,
       },
       {
         title: '@anthropic-ai/sdk',
@@ -162,7 +162,7 @@ const msg = await client.messages.create({
   max_tokens: 1024,
   messages: [{ role: "user", content: "你好" }],
 })
-console.log(msg.content[0].text)`,
+console.log(msg.content[0].text) // 生产环境应替换为 UI 展示`,
       },
       {
         title: '@ihui/sdk',
@@ -178,11 +178,11 @@ const resp = await client.ai.completions({
   model: "gpt-4o-mini",
   messages: [{ role: "user", content: "你好" }],
 })
-console.log(resp.choices[0].message.content)
+console.log(resp.choices[0].message.content) // 生产环境应替换为 UI 展示
 
 // 获取模型列表
 const models = await client.ai.listModels()
-console.log(models.data)`,
+console.log(models.data) // 生产环境应替换为 UI 展示`,
       },
       {
         title: 'fetch',
@@ -198,7 +198,7 @@ console.log(models.data)`,
   }),
 })
 const data = await resp.json()
-console.log(data.choices[0].message.content)`,
+console.log(data.choices[0].message.content) // 生产环境应替换为 UI 展示`,
       },
     ],
   },
@@ -219,7 +219,7 @@ import (
 )
 
 func main() {
-  body, _ := json.Marshal(map[string]any{
+  body, _ := json.Marshal(map[string]interface{}{
     "model": "gpt-4o-mini",
     "messages": []map[string]string{{"role": "user", "content": "你好"}},
   })
