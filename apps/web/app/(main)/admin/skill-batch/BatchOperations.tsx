@@ -289,9 +289,9 @@ export function BatchOperations() {
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('progress', { current: progress.current, total: progress.total })}
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-primary/20">
+          <div className="h-2 w-full overflow-hidden rounded bg-primary/20">
             <div
-              className="h-full rounded-full transition-all duration-300"
+              className="h-full rounded transition-all duration-300"
               style={{
                 width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
                 backgroundColor:
