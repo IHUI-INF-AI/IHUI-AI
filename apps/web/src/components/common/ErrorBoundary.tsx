@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import { useNavigationStore } from '@/stores/navigation'
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
@@ -69,6 +70,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     this.props.onError?.(error, info)
+    // 2026-08-11: 崩溃时重置 navigation pending 状态,防止骨架屏覆盖层永久遮挡内容区。
+    // 与 error.tsx 的 useEffect 逻辑一致,覆盖 ErrorBoundary 包裹的场景。
+    useNavigationStore.getState().end()
     // 2026-08-06: 崩溃自动上报(crash_reports 链路,POST /api/crash-reports)。
     // 静默失败:上报失败 / 环境异常绝不影响 UI 渲染。
     if (typeof window !== 'undefined') {
