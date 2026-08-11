@@ -403,7 +403,7 @@ export default function EduAiVideoComposePage() {
                     )}
                     <div
                       className={cn(
-                        'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border',
+                        'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
                         STATUS_NODE[step.status],
                       )}
                     >
@@ -525,7 +525,7 @@ export default function EduAiVideoComposePage() {
                     >
                       <span
                         className={cn(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border',
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border',
                           STATUS_NODE[task.status],
                         )}
                       >

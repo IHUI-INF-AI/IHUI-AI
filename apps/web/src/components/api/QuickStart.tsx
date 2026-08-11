@@ -31,7 +31,7 @@ const DEFAULT_STEPS: QuickStartStep[] = [
   {
     title: '3. 发起调用',
     desc: '使用 AppKey 鉴权后即可发起请求。',
-    code: `import { fetchApi } from '@ihui/api-client'\n\nconst res = await fetchApi('/v1/chat', { apiKey: 'YOUR_KEY' })\nconsole.log(res)`,
+    code: `import { fetchApi } from '@ihui/api-client'\n\nconst res = await fetchApi('/v1/chat', { apiKey: 'YOUR_KEY' })\nconsole.log(res) // 生产环境应替换为 UI 展示`,
     language: 'ts',
   },
 ]
