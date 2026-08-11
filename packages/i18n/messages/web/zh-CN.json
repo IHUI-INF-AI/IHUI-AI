@@ -300,6 +300,8 @@
     "modelsUsers": "用户",
     "modelsGroups": "分组",
     "modelsUsage": "用量",
+    "modelsPrompts": "Prompt 管理",
+    "modelsEval": "评测",
     "modelsBilling": "账单",
     "modelsRedeem": "兑换码",
     "modelsReferral": "推荐奖励",
@@ -7952,6 +7954,8 @@
     "navSkills": "技能",
     "navChats": "对话",
     "navUsageStats": "用量",
+    "navPrompts": "Prompt 管理",
+    "navEval": "评测",
     "navLogs": "日志",
     "navApiKeys": "API 密钥",
     "navRedeem": "兑换码",
@@ -8162,6 +8166,12 @@
         "tokens": "Tokens",
         "cost": "消费",
         "share": "占比"
+      },
+      "chart": {
+        "title": "用量趋势",
+        "calls": "调用次数",
+        "tokens": "Tokens",
+        "noData": "暂无数据"
       }
     },
     "billing": {
@@ -8454,6 +8464,166 @@
         "holiday": "节假日",
         "closed": "休息"
       }
+    },
+    "eval": {
+      "title": "评估评测",
+      "subtitle": "管理测试数据集、运行自动化评估并对比结果",
+      "tabs": {
+        "datasets": "数据集",
+        "runs": "运行记录"
+      },
+      "datasets": {
+        "title": "数据集",
+        "create": "创建数据集",
+        "delete": "删除",
+        "view": "查看",
+        "table": {
+          "name": "名称",
+          "description": "描述",
+          "items": "条目数",
+          "createdAt": "创建时间",
+          "actions": "操作"
+        },
+        "form": {
+          "name": "名称",
+          "namePlaceholder": "输入数据集名称",
+          "description": "描述",
+          "descriptionPlaceholder": "输入数据集描述（可选）",
+          "items": "测试条目",
+          "input": "输入",
+          "inputPlaceholder": "输入测试文本",
+          "expectedOutput": "期望输出",
+          "expectedOutputPlaceholder": "输入期望输出（可选）",
+          "addItem": "添加条目",
+          "submit": "创建",
+          "cancel": "取消"
+        },
+        "detail": {
+          "title": "数据集详情",
+          "item": "条目 {index}",
+          "input": "输入",
+          "expectedOutput": "期望输出",
+          "close": "关闭"
+        },
+        "messages": {
+          "createSuccess": "创建成功",
+          "createFailed": "创建失败",
+          "deleteSuccess": "删除成功",
+          "deleteFailed": "删除失败",
+          "deleteConfirm": "确定删除数据集 \"{name}\"？"
+        },
+        "empty": "暂无数据集",
+        "loading": "加载中..."
+      },
+      "runs": {
+        "title": "运行记录",
+        "create": "运行评估",
+        "view": "查看结果",
+        "table": {
+          "id": "运行 ID",
+          "dataset": "数据集",
+          "model": "模型",
+          "prompt": "Prompt",
+          "avgScore": "平均分",
+          "duration": "耗时",
+          "createdAt": "时间",
+          "actions": "操作"
+        },
+        "form": {
+          "datasetName": "数据集",
+          "datasetNamePlaceholder": "选择数据集名称",
+          "model": "模型",
+          "modelPlaceholder": "输入模型名称 (如 stepfun/step-3.7-flash)",
+          "promptName": "Prompt",
+          "promptNamePlaceholder": "输入 Prompt 名称",
+          "submit": "开始评估",
+          "cancel": "取消",
+          "running": "评估中..."
+        },
+        "detail": {
+          "title": "评估结果",
+          "summary": "评估概要",
+          "avgScore": "平均分",
+          "totalDuration": "总耗时",
+          "items": "评估条目",
+          "item": "条目 {index}",
+          "input": "输入",
+          "expectedOutput": "期望输出",
+          "actualOutput": "实际输出",
+          "score": "得分",
+          "duration": "耗时",
+          "error": "错误",
+          "close": "关闭",
+          "scoreHigh": "优秀",
+          "scoreMedium": "一般",
+          "scoreLow": "较差"
+        },
+        "messages": {
+          "createSuccess": "评估运行已创建",
+          "createFailed": "创建失败",
+          "loadFailed": "加载失败"
+        },
+        "empty": "暂无运行记录",
+        "loading": "加载中..."
+      }
+    },
+    "prompts": {
+      "title": "Prompt 管理",
+      "subtitle": "创建、编辑和管理 Prompt 模板与版本",
+      "create": "创建 Prompt",
+      "edit": "编辑",
+      "delete": "删除",
+      "view": "查看",
+      "rollback": "回滚",
+      "history": "版本历史",
+      "searchPlaceholder": "搜索 Prompt 名称...",
+      "table": {
+        "name": "名称",
+        "description": "描述",
+        "latestVersion": "最新版本",
+        "updatedAt": "更新时间",
+        "actions": "操作"
+      },
+      "form": {
+        "name": "名称",
+        "namePlaceholder": "输入 Prompt 名称",
+        "content": "内容",
+        "contentPlaceholder": "输入 Prompt 模板内容...",
+        "description": "描述",
+        "descriptionPlaceholder": "输入 Prompt 描述（可选）",
+        "submit": "提交",
+        "cancel": "取消",
+        "nameRequired": "请输入名称",
+        "contentRequired": "请输入内容"
+      },
+      "detail": {
+        "title": "Prompt 详情",
+        "version": "版本 {version}",
+        "content": "内容",
+        "close": "关闭"
+      },
+      "history": {
+        "title": "版本历史",
+        "version": "版本 {version}",
+        "description": "描述",
+        "createdAt": "创建时间",
+        "rollbackConfirm": "确认回滚到版本 {version}？",
+        "rollbackSuccess": "回滚成功",
+        "rollbackFailed": "回滚失败",
+        "current": "当前版本"
+      },
+      "messages": {
+        "createSuccess": "创建成功",
+        "createFailed": "创建失败",
+        "updateSuccess": "更新成功",
+        "updateFailed": "更新失败",
+        "deleteSuccess": "删除成功",
+        "deleteFailed": "删除失败",
+        "deleteConfirm": "确定删除 Prompt \"{name}\"？",
+        "loadFailed": "加载失败"
+      },
+      "empty": "暂无 Prompt",
+      "loading": "加载中..."
     }
   },
   "dashboard": {
