@@ -17,7 +17,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -1061,8 +1061,8 @@ export default function AttendancePage() {
                           <td className="px-4 py-3 text-xs">{LEAVE_TYPE_MAP.get(l.leaveType) ?? l.leaveType}</td>
                           <td className="px-4 py-3 text-xs">{l.startDate} ~ {l.endDate}</td>
                           <td className="px-4 py-3 text-xs">{l.totalDays}天</td>
-                          <td className="max-w-[150px] truncate px-4 py-3 text-xs text-muted-foreground" title={l.reason}>
-                            {l.reason}
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            <TruncatedText value={l.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
                             <Badge
