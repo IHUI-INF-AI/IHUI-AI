@@ -250,6 +250,27 @@ const nextConfig: NextConfig = {
           source: '/api/admin/meta-learner/:path*',
           destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
         },
+        // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
+        // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/usage/:path*',
+          destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
+        },
+        // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
+        // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/eval/:path*',
+          destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
+        },
+        // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
+        // 原因:prompts router 注册在 ai-service(prefix="/api"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/prompts/:path*',
+          destination: 'http://localhost:8803/api/prompts/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
