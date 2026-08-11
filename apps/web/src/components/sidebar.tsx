@@ -97,6 +97,7 @@ import {
   UsersRound,
   MessagesSquare,
   UserPlus,
+  ClipboardCheck,
   ClipboardList,
   Circle as CircleIcon,
   Network,
@@ -312,10 +313,14 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu/schedule', labelKey: 'eduSchedule', icon: CalendarDays },
   { href: '/edu/edu-management/schedule', labelKey: 'eduScheduleMgr', icon: CalendarCheck },
   { href: '/edu/edu-management/meal', labelKey: 'eduMealMgr', icon: UtensilsCrossed },
+  { href: '/edu/edu-management/grades', labelKey: 'eduGradeMgr', icon: Award },
   { href: '/edu/edu-management/study-plan', labelKey: 'eduStudyPlanMgr', icon: ClipboardList },
+  { href: '/edu/edu-management/attendance', labelKey: 'eduAttendanceMgr', icon: ClipboardCheck },
   { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
   { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },
   { href: '/edu/progress', labelKey: 'eduProgress', icon: BarChart3 },
+  // 2026-08-11 家长端入口(家长-学生绑定管理 + 孩子数据查看)
+  { href: '/edu/parent', labelKey: 'eduParentPortal', icon: UsersRound },
   // 2026-08-07 AI 教育特色板块 4 入口(政策库/教师认证/AIGC工具/AI课程)
   { href: '/edu-ai/policy', labelKey: 'eduAiPolicy', icon: FileText },
   { href: '/edu-ai/certification', labelKey: 'eduAiCert', icon: GraduationCap },
