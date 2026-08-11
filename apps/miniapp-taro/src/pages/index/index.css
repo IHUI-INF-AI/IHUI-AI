@@ -227,7 +227,7 @@
   height: 50rpx;
   z-index: 1000;
   background: var(--color-card);
-  border-radius: 50%;
+  border-radius: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
