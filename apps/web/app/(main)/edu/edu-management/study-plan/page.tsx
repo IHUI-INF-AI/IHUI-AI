@@ -14,6 +14,11 @@ import {
   ChevronRight,
   ChevronLeft,
   GripVertical,
+  Shield,
+  User,
+  FileText,
+  ListChecks,
+  Clock,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -92,6 +97,7 @@ interface PlanItem {
   studentId: string | null
   parentItemId: string | null
   completed: boolean
+  completedAt: string | null
   sortOrder: number
   deletedAt: string | null
   createdAt: string
@@ -113,6 +119,13 @@ const PLAN_TYPE_LABELS: Record<PlanType, string> = {
   weekly: '周计划',
 }
 
+const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
+  draft: '草稿',
+  active: '进行中',
+  completed: '已完成',
+  archived: '已归档',
+}
+
 const PLAN_STATUS_VARIANTS: Record<PlanStatus, string> = {
   draft: 'bg-gray-200 text-gray-700 border-gray-300',
   active: 'bg-blue-100 text-blue-700 border-blue-300',
@@ -120,10 +133,16 @@ const PLAN_STATUS_VARIANTS: Record<PlanStatus, string> = {
   archived: 'bg-gray-100 text-gray-500 border-gray-200',
 }
 
+const STATUS_ORDER: PlanStatus[] = ['draft', 'active', 'completed', 'archived']
+
 /* ─── Helpers ─── */
 
 function formatDateDisplay(dateStr: string): string {
   return dateStr.split('-').slice(0, 2).join('-')
+}
+
+function formatDateFull(dateStr: string): string {
+  return dateStr
 }
 
 function getMonday(d: Date): Date {
@@ -133,6 +152,10 @@ function getMonday(d: Date): Date {
   date.setDate(date.getDate() + diff)
   date.setHours(0, 0, 0, 0)
   return date
+}
+
+function formatDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /* ─── Types for form data ─── */
@@ -368,12 +391,14 @@ function PlanItemEditDialog({
   initial,
   onSave,
   onDelete,
+  isStudentMode,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   initial: PlanItem | null
   onSave: (data: PlanItemFormData) => Promise<void>
   onDelete?: () => Promise<void>
+  isStudentMode?: boolean
 }) {
   const [form, setForm] = React.useState<PlanItemFormData>(emptyItemForm)
   const [saving, setSaving] = React.useState(false)
@@ -423,7 +448,13 @@ function PlanItemEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{initial ? '编辑计划条目' : '添加计划条目'}</DialogTitle>
+          <DialogTitle>
+            {isStudentMode
+              ? '添加备注'
+              : initial
+                ? '编辑计划条目'
+                : '添加计划条目'}
+          </DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
@@ -432,22 +463,26 @@ function PlanItemEditDialog({
               value={form.content}
               onChange={(e) => update('content', e.target.value)}
               placeholder="例如：完成第一章练习题"
+              disabled={isStudentMode && !!initial}
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label>学习目标</Label>
-            <Input
-              value={form.objective}
-              onChange={(e) => update('objective', e.target.value)}
-              placeholder="目标描述（可选）"
-            />
-          </div>
+          {!isStudentMode && (
+            <div className="grid gap-1.5">
+              <Label>学习目标</Label>
+              <Input
+                value={form.objective}
+                onChange={(e) => update('objective', e.target.value)}
+                placeholder="目标描述（可选）"
+              />
+            </div>
+          )}
           <div className="grid gap-1.5">
             <Label>截止日期</Label>
             <Input
               type="date"
               value={form.dueDate}
               onChange={(e) => update('dueDate', e.target.value)}
+              disabled={isStudentMode && !!initial}
             />
           </div>
           <div className="grid gap-1.5">
@@ -455,7 +490,7 @@ function PlanItemEditDialog({
             <Input
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder="备注信息（可选）"
+              placeholder={isStudentMode ? '添加你的备注' : '备注信息（可选）'}
             />
           </div>
           {initial && (
@@ -470,7 +505,7 @@ function PlanItemEditDialog({
           )}
         </div>
         <DialogFooter>
-          {initial && onDelete && (
+          {initial && onDelete && !isStudentMode && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               删除
@@ -478,7 +513,7 @@ function PlanItemEditDialog({
           )}
           <Button onClick={handleSave} disabled={saving || !form.content.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {initial ? '保存' : '添加'}
+            {isStudentMode ? '保存备注' : initial ? '保存' : '添加'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -703,14 +738,17 @@ export default function StudyPlanPage() {
   const [selectedTermId, setSelectedTermId] = React.useState('')
   const [selectedClassId, setSelectedClassId] = React.useState('')
   const [planFilter, setPlanFilter] = React.useState<PlanType | 'all'>('all')
+  const [statusFilter, setStatusFilter] = React.useState<PlanStatus | 'all'>('all')
   const [selectedPlan, setSelectedPlan] = React.useState<StudyPlan | null>(null)
   const [planEditOpen, setPlanEditOpen] = React.useState(false)
   const [editingPlan, setEditingPlan] = React.useState<StudyPlan | null>(null)
   const [itemEditOpen, setItemEditOpen] = React.useState(false)
   const [editingItem, setEditingItem] = React.useState<PlanItem | null>(null)
+  const [editingItemParentId, setEditingItemParentId] = React.useState<string | null>(null)
   const [termDialogOpen, setTermDialogOpen] = React.useState(false)
   const [classDialogOpen, setClassDialogOpen] = React.useState(false)
   const [weekOffset, setWeekOffset] = React.useState(0)
+  const [isStudentMode, setIsStudentMode] = React.useState(false)
 
   /* ── Queries ── */
   const {
@@ -754,20 +792,44 @@ export default function StudyPlanPage() {
     data: plansData,
     isLoading: plansLoading,
   } = useQuery({
-    queryKey: ['edu-ai-management', 'study-plan', selectedTermId, selectedClassId, planFilter],
+    queryKey: ['edu-ai-management', 'study-plan', selectedTermId, selectedClassId, planFilter, statusFilter],
     queryFn: () => {
       let url = `/api/edu-ai-management/study-plan?termId=${selectedTermId}&classId=${selectedClassId}`
       if (planFilter !== 'all') {
         url += `&planType=${planFilter}`
+      }
+      if (statusFilter !== 'all') {
+        url += `&status=${statusFilter}`
       }
       return api<{ list: StudyPlan[] }>(url)
     },
     enabled: !!selectedTermId && !!selectedClassId,
   })
 
-  const plans = (plansData?.list ?? []).filter((p) => !p.deletedAt).sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const allPlans = (plansData?.list ?? []).filter((p) => !p.deletedAt)
+
+  // Parent plans (non-child plans) sorted by creation date desc
+  const parentPlans = React.useMemo(
+    () => allPlans.filter((p) => !p.parentPlanId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allPlans],
   )
+
+  // Child plans keyed by parentPlanId
+  const childPlansByParent = React.useMemo(() => {
+    const map = new Map<string, StudyPlan[]>()
+    for (const p of allPlans) {
+      if (p.parentPlanId) {
+        const list = map.get(p.parentPlanId) ?? []
+        list.push(p)
+        map.set(p.parentPlanId, list)
+      }
+    }
+    // Sort child plans by startDate
+    for (const [, list] of map) {
+      list.sort((a, b) => a.startDate.localeCompare(b.startDate))
+    }
+    return map
+  }, [allPlans])
 
   const {
     data: itemsData,
@@ -778,7 +840,29 @@ export default function StudyPlanPage() {
     enabled: !!selectedPlan,
   })
 
-  const items = (itemsData?.list ?? []).filter((item) => !item.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder)
+  const allItems = (itemsData?.list ?? []).filter((item) => !item.deletedAt)
+
+  // Parent items (no parentItemId) sorted by sortOrder
+  const parentItems = React.useMemo(
+    () => allItems.filter((item) => !item.parentItemId).sort((a, b) => a.sortOrder - b.sortOrder),
+    [allItems],
+  )
+
+  // Child items keyed by parentItemId
+  const childItemsByParent = React.useMemo(() => {
+    const map = new Map<string, PlanItem[]>()
+    for (const item of allItems) {
+      if (item.parentItemId) {
+        const list = map.get(item.parentItemId) ?? []
+        list.push(item)
+        map.set(item.parentItemId, list)
+      }
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    return map
+  }, [allItems])
 
   // Calculate week view for weekly plans
   const today = React.useMemo(() => new Date(), [])
@@ -798,25 +882,17 @@ export default function StudyPlanPage() {
 
   const itemsByDay = React.useMemo(() => {
     const map = new Map<string, PlanItem[]>()
-    for (const item of items) {
-      if (!item.dueDate) {
-        const key = 'undated'
-        const list = map.get(key) ?? []
-        list.push(item)
-        map.set(key, list)
-        continue
-      }
-      const key = item.dueDate
+    for (const item of allItems) {
+      const key = item.dueDate ?? 'undated'
       const list = map.get(key) ?? []
       list.push(item)
       map.set(key, list)
     }
-    // Sort each list by sortOrder
     for (const [, list] of map) {
       list.sort((a, b) => a.sortOrder - b.sortOrder)
     }
     return map
-  }, [items])
+  }, [allItems])
 
   /* ── Mutations ── */
   const invalidate = React.useCallback(
@@ -844,16 +920,10 @@ export default function StudyPlanPage() {
   })
 
   const updatePlan = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: StudyPlanFormData }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<StudyPlanFormData> }) =>
       api(`/api/edu-ai-management/study-plan/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          title: data.title,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          description: data.description || null,
-          status: editingPlan?.status,
-        }),
+        body: JSON.stringify(data),
       }),
     onSuccess: (_, vars) => {
       invalidate()
@@ -876,7 +946,7 @@ export default function StudyPlanPage() {
 
   const autoSplitPlan = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/study-plan/${id}/auto-split`, { method: 'POST' }),
+      api<{ count: number; plans: StudyPlan[] }>(`/api/edu-ai-management/study-plan/${id}/auto-split`, { method: 'POST' }),
     onSuccess: invalidate,
   })
 
@@ -890,16 +960,16 @@ export default function StudyPlanPage() {
   })
 
   const createItem = useMutation({
-    mutationFn: (data: PlanItemFormData) =>
+    mutationFn: (data: { content: string; objective?: string | null; dueDate?: string | null; notes?: string | null; parentItemId?: string | null }) =>
       api(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`, {
         method: 'POST',
         body: JSON.stringify({
           content: data.content,
-          objective: data.objective || null,
-          dueDate: data.dueDate || null,
-          notes: data.notes || null,
-          completed: data.completed,
-          sortOrder: items.length,
+          objective: data.objective ?? null,
+          dueDate: data.dueDate ?? null,
+          notes: data.notes ?? null,
+          parentItemId: data.parentItemId ?? null,
+          sortOrder: allItems.length,
         }),
       }),
     onSuccess: () => {
@@ -909,16 +979,10 @@ export default function StudyPlanPage() {
   })
 
   const updateItem = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: PlanItemFormData }) =>
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       api(`/api/edu-ai-management/plan-item/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          content: data.content,
-          objective: data.objective || null,
-          notes: data.notes || null,
-          dueDate: data.dueDate || null,
-          completed: data.completed,
-        }),
+        body: JSON.stringify(data),
       }),
     onSuccess: () => {
       invalidate()
@@ -983,20 +1047,20 @@ export default function StudyPlanPage() {
 
   const handleSavePlan = async (data: StudyPlanFormData) => {
     if (editingPlan) {
-      await updatePlan.mutateAsync({ id: editingPlan.id, data })
+      await updatePlan.mutateAsync({
+        id: editingPlan.id,
+        data: {
+          title: data.title,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          description: data.description ?? undefined,
+        },
+      })
       if (selectedPlan?.id === editingPlan.id) {
         setSelectedPlan({ ...selectedPlan, ...data })
       }
     } else {
       await createPlan.mutateAsync(data)
-      // Auto-split if monthly
-      if (data.planType === 'monthly') {
-        const newPlans = plansData?.list ?? []
-        const newPlan = newPlans.find(p => p.title === data.title && !p.deletedAt)
-        if (newPlan) {
-          await autoSplitPlan.mutateAsync(newPlan.id)
-        }
-      }
     }
   }
 
@@ -1011,34 +1075,54 @@ export default function StudyPlanPage() {
 
   const handleSelectPlan = (plan: StudyPlan) => {
     setSelectedPlan(plan)
+    setWeekOffset(0)
   }
 
   const handleAutoSplit = async (planId: string) => {
     await autoSplitPlan.mutateAsync(planId)
   }
 
-  const handleCycleStatus = async (plan: StudyPlan) => {
-    const statusOrder: PlanStatus[] = ['draft', 'active', 'completed', 'archived']
-    const currentIndex = statusOrder.indexOf(plan.status)
-    const nextIndex = (currentIndex + 1) % statusOrder.length
-    await updatePlanStatus.mutateAsync({ id: plan.id, status: statusOrder[nextIndex]! })
-  }
-
   const handleAddItem = () => {
     setEditingItem(null)
+    setEditingItemParentId(null)
     setItemEditOpen(true)
   }
 
   const handleEditItem = (item: PlanItem) => {
     setEditingItem(item)
+    setEditingItemParentId(null)
+    setItemEditOpen(true)
+  }
+
+  const handleAddSubItem = (parentItemId: string) => {
+    setEditingItem(null)
+    setEditingItemParentId(parentItemId)
     setItemEditOpen(true)
   }
 
   const handleSaveItem = async (data: PlanItemFormData) => {
     if (editingItem) {
-      await updateItem.mutateAsync({ id: editingItem.id, data })
+      const updateData: Record<string, unknown> = {}
+      // In student mode, only allow editing notes and completion
+      if (isStudentMode) {
+        updateData.notes = data.notes
+        updateData.completed = data.completed
+      } else {
+        updateData.content = data.content
+        updateData.objective = data.objective || null
+        updateData.notes = data.notes || null
+        updateData.dueDate = data.dueDate || null
+        updateData.completed = data.completed
+      }
+      await updateItem.mutateAsync({ id: editingItem.id, data: updateData })
     } else {
-      await createItem.mutateAsync(data)
+      await createItem.mutateAsync({
+        content: data.content,
+        objective: data.objective || null,
+        dueDate: data.dueDate || null,
+        notes: data.notes || null,
+        parentItemId: editingItemParentId,
+      })
     }
   }
 
@@ -1052,18 +1136,14 @@ export default function StudyPlanPage() {
     await toggleItemCompleted.mutateAsync({ id: item.id, completed: !item.completed })
   }
 
-  /* ── Render helpers ─── */
-  const formatDate = (d: Date): string => {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
+  /* ── Computed values ── */
+  const completedCount = parentItems.filter(i => i.completed).length
+  const totalCount = parentItems.length
+  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   const isToday = (d: Date): boolean => {
     return formatDate(d) === formatDate(today)
   }
-
-  const completedCount = items.filter(i => i.completed).length
-  const totalCount = items.length
-  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   /* ── Loading / Error states ── */
   if (termsLoading) {
@@ -1172,13 +1252,34 @@ export default function StudyPlanPage() {
               onValueChange={(v: PlanType | 'all') => setPlanFilter(v)}
               disabled={!selectedTermId || !selectedClassId}
             >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="筛选类型" />
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="类型筛选" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="all">全部类型</SelectItem>
                 <SelectItem value="monthly">月计划</SelectItem>
                 <SelectItem value="weekly">周计划</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status filter */}
+          <div className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-muted-foreground" />
+            <Select
+              value={statusFilter}
+              onValueChange={(v: PlanStatus | 'all') => setStatusFilter(v)}
+              disabled={!selectedTermId || !selectedClassId}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="状态筛选" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="draft">草稿</SelectItem>
+                <SelectItem value="active">进行中</SelectItem>
+                <SelectItem value="completed">已完成</SelectItem>
+                <SelectItem value="archived">已归档</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1187,7 +1288,7 @@ export default function StudyPlanPage() {
           <div className="ml-auto">
             <Button size="sm" onClick={handleAddPlan} disabled={!selectedTermId || !selectedClassId}>
               <Plus className="mr-1 h-3.5 w-3.5" />
-              创建计划
+              创建月计划
             </Button>
           </div>
         </CardContent>
@@ -1199,8 +1300,8 @@ export default function StudyPlanPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              计划列表
-              {plans.length > 0 && <span className="ml-2 text-xs text-muted-foreground">({plans.length})</span>}
+              {selectedPlan ? '计划列表' : '计划列表'}
+              {parentPlans.length > 0 && <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -1209,55 +1310,115 @@ export default function StudyPlanPage() {
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 加载中...
               </div>
-            ) : plans.length === 0 ? (
+            ) : parentPlans.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
                 <p className="text-sm">暂无学习计划</p>
               </div>
             ) : (
               <div className="divide-y">
-                {plans.map((plan) => (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    className={cn(
-                      'w-full px-4 py-3 text-left transition-colors hover:bg-accent/50',
-                      selectedPlan?.id === plan.id && 'bg-accent',
-                    )}
-                    onClick={() => handleSelectPlan(plan)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className={cn(
-                            'text-sm font-medium truncate',
-                            plan.status === 'completed' && 'line-through text-muted-foreground',
-                          )}>
-                            {plan.title}
-                          </p>
+                {parentPlans.map((plan) => {
+                  const children = childPlansByParent.get(plan.id) ?? []
+                  const isUnsplitted = plan.planType === 'monthly' && children.length === 0
+                  return (
+                    <div key={plan.id}>
+                      <button
+                        type="button"
+                        className={cn(
+                          'w-full px-4 py-3 text-left transition-colors hover:bg-accent/50',
+                          selectedPlan?.id === plan.id && 'bg-accent',
+                        )}
+                        onClick={() => handleSelectPlan(plan)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className={cn(
+                                'text-sm font-medium truncate',
+                                plan.status === 'completed' && 'line-through text-muted-foreground',
+                              )}>
+                                {plan.title}
+                              </p>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                              <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[plan.status])}>
+                                {PLAN_STATUS_LABELS[plan.status]}
+                              </Badge>
+                              <Badge variant="outline">
+                                {PLAN_TYPE_LABELS[plan.planType]}
+                              </Badge>
+                              {isUnsplitted && (
+                                <Badge variant="outline" className="border-amber-300 text-amber-600">
+                                  未拆解
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {formatDateDisplay(plan.startDate)} ~ {formatDateDisplay(plan.endDate)}
+                            </p>
+                          </div>
+                          <ChevronRight className={cn(
+                            'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                            selectedPlan?.id === plan.id && 'rotate-90',
+                          )} />
                         </div>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[plan.status])}>
-                            {plan.status === 'draft' && '草稿'}
-                            {plan.status === 'active' && '进行中'}
-                            {plan.status === 'completed' && '已完成'}
-                            {plan.status === 'archived' && '已归档'}
-                          </Badge>
-                          <Badge variant="outline">
-                            {PLAN_TYPE_LABELS[plan.planType]}
-                          </Badge>
+                        {/* Action buttons in card */}
+                        <div className="mt-2 flex items-center gap-2">
+                          {isUnsplitted && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAutoSplit(plan.id)
+                              }}
+                            >
+                              <FileText className="mr-1 h-3 w-3" />
+                              拆解
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditPlan(plan)
+                            }}
+                          >
+                            编辑
+                          </Button>
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatDateDisplay(plan.startDate)} ~ {formatDateDisplay(plan.endDate)}
-                        </p>
-                      </div>
-                      <ChevronRight className={cn(
-                        'h-4 w-4 text-muted-foreground transition-transform',
-                        selectedPlan?.id === plan.id && 'rotate-90',
-                      )} />
+                      </button>
+                      {/* Child plans rendered as sub-items */}
+                      {children.length > 0 && (
+                        <div className="border-t bg-muted/20">
+                          {children.map((child) => (
+                            <button
+                              key={child.id}
+                              type="button"
+                              className={cn(
+                                'w-full flex items-center gap-2 px-6 py-2 text-left text-xs transition-colors hover:bg-accent/50',
+                                selectedPlan?.id === child.id && 'bg-accent',
+                              )}
+                              onClick={() => handleSelectPlan(child)}
+                            >
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              <span className="truncate font-medium">{child.title}</span>
+                              <Badge className={cn('px-1 text-[10px]', PLAN_STATUS_VARIANTS[child.status])}>
+                                {PLAN_STATUS_LABELS[child.status]}
+                              </Badge>
+                              <span className="shrink-0 text-muted-foreground">
+                                {formatDateDisplay(child.startDate)}~{formatDateDisplay(child.endDate)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </button>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
@@ -1276,18 +1437,15 @@ export default function StudyPlanPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-base font-medium">{selectedPlan.title}</CardTitle>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
                       <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[selectedPlan.status])}>
-                        {selectedPlan.status === 'draft' && '草稿'}
-                        {selectedPlan.status === 'active' && '进行中'}
-                        {selectedPlan.status === 'completed' && '已完成'}
-                        {selectedPlan.status === 'archived' && '已归档'}
+                        {PLAN_STATUS_LABELS[selectedPlan.status]}
                       </Badge>
                       <Badge variant="outline">
                         {PLAN_TYPE_LABELS[selectedPlan.planType]}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {selectedPlan.startDate} ~ {selectedPlan.endDate}
+                        {formatDateFull(selectedPlan.startDate)} ~ {formatDateFull(selectedPlan.endDate)}
                       </span>
                     </div>
                     {selectedPlan.description && (
@@ -1302,22 +1460,78 @@ export default function StudyPlanPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    {selectedPlan.planType === 'monthly' && !plans.some(p => p.parentPlanId === selectedPlan.id) && (
+                  <div className="flex flex-col items-end gap-2">
+                    {/* Mode toggle */}
+                    <div className="flex items-center gap-1 rounded-md border p-0.5">
                       <Button
+                        variant={!isStudentMode ? 'default' : 'ghost'}
                         size="sm"
-                        variant="outline"
-                        onClick={() => handleAutoSplit(selectedPlan.id)}
+                        className="h-7 text-xs"
+                        onClick={() => setIsStudentMode(false)}
                       >
-                        自动拆解周计划
+                        <Shield className="mr-1 h-3 w-3" />
+                        管理员
                       </Button>
-                    )}
-                    <Button size="sm" variant="outline" onClick={() => handleEditPlan(selectedPlan)}>
-                      编辑
-                    </Button>
-                    <Button size="sm" variant="default" onClick={() => handleCycleStatus(selectedPlan)}>
-                      切换状态
-                    </Button>
+                      <Button
+                        variant={isStudentMode ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setIsStudentMode(true)}
+                      >
+                        <User className="mr-1 h-3 w-3" />
+                        学生
+                      </Button>
+                    </div>
+                    {/* Action buttons */}
+                    <div className="flex gap-1.5">
+                      {selectedPlan.planType === 'monthly' && !childPlansByParent.has(selectedPlan.id) && !isStudentMode && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => handleAutoSplit(selectedPlan.id)}
+                        >
+                          <FileText className="mr-1 h-3 w-3" />
+                          自动拆解
+                        </Button>
+                      )}
+                      {!isStudentMode && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => handleEditPlan(selectedPlan)}
+                        >
+                          编辑
+                        </Button>
+                      )}
+                      {/* Status transition buttons */}
+                      {!isStudentMode && (
+                        <div className="flex gap-1">
+                          {STATUS_ORDER.map((status) => {
+                            const isCurrent = selectedPlan.status === status
+                            const isNext = STATUS_ORDER.indexOf(status) === (STATUS_ORDER.indexOf(selectedPlan.status) + 1) % STATUS_ORDER.length
+                            if (!isCurrent && !isNext) return null
+                            return (
+                              <Button
+                                key={status}
+                                size="sm"
+                                variant={isCurrent ? 'default' : 'outline'}
+                                className="h-7 text-xs"
+                                disabled={isCurrent}
+                                onClick={() => {
+                                  if (!isCurrent) {
+                                    updatePlanStatus.mutateAsync({ id: selectedPlan.id, status })
+                                  }
+                                }}
+                              >
+                                {PLAN_STATUS_LABELS[status]}
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -1325,11 +1539,16 @@ export default function StudyPlanPage() {
               <CardContent className="space-y-4">
                 {/* Add item button */}
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">计划条目</h3>
-                  <Button size="sm" onClick={handleAddItem}>
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    添加条目
-                  </Button>
+                  <h3 className="text-sm font-medium">
+                    {isStudentMode ? '学习任务' : '计划条目'}
+                    {totalCount > 0 && <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>}
+                  </h3>
+                  {!isStudentMode && (
+                    <Button size="sm" onClick={handleAddItem}>
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      添加条目
+                    </Button>
+                  )}
                 </div>
 
                 {/* Week view for weekly plans */}
@@ -1428,68 +1647,177 @@ export default function StudyPlanPage() {
                   </div>
                 )}
 
-                {/* List view for monthly plans / when no weekly view */}
-                {(selectedPlan.planType === 'monthly' || items.length > 0) && (
-                  <div className="space-y-2">
-                    {itemsLoading ? (
-                      <div className="flex items-center justify-center py-8 text-muted-foreground">
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        加载中...
-                      </div>
-                    ) : items.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                        <p className="text-sm">暂无计划条目</p>
-                      </div>
-                    ) : (
-                      items.map((item) => (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            'flex items-start gap-3 rounded-md border p-3 transition-colors hover:border-accent-foreground/20',
-                            item.completed && 'bg-muted/30',
-                          )}
-                        >
-                          <Checkbox
-                            checked={item.completed}
-                            onCheckedChange={() => handleToggleCompleted(item)}
-                            className="mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0" role="button" tabIndex={0} onClick={() => handleEditItem(item)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleEditItem(item) }}>
-                            <div className="flex items-start justify-between gap-2">
-                              <p className={cn(
-                                'text-sm font-medium',
-                                item.completed && 'line-through text-muted-foreground',
-                              )}>
-                                {item.content}
-                              </p>
-                              {item.dueDate && (
-                                <Badge variant="outline" className="shrink-0 text-xs">
-                                  {formatDateDisplay(item.dueDate)}
-                                </Badge>
-                              )}
-                            </div>
-                            {item.objective && (
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                目标: {item.objective}
-                              </p>
-                            )}
-                            {item.notes && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {item.notes}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => handleEditItem(item)}
-                          >
-                            <GripVertical className="h-3 w-3 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      ))
+                {/* List view for items */}
+                {itemsLoading ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    加载中...
+                  </div>
+                ) : parentItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <p className="text-sm">暂无计划条目</p>
+                    {!isStudentMode && (
+                      <Button size="sm" variant="outline" className="mt-3" onClick={handleAddItem}>
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        添加第一个条目
+                      </Button>
                     )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {parentItems.map((item) => {
+                      const childItems = childItemsByParent.get(item.id) ?? []
+                      return (
+                        <div key={item.id}>
+                          {/* Parent item */}
+                          <div
+                            className={cn(
+                              'flex items-start gap-3 rounded-md border p-3 transition-colors hover:border-accent-foreground/20',
+                              item.completed && 'bg-muted/30',
+                            )}
+                          >
+                            <Checkbox
+                              checked={item.completed}
+                              onCheckedChange={() => handleToggleCompleted(item)}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className={cn(
+                                  'text-sm font-medium',
+                                  item.completed && 'line-through text-muted-foreground',
+                                )}>
+                                  {item.content}
+                                </p>
+                                {item.dueDate && (
+                                  <Badge variant="outline" className="shrink-0 text-xs">
+                                    <Clock className="mr-1 h-3 w-3" />
+                                    {formatDateDisplay(item.dueDate)}
+                                  </Badge>
+                                )}
+                              </div>
+                              {item.objective && (
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  目标: {item.objective}
+                                </p>
+                              )}
+                              {item.notes && isStudentMode && (
+                                <p className="mt-1 text-xs italic text-muted-foreground">
+                                  备注: {item.notes}
+                                </p>
+                              )}
+                              {/* Action buttons */}
+                              <div className="mt-2 flex items-center gap-2">
+                                {!isStudentMode && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => handleEditItem(item)}
+                                    >
+                                      编辑
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-xs text-destructive hover:text-destructive"
+                                      onClick={() => {
+                                        setEditingItem(item)
+                                        setEditingItemParentId(null)
+                                        deleteItem.mutateAsync(item.id)
+                                      }}
+                                    >
+                                      <Trash2 className="mr-1 h-3 w-3" />
+                                      删除
+                                    </Button>
+                                  </>
+                                )}
+                                {isStudentMode && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => handleEditItem(item)}
+                                    >
+                                      添加备注
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => handleAddSubItem(item.id)}
+                                    >
+                                      <Plus className="mr-1 h-3 w-3" />
+                                      添加子任务
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Child items (sub-tasks) */}
+                          {childItems.length > 0 && (
+                            <div className="ml-6 mt-1 space-y-1 border-l-2 pl-4">
+                              {childItems.map((child) => (
+                                <div
+                                  key={child.id}
+                                  className={cn(
+                                    'flex items-start gap-2 rounded-md border p-2',
+                                    child.completed && 'bg-muted/20',
+                                  )}
+                                >
+                                  <Checkbox
+                                    checked={child.completed}
+                                    onCheckedChange={() => handleToggleCompleted(child)}
+                                    className="mt-0.5 h-3.5 w-3.5"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={cn(
+                                      'text-xs',
+                                      child.completed && 'line-through text-muted-foreground',
+                                    )}>
+                                      {child.content}
+                                    </p>
+                                    {child.notes && (
+                                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                        备注: {child.notes}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {isStudentMode && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 text-[10px]"
+                                      onClick={() => {
+                                        setEditingItem(child)
+                                        setEditingItemParentId(child.parentItemId)
+                                        setItemEditOpen(true)
+                                      }}
+                                    >
+                                      备注
+                                    </Button>
+                                  )}
+                                  {!isStudentMode && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 w-5 p-0 text-destructive"
+                                      onClick={() => deleteItem.mutateAsync(child.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1517,6 +1845,7 @@ export default function StudyPlanPage() {
         initial={editingItem}
         onSave={handleSaveItem}
         onDelete={editingItem ? handleDeleteItem : undefined}
+        isStudentMode={isStudentMode}
       />
 
       <TermDialog
