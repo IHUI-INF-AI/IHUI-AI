@@ -90,3 +90,118 @@ export function invokeAiSkill(skillId: string, req: AiSkillInvokeRequest) {
     body: JSON.stringify(req),
   })
 }
+
+// ===== Phase 3: Stats (2026-08-11 新增) =====
+
+export interface PerSkillStats {
+  skillName: string
+  callCount: number
+  successCount: number
+  successRate: number
+  avgDurationMs: number
+}
+
+export interface TrendDay {
+  date: string
+  calls: number
+  success: number
+  failures: number
+}
+
+export interface AiSkillStatsData {
+  totalCalls: number
+  successRate: number
+  avgDurationMs: number
+  totalTokens: number
+  perSkill: PerSkillStats[]
+  trend: {
+    last7Days: TrendDay[]
+    last30Days: TrendDay[]
+  }
+}
+
+/** 获取 AI Skill 使用统计(Phase 3) */
+export function getAiSkillStats() {
+  return fetchApi<AiSkillStatsData>('/api/ai-skills/stats')
+}
+
+// ===== Phase 4: Export/Import/Rate (2026-08-11 新增) =====
+
+export interface SkillExportData {
+  name: string
+  description: string
+  icon: string
+  category: string
+  tags: string[]
+  source: string
+  promptTemplate: string
+  sourceUrl: string
+}
+
+export interface SkillImportData {
+  name: string
+  description?: string
+  icon?: string
+  category?: string
+  tags?: string[]
+  promptTemplate?: string
+  sourceUrl?: string
+}
+
+export interface SkillImportResult {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  tags: string[]
+  source: string
+  promptTemplate: string
+  sourceUrl: string
+}
+
+export interface RatingRecord {
+  skillId: string
+  rating: number
+  comment: string
+  createdAt: string
+}
+
+export interface RatingStats {
+  average: number
+  total: number
+  distribution: Record<number, number>
+}
+
+export interface SkillRatingsData {
+  ratings: RatingRecord[]
+  stats: RatingStats
+}
+
+/** 导出 AI Skill 为 JSON */
+export function exportAiSkill(skillId: string) {
+  return fetchApi<SkillExportData>(`/api/ai-skills/export/${encodeURIComponent(skillId)}`, {
+    method: 'POST',
+  })
+}
+
+/** 导入 AI Skill */
+export function importAiSkill(data: SkillImportData) {
+  return fetchApi<SkillImportResult>('/api/ai-skills/import', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 评分 AI Skill(1-5 星) */
+export function rateAiSkill(skillId: string, rating: number, comment?: string) {
+  return fetchApi<RatingRecord>(`/api/ai-skills/${encodeURIComponent(skillId)}/rate`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, comment }),
+  })
+}
+
+/** 获取 AI Skill 评分列表 */
+export function getAiSkillRatings(skillId: string) {
+  return fetchApi<SkillRatingsData>(`/api/ai-skills/${encodeURIComponent(skillId)}/ratings`)
+}
