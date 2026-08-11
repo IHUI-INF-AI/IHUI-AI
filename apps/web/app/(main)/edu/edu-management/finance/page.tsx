@@ -16,7 +16,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -1215,8 +1215,8 @@ export default function FinancePage() {
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {PAYMENT_METHOD_MAP.get(r.refundMethod) ?? r.refundMethod}
                           </td>
-                          <td className="max-w-[120px] truncate px-4 py-3 text-xs text-muted-foreground" title={r.reason}>
-                            {r.reason}
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            <TruncatedText value={r.reason} className="max-w-[120px]" />
                           </td>
                           <td className="px-4 py-3">
                             <Badge
