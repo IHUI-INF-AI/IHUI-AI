@@ -15,7 +15,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -391,8 +391,8 @@ export default function HomeworkPage() {
                   {submissions.map((s) => (
                     <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3 text-xs font-medium">{s.studentName}</td>
-                      <td className="max-w-[200px] truncate px-4 py-3 text-xs" title={s.content}>
-                        {s.content}
+                      <td className="px-4 py-3 text-xs">
+                        <TruncatedText value={s.content} className="max-w-[200px]" />
                       </td>
                       <td className="px-4 py-3 text-xs">
                         <span className="inline-flex items-center gap-1">
@@ -419,8 +419,8 @@ export default function HomeworkPage() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="max-w-[120px] truncate px-4 py-3 text-xs text-muted-foreground" title={s.comment ?? ''}>
-                        {s.comment ?? '-'}
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <TruncatedText value={s.comment ?? '-'} className="max-w-[120px]" />
                       </td>
                       <td className="px-4 py-3 text-right">
                         {s.status !== 'graded' && (
