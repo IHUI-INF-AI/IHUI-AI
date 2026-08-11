@@ -7,6 +7,7 @@ import {
   BarChart3,
   Bot,
   FileText,
+  FlaskConical,
   Gift,
   Key,
   Layers,
@@ -31,6 +32,8 @@ export default function ModelsLayout({ children }: { children: React.ReactNode }
       items: [
         { href: '/models/chats', label: t('navChats'), icon: MessageSquare },
         { href: '/models/usage', label: t('navUsageStats'), icon: BarChart3 },
+        { href: '/models/prompts', label: t('navPrompts'), icon: FileText },
+        { href: '/models/eval', label: t('navEval'), icon: FlaskConical },
         { href: '/models/logs', label: t('navLogs'), icon: FileText },
       ],
     },
