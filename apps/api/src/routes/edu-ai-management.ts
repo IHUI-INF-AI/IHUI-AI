@@ -636,6 +636,57 @@ const approveRefundSchema = z.object({
 })
 
 // =============================================================================
+// 批量操作 Schema
+// =============================================================================
+
+const batchDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+})
+
+const batchToggleSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  isActive: z.boolean(),
+})
+
+const batchStatusSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  status: z.string().min(1).max(20),
+})
+
+// =============================================================================
+// 分页 Schema & 辅助函数
+// =============================================================================
+
+const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+async function paginate(
+  queryBuilder: any,
+  where: any,
+  orderBy: any | any[],
+  page: number,
+  pageSize: number,
+) {
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(queryBuilder)
+    .where(where)
+  const total = Number(totalResult?.count ?? 0)
+  const totalPages = Math.ceil(total / pageSize)
+  const orderByArr = Array.isArray(orderBy) ? orderBy : [orderBy]
+  const list = await db
+    .select()
+    .from(queryBuilder)
+    .where(where)
+    .orderBy(...orderByArr)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+  return { list, total, page, pageSize, totalPages }
+}
+
+// =============================================================================
 // 路由
 // =============================================================================
 
@@ -644,12 +695,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 1. 学期管理 CRUD
   // ===========================================================================
 
-  server.get('/term', async (_request, reply) => {
-    const list = await db
-      .select()
-      .from(eduTerm)
-      .orderBy(desc(eduTerm.isCurrent), desc(eduTerm.startDate))
-    return reply.send(success({ list }))
+  server.get('/term', async (request, reply) => {
+    const { page, pageSize } = paginationSchema.parse(request.query)
+    const result = await paginate(eduTerm, undefined, [desc(eduTerm.isCurrent), desc(eduTerm.startDate)], page, pageSize)
+    return reply.send(success(result))
   })
 
   server.get('/term/:id', async (request, reply) => {
@@ -948,6 +997,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   server.get('/meal', async (request, reply) => {
     const parsed = mealListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds = [isNull(eduMealRecipe.deletedAt)]
     if (parsed.data.startDate && parsed.data.endDate) {
       conds.push(between(eduMealRecipe.date, parsed.data.startDate, parsed.data.endDate))
@@ -958,12 +1008,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     }
     if (parsed.data.mealType) conds.push(eq(eduMealRecipe.mealType, parsed.data.mealType))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduMealRecipe)
-      .where(where)
-      .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
-    return reply.send(success({ list }))
+    const result = await paginate(eduMealRecipe, where, [eduMealRecipe.date, eduMealRecipe.mealType], page, pageSize)
+    return reply.send(success(result))
   })
 
   server.get('/meal/:id', async (request, reply) => {
@@ -1033,15 +1079,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   server.get('/meal/template', async (request, reply) => {
     const parsed = templateListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = []
     if (parsed.data.name) conds.push(eq(eduMealWeekTemplate.name, parsed.data.name))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const list = await db
-      .select()
-      .from(eduMealWeekTemplate)
-      .where(where)
-      .orderBy(eduMealWeekTemplate.name, eduMealWeekTemplate.weekday, eduMealWeekTemplate.mealType)
-    return reply.send(success({ list }))
+    const result = await paginate(eduMealWeekTemplate, where, [eduMealWeekTemplate.name, eduMealWeekTemplate.weekday, eduMealWeekTemplate.mealType], page, pageSize)
+    return reply.send(success(result))
   })
 
   server.get('/meal/template/:id', async (request, reply) => {
@@ -1144,64 +1187,68 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate } = parsed.data
 
-    const meals = await db
-      .select()
-      .from(eduMealRecipe)
-      .where(
-        and(
-          between(eduMealRecipe.date, startDate, endDate),
-          isNull(eduMealRecipe.deletedAt),
-        ),
-      )
-      .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
+    try {
+      const meals = await db
+        .select()
+        .from(eduMealRecipe)
+        .where(
+          and(
+            between(eduMealRecipe.date, startDate, endDate),
+            isNull(eduMealRecipe.deletedAt),
+          ),
+        )
+        .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
 
-    // 按餐类型汇总营养信息
-    const nutritionByType: Record<string, { count: number; calories: number; protein: number; carbs: number }> = {}
-    let totalCalories = 0
-    let totalProtein = 0
-    let totalCarbs = 0
+      // 按餐类型汇总营养信息
+      const nutritionByType: Record<string, { count: number; calories: number; protein: number; carbs: number }> = {}
+      let totalCalories = 0
+      let totalProtein = 0
+      let totalCarbs = 0
 
-    for (const meal of meals) {
-      const type = meal.mealType
-      if (!nutritionByType[type]) {
-        nutritionByType[type] = { count: 0, calories: 0, protein: 0, carbs: 0 }
+      for (const meal of meals) {
+        const type = meal.mealType
+        if (!nutritionByType[type]) {
+          nutritionByType[type] = { count: 0, calories: 0, protein: 0, carbs: 0 }
+        }
+        nutritionByType[type]!.count++
+
+        if (meal.nutrition) {
+          // 解析营养信息字符串，如 "热量450kcal, 蛋白质25g, 碳水30g"
+          const calMatch = meal.nutrition.match(/热量\s*(\d+(?:\.\d+)?)/)
+          const proMatch = meal.nutrition.match(/蛋白质\s*(\d+(?:\.\d+)?)/)
+          const carbMatch = meal.nutrition.match(/碳水\s*(\d+(?:\.\d+)?)/)
+
+          const cal = calMatch ? Number.parseFloat(calMatch[1]!) : 0
+          const pro = proMatch ? Number.parseFloat(proMatch[1]!) : 0
+          const carb = carbMatch ? Number.parseFloat(carbMatch[1]!) : 0
+
+          nutritionByType[type]!.calories += cal
+          nutritionByType[type]!.protein += pro
+          nutritionByType[type]!.carbs += carb
+
+          totalCalories += cal
+          totalProtein += pro
+          totalCarbs += carb
+        }
       }
-      nutritionByType[type]!.count++
 
-      if (meal.nutrition) {
-        // 解析营养信息字符串，如 "热量450kcal, 蛋白质25g, 碳水30g"
-        const calMatch = meal.nutrition.match(/热量\s*(\d+(?:\.\d+)?)/)
-        const proMatch = meal.nutrition.match(/蛋白质\s*(\d+(?:\.\d+)?)/)
-        const carbMatch = meal.nutrition.match(/碳水\s*(\d+(?:\.\d+)?)/)
-
-        const cal = calMatch ? Number.parseFloat(calMatch[1]!) : 0
-        const pro = proMatch ? Number.parseFloat(proMatch[1]!) : 0
-        const carb = carbMatch ? Number.parseFloat(carbMatch[1]!) : 0
-
-        nutritionByType[type]!.calories += cal
-        nutritionByType[type]!.protein += pro
-        nutritionByType[type]!.carbs += carb
-
-        totalCalories += cal
-        totalProtein += pro
-        totalCarbs += carb
-      }
+      return reply.send(success({
+        dateRange: { startDate, endDate },
+        totalMeals: meals.length,
+        summary: {
+          totalCalories: Math.round(totalCalories),
+          totalProtein: Math.round(totalProtein),
+          totalCarbs: Math.round(totalCarbs),
+        },
+        byType: Object.entries(nutritionByType).map(([type, data]) => ({
+          mealType: type,
+          ...data,
+          avgCalories: data.count > 0 ? Math.round(data.calories / data.count) : 0,
+        })),
+      }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '营养分析查询失败'))
     }
-
-    return reply.send(success({
-      dateRange: { startDate, endDate },
-      totalMeals: meals.length,
-      summary: {
-        totalCalories: Math.round(totalCalories),
-        totalProtein: Math.round(totalProtein),
-        totalCarbs: Math.round(totalCarbs),
-      },
-      byType: Object.entries(nutritionByType).map(([type, data]) => ({
-        mealType: type,
-        ...data,
-        avgCalories: data.count > 0 ? Math.round(data.calories / data.count) : 0,
-      })),
-    }))
   })
 
   server.post('/meal/generate-shopping-list', async (request, reply) => {
@@ -1209,41 +1256,45 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate } = parsed.data
 
-    const meals = await db
-      .select()
-      .from(eduMealRecipe)
-      .where(
-        and(
-          between(eduMealRecipe.date, startDate, endDate),
-          isNull(eduMealRecipe.deletedAt),
-        ),
-      )
-      .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
+    try {
+      const meals = await db
+        .select()
+        .from(eduMealRecipe)
+        .where(
+          and(
+            between(eduMealRecipe.date, startDate, endDate),
+            isNull(eduMealRecipe.deletedAt),
+          ),
+        )
+        .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
 
-    // 汇总所有食材
-    const ingredientMap = new Map<string, { ingredient: string; count: number; dishes: string[] }>()
-    for (const meal of meals) {
-      if (meal.ingredients) {
-        // 按逗号分割食材
-        const items = meal.ingredients.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
-        for (const item of items) {
-          const existing = ingredientMap.get(item) ?? { ingredient: item, count: 0, dishes: [] }
-          existing.count++
-          if (!existing.dishes.includes(meal.dishName)) {
-            existing.dishes.push(meal.dishName)
+      // 汇总所有食材
+      const ingredientMap = new Map<string, { ingredient: string; count: number; dishes: string[] }>()
+      for (const meal of meals) {
+        if (meal.ingredients) {
+          // 按逗号分割食材
+          const items = meal.ingredients.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+          for (const item of items) {
+            const existing = ingredientMap.get(item) ?? { ingredient: item, count: 0, dishes: [] }
+            existing.count++
+            if (!existing.dishes.includes(meal.dishName)) {
+              existing.dishes.push(meal.dishName)
+            }
+            ingredientMap.set(item, existing)
           }
-          ingredientMap.set(item, existing)
         }
       }
+
+      const shoppingList = Array.from(ingredientMap.values()).sort((a, b) => b.count - a.count)
+
+      return reply.send(success({
+        dateRange: { startDate, endDate },
+        shoppingList,
+        totalIngredients: shoppingList.length,
+      }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '采购清单生成失败'))
     }
-
-    const shoppingList = Array.from(ingredientMap.values()).sort((a, b) => b.count - a.count)
-
-    return reply.send(success({
-      dateRange: { startDate, endDate },
-      shoppingList,
-      totalIngredients: shoppingList.length,
-    }))
   })
 
   server.post('/meal/upload-image', async (request, reply) => {
@@ -1275,18 +1326,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   server.get('/study-plan', async (request, reply) => {
     const parsed = planListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds = [isNull(eduStudyPlan.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduStudyPlan.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduStudyPlan.termId, parsed.data.termId))
     if (parsed.data.planType) conds.push(eq(eduStudyPlan.planType, parsed.data.planType))
     if (parsed.data.status) conds.push(eq(eduStudyPlan.status, parsed.data.status))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduStudyPlan)
-      .where(where)
-      .orderBy(desc(eduStudyPlan.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduStudyPlan, where, desc(eduStudyPlan.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.get('/study-plan/:id', async (request, reply) => {
@@ -1729,18 +1777,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = attendanceListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduAttendanceRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduAttendanceRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduAttendanceRecord.classId, parsed.data.classId))
     if (parsed.data.date) conds.push(eq(eduAttendanceRecord.date, parsed.data.date))
     if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(where)
-      .orderBy(desc(eduAttendanceRecord.date), desc(eduAttendanceRecord.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduAttendanceRecord, where, [desc(eduAttendanceRecord.date), desc(eduAttendanceRecord.createdAt)], page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/attendance/check-in', async (request, reply) => {
@@ -1751,66 +1796,81 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const today = now.toISOString().split('T')[0]!
     const date = parsed.data.date || today
 
-    // 检查是否已签到
-    const [existing] = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(
-        and(
-          eq(eduAttendanceRecord.studentId, parsed.data.studentId),
-          eq(eduAttendanceRecord.classId, parsed.data.classId),
-          eq(eduAttendanceRecord.date, date),
-          isNull(eduAttendanceRecord.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (existing) return reply.status(409).send(error(409, '该学生今日已签到'))
+    try {
+      const [row] = await db.transaction(async (tx) => {
+        // 检查是否已签到
+        const [existing] = await tx
+          .select()
+          .from(eduAttendanceRecord)
+          .where(
+            and(
+              eq(eduAttendanceRecord.studentId, parsed.data.studentId),
+              eq(eduAttendanceRecord.classId, parsed.data.classId),
+              eq(eduAttendanceRecord.date, date),
+              isNull(eduAttendanceRecord.deletedAt),
+            ),
+          )
+          .limit(1)
+        if (existing) throw new Error('DUPLICATE_CHECKIN')
 
-    const [row] = await db
-      .insert(eduAttendanceRecord)
-      .values({
-        studentId: parsed.data.studentId,
-        classId: parsed.data.classId,
-        date,
-        checkInTime: now,
-        status: parsed.data.status || 'present',
-        checkInMethod: parsed.data.checkInMethod || 'manual',
-        operatedBy: request.userId,
-        remark: parsed.data.remark,
+        return tx
+          .insert(eduAttendanceRecord)
+          .values({
+            studentId: parsed.data.studentId,
+            classId: parsed.data.classId,
+            date,
+            checkInTime: now,
+            status: parsed.data.status || 'present',
+            checkInMethod: parsed.data.checkInMethod || 'manual',
+            operatedBy: request.userId,
+            remark: parsed.data.remark,
+          })
+          .returning()
       })
-      .returning()
-    return reply.status(201).send(success({ record: row }))
+      return reply.status(201).send(success({ record: row }))
+    } catch (err: any) {
+      if (err.message === 'DUPLICATE_CHECKIN') return reply.status(409).send(error(409, '该学生今日已签到'))
+      return reply.status(500).send(error(500, '签到失败'))
+    }
   })
 
   server.put('/attendance/check-out', async (request, reply) => {
     const parsed = checkOutSchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const [existing] = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(
-        and(
-          eq(eduAttendanceRecord.studentId, parsed.data.studentId),
-          eq(eduAttendanceRecord.classId, parsed.data.classId),
-          eq(eduAttendanceRecord.date, parsed.data.date),
-          isNull(eduAttendanceRecord.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '未找到签到记录'))
-    if (existing.checkOutTime) return reply.status(409).send(error(409, '该学生今日已签退'))
+    try {
+      const [row] = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(eduAttendanceRecord)
+          .where(
+            and(
+              eq(eduAttendanceRecord.studentId, parsed.data.studentId),
+              eq(eduAttendanceRecord.classId, parsed.data.classId),
+              eq(eduAttendanceRecord.date, parsed.data.date),
+              isNull(eduAttendanceRecord.deletedAt),
+            ),
+          )
+          .limit(1)
+        if (!existing) throw new Error('NOT_FOUND')
+        if (existing.checkOutTime) throw new Error('ALREADY_CHECKED_OUT')
 
-    const [row] = await db
-      .update(eduAttendanceRecord)
-      .set({
-        checkOutTime: new Date(),
-        checkOutMethod: parsed.data.checkOutMethod || 'manual',
-        updatedAt: new Date(),
+        return tx
+          .update(eduAttendanceRecord)
+          .set({
+            checkOutTime: new Date(),
+            checkOutMethod: parsed.data.checkOutMethod || 'manual',
+            updatedAt: new Date(),
+          })
+          .where(eq(eduAttendanceRecord.id, existing.id))
+          .returning()
       })
-      .where(eq(eduAttendanceRecord.id, existing.id))
-      .returning()
-    return reply.send(success({ record: row }))
+      return reply.send(success({ record: row }))
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') return reply.status(404).send(error(404, '未找到签到记录'))
+      if (err.message === 'ALREADY_CHECKED_OUT') return reply.status(409).send(error(409, '该学生今日已签退'))
+      return reply.status(500).send(error(500, '签退失败'))
+    }
   })
 
   server.put('/attendance/:id', async (request, reply) => {
@@ -1865,6 +1925,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = leaveListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduLeaveRequest.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduLeaveRequest.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduLeaveRequest.classId, parsed.data.classId))
@@ -1882,12 +1943,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       conds.push(lte(eduLeaveRequest.endDate, parsed.data.endDate))
     }
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduLeaveRequest)
-      .where(where)
-      .orderBy(desc(eduLeaveRequest.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduLeaveRequest, where, desc(eduLeaveRequest.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/leave', async (request, reply) => {
@@ -2866,92 +2923,99 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
     const { termId, classId } = parsed.data
 
-    // 查询 active 的排课规则
-    const ruleConds: any[] = [
-      eq(eduSchedulingRule.termId, termId),
-      eq(eduSchedulingRule.isActive, true),
-      isNull(eduSchedulingRule.deletedAt),
-    ]
-    if (classId) ruleConds.push(eq(eduSchedulingRule.classId, classId))
-    const rules = await db
-      .select()
-      .from(eduSchedulingRule)
-      .where(and(...ruleConds))
-      .orderBy(desc(eduSchedulingRule.priority))
+    try {
+      const result = await db.transaction(async (tx) => {
+        // 查询 active 的排课规则
+        const ruleConds: any[] = [
+          eq(eduSchedulingRule.termId, termId),
+          eq(eduSchedulingRule.isActive, true),
+          isNull(eduSchedulingRule.deletedAt),
+        ]
+        if (classId) ruleConds.push(eq(eduSchedulingRule.classId, classId))
+        const rules = await tx
+          .select()
+          .from(eduSchedulingRule)
+          .where(and(...ruleConds))
+          .orderBy(desc(eduSchedulingRule.priority))
 
-    // 检查教师时间可用性
-    const teacherSchedules = await db
-      .select()
-      .from(eduTeacherSchedule)
-      .where(
-        and(
-          eq(eduTeacherSchedule.termId, termId),
-          eq(eduTeacherSchedule.isAvailable, true),
-        ),
-      )
+        // 检查教师时间可用性
+        const teacherSchedules = await tx
+          .select()
+          .from(eduTeacherSchedule)
+          .where(
+            and(
+              eq(eduTeacherSchedule.termId, termId),
+              eq(eduTeacherSchedule.isAvailable, true),
+            ),
+          )
 
-    // 检查已有课程，避免冲突
-    const existingSchedules = await db
-      .select()
-      .from(eduCourseSchedule)
-      .where(
-        and(
-          eq(eduCourseSchedule.termId, termId),
-          isNull(eduCourseSchedule.deletedAt),
-        ),
-      )
+        // 检查已有课程，避免冲突
+        const existingSchedules = await tx
+          .select()
+          .from(eduCourseSchedule)
+          .where(
+            and(
+              eq(eduCourseSchedule.termId, termId),
+              isNull(eduCourseSchedule.deletedAt),
+            ),
+          )
 
-    const toInsert: Array<{
-      termId: string
-      classId: string
-      courseName: string
-      teacher: string
-      weekday: number
-      startTime: string
-      endTime: string
-      classroom: string | null
-    }> = []
+        const toInsert: Array<{
+          termId: string
+          classId: string
+          courseName: string
+          teacher: string
+          weekday: number
+          startTime: string
+          endTime: string
+          classroom: string | null
+        }> = []
 
-    for (const rule of rules) {
-      // 检查教师在该时间段是否可用
-      const tsAvailable = teacherSchedules.some(
-        (ts) =>
-          ts.teacherId === rule.teacherId &&
-          ts.dayOfWeek === rule.weekday &&
-          ts.startTime <= rule.startTime &&
-          ts.endTime >= rule.endTime,
-      )
-      if (!tsAvailable) continue
+        for (const rule of rules) {
+          // 检查教师在该时间段是否可用
+          const tsAvailable = teacherSchedules.some(
+            (ts) =>
+              ts.teacherId === rule.teacherId &&
+              ts.dayOfWeek === rule.weekday &&
+              ts.startTime <= rule.startTime &&
+              ts.endTime >= rule.endTime,
+          )
+          if (!tsAvailable) continue
 
-      // 检查冲突：同一时间段同一教室或同一教师已有课程
-      const hasConflict = existingSchedules.some(
-        (es) =>
-          es.weekday === rule.weekday &&
-          es.startTime < rule.endTime &&
-          es.endTime > rule.startTime &&
-          (es.classroom === rule.classroom || es.teacher === rule.teacherId),
-      )
-      if (hasConflict) continue
+          // 检查冲突：同一时间段同一教室或同一教师已有课程
+          const hasConflict = existingSchedules.some(
+            (es) =>
+              es.weekday === rule.weekday &&
+              es.startTime < rule.endTime &&
+              es.endTime > rule.startTime &&
+              (es.classroom === rule.classroom || es.teacher === rule.teacherId),
+          )
+          if (hasConflict) continue
 
-      toInsert.push({
-        termId: rule.termId,
-        classId: rule.classId,
-        courseName: rule.subject,
-        teacher: rule.teacherId,
-        weekday: rule.weekday,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        classroom: rule.classroom ?? null,
+          toInsert.push({
+            termId: rule.termId,
+            classId: rule.classId,
+            courseName: rule.subject,
+            teacher: rule.teacherId,
+            weekday: rule.weekday,
+            startTime: rule.startTime,
+            endTime: rule.endTime,
+            classroom: rule.classroom ?? null,
+          })
+        }
+
+        let insertedCount = 0
+        if (toInsert.length > 0) {
+          const result = await tx.insert(eduCourseSchedule).values(toInsert).returning()
+          insertedCount = result.length
+        }
+
+        return { count: insertedCount }
       })
+      return reply.status(201).send(success(result))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '自动排课失败'))
     }
-
-    let insertedCount = 0
-    if (toInsert.length > 0) {
-      const result = await db.insert(eduCourseSchedule).values(toInsert).returning()
-      insertedCount = result.length
-    }
-
-    return reply.status(201).send(success({ count: insertedCount }))
   })
 
   // 冲突检测
@@ -2961,53 +3025,57 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = checkConflictSchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } = parsed.data
+    try {
+      const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } = parsed.data
 
-    const conds: any[] = [
-      eq(eduCourseSchedule.termId, termId),
-      eq(eduCourseSchedule.weekday, weekday),
-      isNull(eduCourseSchedule.deletedAt),
-    ]
-    // 时间重叠检测
-    conds.push(sql`${eduCourseSchedule.startTime} < ${endTime}`)
-    conds.push(sql`${eduCourseSchedule.endTime} > ${startTime}`)
-    if (excludeScheduleId) conds.push(sql`${eduCourseSchedule.id} != ${excludeScheduleId}::uuid`)
-
-    // 教师冲突
-    let teacherConflicts: Array<{ id: string; courseName: string; classroom: string | null }> = []
-    if (teacherId) {
-      const teacherConds = [
-        ...conds,
-        eq(eduCourseSchedule.teacher, teacherId),
+      const conds: any[] = [
+        eq(eduCourseSchedule.termId, termId),
+        eq(eduCourseSchedule.weekday, weekday),
+        isNull(eduCourseSchedule.deletedAt),
       ]
-      teacherConflicts = await db
-        .select({
-          id: eduCourseSchedule.id,
-          courseName: eduCourseSchedule.courseName,
-          classroom: eduCourseSchedule.classroom,
-        })
-        .from(eduCourseSchedule)
-        .where(and(...teacherConds))
-    }
+      // 时间重叠检测
+      conds.push(sql`${eduCourseSchedule.startTime} < ${endTime}`)
+      conds.push(sql`${eduCourseSchedule.endTime} > ${startTime}`)
+      if (excludeScheduleId) conds.push(sql`${eduCourseSchedule.id} != ${excludeScheduleId}::uuid`)
 
-    // 教室冲突
-    let classroomConflicts: Array<{ id: string; courseName: string; teacher: string | null }> = []
-    if (classroom) {
-      const roomConds = [
-        ...conds,
-        eq(eduCourseSchedule.classroom, classroom),
-      ]
-      classroomConflicts = await db
-        .select({
-          id: eduCourseSchedule.id,
-          courseName: eduCourseSchedule.courseName,
-          teacher: eduCourseSchedule.teacher,
-        })
-        .from(eduCourseSchedule)
-        .where(and(...roomConds))
-    }
+      // 教师冲突
+      let teacherConflicts: Array<{ id: string; courseName: string; classroom: string | null }> = []
+      if (teacherId) {
+        const teacherConds = [
+          ...conds,
+          eq(eduCourseSchedule.teacher, teacherId),
+        ]
+        teacherConflicts = await db
+          .select({
+            id: eduCourseSchedule.id,
+            courseName: eduCourseSchedule.courseName,
+            classroom: eduCourseSchedule.classroom,
+          })
+          .from(eduCourseSchedule)
+          .where(and(...teacherConds))
+      }
 
-    return reply.send(success({ teacherConflicts, classroomConflicts }))
+      // 教室冲突
+      let classroomConflicts: Array<{ id: string; courseName: string; teacher: string | null }> = []
+      if (classroom) {
+        const roomConds = [
+          ...conds,
+          eq(eduCourseSchedule.classroom, classroom),
+        ]
+        classroomConflicts = await db
+          .select({
+            id: eduCourseSchedule.id,
+            courseName: eduCourseSchedule.courseName,
+            teacher: eduCourseSchedule.teacher,
+          })
+          .from(eduCourseSchedule)
+          .where(and(...roomConds))
+      }
+
+      return reply.send(success({ teacherConflicts, classroomConflicts }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '冲突检测失败'))
+    }
   })
 
   // ===========================================================================
@@ -3019,15 +3087,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = scheduleChangeListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = []
     if (parsed.data.status) conds.push(eq(eduScheduleChange.status, parsed.data.status))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const list = await db
-      .select()
-      .from(eduScheduleChange)
-      .where(where)
-      .orderBy(desc(eduScheduleChange.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduScheduleChange, where, desc(eduScheduleChange.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/schedule-change', async (request, reply) => {
@@ -3050,44 +3115,55 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveChangeSchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduScheduleChange)
-      .where(eq(eduScheduleChange.id, idParsed.data.id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '调课申请不存在'))
-    if (existing.status !== 'pending') return reply.status(400).send(error(400, '仅待审批的申请可审批'))
 
-    const approverId = request.userId!
+    try {
+      const row = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(eduScheduleChange)
+          .where(eq(eduScheduleChange.id, idParsed.data.id))
+          .limit(1)
+        if (!existing) throw new Error('NOT_FOUND')
+        if (existing.status !== 'pending') throw new Error('NOT_PENDING')
 
-    // 更新调课申请状态
-    const [row] = await db
-      .update(eduScheduleChange)
-      .set({
-        status: 'approved',
-        approverId,
-        approveRemark: parsed.data.approveRemark,
-        approveAt: new Date(),
-        updatedAt: new Date(),
+        const approverId = request.userId!
+
+        // 更新调课申请状态
+        const [updated] = await tx
+          .update(eduScheduleChange)
+          .set({
+            status: 'approved',
+            approverId,
+            approveRemark: parsed.data.approveRemark,
+            approveAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(eduScheduleChange.id, idParsed.data.id))
+          .returning()
+        if (!updated) throw new Error('UPDATE_FAILED')
+
+        // 同步更新 edu_course_schedule 对应记录
+        const scheduleUpdates: Record<string, unknown> = { updatedAt: new Date() }
+        if (existing.newTeacher) scheduleUpdates.teacher = existing.newTeacher
+        if (existing.newWeekday !== null) scheduleUpdates.weekday = existing.newWeekday
+        if (existing.newStartTime) scheduleUpdates.startTime = existing.newStartTime
+        if (existing.newEndTime) scheduleUpdates.endTime = existing.newEndTime
+
+        if (Object.keys(scheduleUpdates).length > 1) {
+          await tx
+            .update(eduCourseSchedule)
+            .set(scheduleUpdates)
+            .where(eq(eduCourseSchedule.id, existing.scheduleId))
+        }
+
+        return updated
       })
-      .where(eq(eduScheduleChange.id, idParsed.data.id))
-      .returning()
-
-    // 同步更新 edu_course_schedule 对应记录
-    const scheduleUpdates: Record<string, unknown> = { updatedAt: new Date() }
-    if (existing.newTeacher) scheduleUpdates.teacher = existing.newTeacher
-    if (existing.newWeekday !== null) scheduleUpdates.weekday = existing.newWeekday
-    if (existing.newStartTime) scheduleUpdates.startTime = existing.newStartTime
-    if (existing.newEndTime) scheduleUpdates.endTime = existing.newEndTime
-
-    if (Object.keys(scheduleUpdates).length > 1) {
-      await db
-        .update(eduCourseSchedule)
-        .set(scheduleUpdates)
-        .where(eq(eduCourseSchedule.id, existing.scheduleId))
+      return reply.send(success({ scheduleChange: row }))
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') return reply.status(404).send(error(404, '调课申请不存在'))
+      if (err.message === 'NOT_PENDING') return reply.status(400).send(error(400, '仅待审批的申请可审批'))
+      return reply.status(500).send(error(500, '审批失败'))
     }
-
-    return reply.send(success({ scheduleChange: row }))
   })
 
   // 驳回
@@ -3128,16 +3204,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = homeworkSubmissionListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduHomeworkSubmission.deletedAt)]
     if (parsed.data.homeworkId) conds.push(eq(eduHomeworkSubmission.homeworkId, parsed.data.homeworkId))
     if (parsed.data.classId) conds.push(eq(eduHomeworkSubmission.classId, parsed.data.classId))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduHomeworkSubmission)
-      .where(where)
-      .orderBy(desc(eduHomeworkSubmission.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduHomeworkSubmission, where, desc(eduHomeworkSubmission.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/homework-submission', async (request, reply) => {
@@ -3220,17 +3293,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = leadListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduLead.deletedAt)]
     if (parsed.data.status) conds.push(eq(eduLead.status, parsed.data.status))
     if (parsed.data.source) conds.push(eq(eduLead.source, parsed.data.source))
     if (parsed.data.followerId) conds.push(eq(eduLead.followerId, parsed.data.followerId))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduLead)
-      .where(where)
-      .orderBy(desc(eduLead.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduLead, where, desc(eduLead.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/lead', async (request, reply) => {
@@ -3311,16 +3381,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = trialBookingListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = []
     if (parsed.data.status) conds.push(eq(eduTrialBooking.status, parsed.data.status))
     if (parsed.data.date) conds.push(eq(eduTrialBooking.trialDate, parsed.data.date))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const list = await db
-      .select()
-      .from(eduTrialBooking)
-      .where(where)
-      .orderBy(desc(eduTrialBooking.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduTrialBooking, where, desc(eduTrialBooking.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/trial-booking', async (request, reply) => {
@@ -3383,17 +3450,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = enrollmentListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduEnrollment.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduEnrollment.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduEnrollment.termId, parsed.data.termId))
     if (parsed.data.status) conds.push(eq(eduEnrollment.status, parsed.data.status))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduEnrollment)
-      .where(where)
-      .orderBy(desc(eduEnrollment.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduEnrollment, where, desc(eduEnrollment.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/enrollment', async (request, reply) => {
@@ -3453,16 +3517,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = tuitionFeeListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduTuitionFee.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduTuitionFee.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduTuitionFee.termId, parsed.data.termId))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduTuitionFee)
-      .where(where)
-      .orderBy(desc(eduTuitionFee.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduTuitionFee, where, desc(eduTuitionFee.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/tuition-fee', async (request, reply) => {
@@ -3522,17 +3583,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = paymentRecordListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduPaymentRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduPaymentRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduPaymentRecord.status, parsed.data.status))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduPaymentRecord)
-      .where(where)
-      .orderBy(desc(eduPaymentRecord.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduPaymentRecord, where, desc(eduPaymentRecord.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/payment-record', async (request, reply) => {
@@ -3550,44 +3608,52 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = paymentRecordSummaryQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduPaymentRecord.deletedAt)]
-    if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
-    const where = and(...conds)
 
-    // 总收入
-    const totalResult = await db
-      .select({ total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)` })
-      .from(eduPaymentRecord)
-      .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-    const totalIncome = Number(totalResult[0]?.total ?? 0)
+    try {
+      const result = await db.transaction(async (tx) => {
+        const conds: any[] = [isNull(eduPaymentRecord.deletedAt)]
+        if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
+        const where = and(...conds)
 
-    // 已缴费人数（去重）
-    const paidResult = await db
-      .select({ count: count() })
-      .from(
-        db
-          .select({ studentId: eduPaymentRecord.studentId })
+        // 总收入
+        const totalResult = await tx
+          .select({ total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)` })
           .from(eduPaymentRecord)
           .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-          .groupBy(eduPaymentRecord.studentId)
-          .as('paid_students'),
-      )
-    const paidStudentCount = Number(paidResult[0]?.count ?? 0)
+        const totalIncome = Number(totalResult[0]?.total ?? 0)
 
-    // 欠费人数和欠费总额（从 enrollment 表计算）
-    const enrollConds: any[] = [isNull(eduEnrollment.deletedAt)]
-    if (parsed.data.classId) enrollConds.push(eq(eduEnrollment.classId, parsed.data.classId))
-    if (parsed.data.termId) enrollConds.push(eq(eduEnrollment.termId, parsed.data.termId))
-    const enrollWhere = and(...enrollConds)
-    const enrollments = await db
-      .select()
-      .from(eduEnrollment)
-      .where(enrollWhere)
-    const arrearsStudents = enrollments.filter((e) => e.totalFee > e.paidAmount)
-    const arrearsCount = arrearsStudents.length
-    const arrearsTotal = arrearsStudents.reduce((sum, e) => sum + (e.totalFee - e.paidAmount), 0)
+        // 已缴费人数（去重）
+        const paidResult = await tx
+          .select({ count: count() })
+          .from(
+            tx
+              .select({ studentId: eduPaymentRecord.studentId })
+              .from(eduPaymentRecord)
+              .where(and(where, eq(eduPaymentRecord.status, 'paid')))
+              .groupBy(eduPaymentRecord.studentId)
+              .as('paid_students'),
+          )
+        const paidStudentCount = Number(paidResult[0]?.count ?? 0)
 
-    return reply.send(success({ totalIncome, paidStudentCount, arrearsCount, arrearsTotal }))
+        // 欠费人数和欠费总额（从 enrollment 表计算）
+        const enrollConds: any[] = [isNull(eduEnrollment.deletedAt)]
+        if (parsed.data.classId) enrollConds.push(eq(eduEnrollment.classId, parsed.data.classId))
+        if (parsed.data.termId) enrollConds.push(eq(eduEnrollment.termId, parsed.data.termId))
+        const enrollWhere = and(...enrollConds)
+        const enrollments = await tx
+          .select()
+          .from(eduEnrollment)
+          .where(enrollWhere)
+        const arrearsStudents = enrollments.filter((e) => e.totalFee > e.paidAmount)
+        const arrearsCount = arrearsStudents.length
+        const arrearsTotal = arrearsStudents.reduce((sum, e) => sum + (e.totalFee - e.paidAmount), 0)
+
+        return { totalIncome, paidStudentCount, arrearsCount, arrearsTotal }
+      })
+      return reply.send(success(result))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '汇总查询失败'))
+    }
   })
 
   server.delete('/payment-record/:id', async (request, reply) => {
@@ -3617,17 +3683,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const parsed = refundRecordListQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
     const conds: any[] = [isNull(eduRefundRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduRefundRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduRefundRecord.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduRefundRecord.status, parsed.data.status))
     const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduRefundRecord)
-      .where(where)
-      .orderBy(desc(eduRefundRecord.createdAt))
-    return reply.send(success({ list }))
+    const result = await paginate(eduRefundRecord, where, desc(eduRefundRecord.createdAt), page, pageSize)
+    return reply.send(success(result))
   })
 
   server.post('/refund-record', async (request, reply) => {
@@ -3697,6 +3760,81 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduRefundRecord.id, idParsed.data.id))
       .returning()
     return reply.send(success({ refundRecord: row }))
+  })
+// ===========================================================================
+  // 批量操作端点
+  // ===========================================================================
+
+  // 批量删除课程表条目
+  server.post('/course-schedule/batch-delete', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = batchDeleteSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await db
+        .update(eduCourseSchedule)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(inArray(eduCourseSchedule.id, parsed.data.ids))
+        .returning()
+      return reply.send(success({ deleted: result.length }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '批量删除失败'))
+    }
+  })
+
+  // 批量启用/禁用排课规则
+  server.post('/scheduling-rule/batch-toggle', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = batchToggleSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await db
+        .update(eduSchedulingRule)
+        .set({ isActive: parsed.data.isActive, updatedAt: new Date() })
+        .where(inArray(eduSchedulingRule.id, parsed.data.ids))
+        .returning()
+      return reply.send(success({ updated: result.length }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '批量更新失败'))
+    }
+  })
+
+  // 批量更新线索状态
+  server.post('/lead/batch-status', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = batchStatusSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await db
+        .update(eduLead)
+        .set({ status: parsed.data.status, updatedAt: new Date() })
+        .where(and(inArray(eduLead.id, parsed.data.ids), isNull(eduLead.deletedAt)))
+        .returning()
+      return reply.send(success({ updated: result.length }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '批量更新状态失败'))
+    }
+  })
+
+  // 批量更新报名状态
+  server.post('/enrollment/batch-status', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = batchStatusSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await db
+        .update(eduEnrollment)
+        .set({ status: parsed.data.status, updatedAt: new Date() })
+        .where(and(inArray(eduEnrollment.id, parsed.data.ids), isNull(eduEnrollment.deletedAt)))
+        .returning()
+      return reply.send(success({ updated: result.length }))
+    } catch (err: any) {
+      return reply.status(500).send(error(500, '批量更新状态失败'))
+    }
   })
 }
 
