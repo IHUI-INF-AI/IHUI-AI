@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Bot,
   Code,
+  Download,
   ExternalLink,
   FileText,
   Loader2,
@@ -26,6 +27,7 @@ import {
   getAiSkill,
   invokeAiSkill,
   getAiSkillRecommendations,
+  exportAiSkill,
   type AiSkillMeta,
   type AiSkillInvokeResponse,
 } from '@ihui/api-client/endpoints/ai-skills'
@@ -245,6 +247,33 @@ export default function AiSkillDetailPage() {
             <ExternalLink className="h-3 w-3" />
           </a>
         )}
+        {/* 导出按钮 */}
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const r = await exportAiSkill(skill.id)
+              if (r.success && r.data) {
+                const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${skill.id}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+                toast.success(t('exportSuccess'))
+              } else {
+                toast.error(r.error ?? t('exportError'))
+              }
+            } catch {
+              toast.error(t('exportError'))
+            }
+          }}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t('exportBtn')}
+        </button>
         {/* 版本信息 */}
         {(skill as unknown as Record<string, unknown>).version || (skill as unknown as Record<string, unknown>).updatedAt ? (
           <p className="text-xs text-muted-foreground">
