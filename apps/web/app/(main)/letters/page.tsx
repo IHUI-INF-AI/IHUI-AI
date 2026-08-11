@@ -113,7 +113,7 @@ export default function LettersPage() {
                           active && 'bg-accent',
                         )}
                       >
-                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-medium text-muted-foreground">
                           {(m.counterpartName || '?').slice(0, 1)}
                           {isUnread(m) && (
                             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-destructive" />

@@ -202,7 +202,7 @@ export default function StockAnalysePage() {
                 </div>
               </div>
               <div
-                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                className="h-2 w-full overflow-hidden rounded bg-muted"
                 role="progressbar"
                 aria-valuenow={Math.round(usedPct)}
                 aria-valuemin={0}
@@ -210,7 +210,7 @@ export default function StockAnalysePage() {
               >
                 <div
                   className={cn(
-                    'h-full rounded-full transition-all',
+                    'h-full rounded transition-all',
                     usedPct >= 90 ? 'bg-rose-500' : usedPct >= 60 ? 'bg-amber-500' : 'bg-primary',
                   )}
                   style={{ width: `${usedPct}%` }}

@@ -44,7 +44,7 @@ function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
     if ('__TAURI_INTERNALS__' in window) {
-      return 'http://127.0.0.1:8802'
+      return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
     }
   }
   return process.env.NEXT_PUBLIC_API_BASE_URL || ''
@@ -64,12 +64,12 @@ function detectStreamBaseUrl(): string {
   if (typeof window !== 'undefined') {
     // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
     if ('__TAURI_INTERNALS__' in window) {
-      return 'http://localhost:8802'
+      return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || 'http://localhost:8802'
     }
     // 开发环境:Next.js dev server 运行在 localhost:8801
     // SSE 流直连 API 服务器 localhost:8802,绕过 dev proxy 的超时/缓冲
     if (window.location.hostname === 'localhost' && window.location.port === '8801') {
-      return 'http://localhost:8802'
+      return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || 'http://localhost:8802'
     }
   }
   // 生产环境或显式配置(留空则复用 baseUrl,走同源反代)
