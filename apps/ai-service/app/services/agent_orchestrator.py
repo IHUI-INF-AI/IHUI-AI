@@ -28,6 +28,7 @@ from ..core.llm_gateway import llm_gateway
 from .agent_loop import agent_executor
 from .memory import memory_store
 from .mcp_server import mcp_server
+from .prompt_registry import prompt_registry
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,12 @@ class AgentRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
-        """注册 10 个默认 agent(5 通用 + 5 专业 subagent,对齐 Trae 自定义智能体)。"""
+        """注册 10 个默认 agent(从 PromptRegistry 加载 prompt)。"""
         defaults = [
             AgentDefinition(
                 name="researcher",
                 description="研究助手:调研任务、收集信息、生成摘要",
-                system_prompt=(
+                system_prompt=prompt_registry.get("researcher") or (
                     "你是研究助手。负责收集信息、调研问题并给出事实性回答。"
                     "回答时引用具体来源,不要猜测。"
                 ),
@@ -110,7 +111,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="coder",
                 description="代码助手:实现功能、修复 bug、写代码",
-                system_prompt=(
+                system_prompt=prompt_registry.get("coder") or (
                     "你是代码助手。负责实现功能、修复 bug、编写测试。"
                     "优先使用 read_file / search_codebase / run_command 等工具探索代码库。"
                 ),
@@ -123,7 +124,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="reviewer",
                 description="代码审查助手:审查 diff、给出修改建议",
-                system_prompt=(
+                system_prompt=prompt_registry.get("reviewer") or (
                     "你是代码审查助手。审查代码 diff 并给出具体修改建议。"
                     "重点关注正确性、安全性、性能、可读性。"
                 ),
@@ -133,7 +134,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="architect",
                 description="架构师:设计方案、规划模块、API 契约",
-                system_prompt=(
+                system_prompt=prompt_registry.get("architect") or (
                     "你是架构师。负责设计系统方案、规划模块结构、定义 API 契约。"
                     "输出需包含模块划分、数据流、关键技术决策。"
                 ),
@@ -143,7 +144,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="debugger",
                 description="调试助手:定位 bug、给出修复方案",
-                system_prompt=(
+                system_prompt=prompt_registry.get("debugger") or (
                     "你是调试助手。负责定位 bug 的根因并给出修复方案。"
                     "通过 run_command / read_file / search_codebase 收集证据。"
                 ),
@@ -157,7 +158,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="frontend-dev",
                 description="前端开发专家:React/Next.js/Tailwind/shadcn 组件开发,熟悉 SSR/SSG/ISR",
-                system_prompt=(
+                system_prompt=prompt_registry.get("frontend-dev") or (
                     "你是前端开发专家。精通 React 19 / Next.js 15 / Tailwind 4 / shadcn/ui。"
                     "遵循项目 AGENTS.md 的 UI 约束:compact/elegant、禁止蓝色发光边框、"
                     "禁止 rounded-full 容器、禁止分割线。"
@@ -173,7 +174,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="backend-dev",
                 description="后端开发专家:Fastify/Drizzle ORM/PostgreSQL/Redis,熟悉 REST API 设计",
-                system_prompt=(
+                system_prompt=prompt_registry.get("backend-dev") or (
                     "你是后端开发专家。精通 Fastify 5 + Drizzle ORM 0.38 + PostgreSQL + Redis。"
                     "遵循项目 AGENTS.md 的后端约束:Zod 校验、复用 packages/auth、"
                     "admin 路由用 preHandler、onConflictDoNothing 幂等、"
@@ -188,7 +189,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="devops",
                 description="DevOps 工程师:Docker/Turborepo/pnpm workspace/CI/CD,熟悉 monorepo 构建",
-                system_prompt=(
+                system_prompt=prompt_registry.get("devops") or (
                     "你是 DevOps 工程师。精通 Docker / Turborepo / pnpm workspace / GitHub Actions。"
                     "能优化构建速度、设计 CI/CD 流水线、排查部署问题。"
                     "遵循项目 AGENTS.md 的验证命令规范:pnpm turbo build typecheck lint test。"
@@ -202,7 +203,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="security-auditor",
                 description="安全审计专家:OWASP Top 10/CWE 检测,熟悉 RCE/SSRF/SQL注入/XSS 等漏洞模式",
-                system_prompt=(
+                system_prompt=prompt_registry.get("security-auditor") or (
                     "你是安全审计专家。精通 OWASP Top 10 / CWE 检测。"
                     "重点检查:RCE(new Function/eval)、SSRF(localhost/内网 IP)、"
                     "SQL 注入、XSS、硬编码密钥、路径穿越、不安全的反序列化。"
@@ -217,7 +218,7 @@ class AgentRegistry:
             AgentDefinition(
                 name="test-engineer",
                 description="测试工程师:Vitest/pytest/Playwright,熟悉单元/集成/E2E 测试设计",
-                system_prompt=(
+                system_prompt=prompt_registry.get("test-engineer") or (
                     "你是测试工程师。精通 Vitest / pytest / Playwright。"
                     "遵循项目 AGENTS.md 的测试规范:覆盖默认态/hover 态/active 态/dark mode 态 4 状态。"
                     "优先 TDD,测试名用中文描述清晰场景。"
@@ -250,6 +251,22 @@ class AgentRegistry:
 
     def remove(self, name: str) -> bool:
         return self._agents.pop(name, None) is not None
+
+    def reload_prompt(self, name: str) -> bool:
+        """从 PromptRegistry 重新加载指定 agent 的 prompt。
+
+        如果 registry 中存在该 prompt，更新 agent 的 system_prompt 并返回 True；
+        否则返回 False。
+        """
+        agent = self._agents.get(name)
+        if not agent:
+            return False
+        content = prompt_registry.get(name)
+        if content is None:
+            return False
+        agent.system_prompt = content
+        logger.info("Agent prompt 已重新加载: name=%s", name)
+        return True
 
 
 # ---------------------------------------------------------------------------
