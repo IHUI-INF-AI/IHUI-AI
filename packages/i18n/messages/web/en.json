@@ -316,6 +316,8 @@
     "modelsUsers": "Users",
     "modelsGroups": "Groups",
     "modelsUsage": "Usage",
+    "modelsPrompts": "Prompt Management",
+    "modelsEval": "Evaluation",
     "modelsBilling": "Billing",
     "modelsRedeem": "Redeem",
     "modelsReferral": "Referral",
@@ -477,7 +479,8 @@
     "eduAiTbox": "IoT Devices",
     "fundData": "Fund Data",
     "eduAiMetaLearner": "Meta-Learner",
-    "adminSkillBatch": "Batch Ops"
+    "adminSkillBatch": "Batch Ops",
+    "eduParentPortal": "Parent Portal"
   },
   "home": {
     "announcement": {
@@ -8039,6 +8042,8 @@
     "navSkills": "Skills",
     "navChats": "Chats",
     "navUsageStats": "Usage Stats",
+    "navPrompts": "Prompt Management",
+    "navEval": "Evaluation",
     "navLogs": "Logs",
     "navApiKeys": "API Keys",
     "navRedeem": "Redeem Codes",
@@ -8249,6 +8254,12 @@
         "tokens": "Tokens",
         "cost": "Cost",
         "share": "Share"
+      },
+      "chart": {
+        "title": "Usage Trend",
+        "calls": "Calls",
+        "tokens": "Tokens",
+        "noData": "No Data"
       }
     },
     "billing": {
@@ -8541,6 +8552,166 @@
         "holiday": "Holidays",
         "closed": "Closed"
       }
+    },
+    "retry": "Retry",
+    "eval": {
+      "title": "Evaluation",
+      "subtitle": "Manage test datasets, run automated evaluations, and compare results",
+      "tabs": {
+        "datasets": "Datasets",
+        "runs": "Runs"
+      },
+      "datasets": {
+        "title": "Datasets",
+        "create": "Create Dataset",
+        "delete": "Delete",
+        "view": "View",
+        "table": {
+          "name": "Name",
+          "description": "Description",
+          "items": "Items",
+          "createdAt": "Created At",
+          "actions": "Actions"
+        },
+        "form": {
+          "name": "Name",
+          "namePlaceholder": "Enter dataset name",
+          "description": "Description",
+          "descriptionPlaceholder": "Enter dataset description (optional)",
+          "items": "Test Items",
+          "input": "Input",
+          "inputPlaceholder": "Enter test text",
+          "expectedOutput": "Expected Output",
+          "expectedOutputPlaceholder": "Enter expected output (optional)",
+          "addItem": "Add Item",
+          "submit": "Create",
+          "cancel": "Cancel"
+        },
+        "detail": {
+          "title": "Dataset Details",
+          "item": "Item {index}",
+          "input": "Input",
+          "expectedOutput": "Expected Output",
+          "close": "Close"
+        },
+        "messages": {
+          "createSuccess": "Created",
+          "createFailed": "Create failed",
+          "deleteSuccess": "Deleted",
+          "deleteFailed": "Delete failed",
+          "deleteConfirm": "Delete dataset \"{name}\"?"
+        },
+        "empty": "No datasets",
+        "loading": "Loading..."
+      },
+      "runs": {
+        "title": "Runs",
+        "create": "Run Evaluation",
+        "view": "View Results",
+        "table": {
+          "id": "Run ID",
+          "dataset": "Dataset",
+          "model": "Model",
+          "prompt": "Prompt",
+          "avgScore": "Avg Score",
+          "duration": "Duration",
+          "createdAt": "Time",
+          "actions": "Actions"
+        },
+        "form": {
+          "datasetName": "Dataset",
+          "datasetNamePlaceholder": "Select dataset name",
+          "model": "Model",
+          "modelPlaceholder": "Enter model name (e.g. stepfun/step-3.7-flash)",
+          "promptName": "Prompt",
+          "promptNamePlaceholder": "Enter prompt name",
+          "submit": "Start Evaluation",
+          "cancel": "Cancel",
+          "running": "Evaluating..."
+        },
+        "detail": {
+          "title": "Evaluation Results",
+          "summary": "Summary",
+          "avgScore": "Avg Score",
+          "totalDuration": "Total Duration",
+          "items": "Items",
+          "item": "Item {index}",
+          "input": "Input",
+          "expectedOutput": "Expected Output",
+          "actualOutput": "Actual Output",
+          "score": "Score",
+          "duration": "Duration",
+          "error": "Error",
+          "close": "Close",
+          "scoreHigh": "Excellent",
+          "scoreMedium": "Average",
+          "scoreLow": "Poor"
+        },
+        "messages": {
+          "createSuccess": "Evaluation run created",
+          "createFailed": "Create failed",
+          "loadFailed": "Failed to load"
+        },
+        "empty": "No runs",
+        "loading": "Loading..."
+      }
+    },
+    "prompts": {
+      "title": "Prompt Management",
+      "subtitle": "Create, edit, and manage prompt templates and versions",
+      "create": "Create Prompt",
+      "edit": "Edit",
+      "delete": "Delete",
+      "view": "View",
+      "rollback": "Rollback",
+      "history": {
+        "title": "Version History",
+        "version": "Version {version}",
+        "description": "Description",
+        "createdAt": "Created At",
+        "rollbackConfirm": "Roll back to version {version}?",
+        "rollbackSuccess": "Rollback succeeded",
+        "rollbackFailed": "Rollback failed",
+        "current": "Current Version"
+      },
+      "searchPlaceholder": "Search prompt name...",
+      "table": {
+        "name": "Name",
+        "description": "Description",
+        "latestVersion": "Latest Version",
+        "updatedAt": "Updated At",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "namePlaceholder": "Enter prompt name",
+        "content": "Content",
+        "contentPlaceholder": "Enter prompt template content...",
+        "description": "Description",
+        "descriptionPlaceholder": "Enter prompt description (optional)",
+        "submit": "Submit",
+        "cancel": "Cancel",
+        "nameRequired": "Name is required",
+        "contentRequired": "Content is required"
+      },
+      "detail": {
+        "title": "Prompt Details",
+        "version": "Version {version}",
+        "content": "Content",
+        "close": "Close"
+      },
+      "messages": {
+        "createSuccess": "Created",
+        "createFailed": "Create failed",
+        "updateSuccess": "Updated",
+        "updateFailed": "Update failed",
+        "deleteSuccess": "Deleted",
+        "deleteFailed": "Delete failed",
+        "deleteConfirm": "Delete prompt \"{name}\"?",
+        "loadFailed": "Failed to load"
+      },
+      "empty": "No prompts",
+      "loading": "Loading..."
     }
   },
   "dashboard": {
@@ -11999,6 +12170,57 @@
       "empty": "No questions yet",
       "answered": "Answered",
       "pending": "Pending"
+    },
+    "eduAttendancePage": {
+      "title": "Attendance Management",
+      "subtitle": "Student check-in, check-out and leave management",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "leave": "Leave",
+      "stats": "Attendance Stats"
+    },
+    "eduGradePage": {
+      "title": "Grade Management",
+      "subtitle": "Exam score entry, statistics and ranking",
+      "input": "Score Entry",
+      "stats": "Grade Stats",
+      "rank": "Ranking",
+      "trend": "Trend Analysis"
+    },
+    "eduHomeworkPage": {
+      "title": "Homework Management",
+      "subtitle": "Homework submission, grading and statistics",
+      "submit": "Submit Homework",
+      "grade": "Grade Homework",
+      "stats": "Completion Stats"
+    },
+    "eduEnrollmentPage": {
+      "title": "Enrollment Management",
+      "subtitle": "Lead tracking, trial booking and enrollment management",
+      "lead": "Lead Management",
+      "trial": "Trial Booking",
+      "enroll": "Enrollment Records"
+    },
+    "eduFinancePage": {
+      "title": "Finance Management",
+      "subtitle": "Tuition standards, payment and refund management",
+      "fee": "Tuition Standards",
+      "payment": "Payment Records",
+      "refund": "Refund Management"
+    },
+    "eduEmpty": {
+      "noSchedule": "No schedule available",
+      "noMeal": "No meal records",
+      "noPlan": "No study plan",
+      "noAttendance": "No attendance records",
+      "noGrade": "No grade records",
+      "noLead": "No lead records",
+      "noTrial": "No trial bookings",
+      "noEnrollment": "No enrollment records",
+      "noHomework": "No homework submissions",
+      "noRule": "No scheduling rules",
+      "noPayment": "No payment records",
+      "noRefund": "No refund records"
     }
   },
   "marketing": {
@@ -16518,5 +16740,57 @@
     "search": "Search by code or name",
     "active": "Active",
     "inactive": "Inactive"
+  },
+  "parentPortal": {
+    "dashboard": {
+      "title": "Parent Portal",
+      "subtitle": "View your child's learning progress",
+      "bindChild": "Bind Child",
+      "pendingBindings": "{count} pending binding(s)",
+      "noChildren": "No child bound",
+      "noChildrenHint": "Bind your child first to view learning data",
+      "bindNow": "Bind Now",
+      "childLabel": "{relationship} guardian"
+    },
+    "bind": {
+      "title": "Binding Management",
+      "subtitle": "Manage parent-child bindings",
+      "createTitle": "Create Binding",
+      "studentIdLabel": "Child User ID",
+      "studentIdPlaceholder": "Enter child's user ID",
+      "relationshipLabel": "Relationship",
+      "submit": "Submit Binding",
+      "success": "Binding request submitted",
+      "listTitle": "Binding List",
+      "empty": "No bindings",
+      "relationship": "Relationship",
+      "confirm": "Confirm",
+      "reject": "Reject",
+      "deleteTitle": "Delete Binding",
+      "deleteConfirm": "Delete this binding?"
+    },
+    "child": {
+      "courses": "Class Schedule",
+      "coursesHint": "View your child's class schedule",
+      "meals": "Today's Meals",
+      "mealsHint": "View today's meal plan",
+      "studyPlans": "Study Plans",
+      "studyPlansHint": "View your child's study plans",
+      "attendance": "Attendance",
+      "attendanceHint": "View attendance records",
+      "grades": "Exam Grades",
+      "gradesHint": "View exam grades",
+      "empty": "No Data",
+      "monthlyPlan": "Monthly Plan",
+      "weeklyPlan": "Weekly Plan"
+    },
+    "attendance": {
+      "rate": "Attendance Rate",
+      "records": "Check-in Records"
+    },
+    "grades": {
+      "detail": "Grade Details",
+      "examCount": "{count} exam(s)"
+    }
   }
 }

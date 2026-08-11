@@ -315,6 +315,8 @@
     "modelsUsers": "사용자",
     "modelsGroups": "그룹",
     "modelsUsage": "사용량",
+    "modelsPrompts": "프롬프트 관리",
+    "modelsEval": "평가",
     "modelsBilling": "청구",
     "modelsRedeem": "교환",
     "modelsReferral": "추천",
@@ -476,7 +478,8 @@
     "eduAiTbox": "IoT 기기",
     "fundData": "펀드 데이터",
     "eduAiMetaLearner": "메타 러너",
-    "adminSkillBatch": "일괄 작업"
+    "adminSkillBatch": "일괄 작업",
+    "eduParentPortal": "학부모 포털"
   },
   "home": {
     "announcement": {
@@ -8035,6 +8038,8 @@
     "navSkills": "스킬",
     "navChats": "채팅",
     "navUsageStats": "사용량",
+    "navPrompts": "프롬프트 관리",
+    "navEval": "평가",
     "navLogs": "로그",
     "navApiKeys": "API 키",
     "navRedeem": "교환 코드",
@@ -8245,6 +8250,12 @@
         "tokens": "토큰",
         "cost": "소비",
         "share": "비율"
+      },
+      "chart": {
+        "title": "사용량 추이",
+        "calls": "호출 횟수",
+        "tokens": "토큰",
+        "noData": "데이터 없음"
       }
     },
     "billing": {
@@ -8537,6 +8548,166 @@
         "holiday": "공휴일",
         "closed": "휴무"
       }
+    },
+    "retry": "재시도",
+    "eval": {
+      "title": "평가",
+      "subtitle": "테스트 데이터셋 관리, 자동 평가 실행 및 결과 비교",
+      "tabs": {
+        "datasets": "데이터셋",
+        "runs": "실행 기록"
+      },
+      "datasets": {
+        "title": "데이터셋",
+        "create": "데이터셋 생성",
+        "delete": "삭제",
+        "view": "보기",
+        "table": {
+          "name": "이름",
+          "description": "설명",
+          "items": "항목 수",
+          "createdAt": "생성 시간",
+          "actions": "작업"
+        },
+        "form": {
+          "name": "이름",
+          "namePlaceholder": "데이터셋 이름 입력",
+          "description": "설명",
+          "descriptionPlaceholder": "데이터셋 설명 입력(선택)",
+          "items": "테스트 항목",
+          "input": "입력",
+          "inputPlaceholder": "테스트 텍스트 입력",
+          "expectedOutput": "기대 출력",
+          "expectedOutputPlaceholder": "기대 출력 입력(선택)",
+          "addItem": "항목 추가",
+          "submit": "생성",
+          "cancel": "취소"
+        },
+        "detail": {
+          "title": "데이터셋 상세",
+          "item": "항목 {index}",
+          "input": "입력",
+          "expectedOutput": "기대 출력",
+          "close": "닫기"
+        },
+        "messages": {
+          "createSuccess": "생성 성공",
+          "createFailed": "생성 실패",
+          "deleteSuccess": "삭제 성공",
+          "deleteFailed": "삭제 실패",
+          "deleteConfirm": "데이터셋 \"{name}\"을(를) 삭제하시겠습니까?"
+        },
+        "empty": "데이터셋 없음",
+        "loading": "로딩 중..."
+      },
+      "runs": {
+        "title": "실행 기록",
+        "create": "평가 실행",
+        "view": "결과 보기",
+        "table": {
+          "id": "실행 ID",
+          "dataset": "데이터셋",
+          "model": "모델",
+          "prompt": "프롬프트",
+          "avgScore": "평균 점수",
+          "duration": "소요 시간",
+          "createdAt": "시간",
+          "actions": "작업"
+        },
+        "form": {
+          "datasetName": "데이터셋",
+          "datasetNamePlaceholder": "데이터셋 이름 선택",
+          "model": "모델",
+          "modelPlaceholder": "모델 이름 입력 (예: stepfun/step-3.7-flash)",
+          "promptName": "프롬프트",
+          "promptNamePlaceholder": "프롬프트 이름 입력",
+          "submit": "평가 시작",
+          "cancel": "취소",
+          "running": "평가 중..."
+        },
+        "detail": {
+          "title": "평가 결과",
+          "summary": "평가 요약",
+          "avgScore": "평균 점수",
+          "totalDuration": "총 소요 시간",
+          "items": "평가 항목",
+          "item": "항목 {index}",
+          "input": "입력",
+          "expectedOutput": "기대 출력",
+          "actualOutput": "실제 출력",
+          "score": "점수",
+          "duration": "소요 시간",
+          "error": "오류",
+          "close": "닫기",
+          "scoreHigh": "우수",
+          "scoreMedium": "보통",
+          "scoreLow": "낮음"
+        },
+        "messages": {
+          "createSuccess": "평가 실행이 생성되었습니다",
+          "createFailed": "생성 실패",
+          "loadFailed": "로드 실패"
+        },
+        "empty": "실행 기록 없음",
+        "loading": "로딩 중..."
+      }
+    },
+    "prompts": {
+      "title": "프롬프트 관리",
+      "subtitle": "프롬프트 템플릿과 버전을 생성·편집·관리합니다",
+      "create": "프롬프트 생성",
+      "edit": "편집",
+      "delete": "삭제",
+      "view": "보기",
+      "rollback": "롤백",
+      "history": {
+        "title": "버전 기록",
+        "version": "버전 {version}",
+        "description": "설명",
+        "createdAt": "생성 시간",
+        "rollbackConfirm": "버전 {version}(으)로 롤백하시겠습니까?",
+        "rollbackSuccess": "롤백 성공",
+        "rollbackFailed": "롤백 실패",
+        "current": "현재 버전"
+      },
+      "searchPlaceholder": "프롬프트 이름 검색...",
+      "table": {
+        "name": "이름",
+        "description": "설명",
+        "latestVersion": "최신 버전",
+        "updatedAt": "업데이트 시간",
+        "actions": "작업"
+      },
+      "form": {
+        "name": "이름",
+        "namePlaceholder": "프롬프트 이름 입력",
+        "content": "내용",
+        "contentPlaceholder": "프롬프트 템플릿 내용 입력...",
+        "description": "설명",
+        "descriptionPlaceholder": "프롬프트 설명 입력(선택)",
+        "submit": "제출",
+        "cancel": "취소",
+        "nameRequired": "이름을 입력하세요",
+        "contentRequired": "내용을 입력하세요"
+      },
+      "detail": {
+        "title": "프롬프트 상세",
+        "version": "버전 {version}",
+        "content": "내용",
+        "close": "닫기"
+      },
+      "messages": {
+        "createSuccess": "생성 성공",
+        "createFailed": "생성 실패",
+        "updateSuccess": "업데이트 성공",
+        "updateFailed": "업데이트 실패",
+        "deleteSuccess": "삭제 성공",
+        "deleteFailed": "삭제 실패",
+        "deleteConfirm": "프롬프트 \"{name}\"을(를) 삭제하시겠습니까?",
+        "loadFailed": "로드 실패"
+      },
+      "empty": "프롬프트 없음",
+      "loading": "로딩 중..."
     }
   },
   "dashboard": {
@@ -11996,6 +12167,57 @@
       "empty": "질문이 없습니다",
       "answered": "답변 완료",
       "pending": "미답변"
+    },
+    "eduAttendancePage": {
+      "title": "출석 관리",
+      "subtitle": "학생 출석, 퇴실 및 휴가 관리",
+      "checkIn": "출석",
+      "checkOut": "퇴실",
+      "leave": "휴가",
+      "stats": "출석 통계"
+    },
+    "eduGradePage": {
+      "title": "성적 관리",
+      "subtitle": "시험 성적 입력, 통계 및 순위",
+      "input": "성적 입력",
+      "stats": "성적 통계",
+      "rank": "순위",
+      "trend": "추세 분석"
+    },
+    "eduHomeworkPage": {
+      "title": "숙제 관리",
+      "subtitle": "숙제 제출, 채점 및 통계",
+      "submit": "숙제 제출",
+      "grade": "숙제 채점",
+      "stats": "완료 통계"
+    },
+    "eduEnrollmentPage": {
+      "title": "입학 관리",
+      "subtitle": "리드 추적, 체험 예약 및 등록 관리",
+      "lead": "리드 관리",
+      "trial": "체험 예약",
+      "enroll": "등록 기록"
+    },
+    "eduFinancePage": {
+      "title": "재무 관리",
+      "subtitle": "수업료 기준, 납부 및 환불 관리",
+      "fee": "수업료 기준",
+      "payment": "납부 기록",
+      "refund": "환불 관리"
+    },
+    "eduEmpty": {
+      "noSchedule": "일정이 없습니다",
+      "noMeal": "식단 기록이 없습니다",
+      "noPlan": "학습 계획이 없습니다",
+      "noAttendance": "출석 기록이 없습니다",
+      "noGrade": "성적 기록이 없습니다",
+      "noLead": "리드 기록이 없습니다",
+      "noTrial": "체험 예약이 없습니다",
+      "noEnrollment": "등록 기록이 없습니다",
+      "noHomework": "숙제 제출이 없습니다",
+      "noRule": "배정 규칙이 없습니다",
+      "noPayment": "납부 기록이 없습니다",
+      "noRefund": "환불 기록이 없습니다"
     }
   },
   "marketing": {
@@ -16531,5 +16753,57 @@
   "forbidden": {
     "title": "권한 없음",
     "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요."
+  },
+  "parentPortal": {
+    "dashboard": {
+      "title": "학부모 포털",
+      "subtitle": "자녀의 학습 상황 확인",
+      "bindChild": "자녀 연결",
+      "pendingBindings": "확인 대기 중인 연결 {count}개",
+      "noChildren": "연결된 자녀 없음",
+      "noChildrenHint": "자녀를 먼저 연결하고 학습 데이터를 확인하세요",
+      "bindNow": "지금 연결",
+      "childLabel": "{relationship} 보호"
+    },
+    "bind": {
+      "title": "연결 관리",
+      "subtitle": "학부모-자녀 연결 관리",
+      "createTitle": "연결 생성",
+      "studentIdLabel": "자녀 사용자 ID",
+      "studentIdPlaceholder": "자녀의 사용자 ID 입력",
+      "relationshipLabel": "관계",
+      "submit": "연결 제출",
+      "success": "연결 신청이 제출되었습니다",
+      "listTitle": "연결 목록",
+      "empty": "연결 기록 없음",
+      "relationship": "관계",
+      "confirm": "확인",
+      "reject": "거절",
+      "deleteTitle": "연결 삭제",
+      "deleteConfirm": "이 연결 관계를 삭제하시겠습니까?"
+    },
+    "child": {
+      "courses": "시간표",
+      "coursesHint": "자녀의 수업 일정 확인",
+      "meals": "오늘의 식단",
+      "mealsHint": "오늘의 식단 확인",
+      "studyPlans": "학습 계획",
+      "studyPlansHint": "자녀의 학습 계획 확인",
+      "attendance": "출석 기록",
+      "attendanceHint": "출석 현황 확인",
+      "grades": "시험 성적",
+      "gradesHint": "시험 성적 확인",
+      "empty": "데이터 없음",
+      "monthlyPlan": "월간 계획",
+      "weeklyPlan": "주간 계획"
+    },
+    "attendance": {
+      "rate": "출석률",
+      "records": "출석 기록"
+    },
+    "grades": {
+      "detail": "성적 상세",
+      "examCount": "총 {count}회 시험"
+    }
   }
 }
