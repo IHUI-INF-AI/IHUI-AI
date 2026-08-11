@@ -361,8 +361,11 @@ function TermDialog({
             terms.map((t) => (
               <div
                 key={t.id}
+                role="button"
+                tabIndex={0}
                 className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                 onClick={() => resetForm(t)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') resetForm(t) }}
               >
                 <span className={cn(editTerm?.id === t.id && 'font-medium')}>
                   {t.name}
@@ -528,7 +531,7 @@ export default function SchedulePage() {
     queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
 
-  const terms = termsData?.list ?? []
+  const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   // Auto-select the first term (current term preferred)
   React.useEffect(() => {
@@ -547,7 +550,7 @@ export default function SchedulePage() {
     enabled: !!selectedTermId,
   })
 
-  const classes = classesData?.list ?? []
+  const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   // Auto-select first class
   React.useEffect(() => {
@@ -644,12 +647,12 @@ export default function SchedulePage() {
   })
 
   /* ── Week / Month helpers ── */
-  const today = new Date()
+  const today = React.useMemo(() => new Date(), [])
   const currentMonday = React.useMemo(() => {
     const m = getMonday(today)
     m.setDate(m.getDate() + weekOffset * 7)
     return m
-  }, [weekOffset])
+  }, [today, weekOffset])
 
   const weekDays = React.useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -663,7 +666,7 @@ export default function SchedulePage() {
     const d = new Date(today)
     d.setMonth(d.getMonth() + monthOffset)
     return d
-  }, [monthOffset])
+  }, [today, monthOffset])
 
   const monthGrid = React.useMemo(() => {
     const year = currentMonth.getFullYear()
@@ -974,11 +977,16 @@ export default function SchedulePage() {
                       return (
                         <div
                           key={`${time}-${wi}`}
+                          role="button"
+                          tabIndex={0}
                           className={cn(
                             'relative min-h-[60px] border-b border-r p-1 transition-colors hover:bg-accent/30',
                           )}
                           onClick={() => {
                             if (slotEntries.length === 0) handleAddSchedule(weekday)
+                          }}
+                          onKeyDown={(e) => {
+                            if ((e.key === 'Enter' || e.key === ' ') && slotEntries.length === 0) handleAddSchedule(weekday)
                           }}
                         >
                           {isFirstSlot &&
