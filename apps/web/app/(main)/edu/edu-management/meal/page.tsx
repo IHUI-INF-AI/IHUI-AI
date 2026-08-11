@@ -343,7 +343,7 @@ function TemplateDialog({
   const [deleting, setDeleting] = React.useState('')
   const [applying, setApplying] = React.useState(false)
 
-  const today = new Date()
+  const today = React.useMemo(() => new Date(), [])
   const defaultStartDate = formatDate(getMonday(today))
 
   React.useEffect(() => {
@@ -393,6 +393,7 @@ function TemplateDialog({
           dishName: ne.dishName,
           ingredients: ne.ingredients ?? '',
           nutrition: ne.nutrition ?? '',
+          notes: ne.notes ?? '',
         }
       }
     }
@@ -673,19 +674,19 @@ export default function MealPage() {
   const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false)
 
   /* ── Date helpers ── */
-  const today = new Date()
+  const today = React.useMemo(() => new Date(), [])
 
   const currentDay = React.useMemo(() => {
     const d = new Date(today)
     d.setDate(d.getDate() + dayOffset)
     return d
-  }, [dayOffset])
+  }, [today, dayOffset])
 
   const currentMonday = React.useMemo(() => {
     const m = getMonday(today)
     m.setDate(m.getDate() + weekOffset * 7)
     return m
-  }, [weekOffset])
+  }, [today, weekOffset])
 
   const weekDays = React.useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -699,7 +700,7 @@ export default function MealPage() {
     const d = new Date(today)
     d.setMonth(d.getMonth() + monthOffset)
     return d
-  }, [monthOffset])
+  }, [today, monthOffset])
 
   const monthGrid = React.useMemo(() => {
     const year = currentMonth.getFullYear()
