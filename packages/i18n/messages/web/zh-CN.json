@@ -146,7 +146,23 @@
       "autoRestart": "即将自动重启...",
       "preparing": "正在准备更新...",
       "autoRetrying": "更新失败，自动重试中..."
-    }
+    },
+    "actions": "操作",
+    "backHome": "返回首页",
+    "batchDelete": "批量删除",
+    "cancelTime": "取消时间",
+    "colToken": "Tokens",
+    "comingSoon": "敬请期待",
+    "exportSuccess": "导出成功",
+    "loadFailed": "加载失败",
+    "noData": "暂无数据",
+    "notFoundTitle": "页面未找到",
+    "originalPrice": "原价",
+    "payTime": "支付时间",
+    "reasonRequired": "请填写原因",
+    "resize": "拖动调整宽度",
+    "searchHistory": "搜索历史",
+    "viewDetail": "查看详情"
   },
   "taskReceiver": {
     "title": "任务接收",
@@ -1689,6 +1705,7 @@
       "dryRunInput": "样例请求体(JSON)",
       "dryRunRun": "执行预览",
       "dryRunOriginal": "原始 body",
+      "dryRunModified": "修改后 body",
       "dryRunNoChange": "修改后 body(无变化)"
     },
     "skills": {
@@ -6863,7 +6880,10 @@
       "confirmChange": "确认修改",
       "phoneChanged": "手机号修改成功",
       "changePhoneFailed": "修改手机号失败,请稍后重试",
-      "mergeHint": "若新手机号已注册账号,将自动合并所有数据,并保留当前账号的昵称、头像、个人简介等资料。"
+      "mergeHint": "若新手机号已注册账号,将自动合并所有数据,并保留当前账号的昵称、头像、个人简介等资料。",
+      "avatarHint": "JPG / PNG，建议 200x200",
+      "emailPlaceholder": "输入邮箱",
+      "nicknamePlaceholder": "输入昵称"
     },
     "security": {
       "password": "密码",
@@ -6892,7 +6912,9 @@
       "currentDevice": "当前设备",
       "logout": "退出登录",
       "devicesLoading": "加载中...",
-      "devicesEmpty": "暂无数据"
+      "devicesEmpty": "暂无数据",
+      "subtitle": "保障您的账号安全",
+      "title": "账号安全"
     },
     "notifications": {
       "viewList": "列表视图",
@@ -6908,7 +6930,10 @@
         "order": "订单",
         "project": "项目",
         "system": "系统"
-      }
+      },
+      "allRead": "全部已读",
+      "markAllRead": "全部标记已读",
+      "title": "消息通知"
     },
     "public": {
       "follow": "关注",
@@ -6944,7 +6969,12 @@
       "sourceMiniapp": "小程序",
       "rejectedReason": "拒绝原因",
       "success": "实名认证已提交，请等待审核",
-      "error": "提交失败"
+      "error": "提交失败",
+      "approvedTitle": "认证已通过",
+      "pendingTitle": "审核中",
+      "rejectedTitle": "认证被驳回",
+      "subtitle": "完成实名认证以解锁更多功能",
+      "title": "实名认证"
     },
     "subscription": {
       "autoRenewOn": "已开启",
@@ -6970,7 +7000,10 @@
       "nextCharge": "下次扣款:",
       "manage": "管理",
       "autoRenewClosed": "未开通自动续费",
-      "openAutoRenew": "开通自动续费"
+      "openAutoRenew": "开通自动续费",
+      "autoRenew": "自动续费",
+      "current": "当前套餐",
+      "expireTime": "到期时间"
     },
     "articles": {
       "title": "我的文章",
@@ -7815,7 +7848,55 @@
     "title": "设置",
     "billingInvoiceNo": "发票号",
     "billingInvoiceType": "发票类型",
-    "billingNoData": "暂无账单记录"
+    "billingNoData": "暂无账单记录",
+    "accountDeletionCancel": "取消删除",
+    "accountDeletionCodeLabel": "验证码",
+    "accountDeletionCodePlaceholder": "输入验证码",
+    "accountDeletionCodeSendFailed": "验证码发送失败",
+    "accountDeletionCodeSent": "验证码已发送",
+    "accountDeletionFailed": "注销失败，请重试",
+    "accountDeletionPhonePlaceholder": "输入手机号",
+    "accountDeletionResend": "{seconds}s 后重新发送",
+    "accountDeletionSubmit": "确认注销",
+    "accountDeletionSuccess": "账号已注销，正在跳转登录页",
+    "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
+    "adTracking": "广告追踪",
+    "billingInvoices": "发票申请",
+    "billingOrders": "订单",
+    "connectedAccountsBoundAt": "绑定时间",
+    "connectedAccountsPlatform": "平台账号",
+    "connectedAccountsUnbindConfirm": "确定解绑 {platform} 账号吗？",
+    "connectedAccountsUnbindFail": "解绑失败",
+    "connectedAccountsUnbound": "已解绑",
+    "dashboardDesc": "快速访问所有设置项",
+    "dataVisibility": "数据可见性",
+    "dataVisibilityDesc": "控制谁可以查看您的个人资料信息",
+    "emailNotif": "邮件通知",
+    "exportCreating": "正在生成导出...",
+    "exportCsv": "CSV 格式",
+    "exportCsvDesc": "导出表格 CSV 数据",
+    "exportExpiresAt": "过期时间",
+    "exportFailed": "导出失败，请重试",
+    "exportJson": "JSON 格式",
+    "exportLastExport": "上次导出",
+    "exportNoHistory": "暂无导出记录",
+    "exportScope": "导出范围",
+    "exportScopeDesc": "包含：个人资料、聊天记录、订单、用量统计等。",
+    "exportSuccess": "导出已就绪",
+    "langZh": "中文",
+    "marketingEmail": "营销邮件",
+    "notificationsSaveFailed": "保存失败",
+    "personalizedRecommendation": "个性化推荐",
+    "privacySaveFailed": "保存失败",
+    "pushNotif": "站内通知",
+    "pushNotifDesc": "接收平台内消息",
+    "sidebarCollapsed": "默认折叠",
+    "sidebarExpanded": "默认展开",
+    "smsNotif": "短信通知",
+    "smsNotifDesc": "通过短信接收验证码和提醒",
+    "subPagesTitle": "更多设置",
+    "systemNotif": "系统通知",
+    "themeSystem": "跟随系统"
   },
   "favorites": {
     "title": "收藏夹",
@@ -8582,7 +8663,16 @@
       "delete": "删除",
       "view": "查看",
       "rollback": "回滚",
-      "history": "版本历史",
+      "history": {
+        "title": "版本历史",
+        "version": "版本 {version}",
+        "description": "描述",
+        "createdAt": "创建时间",
+        "rollbackConfirm": "确认回滚到版本 {version}？",
+        "rollbackSuccess": "回滚成功",
+        "rollbackFailed": "回滚失败",
+        "current": "当前版本"
+      },
       "searchPlaceholder": "搜索 Prompt 名称...",
       "table": {
         "name": "名称",
@@ -8609,16 +8699,6 @@
         "content": "内容",
         "close": "关闭"
       },
-      "history": {
-        "title": "版本历史",
-        "version": "版本 {version}",
-        "description": "描述",
-        "createdAt": "创建时间",
-        "rollbackConfirm": "确认回滚到版本 {version}？",
-        "rollbackSuccess": "回滚成功",
-        "rollbackFailed": "回滚失败",
-        "current": "当前版本"
-      },
       "messages": {
         "createSuccess": "创建成功",
         "createFailed": "创建失败",
@@ -8631,7 +8711,8 @@
       },
       "empty": "暂无 Prompt",
       "loading": "加载中..."
-    }
+    },
+    "retry": "重试"
   },
   "dashboard": {
     "admin": {
@@ -8810,7 +8891,10 @@
     "field_images": "截图",
     "imagesPlaceholder": "粘贴或拖拽图片到此处",
     "tab_list": "列表",
-    "tab_new": "最新"
+    "tab_new": "最新",
+    "backToList": "返回反馈",
+    "empty": "暂无反馈",
+    "notFound": "反馈不存在或无权限"
   },
   "comments": {
     "replyTitle": "管理员回复",
@@ -10164,7 +10248,8 @@
     "ctaTitle": "30 分钟开始你的 AI 之旅",
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
     "ctaPrimary": "免费注册",
-    "ctaSecondary": "查看文档"
+    "ctaSecondary": "查看文档",
+    "metaDescription": "IHUI AI（智汇 AI）是一站式全端 AI 操作系统：整合 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议，支持 Web / 桌面 / 小程序 / 浏览器扩展 / React Native / CLI 六端同源，Apache 2.0 开源。"
   },
   "faq": {
     "metaTitle": "常见问题 — 智汇 AI",
@@ -10196,7 +10281,12 @@
     "q12Answer": "绝对不会。我们既不训练自有模型,也不会用你的数据训练任何第三方模型。OpenAI/Anthropic 等 API 提供商的 data retention 政策请参考其官方文档(均默认不训练,API 模式下数据 30 天后自动删除)。",
     "ctaTitle": "没找到答案?",
     "ctaDesc": "联系我们的技术团队,2 小时内回复。",
-    "ctaButton": "联系技术支持"
+    "ctaButton": "联系技术支持",
+    "categoryDeploy": "部署与运维",
+    "categoryGeneral": "平台",
+    "categoryTech": "技术与开发",
+    "heroSubtitle": "关于 IHUI AI 的 12 个常见问题，30 秒找到答案。",
+    "heroTitle": "常见问题"
   },
   "articles": {
     "title": "文章",
@@ -12080,6 +12170,57 @@
       "empty": "暂无问答",
       "answered": "已回答",
       "pending": "待回答"
+    },
+    "eduAttendancePage": {
+      "title": "考勤管理",
+      "subtitle": "学生签到、签退与请假管理",
+      "checkIn": "签到",
+      "checkOut": "签退",
+      "leave": "请假",
+      "stats": "出勤统计"
+    },
+    "eduGradePage": {
+      "title": "成绩管理",
+      "subtitle": "考试成绩录入、统计与排名",
+      "input": "成绩录入",
+      "stats": "成绩统计",
+      "rank": "排名",
+      "trend": "趋势分析"
+    },
+    "eduHomeworkPage": {
+      "title": "作业管理",
+      "subtitle": "作业提交、批改与统计",
+      "submit": "提交作业",
+      "grade": "批改作业",
+      "stats": "完成统计"
+    },
+    "eduEnrollmentPage": {
+      "title": "招生管理",
+      "subtitle": "线索跟进、试听预约与报名管理",
+      "lead": "线索管理",
+      "trial": "试听预约",
+      "enroll": "报名记录"
+    },
+    "eduFinancePage": {
+      "title": "财务管理",
+      "subtitle": "学费标准、缴费与退费管理",
+      "fee": "学费标准",
+      "payment": "缴费记录",
+      "refund": "退费管理"
+    },
+    "eduEmpty": {
+      "noSchedule": "暂无课程安排",
+      "noMeal": "暂无菜谱记录",
+      "noPlan": "暂无学习计划",
+      "noAttendance": "暂无考勤记录",
+      "noGrade": "暂无成绩记录",
+      "noLead": "暂无线索记录",
+      "noTrial": "暂无试听预约",
+      "noEnrollment": "暂无报名记录",
+      "noHomework": "暂无作业提交",
+      "noRule": "暂无排课规则",
+      "noPayment": "暂无缴费记录",
+      "noRefund": "暂无退费记录"
     }
   },
   "marketing": {
@@ -16613,5 +16754,43 @@
       "detail": "成绩明细",
       "examCount": "共 {count} 次考试"
     }
+  },
+  "a11y": {
+    "addAttachment": "添加附件（图片/视频/文件）",
+    "breadcrumb": "面包屑导航",
+    "searchOption": "搜索选项"
+  },
+  "agreement": {
+    "effectiveDate": "生效日期",
+    "staticContent1": "欢迎使用本平台。使用我们的服务即表示您同意本协议的所有条款。",
+    "staticContent2": "我们严格保护您的个人隐私，未经您的许可不会向第三方披露。",
+    "staticContent3": "如对本协议有任何疑问，请联系客服。",
+    "title": "协议与政策"
+  },
+  "forbidden": {
+    "backToHome": "返回首页",
+    "description": "抱歉，您没有权限访问此页面。请联系管理员申请访问权限。",
+    "title": "无权限"
+  },
+  "help": {
+    "backToList": "返回帮助",
+    "contactSupport": "联系客服",
+    "empty": "未找到相关文章",
+    "notFound": "文章不存在或已下线",
+    "related": "相关文章",
+    "toc": "本页目录",
+    "updatedAt": "更新于",
+    "viewCount": "{count} 次浏览"
+  },
+  "searchHistory": {
+    "clearAll": "清空",
+    "subtitle": "最近的搜索记录"
+  },
+  "themeBackup": {
+    "title": "主题"
+  },
+  "themeToggle": {
+    "darkMode": "深色",
+    "lightMode": "浅色"
   }
 }

@@ -370,7 +370,7 @@ export default function PromptsPage() {
                 <p className="text-sm text-destructive">{t('prompts.messages.loadFailed')}</p>
                 <p className="text-xs text-muted-foreground">{error}</p>
                 <Button variant="outline" size="sm" onClick={loadPrompts}>
-                  {t('prompts.create')}
+                  {t('retry')}
                 </Button>
               </div>
             ) : filtered.length === 0 ? (
@@ -539,7 +539,7 @@ export default function PromptsPage() {
               {viewVersions.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {t('prompts.detail.version', { version: '' })}
+                    {t('prompts.detail.version', { version: viewVersion })}
                   </span>
                   <select
                     className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
