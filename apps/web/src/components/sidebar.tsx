@@ -40,7 +40,6 @@ import {
   GraduationCap,
   Landmark,
   Map as MapIcon,
-  Radio,
   ShoppingCart,
   PenTool,
   Download,
@@ -308,20 +307,24 @@ const USER_CHILDREN: NavItem[] = [
 
 /** /edu 8 项整合到 AI教育 组下 */
 const EDU_ITEMS: NavItem[] = [
+  // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
   { href: '/edu/courses', labelKey: 'eduCourses', icon: BookOpen },
   { href: '/edu/exam', labelKey: 'eduExam', icon: FileCheck },
   { href: '/edu/certificates', labelKey: 'eduCertificates', icon: Award },
+  // 课程表
   { href: '/edu/schedule', labelKey: 'eduSchedule', icon: CalendarDays },
   { href: '/edu/edu-management/schedule', labelKey: 'eduScheduleMgr', icon: CalendarCheck },
-  { href: '/edu/edu-management/meal', labelKey: 'eduMealMgr', icon: UtensilsCrossed },
+  // 管理功能(按使用频率从高到低)
+  { href: '/edu/edu-management/attendance', labelKey: 'eduAttendanceMgr', icon: ClipboardCheck },
   { href: '/edu/edu-management/grades', labelKey: 'eduGradeMgr', icon: Award },
-  { href: '/edu/edu-management/scheduling', labelKey: 'eduSchedulingMgr', icon: CalendarRange },
   { href: '/edu/edu-management/homework', labelKey: 'eduHomeworkMgr', icon: FileEdit },
+  { href: '/edu/edu-management/scheduling', labelKey: 'eduSchedulingMgr', icon: CalendarRange },
   { href: '/edu/edu-management/enrollment', labelKey: 'eduEnrollmentMgr', icon: UserPlus },
   { href: '/edu/edu-management/finance', labelKey: 'eduFinanceMgr', icon: Landmark },
+  { href: '/edu/edu-management/meal', labelKey: 'eduMealMgr', icon: UtensilsCrossed },
   { href: '/edu/edu-management/study-plan', labelKey: 'eduStudyPlanMgr', icon: ClipboardList },
-  { href: '/edu/edu-management/attendance', labelKey: 'eduAttendanceMgr', icon: ClipboardCheck },
+  // 学习工具
   { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
   { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },
   { href: '/edu/progress', labelKey: 'eduProgress', icon: BarChart3 },
@@ -332,9 +335,9 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu-ai/certification', labelKey: 'eduAiCert', icon: GraduationCap },
   { href: '/edu-ai/aigc-tools', labelKey: 'eduAiAigc', icon: Sparkles },
   { href: '/edu-ai/courses', labelKey: 'eduAiCourses', icon: Landmark },
-  // 2026-08-07 P1/P2 4 入口(学习地图/直播课堂/课程商城/AI 批改)
+  // 2026-08-07 P1/P2 4 入口(学习地图/课程商城/AI 批改)
+  // 注:直播课堂 /live 已存在于 eduGroup 组,此处不再重复(避免 React key 冲突)
   { href: '/edu-ai/map', labelKey: 'eduAiMap', icon: MapIcon },
-  { href: '/live', labelKey: 'eduAiLive', icon: Radio },
   { href: '/edu/shop', labelKey: 'eduAiShop', icon: ShoppingCart },
   { href: '/edu-ai/marking', labelKey: 'eduAiMarking', icon: PenTool },
   // 2026-08-07 feature-connect:AI 视频编排(脚本→素材→合成→字幕 一键编排)
