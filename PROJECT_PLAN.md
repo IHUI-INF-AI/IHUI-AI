@@ -3280,3 +3280,70 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 执行顺序
 
 按 Phase 1→2→3→4 串行执行,每个 Phase 独立 commit + push + 验证。Phase 内后端先完成(含测试),前端再对接。
+
+---
+
+## P0 AI教育管理 — 课程表/菜谱/学习计划 三模块全链路开发(2026-08-11 立,跨端:apps/web + apps/api + packages/database)
+
+> AGENTS.md §24 用户已确认(上一轮对话中"确认，开始开发")。
+> 本任务 3 模块:课程表(学期管理+班级+周/月视图可编辑)、菜谱(日/周/月视图+编辑+模板管理)、学习计划(月→周拆解+管理员制定+学生执行)。
+
+### 已完成(批次1-2)
+
+- [x] ✅(2026-08-11) **批次1:数据库表设计** — 7 张表(eduTerm/eduClass/eduCourseSchedule/eduMealRecipe/eduMealWeekTemplate/eduStudyPlan/eduPlanItem)+ 类型导出 + 迁移文件 0204 已应用
+- [x] ✅(2026-08-11) **批次2:API路由完整CRUD** — 7 模块全部 CRUD + 业务逻辑(学期设当前/软删除/月→周自动拆解/模板应用到某周/模板名称去重列表)+ 路由注册到 `/api/edu-ai-management/` + 端点测试全部 200 ✅
+
+### 剩余批次(批次3-6)
+
+#### 批次3:课程表前端(编辑/查看、学期切换、周/月视图) ✅
+
+- [x] ✅(2026-08-11) 新建 `/edu/edu-management/schedule` 页面，完整可编辑课程表(1093行)
+- [x] ✅(2026-08-11) 学期选择器(Select下拉切换，自动选当前学期，+按钮打开学期管理弹窗)
+- [x] ✅(2026-08-11) 班级选择器(关联学期，自动加载，+按钮创建班级)
+- [x] ✅(2026-08-11) 周视图(7列×13时段网格，08:00-21:00，点击空白添加，点击已有课程编辑)
+- [x] ✅(2026-08-11) 月视图(日历网格，展示每日课程概览，最多3门缩略+剩余计数)
+- [x] ✅(2026-08-11) 编辑弹窗:课程名称/教师/时间(HH:mm)/教室/8种颜色标记
+- [x] ✅(2026-08-11) 软删除课程条目(Trash2按钮+确认)
+- [x] ✅(2026-08-11) 侧边栏新增导航入口(/edu/edu-management/schedule → CalendarCheck 图标)
+- [x] ✅(2026-08-11) i18n 5语言翻译补充(eduScheduleMgr/eduMealMgr/eduStudyPlanMgr)
+- [x] ✅(2026-08-11) typecheck exit 0 + 页面 HTTP 200 ✅
+
+#### 批次4:菜谱前端(日/周/月视图、编辑、模板管理)
+
+- [ ] 新建 `/edu/edu-management/meal` 页面，管理员可编辑菜谱
+- [ ] 日视图:展示某日三餐+加餐详细菜谱(DishName/Ingredients/Nutrition/Notes)
+- [ ] 周视图:7 列 × 4 餐类型网格，快速编辑
+- [ ] 月视图:日历网格，展示每日各餐类型
+- [ ] 编辑弹窗:日期/餐类型(早餐/午餐/晚餐/加餐)/菜品名/配料/营养/备注/图片
+- [ ] 模板管理:创建/编辑/删除周模板，一键应用到指定周
+- [ ] 侧边栏新增导航入口
+
+#### 批次5:学习计划前端(月→周拆解、管理员制定、学生执行)
+
+- [ ] 新建 `/edu/edu-management/study-plan` 页面
+- [ ] 管理员创建月计划(标题/班级/学期/时间范围/描述)+ 自动拆解为周计划
+- [ ] 周计划列表展示(按时间轴)，可查看/编辑
+- [ ] 计划条目管理:添加/编辑/排序/标记完成
+- [ ] 学生视角:可查看计划条目，添加子任务/备注
+- [ ] 计划状态流转:draft → active → completed → archived
+- [ ] 侧边栏新增导航入口
+
+#### 批次6:全链路联调 + 类型检查 + 验证交付
+
+- [ ] 侧边栏导航配置更新(sidebar.tsx 新增 3 个管理入口)
+- [ ] i18n 翻译补充(5 语言:课程表管理/菜谱管理/学习计划管理相关 key)
+- [ ] 验证:pnpm turbo build typecheck lint test 全绿
+- [ ] git-push-guard exit 0 + commit + push
+
+### 约束边界
+
+- 涉及文件:apps/web/app/(main)/edu/edu-management/{schedule,meal,study-plan}/page.tsx(3 个新页面)+ apps/web/src/components/sidebar.tsx(改)+ packages/i18n/messages/web/*.json(5 文件改)
+- 不可触及:其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)、非 edu 管理模块的 web 页面
+- 前端使用 @ihui/ui-react 现有组件(Card/Button/Input/Select/Dialog/Table/DataTable)
+- 遵循现有项目 UI 约束(圆角梯度/禁止分割线/禁止渐变遮罩/中文字体对齐)
+- 新增侧边栏入口放在 EDU_ITEMS 中(现有 `/edu/schedule` 只读入口保留，新增管理入口)
+- 每批次独立 commit + push
+
+### 平台独占
+
+本任务仅 apps/web(TS, Next.js) + apps/api(Fastify, 已完成) + packages/database(已完成)，其他端无跨端契约(sidebar 是 web 端独有配置)。
