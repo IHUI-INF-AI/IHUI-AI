@@ -23,6 +23,24 @@ export function NavigationProgress() {
   const end = useNavigationStore((s) => s.end)
   const pathname = usePathname()
   const prevPathname = React.useRef(pathname)
+  // 兜底定时器:防止 pending 永久卡住(点击相同页面/导航失败后 pending 无法结束)
+  const fallbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 每次 start() 被调用(点击链接)时,设置 10s 兜底定时器
+  React.useEffect(() => {
+    if (pending && !fallbackTimerRef.current) {
+      fallbackTimerRef.current = setTimeout(() => {
+        end()
+        fallbackTimerRef.current = null
+      }, 10_000)
+    }
+    return () => {
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current)
+        fallbackTimerRef.current = null
+      }
+    }
+  }, [pending, end])
 
   // 检测 pathname 变化 → 导航完成
   React.useEffect(() => {

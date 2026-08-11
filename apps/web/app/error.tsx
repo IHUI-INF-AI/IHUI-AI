@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
+import { useNavigationStore } from '@/stores/navigation'
 
 export default function Error({
   error,
@@ -16,6 +17,8 @@ export default function Error({
 
   useEffect(() => {
     console.error(error)
+    // 页面崩溃时重置 pending 状态
+    useNavigationStore.getState().end()
   }, [error])
 
   return (
