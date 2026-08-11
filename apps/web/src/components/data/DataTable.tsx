@@ -28,7 +28,7 @@ interface DataTableProps<T> {
 
 type SortState = { key: string; dir: 'asc' | 'desc' } | null
 
-function DataTableImpl<T extends Record<string, unknown>>({
+function DataTableImpl<T>({
   columns,
   data,
   rowKey = (_, i) => `row-${i}`,
@@ -47,8 +47,10 @@ function DataTableImpl<T extends Record<string, unknown>>({
     const indexed = data.map((row, i) => ({ row, index: i }))
     if (!sort) return indexed
     return indexed.sort((a, b) => {
-      const av = a.row[sort.key] as unknown
-      const bv = b.row[sort.key] as unknown
+      const rowA = a.row as Record<string, unknown>
+      const rowB = b.row as Record<string, unknown>
+      const av = rowA[sort.key] as unknown
+      const bv = rowB[sort.key] as unknown
       if (av === bv) return 0
       const cmp = (av as number) > (bv as number) ? 1 : -1
       return sort.dir === 'asc' ? cmp : -cmp
@@ -162,7 +164,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className={cn('px-3 py-2.5', alignMap[col.align ?? 'left'])}>
-                      {col.render ? col.render(row, index) : String(row[col.key] ?? '')}
+                      {col.render ? col.render(row, index) : String((row as Record<string, unknown>)[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>
