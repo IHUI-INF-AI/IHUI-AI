@@ -17,6 +17,9 @@ import {
   SunMoon,
   Moon,
   Apple,
+  BarChart3,
+  ShoppingCart,
+  ChefHat,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -874,6 +877,47 @@ export default function MealPage() {
     onSuccess: invalidate,
   })
 
+  /* ── Nutrition summary & Shopping list ── */
+  const [nutritionOpen, setNutritionOpen] = React.useState(false)
+  const [shoppingListOpen, setShoppingListOpen] = React.useState(false)
+  const [shoppingListData, setShoppingListData] = React.useState<{
+    shoppingList: Array<{ ingredient: string; count: number; dishes: string[] }>
+    totalIngredients: number
+  } | null>(null)
+  const [generatingShopping, setGeneratingShopping] = React.useState(false)
+
+  const nutritionQuery = useQuery({
+    queryKey: ['edu-ai-management', 'meal', 'nutrition-summary', dateRange.startDate, dateRange.endDate],
+    queryFn: () =>
+      api<{
+        totalMeals: number
+        summary: { totalCalories: number; totalProtein: number; totalCarbs: number }
+        byType: Array<{ mealType: string; count: number; calories: number; protein: number; carbs: number; avgCalories: number }>
+      }>(
+        `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
+      ),
+    enabled: false,
+  })
+
+  const handleGenerateShoppingList = async () => {
+    setGeneratingShopping(true)
+    try {
+      const data = await api<{
+        shoppingList: Array<{ ingredient: string; count: number; dishes: string[] }>
+        totalIngredients: number
+      }>('/api/edu-ai-management/meal/generate-shopping-list', {
+        method: 'POST',
+        body: JSON.stringify({ startDate: dateRange.startDate, endDate: dateRange.endDate }),
+      })
+      setShoppingListData(data)
+      setShoppingListOpen(true)
+    } catch (e: any) {
+      alert(e.message ?? '生成采购清单失败')
+    } finally {
+      setGeneratingShopping(false)
+    }
+  }
+
   /* ── Group meals by date for day view ── */
   const mealsByDateAndType = React.useMemo(() => {
     const map = new Map<string, Map<string, MealRecipe[]>>()
@@ -1040,6 +1084,32 @@ export default function MealPage() {
           <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
             <ClipboardList className="mr-1 h-3.5 w-3.5" />
             模板管理
+          </Button>
+
+          {/* Nutrition & Shopping list */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              nutritionQuery.refetch()
+              setNutritionOpen(true)
+            }}
+          >
+            <BarChart3 className="mr-1 h-3.5 w-3.5" />
+            营养分析
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateShoppingList}
+            disabled={generatingShopping}
+          >
+            {generatingShopping ? (
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShoppingCart className="mr-1 h-3.5 w-3.5" />
+            )}
+            采购清单
           </Button>
 
           {/* Loading indicator */}
@@ -1307,6 +1377,135 @@ export default function MealPage() {
           await applyTemplateMutation.mutateAsync({ name, startDate })
         }}
       />
+
+      {/* Nutrition Analysis Dialog */}
+      <Dialog open={nutritionOpen} onOpenChange={setNutritionOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>营养分析汇总</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {nutritionQuery.isFetching ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                加载中...
+              </div>
+            ) : nutritionQuery.data ? (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-orange-500">{nutritionQuery.data.summary.totalCalories}</span>
+                      <span className="text-xs text-muted-foreground">总热量 (kcal)</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-blue-500">{nutritionQuery.data.summary.totalProtein}g</span>
+                      <span className="text-xs text-muted-foreground">总蛋白质</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-green-500">{nutritionQuery.data.summary.totalCarbs}g</span>
+                      <span className="text-xs text-muted-foreground">总碳水</span>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  共 {nutritionQuery.data.totalMeals} 餐 · 日期范围: {dateRange.startDate} ~ {dateRange.endDate}
+                </p>
+
+                {/* By meal type breakdown */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">按餐类型统计</h4>
+                  {nutritionQuery.data.byType.map((type) => {
+                    const typeLabel = MEAL_TYPE_MAP.get(type.mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? type.mealType
+                    return (
+                      <div key={type.mealType} className="rounded-md border p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-medium">{typeLabel}</span>
+                          <span className="text-xs text-muted-foreground">{type.count} 餐</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                          <div>
+                            <span className="block font-medium text-orange-500">{type.calories}</span>
+                            <span className="text-muted-foreground">热量</span>
+                          </div>
+                          <div>
+                            <span className="block font-medium text-blue-500">{type.protein}g</span>
+                            <span className="text-muted-foreground">蛋白质</span>
+                          </div>
+                          <div>
+                            <span className="block font-medium text-green-500">{type.carbs}g</span>
+                            <span className="text-muted-foreground">碳水</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无营养数据</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shopping List Dialog */}
+      <Dialog open={shoppingListOpen} onOpenChange={setShoppingListOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>食材采购清单</DialogTitle>
+          </DialogHeader>
+          {shoppingListData ? (
+            <div className="space-y-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                日期范围: {dateRange.startDate} ~ {dateRange.endDate} · 共 {shoppingListData.totalIngredients} 种食材
+              </p>
+              {shoppingListData.shoppingList.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">暂无食材数据</p>
+              ) : (
+                <div className="space-y-1">
+                  {shoppingListData.shoppingList.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <ChefHat className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{item.ingredient}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          出现在 {item.count} 道菜
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {shoppingListData.shoppingList.length > 0 && (
+                <div className="rounded-md bg-muted/30 p-3">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">涉及菜品</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(new Set(shoppingListData.shoppingList.flatMap((s) => s.dishes))).map((dish) => (
+                      <Badge key={dish} variant="secondary" className="text-xs">
+                        {dish}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              生成中...
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
