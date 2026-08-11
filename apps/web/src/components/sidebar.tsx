@@ -1990,7 +1990,12 @@ const Sidebar = React.memo(function Sidebar({
     }
   }
 
-  const header = (
+  /**
+   * 桌面端 sidebar header:Logo + 折叠/展开按钮(桌面端可见)。
+   * 移动端(<1024px)下桌面 sidebar 被 CSS 强制 60px 宽,header 仅显示折叠按钮(隐藏于移动端),
+   * 不包含移动关闭按钮,避免移动端看到无用的 X 按钮(关闭按钮只在 mobileHeader 中)。
+   */
+  const desktopHeader = (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
       className={cn(
@@ -2049,6 +2054,28 @@ const Sidebar = React.memo(function Sidebar({
           )}
         </Button>
       </Tooltip>
+    </div>
+  )
+
+  /**
+   * 移动端 drawer header:Logo + 关闭按钮。
+   * 与 desktopHeader 分离,移动关闭按钮仅出现在移动 drawer 中,
+   * 防止移动端桌面 sidebar 中出现无用的 X 关闭按钮(点击调用 onCloseMobile 但 drawer 未打开)。
+   */
+  const mobileHeader = (
+    <div
+      className={cn(
+        // 与 desktopHeader 同尺寸结构,但无桌面端拖拽窗口逻辑
+        'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0',
+      )}
+    >
+      <ThemeLogo
+        clickable
+        width={80}
+        height={26}
+        className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
+        onClick={() => router.push('/')}
+      />
       {/* 2026-07-31 第十八次微调(用户反馈"X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
           - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
             的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / rounded-md / focus-visible:bg-accent)
@@ -2067,7 +2094,7 @@ const Sidebar = React.memo(function Sidebar({
         className={cn(
           // h-9 w-9 已被 Button size="icon" + TOPBAR_BTN_W9 覆盖,无需重复声明
           // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-          'ml-auto shrink-0 min-[1024px]:hidden',
+          'ml-auto shrink-0',
           TOPBAR_BTN_BASE,
           TOPBAR_BTN_W9,
         )}
@@ -2109,7 +2136,7 @@ const Sidebar = React.memo(function Sidebar({
               }
         }
       >
-        {header}
+        {desktopHeader}
         {navContent(desktopNavId, navRef, 'desktop')}
         {footer}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
@@ -2169,7 +2196,7 @@ const Sidebar = React.memo(function Sidebar({
             : 'width 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease-out',
         }}
       >
-        {header}
+        {mobileHeader}
         {navContent(mobileNavId, mobileNavRef, 'mobile')}
         {footer}
         {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
