@@ -77,14 +77,26 @@ const FALLBACK_ROLES: Record<string, AgentRoleConfig> = {
 // 加载逻辑
 // =============================================================================
 
-/** 从 JSON 字符串解析并校验 */
-function parseRoles(json: string, source: string): Record<string, AgentRoleConfig> {
+/**
+ * 从 JSON 字符串或已解析对象解析并校验。
+ * 兼容两种来源:env 传字符串(需 JSON.parse),createRequire().require('.json')
+ * 直接返回已解析对象(此时再 JSON.parse 会得到 "[object Object]" 抛 SyntaxError,
+ * 曾导致内置 crew-roles.json 永远加载失败、静默回退 fallback)。
+ */
+function parseRoles(
+  input: string | Record<string, unknown>,
+  source: string,
+): Record<string, AgentRoleConfig> {
   let parsed: unknown
-  try {
-    parsed = JSON.parse(json)
-  } catch (err) {
-    logger.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, { err: err as Error })
-    return FALLBACK_ROLES
+  if (typeof input === 'string') {
+    try {
+      parsed = JSON.parse(input)
+    } catch (err) {
+      logger.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, { err: err as Error })
+      return FALLBACK_ROLES
+    }
+  } else {
+    parsed = input
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     logger.warn(`[crew-role-loader] ${source} 顶层不是对象, 使用 fallback`)
@@ -122,7 +134,8 @@ function parseRoles(json: string, source: string): Record<string, AgentRoleConfi
 function loadBuiltin(): Record<string, AgentRoleConfig> {
   try {
     const require = createRequire(import.meta.url)
-    const json = require('./crew-roles.json') as string
+    // require('.json') 返回已解析对象,直接传给 parseRoles(内部兼容对象入参)
+    const json = require('./crew-roles.json') as Record<string, unknown>
     return parseRoles(json, '内置 crew-roles.json')
   } catch (err) {
     logger.warn('[crew-role-loader] 加载内置 crew-roles.json 失败, 使用 fallback:', { err: err as Error })
