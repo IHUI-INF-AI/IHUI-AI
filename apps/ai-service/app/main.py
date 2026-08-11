@@ -58,6 +58,12 @@ from app.routers.langgraph import router as langgraph_router
 from app.routers.meta_learning import router as meta_learning_router
 # Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
 from app.routers import workflow as workflow_router
+# Harness 能力补齐:Token 用量统计(2026-08-11 立)
+from app.routers import usage as usage_router
+# Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
+from app.routers import prompts as prompts_router
+# Harness 能力补齐:评估/评测框架(2026-08-11 立)
+from app.routers import eval as eval_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
@@ -478,6 +484,12 @@ def create_app() -> FastAPI:
     app.include_router(meta_learning_router)
     # Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
     app.include_router(workflow_router.router, prefix="/api", tags=["workflows"])
+    # Harness 能力补齐:LLM 用量统计(2026-08-11 立,路由自带 /api/v1/ai/usage 前缀)
+    app.include_router(usage_router.router, tags=["ai-usage"])
+    # Harness 能力补齐:Prompt 版本管理(2026-08-11 立,路由无前缀,统一加 /api)
+    app.include_router(prompts_router.router, prefix="/api", tags=["prompts"])
+    # Harness 能力补齐:评估/评测框架(2026-08-11 立,路由自带 /api/v1/ai/eval 前缀)
+    app.include_router(eval_router.router, tags=["eval"])
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
