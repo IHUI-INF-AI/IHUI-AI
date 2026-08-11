@@ -1964,7 +1964,22 @@ const Sidebar = React.memo(function Sidebar({
       </nav>
   )
 
-  const footer = (
+  /**
+   * 桌面端 sidebar footer:仅在桌面端可见,移动端(<1024px)隐藏。
+   * 移动端桌面 sidebar 被 CSS 强制 60px 宽,但 collapsed prop 可能为 false,
+   * 导致 SidebarActions(flex-row 4 按钮溢出)和登录按钮(文字溢出)在 60px 容器中错乱,
+   * 溢出内容会遮挡下方按钮,导致移动端不可点击。
+   * 移动端 footer 内容由 mobileFooter 在移动 drawer 中提供。
+   */
+  const desktopFooter = (
+      <div className="shrink-0 hidden min-[1024px]:block">
+        <SidebarActions collapsed={collapsed} />
+        <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+      </div>
+  )
+
+  /** 移动端 drawer footer:始终显示在移动 drawer 中(160px+ 宽,正常布局) */
+  const mobileFooter = (
       <div className="shrink-0">
         <SidebarActions collapsed={collapsed} />
         <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
@@ -2138,7 +2153,7 @@ const Sidebar = React.memo(function Sidebar({
       >
         {desktopHeader}
         {navContent(desktopNavId, navRef, 'desktop')}
-        {footer}
+        {desktopFooter}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
             外层 w-2(8px)为透明命中区,right-[-4px] 让命中区居中跨越 aside 右边缘(左右各 4px)。
             内层 w-0.5(0.5px)可见细线,left-[calc(50%-0.25px)] -translate-x-1/2 让线居中在命中区中心,正好与 aside 右边缘重合。
@@ -2198,7 +2213,7 @@ const Sidebar = React.memo(function Sidebar({
       >
         {mobileHeader}
         {navContent(mobileNavId, mobileNavRef, 'mobile')}
-        {footer}
+        {mobileFooter}
         {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
             - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
             - 命中区 w-2 (8px),right-[-4px] 跨越 aside 右边缘
