@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc, isNull, between, gte, lte, count, sql } from 'drizzle-orm'
+import { eq, and, or, desc, isNull, between, gte, lte, count, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   eduTerm,
@@ -11,7 +11,10 @@ import {
   eduStudyPlan,
   eduPlanItem,
   eduAttendanceRecord,
+  eduExamScore,
   eduLeaveRequest,
+  eduParentStudentBinding,
+  users,
 } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -230,6 +233,34 @@ const updateLeaveSchema = createLeaveSchema.partial()
 const approveLeaveSchema = z.object({
   status: z.enum(['approved', 'rejected']),
   approveRemark: z.string().optional(),
+})
+
+// =============================================================================
+// 10. 家长-学生绑定管理 (edu_parent_student_binding)
+// =============================================================================
+
+const createBindingSchema = z.object({
+  studentId: z.string().uuid(),
+  relationship: z.enum(['father', 'mother', 'guardian', 'other']),
+})
+
+const updateBindingSchema = z.object({
+  relationship: z.enum(['father', 'mother', 'guardian', 'other']).optional(),
+  status: z.enum(['confirmed', 'rejected']).optional(),
+})
+
+const bindingListQuerySchema = z.object({
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+})
+
+// =============================================================================
+// 11. 孩子数据查看（家长端）
+// =============================================================================
+
+const childAttendanceQuerySchema = z.object({
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 // =============================================================================
@@ -1144,6 +1175,586 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deleted: true }))
   })
 
-  }
+  // ===========================================================================
+  // 10. 家长-学生绑定管理
+  // ===========================================================================
+
+  // 获取当前用户的绑定列表（家长视角：查看绑定的孩子；学生视角：查看绑定的家长）
+  server.get('/parent/binding', async (request, reply) => {
+    const parsed = bindingListQuerySchema.safeParse(request.query)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const conds: any[] = [
+      or(eq(eduParentStudentBinding.parentId, userId), eq(eduParentStudentBinding.studentId, userId)),
+      isNull(eduParentStudentBinding.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduParentStudentBinding.status, parsed.data.status))
+    const where = and(...conds)
+    const list = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(where)
+      .orderBy(desc(eduParentStudentBinding.createdAt))
+    return reply.send(success({ list }))
+  })
+
+  // 创建绑定（家长发起）
+  server.post('/parent/binding', async (request, reply) => {
+    const parsed = createBindingSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 检查是否已存在绑定
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, parsed.data.studentId),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (existing) return reply.status(409).send(error(409, '已存在绑定关系'))
+
+    const [row] = await db
+      .insert(eduParentStudentBinding)
+      .values({
+        parentId: userId,
+        studentId: parsed.data.studentId,
+        relationship: parsed.data.relationship,
+      })
+      .returning()
+    return reply.status(201).send(success({ binding: row }))
+  })
+
+  // 确认/拒绝绑定（学生端确认）
+  server.put('/parent/binding/:id', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateBindingSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.id, idParsed.data.id),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
+    if (existing.studentId !== userId) return reply.status(403).send(error(403, '仅学生本人可确认绑定'))
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() }
+    if (parsed.data.relationship) updates.relationship = parsed.data.relationship
+    if (parsed.data.status) {
+      updates.status = parsed.data.status
+      if (parsed.data.status === 'confirmed') updates.confirmedAt = new Date()
+    }
+
+    const [row] = await db
+      .update(eduParentStudentBinding)
+      .set(updates)
+      .where(eq(eduParentStudentBinding.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ binding: row }))
+  })
+
+  // 解除绑定（家长或学生均可发起）
+  server.delete('/parent/binding/:id', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.id, idParsed.data.id),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
+    if (existing.parentId !== userId && existing.studentId !== userId) {
+      return reply.status(403).send(error(403, '无权操作'))
+    }
+
+    await db
+      .update(eduParentStudentBinding)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(eduParentStudentBinding.id, idParsed.data.id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // 获取家长绑定的所有孩子列表（含孩子基本信息）
+  server.get('/parent/children', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const bindings = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+
+    if (bindings.length === 0) return reply.send(success({ children: [] }))
+
+    // 查询孩子用户信息
+    const studentIds = bindings.map((b) => b.studentId)
+    const students = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        avatar: users.avatar,
+      })
+      .from(users)
+      .where(inArray(users.id, studentIds))
+
+    // 合并数据
+    const children = bindings.map((b) => {
+      const student = students.find((s) => s.id === b.studentId)
+      return {
+        bindingId: b.id,
+        studentId: b.studentId,
+        relationship: b.relationship,
+        status: b.status,
+        student: student || null,
+      }
+    })
+
+    return reply.send(success({ children }))
+  })
+// ===========================================================================
+  // 11. 孩子数据查看（家长端）
+  // ===========================================================================
+
+  // 孩子考勤记录（按学生ID）
+  server.get('/parent/child/:id/attendance', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = childAttendanceQuerySchema.safeParse(request.query)
+    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证该学生确实是当前用户的孩子
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, idParsed.data.id),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const conds: any[] = [
+      eq(eduAttendanceRecord.studentId, idParsed.data.id),
+      isNull(eduAttendanceRecord.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
+    if (parsed.data.startDate && parsed.data.endDate) {
+      conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
+    } else if (parsed.data.startDate) {
+      conds.push(gte(eduAttendanceRecord.date, parsed.data.startDate))
+    } else if (parsed.data.endDate) {
+      conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
+    }
+    const where = and(...conds)
+    const list = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(where)
+      .orderBy(desc(eduAttendanceRecord.date))
+    return reply.send(success({ list }))
+  })
+
+  // 孩子成绩列表（按学生ID）
+  server.get('/parent/child/:id/grades', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证绑定
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, idParsed.data.id),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const list = await db
+      .select()
+      .from(eduExamScore)
+      .where(and(eq(eduExamScore.studentId, idParsed.data.id), isNull(eduExamScore.deletedAt)))
+      .orderBy(desc(eduExamScore.examDate), eduExamScore.subject)
+    return reply.send(success({ list }))
+  })
+
+  // 孩子课程表（按班级ID，从签到记录中查找最近的班级）
+  server.get('/parent/child/:id/schedule', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证绑定
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, idParsed.data.id),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    // 从签到记录中查找该学生最近的班级
+    const [latestAttendance] = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(and(eq(eduAttendanceRecord.studentId, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
+      .orderBy(desc(eduAttendanceRecord.date))
+      .limit(1)
+
+    if (!latestAttendance) {
+      return reply.send(success({ list: [], classId: null }))
+    }
+
+    // 查询该班级的课程表
+    const list = await db
+      .select()
+      .from(eduCourseSchedule)
+      .where(
+        and(
+          eq(eduCourseSchedule.classId, latestAttendance.classId),
+          isNull(eduCourseSchedule.deletedAt),
+        ),
+      )
+      .orderBy(eduCourseSchedule.weekday, eduCourseSchedule.startTime)
+    return reply.send(success({ list, classId: latestAttendance.classId }))
+  })
+
+  // 孩子学习计划（按班级ID，从签到记录中查找最近的班级）
+  server.get('/parent/child/:id/study-plans', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证绑定
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, idParsed.data.id),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    // 从签到记录中查找该学生最近的班级
+    const [latestAttendance] = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(and(eq(eduAttendanceRecord.studentId, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
+      .orderBy(desc(eduAttendanceRecord.date))
+      .limit(1)
+
+    if (!latestAttendance) {
+      return reply.send(success({ list: [], classId: null }))
+    }
+
+    // 查询该班级的学习计划
+    const list = await db
+      .select()
+      .from(eduStudyPlan)
+      .where(
+        and(
+          eq(eduStudyPlan.classId, latestAttendance.classId),
+          isNull(eduStudyPlan.deletedAt),
+        ),
+      )
+      .orderBy(desc(eduStudyPlan.createdAt))
+    return reply.send(success({ list, classId: latestAttendance.classId }))
+  })
+
+  // 孩子菜谱（学校通用，无需班级信息）
+  server.get('/parent/child/:id/meals', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证绑定
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, idParsed.data.id),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    // 获取当前周的菜谱
+    const now = new Date()
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1) // 周一
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(startOfWeek.getDate() + 6) // 周日
+    const startStr = startOfWeek.toISOString().split('T')[0]!
+    const endStr = endOfWeek.toISOString().split('T')[0]!
+
+    const list = await db
+      .select()
+      .from(eduMealRecipe)
+      .where(
+        and(
+          between(eduMealRecipe.date, startStr, endStr),
+          isNull(eduMealRecipe.deletedAt),
+        ),
+      )
+      .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
+    return reply.send(success({ list }))
+  })
+
+  // ===========================================================================
+  // 12. 孩子数据查看（家长端，children/:childId 前缀）
+  //     与 Section 11 功能相同，URL 路径不同以匹配前端页面调用
+  // ===========================================================================
+
+  // 孩子课程表
+  server.get('/parent/children/:childId/courses', async (request, reply) => {
+    const childId = (request.params as { childId: string }).childId
+    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    // 验证绑定
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    // 从签到记录中查找该学生最近的班级
+    const [latestAttendance] = await db
+      .select({ classId: eduAttendanceRecord.classId })
+      .from(eduAttendanceRecord)
+      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
+      .orderBy(desc(eduAttendanceRecord.date))
+      .limit(1)
+
+    if (!latestAttendance) {
+      return reply.send(success({ list: [] }))
+    }
+
+    const list = await db
+      .select()
+      .from(eduCourseSchedule)
+      .where(
+        and(
+          eq(eduCourseSchedule.classId, latestAttendance.classId),
+          isNull(eduCourseSchedule.deletedAt),
+        ),
+      )
+      .orderBy(eduCourseSchedule.weekday, eduCourseSchedule.startTime)
+    return reply.send(success({ list }))
+  })
+
+  // 孩子今日菜谱
+  server.get('/parent/children/:childId/meals', async (request, reply) => {
+    const childId = (request.params as { childId: string }).childId
+    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const today = new Date().toISOString().split('T')[0]!
+    const list = await db
+      .select()
+      .from(eduMealRecipe)
+      .where(
+        and(
+          eq(eduMealRecipe.date, today),
+          isNull(eduMealRecipe.deletedAt),
+        ),
+      )
+      .orderBy(eduMealRecipe.mealType)
+    return reply.send(success({ list }))
+  })
+
+  // 孩子学习计划
+  server.get('/parent/children/:childId/study-plans', async (request, reply) => {
+    const childId = (request.params as { childId: string }).childId
+    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const [latestAttendance] = await db
+      .select({ classId: eduAttendanceRecord.classId })
+      .from(eduAttendanceRecord)
+      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
+      .orderBy(desc(eduAttendanceRecord.date))
+      .limit(1)
+
+    if (!latestAttendance) {
+      return reply.send(success({ list: [] }))
+    }
+
+    const list = await db
+      .select()
+      .from(eduStudyPlan)
+      .where(
+        and(
+          eq(eduStudyPlan.classId, latestAttendance.classId),
+          isNull(eduStudyPlan.deletedAt),
+        ),
+      )
+      .orderBy(desc(eduStudyPlan.createdAt))
+    return reply.send(success({ list }))
+  })
+
+  // 孩子考勤记录
+  server.get('/parent/children/:childId/attendance', async (request, reply) => {
+    const childId = (request.params as { childId: string }).childId
+    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const list = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(
+        and(
+          eq(eduAttendanceRecord.studentId, childId),
+          isNull(eduAttendanceRecord.deletedAt),
+        ),
+      )
+      .orderBy(desc(eduAttendanceRecord.date))
+    return reply.send(success({ list }))
+  })
+
+  // 孩子考试成绩
+  server.get('/parent/children/:childId/grades', async (request, reply) => {
+    const childId = (request.params as { childId: string }).childId
+    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+
+    const list = await db
+      .select()
+      .from(eduExamScore)
+      .where(and(eq(eduExamScore.studentId, childId), isNull(eduExamScore.deletedAt)))
+      .orderBy(desc(eduExamScore.examDate), eduExamScore.subject)
+    return reply.send(success({ list }))
+  })
+}
 
 export default eduAiManagementRoutes
