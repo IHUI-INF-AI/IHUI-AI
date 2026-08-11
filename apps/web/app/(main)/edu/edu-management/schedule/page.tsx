@@ -13,6 +13,8 @@ import {
   School,
   Users,
   AlertCircle,
+  Copy,
+  Download,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -646,6 +648,53 @@ export default function SchedulePage() {
     onSuccess: invalidate,
   })
 
+  /* ── Copy last week & Export ── */
+  const [copyingLastWeek, setCopyingLastWeek] = React.useState(false)
+  const [exporting, setExporting] = React.useState(false)
+
+  const handleCopyLastWeek = async () => {
+    if (!selectedClassId) return
+    setCopyingLastWeek(true)
+    try {
+      const result = await api<{ count: number }>('/api/edu-ai-management/schedule/copy-last-week', {
+        method: 'POST',
+        body: JSON.stringify({ classId: selectedClassId, targetWeekStart: formatDate(currentMonday) }),
+      })
+      invalidate()
+      alert(`已复制 ${result.count} 条课程`)
+    } catch (e: any) {
+      alert(e.message ?? '复制失败')
+    } finally {
+      setCopyingLastWeek(false)
+    }
+  }
+
+  const handleExport = async () => {
+    if (!selectedClassId) return
+    setExporting(true)
+    try {
+      const data = await api<{
+        schedules: ScheduleEntry[]
+        class: { name: string } | null
+        dateRange: { startDate: string; endDate: string }
+        totalCount: number
+      }>(
+        `/api/edu-ai-management/schedule/export?classId=${selectedClassId}&startDate=${formatDate(weekDays[0]!)}&endDate=${formatDate(weekDays[6]!)}`,
+      )
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `课程表_${data.class?.name ?? 'unknown'}_${data.dateRange.startDate}_${data.dateRange.endDate}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      alert(e.message ?? '导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   /* ── Week / Month helpers ── */
   const today = React.useMemo(() => new Date(), [])
   const currentMonday = React.useMemo(() => {
@@ -866,6 +915,36 @@ export default function SchedulePage() {
             </Select>
             <Button variant="outline" size="sm" onClick={() => setClassDialogOpen(true)}>
               <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          {/* Copy last week & Export */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyLastWeek}
+              disabled={copyingLastWeek || !selectedClassId}
+            >
+              {copyingLastWeek ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Copy className="mr-1 h-3.5 w-3.5" />
+              )}
+              复制上周
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting || !selectedClassId}
+            >
+              {exporting ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="mr-1 h-3.5 w-3.5" />
+              )}
+              导出
             </Button>
           </div>
 
