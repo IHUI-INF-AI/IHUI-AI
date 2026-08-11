@@ -541,7 +541,7 @@ export default function ModelConfigDialog({
                 <View key={item.name} className="flex items-center justify-between py-2 mb-2">
                   <Text className="text-sm text-foreground">{item.desc}</Text>
                   <View
-                    className="w-[88rpx] h-[44rpx] rounded-full flex items-center px-[4rpx]"
+                    className="w-[88rpx] h-[44rpx] rounded-lg flex items-center px-[4rpx]"
                     style={{
                       backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-muted)',
                     }}
