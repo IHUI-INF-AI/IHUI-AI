@@ -19,6 +19,8 @@ import {
   FileText,
   ListChecks,
   Clock,
+  BarChart3,
+  Timeline,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -1136,6 +1138,47 @@ export default function StudyPlanPage() {
     await toggleItemCompleted.mutateAsync({ id: item.id, completed: !item.completed })
   }
 
+  /* ── Completion stats & Progress timeline ── */
+  const [statsOpen, setStatsOpen] = React.useState(false)
+  const [timelineOpen, setTimelineOpen] = React.useState(false)
+
+  const completionStatsQuery = useQuery({
+    queryKey: ['edu-ai-management', 'study-plan', 'completion-stats', selectedClassId, selectedTermId],
+    queryFn: () =>
+      api<{
+        overallRate: number
+        totalItems: number
+        totalCompleted: number
+        plans: Array<{
+          planId: string
+          planTitle: string
+          planType: string
+          status: string
+          totalItems: number
+          completedItems: number
+          completionRate: number
+        }>
+      }>(
+        `/api/edu-ai-management/study-plan/completion-stats?classId=${selectedClassId}&termId=${selectedTermId}`,
+      ),
+    enabled: !!selectedClassId && !!selectedTermId,
+  })
+
+  const progressTimelineQuery = useQuery({
+    queryKey: ['edu-ai-management', 'study-plan', 'progress-timeline', selectedPlan?.id],
+    queryFn: () =>
+      api<{
+        plan: { id: string; title: string; planType: string; startDate: string; endDate: string }
+        totalItems: number
+        completedItems: number
+        completionRate: number
+        timeline: Array<{ date: string; items: Array<{ id: string; content: string; completedAt: string }> }>
+      }>(
+        `/api/edu-ai-management/study-plan/progress-timeline?planId=${selectedPlan!.id}`,
+      ),
+    enabled: false,
+  })
+
   /* ── Computed values ── */
   const completedCount = parentItems.filter(i => i.completed).length
   const totalCount = parentItems.length
@@ -1505,6 +1548,32 @@ export default function StudyPlanPage() {
                           编辑
                         </Button>
                       )}
+                      {/* Completion stats & Progress timeline */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          completionStatsQuery.refetch()
+                          setStatsOpen(true)
+                        }}
+                      >
+                        <BarChart3 className="mr-1 h-3 w-3" />
+                        完成率统计
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          progressTimelineQuery.refetch()
+                          setTimelineOpen(true)
+                        }}
+                        disabled={!selectedPlan}
+                      >
+                        <Timeline className="mr-1 h-3 w-3" />
+                        进度时间线
+                      </Button>
                       {/* Status transition buttons */}
                       {!isStudentMode && (
                         <div className="flex gap-1">
@@ -1825,6 +1894,152 @@ export default function StudyPlanPage() {
           )}
         </Card>
       </div>
+
+      {/* ─── Completion Stats Dialog ─── */}
+      <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>完成率统计</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {completionStatsQuery.isFetching ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                加载中...
+              </div>
+            ) : completionStatsQuery.data ? (
+              <>
+                {/* Overall stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-primary">{completionStatsQuery.data.overallRate}%</span>
+                      <span className="text-xs text-muted-foreground">总体完成率</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-green-600">{completionStatsQuery.data.totalCompleted}</span>
+                      <span className="text-xs text-muted-foreground">已完成</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <span className="text-2xl font-bold text-muted-foreground">{completionStatsQuery.data.totalItems}</span>
+                      <span className="text-xs text-muted-foreground">总条目</span>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Per-plan breakdown */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">各计划详情</h4>
+                  {completionStatsQuery.data.plans.length === 0 ? (
+                    <p className="py-2 text-center text-sm text-muted-foreground">暂无计划数据</p>
+                  ) : (
+                    <div className="divide-y rounded-md border">
+                      {completionStatsQuery.data.plans.map((plan) => (
+                        <div key={plan.planId} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{plan.planTitle}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Badge variant="outline" className="text-[10px]">
+                                {plan.planType === 'monthly' ? '月计划' : '周计划'}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {PLAN_STATUS_LABELS[plan.status as PlanStatus] ?? plan.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {plan.completedItems}/{plan.totalItems}
+                            </span>
+                            <span className={cn(
+                              'text-sm font-semibold',
+                              plan.completionRate >= 80 ? 'text-green-600' : plan.completionRate >= 50 ? 'text-amber-600' : 'text-muted-foreground',
+                            )}>
+                              {plan.completionRate}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无统计数据</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Progress Timeline Dialog ─── */}
+      <Dialog open={timelineOpen} onOpenChange={setTimelineOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>进度时间线</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {progressTimelineQuery.isFetching ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                加载中...
+              </div>
+            ) : progressTimelineQuery.data ? (
+              <>
+                {/* Plan summary */}
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{progressTimelineQuery.data.plan.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {progressTimelineQuery.data.plan.startDate} ~ {progressTimelineQuery.data.plan.endDate}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-primary">{progressTimelineQuery.data.completionRate}%</p>
+                    <p className="text-xs text-muted-foreground">
+                      {progressTimelineQuery.data.completedItems}/{progressTimelineQuery.data.totalItems}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                {progressTimelineQuery.data.timeline.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">暂无完成记录</p>
+                ) : (
+                  <div className="space-y-4">
+                    {progressTimelineQuery.data.timeline.map((day) => (
+                      <div key={day.date}>
+                        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>{day.date}</span>
+                          <span className="text-xs text-muted-foreground">({day.items.length} 项)</span>
+                        </div>
+                        <div className="ml-6 space-y-1.5 border-l-2 pl-4">
+                          {day.items.map((item) => (
+                            <div key={item.id} className="rounded-md border bg-muted/20 px-3 py-1.5 text-sm">
+                              <p>{item.content}</p>
+                              {item.completedAt && (
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  完成于 {item.completedAt}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无时间线数据</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs */}
       <StudyPlanEditDialog

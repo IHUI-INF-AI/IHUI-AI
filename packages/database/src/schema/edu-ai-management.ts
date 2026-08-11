@@ -383,3 +383,332 @@ export type EduExamScore = typeof eduExamScore.$inferSelect
 export type NewEduExamScore = typeof eduExamScore.$inferInsert
 export type EduRankingSnapshot = typeof eduRankingSnapshot.$inferSelect
 export type NewEduRankingSnapshot = typeof eduRankingSnapshot.$inferInsert
+
+/**
+ * 教师时间表 (edu_teacher_schedule)。
+ * 教师的可授课时间段，用于自动排课约束。
+ * dayOfWeek: 1=周一, 7=周日
+ * timeSlot: morning/afternoon/evening
+ */
+export const eduTeacherSchedule = pgTable(
+  'edu_teacher_schedule',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    dayOfWeek: integer('day_of_week').notNull(), // 1=周一, 7=周日
+    startTime: varchar('start_time', { length: 10 }).notNull(), // HH:mm
+    endTime: varchar('end_time', { length: 10 }).notNull(),
+    timeSlot: varchar('time_slot', { length: 20 }), // morning/afternoon/evening
+    isAvailable: boolean('is_available').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    teacherIdx: index('ix_edu_teacher_sched_teacher').on(t.teacherId),
+    termIdx: index('ix_edu_teacher_sched_term').on(t.termId),
+    dayIdx: index('ix_edu_teacher_sched_day').on(t.dayOfWeek),
+  }),
+)
+
+/**
+ * 排课规则表 (edu_scheduling_rule)。
+ * 定义自动排课的约束规则(班级、科目、教师、时间、教室的匹配)。
+ */
+export const eduSchedulingRule = pgTable(
+  'edu_scheduling_rule',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    subject: varchar('subject', { length: 100 }).notNull(),
+    teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    weekday: integer('weekday').notNull(), // 1=周一, 7=周日
+    startTime: varchar('start_time', { length: 10 }).notNull(),
+    endTime: varchar('end_time', { length: 10 }).notNull(),
+    classroom: varchar('classroom', { length: 100 }),
+    weeksPerTerm: integer('weeks_per_term').default(16), // 每学期上课周数
+    priority: integer('priority').default(0), // 优先级(越高越优先排)
+    isActive: boolean('is_active').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    termIdx: index('ix_edu_sched_rule_term').on(t.termId),
+    classIdx: index('ix_edu_sched_rule_class').on(t.classId),
+    teacherIdx: index('ix_edu_sched_rule_teacher').on(t.teacherId),
+    weekdayIdx: index('ix_edu_sched_rule_weekday').on(t.weekday),
+  }),
+)
+
+/**
+ * 调课申请表 (edu_schedule_change)。
+ * 教师/管理员申请调课，审批通过后生效。
+ * status: pending/approved/rejected/cancelled
+ */
+export const eduScheduleChange = pgTable(
+  'edu_schedule_change',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    scheduleId: uuid('schedule_id').notNull().references(() => eduCourseSchedule.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    subject: varchar('subject', { length: 100 }).notNull(),
+    originalTeacher: varchar('original_teacher', { length: 100 }),
+    newTeacher: varchar('new_teacher', { length: 100 }),
+    originalWeekday: integer('original_weekday'),
+    originalStartTime: varchar('original_start_time', { length: 10 }),
+    originalEndTime: varchar('original_end_time', { length: 10 }),
+    newWeekday: integer('new_weekday'),
+    newStartTime: varchar('new_start_time', { length: 10 }),
+    newEndTime: varchar('new_end_time', { length: 10 }),
+    reason: text('reason').notNull(),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    applicantId: uuid('applicant_id').notNull().references(() => users.id),
+    approverId: uuid('approver_id').references(() => users.id),
+    approveRemark: text('approve_remark'),
+    approveAt: timestamp('approve_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    scheduleIdx: index('ix_edu_sched_change_schedule').on(t.scheduleId),
+    classIdx: index('ix_edu_sched_change_class').on(t.classId),
+    statusIdx: index('ix_edu_sched_change_status').on(t.status),
+    applicantIdx: index('ix_edu_sched_change_applicant').on(t.applicantId),
+  }),
+)
+
+/**
+ * 作业提交记录表 (edu_homework_submission)。
+ * 关联 learnHomework，记录学生作业提交和批改。
+ */
+export const eduHomeworkSubmission = pgTable(
+  'edu_homework_submission',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    homeworkId: uuid('homework_id').notNull(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    content: text('content'),
+    attachment: varchar('attachment', { length: 500 }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+    score: integer('score'),
+    comment: text('comment'),
+    teacherId: uuid('teacher_id').references(() => users.id),
+    gradedAt: timestamp('graded_at', { withTimezone: true }),
+    status: varchar('status', { length: 20 }).default('submitted').notNull(), // submitted/graded/late/resubmit
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    homeworkIdx: index('ix_edu_hw_sub_homework').on(t.homeworkId),
+    studentIdx: index('ix_edu_hw_sub_student').on(t.studentId),
+    classIdx: index('ix_edu_hw_sub_class').on(t.classId),
+    statusIdx: index('ix_edu_hw_sub_status').on(t.status),
+  }),
+)
+
+/**
+ * 线索表 (edu_lead)。
+ * 招生线索管理，记录潜在学员的跟进情况。
+ * source: wechat/phone/visit/referral/ad/other
+ * status: new/contacted/trial/enrolled/lost
+ */
+export const eduLead = pgTable(
+  'edu_lead',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    phone: varchar('phone', { length: 20 }),
+    studentName: varchar('student_name', { length: 100 }), // 学员姓名(可能和线索人不同)
+    studentAge: integer('student_age'),
+    source: varchar('source', { length: 30 }).notNull(),
+    status: varchar('status', { length: 20 }).default('new').notNull(),
+    followerId: uuid('follower_id').references(() => users.id),
+    nextFollowDate: date('next_follow_date'),
+    remark: text('remark'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index('ix_edu_lead_status').on(t.status),
+    followerIdx: index('ix_edu_lead_follower').on(t.followerId),
+    phoneIdx: index('ix_edu_lead_phone').on(t.phone),
+  }),
+)
+
+/**
+ * 试听预约表 (edu_trial_booking)。
+ * 线索转化的试听预约安排。
+ * status: pending/confirmed/completed/cancelled
+ */
+export const eduTrialBooking = pgTable(
+  'edu_trial_booking',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    leadId: uuid('lead_id').notNull().references(() => eduLead.id, { onDelete: 'cascade' }),
+    studentName: varchar('student_name', { length: 100 }).notNull(),
+    studentAge: integer('student_age'),
+    parentName: varchar('parent_name', { length: 100 }),
+    parentPhone: varchar('parent_phone', { length: 20 }),
+    trialDate: date('trial_date').notNull(),
+    trialTime: varchar('trial_time', { length: 50 }), // 时间段描述
+    subject: varchar('subject', { length: 100 }),
+    teacherId: uuid('teacher_id').references(() => users.id),
+    classroom: varchar('classroom', { length: 100 }),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    remark: text('remark'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    leadIdx: index('ix_edu_trial_lead').on(t.leadId),
+    dateIdx: index('ix_edu_trial_date').on(t.trialDate),
+    statusIdx: index('ix_edu_trial_status').on(t.status),
+  }),
+)
+
+/**
+ * 报名记录表 (edu_enrollment)。
+ * 学生报名/续费记录。
+ * status: enrolled/withdrawn/graduate
+ */
+export const eduEnrollment = pgTable(
+  'edu_enrollment',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    enrollDate: date('enroll_date').notNull(),
+    totalFee: integer('total_fee').notNull(),
+    paidAmount: integer('paid_amount').default(0).notNull(),
+    status: varchar('status', { length: 20 }).default('enrolled').notNull(),
+    remark: text('remark'),
+    operatorId: uuid('operator_id').references(() => users.id),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_enroll_student').on(t.studentId),
+    classIdx: index('ix_edu_enroll_class').on(t.classId),
+    termIdx: index('ix_edu_enroll_term').on(t.termId),
+    statusIdx: index('ix_edu_enroll_status').on(t.status),
+  }),
+)
+
+/**
+ * 学费标准表 (edu_tuition_fee)。
+ * 各班级/课程的学费定价标准。
+ */
+export const eduTuitionFee = pgTable(
+  'edu_tuition_fee',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    feeName: varchar('fee_name', { length: 100 }).notNull(),
+    amount: integer('amount').notNull(),
+    billingCycle: varchar('billing_cycle', { length: 30 }).default('term').notNull(), // term/monthly/yearly
+    effectiveDate: date('effective_date').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    classIdx: index('ix_edu_fee_class').on(t.classId),
+    termIdx: index('ix_edu_fee_term').on(t.termId),
+    activeIdx: index('ix_edu_fee_active').on(t.isActive),
+  }),
+)
+
+/**
+ * 缴费记录表 (edu_payment_record)。
+ * 记录学生的缴费历史。
+ * paymentMethod: cash/transfer/wechat/alipay/credit_card/other
+ * status: pending/paid/refunded/cancelled
+ */
+export const eduPaymentRecord = pgTable(
+  'edu_payment_record',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    feeId: uuid('fee_id').references(() => eduTuitionFee.id),
+    amount: integer('amount').notNull(),
+    paymentDate: date('payment_date').notNull(),
+    paymentMethod: varchar('payment_method', { length: 30 }).notNull(),
+    status: varchar('status', { length: 20 }).default('paid').notNull(),
+    receiptNo: varchar('receipt_no', { length: 100 }),
+    remark: text('remark'),
+    operatorId: uuid('operator_id').references(() => users.id),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_pay_student').on(t.studentId),
+    classIdx: index('ix_edu_pay_class').on(t.classId),
+    feeIdx: index('ix_edu_pay_fee').on(t.feeId),
+    dateIdx: index('ix_edu_pay_date').on(t.paymentDate),
+  }),
+)
+
+/**
+ * 退费记录表 (edu_refund_record)。
+ * 记录学生的退费历史。
+ * status: pending/approved/rejected/completed/cancelled
+ */
+export const eduRefundRecord = pgTable(
+  'edu_refund_record',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    paymentId: uuid('payment_id').references(() => eduPaymentRecord.id),
+    amount: integer('amount').notNull(),
+    refundDate: date('refund_date').notNull(),
+    refundMethod: varchar('refund_method', { length: 30 }),
+    reason: text('reason').notNull(),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    approverId: uuid('approver_id').references(() => users.id),
+    approveRemark: text('approve_remark'),
+    approveAt: timestamp('approve_at', { withTimezone: true }),
+    operatorId: uuid('operator_id').references(() => users.id),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_refund_student').on(t.studentId),
+    classIdx: index('ix_edu_refund_class').on(t.classId),
+    paymentIdx: index('ix_edu_refund_payment').on(t.paymentId),
+    statusIdx: index('ix_edu_refund_status').on(t.status),
+  }),
+)
+
+export type NewEduTeacherSchedule = typeof eduTeacherSchedule.$inferInsert
+export type EduTeacherSchedule = typeof eduTeacherSchedule.$inferSelect
+export type NewEduSchedulingRule = typeof eduSchedulingRule.$inferInsert
+export type EduSchedulingRule = typeof eduSchedulingRule.$inferSelect
+export type NewEduScheduleChange = typeof eduScheduleChange.$inferInsert
+export type EduScheduleChange = typeof eduScheduleChange.$inferSelect
+export type NewEduHomeworkSubmission = typeof eduHomeworkSubmission.$inferInsert
+export type EduHomeworkSubmission = typeof eduHomeworkSubmission.$inferSelect
+export type NewEduLead = typeof eduLead.$inferInsert
+export type EduLead = typeof eduLead.$inferSelect
+export type NewEduTrialBooking = typeof eduTrialBooking.$inferInsert
+export type EduTrialBooking = typeof eduTrialBooking.$inferSelect
+export type NewEduEnrollment = typeof eduEnrollment.$inferInsert
+export type EduEnrollment = typeof eduEnrollment.$inferSelect
+export type NewEduTuitionFee = typeof eduTuitionFee.$inferInsert
+export type EduTuitionFee = typeof eduTuitionFee.$inferSelect
+export type NewEduPaymentRecord = typeof eduPaymentRecord.$inferInsert
+export type EduPaymentRecord = typeof eduPaymentRecord.$inferSelect
+export type NewEduRefundRecord = typeof eduRefundRecord.$inferInsert
+export type EduRefundRecord = typeof eduRefundRecord.$inferSelect
