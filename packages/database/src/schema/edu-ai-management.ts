@@ -203,6 +203,81 @@ export const eduPlanItem = pgTable(
   }),
 )
 
+/**
+ * 签到记录表 (edu_attendance_record)。
+ * 记录学生每日签到/签退，支持正常签到、迟到、早退、缺勤等状态。
+ * status: present/late/early/absent/leave
+ * checkInMethod: manual(教师代签)/face(人脸)/qrcode(扫码)/self(学生自签)
+ */
+export const eduAttendanceRecord = pgTable(
+  'edu_attendance_record',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+    checkInTime: timestamp('check_in_time', { withTimezone: true }),
+    checkOutTime: timestamp('check_out_time', { withTimezone: true }),
+    status: varchar('status', { length: 20 }).default('present').notNull(), // present/late/early/absent/leave
+    checkInMethod: varchar('check_in_method', { length: 20 }).default('manual').notNull(),
+    checkOutMethod: varchar('check_out_method', { length: 20 }).default('manual'),
+    operatedBy: uuid('operated_by') // 操作人(教师代签时记录)
+      .references(() => users.id),
+    remark: text('remark'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentDateIdx: index('ix_edu_att_student_date').on(t.studentId, t.date),
+    classDateIdx: index('ix_edu_att_class_date').on(t.classId, t.date),
+    statusIdx: index('ix_edu_att_status').on(t.status),
+  }),
+)
+
+/**
+ * 请假申请表 (edu_leave_request)。
+ * 学生请假申请，教师/管理员审批。
+ * status: pending/approved/rejected/cancelled
+ * leaveType: sick(病假)/personal(事假)/emergency(紧急)/other(其他)
+ */
+export const eduLeaveRequest = pgTable(
+  'edu_leave_request',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
+    leaveType: varchar('leave_type', { length: 30 }).notNull(), // sick/personal/emergency/other
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    totalDays: integer('total_days').notNull(),
+    reason: text('reason').notNull(),
+    attachment: varchar('attachment', { length: 500 }), // 附件(病假条等)
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    approverId: uuid('approver_id')
+      .references(() => users.id),
+    approveRemark: text('approve_remark'),
+    approveAt: timestamp('approve_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_leave_student').on(t.studentId),
+    classIdx: index('ix_edu_leave_class').on(t.classId),
+    statusIdx: index('ix_edu_leave_status').on(t.status),
+    dateRangeIdx: index('ix_edu_leave_dates').on(t.startDate, t.endDate),
+  }),
+)
+
 export type EduTerm = typeof eduTerm.$inferSelect
 export type NewEduTerm = typeof eduTerm.$inferInsert
 export type EduClass = typeof eduClass.$inferSelect
@@ -217,3 +292,7 @@ export type EduStudyPlan = typeof eduStudyPlan.$inferSelect
 export type NewEduStudyPlan = typeof eduStudyPlan.$inferInsert
 export type EduPlanItem = typeof eduPlanItem.$inferSelect
 export type NewEduPlanItem = typeof eduPlanItem.$inferInsert
+export type EduAttendanceRecord = typeof eduAttendanceRecord.$inferSelect
+export type NewEduAttendanceRecord = typeof eduAttendanceRecord.$inferInsert
+export type EduLeaveRequest = typeof eduLeaveRequest.$inferSelect
+export type NewEduLeaveRequest = typeof eduLeaveRequest.$inferInsert
