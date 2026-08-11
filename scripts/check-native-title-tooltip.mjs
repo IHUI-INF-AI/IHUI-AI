@@ -325,7 +325,7 @@ console.log('')
  */
 function checkDisabledTooltip(src) {
   const findings = []
-  const tooltipRe = /<Tooltip[\s\S]*?<\/Tooltip>/g
+  const tooltipRe = /<Tooltip\b[\s\S]*?<\/Tooltip>/g
   let match
   while ((match = tooltipRe.exec(src)) !== null) {
     const block = match[0]
