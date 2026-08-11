@@ -286,5 +286,5 @@ const response = await client.chat.completions.create({
   top_p: ${params.topP},
   stream: ${params.stream},
 });
-console.log(response.choices[0].message.content);`
+console.log(response.choices[0].message.content); // 生产环境应替换为 UI 展示`
 }
