@@ -226,6 +226,13 @@ const nextConfig: NextConfig = {
           source: '/api/mcp/:path*',
           destination: 'http://localhost:8803/api/mcp/:path*',
         },
+        // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
+        // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
+        // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/agent/:path*',
+          destination: 'http://localhost:8803/api/agent/:path*',
+        },
         // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
         // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
