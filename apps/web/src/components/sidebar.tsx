@@ -262,6 +262,7 @@ const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/users', labelKey: 'modelsUsers', icon: Users },
   { href: '/models/groups', labelKey: 'modelsGroups', icon: UsersRound },
   { href: '/models/usage', labelKey: 'modelsUsage', icon: BarChart3 },
+  { href: '/models/trajectory', labelKey: 'modelsTrajectory', icon: Activity },
   { href: '/models/prompts', labelKey: 'modelsPrompts', icon: FileText },
   { href: '/models/eval', labelKey: 'modelsEval', icon: FlaskConical },
   { href: '/models/billing', labelKey: 'modelsBilling', icon: Wallet },
