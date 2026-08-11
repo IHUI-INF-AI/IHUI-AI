@@ -294,5 +294,92 @@ export type EduPlanItem = typeof eduPlanItem.$inferSelect
 export type NewEduPlanItem = typeof eduPlanItem.$inferInsert
 export type EduAttendanceRecord = typeof eduAttendanceRecord.$inferSelect
 export type NewEduAttendanceRecord = typeof eduAttendanceRecord.$inferInsert
+/**
+ * 家长-学生绑定表 (edu_parent_student_binding)。
+ * 绑定了家长和学生用户的关联关系，支持多孩子绑定。
+ * status: pending/confirmed/rejected
+ * relationship: father/mother/guardian/other
+ */
+export const eduParentStudentBinding = pgTable(
+  'edu_parent_student_binding',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    parentId: uuid('parent_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    relationship: varchar('relationship', { length: 30 }).notNull(),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    parentIdx: index('ix_edu_parent_binding_parent').on(t.parentId),
+    studentIdx: index('ix_edu_parent_binding_student').on(t.studentId),
+    statusIdx: index('ix_edu_parent_binding_status').on(t.status),
+  }),
+)
+
 export type EduLeaveRequest = typeof eduLeaveRequest.$inferSelect
 export type NewEduLeaveRequest = typeof eduLeaveRequest.$inferInsert
+export type EduParentStudentBinding = typeof eduParentStudentBinding.$inferSelect
+export type NewEduParentStudentBinding = typeof eduParentStudentBinding.$inferInsert
+
+/**
+ * 考试成绩表 (edu_exam_score)。
+ * 记录学生每次考试的科目成绩，支持软删除。
+ */
+export const eduExamScore = pgTable(
+  'edu_exam_score',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    subject: varchar('subject', { length: 100 }).notNull(),
+    examName: varchar('exam_name', { length: 200 }).notNull(),
+    score: integer('score').notNull(),
+    totalScore: integer('total_score').default(100).notNull(),
+    examDate: date('exam_date').notNull(),
+    remark: text('remark'),
+    recordedBy: uuid('recorded_by').references(() => users.id),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_score_student').on(t.studentId),
+    classIdx: index('ix_edu_score_class').on(t.classId),
+    subjectIdx: index('ix_edu_score_subject').on(t.subject),
+    examDateIdx: index('ix_edu_score_date').on(t.examDate),
+  }),
+)
+
+/**
+ * 排名快照表 (edu_ranking_snapshot)。
+ * 记录每次考试/排名的快照，用于历史排名对比。
+ */
+export const eduRankingSnapshot = pgTable(
+  'edu_ranking_snapshot',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    examName: varchar('exam_name', { length: 200 }).notNull(),
+    subject: varchar('subject', { length: 100 }),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    score: integer('score').notNull(),
+    rank: integer('rank').notNull(),
+    totalStudents: integer('total_students').notNull(),
+    snapshotDate: date('snapshot_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    classExamIdx: index('ix_edu_rank_class_exam').on(t.classId, t.examName),
+    studentIdx: index('ix_edu_rank_student').on(t.studentId),
+    snapshotDateIdx: index('ix_edu_rank_date').on(t.snapshotDate),
+  }),
+)
+
+export type EduExamScore = typeof eduExamScore.$inferSelect
+export type NewEduExamScore = typeof eduExamScore.$inferInsert
+export type EduRankingSnapshot = typeof eduRankingSnapshot.$inferSelect
+export type NewEduRankingSnapshot = typeof eduRankingSnapshot.$inferInsert
