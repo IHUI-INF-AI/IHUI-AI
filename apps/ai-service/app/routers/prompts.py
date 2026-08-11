@@ -43,7 +43,7 @@ class RollbackRequest(BaseModel):
 @router.get("/prompts", summary="列出所有 prompt")
 async def list_prompts() -> dict[str, Any]:
     """列出所有已注册的 prompt 及其版本信息。"""
-    return {"ok": True, "data": prompt_registry.list_prompts()}
+    return {"code": 0, "message": "success", "data": prompt_registry.list_prompts()}
 
 
 @router.get("/prompts/{name}", summary="获取 prompt 详情(含版本列表)")
@@ -53,7 +53,8 @@ async def get_prompt(name: str) -> dict[str, Any]:
     if not entry:
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     return {
-        "ok": True,
+        "code": 0,
+        "message": "success",
         "data": {
             "name": entry.name,
             "description": entry.description,
@@ -85,7 +86,8 @@ async def get_prompt_content(name: str, version: int | None = None) -> dict[str,
             )
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     return {
-        "ok": True,
+        "code": 0,
+        "message": "success",
         "data": {
             "name": name,
             "version": version or prompt_registry._prompts[name].latest_version,  # type: ignore[attr-defined]
@@ -101,7 +103,8 @@ async def create_prompt(req: CreatePromptRequest) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=f"Prompt 已存在: {req.name}")
     entry = prompt_registry.create(req.name, req.content, req.description)
     return {
-        "ok": True,
+        "code": 0,
+        "message": "success",
         "data": {
             "name": entry.name,
             "description": entry.description,
@@ -118,7 +121,8 @@ async def update_prompt(name: str, req: UpdatePromptRequest) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     entry = prompt_registry.update(name, req.content, req.description)
     return {
-        "ok": True,
+        "code": 0,
+        "message": "success",
         "data": {
             "name": entry.name,
             "latest_version": entry.latest_version,
@@ -137,7 +141,8 @@ async def rollback_prompt(name: str, req: RollbackRequest) -> dict[str, Any]:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {
-        "ok": True,
+        "code": 0,
+        "message": "success",
         "data": {
             "name": entry.name,
             "latest_version": entry.latest_version,
@@ -153,4 +158,4 @@ async def delete_prompt(name: str) -> dict[str, Any]:
     ok = prompt_registry.delete(name)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
-    return {"ok": True, "message": f"Prompt 已删除: {name}"}
+    return {"code": 0, "message": "success", "data": {"deleted": True, "name": name}}
