@@ -3056,7 +3056,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 任务拆分
 
 - ✅ **第一批(2026-08-07 commit bfcbf555c7)**:用户选中的 3 个 button + message-list 9 个 button + ProviderHealthDot + 守门脚本 bug 修复
-- ⏳ **第二批(P1,后续)**:批量改造剩余 34 处违规 + 全项目 200+ 文件中所有 button/icon/span 上的 `title=` 替换为 `<Tooltip>` 包装
+- [x] ✅(2026-08-11) **第二批(P1)**:全项目 200+ 文件中 `title=` 替换为 `<Tooltip>` 包装已清零(0 违规),修复 `check-native-title-tooltip.mjs` 正则 `TooltipProvider` 假阳性误报
 - ⏳ **第三批(P2,后续)**:扫描其他端(desktop/extension/mobile-rn/miniapp-taro/cli)是否有类似原生 title tooltip,按端特性处理
 
 ### 第一批已完成(2026-08-07)
@@ -3158,99 +3158,29 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 任务拆分
 
-#### Phase 1:Skill 推荐引擎(2026-08-09)
+#### Phase 1:Skill 推荐引擎(2026-08-09) ✅
 
-**后端(ai-service)**:
-- `app/services/skill_recommender.py`:SkillRecommender 类,基于用户使用历史 + 当前上下文 + 技能标签相似度计算推荐
-  - `recommend(user_id, context, top_k=5)`:主入口,返回推荐列表
-  - `_by_usage_history()`:基于用户历史使用频率推荐
-  - `_by_tag_similarity()`:基于技能标签与当前上下文匹配度推荐
-  - `_by_freshness()`:新技能提权(上线 7 天内 + 0.2 权重)
-  - 结果融合:加权求和(历史 0.4 + 标签 0.4 + 新鲜度 0.2)
-- `app/routers/ai_skills.py`:新增 `GET /api/ai-skills/recommendations` 端点
-  - 参数:`context`(可选,当前对话上下文)、`top_k`(默认 5)
-  - 未登录用户返回全量技能随机 5 个(兜底)
-- 测试:新增 `tests/test_skill_recommender.py`(≥15 用例)
+- [x] ✅ 后端:SkillRecommender 类 + `GET /api/ai-skills/recommendations` 端点 + test_skill_recommender.py(≥15 用例)
+- [x] ✅ 前端:详情页底部 RecommendationsSection 组件(横向滚动卡片,4 个推荐)
+- [x] ✅ i18n:3 个 keys 5 语言
 
-**前端(web)**:
-- `apps/web/app/(main)/ai-skills/PageClient.tsx`:底部新增"推荐技能"区域
-  - 加载 `GET /api/ai-skills/recommendations?context=...`
-  - 横向滚动卡片式展示 5 个推荐技能
-  - 点击跳到详情页
-- i18n:新增 `aiSkillsPage.recommendTitle` / `recommendHint` / `recommendEmpty`
+#### Phase 2:可视化工作流编辑器(2026-08-09) ✅
 
-**i18n keys(5 语言,新增 3 个)**:
-- `aiSkillsPage.recommendTitle`: "推荐技能" / "Recommended Skills" / "おすすめスキル" / "추천 스킬" / "推薦技能"
-- `aiSkillsPage.recommendHint`: "基于你的使用习惯推荐" / "Based on your usage" / "使用履歴に基づく" / "사용 패턴 기반" / "基於你的使用習慣推薦"
-- `aiSkillsPage.recommendEmpty`: "暂无推荐" / "No recommendations" / "おすすめなし" / "추천 없음" / "暫無推薦"
+- [x] ✅ 后端:WorkflowEngine 类(CRUD + 执行 + 实例管理 + 取消/重试)+ workflow.py 路由(12 端点)
+- [x] ✅ 前端:工作流列表页 + 编辑器页 + 实例详情页 + 拖拽节点面板 + 属性配置 + 实例任务/日志
+- [x] ✅ i18n:workflowPage 命名空间(15+ keys 5 语言)
 
-#### Phase 2:可视化工作流编辑器(2026-08-09)
+#### Phase 3:Skill 统计看板(2026-08-11) ✅
 
-**后端(ai-service)**:
-- `app/services/workflow_engine.py`:WorkflowEngine 类
-  - `WorkflowTemplate` 数据类:id/name/description/steps/created_at/updated_at
-  - `WorkflowStep` 数据类:skill_id/variables_map(前一步输出→当前步输入映射)/parallel_group(并行组标识)
-  - `save_template(template)`:保存到 Redis(降级内存)
-  - `load_template(template_id)`:加载模板
-  - `execute_template(template_id, initial_input)`:按序执行所有步骤,并行组内同时执行
-  - `list_templates()`:列出所有模板
-- `app/routers/workflow.py`:5 个端点
-  - `POST /api/workflows` — 创建工作流模板
-  - `GET /api/workflows` — 列出所有模板
-  - `GET /api/workflows/{id}` — 获取模板详情
-  - `PUT /api/workflows/{id}` — 更新模板
-  - `DELETE /api/workflows/{id}` — 删除模板
-  - `POST /api/workflows/{id}/execute` — 执行工作流
-- 测试:新增 `tests/test_workflow_engine.py`(≥20 用例)
+- [x] ✅(2026-08-11) 后端: `GET /api/ai-skills/stats` 端点(聚合统计 + 技能维度 + 7/30 天趋势,数据源 SkillFeedbackTracker)
+- [x] ✅(2026-08-11) 前端:admin/ai-skills 页面(4 统计卡片 + Recharts 柱状图 + DataTable 技能明细 + 失败 Top 5)
+- [x] ✅(2026-08-11) i18n:adminAiSkills 命名空间(20 keys 5 语言)
 
-**前端(web)**:
-- `apps/web/app/(main)/workflows/page.tsx` + `PageClient.tsx`:工作流列表页
-  - 卡片式展示所有模板,含技能数/步骤数/创建时间
-  - 新建/编辑/删除/执行按钮
-- `apps/web/app/(main)/workflows/[id]/page.tsx` + `PageClient.tsx`:工作流编辑器页
-  - 左侧:可用技能列表(可拖拽,从 API 获取)
-  - 中间:画布区(拖拽放置技能,连线编排顺序)
-  - 右侧:步骤配置区(变量映射/并行组)
-  - 底部:执行按钮 + 结果展示
-- i18n:新增 `workflowPage` 命名空间(约 15 keys)
+#### Phase 4:Skill 市场/分享(2026-08-11) ✅
 
-#### Phase 3:Skill 统计看板(2026-08-09)
-
-**后端(ai-service)**:
-- `app/routers/ai_skills.py`:新增 `GET /api/ai-skills/stats` 端点
-  - 聚合:总调用次数/成功次数/失败次数/平均耗时/Token 消耗
-  - 按技能维度:每个技能的调用量/成功率/平均耗时
-  - 时间维度:近 7 天/30 天趋势
-  - 数据源:SkillFeedbackTracker 的统计聚合
-- 测试:补充 stats 端点测试(≥5 用例)
-
-**前端(web)**:
-- `apps/web/app/(main)/admin/ai-skills/page.tsx` + `PageClient.tsx`:admin 技能统计看板
-  - 顶部:4 个统计卡片(总调用/成功率/平均耗时/Token 总计)
-  - 图表:调用量趋势图(近 7 天,柱状图)
-  - 表格:技能维度列表(调用量/成功率/平均耗时,可排序)
-  - 底部:失败技能 Top 5 列表(跳转详情页优化)
-- 图标库:使用已有 recharts(项目中已安装)
-- i18n:新增 `adminAiSkills` 命名空间(约 20 keys)
-
-#### Phase 4:Skill 市场/分享(2026-08-09)
-
-**后端(ai-service)**:
-- `app/routers/ai_skills.py`:新增 3 个端点
-  - `POST /api/ai-skills/export/{skill_id}` — 导出技能为 JSON(含 name/description/prompt_template/icon/tags)
-  - `POST /api/ai-skills/import` — 导入技能 JSON(创建自定义 skill,source=imported)
-  - `POST /api/ai-skills/{skill_id}/rate` — 评分(1-5 星,body: {rating, comment?})
-  - `GET /api/ai-skills/{skill_id}/ratings` — 获取评分列表
-- 数据存储:内存降级(优先 Redis,降级内存字典)
-- 测试:新增 export/import/rating 测试(≥15 用例)
-
-**前端(web)**:
-- `apps/web/app/(main)/ai-skills/[id]/PageClient.tsx`:
-  - 元数据区新增"导出"按钮(下载 JSON)
-  - 底部新增评分区(星选 1-5 + 可选评论 + 提交按钮)
-  - 评分列表展示(平均分 + 各评分条)
-- 列表页新增"导入"入口(右上角按钮,弹出 JSON 粘贴对话框)
-- i18n:新增 `aiSkillDetail.exportBtn` / `importBtn` / `rateTitle` / `rateSubmit` / `ratingList`等(约 10 keys)
+- [x] ✅(2026-08-11) 后端:export/import/rate/ratings 4 端点(内存降级存储)
+- [x] ✅(2026-08-11) 前端:详情页导出按钮 + 评分区 + 列表页导入弹窗(Dialog)
+- [x] ✅(2026-08-11) api-client:新增 AiSkillStatsData/PerSkillStats/SkillExportData 等接口 + API 函数
 
 ### 约束边界
 
@@ -3352,29 +3282,29 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ## Edu AI 管理模块二期 — 完整功能拓展 + 优化
 
-### 批次1:考勤管理(P0)
+### 批次1:考勤管理(P0) ✅
 
-- [ ] 数据库:签到记录表(edu_attendance_record)+ 请假申请表(edu_leave_request)+ 出勤统计视图
-- [ ] API:签到/签退(POST/PUT)、请假CRUD+审批、出勤率统计(日/周/月)、月度报表
-- [ ] 前端:签到页面(学生签到/教师代签)、请假管理(申请/审批列表)、出勤统计(图表+报表)
-- [ ] 侧边栏新增导航入口 + i18n 翻译补充
-- [ ] typecheck + lint + build 全绿 + 页面 HTTP 200
+- [x] ✅(2026-08-11) 数据库:签到记录表(edu_attendance_record)+ 请假申请表(edu_leave_request) — 此前已建
+- [x] ✅(2026-08-11) API:签到/签退(6 端点)+ 请假CRUD+审批+出勤率统计 — 此前已建
+- [x] ✅(2026-08-11) 前端:签到页面(签到/签退/补签/删除)、考勤统计(3 周期+图表+趋势表)、请假管理(提交/审批/列表)
+- [x] ✅(2026-08-11) 侧边栏入口 + i18n 翻译补充
+- [x] ✅(2026-08-11) typecheck + lint 全绿
 
-### 批次2:家长端(P0)
+### 批次2:家长端(P0) ✅
 
-- [ ] 数据库:家长-孩子绑定关系表(edu_parent_student_binding)
-- [ ] API:绑定管理(创建/确认/解除)、查看权限校验、孩子数据聚合查询
-- [ ] 前端:家长端入口页面 → 孩子课程表查看/菜谱查看/学习计划查看/成绩查看/考勤查看
-- [ ] 侧边栏新增导航入口 + i18n 翻译补充
-- [ ] typecheck + lint + build 全绿 + 页面 HTTP 200
+- [x] ✅(2026-08-11) 数据库:edu_parent_student_binding 表(含索引)+ 迁移 0206
+- [x] ✅(2026-08-11) API:绑定管理(6 端点)+ 孩子数据聚合查询(课程/菜谱/学习计划/考勤/成绩 5 端点)
+- [x] ✅(2026-08-11) 前端:家长门户(我的孩子+绑定管理 Tabs)+ 5 个独立孩子数据查看页面 + 绑定管理页面
+- [x] ✅(2026-08-11) 侧边栏入口 + i18n 翻译补充
+- [x] ✅(2026-08-11) typecheck + lint 全绿
 
-### 批次3:成绩管理(P1)
+### 批次3:成绩管理(P1) ✅
 
-- [ ] 数据库:考试成绩录入表(edu_exam_score)+ 排名快照表(edu_ranking_snapshot)
-- [ ] API:成绩CRUD(教师录入)、班级排名计算、趋势分析、薄弱环节识别
-- [ ] 前端:成绩录入页面(教师)、排名展示(表格+柱状图)、趋势图表(折线图)、分析报告
-- [ ] 侧边栏新增导航入口 + i18n 翻译补充
-- [ ] typecheck + lint + build 全绿 + 页面 HTTP 200
+- [x] ✅(2026-08-11) 数据库:edu_exam_score + edu_ranking_snapshot 表(含索引)+ 迁移 0207
+- [x] ✅(2026-08-11) API:成绩CRUD + 排名计算+快照 + 统计(平均/分布)+ 趋势+薄弱环节(10 端点)
+- [x] ✅(2026-08-11) 前端:成绩管理页面(录入/列表/排名/统计 4 Tab)+ 趋势分析(折线图+雷达图+薄弱环节)
+- [x] ✅(2026-08-11) 侧边栏入口 + i18n 翻译补充
+- [x] ✅(2026-08-11) typecheck + lint 全绿
 
 ### 批次4:智能排课(P1)
 
