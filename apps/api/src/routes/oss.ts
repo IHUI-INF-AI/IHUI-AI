@@ -37,6 +37,7 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listDriversQuerySchema = z.object({
   driver: z.transform(emptyToUndefined).pipe(ossDriverTypeSchema.optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const createDriverBodySchema = z.object({
   name: z.string().min(1).max(128),
@@ -142,16 +143,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '可用存储驱动列表',
         tags: ['oss'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -171,20 +163,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
         summary: '上传代理(预校验驱动)',
         tags: ['oss'],
         body: { type: 'object', additionalProperties: true },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -226,28 +205,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
             url: { type: 'string', description: '文件 URL 或服务端路径' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          500: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 403, 500),
       },
     },
     async (request, reply) => {
@@ -293,24 +251,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '下载代理(返回驱动信息)',
         tags: ['oss'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -525,20 +466,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
           },
           required: ['uploadId', 'partNumber'],
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
       bodyLimit: 10 * 1024 * 1024, // 单片最大 10MB(默认 5MB + 余量)
     },
@@ -575,20 +503,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
         summary: '完成分片上传',
         tags: ['oss'],
         body: { type: 'object', additionalProperties: true },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -619,20 +534,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
         summary: '取消分片上传',
         tags: ['oss'],
         body: { type: 'object', additionalProperties: true },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -675,20 +577,7 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -708,24 +597,7 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '驱动详情',
         tags: ['oss'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -794,24 +666,7 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
         summary: '更新存储驱动',
         tags: ['oss'],
         body: { type: 'object', additionalProperties: true },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -844,24 +699,7 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除存储驱动',
         tags: ['oss'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {

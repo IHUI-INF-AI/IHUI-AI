@@ -36,6 +36,7 @@ import {
   updatePostSchema,
   uuidParamSchema,
 } from './_shared.js'
+import { buildResponseSchema } from '../../utils/api-schemas.js'
 
 const circlesRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权:GET /circles(列表)与 GET /circles/:id(详情)公开访问,其他路由需登录
@@ -84,24 +85,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
             search: { type: 'string', description: '名称/描述模糊搜索(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -380,32 +364,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '退出圈子',
         tags: ['community'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          500: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 404, 500),
       },
     },
     async (request, reply) => {

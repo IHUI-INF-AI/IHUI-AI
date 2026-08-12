@@ -128,6 +128,7 @@ import {
   generateClientSecret,
   generateUserSk,
 } from '../services/oauth-providers.js'
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -814,7 +815,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(binding.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user, reply)
+      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
+        user,
+        reply,
+      )
       return reply.send(
         success({
           accessToken,
@@ -880,7 +884,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user, reply)
+    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
+      user,
+      reply,
+    )
     return reply.send(
       success({
         accessToken,
@@ -2692,32 +2699,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403, 404),
       },
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
