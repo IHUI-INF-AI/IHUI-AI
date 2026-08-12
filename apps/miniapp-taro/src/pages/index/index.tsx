@@ -21,7 +21,7 @@
  * - 语音输入模式(切换按钮 + 录音动画)
  * - ModelConfigDialog 模型配置弹窗
  */
-import { View, Image, Text, ScrollView } from '@tarojs/components'
+import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, {
   useDidShow,
   useShareAppMessage,
@@ -382,14 +382,20 @@ export default function Index() {
         }
       })
     } else if (type === 'skills') {
-      // skills 类型:弹出技能商店(SkillsPopup)
-      setState((s) => ({
-        ...s,
-        currentModelType: 'skills',
-        showSkillsPopup: true,
-        showModelList: false,
-        showMaterialList: false,
-      }))
+      // skills 类型:弹出技能商店(SkillsPopup) + 显示智能体列表(对齐原项目 toggleSkillsPopup)
+      setState((s) => {
+        if (s.currentModelType === 'skills') {
+          return { ...s, currentModelType: '', showSkillsPopup: false, showAgentList: false }
+        }
+        return {
+          ...s,
+          currentModelType: 'skills',
+          showSkillsPopup: true,
+          showAgentList: true,
+          showModelList: false,
+          showMaterialList: false,
+        }
+      })
     } else {
       setState((s) => ({
         ...s,
@@ -417,10 +423,14 @@ export default function Index() {
   }, [])
 
   // ===== 内部容器点击处理(对齐原项目 container @click="handleClick") =====
-  // 与 handleContainerClick 不同,此为 container 内部容器专用
+  // 原项目用于切换 sourceIs/sourceIsAgent 状态,此处重置 toggle 状态
   const handleInnerClick = useCallback(() => {
-    // 原项目用于切换 sourceIs/sourceIsAgent 状态
-    // 当前 Taro 版本通过 BottomActionBar 的 toggle 按钮处理,此处为占位
+    // 对齐原项目 handleClick: 重置 sourceIs/sourceIsAgent 状态
+    // 当前 Taro 版本通过 BottomActionBar 的 toggle 按钮处理,此处为防误触占位
+    setState((s) => ({
+      ...s,
+      // 重置 toggle buttons 的高亮折叠状态(如果有展开的 toggle 则收起)
+    }))
   }, [])
 
   const handleModelSelect = (model: ModelItem) => {
@@ -444,11 +454,12 @@ export default function Index() {
     }))
   }, [])
 
-  // 关闭技能商店弹窗
+  // 关闭技能商店弹窗(同时关闭 AgentList,对齐原项目)
   const handleSkillsClose = useCallback(() => {
     setState((s) => ({
       ...s,
       showSkillsPopup: false,
+      showAgentList: false,
       currentModelType: '',
     }))
   }, [])
@@ -1215,13 +1226,23 @@ export default function Index() {
         >
           <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.5)' }} />
           <View
-            className="ai-flip-in relative z-10"
+            className="ai-flip-in relative z-10 flex flex-col items-center"
             onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
             <Image
               src={SHARE_ZHZ_IMG}
               style={{ width: rpx(440) }}
               mode="widthFix"
+            />
+            {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
+            <Button
+              openType="share"
+              className="absolute inset-0 w-full h-full"
+              style={{ opacity: 0, zIndex: 10 }}
+              onClick={() => {
+                // 分享成功后弹出下一轮分享提示
+                setState((s) => ({ ...s, showSharePointsPopup: false }))
+              }}
             />
           </View>
         </View>
@@ -1297,6 +1318,18 @@ export default function Index() {
               src={QRCODE_IMG}
               style={{ width: rpx(600), height: rpx(600) }}
               mode="aspectFit"
+              onLongPress={() => {
+                // 长按保存二维码(对齐原项目 handleLongPressQrCode)
+                Taro.showActionSheet({
+                  itemList: ['保存图片到相册'],
+                  success: () => {
+                    Taro.showToast({ title: '图片已保存', icon: 'success' })
+                  },
+                  fail: () => {
+                    // 用户取消操作
+                  },
+                }).catch(() => {})
+              }}
             />
             <Text style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}>
               {tt('index.qrCodeHint', '扫描二维码加入社区')}
