@@ -59,10 +59,10 @@
 
 .share-rank-card {
   margin: 0 24rpx 32rpx;
-  background: #1F1F28;
+  background: linear-gradient(135deg, #1F1F28 0%, #1A1A24 100%);
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.3), 0 0 40rpx rgba(0, 242, 255, 0.05);
   border: 1rpx solid rgba(0, 242, 255, 0.08);
 }
 .share-rank-card-header {
@@ -501,8 +501,8 @@
   }
 }
 
-/* ===== 返回顶部(对标原 toodown) ===== */
-.share-to-top {
+/* ===== FloatBox 浮动组件(对标原 toodown/FloatBox) ===== */
+.share-float-box {
   position: fixed;
   right: 32rpx;
   bottom: 200rpx;
@@ -518,12 +518,22 @@
   border: 1rpx solid rgba(0, 242, 255, 0.15);
   animation: shareFadeIn 0.2s ease;
 }
-.share-to-top-icon {
+.share-float-box-icon {
   font-size: 36rpx;
   color: #00F2FF;
 }
-.share-to-top:active {
+.share-float-box:active {
   transform: scale(0.92);
+}
+
+/* ===== TitleSwitchScrollTitle 包装(在分类弹层内) ===== */
+.share-tag-scroll-title-wrap {
+  padding: 0;
+  overflow: hidden;
+  background: #1F1F28;
+}
+.share-tag-scroll-title-wrap .share-tag-panel {
+  animation: shareSlideDown 0.25s ease;
 }
 
 /* ===== 页面滚动锁定覆盖层(对标原 scroll-lock-overlay) ===== */
