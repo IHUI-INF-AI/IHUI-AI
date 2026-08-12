@@ -10,6 +10,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import {
   Wrench,
   Database,
@@ -211,23 +212,23 @@ export function McpPane() {
           const Icon = tab.icon
           const isActive = activeTab === tab.key
           return (
-            <button
-              key={tab.key}
-              type="button"
-              className={cn(
-                'flex h-12 flex-col items-center justify-center gap-0.5 rounded-md text-[10px] transition-colors',
-                isActive
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-              )}
-              onClick={() => setActiveTab(tab.key)}
-              title={t(tab.labelKey)}
-              aria-label={t(tab.labelKey)}
-              aria-pressed={isActive}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{t(tab.labelKey)}</span>
-            </button>
+            <Tooltip key={tab.key} content={t(tab.labelKey)}>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-12 flex-col items-center justify-center gap-0.5 rounded-md text-[10px] transition-colors',
+                  isActive
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                )}
+                onClick={() => setActiveTab(tab.key)}
+                aria-label={t(tab.labelKey)}
+                aria-pressed={isActive}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{t(tab.labelKey)}</span>
+              </button>
+            </Tooltip>
           )
         })}
       </div>
@@ -236,16 +237,17 @@ export function McpPane() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶部工具条:刷新 + 搜索 */}
         <div className="flex items-center gap-1.5 px-2 py-1.5">
-          <button
-            type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => void load(activeTab)}
-            disabled={loading}
-            title={t('mcpPane.refresh')}
-            aria-label={t('mcpPane.refresh')}
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-          </button>
+          <Tooltip content={t('mcpPane.refresh')}>
+            <button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => void load(activeTab)}
+              disabled={loading}
+              aria-label={t('mcpPane.refresh')}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+            </button>
+          </Tooltip>
           <div className="flex h-6 min-w-0 flex-1 items-center gap-1 rounded border border-border bg-background px-1.5">
             <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
             <input
@@ -336,15 +338,16 @@ export function McpPane() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t('mcpPane.result')}
                   </span>
-                  <button
-                    type="button"
-                    className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => handleCopy(result)}
-                    title={t('mcpPane.copy')}
-                    aria-label={t('mcpPane.copy')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
+                  <Tooltip content={t('mcpPane.copy')}>
+                    <button
+                      type="button"
+                      className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => handleCopy(result)}
+                      aria-label={t('mcpPane.copy')}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  </Tooltip>
                 </div>
                 <pre className="min-h-0 flex-1 overflow-auto px-2 pb-2 text-[11px] leading-relaxed">
                   <code className="font-mono">{result}</code>
