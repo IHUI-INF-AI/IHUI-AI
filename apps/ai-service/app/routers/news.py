@@ -325,3 +325,27 @@ async def publish_recent(hours: int = 24) -> dict[str, Any]:
             str(hours),
         )
     return {"published": affected or 0, "windowHours": hours}
+
+
+@router.post("/trigger-refresh")
+async def trigger_refresh() -> dict[str, Any]:
+    """手动触发调度器立即执行每日刷新(不影响下次定时触发)。
+
+    由 news_scheduler 接管 refresh-daily + publish-recent 的完整流程,
+    避免重复实现 LLM 调用 + JSON 解析 + 数据库写入逻辑。
+    返回调度器执行结果或当前状态。
+    """
+    from app.services.news_scheduler import news_scheduler
+
+    return await news_scheduler.trigger_refresh()
+
+
+@router.get("/scheduler-status")
+async def scheduler_status() -> dict[str, Any]:
+    """返回调度器当前状态(运行中 / 上次执行日期 / 历史记录)。"""
+    from app.services.news_scheduler import news_scheduler
+
+    return {
+        **news_scheduler.get_status(),
+        "history": news_scheduler.list_history(limit=5),
+    }
