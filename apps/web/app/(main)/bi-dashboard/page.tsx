@@ -68,7 +68,7 @@ export default function BiDashboardPage() {
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {cards.map(({ label, value, Icon }) => (
             <Card key={label}>
-              <CardContent className="flex items-center gap-3 p-5">
+              <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>

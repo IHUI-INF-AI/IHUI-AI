@@ -137,7 +137,7 @@ export default function AnnouncementDetailPage() {
       </header>
 
       <Card>
-        <CardContent className="p-4 min-[768px]:p-6">
+        <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
           <article className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown components={markdownComponents}>{a.content}</ReactMarkdown>
           </article>

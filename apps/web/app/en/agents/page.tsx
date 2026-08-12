@@ -225,7 +225,7 @@ export default function EnglishAgentsPage() {
         {/* MCP Integration Section */}
         <section className="mb-16 md:mb-24">
           <Card className="overflow-hidden">
-            <CardContent className="p-8 md:p-12">
+            <CardContent className="p-8 md:p-12 min-[640px]:p-8 min-[640px]:p-12">
               <div className="mb-8 text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Wrench className="h-6 w-6" />

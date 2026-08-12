@@ -157,7 +157,7 @@ export default function ReviewPage() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="space-y-4 p-4 min-[768px]:p-6">
+          <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 第 {index + 1} / {reviews.length} 题

@@ -197,7 +197,7 @@ export default function EduCourseLearnPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">{t('sections')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-0.5 p-2">
+            <CardContent className="space-y-0.5 p-2 min-[640px]:p-2">
               {sections.map((s, i) => (
                 <button
                   key={s.id}

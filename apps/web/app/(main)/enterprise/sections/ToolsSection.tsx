@@ -92,7 +92,7 @@ export function ToolsSection() {
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         {CATEGORIES.map((cat) => (
           <Card key={cat.titleKey}>
-            <CardContent className="space-y-3 p-5">
+            <CardContent className="space-y-3 p-5 min-[640px]:p-5">
               <h3 className="text-sm font-semibold tracking-tight">
                 {t(CATEGORY_KEY[cat.titleKey] ?? 'categories.unknown')}
               </h3>
@@ -116,7 +116,7 @@ export function ToolsSection() {
       </div>
 
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-5 min-[640px]:p-5">
           <h3 className="mb-3 text-sm font-semibold tracking-tight">{t('partnersTitle')}</h3>
           <div className="flex flex-wrap gap-2">
             {PARTNERS.map((name) => (

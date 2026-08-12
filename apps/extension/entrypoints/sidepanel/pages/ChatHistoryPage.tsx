@@ -96,7 +96,7 @@ export default function ChatHistoryPage() {
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/chat/${encodeURIComponent(c.id)}`)}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="font-medium text-sm flex-1 min-w-0 truncate">{c.title || '—'}</div>
                 <button

@@ -424,31 +424,31 @@ export default function UserLlmConfigsPage() {
               <p className="font-medium text-foreground">免费 Provider 推荐</p>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3">
+                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">Cloudflare Workers AI</p>
                     <p className="text-[11px] text-muted-foreground">@cf/ · 免费,无需 API Key</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3">
+                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">GitHub Models</p>
                     <p className="text-[11px] text-muted-foreground">github/ · 免费,用 GitHub token</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3">
+                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">HuggingFace</p>
                     <p className="text-[11px] text-muted-foreground">huggingface/ · 免费,用 HF token</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3">
+                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">Pollinations</p>
                     <p className="text-[11px] text-muted-foreground">pollinations/ · 免费,无需 API Key</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md min-[640px]:col-span-2">
-                  <CardContent className="space-y-0.5 p-3">
+                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">LLM7</p>
                     <p className="text-[11px] text-muted-foreground">llm7/ · 免费,无需 API Key</p>
                   </CardContent>

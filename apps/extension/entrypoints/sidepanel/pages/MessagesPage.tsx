@@ -109,7 +109,7 @@ export default function MessagesPage() {
             className={`rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors ${m.isRead ? '' : 'border-primary/40'}`}
             onClick={() => openItemInWeb(`/messages/${encodeURIComponent(m.id)}`)}
           >
-            <CardContent className="p-3 flex items-start gap-2.5">
+            <CardContent className="p-3 flex items-start gap-2.5 min-[640px]:p-3">
               <div className="w-9 h-9 rounded-md bg-muted shrink-0 flex items-center justify-center text-sm font-medium text-muted-foreground">
                 {initials(m.fromNickname)}
               </div>

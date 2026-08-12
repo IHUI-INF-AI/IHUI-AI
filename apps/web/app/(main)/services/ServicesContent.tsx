@@ -49,7 +49,7 @@ export function ServicesContent(): React.JSX.Element {
           const features = t.raw(`cards.${key}.features`) as string[]
           return (
             <Card key={key} className="relative flex flex-col transition-colors hover:bg-accent">
-              <CardContent className="flex flex-1 flex-col p-5">
+              <CardContent className="flex flex-1 flex-col p-5 min-[640px]:p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
@@ -86,7 +86,7 @@ export function ServicesContent(): React.JSX.Element {
           { value: 98, suffix: '%', labelKey: 'socialProof.satisfaction' },
         ].map(({ value, suffix, labelKey }) => (
           <Card key={labelKey}>
-            <CardContent className="p-5 text-center">
+            <CardContent className="p-5 text-center min-[640px]:p-5">
               <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
                 <AnimatedNumber value={value} suffix={suffix} duration={1500} />
               </div>

@@ -70,7 +70,7 @@ export function CoursesSection() {
         .filter((p) => p.id === activePhase)
         .map(({ phase, id, icon: Icon }) => (
           <Card key={id}>
-            <CardContent className="space-y-4 p-5">
+            <CardContent className="space-y-4 p-5 min-[640px]:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
