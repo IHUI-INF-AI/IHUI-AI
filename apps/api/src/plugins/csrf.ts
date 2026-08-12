@@ -52,6 +52,9 @@ const PUBLIC_PREFIXES = [
   '/api/tbox/events',
   // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
   '/api/im-gateway/webhook/',
+  // 崩溃上报(2026-08-12 立,匿名可上报,崩溃时未必持有 token;
+  // 风险低:仅写 crash_reports 表一条记录,无敏感操作;全局限流防滥用)
+  '/api/crash-reports',
   // 下载量统计 track(2026-08-06 立,公开分析端点,匿名用户也记录;
   // 风险低:仅记录点击事件,无敏感操作;anomaly-detector + 全局限流已防自动化滥用)
   '/api/downloads/track',

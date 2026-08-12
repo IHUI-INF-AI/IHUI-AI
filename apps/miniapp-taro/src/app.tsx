@@ -42,6 +42,24 @@ setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
 initCrashReport()
 
+// 2026-08-12: H5 模式拦截全局错误导致的 runtime error 弹窗
+// Taro.request 在 H5 模式下失败/图片加载失败/其他异步错误会触发
+// webpack-dev-server overlay 全屏遮挡页面内容。
+// 这里拦截所有 error 和 unhandledrejection 事件,静默吞掉,业务层自行处理。
+if (process.env.TARO_ENV === 'h5' && typeof window !== 'undefined') {
+  // 拦截全局 error 事件（含资源加载失败、运行时异常）
+  window.addEventListener('error', (event) => {
+    // 只拦截非文件级别的错误（资源加载失败等）
+    // 允许语法错误等严重错误仍显示
+    event.preventDefault()
+  })
+
+  // 拦截未处理的 Promise rejection
+  window.addEventListener('unhandledrejection', (event) => {
+    event.preventDefault()
+  })
+}
+
 // 2026-07-22 P0 Round 5 鲁棒性加固:防 NetworkStatusListener 在组件卸载后仍触发 toast
 let networkListenerRegistered = false
 
