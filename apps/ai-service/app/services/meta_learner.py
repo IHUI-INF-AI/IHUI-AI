@@ -98,6 +98,9 @@ class MetaLearner:
             if self._loaded:
                 return
             try:
+                # L5-11(2026-08-12):自愈建表——agent_meta_lessons 表此前从未创建,
+                # 导致 lessons UPSERT 一直降级仅内存(重启即丢自进化知识)。
+                await self._ensure_lesson_table()
                 await self.load_all_lessons()
             except Exception as e:
                 logger.warning(
@@ -361,6 +364,42 @@ class MetaLearner:
     # ==================================================================
     # 持久化层(DB hydrate / UPSERT / delete)
     # ==================================================================
+
+    async def _ensure_lesson_table(self) -> None:
+        """L5-11(2026-08-12):确保 agent_meta_lessons 表存在(自愈建表)。
+
+        该表此前从未在 migration/schema 中定义,meta_learner 用原生 SQL
+        UPSERT,表缺失时 INSERT 抛异常 → 降级仅内存 → 重启丢自进化知识。
+        首次加载时 CREATE TABLE IF NOT EXISTS 幂等建表。
+        """
+        try:
+            pool = await _get_pool()
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS agent_meta_lessons (
+                        id uuid PRIMARY KEY,
+                        lesson_type varchar(64) NOT NULL,
+                        title varchar(512) NOT NULL,
+                        content text,
+                        source_skills text[] DEFAULT '{}',
+                        failure_pattern_id uuid,
+                        occurrence_count integer DEFAULT 1,
+                        confidence double precision DEFAULT 0.5,
+                        system_prompt_snippet text,
+                        created_at timestamptz DEFAULT NOW(),
+                        updated_at timestamptz DEFAULT NOW()
+                    )
+                    """
+                )
+                await conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_agent_meta_lessons_type_title "
+                    "ON agent_meta_lessons (lesson_type, title)"
+                )
+        except Exception as e:
+            logger.warning(
+                "[meta_learner] _ensure_lesson_table 建表失败(降级内存): %s", e
+            )
 
     async def _upsert_lesson(self, lesson: dict[str, Any]) -> bool:
         """UPSERT 单条 meta_lesson 到 DB + 内存(失败不抛错,仅 warning)。
