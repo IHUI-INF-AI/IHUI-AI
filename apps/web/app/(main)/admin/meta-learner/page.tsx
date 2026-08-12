@@ -202,6 +202,7 @@ export default function MetaLearnerPage() {
               connection: 'border-transparent bg-red-500/10 text-red-600',
               http_5xx: 'border-transparent bg-red-500/10 text-red-600',
               http_4xx: 'border-transparent bg-amber-500/10 text-amber-600',
+              cancelled: 'border-transparent bg-muted/40 text-muted-foreground',
               unknown: 'border-transparent bg-muted text-muted-foreground',
             }
             const byTypeRows = (m: Record<string, number>) =>
