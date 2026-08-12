@@ -299,6 +299,14 @@ const nextConfig: NextConfig = {
           source: '/api/agents/tasks/stream',
           destination: 'http://localhost:8803/api/agents/tasks/stream',
         },
+        // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
+        // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
+        // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
+        // 数组顺序匹配,与 :agentId/stream 无冲突。
+        {
+          source: '/api/agents/:agentId/stream',
+          destination: 'http://localhost:8803/api/agents/:agentId/stream',
+        },
         // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
         // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
