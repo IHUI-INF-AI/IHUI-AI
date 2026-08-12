@@ -564,20 +564,21 @@ const MessageItem = React.memo(function MessageItem({
           >
             {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
             {!isUser && (
-              <button
-                type="button"
-                onClick={handleToggleVisibility}
-                data-testid={`message-visibility-${m.id}`}
-                aria-label={contentVisible ? 'Hide content' : 'Show content'}
-                title={contentVisible ? 'Hide content' : 'Show content'}
-                className={ACTION_BTN_CLASS}
-              >
-                {contentVisible ? (
-                  <Eye className="h-4 w-4" aria-hidden />
-                ) : (
-                  <EyeOff className="h-4 w-4" aria-hidden />
-                )}
-              </button>
+              <Tooltip content={contentVisible ? 'Hide content' : 'Show content'}>
+                <button
+                  type="button"
+                  onClick={handleToggleVisibility}
+                  data-testid={`message-visibility-${m.id}`}
+                  aria-label={contentVisible ? 'Hide content' : 'Show content'}
+                  className={ACTION_BTN_CLASS}
+                >
+                  {contentVisible ? (
+                    <Eye className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <EyeOff className="h-4 w-4" aria-hidden />
+                  )}
+                </button>
+              </Tooltip>
             )}
             {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
             {!isUser && (
@@ -1887,21 +1888,23 @@ export function MessageList({
         - 浮在 message list 容器右下角,固定定位(不随消息滚动)
         - 与 streaming 联动:有未读新消息时显示红点徽章 */}
       {userScrolledUp && (
-        <button
-          type="button"
-          onClick={handleJumpToLatest}
-          data-testid="message-list-jump-latest"
-          aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-          title={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-          className={cn(
-            'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-md',
-            'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
-            'transition-all duration-150 hover:bg-accent hover:shadow-lg',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            'animate-in fade-in-0 slide-in-from-bottom-2',
-          )}
+        <Tooltip
+          content={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
         >
-          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          <button
+            type="button"
+            onClick={handleJumpToLatest}
+            data-testid="message-list-jump-latest"
+            aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+            className={cn(
+              'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-md',
+              'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
+              'transition-all duration-150 hover:bg-accent hover:shadow-lg',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'animate-in fade-in-0 slide-in-from-bottom-2',
+            )}
+          >
+            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
           <span>{t('latest') === 'latest' ? 'Latest' : t('latest')}</span>
           {isStreaming && (
             <span
@@ -1911,6 +1914,7 @@ export function MessageList({
             />
           )}
         </button>
+        </Tooltip>
       )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu

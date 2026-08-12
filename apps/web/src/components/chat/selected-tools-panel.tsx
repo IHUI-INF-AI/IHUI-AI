@@ -5,6 +5,7 @@ import { X, Wrench } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 export interface SelectedToolItem {
   id: string
@@ -64,16 +65,8 @@ function ToolChip({
   const isModel = tool.integration === 'model'
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium [&>span]:translate-y-[0.5px]',
-        isReal
-          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-          : isModel
-            ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
-            : 'bg-muted text-muted-foreground',
-      )}
-      title={
+    <Tooltip
+      content={
         isReal
           ? t('realIntegratedTooltip')
           : isModel
@@ -81,17 +74,28 @@ function ToolChip({
             : t('promptOnlyTooltip')
       }
     >
-      <span>{tool.name}</span>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={() => onRemove(tool.id)}
-          aria-label={t('removeTool', { name: tool.name })}
-          className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-sm hover:bg-foreground/10"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-    </span>
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium [&>span]:translate-y-[0.5px]',
+          isReal
+            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : isModel
+              ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+              : 'bg-muted text-muted-foreground',
+        )}
+      >
+        <span>{tool.name}</span>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={() => onRemove(tool.id)}
+            aria-label={t('removeTool', { name: tool.name })}
+            className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-sm hover:bg-foreground/10"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </span>
+    </Tooltip>
   )
 }

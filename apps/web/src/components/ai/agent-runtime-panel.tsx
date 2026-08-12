@@ -15,6 +15,7 @@ import {
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
+import { Tooltip } from '@/components/feedback'
 
 interface AgentRuntimePanelProps {
   className?: string
@@ -115,13 +116,14 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         </div>
         <span className="text-sm font-semibold">{t('title')}</span>
         {sessionId && (
-          <span
-            data-testid="session-id"
-            className="truncate text-xs text-muted-foreground"
-            title={sessionId}
-          >
-            #{sessionId.slice(0, 8)}
-          </span>
+          <Tooltip content={sessionId}>
+            <span
+              data-testid="session-id"
+              className="truncate text-xs text-muted-foreground"
+            >
+              #{sessionId.slice(0, 8)}
+            </span>
+          </Tooltip>
         )}
         {status === 'running' && (
           <Loader2 data-testid="status-running" className="h-3.5 w-3.5 animate-spin text-primary" />
