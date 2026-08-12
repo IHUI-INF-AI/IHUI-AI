@@ -124,7 +124,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
                   className={cn(
                     'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
                     selected
-                      ? 'border-primary/30 bg-primary/5 text-foreground'
+                      ? 'outline outline-1 outline-black dark:outline-white bg-primary/5 text-foreground'
                       : 'border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20',
                   )}
                 >
