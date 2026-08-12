@@ -245,13 +245,78 @@ class TestRunOnce:
 
 
 class TestCollectFailureCases:
-    """_collect_all_failure_cases:扫描所有 skill 收集失败案例。"""
+    """_collect_all_failure_cases:扫描所有 skill 收集失败案例。
+
+    autouse fixture 隔离全局 checkpoint manager(L5-1 新增 Agent 失败收集段后):
+    agent_loop_v2 等其他测试会在全局 manager 残留 failed checkpoint,
+    若不 mock 为空,收集结果会被污染导致断言失败(实测 3 → 6)。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _isolate_checkpoint_manager(self, monkeypatch):
+        """mock get_agent_checkpoint_manager 返回空 checkpoint 列表。"""
+
+        class _EmptyManager:
+            async def list_checkpoints(self):
+                return []
+
+        monkeypatch.setattr(
+            "app.services.agent_checkpoint.get_agent_checkpoint_manager",
+            lambda: _EmptyManager(),
+        )
+
+    @pytest.mark.asyncio
+    async def test_collects_agent_checkpoint_failures(self, monkeypatch):
+        """L5-1:Agent 任务失败案例(checkpoint status=failed)被收集进元学习闭环。
+
+        failed checkpoint → 收集为 agent_loop 失败案例;completed 不收集。
+        """
+        sched = MetaLearnerScheduler()
+        mock_registry = MagicMock()
+        mock_registry.list_skills = MagicMock(return_value=[])
+        monkeypatch.setattr(
+            "app.services.skills.skill_registry", mock_registry
+        )
+
+        class _FakeCP:
+            status = "failed"
+            checkpoint_id = "cp-failed-1"
+            session_id = "sess-1"
+            iteration = 2
+            created_at = 1234567890.0
+            metadata = {"error": "LLM 网关超时", "error_type": "timeout"}
+
+        class _FakeOKCP:
+            status = "completed"
+            checkpoint_id = "cp-ok-1"
+            session_id = "sess-2"
+            iteration = 3
+            created_at = 1234567891.0
+            metadata = {}
+
+        class _FakeManager:
+            async def list_checkpoints(self):
+                return [_FakeCP(), _FakeOKCP()]
+
+        monkeypatch.setattr(
+            "app.services.agent_checkpoint.get_agent_checkpoint_manager",
+            lambda: _FakeManager(),
+        )
+
+        result = await sched._collect_all_failure_cases()
+
+        # 只收集 failed,completed 被过滤
+        assert len(result) == 1
+        assert result[0]["skillName"] == "agent_loop"
+        assert result[0]["failureReason"] == "LLM 网关超时"
+        assert result[0]["extra"]["errorType"] == "timeout"
+        assert result[0]["extra"]["checkpointId"] == "cp-failed-1"
 
     @pytest.mark.asyncio
     async def test_no_skills_returns_empty(self, monkeypatch):
         sched = MetaLearnerScheduler()
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[])
+        mock_registry.list_skills = MagicMock(return_value=[])
         monkeypatch.setattr(
             "app.services.skills.skill_registry", mock_registry
         )
@@ -268,7 +333,7 @@ class TestCollectFailureCases:
         mock_skill_b = MagicMock()
         mock_skill_b.name = "skill-b"
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(
+        mock_registry.list_skills = MagicMock(
             return_value=[mock_skill_a, mock_skill_b]
         )
         monkeypatch.setattr(
@@ -301,7 +366,7 @@ class TestCollectFailureCases:
         mock_skill_no_name = MagicMock()
         mock_skill_no_name.name = ""
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill_no_name])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill_no_name])
         monkeypatch.setattr(
             "app.services.skills.skill_registry", mock_registry
         )
@@ -313,7 +378,7 @@ class TestCollectFailureCases:
         """skill_registry.list 异常 → 返回 []。"""
         sched = MetaLearnerScheduler()
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(side_effect=RuntimeError("boom"))
+        mock_registry.list_skills = MagicMock(side_effect=RuntimeError("boom"))
         monkeypatch.setattr(
             "app.services.skills.skill_registry", mock_registry
         )
@@ -329,7 +394,7 @@ class TestCollectFailureCases:
         mock_skill_b = MagicMock()
         mock_skill_b.name = "skill-b"
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill_a, mock_skill_b])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill_a, mock_skill_b])
         monkeypatch.setattr(
             "app.services.skills.skill_registry", mock_registry
         )
