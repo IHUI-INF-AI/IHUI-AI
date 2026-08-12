@@ -9,7 +9,6 @@ export { PhoneRegisterForm } from './PhoneRegisterForm'
 export { EmailRegisterForm } from './EmailRegisterForm'
 export { LoginRedirectListener } from './LoginRedirectListener'
 export { PasswordInput } from './PasswordInput'
-export { AccountHistoryInput } from './AccountHistoryInput'
 export {
   phoneSchema,
   accountSchema,
