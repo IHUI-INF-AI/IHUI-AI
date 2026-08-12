@@ -37,7 +37,7 @@ const createInvitationSchema = z.object({
   rewardInvitee: z.number().int().min(0).optional(),
   expiresInDays: z.number().int().min(1).max(365).optional(),
 })
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 const codeParamSchema = z.object({
   code: z.string().min(1, '邀请码不能为空').max(32),
@@ -253,14 +253,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
           },
         },
         response: buildResponseSchema(),
@@ -544,14 +537,7 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
           },
         },
         response: buildResponseSchema(400, 401, 403),
