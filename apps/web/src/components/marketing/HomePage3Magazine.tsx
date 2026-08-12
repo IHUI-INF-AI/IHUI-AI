@@ -191,7 +191,19 @@ export function HomePage3Magazine() {
       const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=100'))
       return d.list ?? []
     },
-    retry: false,
+    // 2026-08-12 改(用户反馈"div 没内容显示"根因):
+    // 之前 retry: false + 无 refetchOnReconnect,导致首次访问时如果 api server
+    // 没起来(典型场景:用户先开 web dev server 8801,api server 8802 还没起),
+    // fetchApi 失败 → allItems = [] → "暂无内容"占位 → 用户刷新看不到数据恢复。
+    // 改成 retry: 2 + refetchOnReconnect + refetchOnWindowFocus,等 api 起来后
+    // (网络重连 / 窗口切回)能自动重新拉取,无需用户手动 hard refresh。
+    // 排序:按 createdAt desc 拿"每天最新",数据源 createdAt 都为 2026-07-17 的
+    // seed 数据(无"每天更新"机制,新功能需用户确认),前端能展示的顺序按
+    // 实际数据源 sort 字段。
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     staleTime: 5 * 60 * 1000,
   })
 
