@@ -17,6 +17,8 @@ import fangdaPng from '@/assets/remote/images/fangda.png'
 import suoxiaoPng from '@/assets/remote/images/suoxiao.png'
 import closeInputPng from '@/assets/remote/images/close_input.png'
 import filePng from '@/assets/remote/images/file.png'
+import { rpx } from '@/utils/rpx'
+
 
 export interface InputFileItem {
   imgUrl: string
@@ -219,10 +221,10 @@ export default function InputArea({
   const fangdaStyle: CSSProperties = isFangdaActive
     ? {
         position: 'fixed',
-        top: '120rpx',
+        top: rpx(120),
         left: 0,
         right: 0,
-        bottom: isShowIcon ? '292rpx' : '112rpx',
+        bottom: isShowIcon ? rpx(292) : rpx(112),
         zIndex: 999,
         background: 'var(--color-card)',
         padding: '0',
@@ -349,7 +351,7 @@ export default function InputArea({
                           right: 0,
                           zIndex: 1,
                           overflow: 'hidden',
-                          height: '32rpx',
+                          height: rpx(32),
                           display: 'flex',
                           alignItems: 'center',
                         }}
@@ -364,7 +366,7 @@ export default function InputArea({
                       </View>
                     ) : null}
                     {item.fileType === 'video' || item.video_url ? (
-                      <View style={{ position: 'relative', width: '213rpx', height: '120rpx' }}>
+                      <View style={{ position: 'relative', width: rpx(213), height: rpx(120) }}>
                         <Video
                           src={item.video_url || ''}
                           poster={item.imgUrl}
@@ -375,7 +377,7 @@ export default function InputArea({
                           autoplay={false}
                           showFullscreenBtn={false}
                           objectFit="contain"
-                          style={{ width: '213rpx', height: '120rpx', borderRadius: '15rpx' }}
+                          style={{ width: rpx(213), height: rpx(120), borderRadius: rpx(15) }}
                         />
                       </View>
                     ) : (
@@ -394,14 +396,14 @@ export default function InputArea({
             {showEmoji ? (
               <ScrollView
                 scrollY
-                style={{ height: '180rpx', marginBottom: '10rpx', flexBasis: '100%' }}
+                style={{ height: rpx(180), marginBottom: rpx(10), flexBasis: '100%' }}
               >
-                <View className="flex flex-wrap" style={{ padding: '10rpx' }}>
+                <View className="flex flex-wrap" style={{ padding: rpx(10) }}>
                   {EMOJI_LIST.map((e, i) => (
                     <View
                       key={i}
                       className="flex items-center justify-center"
-                      style={{ width: '60rpx', height: '60rpx', fontSize: '32rpx' }}
+                      style={{ width: rpx(60), height: rpx(60), fontSize: rpx(32) }}
                       onClick={() => handleEmojiPick(e)}
                     >
                       <Text>{e}</Text>
@@ -429,12 +431,12 @@ export default function InputArea({
               <View
                 className={cn('search-box1', mode === 'voice' ? 'active' : '')}
                 style={{
-                  width: '50rpx',
-                  height: '44rpx',
+                  width: rpx(50),
+                  height: rpx(44),
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
-                  marginRight: mode === 'voice' ? '0' : '20rpx',
+                  marginRight: mode === 'voice' ? '0' : rpx(20),
                 }}
                 onClick={toggleMode}
               >
@@ -442,8 +444,8 @@ export default function InputArea({
                   className="search-box1-img"
                   src={mode === 'voice' ? inputQiePng : searchHuaPng}
                   style={{
-                    width: mode === 'voice' ? '50rpx' : '38rpx',
-                    height: mode === 'voice' ? '30rpx' : '40rpx',
+                    width: mode === 'voice' ? rpx(50) : rpx(38),
+                    height: mode === 'voice' ? rpx(30) : rpx(40),
                   }}
                   mode="widthFix"
                 />
@@ -465,13 +467,13 @@ export default function InputArea({
                     right: 0,
                     bottom: 0,
                     zIndex: mode === 'voice' ? -1 : 1,
-                    maxHeight: isFangdaActive ? 'none' : '500rpx',
+                    maxHeight: isFangdaActive ? 'none' : rpx(500),
                     padding: textareaPadding,
-                    fontSize: '36rpx',
+                    fontSize: rpx(36),
                     color: 'rgba(0, 0, 0)',
-                    lineHeight: '40rpx',
+                    lineHeight: rpx(40),
                     flex: 1,
-                    minHeight: '44rpx',
+                    minHeight: rpx(44),
                   } as CSSProperties
                 }
                 value={value}
@@ -517,9 +519,9 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: '12rpx',
-                    width: '40rpx',
-                    height: '40rpx',
+                    top: rpx(12),
+                    width: rpx(40),
+                    height: rpx(40),
                     zIndex: 2,
                   }}
                 >
@@ -527,7 +529,7 @@ export default function InputArea({
                     <Image
                       className="search-box3-img"
                       src={fangdaPng}
-                      style={{ width: '48rpx', height: '48rpx' }}
+                      style={{ width: rpx(48), height: rpx(48) }}
                       mode="widthFix"
                       onClick={toggleFangda}
                     />
@@ -544,9 +546,9 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: '12rpx',
-                    width: '40rpx',
-                    height: '40rpx',
+                    top: rpx(12),
+                    width: rpx(40),
+                    height: rpx(40),
                     zIndex: 2,
                   }}
                 >
@@ -554,7 +556,7 @@ export default function InputArea({
                     <Image
                       className="search-box3-img"
                       src={suoxiaoPng}
-                      style={{ width: '48rpx', height: '48rpx' }}
+                      style={{ width: rpx(48), height: rpx(48) }}
                       mode="widthFix"
                       onClick={toggleFangda}
                     />
@@ -577,7 +579,7 @@ export default function InputArea({
                   <Image
                     className="search-box3-img"
                     src={sandMsgPng}
-                    style={{ width: '50rpx', height: '50rpx', marginLeft: '18rpx' }}
+                    style={{ width: rpx(50), height: rpx(50), marginLeft: rpx(18) }}
                     mode="widthFix"
                   />
                 </View>
@@ -588,7 +590,7 @@ export default function InputArea({
                 className="search-right"
                 style={{
                   position: 'absolute',
-                  right: '6rpx',
+                  right: rpx(6),
                   bottom: 'calc(50% - 26rpx)',
                   display: 'flex',
                   justifyContent: 'space-around',
@@ -611,7 +613,7 @@ export default function InputArea({
                     <Image
                       className="search-box3-img"
                       src={closeChatPng}
-                      style={{ width: '50rpx', height: '50rpx', marginRight: '10rpx' }}
+                      style={{ width: rpx(50), height: rpx(50), marginRight: rpx(10) }}
                       onClick={handleClear}
                     />
                   ) : null}
@@ -620,7 +622,7 @@ export default function InputArea({
                   <Image
                     className="search-box3-img"
                     src={sandMsgPng}
-                    style={{ width: '50rpx', height: '50rpx', marginLeft: '18rpx' }}
+                    style={{ width: rpx(50), height: rpx(50), marginLeft: rpx(18) }}
                     mode="widthFix"
                     onClick={handleSend}
                   />
@@ -670,7 +672,7 @@ export default function InputArea({
           <View className="flex-1 min-h-10 bg-muted rounded-2xl px-3 py-2 flex items-center">
             <Textarea
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
-              style={{ minHeight: '40rpx', maxHeight: '200rpx', width: '100%' }}
+              style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
               value={value}
               placeholder={placeholder || t('ai.inputArea.placeholder')}
               placeholderStyle="color: #999999; font-size: 28rpx;"

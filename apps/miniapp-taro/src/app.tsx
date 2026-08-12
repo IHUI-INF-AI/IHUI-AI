@@ -254,8 +254,30 @@ function App({ children }: PropsWithChildren<unknown>) {
       <SsoLaunchHandler />
       {children}
       <CustomerServiceFloat />
+      <FontLoader />
     </I18nProvider>
   )
+}
+
+/** 动态加载阿里妈妈方圆体 VF，避免 webpack CSS url() 解析错误 */
+function FontLoader() {
+  useLaunch(() => {
+    if (typeof document === 'undefined') return
+    try {
+      const style = document.createElement('style')
+      style.textContent = `@font-face {
+        font-family: 'AlimamaFangYuanTi';
+        src: url('/static/fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }`
+      document.head.appendChild(style)
+    } catch {
+      // 静默失败
+    }
+  })
+  return null
 }
 
 export default App
