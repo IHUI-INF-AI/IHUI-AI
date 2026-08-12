@@ -17,6 +17,7 @@ import { RefreshCw, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { getCookieHealth, refreshAccountCookie, type CookieHealthLevel } from '@ihui/api-client'
+import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 
 export interface CookieHealthIndicatorProps {
@@ -98,16 +99,17 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
         <span className={cn('inline-block h-2 w-2 rounded-full', cfg.dot)} aria-hidden />
         {!compact && <span>{t(cfg.label)}</span>}
       </div>
-      <button
-        type="button"
-        onClick={handleRefresh}
-        disabled={refreshing}
-        className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-        title={t('cookieHealth.refresh')}
-        aria-label={t('cookieHealth.refresh')}
-      >
-        {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-      </button>
+      <Tooltip content={t('cookieHealth.refresh')}>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+          aria-label={t('cookieHealth.refresh')}
+        >
+          {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        </button>
+      </Tooltip>
 
       {hovered && detail && (
         <div className="absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-2 text-xs shadow-md">

@@ -65,14 +65,15 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           <span className="truncate">{fileName}</span>
         </span>
         <div className="flex items-center gap-1">
-          <a
-            href={url}
-            download={fileName}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            title="下载"
-          >
-            <Download className="h-4 w-4" />
-          </a>
+          <Tooltip content="下载">
+            <a
+              href={url}
+              download={fileName}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+          </Tooltip>
           <Tooltip content="全屏">
             <button
               onClick={toggleFullscreen}
