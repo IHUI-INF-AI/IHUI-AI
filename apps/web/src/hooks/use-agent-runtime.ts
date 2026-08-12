@@ -22,6 +22,10 @@ export interface ToolCallEvent {
   args: Record<string, unknown>
   result?: unknown
   status: 'pending' | 'success' | 'error'
+  /** L5-8(2026-08-12):工具瞬时失败自动重试次数(>0 显示"重试N次") */
+  retryCount?: number
+  /** L5-8(2026-08-12):失败错误分类(timeout/connection/http_5xx/http_4xx/cancelled/unknown) */
+  errorType?: string
 }
 
 export interface UseAgentRuntimeReturn {
