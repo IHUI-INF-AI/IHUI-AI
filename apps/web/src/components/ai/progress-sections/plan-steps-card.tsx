@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@ihui/ui-react'
+import { Tooltip as FeedbackTooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
@@ -502,27 +503,28 @@ function PlanStepItem({
         {/* 复制 reasoning 按钮:思考步骤展开后显示(对标 Trae Thinking Process) */}
         {isThinking && expanded && s.explanation && (
           <div className="mt-1 flex justify-end">
-            <button
-              type="button"
-              onClick={handleCopyReasoning}
-              onMouseDown={(e) => e.stopPropagation()}
-              aria-label={t('plan.copyReasoning')}
-              title={t('plan.copyReasoning')}
-              data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
-              className={cn(
-                'inline-flex h-5 items-center gap-1 rounded-sm px-1.5 text-[10px]',
-                'text-muted-foreground/70 transition-colors',
-                'hover:bg-accent/60 hover:text-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              )}
-            >
-              {copied ? (
-                <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
-              ) : (
-                <Copy className="h-2.5 w-2.5" aria-hidden />
-              )}
-              <span>{copied ? t('copied') : t('plan.copyReasoning')}</span>
-            </button>
+            <FeedbackTooltip content={t('plan.copyReasoning')}>
+              <button
+                type="button"
+                onClick={handleCopyReasoning}
+                onMouseDown={(e) => e.stopPropagation()}
+                aria-label={t('plan.copyReasoning')}
+                data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
+                className={cn(
+                  'inline-flex h-5 items-center gap-1 rounded-sm px-1.5 text-[10px]',
+                  'text-muted-foreground/70 transition-colors',
+                  'hover:bg-accent/60 hover:text-foreground',
+                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                )}
+              >
+                {copied ? (
+                  <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
+                ) : (
+                  <Copy className="h-2.5 w-2.5" aria-hidden />
+                )}
+                <span>{copied ? t('copied') : t('plan.copyReasoning')}</span>
+              </button>
+            </FeedbackTooltip>
           </div>
         )}
       </div>
