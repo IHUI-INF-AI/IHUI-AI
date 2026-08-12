@@ -16100,7 +16100,16 @@
       "statusPending": "保留中",
       "statusSuccess": "成功",
       "statusError": "失敗"
-    }
+    },
+    "filterAll": "すべて",
+    "filterRunning": "実行中",
+    "filterPaused": "一時停止",
+    "filterStopped": "停止済み",
+    "filterError": "異常",
+    "filterAllModels": "全モデル",
+    "errorLoadFailed": "読み込み失敗",
+    "errorNetwork": "ネットワークエラー",
+    "errorOperation": "操作失敗"
   },
   "swarmTopology": {
     "dispatchStatus": {
