@@ -35,7 +35,7 @@ const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 const listCommentsQuery = z.object({
   ...paginationQuery,
@@ -110,14 +110,7 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
             resourceType: { type: 'string', description: '资源类型(project/file/doc/post)' },
             resourceId: { type: 'string', description: '资源 ID' },
             parentId: { type: 'string', description: '父评论 ID(可选,查询子评论)' },
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
           },
         },
         response: buildResponseSchema(400, 401),
@@ -435,14 +428,7 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
           },
         },
         response: buildResponseSchema(400, 401, 403),
