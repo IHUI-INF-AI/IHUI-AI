@@ -298,7 +298,7 @@ export default function CliImportPage() {
                         type="button"
                         onClick={() => setStrategy(s)}
                         className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
-                          active ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+                          active ? 'outline outline-1 outline-black dark:outline-white bg-primary/5' : 'border-border hover:bg-accent'
                         }`}
                       >
                         <p className="font-medium">{t(s as never)}</p>
