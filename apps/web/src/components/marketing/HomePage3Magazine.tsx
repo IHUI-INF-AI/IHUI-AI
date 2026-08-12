@@ -183,6 +183,25 @@ export function HomePage3Magazine() {
   const t = useTranslations('marketing.magazine')
   const [activeTab, setActiveTab] = React.useState<TabKey>('platform')
 
+  // 2026-08-12 新增:拉取 status 端点拿"今日生成 / 最后更新时间"用于 header 文案。
+  // 失败时静默降级(不显示),不影响主列表展示。3 分钟 stale,1 次重试,避免冷启动抖动。
+  const { data: status } = useQuery<{
+    lastGeneratedAt: string | null
+    draftLast24h: number
+    publishedLast24h: number
+  }>({
+    queryKey: ['marketing', 'magazine', 'status'],
+    queryFn: async () =>
+      unwrap<{
+        lastGeneratedAt: string | null
+        draftLast24h: number
+        publishedLast24h: number
+      }>(await fetchApi('/api/admin/news/status')),
+    retry: 1,
+    staleTime: 3 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  })
+
   const { data: allItems = [], isLoading } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'magazine'],
     queryFn: async () => {
@@ -197,15 +216,27 @@ export function HomePage3Magazine() {
     // fetchApi 失败 → allItems = [] → "暂无内容"占位 → 用户刷新看不到数据恢复。
     // 改成 retry: 2 + refetchOnReconnect + refetchOnWindowFocus,等 api 起来后
     // (网络重连 / 窗口切回)能自动重新拉取,无需用户手动 hard refresh。
-    // 排序:按 createdAt desc 拿"每天最新",数据源 createdAt 都为 2026-07-17 的
-    // seed 数据(无"每天更新"机制,新功能需用户确认),前端能展示的顺序按
-    // 实际数据源 sort 字段。
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     staleTime: 5 * 60 * 1000,
   })
+
+  const headerMeta = React.useMemo(() => {
+    if (!status) return null
+    const todayTotal = (status.draftLast24h ?? 0) + (status.publishedLast24h ?? 0)
+    const last = status.lastGeneratedAt ? new Date(status.lastGeneratedAt) : null
+    if (!last || Number.isNaN(last.getTime())) return null
+    const diffMs = Date.now() - last.getTime()
+    const diffMin = Math.max(0, Math.floor(diffMs / 60000))
+    let rel: string
+    if (diffMin < 1) rel = '刚刚'
+    else if (diffMin < 60) rel = `${diffMin} 分钟前`
+    else if (diffMin < 60 * 24) rel = `${Math.floor(diffMin / 60)} 小时前`
+    else rel = `${Math.floor(diffMin / 60 / 24)} 天前`
+    return { todayTotal, rel }
+  }, [status])
 
   const items = React.useMemo(() => {
     const categories = TAB_CATEGORY_MAP[activeTab]
@@ -258,6 +289,17 @@ export function HomePage3Magazine() {
             {t('titleEn')}
           </h3>
           <p className="text-sm text-muted-foreground/80">{t('subtitle')}</p>
+          {/* 2026-08-12 新增:展示"今日精选 X 条 / 最后更新 Y 分钟前"
+              headerMeta 来自 /api/admin/news status 端点(LLM 自动生成统计)。
+              没数据(status 加载失败/无生成)时整段不渲染,保持视觉简洁。 */}
+          {headerMeta && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+              <span>今日精选 {headerMeta.todayTotal} 条</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span>最后更新 {headerMeta.rel}</span>
+            </p>
+          )}
         </div>
         <div className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5">
           <button
