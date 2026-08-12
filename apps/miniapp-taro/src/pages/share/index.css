@@ -555,9 +555,61 @@
 }
 
 /* ===== 页面滚动锁定覆盖层(对标原 scroll-lock-overlay) ===== */
-.share-scroll-lock {
+.share-scroll-lock-overlay {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 900;
   background: transparent;
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* ===== 遮罩层(对齐原项目 mask-overlay) ===== */
+.share-mask-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 899;
+  background: rgba(0, 0, 0, 0.4);
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* ===== 回到顶部按钮(对齐原项目 toodown-wrapper/toodown) ===== */
+.share-toodown-wrapper {
+  position: fixed;
+  left: 50%;
+  bottom: 88rpx;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding-top: 60rpx;
+  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.share-toodown {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border-radius: 8rpx;
+  transition: all 0.2s ease;
+}
+
+.share-toodown:active {
+  transform: scale(0.9);
+}
+
+.share-toodown-arrow {
+  font-size: 32rpx;
+  color: #333;
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.share-toodown:active .share-toodown-arrow {
+  transform: rotate(90deg) scale(0.9);
 }
