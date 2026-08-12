@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # 新增 provider 只需改 .env 的 LLM_PROVIDERS,零代码改动(config.py 自动识别)
     llm_providers: str = ""
 
+    # 资讯板块每日自动刷新(2026-08-12 立,每天 8:00 UTC+8 自动生成+发布新闻)
+    news_cron_enabled: bool = False
+
     # 默认主力模型:step-router-v1(StepFun 智能路由,自动选 plan 套餐内最优模型,
     # 比 step-3.7-flash 更适合复杂 tool calling 决策;两者均已实测连通)
     litellm_model: str = "stepfun/step-router-v1"
