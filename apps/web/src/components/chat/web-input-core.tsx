@@ -5,6 +5,7 @@ import { Brush } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
+import { Tooltip } from '@/components/feedback'
 
 export const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
@@ -121,22 +122,23 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           让按钮更贴近 textarea 顶边,视觉上像"挂在输入框角落")。
           不挡字符计数(字符计数在 bottom-2)。 */}
         {text.length > 0 && (
-          <button
-            type="button"
-            aria-label={t('clearInputAriaLabel')}
-            title={t('clearInputTitle')}
-            onClick={onClear}
-            disabled={isStreaming}
-            className={cn(
-              'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
-              'text-muted-foreground transition-opacity',
-              'opacity-0 hover:bg-accent hover:text-accent-foreground',
-              'group-hover:opacity-100 focus-visible:opacity-100',
-              'disabled:pointer-events-none',
-            )}
-          >
-            <Brush className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
+          <Tooltip content={t('clearInputTitle')}>
+            <button
+              type="button"
+              aria-label={t('clearInputAriaLabel')}
+              onClick={onClear}
+              disabled={isStreaming}
+              className={cn(
+                'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
+                'text-muted-foreground transition-opacity',
+                'opacity-0 hover:bg-accent hover:text-accent-foreground',
+                'group-hover:opacity-100 focus-visible:opacity-100',
+                'disabled:pointer-events-none',
+              )}
+            >
+              <Brush className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </Tooltip>
         )}
         <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
           <span
