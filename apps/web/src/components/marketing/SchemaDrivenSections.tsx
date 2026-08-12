@@ -194,27 +194,33 @@ function PricingSection({ pageIndex }: SectionProps) {
 function MagazineSection({ showFooter, pageIndex }: SectionProps) {
   const t = useTranslations('marketing')
   return (
-    // 2026-08-12 改(用户二次反馈"div 容器不应贴屏底"):彻底去掉 minHeight: calc(100vh - 58px)
-    // 让 section 高度由内容自然决定(content 478 + footer 265 ≈ 743px),footer 紧跟内容,
-    // 8px 呼吸空由外层 layout pb-2 提供(不依赖 section 强制撑满视口)。
-    // - 上几版用 minHeight: calc(100vh - 58px) 强制 section = main 视口,
-    //   section 底部 = main 底部 = 距屏底 8px,看起来"贴屏底",用户多次反对;
-    // - 现在 section 自然增长,内容超 main 视口时由 main overflow-y-scroll 滚动显示,
-    //   snap 行为由外层 main snap-y snap-proximity 保证,不需要 section 强制 = 视口高。
-    // 2026-08-12 配套根治(用户反馈"section、div 内容总跑到最后一页"):
-    // - 显式加 relative + overflow-hidden + min-h-0(对齐 HomeSectionFrame 的
-    //   "relative flex snap-start flex-col overflow-hidden" 三件套,仅差 minHeight),
-    //   让 page-7 的 scroll-snap 行为与 page-1~6 完全一致;
-    // - min-h-0 关键:外层 div 用 flex-1 撑开时,缺 min-h-0 会让 flex-1 高度计算
-    //   等于内容自然高度(塌陷),导致内容看似"溢出"到最后一个分页;
-    // - overflow-hidden 关键:page-7 内容超 main 视口时,溢出内容被本 section 容器
-    //   裁切(不再"漏"到 page-6 或 page-7 之后的视觉位置),与 page-1~6 行为一致;
-    // - 内部 HomePage3Magazine 根容器从 <section> 改为 <div>(2026-08-12),消除
-    //   section 嵌套违规(浏览器对嵌套 section 的 snap 行为/aria 树会异常,
-    //   会让 page-7 内部某些内容"跑"到最后一页 = 嵌套 section 的终止位置)。
+    // 2026-08-12 v2 改(用户三次反馈"section、div 内容总跑到最后一页"根因):
+    // 上一版去掉 minHeight 让 page-7 高度 = 内容自然高度 ≈ 472px(< 视口 742px),
+    // 导致翻到 page-7 时,scrollIntoView 把 page-7 贴到 scrollTop=maxScrollTop 处,
+    // 但因为 page-7 高度 < 视口,snap-proximity 不强制对齐,page-6 底部 320px
+    // 残留在 page-7 视口顶部,page-6 的 4 stat 卡 + 品牌跑马灯等"漏"到 page-7 视口
+    // 看起来"section、div 内容总跑到最后一页"。本次恢复 minHeight 强制 page-7
+    // 高度 = 视口高度,与 page-1~6 走 HomeSectionFrame 的行为完全一致,snap
+    // 对齐严格,page-6 不会"漏"到 page-7。
+    //
+    // 布局策略(minHeight 强制 ≥ 视口,但 footer 不硬贴屏底):
+    // - section minHeight = calc(100vh - 58px):保证 snap 对齐严格
+    // - section 用 flex flex-col:内容自然流,footer 不强制底部
+    // - 内部 div 用 flex-1 撑开剩余空间(让内容在视觉上居中或上对齐,不出现
+    //   "内容全在顶部,底部一大片空白"的不雅观;min-h-0 让 flex-1 在父
+    //   容器高度固定时不溢出)
+    // - 内容(magazine + footer)总高若 > 视口,section 高度自动扩张,内层
+    //   overflow-y-auto 让用户在 page-7 内滚动(但 snap 行为由外层 main 控,
+    //   仍归属 page-7)
+    // - 内容 < 视口时,minHeight 撑到 742px,内容靠上布局,底部空 8px 由外层
+    //   layout pb-2 提供(2026-07-31 第十六次微调已保留)
+    //
+    // 2026-08-12 v1(已废弃):去掉 minHeight → page-7 高度 472px,page-6 底部泄漏
+    // 2026-08-12 v1 配套(已废弃):加 relative overflow-hidden min-h-0 → 治标不治本,
+    //   page-7 仍 < 视口,snap 行为仍异常
     <section
       id={`home-page-${pageIndex}`}
-      className="relative flex snap-start flex-col overflow-hidden min-h-0"
+      className="relative flex snap-start flex-col overflow-hidden min-h-[calc(100vh-58px)]"
       aria-label={t('magazine.title', { fallback: 'News' })}
     >
       <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 min-[768px]:px-8 min-[768px]:pt-5 min-[768px]:pb-2">
