@@ -31,11 +31,14 @@ const boolQuery = z.transform((v) => v === 'true' || v === '1').pipe(z.boolean()
 
 const searchQuerySchema = z.object({
   q: z.string().trim().min(1, '关键词不能为空').max(255),
-  type: z.transform(emptyToUndefined).pipe(z.enum(['user', 'project', 'file', 'all']).default('all')),
+  type: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['user', 'project', 'file', 'all']).default('all')),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   highlight: boolQuery.default(false),
   facets: boolQuery.default(false),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const historyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -111,24 +114,7 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -182,24 +168,7 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -247,24 +216,7 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
