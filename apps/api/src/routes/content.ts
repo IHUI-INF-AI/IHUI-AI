@@ -51,15 +51,16 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const slugParamSchema = z.object({ slug: z.string().min(1).max(128) })
 
 const helpArticlesQuerySchema = z.object({
-  category: z.transform((v) => (v === '' || v === null || v === undefined ? undefined : v)).pipe(
-    z.enum(HELP_CATEGORIES).optional(),
-  ),
+  category: z
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.enum(HELP_CATEGORIES).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const docsQuerySchema = z.object({
-  category: z.transform((v) => (v === '' || v === null || v === undefined ? undefined : v)).pipe(
-    z.enum(DOC_CATEGORIES).optional(),
-  ),
+  category: z
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.enum(DOC_CATEGORIES).optional()),
 })
 
 const createAnnouncementSchema = z.object({
@@ -68,8 +69,16 @@ const createAnnouncementSchema = z.object({
   type: z.enum(ANNOUNCEMENT_TYPES).optional(),
   isPinned: z.boolean().optional(),
   isPublished: z.boolean().optional(),
-  publishedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
-  expiresAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  publishedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
+  expiresAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
 })
 
 const updateAnnouncementSchema = z.object({
@@ -78,8 +87,16 @@ const updateAnnouncementSchema = z.object({
   type: z.enum(ANNOUNCEMENT_TYPES).optional(),
   isPinned: z.boolean().optional(),
   isPublished: z.boolean().optional(),
-  publishedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
-  expiresAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  publishedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
+  expiresAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
 })
 
 const createHelpCategorySchema = z.object({
@@ -176,16 +193,7 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
         summary: '公告列表',
         description: '公开接口:已发布公告列表(登录用户可看到 isRead 标记)',
         tags: ['content'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (request, reply) => {
@@ -286,20 +294,7 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -350,20 +345,7 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
