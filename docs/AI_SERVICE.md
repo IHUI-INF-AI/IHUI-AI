@@ -651,6 +651,17 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `OTEL_SERVICE_NAME` | `@ihui/ai-service` | 服务名 |
 | `OTEL_TRACES_SAMPLER` | `traceidratio` | 采样器 |
 | `OTEL_TRACES_SAMPLER_ARG` | `0.1` | 采样率(10%) |
+| `AGENT_EXECUTOR` | `langgraph` | Agent 执行器开关,`loop_v2` 启用 AgentLoopV2(见下) |
+
+#### Agent 执行器开关(AGENT_EXECUTOR,2026-08-12 立)
+
+- **默认 `langgraph`(不设置即保持现状)**:agent 任务走原 LangGraph 工作流(`langgraph_service.py`,plan → execute → summarize)。
+- **`AGENT_EXECUTOR=loop_v2`**:agent 任务改走 AgentLoopV2(`agent_loop_v2.py`),启用后具备:
+  - LLM 指数退避重试 + 工具瞬时重试(抗瞬时故障)
+  - 错误六分类(精准定位失败原因)
+  - 元学习闭环(技能自进化)
+  - 事件总线实时可视化(任务进度可观测)
+- **启用方式**:在 `apps/ai-service/.env` 中设置 `AGENT_EXECUTOR=loop_v2` 后重启 ai-service。生产环境切换前建议先在预发环境验证任务成功率与可观测性。
 
 ### LLM Provider Key(任选一个激活真实调用,全部为空降级 stub)
 
