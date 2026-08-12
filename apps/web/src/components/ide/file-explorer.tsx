@@ -330,14 +330,15 @@ export function FileExplorer() {
               <FolderPlus className="h-3.5 w-3.5" />
             </button>
           </Tooltip>
-          <button
-            onClick={() => void fetchFileTree()}
-            aria-label={t('fileExplorer.refresh')}
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
-            title={t('fileExplorer.refresh')}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </button>
+          <Tooltip content={t('fileExplorer.refresh')}>
+            <button
+              onClick={() => void fetchFileTree()}
+              aria-label={t('fileExplorer.refresh')}
+              className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
         </div>
       )}
 
