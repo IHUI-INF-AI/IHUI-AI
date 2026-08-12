@@ -5,15 +5,21 @@
 - log_llm_call():记录 LLM 调用(model/token/latency/stub)
 - log_tool_execution():记录工具调用(tool_name/args/result/status/duration)
 - 透传 trace_id:从请求头 traceparent 解析,关联 api 端审计
+- L5-5(2026-08-12):异步落库 audit_logs 表,错误数据不再重启即丢;DB 不可达/无 event loop 时静默降级,内存保留
 
 与 apps/api 端 plugins/audit.ts 对等,实现跨服务审计链路闭环。
 """
 
+import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# L5-5:持有 fire-and-forget 落库 task 引用,防止 GC 在 task 完成前回收(与 agent_loop_v2 同模式)
+_pending_persist_tasks: set[asyncio.Task[Any]] = set()
 
 
 class AuditEntry:
@@ -48,10 +54,11 @@ class AuditEntry:
 
 
 class AuditService:
-    """审计日志服务(内存缓冲 + 异步落库,生产环境接 DB)。
+    """审计日志服务(内存缓冲 + 异步落库 DB)。
 
     缓冲区上限 10000 条,超出丢弃最旧的 10%(避免每次追加都 pop)。
-    生产环境应替换为 DB 持久化(asyncpg 写 audit_log 表)。
+    L5-5(2026-08-12):内存缓冲基础上异步落库 audit_logs 表,
+    DB 不可达/无 event loop 时静默降级为纯内存模式(不阻塞主流程)。
     """
 
     _buffer: list[AuditEntry] = []
@@ -169,6 +176,41 @@ class AuditService:
             "audit action=%s agent=%s trace=%s",
             entry.action, entry.agent_id, entry.trace_id,
         )
+        # L5-5(2026-08-12):异步落库 audit_logs 表,失败静默降级内存保留
+        coro = self._persist_entry(entry)
+        try:
+            task = asyncio.create_task(coro)
+            _pending_persist_tasks.add(task)
+            task.add_done_callback(_pending_persist_tasks.discard)
+        except RuntimeError:
+            # 无运行中的 event loop(同步上下文/单元测试),仅内存;关闭 coroutine 防 RuntimeWarning
+            coro.close()
+
+    async def _persist_entry(self, entry: AuditEntry) -> None:
+        """异步写入 audit_logs 表(失败降级,不阻塞主流程)。
+
+        字段映射: action→action(截断 32), resource_type→agent_id(来源),
+        resource_id→trace_id(关联追踪), details→jsonb, created_at→timestamp。
+        """
+        try:
+            from app.core.db import get_db_pool
+
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO audit_logs
+                        (action, resource_type, resource_id, details, created_at)
+                    VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz)
+                    """,
+                    entry.action[:32],
+                    entry.agent_id[:64] if entry.agent_id else None,
+                    entry.trace_id[:64] if entry.trace_id else None,
+                    json.dumps(entry.details, ensure_ascii=False),
+                    entry.timestamp,
+                )
+        except Exception as e:
+            logger.warning("audit persist to db failed(降级,内存保留): %s", e)
 
 
 # 模块级单例
