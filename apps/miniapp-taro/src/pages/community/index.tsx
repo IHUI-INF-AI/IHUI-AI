@@ -1,4 +1,4 @@
-import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -9,8 +9,14 @@ import { useState, useCallback, useRef } from 'react'
 import NavBar from '@/components/NavBar'
 import Carousel from '@/components/Carousel'
 import DrawerComponent from '@/components/DrawerComponent'
+import IntelligentAssistant from '@/components/IntelligentAssistant'
+import InputArea from '@/components/InputArea'
+import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
+import AgentListPanel from '@/components/AgentListPanel'
 import type { CarouselItem } from '@ihui/types'
-import { collectAgent, likeAgent } from '@/api'
+import type { TitleSwitchScrollTitleItem } from '@ihui/types'
+import type { AgentInfo } from '@/components/AgentListPanel'
+import type { DrawerModelGroup, DrawerUserInfo } from '@/components/DrawerComponent'
 import './index.css'
 
 /* ============ Mock 数据 ============ */
@@ -217,12 +223,6 @@ interface CategoryItem {
 
 /* ============ 工具函数 ============ */
 
-function numResult(num: number): string {
-  if (num >= 10000) return (num / 10000).toFixed(1) + 'W'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-  return String(num)
-}
-
 function getInitials(name: string): string {
   return name.charAt(0) || '?'
 }
@@ -285,74 +285,27 @@ function AgentHorizontalScroll({
   )
 }
 
-/** 智能体卡片 */
-function AgentCard({
-  item,
-  onCollect,
-  onLike,
-  onClick,
+/** FloatBox 浮动组件 */
+function FloatBox({
+  visible,
+  onClose,
 }: {
-  item: AgentItem
-  onCollect?: (id: string) => void
-  onLike?: (id: string) => void
-  onClick?: (item: AgentItem) => void
+  visible: boolean
+  onClose?: () => void
 }) {
+  if (!visible) return null
   return (
-    <View className="agent-card" onClick={() => onClick?.(item)}>
-      <View className="agent-card-header">
-        <View className="agent-card-avatar-wrap">
-          {item.agentAvatar ? (
-            <Image className="agent-card-avatar" src={item.agentAvatar} mode="aspectFill" />
-          ) : (
-            <View className="agent-card-avatar-fallback">
-              <Text className="agent-card-avatar-text">{getInitials(item.agentName)}</Text>
-            </View>
-          )}
-        </View>
-        <View className="agent-card-info">
-          <View className="agent-card-name-row">
-            <Text className="agent-card-name">{item.agentName}</Text>
-            {item.isNew === 1 ? <View className="agent-card-new-tag">NEW</View> : null}
-          </View>
-          <View className="agent-card-tags">
-            {item.agentMainCategory.map((cat, idx) => (
-              <Text key={idx} className="agent-card-tag">{cat.name}</Text>
-            ))}
-          </View>
-        </View>
-        <View className="agent-card-source-badge">
-          <Text className="agent-card-source-text">{item.isHot === 1 ? 'HOT' : 'AI'}</Text>
-        </View>
-      </View>
-      <Text className="agent-card-desc">{item.agentDescription}</Text>
-      <View className="agent-card-footer">
-        <View className="agent-card-author">
-          {item.userAvatar ? (
-            <Image className="agent-card-author-avatar" src={item.userAvatar} mode="aspectFill" />
-          ) : (
-            <View className="agent-card-author-avatar-fallback">
-              <Text className="agent-card-author-avatar-text">{getInitials(item.userNickname)}</Text>
-            </View>
-          )}
-          <Text className="agent-card-author-name">{item.userNickname}</Text>
-          <View className="agent-card-usage">
-            <Text className="agent-card-usage-icon">⊚</Text>
-            <Text className="agent-card-usage-text">{numResult(item.usageCount)}</Text>
-          </View>
-        </View>
-        <View className="agent-card-actions">
-          <View className="agent-card-action" onClick={(e) => { e.stopPropagation(); onCollect?.(item.id) }}>
-            <Text className={`agent-card-action-icon ${item.isCollect === 1 ? 'active' : ''}`}>
-              {item.isCollect === 1 ? '★' : '☆'}
-            </Text>
-            <Text className="agent-card-action-count">{numResult(item.collectCount)}</Text>
-          </View>
-          <View className="agent-card-action" onClick={(e) => { e.stopPropagation(); onLike?.(item.id) }}>
-            <Text className={`agent-card-action-icon ${item.isThumbs === 1 ? 'active' : ''}`}>
-              {item.isThumbs === 1 ? '👍' : '👍'}
-            </Text>
-            <Text className="agent-card-action-count">{numResult(item.likeCount)}</Text>
-          </View>
+    <View className="community-float-box" onClick={onClose}>
+      <View className="community-float-box-content" onClick={(e) => e.stopPropagation()}>
+        <Text className="community-float-box-title">AI 助手</Text>
+        <Text className="community-float-box-desc">需要帮助？点击这里开启智能对话</Text>
+        <View
+          className="community-float-box-btn"
+          onClick={() => {
+            Taro.navigateTo({ url: '/pages/ai/chat' })
+          }}
+        >
+          <Text className="community-float-box-btn-text">开始对话</Text>
         </View>
       </View>
     </View>
@@ -376,9 +329,52 @@ export default function Community() {
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
+  const [showFloatBox, setShowFloatBox] = useState(false)
   const scrollTopRef = useRef(0)
 
   const PAGE_SIZE = 10
+
+  /* ============ 抽屉 Mock 数据 ============ */
+
+  const drawerGroupedData: DrawerModelGroup[] = [
+    {
+      modelName: 'GPT-4o',
+      modelLogo: '',
+      dateGroups: [
+        {
+          date: '今天',
+          chats: [
+            { id: 'c1', title: '帮我写一份市场分析报告', date: '今天' },
+            { id: 'c2', title: 'Python 代码优化建议', date: '今天' },
+          ],
+        },
+        {
+          date: '昨天',
+          chats: [
+            { id: 'c3', title: '翻译这段英文文档', date: '昨天' },
+          ],
+        },
+      ],
+    },
+    {
+      modelName: 'Claude 3.5',
+      modelLogo: '',
+      dateGroups: [
+        {
+          date: '昨天',
+          chats: [
+            { id: 'c4', title: '设计一个用户登录流程', date: '昨天' },
+            { id: 'c5', title: '数据分析报告生成', date: '昨天' },
+          ],
+        },
+      ],
+    },
+  ]
+
+  const drawerUserinfo: DrawerUserInfo = {
+    avatar: '',
+    nickname: '智汇AI用户',
+  }
 
   /* ============ 数据加载 ============ */
 
@@ -394,7 +390,6 @@ export default function Community() {
       if (!hasMore && !reset) return
       setLoading(true)
       try {
-        // 模拟 API 请求
         await new Promise((r) => setTimeout(r, 400))
         const filtered = activeCategory === 'all'
           ? MOCK_AGENT_LIST
@@ -441,6 +436,8 @@ export default function Community() {
   function onBannerClick(item: CarouselItem) {
     if (item.link) {
       Taro.navigateTo({ url: item.link })
+    } else {
+      Taro.showToast({ title: '即将上线，敬请期待', icon: 'none' })
     }
   }
 
@@ -448,38 +445,6 @@ export default function Community() {
     Taro.navigateTo({
       url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.agentName)}`,
     })
-  }
-
-  function onAgentCardClick(item: AgentItem) {
-    Taro.navigateTo({
-      url: `/pages/tools/ai_assistant?agentId=${item.id}&modelNamea=${encodeURIComponent(item.agentName)}`,
-    })
-  }
-
-  function onCollect(id: string) {
-    setAgentList((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? {
-              ...a,
-              isCollect: a.isCollect === 1 ? 0 : 1,
-              collectCount: a.isCollect === 1 ? a.collectCount - 1 : a.collectCount + 1,
-            }
-          : a,
-      ),
-    )
-    collectAgent(id).catch(() => {})
-  }
-
-  function onLike(id: string) {
-    setAgentList((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, isThumbs: a.isThumbs === 1 ? 0 : 1, likeCount: a.isThumbs === 1 ? a.likeCount - 1 : a.likeCount + 1 }
-          : a,
-      ),
-    )
-    likeAgent(id).catch(() => {})
   }
 
   function onSearch(value: string) {
@@ -532,8 +497,83 @@ export default function Community() {
     setShowSearch(!showSearch)
   }
 
+  function handleSearchSend(text: string) {
+    onSearch(text)
+  }
+
+  function handleSearchInput(text: string) {
+    setSearchKeyword(text)
+  }
+
+  function handleIntelligentRecharge() {
+    Taro.navigateTo({ url: '/pages/recharge/index' })
+  }
+
+  function onAgentListSelect(agent: AgentInfo) {
+    Taro.navigateTo({
+      url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
+    })
+  }
+
+  function onTitleSwitchChange(item: TitleSwitchScrollTitleItem) {
+    const matched = categories.find((c) => c.name === item.name)
+    if (matched) {
+      onCategorySelect(matched.id)
+    }
+  }
+
+  function handleDrawerGoPage(item: { key: string }) {
+    setShowDrawer(false)
+    if (item.key === 'appStore') {
+      Taro.pageScrollTo({ scrollTop: 0, duration: 300 })
+    } else if (item.key === 'demand') {
+      Taro.navigateTo({ url: '/pages/ranking/index' })
+    } else if (item.key === 'course') {
+      Taro.navigateTo({ url: '/pages/course/list' })
+    } else if (item.key === 'inspiration') {
+      Taro.showToast({ title: '灵感模块即将上线', icon: 'none' })
+    } else if (item.key === 'dynamic') {
+      Taro.showToast({ title: '动态模块即将上线', icon: 'none' })
+    }
+  }
+
+  function handleDrawerLabelClick(item: { key: string }) {
+    setShowDrawer(false)
+    if (item.key === 'newChat') {
+      Taro.navigateTo({ url: '/pages/ai/chat' })
+    } else if (item.key === 'company') {
+      Taro.navigateTo({ url: '/pages/company/index' })
+    } else if (item.key === 'freebie') {
+      Taro.showToast({ title: '免费资料领取即将上线', icon: 'none' })
+    }
+  }
+
+  function handleDrawerChatClick(chat: { id: string | number; title: string }) {
+    setShowDrawer(false)
+    Taro.navigateTo({ url: `/pages/ai/chat?chatId=${chat.id}` })
+  }
+
   /** 获取当前分类按钮文字 */
   const currentCategoryName = categories.find((c) => c.id === activeCategory)?.name || '全部'
+
+  /** 映射分类到 TitleSwitchScrollTitle 格式 */
+  const titleSwitchMainList: TitleSwitchScrollTitleItem[] = [
+    {
+      name: '全部',
+      children: categories.map((c) => ({ name: c.name })),
+    },
+  ]
+
+  /** 映射 AgentItem[] 到 AgentInfo[] */
+  const agentInfoList: AgentInfo[] = agentList.map((a) => ({
+    id: a.id,
+    name: a.agentName,
+    description: a.agentDescription,
+    avatar: a.agentAvatar,
+    category: a.agentMainCategory[0]?.name,
+    useCount: a.usageCount,
+    isVipExclusive: false,
+  }))
 
   return (
     <View className="community-page">
@@ -546,24 +586,28 @@ export default function Community() {
         onRightClick={handleNavRightClick}
       />
 
-      {/* 搜索框 */}
+      {/* 搜索框 — 使用 InputArea 组件 */}
       {showSearch ? (
         <View className="community-search-bar">
-          <View className="community-search-input-wrap">
-            <Input
-              className="community-search-input"
-              placeholder="请输入查找的智能体名称"
-              placeholderStyle="color: rgba(255,255,255,0.4)"
-              value={searchKeyword}
-              onInput={(e) => onSearch(e.detail.value)}
-              confirmType="search"
-            />
-          </View>
+          <InputArea
+            value={searchKeyword}
+            placeholder="请输入查找的智能体名称"
+            onInput={handleSearchInput}
+            onSend={handleSearchSend}
+            variant="default"
+          />
         </View>
       ) : null}
 
       <View className="community-content">
-        {/* 分类筛选 + 菜单按钮 */}
+        {/* 智能助手组件 */}
+        <IntelligentAssistant
+          tokenBalance={1280}
+          isLoggedIn={false}
+          onRecharge={handleIntelligentRecharge}
+        />
+
+        {/* 分类筛选 + 菜单按钮 + FloatBox 触发 */}
         <View className="community-toolbar">
           <View className="community-toolbar-left">
             <View className="community-menu-btn" onClick={handleMenuClick}>
@@ -574,26 +618,25 @@ export default function Community() {
               <Text className={`community-category-arrow ${showCategoryPopup ? 'rotated' : ''}`}>▾</Text>
             </View>
           </View>
+          <View
+            className="community-float-trigger"
+            onClick={() => setShowFloatBox(!showFloatBox)}
+          >
+            <Text className="community-float-trigger-icon">✦</Text>
+          </View>
         </View>
 
-        {/* 分类弹层 */}
+        {/* 分类弹层 — 使用 TitleSwitchScrollTitle 组件 */}
         {showCategoryPopup ? (
           <View className="community-category-overlay">
             <View className="community-category-mask" onClick={() => setShowCategoryPopup(false)} />
             <View className="community-category-popup">
-              <ScrollView scrollY className="community-category-scroll">
-                <View className="community-category-list">
-                  {categories.map((cat) => (
-                    <View
-                      key={cat.id}
-                      className={`community-category-item ${activeCategory === cat.id ? 'active' : ''}`}
-                      onClick={() => onCategorySelect(cat.id)}
-                    >
-                      <Text className="community-category-item-text">{cat.name}</Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
+              <TitleSwitchScrollTitle
+                mainList={titleSwitchMainList}
+                mainSwiperMargin="120rpx"
+                subSwiperMargin="120rpx"
+                onChange={onTitleSwitchChange}
+              />
             </View>
           </View>
         ) : null}
@@ -629,37 +672,17 @@ export default function Community() {
           onAgentClick={onAgentClick}
         />
 
-        {/* 智能体列表 */}
+        {/* 智能体列表 — 使用 AgentListPanel 组件 */}
         <View className="community-agent-list-section">
           <View className="community-agent-list-header">
             <Text className="community-agent-list-title">智能体推荐</Text>
           </View>
-          {loading && agentList.length === 0 ? (
-            <View className="community-loading">
-              <Text className="community-loading-text">加载中...</Text>
-            </View>
-          ) : agentList.length === 0 ? (
-            <View className="community-empty">
-              <Text className="community-empty-text">暂无智能体</Text>
-            </View>
-          ) : (
-            <View className="community-agent-list">
-              {agentList.map((item) => (
-                <AgentCard
-                  key={item.id}
-                  item={item}
-                  onCollect={onCollect}
-                  onLike={onLike}
-                  onClick={onAgentCardClick}
-                />
-              ))}
-            </View>
-          )}
-          {loading && agentList.length > 0 ? (
-            <View className="community-loading-more">
-              <Text className="community-loading-more-text">加载更多...</Text>
-            </View>
-          ) : null}
+          <AgentListPanel
+            visible
+            agents={agentInfoList}
+            loading={loading}
+            onSelect={onAgentListSelect}
+          />
           {!loading && !hasMore && agentList.length > 0 ? (
             <View className="community-no-more">
               <Text className="community-no-more-text">没有更多了</Text>
@@ -668,6 +691,12 @@ export default function Community() {
         </View>
       </View>
 
+      {/* FloatBox 浮动组件 */}
+      <FloatBox
+        visible={showFloatBox}
+        onClose={() => setShowFloatBox(false)}
+      />
+
       {/* 返回顶部按钮 */}
       {showBackTop ? (
         <View className="community-back-top" onClick={backToTop}>
@@ -675,26 +704,19 @@ export default function Community() {
         </View>
       ) : null}
 
-      {/* 抽屉组件 */}
+      {/* 抽屉组件 — 增强版，传入 groupedData/userinfo 等 props */}
       <DrawerComponent
         visible={showDrawer}
         onClose={() => setShowDrawer(false)}
         side="left"
-        onMenuItemClick={(item) => {
+        groupedData={drawerGroupedData}
+        userinfo={drawerUserinfo}
+        onMenuItemClick={handleDrawerGoPage}
+        onLabelItemClick={handleDrawerLabelClick}
+        onChatItemClick={handleDrawerChatClick}
+        onCreateChat={() => {
           setShowDrawer(false)
-          if (item.key === 'appStore') {
-            Taro.pageScrollTo({ scrollTop: 0, duration: 300 })
-          } else if (item.key === 'demand') {
-            Taro.navigateTo({ url: '/pages/ranking/index' })
-          } else if (item.key === 'course') {
-            Taro.navigateTo({ url: '/pages/course/list' })
-          }
-        }}
-        onLabelItemClick={(item) => {
-          setShowDrawer(false)
-          if (item.key === 'newChat') {
-            Taro.navigateTo({ url: '/pages/ai/chat' })
-          }
+          Taro.navigateTo({ url: '/pages/ai/chat' })
         }}
       />
     </View>

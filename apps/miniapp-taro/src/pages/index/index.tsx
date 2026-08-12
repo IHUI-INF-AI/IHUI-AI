@@ -22,7 +22,13 @@
  * - ModelConfigDialog 模型配置弹窗
  */
 import { View, Image, Text, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import Taro, {
+  useDidShow,
+  useShareAppMessage,
+  useShareTimeline,
+  usePullDownRefresh,
+  useReachBottom,
+} from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { useI18n, useTt } from '@/i18n'
@@ -42,6 +48,9 @@ import BottomActionBar, {
 import ModelConfigDialog from '@/components/ModelConfigDialog'
 import type { ModelConfig } from '@/components/ModelConfigDialog'
 import Carousel from '@/components/Carousel'
+import IntelligentAssistant from '@/components/IntelligentAssistant'
+import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
+import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
 
@@ -59,6 +68,27 @@ const MOCK_MODELS: ModelItem[] = [
   { id: 'step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 128000, input_price: 0 },
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_length: 128000, input_price: 0 },
   { id: 'claude-3.5', name: 'Claude 3.5', provider: 'anthropic', context_length: 200000, input_price: 0 },
+]
+
+// 本地 mock 智能体列表(对齐原项目 agentList 数据源,TODO: 接入真实 API)
+const MOCK_AGENTS: AgentInfo[] = [
+  { id: 'agent-1', name: 'AI 写作助手', description: '帮你撰写高质量文章、报告和文案', avatar: '', useCount: 1234, category: '写作' },
+  { id: 'agent-2', name: '编程助手', description: '代码编写、调试和优化建议', avatar: '', useCount: 2341, category: '开发' },
+  { id: 'agent-3', name: '数据分析师', description: '数据可视化和分析洞察', avatar: '', useCount: 987, category: '分析' },
+  { id: 'agent-4', name: '设计创意师', description: '创意设计和视觉方案', avatar: '', useCount: 876, category: '设计' },
+  { id: 'agent-5', name: '翻译达人', description: '多语言翻译和本地化', avatar: '', useCount: 765, category: '工具' },
+]
+
+// 本地 mock 技能列表(对齐原项目 skillsPopup 数据源,TODO: 接入真实 API)
+const MOCK_SKILLS: AgentItem[] = [
+  { id: 'skill-1', name: '文本生成', description: '高质量文本内容生成', avatar: '', useCount: 5678, category: 'text' },
+  { id: 'skill-2', name: '图片生成', description: 'AI 绘画和图片创作', avatar: '', useCount: 4321, category: 'image' },
+  { id: 'skill-3', name: '视频制作', description: 'AI 视频生成和编辑', avatar: '', useCount: 2345, category: 'video' },
+  { id: 'skill-4', name: '音频处理', description: '语音合成和音频编辑', avatar: '', useCount: 1234, category: 'audio' },
+  { id: 'skill-5', name: '代码生成', description: '多语言代码自动生成', avatar: '', useCount: 3456, category: 'text' },
+  { id: 'skill-6', name: '数据分析', description: '数据分析和可视化', avatar: '', useCount: 2100, category: 'text' },
+  { id: 'skill-7', name: 'AI 绘画', description: '文生图和图生图创作', avatar: '', useCount: 5432, category: 'image' },
+  { id: 'skill-8', name: '视频剪辑', description: '智能视频剪辑和特效', avatar: '', useCount: 1876, category: 'video' },
 ]
 
 // ===== 素材库数据类型 =====
@@ -149,6 +179,21 @@ interface AiHomeState {
   // 模型配置状态
   showModelConfig: boolean
   modelConfig: ModelConfig
+  // 技能商店弹窗
+  showSkillsPopup: boolean
+  // 智能体列表
+  showAgentList: boolean
+  // 分页状态
+  page: number
+  pageSize: number
+  hasMore: boolean
+  isLoadingMore: boolean
+  // 输入框焦点
+  isInputFocused: boolean
+  // 分享弹窗
+  showSharePopup: boolean
+  // 公告文本
+  announcementText: string
 }
 
 export default function Index() {
@@ -219,6 +264,21 @@ export default function Index() {
       systemPrompt: '',
       streamEnabled: true,
     },
+    // 技能商店弹窗
+    showSkillsPopup: false,
+    // 智能体列表
+    showAgentList: false,
+    // 分页状态
+    page: 1,
+    pageSize: 10,
+    hasMore: true,
+    isLoadingMore: false,
+    // 输入框焦点
+    isInputFocused: false,
+    // 分享弹窗
+    showSharePopup: false,
+    // 公告文本
+    announcementText: '🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！',
   }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
@@ -247,6 +307,25 @@ export default function Index() {
       modelName: s.modelName || (MOCK_MODELS[0]?.name ?? ''),
       selectedModelId: s.selectedModelId ?? MOCK_MODELS[0]?.id,
     }))
+  })
+
+  // 下拉刷新(对齐原项目 onPullDownRefresh)
+  usePullDownRefresh(() => {
+    // 重置分页并刷新数据(TODO: 接入真实 API)
+    setState((s) => ({
+      ...s,
+      page: 1,
+      hasMore: true,
+      isLoadingMore: false,
+    }))
+    setTimeout(() => {
+      Taro.stopPullDownRefresh()
+    }, 500)
+  })
+
+  // 上拉加载更多(对齐原项目 onReachBottom)
+  useReachBottom(() => {
+    loadMoreModels()
   })
 
   // 微信分享配置
@@ -284,10 +363,11 @@ export default function Index() {
         }
       })
     } else if (type === 'skills') {
-      // skills 类型:暂不实现技能商店弹窗,仅切换选中态
+      // skills 类型:弹出技能商店(SkillsPopup)
       setState((s) => ({
         ...s,
-        currentModelType: s.currentModelType === 'skills' ? '' : 'skills',
+        currentModelType: 'skills',
+        showSkillsPopup: true,
         showModelList: false,
         showMaterialList: false,
       }))
@@ -310,6 +390,61 @@ export default function Index() {
       currentModelType: '',
     }))
   }
+
+  // 技能选择回调(从 SkillsPopup 选择技能)
+  const handleSkillSelect = useCallback((skill: AgentItem) => {
+    setState((s) => ({
+      ...s,
+      selectedModelId: skill.id,
+      modelName: skill.name,
+      showSkillsPopup: false,
+      currentModelType: '',
+    }))
+  }, [])
+
+  // 关闭技能商店弹窗
+  const handleSkillsClose = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      showSkillsPopup: false,
+      currentModelType: '',
+    }))
+  }, [])
+
+  // 输入框聚焦/失焦
+  const handleInputFocus = useCallback(() => {
+    setState((s) => ({ ...s, isInputFocused: true }))
+  }, [])
+
+  const handleInputBlur = useCallback(() => {
+    setState((s) => ({ ...s, isInputFocused: false }))
+  }, [])
+
+  // 键盘显示/隐藏
+  const handleKeyboardShow = useCallback((_height: number) => {
+    // 键盘弹出时可选调整布局
+  }, [])
+
+  // 分享成功触发分享弹窗
+  const handleShareTrigger = useCallback(() => {
+    setState((s) => ({ ...s, showSharePopup: true }))
+  }, [])
+
+  // 分页加载更多模型
+  const loadMoreModels = useCallback(() => {
+    setState((s) => {
+      if (s.isLoadingMore || !s.hasMore) return s
+      return { ...s, isLoadingMore: true, page: s.page + 1 }
+    })
+    // 模拟异步加载(TODO: 接入真实 API)
+    setTimeout(() => {
+      setState((s) => ({
+        ...s,
+        isLoadingMore: false,
+        hasMore: s.page < 5, // 最多 5 页
+      }))
+    }, 1000)
+  }, [])
 
   const handleAgentToggle = () => {
     setState((s) => ({
@@ -496,6 +631,13 @@ export default function Index() {
           onJoinClick={handleJoinClick}
         />
 
+        {/* ===== 公告栏(滚动文字,渐变色背景,对齐原项目 announcement bar)===== */}
+        <View className="announcement-bar">
+          <View className="announcement-scroll">
+            <Text className="announcement-text">{state.announcementText}</Text>
+          </View>
+        </View>
+
         {/* ===== 轮播图(3 个指定 banner,img 为空 → Carousel 渐变 fallback 生效)===== */}
         <View className="px-[20rpx] pt-[16rpx] pb-[8rpx]">
           <Carousel
@@ -508,7 +650,7 @@ export default function Index() {
           />
         </View>
 
-        {/* ===== top_box(72vh 区域,share-image 140rpx×140rpx,pulse 动画,对齐原项目 ai_index.vue)===== */}
+        {/* ===== top_box(72vh 区域,IntelligentAssistant + share-image,对齐原项目 ai_index.vue)===== */}
         <View
           className="flex flex-col items-center"
           style={{
@@ -517,6 +659,48 @@ export default function Index() {
             position: 'relative',
           }}
         >
+          {/* IntelligentAssistant(智汇助手卡片,显示问候语和 Token 余额) */}
+          <View className="w-full" style={{ marginBottom: rpx(16) }}>
+            <IntelligentAssistant
+              tokenBalance={state.isLogin ? 5000 : 0}
+              isLoggedIn={state.isLogin}
+              onRecharge={() => Taro.switchTab({ url: '/pages/user/index' })}
+            />
+          </View>
+
+          {/* 智能体列表(AgentList,对齐原项目 AgentListPanel) */}
+          <View className="w-full" style={{ marginBottom: rpx(16) }}>
+            <AgentListPanel
+              visible={state.showAgentList}
+              agents={MOCK_AGENTS}
+              loading={false}
+              onSelect={(agent) => {
+                setState((s) => ({
+                  ...s,
+                  selectedModelId: agent.id,
+                  modelName: agent.name,
+                  showAgentList: false,
+                }))
+              }}
+            />
+          </View>
+
+          {/* 展开/收起智能体列表按钮 */}
+          <View
+            className="flex items-center justify-center"
+            style={{
+              padding: '8rpx 24rpx',
+              borderRadius: rpx(20),
+              background: 'var(--color-brand-cyan-opacity-10, rgba(0,242,255,0.1))',
+              marginBottom: rpx(16),
+            }}
+            onClick={() => setState((s) => ({ ...s, showAgentList: !s.showAgentList }))}
+          >
+            <Text style={{ fontSize: rpx(24), color: 'var(--color-brand-cyan, #00F2FF)' }}>
+              {state.showAgentList ? '收起智能体' : '展开智能体 ▼'}
+            </Text>
+          </View>
+
           <View className="titlebox" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', paddingTop: rpx(20) }}>
             <View className="titlebox-right">
               <Image
@@ -644,6 +828,16 @@ export default function Index() {
         ) : null}
       </View>
 
+      {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup)===== */}
+      <SkillsPopup
+        visible={state.showSkillsPopup}
+        agents={MOCK_SKILLS}
+        loading={false}
+        selectedId={state.selectedModelId as string | undefined}
+        onSelect={handleSkillSelect}
+        onClose={handleSkillsClose}
+      />
+
       {/* ===== MaterialCards 素材卡片流(在输入区上方显示已选素材)===== */}
       {state.materialCards.length > 0 && (
         <View
@@ -736,9 +930,38 @@ export default function Index() {
             onInput: setInputText,
             onSend: handleSend,
             placeholder: state.isLogin ? '输入消息...' : '请先登录',
+            onFocus: handleInputFocus,
+            onBlur: handleInputBlur,
+            onKeyboardHeightChange: handleKeyboardShow,
           }}
           onToggle={handleToggleButtonClick}
         />
+        {/* 分享触发按钮(在底部输入区右侧,对齐原项目 share trigger) */}
+        <View
+          style={{
+            position: 'absolute',
+            right: rpx(20),
+            top: rpx(-60),
+            zIndex: 1001,
+          }}
+          onClick={handleShareTrigger}
+        >
+          <View
+            style={{
+              padding: '8rpx 20rpx',
+              borderRadius: rpx(20),
+              background: 'var(--color-brand-cyan, #00F2FF)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: rpx(8),
+            }}
+          >
+            <Text style={{ fontSize: rpx(22), color: '#000' }}>📤</Text>
+            <Text style={{ fontSize: rpx(22), color: '#000', fontWeight: 500 }}>
+              {tt('index.share', '分享')}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay) ===== */}
@@ -812,6 +1035,56 @@ export default function Index() {
               style={{ width: rpx(440) }}
               mode="widthFix"
             />
+          </View>
+        </View>
+      ) : null}
+
+      {/* ===== share-popup(分享弹窗,分享成功后触发显示)===== */}
+      {state.showSharePopup ? (
+        <View
+          className="fixed inset-0 z-[9999] flex items-center justify-center share-popup-overlay"
+          onClick={() => setState((s) => ({ ...s, showSharePopup: false, showSharePointsPopup: true }))}
+        >
+          <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.6)' }} />
+          <View
+            className="share-popup-content"
+            onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+          >
+            <View className="share-popup-header">
+              <Text className="share-popup-title">{tt('index.sharePopup.title', '分享到')}</Text>
+            </View>
+            <View className="share-popup-channels">
+              {/* 微信好友 */}
+              <View className="share-popup-channel" onClick={handleShareTrigger}>
+                <View className="share-popup-icon" style={{ background: '#07C160' }}>
+                  <Text style={{ fontSize: rpx(36), color: '#fff' }}>💬</Text>
+                </View>
+                <Text className="share-popup-label">{tt('index.sharePopup.wechat', '微信好友')}</Text>
+              </View>
+              {/* 朋友圈 */}
+              <View className="share-popup-channel" onClick={handleShareTrigger}>
+                <View className="share-popup-icon" style={{ background: '#07C160' }}>
+                  <Text style={{ fontSize: rpx(36), color: '#fff' }}>🔄</Text>
+                </View>
+                <Text className="share-popup-label">{tt('index.sharePopup.moments', '朋友圈')}</Text>
+              </View>
+              {/* 复制链接 */}
+              <View className="share-popup-channel" onClick={() => {
+                Taro.setClipboardData({ data: 'https://ihui.ai' }).catch(() => {})
+                setState((s) => ({ ...s, showSharePopup: false, showSharePointsPopup: true }))
+              }}>
+                <View className="share-popup-icon" style={{ background: 'var(--color-brand-cyan, #00F2FF)' }}>
+                  <Text style={{ fontSize: rpx(36), color: '#000' }}>🔗</Text>
+                </View>
+                <Text className="share-popup-label">{tt('index.sharePopup.copyLink', '复制链接')}</Text>
+              </View>
+            </View>
+            <View
+              className="share-popup-cancel"
+              onClick={() => setState((s) => ({ ...s, showSharePopup: false }))}
+            >
+              <Text className="share-popup-cancel-text">{tt('index.sharePopup.cancel', '取消')}</Text>
+            </View>
           </View>
         </View>
       ) : null}

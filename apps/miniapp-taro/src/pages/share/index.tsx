@@ -1,14 +1,17 @@
-import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Image, Input } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
   useReachBottom,
   useShareAppMessage,
+  useShareTimeline,
   usePageScroll,
 } from '@tarojs/taro'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
-import { Ranking, type RankingItem } from '@/components'
+import { Ranking, DrawerComponent, type RankingItem } from '@/components'
+import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
+import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import { useI18n } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 import './index.css'
@@ -44,6 +47,18 @@ interface ModelItem {
   name?: string
 }
 
+interface NavigationBarsProps {
+  showFenLei?: boolean
+  showMenu?: boolean
+  viscosity?: boolean
+  onMenuClick?: () => void
+  onFenLeiClick?: () => void
+  title?: string
+  navScrolled?: boolean
+  navPaddingTop?: number
+  navTotal?: number
+}
+
 const PAGE_SIZE = 10
 
 /** 状态栏 + 胶囊按钮高度(对标 NavBar 组件,确保 fixed navbar 不遮挡状态栏) */
@@ -67,6 +82,67 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
     views: typeof raw['views'] === 'number' ? raw['views'] : Number(raw['viewCount'] ?? 0),
     categoryName: asString(raw['categoryName']),
   }
+}
+
+/** 导航栏组件(对应原项目 navigationBars,props: showFenLei/showMenu/viscosity) */
+function NavigationBars({
+  showFenLei = true,
+  showMenu = true,
+  viscosity = true,
+  onMenuClick,
+  onFenLeiClick,
+  title = '',
+  navScrolled = false,
+  navPaddingTop = NAV_PADDING_TOP,
+  navTotal = NAV_TOTAL,
+}: NavigationBarsProps) {
+  return (
+    <View
+      className={`share-navbar${viscosity && navScrolled ? ' share-navbar--scrolled' : ''}`}
+      style={{
+        paddingTop: `${navPaddingTop}px`,
+        height: `${navTotal}px`,
+      }}
+    >
+      {showMenu ? (
+        <View className="share-navbar-btn" onClick={onMenuClick}>
+          <Text className="share-navbar-btn-icon">{'☰'}</Text>
+        </View>
+      ) : (
+        <View className="share-navbar-btn" />
+      )}
+      <Text className="share-navbar-title">{title}</Text>
+      {showFenLei ? (
+        <View className="share-navbar-btn" onClick={onFenLeiClick}>
+          <Text className="share-navbar-btn-text">
+            {'分类'}
+          </Text>
+        </View>
+      ) : (
+        <View className="share-navbar-btn" />
+      )}
+    </View>
+  )
+}
+
+/** FloatBox 浮动组件 — 简单的浮动层(对应原项目 FloatBox) */
+function FloatBox({
+  visible,
+  onClick,
+  icon,
+  className = '',
+}: {
+  visible: boolean
+  onClick?: () => void
+  icon?: string
+  className?: string
+}) {
+  if (!visible) return null
+  return (
+    <View className={`share-float-box ${className}`} onClick={onClick}>
+      <Text className="share-float-box-icon">{icon || '↑'}</Text>
+    </View>
+  )
 }
 
 export default function ShareIndexPage() {
@@ -93,6 +169,15 @@ export default function ShareIndexPage() {
   const [navScrolled, setNavScrolled] = useState(false)
 
   const pageScrollLocked = drawerVisible || tagWrapShow
+
+  /** 页面滚动锁定/解锁 */
+  const lockPageScroll = useCallback(() => {
+    Taro.pageScrollTo({ scrollTop: 0, duration: 0 })
+  }, [])
+
+  const unlockPageScroll = useCallback(() => {
+    // 恢复滚动由关闭 drawer/tagWrap 时自然恢复
+  }, [])
 
   const loadList = useCallback(
     async (reset = false) => {
@@ -243,6 +328,10 @@ export default function ShareIndexPage() {
     path: '/pages/share/index',
   }))
 
+  useShareTimeline(() => ({
+    title: tt('share.index.title', 'AI资讯'),
+  }))
+
   const activeNav = useCallback(() => {
     setActiveNavbar(true)
     setTimeout(() => {
@@ -276,6 +365,19 @@ export default function ShareIndexPage() {
     [],
   )
 
+  /** TitleSwitchScrollTitle 选择分类回调 */
+  const handleTitleSwitchChange = useCallback(
+    (item: TitleSwitchScrollTitleItem) => {
+      const matched = categories.find((c) => c.name === item.name)
+      if (matched) {
+        selectCategory(matched)
+      } else {
+        selectCategory({ id: '', name: '' })
+      }
+    },
+    [categories, selectCategory],
+  )
+
   const onSearchConfirm = useCallback(() => {
     setPage(1)
     setNoMore(false)
@@ -296,35 +398,97 @@ export default function ShareIndexPage() {
     Taro.navigateTo({ url: '/pages/ai/chat' })
   }, [])
 
-  const goHome = useCallback(() => {
-    Taro.switchTab({ url: '/pages/index/index' })
-  }, [])
-
-  const removeChat = useCallback(
-    (id: string) => {
-      Taro.showModal({
-        title: tt('common.hint', '提示'),
-        content: tt('share.index.removeConfirm', '确认删除此对话?'),
-        confirmText: tt('common.confirm', '确认'),
-        cancelText: tt('common.cancel', '取消'),
-        success: async (res) => {
-          if (!res.confirm) return
-          try {
-            await api.removeModelChat(id)
-            setChatHistory((prev) => prev.filter((c) => c.id !== id))
-            Taro.showToast({ title: tt('common.success', '已删除'), icon: 'none' })
-          } catch {
-            // ignore
-          }
-        },
-      })
-    },
-    [tt],
-  )
-
   const safePreventTouchMove = useCallback((e: { stopPropagation: () => void }) => {
     e.stopPropagation()
   }, [])
+
+  /** 打开抽屉时锁定页面滚动 */
+  const openDrawer = useCallback(() => {
+    setDrawerVisible(true)
+    lockPageScroll()
+  }, [lockPageScroll])
+
+  /** 关闭抽屉时解锁页面滚动 */
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerVisible(false)
+    unlockPageScroll()
+  }, [unlockPageScroll])
+
+  /** 打开分类弹层时锁定页面滚动 */
+  const handleOpenTagWrap = useCallback(() => {
+    setTagWrapShow(true)
+    lockPageScroll()
+  }, [lockPageScroll])
+
+  /** 关闭分类弹层时解锁页面滚动 */
+  const handleCloseTagWrap = useCallback(() => {
+    setTagWrapShow(false)
+    unlockPageScroll()
+  }, [unlockPageScroll])
+
+  /** 构建 DrawerComponent 所需的 groupedData */
+  const groupedData = useMemo(() => {
+    if (!chatHistory.length && !modelList.length) return []
+
+    const groups: Array<{
+      modelName: string
+      modelLogo?: string
+      dateGroups: Array<{
+        date: string
+        chats: Array<{ id: string | number; title: string; date: string }>
+      }>
+    }> = []
+
+    // 按模型分组
+    for (const model of modelList) {
+      const modelChats = chatHistory.filter((c) => c.id.startsWith(String(model.id)) || modelList.length === 1)
+      if (modelChats.length === 0) continue
+
+      // 按日期分组
+      const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
+      for (const chat of modelChats) {
+        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+        dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+      }
+
+      groups.push({
+        modelName: model.name || model.id,
+        dateGroups: Array.from(dateMap.entries()).map(([date, chats]) => ({ date, chats })),
+      })
+    }
+
+    // 如果没有模型列表,把所有对话放在一个默认组
+    if (groups.length === 0 && chatHistory.length > 0) {
+      const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
+      for (const chat of chatHistory) {
+        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+        dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+      }
+      groups.push({
+        modelName: tt('share.index.history', '历史对话'),
+        dateGroups: Array.from(dateMap.entries()).map(([date, chats]) => ({ date, chats })),
+      })
+    }
+
+    return groups
+  }, [chatHistory, modelList, tt])
+
+  /** TitleSwitchScrollTitle 列表数据 */
+  const titleSwitchMainList = useMemo<TitleSwitchScrollTitleItem[]>(() => {
+    const allItem: TitleSwitchScrollTitleItem = {
+      name: tt('common.all', '全部'),
+      children: [],
+    }
+    return [
+      allItem,
+      ...categories.map((cat) => ({
+        name: cat.name,
+        children: [] as TitleSwitchScrollTitleItem[],
+      })),
+    ]
+  }, [categories, tt])
 
   // ===== 排行榜入口视图(activeNavbar=false) =====
   if (!activeNavbar) {
@@ -366,27 +530,18 @@ export default function ShareIndexPage() {
   // ===== 主容器(activeNavbar=true) =====
   return (
     <View className="share-page">
-      {/* 自定义导航栏:菜单(左) + 标题(中) + 分类(右) */}
-      <View
-        className={`share-navbar${navScrolled ? ' share-navbar--scrolled' : ''}`}
-        style={{
-          paddingTop: `${NAV_PADDING_TOP}px`,
-          height: `${NAV_TOTAL}px`,
-        }}
-      >
-        <View className="share-navbar-btn" onClick={() => setDrawerVisible(true)}>
-          <Text className="share-navbar-btn-icon">{'☰'}</Text>
-        </View>
-        <Text className="share-navbar-title">{tt('share.index.title', 'AI资讯')}</Text>
-        <View
-          className="share-navbar-btn"
-          onClick={() => setTagWrapShow((v) => !v)}
-        >
-          <Text className="share-navbar-btn-text">
-            {tt('share.index.category', '分类')}
-          </Text>
-        </View>
-      </View>
+      {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity 属性) */}
+      <NavigationBars
+        showFenLei
+        showMenu
+        viscosity
+        title={tt('share.index.title', 'AI资讯')}
+        navScrolled={navScrolled}
+        navPaddingTop={NAV_PADDING_TOP}
+        navTotal={NAV_TOTAL}
+        onMenuClick={openDrawer}
+        onFenLeiClick={handleOpenTagWrap}
+      />
 
       {/* 占位空间,防止 fixed navbar 遮挡内容 */}
       <View style={{ height: `${NAV_TOTAL}px` }} />
@@ -470,104 +625,62 @@ export default function ShareIndexPage() {
         ) : null}
       </View>
 
-      {/* 返回顶部(对标原 toodown) */}
-      {showToodown ? (
-        <View className="share-to-top" onClick={backToTop}>
-          <Text className="share-to-top-icon">{'↑'}</Text>
-        </View>
-      ) : null}
+      {/* FloatBox 返回顶部(对标原 toodown) */}
+      <FloatBox visible={showToodown} onClick={backToTop} icon="↑" />
 
-      {/* 分类弹层(对标原 tagWrapShow) */}
+      {/* 分类弹层 - TitleSwitchScrollTitle(替换当前内联的分类弹层) */}
       {tagWrapShow ? (
         <View>
-          <View className="share-tag-mask" onClick={() => setTagWrapShow(false)} onTouchMove={safePreventTouchMove} />
+          <View className="share-tag-mask" onClick={handleCloseTagWrap} onTouchMove={safePreventTouchMove} />
           <View className="share-tag-panel" onTouchMove={safePreventTouchMove}>
             <View className="share-tag-panel-header">
               <Text className="share-tag-panel-title">
                 {tt('share.index.selectCategory', '选择分类')}
               </Text>
             </View>
-            <View className="share-tag-list">
-              <View
-                className={`share-tag-item${activeCategory === '' ? ' active' : ''}`}
-                onClick={() => selectCategory({ id: '', name: '' })}
-              >
-                <Text className="share-tag-item-text">{tt('common.all', '全部')}</Text>
-              </View>
-              {categories.map((cat) => (
-                <View
-                  key={cat.id}
-                  className={`share-tag-item${activeCategory === cat.id ? ' active' : ''}`}
-                  onClick={() => selectCategory(cat)}
-                >
-                  <Text className="share-tag-item-text">{cat.name}</Text>
-                  {cat.count !== undefined ? (
-                    <Text className="share-tag-item-count">{cat.count}</Text>
-                  ) : null}
-                </View>
-              ))}
+            <View className="share-tag-scroll-title-wrap">
+              <TitleSwitchScrollTitle
+                mainList={titleSwitchMainList}
+                mainSwiperMargin="80rpx"
+                subSwiperMargin="80rpx"
+                onChange={handleTitleSwitchChange}
+              />
             </View>
           </View>
         </View>
       ) : null}
 
-      {/* 侧边栏(对标原 DrawerComponent,简化抽屉) */}
-      {drawerVisible ? (
-        <View>
-          <View className="share-drawer-mask" onClick={() => setDrawerVisible(false)} />
-          <View className={`share-drawer${drawerVisible ? ' open' : ''}`}>
-            <View className="share-drawer-header">
-              <Text className="share-drawer-title">
-                {tt('share.index.drawerTitle', '我的对话')}
-              </Text>
-              <Text className="share-drawer-close" onClick={() => setDrawerVisible(false)}>
-                {'×'}
-              </Text>
-            </View>
-            <View className="share-drawer-actions">
-              <View className="share-drawer-btn" onClick={addNewChat}>
-                <Text>{tt('share.index.newChat', '新建对话')}</Text>
-              </View>
-              <View className="share-drawer-btn secondary" onClick={goHome}>
-                <Text>{tt('share.index.goHome', '返回首页')}</Text>
-              </View>
-            </View>
-            <Text className="share-drawer-section-title">
-              {tt('share.index.history', '历史对话')}
-            </Text>
-            <ScrollView scrollY className="share-drawer-list">
-              {chatHistory.length ? (
-                chatHistory.map((h) => (
-                  <View key={h.id} className="share-drawer-item" onClick={() => removeChat(h.id)}>
-                    <Text className="share-drawer-item-title">{h.title || h.id}</Text>
-                    {h.time ? (
-                      <Text className="share-drawer-item-time">{formatDateByTemplate(h.time, 'MM-DD HH:mm')}</Text>
-                    ) : null}
-                  </View>
-                ))
-              ) : (
-                <View className="share-drawer-empty">
-                  <Text>{tt('share.index.emptyHistory', '暂无历史对话')}</Text>
-                </View>
-              )}
-            </ScrollView>
-            {modelList.length ? (
-              <View>
-                <Text className="share-drawer-section-title">
-                  {tt('share.index.models', '模型列表')}
-                </Text>
-                <View className="share-drawer-list">
-                  {modelList.slice(0, 6).map((m) => (
-                    <View key={m.id} className="share-drawer-item">
-                      <Text className="share-drawer-item-title">{m.name || m.id}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      ) : null}
+      {/* DrawerComponent 侧边栏抽屉(对齐原项目 DrawerComponentall.vue) */}
+      <DrawerComponent
+        visible={drawerVisible}
+        onClose={handleCloseDrawer}
+        side="left"
+        groupedData={groupedData}
+        onMenuItemClick={(item) => {
+          setDrawerVisible(false)
+          if (item.key === 'appStore') {
+            Taro.pageScrollTo({ scrollTop: 0, duration: 300 })
+          } else if (item.key === 'demand') {
+            Taro.navigateTo({ url: '/pages/ranking/index' })
+          } else if (item.key === 'course') {
+            Taro.navigateTo({ url: '/pages/course/list' })
+          }
+        }}
+        onLabelItemClick={(item) => {
+          setDrawerVisible(false)
+          if (item.key === 'newChat') {
+            addNewChat()
+          }
+        }}
+        onCreateChat={() => {
+          setDrawerVisible(false)
+          addNewChat()
+        }}
+        onChatItemClick={(chat) => {
+          setDrawerVisible(false)
+          Taro.navigateTo({ url: `/pages/ai/chat?id=${chat.id}` })
+        }}
+      />
 
       {/* 页面滚动锁定覆盖层(对标原 pageScrollLocked) */}
       {pageScrollLocked ? <View className="share-scroll-lock" /> : null}

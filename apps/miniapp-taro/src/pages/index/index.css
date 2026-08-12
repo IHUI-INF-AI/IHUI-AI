@@ -433,3 +433,131 @@
   background: var(--color-brand-cyan, #93d2f3);
   border-radius: 4rpx;
 }
+
+/* ===== 公告栏样式(滚动文字,渐变色背景,深色科技风) ===== */
+.announcement-bar {
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(90deg, #1a1a2e, #16213e, #0f3460);
+  padding: 12rpx 20rpx;
+  position: relative;
+}
+
+.announcement-scroll {
+  display: flex;
+  white-space: nowrap;
+  animation: announcement-marquee 15s linear infinite;
+}
+
+.announcement-text {
+  font-size: 24rpx;
+  color: #00F2FF;
+  font-weight: 400;
+  text-shadow: 0 0 8rpx rgba(0, 242, 255, 0.3);
+}
+
+@keyframes announcement-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ===== 分享弹窗样式(遮罩+内容弹层,深色科技风) ===== */
+.share-popup-overlay {
+  animation: popupFadeIn 0.2s ease-out forwards;
+}
+
+.share-popup-content {
+  position: relative;
+  z-index: 10;
+  background: var(--color-card, #1F1F28);
+  border-radius: 24rpx;
+  width: 80%;
+  max-width: 600rpx;
+  padding: 30rpx 20rpx;
+  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.4);
+  border: 2rpx solid rgba(0, 242, 255, 0.2);
+}
+
+.share-popup-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 24rpx;
+  border-bottom: 2rpx solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 24rpx;
+}
+
+.share-popup-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground, #fff);
+}
+
+.share-popup-channels {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  padding: 10rpx 0;
+}
+
+.share-popup-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  cursor: pointer;
+  padding: 10rpx;
+}
+
+.share-popup-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-popup-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground, #999);
+}
+
+.share-popup-cancel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.share-popup-cancel-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground, #999);
+  padding: 10rpx 40rpx;
+}
+
+/* ===== 模型列表选中样式增强 ===== */
+.ai-chu-row-selected {
+  border-color: var(--color-brand-cyan, #00F2FF) !important;
+  background: linear-gradient(135deg, rgba(0, 242, 255, 0.08), rgba(0, 242, 255, 0.02)) !important;
+  box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.2) !important;
+}
+
+/* ===== 加载更多样式 ===== */
+.load-more-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.load-more-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground, #888);
+}
