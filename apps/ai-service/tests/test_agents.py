@@ -56,3 +56,76 @@ def test_map_hook_event_to_sse():
     assert _map_hook_event_to_sse("tool.after") == "tool_result"
     assert _map_hook_event_to_sse("error") == "error"
     assert _map_hook_event_to_sse("unknown.event") == "unknown.event"
+
+
+# =============================================================================
+# L5-12 日志映射(AgentRuntimeLog SSE 端点)
+# =============================================================================
+
+
+def test_map_hook_event_to_log_entry_session():
+    """session.start → 日志条目(type=session)。"""
+    from app.routers.agents import _map_hook_event_to_log_entry
+
+    entry = _map_hook_event_to_log_entry("session.start", {"session_id": "s1"})
+    assert entry is not None
+    assert entry["type"] == "session"
+    assert "s1" in entry["content"]
+
+
+def test_map_hook_event_to_log_entry_tool_after_success():
+    """tool.after 成功 → success=True + type=tool_result + tool_results 明细。"""
+    from app.routers.agents import _map_hook_event_to_log_entry
+
+    entry = _map_hook_event_to_log_entry(
+        "tool.after",
+        {
+            "tool_results": [
+                {"name": "weather", "status": "success", "retry_count": 2, "duration_ms": 150}
+            ]
+        },
+    )
+    assert entry is not None
+    assert entry["type"] == "tool_result"
+    assert entry["success"] is True
+    assert "weather" in entry["content"]
+    assert "retry x2" in entry["content"]
+    assert "150ms" in entry["content"]
+
+
+def test_map_hook_event_to_log_entry_tool_after_error():
+    """tool.after 失败 → success=False + error/error_type 摘要。"""
+    from app.routers.agents import _map_hook_event_to_log_entry
+
+    entry = _map_hook_event_to_log_entry(
+        "tool.after",
+        {
+            "tool_results": [
+                {"name": "db", "status": "error", "error": "timeout", "error_type": "timeout"}
+            ]
+        },
+    )
+    assert entry is not None
+    assert entry["type"] == "tool_result"
+    assert entry["success"] is False
+    assert "timeout" in entry["content"]
+
+
+def test_map_hook_event_to_log_entry_error():
+    """error → success=False + error_type 分类。"""
+    from app.routers.agents import _map_hook_event_to_log_entry
+
+    entry = _map_hook_event_to_log_entry(
+        "error", {"error_type": "connection", "message": "network down"}
+    )
+    assert entry is not None
+    assert entry["type"] == "error"
+    assert entry["success"] is False
+    assert "connection" in entry["content"]
+
+
+def test_map_hook_event_to_log_entry_unknown_noop():
+    """未知事件 → None(不产生日志)。"""
+    from app.routers.agents import _map_hook_event_to_log_entry
+
+    assert _map_hook_event_to_log_entry("unknown.event", {"x": 1}) is None
