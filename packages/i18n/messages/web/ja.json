@@ -16737,7 +16737,14 @@
       "lessonsExtracted": "抽出知識数",
       "failurePattern": "失敗パターン",
       "improvementTip": "改善提案",
-      "bestPractice": "ベストプラクティス"
+      "bestPractice": "ベストプラクティス",
+      "agentFailures": "エージェント障害と復旧",
+      "errorType": "エラータイプ",
+      "recentFailures": "最近の失敗",
+      "failedCheckpoints": "失敗チェックポイント",
+      "toolFailures": "ツール失敗",
+      "agentErrors": "エージェントエラー",
+      "noFailures": "障害記録なし"
     }
   },
   "fundData": {
