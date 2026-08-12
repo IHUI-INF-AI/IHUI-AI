@@ -172,6 +172,106 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
 
+
+@router.get("/agents/{agent_id}/stream")
+async def stream_agent_logs(request: Request, agent_id: str) -> StreamingResponse:
+    """L5-12(2026-08-12):Agent 运行日志 SSE(AgentRuntimeLog 断线修复)。
+
+    按 agent_id(=session_id)过滤 hook_engine 事件,映射为前端 AgentRuntimeLog
+    期望的 LogEntry 格式 {type, content, ts, success}。此前双端无此路由,
+    workbench AgentRuntimeLog 组件 404 断线——与 tasks/stream 同一事件源,
+    不同展示格式(日志型 vs 事件型)。
+    """
+
+    async def event_generator() -> AsyncIterator[str]:
+        from ..services.hook_engine import hook_engine
+
+        subs: dict[str, asyncio.Queue] = {}
+        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
+            subs[evt] = hook_engine.subscribe(evt)
+        try:
+            last_beat = asyncio.get_running_loop().time()
+            while True:
+                if await request.is_disconnected():
+                    break
+                got = False
+                for evt, q in subs.items():
+                    try:
+                        payload = q.get_nowait()
+                    except asyncio.QueueEmpty:
+                        continue
+                    got = True
+                    if payload.get("session_id") not in (agent_id, ""):
+                        continue
+                    entry = _map_hook_event_to_log_entry(evt, payload)
+                    if entry is None:
+                        continue
+                    yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+                now = asyncio.get_running_loop().time()
+                if not got and now - last_beat > 30:
+                    yield ": keep-alive\n\n"
+                    last_beat = now
+                await asyncio.sleep(0.2)
+        finally:
+            for evt, q in subs.items():
+                hook_engine.unsubscribe(evt, q)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """hook_engine 事件 → AgentRuntimeLog LogEntry 格式 {type, content, ts, success}。"""
+    now = payload.get("ts") or payload.get("timestamp") or ""
+    ts = now if isinstance(now, str) else ""
+    content = ""
+    success: bool | None = None
+    if event == "session.start":
+        content = f"session {payload.get('session_id', '')} started"
+    elif event == "tool.before":
+        tools_count = payload.get("tools_count", "")
+        content = f"LLM 推理完成,准备调用工具(tools_count={tools_count})"
+    elif event == "tool.after":
+        results = payload.get("tool_results") or []
+        if results:
+            # 每个工具结果一行(含重试/错误分类明细)
+            lines = []
+            for tr in results:
+                if not isinstance(tr, dict):
+                    continue
+                status = tr.get("status", "")
+                name = tr.get("name", "")
+                line = f"tool {name} -> {status}"
+                if tr.get("error"):
+                    line += f" error={str(tr['error'])[:120]}"
+                if tr.get("error_type"):
+                    line += f" [{tr['error_type']}]"
+                if tr.get("retry_count"):
+                    line += f" (retry x{tr['retry_count']})"
+                if tr.get("duration_ms") is not None:
+                    line += f" {tr['duration_ms']}ms"
+                lines.append(line)
+            content = "; ".join(lines)
+            success = all(
+                isinstance(tr, dict) and tr.get("status") == "success"
+                for tr in results
+            )
+        else:
+            content = "工具执行完成"
+            success = None
+    elif event == "message.receive":
+        content = f"回复完成(content_length={payload.get('content_length', '')})"
+        success = True
+    elif event == "error":
+        content = f"error[{payload.get('error_type', 'unknown')}]: {str(payload.get('message', payload.get('error', '')))[:300]}"
+        success = False
+    else:
+        return None
+    return {"type": _map_hook_event_to_sse(event), "content": content, "ts": ts, "success": success}
+
 # ---------------------------------------------------------------------------
 # Trace 存储(进程内 LRU,供 agent 执行轨迹可视化)
 # ---------------------------------------------------------------------------
