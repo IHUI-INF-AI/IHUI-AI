@@ -20,7 +20,7 @@ const auditLogsQuerySchema = z.object({
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 const auditLogsExportQuerySchema = z.object({
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -62,14 +62,7 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
             userId: { type: 'string', description: '按用户 ID 筛选(可选)' },
             action: { type: 'string', description: '按操作类型筛选(可选)' },
             resourceType: { type: 'string', description: '按资源类型筛选(可选)' },

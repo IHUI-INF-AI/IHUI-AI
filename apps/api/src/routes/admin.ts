@@ -41,7 +41,7 @@ const listUsersQuerySchema = z.object({
   includeDeleted: booleanStringSchemaOptional,
   deptId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 const listProjectsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -224,14 +224,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
             search: { type: 'string', description: '搜索关键词(可选)' },
             role: { type: 'integer', description: '角色 ID 筛选(可选)' },
             status: { type: 'integer', description: '状态筛选(可选)' },
@@ -484,14 +477,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
           },
         },
         response: buildResponseSchema(400, 401, 403),

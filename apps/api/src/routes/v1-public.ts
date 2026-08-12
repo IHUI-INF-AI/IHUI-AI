@@ -73,6 +73,7 @@ import {
   MAX_MULTIPART_UPLOAD_SIZE,
   extractExt,
 } from '../utils/file-type-validator.js'
+import { deriveModelCapabilities } from './v1-shared.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -333,43 +334,6 @@ async function fetchModels(userId?: string): Promise<{
 // =============================================================================
 // 辅助函数
 // =============================================================================
-
-/**
- * 根据模型名推导能力标签(用于 GET /v1/agents capabilities + GET /v1/models/:id)。
- * 规则:基于模型名前缀匹配主流厂商命名约定。
- */
-function deriveModelCapabilities(modelName: string): string[] {
-  const name = modelName.toLowerCase()
-  const caps: string[] = ['chat']
-  // GPT-4* / GPT-5* → vision + tools
-  if (/^gpt-(4|5|o)/.test(name) || name.includes('gpt-4o') || name.includes('gpt-4-turbo')) {
-    caps.push('vision', 'tools')
-  } else if (/^gpt-3/.test(name)) {
-    caps.push('tools')
-  }
-  // Claude 3+ → vision + tools
-  if (/^claude-3/.test(name) || /^claude-4/.test(name)) {
-    caps.push('vision', 'tools')
-  }
-  // o1 / o3 / o4 系列 → reasoning
-  if (
-    /^o[134]-/.test(name) ||
-    name.startsWith('o1') ||
-    name.startsWith('o3') ||
-    name.startsWith('o4')
-  ) {
-    caps.push('reasoning', 'tools')
-  }
-  // Gemini → vision + tools
-  if (name.startsWith('gemini-')) {
-    caps.push('vision', 'tools')
-  }
-  // Qwen-VL / Qwen2-VL → vision
-  if (name.includes('vl') || name.includes('vision')) {
-    caps.push('vision')
-  }
-  return Array.from(new Set(caps))
-}
 
 type AgentRow = typeof agents.$inferSelect
 
@@ -1482,9 +1446,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       // OpenAI Batch API 兼容:purpose="batch" 时存 Redis 供 batch-worker 读取
       const purposeField = data.fields?.purpose
-      const purpose = purposeField && typeof purposeField === 'object' && 'value' in purposeField
-        ? String((purposeField as { value: unknown }).value)
-        : undefined
+      const purpose =
+        purposeField && typeof purposeField === 'object' && 'value' in purposeField
+          ? String((purposeField as { value: unknown }).value)
+          : undefined
       if (purpose === 'batch') {
         // P0 安全加固(2026-08-02):batch 文件只允许 .jsonl 扩展名(OpenAI Batch API 规范)
         const batchExt = extractExt(data.filename ?? '')
@@ -1520,7 +1485,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       // P0 安全加固(2026-08-02):文件类型校验(防 CWE-434 恶意文件上传)
       // magic number + 扩展名白名单 + MIME 一致性校验
       const declaredMime = data.mimetype || 'application/octet-stream'
-      const validation = validateUploadFile(buffer, filename, declaredMime, MAX_MULTIPART_UPLOAD_SIZE)
+      const validation = validateUploadFile(
+        buffer,
+        filename,
+        declaredMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
       if (!validation.ok) {
         return reply.status(400).send(error(400, validation.reason))
       }
