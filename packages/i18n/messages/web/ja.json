@@ -7393,6 +7393,7 @@
       "contentFormatVideo": "動画"
     },
     "history": {
+      "title": "公開履歴",
       "duration": "所要時間",
       "time": "時間",
       "filterPlatform": "プラットフォーム絞り込み",
@@ -11134,7 +11135,14 @@
     "internationalModels": "海外大型モデル",
     "chineseModels": "国産大型モデル",
     "agreementSubtitle": "以下の契約条件を注意深くお読みください",
-    "contactSubtitle": "以下の方法でお問い合わせください"
+    "contactSubtitle": "以下の方法でお問い合わせください",
+    "copyRepoUrl": "リポジトリURLをコピー",
+    "openOnGithub": "GitHubで開く",
+    "openOnGitee": "Giteeで開く",
+    "openOnGitcode": "GitCodeで開く",
+    "workingHours": "営業時間: 月〜金 9:00-18:00",
+    "repoCopied": "リポジトリURLをクリップボードにコピーしました",
+    "copyFailed": "コピーに失敗しました,手動でコピーしてください"
   },
   "plugins": {
     "title": "プラグイン市場",
