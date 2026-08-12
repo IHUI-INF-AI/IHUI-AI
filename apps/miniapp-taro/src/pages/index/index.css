@@ -232,3 +232,204 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ===== MaterialList 素材库弹窗(对齐原项目 MaterialList.vue) ===== */
+.material-list-container {
+  background: var(--color-card);
+  border-radius: 20rpx;
+  margin: 10rpx 0;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+}
+
+/* Tab 栏 */
+.material-tabs {
+  display: flex;
+  flex-direction: row;
+  border-bottom: 2rpx solid var(--color-border-subtle, #f0f0f0);
+  padding: 0 10rpx;
+}
+
+.material-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.material-tab-text {
+  font-size: 28rpx;
+  color: var(--color-text-date, #888);
+  transition: color 0.2s ease;
+}
+
+.material-tab-active .material-tab-text {
+  color: var(--color-brand-cyan, #93d2f3);
+  font-weight: bold;
+}
+
+.material-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 4rpx;
+  background: var(--color-brand-cyan, #93d2f3);
+  border-radius: 2rpx;
+}
+
+/* 素材列表滚动区 */
+.material-list-scroll {
+  padding: 0 10rpx;
+}
+
+/* 素材列表项 */
+.material-list-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 10rpx;
+  border-bottom: 2rpx solid var(--color-border-subtle, #f0f0f0);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.material-list-item:active {
+  background: var(--color-brand-cyan-opacity-10, rgba(0, 242, 255, 0.1));
+}
+
+.material-list-item:last-child {
+  border-bottom: none;
+}
+
+/* 文本类型素材项 */
+.material-item-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.material-item-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-item-preview {
+  font-size: 22rpx;
+  color: var(--color-text-date, #888);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 图片/视频类型素材项 */
+.material-item-image,
+.material-item-video {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+}
+
+.material-item-thumb {
+  flex-shrink: 0;
+}
+
+/* 音频类型素材项 */
+.material-item-audio {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ===== MaterialCards 素材卡片流(对齐原项目 ai_index.vue) ===== */
+.material-cards-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: var(--color-card-subtle, #fafafa);
+  border-top: 2rpx solid var(--color-border-subtle, #f0f0f0);
+}
+
+.material-cards-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.material-cards-list {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10rpx 20rpx;
+}
+
+.material-card-item {
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.material-card-close {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  z-index: 2;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.material-card-body {
+  position: relative;
+  overflow: hidden;
+}
+
+.material-card-text {
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-subtle, #f0f0f0);
+}
+
+.material-card-title {
+  font-size: 24rpx;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-card-preview {
+  font-size: 20rpx;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 语音输入动画(对齐原项目 .voice-animation-overlay) ===== */
+.voice-animation-overlay {
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
+}
+
+.voice-wave-container {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 80rpx;
+}
+
+.voice-wave-bar {
+  width: 8rpx;
+  height: 60rpx;
+  background: var(--color-brand-cyan, #93d2f3);
+  border-radius: 4rpx;
+}

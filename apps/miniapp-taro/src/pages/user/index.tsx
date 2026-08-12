@@ -1,10 +1,12 @@
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text, Image, Slider, Video } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
+import NavBar from '@/components/NavBar'
+import { rpx } from '@/utils/rpx'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
@@ -14,6 +16,10 @@ import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
 import gonggaoIcon from '@/assets/remote/images/gonggao.png'
 import xianLabelIcon from '@/assets/remote/images/xian_label.png'
+import playIcon from '@/assets/remote/images/play.svg'
+import pauseIcon from '@/assets/remote/images/pause.svg'
+import downloadIcon from '@/assets/remote/images/download.png'
+import yejiaoIcon from '@/assets/remote/images/yejiao.png'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
@@ -54,10 +60,32 @@ const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: s
   { icon: icon('act'), key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
 ]
 
+// 格式化音频时间（秒 → mm:ss）
+function formatAudioTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
+}
+
 export default function UserIndex() {
   const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showBenefits, setShowBenefits] = useState<boolean>(false)
+  const [activeTab, setActiveTab] = useState<number>(1)
+  const [textContentList] = useState<Array<{title: string; time: string; content: string}>>([])
+  const [imageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
+  const [videoContentList] = useState<Array<{title: string; time: string; videoUrl: string}>>([])
+  const [audioContentList] = useState<Array<{title: string; time: string; audioUrl: string}>>([])
+  // 音频播放状态
+  const [audioPlayStates, setAudioPlayStates] = useState<Record<number, boolean>>({})
+  const [audioProgress, setAudioProgress] = useState<Record<number, number>>({})
+  const [audioCurrentTime, setAudioCurrentTime] = useState<Record<number, number>>({})
+  const audioContextsRef = useRef<Record<number, Taro.InnerAudioContext>>({})
+  // 视频播放弹窗
+  const [showVideoPlayer, setShowVideoPlayer] = useState<boolean>(false)
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('')
+  const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
+
   const isLogin = useMemo(() => !!userInfo, [userInfo])
 
   const refresh = useCallback(() => {
@@ -80,7 +108,8 @@ export default function UserIndex() {
   )
 
   function goLogin() {
-    Taro.navigateTo({ url: '/pages/login/login' })
+    // 未登录时显示登录弹窗（对齐原项目 loginPopUp）
+    setShowLoginPopup(true)
   }
 
   function goPage(path: string) {
@@ -106,6 +135,183 @@ export default function UserIndex() {
     })
   }
 
+  // 图片预览（对齐原项目 previewImage）
+  function previewImage(currentUrl: string, urlList: string[]) {
+    Taro.previewImage({
+      current: currentUrl,
+      urls: urlList || [currentUrl],
+    })
+  }
+
+  // 切换音频播放/暂停（对齐原项目 toggleAudioPlay）
+  function toggleAudioPlay(index: number, audioUrl: string) {
+    const isPlaying = !audioPlayStates[index]
+    setAudioPlayStates((prev) => ({ ...prev, [index]: isPlaying }))
+
+    if (isPlaying) {
+      const audioContext = Taro.createInnerAudioContext()
+      audioContext.src = audioUrl
+      audioContext.volume = 1
+
+      audioContextsRef.current[index] = audioContext
+
+      audioContext.onTimeUpdate(() => {
+        const duration = audioContext.duration || 0
+        const currentTime = audioContext.currentTime || 0
+        const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+        setAudioProgress((prev) => ({ ...prev, [index]: progress }))
+        setAudioCurrentTime((prev) => ({ ...prev, [index]: currentTime }))
+      })
+
+      audioContext.onEnded(() => {
+        setAudioPlayStates((prev) => ({ ...prev, [index]: false }))
+        setAudioProgress((prev) => ({ ...prev, [index]: 100 }))
+        setAudioCurrentTime((prev) => ({ ...prev, [index]: audioContext.duration || 0 }))
+        cleanupAudioContext(index)
+      })
+
+      audioContext.onError(() => {
+        setAudioPlayStates((prev) => ({ ...prev, [index]: false }))
+        cleanupAudioContext(index)
+      })
+
+      audioContext.play()
+    } else {
+      const audioContext = audioContextsRef.current[index]
+      if (audioContext) {
+        audioContext.pause()
+        cleanupAudioContext(index)
+      }
+    }
+  }
+
+  // 清理音频上下文（对齐原项目 cleanupAudioContext）
+  function cleanupAudioContext(index: number) {
+    const audioContext = audioContextsRef.current[index]
+    if (audioContext) {
+      audioContext.stop()
+      audioContext.destroy()
+      delete audioContextsRef.current[index]
+    }
+  }
+
+  // 处理音频进度条变化（对齐原项目 onAudioProgressChange）
+  function onAudioProgressChange(index: number, e: { detail: { value: number } }) {
+    const progress = e.detail.value
+    setAudioProgress((prev) => ({ ...prev, [index]: progress }))
+
+    const audioContext = audioContextsRef.current[index]
+    if (audioContext && audioContext.duration) {
+      const seekTime = (progress / 100) * audioContext.duration
+      audioContext.seek(seekTime)
+      setAudioCurrentTime((prev) => ({ ...prev, [index]: seekTime }))
+    }
+  }
+
+  // 下载音频（对齐原项目 downloadAudio）
+  function downloadAudio(audioUrl: string) {
+    if (!audioUrl) {
+      Taro.showToast({
+        title: tf('user.audio.invalidUrl', '音频地址无效'),
+        icon: 'none',
+      })
+      return
+    }
+
+    Taro.showLoading({
+      title: tf('user.audio.preparing', '准备下载...'),
+    })
+
+    const downloadTask = Taro.downloadFile({
+      url: audioUrl,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          Taro.showLoading({
+            title: tf('user.audio.saving', '保存中...'),
+          })
+
+          Taro.saveFile({
+            tempFilePath: res.tempFilePath,
+            success: () => {
+              Taro.hideLoading()
+              Taro.showToast({
+                title: tf('user.audio.downloadSuccess', '下载成功'),
+                icon: 'success',
+              })
+            },
+            fail: () => {
+              Taro.hideLoading()
+              Taro.showToast({
+                title: tf('user.audio.downloadFail', '保存失败'),
+                icon: 'none',
+              })
+            },
+          })
+        } else {
+          Taro.hideLoading()
+          Taro.showToast({
+            title: tf('user.audio.downloadFail', '下载失败'),
+            icon: 'none',
+          })
+        }
+      },
+      fail: () => {
+        Taro.hideLoading()
+        Taro.showToast({
+          title: tf('user.audio.downloadFail', '下载失败'),
+          icon: 'none',
+        })
+      },
+    })
+
+    downloadTask.onProgressUpdate((res) => {
+      Taro.showLoading({
+        title: `${tf('user.audio.downloading', '下载中...')} ${res.progress}%`,
+      })
+    })
+  }
+
+  // 打开视频播放器（对齐原项目 openVideoPlayer）
+  function openVideoPlayer(videoUrl: string) {
+    if (!videoUrl) {
+      Taro.showToast({
+        title: tf('user.video.invalidUrl', '视频地址无效'),
+        icon: 'none',
+      })
+      return
+    }
+    setCurrentVideoUrl(videoUrl)
+    setShowVideoPlayer(true)
+  }
+
+  // 关闭视频播放器
+  function closeVideoPlayer() {
+    setShowVideoPlayer(false)
+    setCurrentVideoUrl('')
+  }
+
+  // 复制官网链接（对齐原项目 copyWebsiteLink）
+  function copyWebsiteLink() {
+    const websiteUrl = 'https://www.aizhs.top'
+    Taro.setClipboardData({
+      data: websiteUrl,
+      success: () => {
+        Taro.showToast({
+          title: tf('user.websiteLinkCopied', '已复制官网地址，请在浏览器打开'),
+          icon: 'none',
+          duration: 2000,
+        })
+      },
+      fail: () => {
+        Taro.showToast({
+          title: tf('user.websiteLinkFail', '复制失败，请重试'),
+          icon: 'none',
+          duration: 2000,
+        })
+      },
+    })
+  }
+
   useDidShow(() => {
     refresh()
   })
@@ -121,7 +327,15 @@ export default function UserIndex() {
   }))
 
   return (
-    <View className="min-h-screen pb-[40rpx]">
+    <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+      {/* ===== 导航栏(对齐原项目 navigation-bars:title="我的",showMenu,showFeedback)===== */}
+      <NavBar
+        variant="ai-home"
+        title={tf('user.title', '我的')}
+        bgColor="transparent"
+        textColor="#fff"
+        onMenuClick={() => Taro.switchTab({ url: '/pages/index/index' })}
+      />
       {/* 用户信息头部 — primary 实色背景 */}
       <View
         className="pt-[120rpx] px-[32rpx] pb-[48rpx]"
@@ -169,8 +383,49 @@ export default function UserIndex() {
         )}
       </View>
 
-      {/* 会员权益卡片 — 展开/收起 */}
-      <View className="mx-[32rpx] my-[24rpx] bg-card border border-border rounded-lg overflow-hidden">
+      {/* 登录弹窗（对齐原项目 loginPopUp） */}
+      {showLoginPopup ? (
+        <View
+          className="fixed inset-0 z-[1500]"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowLoginPopup(false)}
+        >
+          <View
+            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl p-[32rpx] pb-[60rpx]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <View className="flex flex-col items-center mb-[32rpx]">
+              <Image
+                className="w-[140rpx] h-[140rpx] rounded-full mb-[16rpx]"
+                src={userInfo?.avatar || defaultAvatar}
+                mode="aspectFill"
+              />
+              <Text className="text-[32rpx] font-semibold text-foreground">
+                {tf('user.loginWelcome', '欢迎使用')}
+              </Text>
+            </View>
+            <View
+              className="w-full h-[88rpx] leading-[88rpx] text-center rounded-lg mb-[16rpx]"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-foreground)' }}
+              onClick={() => {
+                setShowLoginPopup(false)
+                Taro.navigateTo({ url: '/pages/login/login' })
+              }}
+            >
+              <Text className="text-[32rpx] font-semibold">{tf('user.goLogin', '去登录')}</Text>
+            </View>
+            <View
+              className="w-full h-[72rpx] leading-[72rpx] text-center rounded-lg bg-muted"
+              onClick={() => setShowLoginPopup(false)}
+            >
+              <Text className="text-[28rpx] text-muted-foreground">{tf('common.cancel', '取消')}</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* 会员权益卡片 — 展开/收起（对齐原项目 membership-benefits-container） */}
+      <View className="mx-[32rpx] mt-[24rpx] mb-0 bg-card border border-border rounded-lg overflow-hidden">
         <View
           className="flex items-center justify-between px-[32rpx] py-[28rpx]"
           onClick={toggleBenefits}
@@ -198,6 +453,197 @@ export default function UserIndex() {
             ))}
           </View>
         ) : null}
+      </View>
+
+      {/* ===== StudyBar + 内容展示区(对齐原项目 user/index.vue,4个Tab:文本/图片/视频/音频)===== */}
+      <View style={{ padding: '0 20rpx', marginTop: '20rpx', marginBottom: '20rpx' }}>
+        {/* StudyBar Tab 切换 */}
+        <View
+          className="flex flex-row"
+          style={{
+            borderBottom: '2rpx solid rgba(255,255,255,0.1)',
+            marginBottom: '16rpx',
+          }}
+        >
+          {[
+            { key: 1, label: tf('user.tab.text', '文本') },
+            { key: 2, label: tf('user.tab.image', '图片') },
+            { key: 3, label: tf('user.tab.video', '视频') },
+            { key: 4, label: tf('user.tab.audio', '音频') },
+          ].map((tab) => (
+            <View
+              key={tab.key}
+              className="flex-1 py-[16rpx] text-center"
+              style={{
+                borderBottom: activeTab === tab.key ? '4rpx solid var(--color-primary)' : '4rpx solid transparent',
+              }}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <Text
+                style={{
+                  fontSize: rpx(28),
+                  color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-muted-foreground, #888)',
+                  fontWeight: activeTab === tab.key ? 'bold' : 'normal',
+                }}
+              >
+                {tab.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 内容展示区 */}
+        <View>
+          {/* 文本内容 */}
+          {activeTab === 1 && (
+            <View>
+              {textContentList.length === 0 ? (
+                <View className="py-[60rpx] flex items-center justify-center">
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                    {tf('user.empty.text', '暂无文本内容')}
+                  </Text>
+                </View>
+              ) : (
+                textContentList.map((item, index) => (
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                    <View className="flex-row items-center justify-between mb-[12rpx]">
+                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                    </View>
+                    <Text className="text-[26rpx] text-muted-foreground leading-[1.6]">{item.content}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* 图片内容（对齐原项目：点击图片预览） */}
+          {activeTab === 2 && (
+            <View>
+              {imageContentList.length === 0 ? (
+                <View className="py-[60rpx] flex items-center justify-center">
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                    {tf('user.empty.image', '暂无图片内容')}
+                  </Text>
+                </View>
+              ) : (
+                imageContentList.map((item, index) => (
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                    <View className="flex-row items-center justify-between mb-[12rpx]">
+                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                    </View>
+                    <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
+                      {(item.imageList || []).map((imgUrl, imgIdx) => (
+                        <Image
+                          key={imgIdx}
+                          src={imgUrl}
+                          mode="aspectFill"
+                          style={{ width: rpx(200), height: rpx(200), borderRadius: rpx(12) }}
+                          onClick={() => previewImage(imgUrl, item.imageList)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* 视频内容（对齐原项目：使用图片播放图标） */}
+          {activeTab === 3 && (
+            <View>
+              {videoContentList.length === 0 ? (
+                <View className="py-[60rpx] flex items-center justify-center">
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                    {tf('user.empty.video', '暂无视频内容')}
+                  </Text>
+                </View>
+              ) : (
+                videoContentList.map((item, index) => (
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden">
+                    <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
+                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                    </View>
+                    <View
+                      className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
+                      style={{ height: rpx(400) }}
+                      onClick={() => openVideoPlayer(item.videoUrl)}
+                    >
+                      <View className="absolute inset-0 flex items-center justify-center">
+                        <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
+                          <Image src={playIcon} mode="aspectFit" className="w-[60rpx] h-[60rpx]" />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* 音频内容（对齐原项目：播放/暂停 + 进度条 + 时间 + 下载） */}
+          {activeTab === 4 && (
+            <View>
+              {audioContentList.length === 0 ? (
+                <View className="py-[60rpx] flex items-center justify-center">
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                    {tf('user.empty.audio', '暂无音频内容')}
+                  </Text>
+                </View>
+              ) : (
+                audioContentList.map((item, index) => (
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                    <View className="flex-row items-center justify-between mb-[12rpx]">
+                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                    </View>
+                    <View className="flex-row items-center gap-[12rpx]">
+                      {/* 播放/暂停按钮 */}
+                      <View
+                        className="w-[72rpx] h-[72rpx] rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--color-primary)', flexShrink: 0 }}
+                        onClick={() => toggleAudioPlay(index, item.audioUrl)}
+                      >
+                        <Image
+                          src={audioPlayStates[index] ? pauseIcon : playIcon}
+                          mode="aspectFit"
+                          className="w-[36rpx] h-[36rpx]"
+                        />
+                      </View>
+                      {/* 进度条（对齐原项目 slider 组件） */}
+                      <View className="flex-1" style={{ minWidth: 0 }}>
+                        <Slider
+                          value={audioProgress[index] || 0}
+                          min={0}
+                          max={100}
+                          activeColor="var(--color-primary)"
+                          backgroundColor="rgba(255,255,255,0.15)"
+                          blockSize={12}
+                          blockColor="var(--color-primary)"
+                          onChange={(e) => onAudioProgressChange(index, e)}
+                        />
+                      </View>
+                      {/* 当前时间 */}
+                      <Text className="text-[22rpx] text-muted-foreground" style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}>
+                        {formatAudioTime(audioCurrentTime[index] || 0)}
+                      </Text>
+                      {/* 下载按钮 */}
+                      <Image
+                        src={downloadIcon}
+                        mode="aspectFit"
+                        className="w-[36rpx] h-[36rpx]"
+                        style={{ flexShrink: 0 }}
+                        onClick={() => downloadAudio(item.audioUrl)}
+                      />
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </View>
       </View>
 
       {/* 快捷入口(订单/收藏/关注/订阅)— */}
@@ -240,6 +686,44 @@ export default function UserIndex() {
           onClick={handleLogout}
         >
           <Text>{t('user.logout')}</Text>
+        </View>
+      ) : null}
+
+      {/* 官网链接（对齐原项目 yejiao.png） */}
+      <View className="w-full flex items-center justify-center pb-[20rpx]">
+        <Image
+          src={yejiaoIcon}
+          mode="widthFix"
+          className="w-[348rpx]"
+          onClick={copyWebsiteLink}
+        />
+      </View>
+
+      {/* 视频播放弹窗（对齐原项目 video-player-popup） */}
+      {showVideoPlayer ? (
+        <View className="fixed inset-0 z-[2000] flex items-center justify-center">
+          <View
+            className="absolute inset-0 bg-black/80"
+            onClick={closeVideoPlayer}
+          />
+          <View className="relative w-[90%] rounded-lg overflow-hidden">
+            <Video
+              src={currentVideoUrl}
+              controls
+              autoplay={false}
+              objectFit="contain"
+              showCenterPlayBtn
+              showFullscreenBtn
+              enableProgressGesture
+              style={{ width: '100%', height: rpx(500) }}
+            />
+            <View
+              className="absolute top-0 right-0 w-[60rpx] h-[60rpx] flex items-center justify-center z-10"
+              onClick={closeVideoPlayer}
+            >
+              <Text className="text-white text-[40rpx] font-bold">×</Text>
+            </View>
+          </View>
         </View>
       ) : null}
     </View>
