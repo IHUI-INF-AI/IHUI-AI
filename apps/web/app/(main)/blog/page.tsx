@@ -75,7 +75,7 @@ export default async function BlogIndexPage() {
                     'group-hover:border-primary/40 group-hover:bg-accent/40',
                   )}
                 >
-                  <CardContent className="flex h-full flex-col gap-3 p-5">
+                  <CardContent className="flex h-full flex-col gap-3 p-5 min-[640px]:p-5">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Badge variant="outline" className="font-normal">
                         {post.category}

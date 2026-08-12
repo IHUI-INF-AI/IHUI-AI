@@ -150,7 +150,7 @@ export default function EduLearnPage() {
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-700 text-white">
               <BookOpen className="h-7 w-7" />
             </div>
@@ -161,7 +161,7 @@ export default function EduLearnPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-400 text-white">
               <FolderTree className="h-7 w-7" />
             </div>
@@ -172,7 +172,7 @@ export default function EduLearnPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white">
               <GraduationCap className="h-7 w-7" />
             </div>

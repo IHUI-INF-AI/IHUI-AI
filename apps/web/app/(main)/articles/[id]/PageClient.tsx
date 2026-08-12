@@ -134,7 +134,7 @@ export default function ArticleDetailPage() {
       )}
 
       <Card>
-        <CardContent className="p-4 min-[768px]:p-6">
+        <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
           <SafeHtml
             html={article.content}
             className="prose prose-sm max-w-none dark:prose-invert"

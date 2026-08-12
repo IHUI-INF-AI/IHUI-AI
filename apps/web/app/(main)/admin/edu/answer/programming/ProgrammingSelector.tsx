@@ -42,7 +42,7 @@ export function ProgrammingSelector({
   const t = useTranslations('admin.edu.answer.programming')
   return (
     <Card>
-      <CardContent className="space-y-4 p-4 min-[768px]:p-6">
+      <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="p-paper">{t('selectPaper')}</Label>
