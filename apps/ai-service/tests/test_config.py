@@ -372,3 +372,23 @@ def test_conftest_isolation_does_not_affect_new_instance(monkeypatch):
     s = Settings(_env_file=None)
     assert s.get_provider_config("openai").api_key == ""
     assert s.get_provider_config("stepfun").api_key == ""
+
+
+def test_sync_env_agent_executor_to_os(monkeypatch, tmp_path):
+    """L5-10(2026-08-12):AGENT_EXECUTOR 配置开关同步到 os.environ。
+
+    _is_loop_v2_enabled 直接读 os.environ,pydantic 不会自动同步 .env 未定义字段,
+    需 _sync_env_file_to_os 显式同步(与 API_KEY 类同模式)。
+    """
+    import os
+
+    from app.core import config as config_mod
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("AGENT_EXECUTOR=loop_v2\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENT_EXECUTOR", raising=False)
+    config_mod._sync_env_file_to_os()
+
+    assert os.environ.get("AGENT_EXECUTOR") == "loop_v2"
