@@ -124,7 +124,7 @@ export default function KBDetailPage() {
       <div className="flex flex-col gap-8 min-[1024px]:flex-row">
         <article className="min-w-0 flex-1">
           <Card>
-            <CardContent className="p-4 min-[768px]:p-6">
+            <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
               <MarkdownViewer content={article.content} />
             </CardContent>
           </Card>

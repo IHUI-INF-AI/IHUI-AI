@@ -18,7 +18,7 @@ interface Props {
 export function WithdrawalsFilter({ status, onStatusChange }: Props) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-3">
+      <CardContent className="flex items-center gap-3 p-3 min-[640px]:p-3">
         <span className="text-sm text-muted-foreground">状态</span>
         <Select value={status} onValueChange={onStatusChange}>
           <SelectTrigger className="w-40">

@@ -64,7 +64,7 @@ export default function FavoritesPage() {
       ) : (
         items.map((f) => (
           <Card key={f.id} className="hover:bg-muted/50 transition-colors">
-            <CardContent className="p-3 flex items-center gap-2.5">
+            <CardContent className="p-3 flex items-center gap-2.5 min-[640px]:p-3">
               {f.cover ? (
                 <img
                   src={f.cover}

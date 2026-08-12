@@ -120,7 +120,7 @@ function AuthorizeContent() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center gap-3 p-5 min-[768px]:p-8 text-center">
+          <CardContent className="flex flex-col items-center gap-3 p-5 min-[768px]:p-8 text-center min-[640px]:p-5 min-[640px]:p-8">
             <ShieldAlert className="h-10 w-10 text-destructive" />
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>

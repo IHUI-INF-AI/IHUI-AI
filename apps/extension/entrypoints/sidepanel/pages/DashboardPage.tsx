@@ -81,7 +81,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-2">
         {statsList.map((s) => (
           <Card key={s.label}>
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="text-lg font-semibold tabular-nums">{s.value}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
             </CardContent>

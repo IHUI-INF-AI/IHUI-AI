@@ -81,7 +81,7 @@ export default function CirclesPage() {
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/circles/${encodeURIComponent(c.id)}`)}
           >
-            <CardContent className="p-3 flex items-start gap-2.5">
+            <CardContent className="p-3 flex items-start gap-2.5 min-[640px]:p-3">
               {c.coverImage ? (
                 <img
                   src={c.coverImage}

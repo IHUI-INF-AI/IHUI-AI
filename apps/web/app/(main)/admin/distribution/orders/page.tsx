@@ -82,7 +82,7 @@ export default function AdminDistributionOrdersPage() {
       )}
 
       <Card>
-        <CardContent className="flex items-center gap-2 p-3">
+        <CardContent className="flex items-center gap-2 p-3 min-[640px]:p-3">
           <div className="relative max-w-xs flex-1">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

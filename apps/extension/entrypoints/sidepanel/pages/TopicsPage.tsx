@@ -81,7 +81,7 @@ export default function TopicsPage() {
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/topics/${encodeURIComponent(tp.id)}`)}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-primary text-sm">#</span>
                 <span className="font-medium text-sm truncate">{tp.name}</span>
