@@ -490,6 +490,11 @@ def create_app() -> FastAPI:
     app.include_router(prompts_router.router, prefix="/api", tags=["prompts"])
     # Harness 能力补齐:评估/评测框架(2026-08-11 立,路由自带 /api/v1/ai/eval 前缀)
     app.include_router(eval_router.router, tags=["eval"])
+    # 2026-08-12 立:资讯板块每日自动刷新(marketing page-7 magazine 数据源,
+    # 用户反馈"div 没内容显示"+"希望显示每天最新新闻")。router 自带 /api/admin/news 前缀。
+    # 端点:GET /api/admin/news/status + POST /api/admin/news/refresh-daily + POST /api/admin/news/publish-recent
+    from app.routers import news as news_router
+    app.include_router(news_router.router, tags=["news-refresh"])
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
