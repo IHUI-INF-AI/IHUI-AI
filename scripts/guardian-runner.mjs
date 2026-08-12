@@ -728,6 +728,33 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
+  // blocking:apps/web/src/components/chat/model-selector.tsx 原实现 onMouseLeave 内
+  //   setTimeout 闭包访问已失效的 e.currentTarget(React 17+ SyntheticEvent 在 handler
+  //   返回后 currentTarget 置 null),导致 popover 常驻显示。本守门禁止在 setTimeout /
+  //   setInterval / requestAnimationFrame / requestIdleCallback / queueMicrotask 的
+  //   回调闭包内访问 e.currentTarget / e.target / e.preventDefault / e.stopPropagation
+  //   等 React SyntheticEvent 属性/方法。
+  // 失败含义:在异步回调闭包内访问了 React 事件对象属性,会在 React 17+ 下产生不可预测的
+  //   行为(如 setPopoverAnchor 永远不进关闭分支)。需将 event 属性在同步阶段缓存到变量,
+  //   或用 useRef 管理 DOM 元素。
+  {
+    id: '42',
+    label: '🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发)',
+    script: 'check-event-closure-leak.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 在异步回调闭包内访问了 React SyntheticEvent 属性(如 e.currentTarget)。',
+      '     React 17+ 在 handler 返回后 currentTarget 置 null,异步闭包内访问永远为 null。',
+      '     修复:在 handler 同步阶段 const el = e.currentTarget 缓存到闭包变量,',
+      '     或用 useRef 管理 DOM 元素(anchorRef.current 替代 e.currentTarget)。',
+      '     参考:apps/web/src/components/chat/model-selector.tsx MemberDiscountSection',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
