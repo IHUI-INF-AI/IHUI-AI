@@ -103,7 +103,7 @@ export default function ImageGenGalleryPage() {
                       className="h-auto w-full"
                     />
                   </div>
-                  <CardContent className="space-y-1 p-3">
+                  <CardContent className="space-y-1 p-3 min-[640px]:p-3">
                     <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="truncate">{item.authorName ?? '匿名'}</span>

@@ -385,7 +385,7 @@ export default function KouboPage() {
             {t('historyTitle')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-2 min-[640px]:p-2">
           {history.length === 0 ? (
             <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
           ) : (

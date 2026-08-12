@@ -129,7 +129,7 @@ export default function ChatSettingsPage() {
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
-          <CardContent className="space-y-4 p-4 min-[768px]:p-6">
+          <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
             <div className="space-y-2">
               <Label htmlFor="cs-model">{t('model')}</Label>
               <select
