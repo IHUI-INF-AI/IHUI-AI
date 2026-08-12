@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { BarChart3, DollarSign, Gauge, Zap } from 'lucide-react'
 
+import { Tooltip } from '@/components/feedback'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
@@ -44,11 +45,12 @@ function UsageBarChart({ data }: { data: Record<string, { total_tokens: number; 
           <div key={day} className="flex flex-1 flex-col items-center gap-1">
             <span className="text-[10px] text-muted-foreground">{formatTokens(stats.total_tokens)}</span>
             <div className="flex w-full items-end justify-center" style={{ height: 80 }}>
-              <div
-                className="w-full max-w-[24px] rounded-t-sm bg-primary/70 transition-colors hover:bg-primary"
-                style={{ height: `${Math.max(pct, 2)}%` }}
-                title={`${day}: ${formatTokens(stats.total_tokens)} tokens, $${stats.cost.toFixed(4)}`}
-              />
+              <Tooltip content={`${day}: ${formatTokens(stats.total_tokens)} tokens, $${stats.cost.toFixed(4)}`}>
+                <div
+                  className="w-full max-w-[24px] rounded-t-sm bg-primary/70 transition-colors hover:bg-primary"
+                  style={{ height: `${Math.max(pct, 2)}%` }}
+                />
+                </Tooltip>
             </div>
             <span className="text-[10px] text-muted-foreground">{day.slice(5)}</span>
           </div>

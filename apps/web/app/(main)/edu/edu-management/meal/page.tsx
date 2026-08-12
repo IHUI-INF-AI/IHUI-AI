@@ -45,7 +45,7 @@ import {
   Label,
   Badge,
 } from '@ihui/ui-react'
-import { Alert } from '@/components/feedback'
+import { Alert, Tooltip } from '@/components/feedback'
 
 /* ─── Types ─── */
 
@@ -1019,11 +1019,12 @@ export default function MealPage() {
     return (
       <div className="mt-1 flex flex-wrap gap-1">
         {types.map((t) => (
+          <Tooltip content={MEAL_TYPE_MAP.get(t as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? t}>
           <span
             key={t}
             className={cn('inline-block h-2 w-2 rounded-sm', MEAL_COLORS[t as keyof typeof MEAL_COLORS] ?? 'bg-gray-500')}
-            title={MEAL_TYPE_MAP.get(t as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? t}
           />
+          </Tooltip>
         ))}
       </div>
     )

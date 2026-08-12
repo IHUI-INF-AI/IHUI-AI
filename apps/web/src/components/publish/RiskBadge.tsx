@@ -13,6 +13,7 @@
 import * as React from 'react'
 import { Shield, ShieldAlert, ShieldX, ShieldCheck, ShieldMinus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 export type RiskLevel = 'safe' | 'low' | 'medium' | 'high' | 'critical'
@@ -78,15 +79,15 @@ export function RiskBadge({
   const inCooldown = cooldownRemaining > 0
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md font-medium',
-        isSm ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs',
-        style.className,
-        inCooldown && 'ring-1 ring-orange-500/30',
-      )}
-      title={`risk score: ${riskScore}`}
-    >
+    <Tooltip content={`risk score: ${riskScore}`}>
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-md font-medium',
+          isSm ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs',
+          style.className,
+          inCooldown && 'ring-1 ring-orange-500/30',
+        )}
+      >
       <Icon className={isSm ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
       <span>{t(style.i18nKey)}</span>
       {inCooldown && (
@@ -95,5 +96,6 @@ export function RiskBadge({
         </span>
       )}
     </span>
+    </Tooltip>
   )
 }
