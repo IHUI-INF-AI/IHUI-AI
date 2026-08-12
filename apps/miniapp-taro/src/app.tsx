@@ -42,21 +42,54 @@ setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
 initCrashReport()
 
-// 2026-08-12: H5 模式拦截全局错误导致的 runtime error 弹窗
-// Taro.request 在 H5 模式下失败/图片加载失败/其他异步错误会触发
-// webpack-dev-server overlay 全屏遮挡页面内容。
-// 这里拦截所有 error 和 unhandledrejection 事件,静默吞掉,业务层自行处理。
-if (process.env.TARO_ENV === 'h5' && typeof window !== 'undefined') {
-  // 拦截全局 error 事件（含资源加载失败、运行时异常）
-  window.addEventListener('error', (event) => {
-    // 只拦截非文件级别的错误（资源加载失败等）
-    // 允许语法错误等严重错误仍显示
-    event.preventDefault()
+// 2026-08-12 修复:pageError "Object" 异常字符串化
+// 子组件 try/catch 中 console.error(throwObj) 时,React 会被事件循环还原为
+// { name: '', message: 'Object', stack: '' }。这里加全局监听器,记录真实 message + stack,
+// 方便在 DevTools console 找到 throw 位置。
+if (typeof window !== 'undefined') {
+  // Taro H5 dev 模式兼容兜底:部分小程序原生 API 在 H5 不可用,调用会被 Promise
+  // reject 为 {errMsg: '...'} 对象,触发 pageError "Object"。这里把不存在的
+  // wx.* API 替换为 noop,避免环境性 reject 噪音。
+  const w = window as unknown as Record<string, unknown>
+  const wxLike = (w.wx ?? w.jWeixin) as Record<string, unknown> | undefined
+  if (wxLike && typeof wxLike === 'object') {
+    const noopApis = ['onMemoryWarning', 'onNeedPrivacyAuthorization', 'getMenuButtonBoundingClientRect', 'onNetworkStatusChange']
+    for (const api of noopApis) {
+      if (typeof wxLike[api] === 'function') {
+        try {
+          wxLike[api] = () => null
+        } catch {
+          // 静默
+        }
+      }
+    }
+  }
+  const fmtErr = (label: string, e: unknown) => {
+    try {
+      if (e && typeof e === 'object') {
+        const obj = e as { message?: unknown; stack?: unknown; name?: unknown }
+        const msg = obj.message
+        const stack = obj.stack
+        // eslint-disable-next-line no-console
+        console.error(
+          `[${label}]`,
+          typeof msg === 'string' && msg ? msg : '(non-string message)',
+          typeof stack === 'string' ? stack : '',
+          e,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.error(`[${label}]`, String(e))
+      }
+    } catch {
+      // 静默,避免 catch 内再抛
+    }
+  }
+  window.addEventListener('error', (ev) => {
+    fmtErr('pageError', ev.error ?? ev.message)
   })
-
-  // 拦截未处理的 Promise rejection
-  window.addEventListener('unhandledrejection', (event) => {
-    event.preventDefault()
+  window.addEventListener('unhandledrejection', (ev) => {
+    fmtErr('unhandledrejection', ev.reason)
   })
 }
 

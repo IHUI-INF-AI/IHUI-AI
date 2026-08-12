@@ -29,6 +29,10 @@
 export interface CarouselItem {
   img: string
   link?: string
+  /** 可选标题(轮播图内显示) */
+  title?: string
+  /** 可选副标题 */
+  subtitle?: string
   [key: string]: unknown
 }
 
