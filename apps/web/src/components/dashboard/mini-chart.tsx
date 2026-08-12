@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface MiniChartProps {
   data: number[]
@@ -15,16 +16,17 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
     <div className={cn('w-full', className)}>
       <div className="flex items-end gap-1" style={{ height }}>
         {data.map((v, i) => (
-          <div
+          <Tooltip
             key={`bar-${i}`}
-            className="group relative flex-1"
-            title={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}
+            content={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}
           >
-            <div
-              className="absolute bottom-0 w-full rounded-sm bg-primary/70 transition-colors group-hover:bg-primary"
-              style={{ height: `${(v / max) * 100}%`, minHeight: v > 0 ? 2 : 0 }}
-            />
-          </div>
+            <div className="group relative flex-1">
+              <div
+                className="absolute bottom-0 w-full rounded-sm bg-primary/70 transition-colors group-hover:bg-primary"
+                style={{ height: `${(v / max) * 100}%`, minHeight: v > 0 ? 2 : 0 }}
+              />
+            </div>
+          </Tooltip>
         ))}
       </div>
       {labels && labels.length > 0 && (
