@@ -190,7 +190,11 @@ class ImBridgeService:
             except (json.JSONDecodeError, TypeError):
                 logger.warning("[ImBridge] 队列 %s JSON 解析失败,跳过", key)
                 return None
-            if not isinstance(data, list) or not data:
+            if not isinstance(data, list):
+                return None
+            if not data:
+                # 空列表脏数据:删除 key 避免累积(对齐 docstring 意图,2026-08-12 修)
+                await self._redis.delete(key)
                 return None
             last = data.pop()
             if data:
