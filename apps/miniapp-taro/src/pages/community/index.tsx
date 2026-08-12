@@ -9,10 +9,10 @@ import { useState, useCallback, useRef } from 'react'
 import NavBar from '@/components/NavBar'
 import Carousel from '@/components/Carousel'
 import DrawerComponent from '@/components/DrawerComponent'
-import IntelligentAssistant from '@/components/IntelligentAssistant'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
+import { FloatBox } from '@/components'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
@@ -285,67 +285,6 @@ function AgentHorizontalScroll({
   )
 }
 
-/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
- *  - 始终可见，fixed 定位右下角
- *  - isOpen=true(初始)= 收起状态(box 推到右侧 off-screen，仅箭头可见)
- *  - isOpen=false= 展开状态(content 可见，透明遮罩覆盖全屏)
- */
-function FloatBox() {
-  const [isOpen, setIsOpen] = useState(true)
-  return (
-    <>
-      {/* 展开时显示透明遮罩，点击空白处收起 */}
-      {!isOpen ? (
-        <View className="community-float-mask" onClick={() => setIsOpen(true)} />
-      ) : null}
-      <View className={`community-float-box ${isOpen ? 'community-float-box--open' : ''}`}>
-        {/* 收起箭头 — box 推到右侧时箭头留在左侧可见 */}
-        {isOpen ? (
-          <View className="community-float-arrow" onClick={() => setIsOpen(false)}>
-            <Text className="community-float-arrow-text">{'‹'}</Text>
-          </View>
-        ) : null}
-        <View className="community-float-content">
-          {/* 赚米 — 分享 / 推广 */}
-          <View
-            className="community-float-item"
-            onClick={() => {
-              Taro.showToast({ title: '分享功能', icon: 'none' })
-            }}
-          >
-            <Text className="community-float-item-icon">💰</Text>
-            <Text className="community-float-item-text community-float-item-text-red">赚 米</Text>
-          </View>
-          {/* 客服 */}
-          <View
-            className="community-float-item"
-            onClick={() => {
-              Taro.makePhoneCall({ phoneNumber: '400-000-0000' }).catch(() => {
-                Taro.showToast({ title: '客服功能暂未开放', icon: 'none' })
-              })
-            }}
-          >
-            <Text className="community-float-item-icon">📞</Text>
-            <Text className="community-float-item-text">客 服</Text>
-          </View>
-          {/* 反馈 */}
-          <View
-            className="community-float-item"
-            onClick={() => {
-              Taro.navigateTo({ url: '/pages/feedback/index' }).catch(() => {
-                Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
-              })
-            }}
-          >
-            <Text className="community-float-item-icon">✉️</Text>
-            <Text className="community-float-item-text">反 馈</Text>
-          </View>
-        </View>
-      </View>
-    </>
-  )
-}
-
 /* ============ 页面主组件 ============ */
 
 export default function Community() {
@@ -363,6 +302,7 @@ export default function Community() {
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
+  const [fenleiActive, setFenleiActive] = useState<number[]>([0])
   const scrollTopRef = useRef(0)
 
   const PAGE_SIZE = 10
@@ -526,7 +466,7 @@ export default function Community() {
     setShowCategoryPopup(!showCategoryPopup)
   }
 
-  function handleNavRightClick() {
+  function handleSearchClick() {
     setShowSearch(!showSearch)
   }
 
@@ -536,10 +476,6 @@ export default function Community() {
 
   function handleSearchInput(text: string) {
     setSearchKeyword(text)
-  }
-
-  function handleIntelligentRecharge() {
-    Taro.navigateTo({ url: '/pages/recharge/index' })
   }
 
   function onAgentListSelect(agent: AgentInfo) {
@@ -586,8 +522,10 @@ export default function Community() {
     Taro.navigateTo({ url: `/pages/ai/chat?chatId=${chat.id}` })
   }
 
-  /** 获取当前分类按钮文字 */
-  const currentCategoryName = categories.find((c) => c.id === activeCategory)?.name || '全部'
+  function handleFenleiBtnClick(index: number, item: CategoryItem) {
+    setFenleiActive([index])
+    onCategorySelect(item.id)
+  }
 
   /** 映射分类到 TitleSwitchScrollTitle 格式 */
   const titleSwitchMainList: TitleSwitchScrollTitleItem[] = [
@@ -609,126 +547,14 @@ export default function Community() {
   }))
 
   return (
-    <View className="community-page">
-      {/* FloatBox 浮动组件 — 始终可见，fixed 定位右下角，对齐原项目 */}
-      <FloatBox />
-
-      {/* 导航栏 */}
-      <NavBar
-        title="AI应用商店"
-        showBack={false}
-        variant="default"
-        rightText={showSearch ? '取消' : '搜索'}
-        onRightClick={handleNavRightClick}
-      />
-
-      {/* 搜索框 — 使用 InputArea 组件 */}
-      {showSearch ? (
-        <View className="community-search-bar">
-          <InputArea
-            value={searchKeyword}
-            placeholder="请输入查找的智能体名称"
-            onInput={handleSearchInput}
-            onSend={handleSearchSend}
-            variant="default"
-          />
-        </View>
-      ) : null}
-
-      <View className="community-content">
-        {/* 智能助手组件 */}
-        <IntelligentAssistant
-          tokenBalance={1280}
-          isLoggedIn={false}
-          onRecharge={handleIntelligentRecharge}
-        />
-
-        {/* 分类筛选 + 菜单按钮 */}
-        <View className="community-toolbar">
-          <View className="community-toolbar-left">
-            <View className="community-menu-btn" onClick={handleMenuClick}>
-              <Text className="community-menu-icon">☰</Text>
-            </View>
-            <View className="community-category-btn" onClick={handleFenLeiClick}>
-              <Text className="community-category-text">{currentCategoryName}</Text>
-              <Text className={`community-category-arrow ${showCategoryPopup ? 'rotated' : ''}`}>▾</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 分类弹层 — 使用 TitleSwitchScrollTitle 组件 */}
-        {showCategoryPopup ? (
-          <View className="community-category-overlay">
-            <View className="community-category-mask" onClick={() => setShowCategoryPopup(false)} />
-            <View className="community-category-popup">
-              <TitleSwitchScrollTitle
-                mainList={titleSwitchMainList}
-                mainSwiperMargin="120rpx"
-                subSwiperMargin="120rpx"
-                onChange={onTitleSwitchChange}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {/* 轮播图 */}
-        <View className="community-carousel-wrap">
-          <View className="community-carousel-gradient-border">
-            <View className="community-carousel-inner">
-              <Carousel
-                items={banners}
-                height={160}
-                autoplay
-                interval={3000}
-                onItemClick={onBannerClick}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* 最近使用 */}
-        <AgentHorizontalScroll
-          title="最近使用"
-          agents={recentAgents}
-          onAgentClick={onAgentClick}
-        />
-
-        {/* 我的智能体 */}
-        <AgentHorizontalScroll
-          title="我的AI APP"
-          agents={myAgents}
-          showTeamBtn
-          onTeamClick={goToTeam}
-          onAgentClick={onAgentClick}
-        />
-
-        {/* 智能体列表 — 使用 AgentListPanel 组件 */}
-        <View className="community-agent-list-section">
-          <View className="community-agent-list-header">
-            <Text className="community-agent-list-title">智能体推荐</Text>
-          </View>
-          <AgentListPanel
-            visible
-            agents={agentInfoList}
-            loading={loading}
-            onSelect={onAgentListSelect}
-          />
-          {!loading && !hasMore && agentList.length > 0 ? (
-            <View className="community-no-more">
-              <Text className="community-no-more-text">没有更多了</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-
-      {/* 返回顶部按钮 */}
-      {showBackTop ? (
-        <View className="community-back-top" onClick={backToTop}>
-          <Text className="community-back-top-icon">↑</Text>
-        </View>
-      ) : null}
-
-      {/* 抽屉组件 — 增强版，传入 groupedData/userinfo 等 props */}
+    <View
+      className="community-out-container"
+      style={{
+        height: showCategoryPopup ? '100vh' : 'auto',
+        overflowY: showCategoryPopup ? 'hidden' : 'auto' as any,
+      }}
+    >
+      {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
       <DrawerComponent
         visible={showDrawer}
         onClose={() => setShowDrawer(false)}
@@ -743,6 +569,143 @@ export default function Community() {
           Taro.navigateTo({ url: '/pages/ai/chat' })
         }}
       />
+
+      <View className="community-main-container" style={{ color: 'white' }}>
+        {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
+        <FloatBox />
+
+        {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
+        <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
+          <NavBar
+            variant="ai-home"
+            title="A I 应用商店"
+            showFenLei
+            showSearch
+            onFenLeiClick={handleFenLeiClick}
+            onMenuClick={handleMenuClick}
+            onSearchClick={handleSearchClick}
+          />
+        </View>
+        <View style={{ opacity: 0 }}>
+          <NavBar
+            variant="ai-home"
+            title="A I 应用商店"
+            showFenLei
+            showSearch
+            onFenLeiClick={handleFenLeiClick}
+            onMenuClick={handleMenuClick}
+            onSearchClick={handleSearchClick}
+          />
+        </View>
+
+        {/* mask — 分类弹层遮罩(对齐原项目) */}
+        {showCategoryPopup ? (
+          <View className="community-mask" onClick={() => setShowCategoryPopup(false)} />
+        ) : null}
+
+        {/* s_t_b — 分类弹层(对齐原项目 tagWrapShow 时的弹层) */}
+        {showCategoryPopup ? (
+          <View className="community-s-t-b">
+            <TitleSwitchScrollTitle
+              mainList={titleSwitchMainList}
+              mainSwiperMargin="120rpx"
+              subSwiperMargin="120rpx"
+              onChange={onTitleSwitchChange}
+            />
+            {/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */}
+            <View className="community-fenlei-overlay">
+              <View className="community-fenlei-inner">
+                {categories.map((item, index) => (
+                  <View
+                    key={item.id}
+                    className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
+                    onClick={() => handleFenleiBtnClick(index, item)}
+                  >
+                    <Text className="community-fenlei-btn-text">{item.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 页面内容(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) */}
+        <View
+          className="community-content-area"
+          style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx' }}
+        >
+          {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
+          <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
+            <View className="community-carousel-gradient">
+              <View className="community-carousel-inner">
+                <Carousel
+                  items={banners}
+                  height={160}
+                  autoplay
+                  interval={3000}
+                  onItemClick={onBannerClick}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染) */}
+          {showSearch ? (
+            <View className="community-search-area">
+              <InputArea
+                value={searchKeyword}
+                placeholder="请输入查找的智能体名称"
+                onInput={handleSearchInput}
+                onSend={handleSearchSend}
+                variant="default"
+              />
+            </View>
+          ) : null}
+
+          {/* RecentAgents 最近使用(对齐原项目) */}
+          <AgentHorizontalScroll
+            title="最近使用"
+            agents={recentAgents}
+            onAgentClick={onAgentClick}
+          />
+
+          {/* MyAgents 我的智能体(对齐原项目) */}
+          <AgentHorizontalScroll
+            title="我的AI APP"
+            agents={myAgents}
+            showTeamBtn
+            onTeamClick={goToTeam}
+            onAgentClick={onAgentClick}
+          />
+
+          {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
+          <View className="community-ailist-content">
+            <View className="community-agent-list-header">
+              <Text className="community-agent-list-title">智能体推荐</Text>
+            </View>
+            <AgentListPanel
+              visible
+              agents={agentInfoList}
+              loading={loading}
+              onSelect={onAgentListSelect}
+            />
+            {!loading && !hasMore && agentList.length > 0 ? (
+              <View className="community-no-more">
+                <Text className="community-no-more-text">没有更多了</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* toodown 返回顶部按钮(对齐原项目) */}
+        {showBackTop ? (
+          <View className="community-toodown-wrapper">
+            <View className="community-toodown" onClick={backToTop}>
+              <Text className="community-toodown-icon">↑</Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </View>
   )
 }

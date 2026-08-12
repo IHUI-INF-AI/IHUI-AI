@@ -39,6 +39,14 @@ export interface NavBarProps {
   menuIcon?: string
   /** ai-home 模式:右侧按钮文字(默认"加入社区群") */
   joinText?: string
+  /** ai-home 模式:showFenLei 分类按钮(对齐原项目 navigationBars) */
+  showFenLei?: boolean
+  /** ai-home 模式:分类按钮点击(对齐原项目 @nav-click) */
+  onFenLeiClick?: () => void
+  /** ai-home 模式:showSearch 搜索按钮(对齐原项目 isShowSearch) */
+  showSearch?: boolean
+  /** ai-home 模式:搜索按钮点击(对齐原项目 @clicksearch) */
+  onSearchClick?: () => void
 }
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
@@ -56,6 +64,10 @@ export default function NavBar({
   onMenuClick,
   onJoinClick,
   joinText = '加入社区群',
+  showFenLei,
+  onFenLeiClick,
+  showSearch,
+  onSearchClick,
 }: NavBarProps) {
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
@@ -100,19 +112,41 @@ export default function NavBar({
               {title}
             </Text>
           </View>
-          {/* 右侧:加入社区群按钮(对齐 .btn_join / .nav-join-btn:border 3rpx + 圆角 8rpx + 字号 24rpx)*/}
-          <View
-            className="ml-auto flex flex-shrink-0 items-center justify-center"
-            style={{
-              height: rpx(48),
-              padding: '0 16rpx',
-              border: '3rpx solid var(--color-primary)',
-              borderRadius: rpx(8),
-              background: 'var(--color-card)',
-            }}
-            onClick={onJoinClick}
-          >
-            <Text style={{ color: 'var(--color-primary)', fontSize: rpx(22), fontWeight: 'bold', whiteSpace: 'nowrap' }}>{joinText}</Text>
+          {/* 右侧:分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars 的 showFenLei / isShowSearch / showMenu) */}
+          <View className="ml-auto flex flex-shrink-0 items-center gap-[12rpx]">
+            {showFenLei ? (
+              <View
+                className="flex items-center justify-center"
+                style={{ width: rpx(40), height: rpx(40) }}
+                onClick={onFenLeiClick}
+              >
+                <Text style={{ fontSize: rpx(28), color: textColor }}>☰</Text>
+              </View>
+            ) : null}
+            {showSearch ? (
+              <View
+                className="flex items-center justify-center"
+                style={{ width: rpx(40), height: rpx(40) }}
+                onClick={onSearchClick}
+              >
+                <Text style={{ fontSize: rpx(28), color: textColor }}>🔍</Text>
+              </View>
+            ) : null}
+            {onJoinClick ? (
+              <View
+                className="flex flex-shrink-0 items-center justify-center"
+                style={{
+                  height: rpx(48),
+                  padding: '0 16rpx',
+                  border: '3rpx solid var(--color-primary)',
+                  borderRadius: rpx(8),
+                  background: 'var(--color-card)',
+                }}
+                onClick={onJoinClick}
+              >
+                <Text style={{ color: 'var(--color-primary)', fontSize: rpx(22), fontWeight: 'bold', whiteSpace: 'nowrap' }}>{joinText}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         {notification && (
