@@ -84,25 +84,25 @@ export default function EduCertificateIssuedPage() {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-4">
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-5 min-[640px]:p-5">
             <div className="text-sm text-muted-foreground">{t('issuedTotal')}</div>
             <div className="mt-1 text-2xl font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-5 min-[640px]:p-5">
             <div className="text-sm text-muted-foreground">{t('sourceExam')}</div>
             <div className="mt-1 text-2xl font-semibold text-sky-600">{bySource.exam}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-5 min-[640px]:p-5">
             <div className="text-sm text-muted-foreground">{t('sourceLearn')}</div>
             <div className="mt-1 text-2xl font-semibold text-emerald-600">{bySource.learn}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-5 min-[640px]:p-5">
             <div className="text-sm text-muted-foreground">{t('sourceManual')}</div>
             <div className="mt-1 text-2xl font-semibold text-amber-600">{bySource.manual}</div>
           </CardContent>

@@ -115,7 +115,7 @@ export default function EduLearnRankingPage() {
                   : 'from-orange-400 to-amber-600'
             return (
               <Card key={r.id}>
-                <CardContent className="flex items-center gap-4 p-5">
+                <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
                   <div
                     className={cn(
                       'flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br text-white',

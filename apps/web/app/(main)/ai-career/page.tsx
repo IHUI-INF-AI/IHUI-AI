@@ -163,7 +163,7 @@ export default function AICareerPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-5 p-4 min-[768px]:p-6">
+        <CardContent className="space-y-5 p-4 min-[768px]:p-6 min-[640px]:p-6">
           <div>
             <span className="mb-2 block text-sm font-medium">
               {t('fields.school')} <span className="text-destructive">*</span>
