@@ -307,6 +307,29 @@ const nextConfig: NextConfig = {
           source: '/api/agents/:agentId/stream',
           destination: 'http://localhost:8803/api/agents/:agentId/stream',
         },
+        // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
+        // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
+        // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
+        {
+          source: '/api/agents/:agentId/tool-calls',
+          destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
+        },
+        {
+          source: '/api/agents/:agentId/errors',
+          destination: 'http://localhost:8803/api/agents/:agentId/errors',
+        },
+        // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
+        // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
+        // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
+        // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
+        {
+          source: '/api/agents/:agentId/sessions',
+          destination: 'http://localhost:8803/api/agents/:agentId/sessions',
+        },
+        {
+          source: '/api/agents/:agentId/token-usage',
+          destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
+        },
         // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
         // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。

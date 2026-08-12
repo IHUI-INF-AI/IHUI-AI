@@ -129,3 +129,21 @@ def test_map_hook_event_to_log_entry_unknown_noop():
     from app.routers.agents import _map_hook_event_to_log_entry
 
     assert _map_hook_event_to_log_entry("unknown.event", {"x": 1}) is None
+
+
+def test_ts_to_iso_valid():
+    """有效时间戳 → ISO8601 UTC。"""
+    from app.routers.agents import _ts_to_iso
+
+    iso = _ts_to_iso(1750000000)
+    assert iso.endswith("Z") or "+00:00" in iso
+    assert iso.startswith("2025")
+
+
+def test_ts_to_iso_invalid():
+    """无效/空值 → 空串。"""
+    from app.routers.agents import _ts_to_iso
+
+    assert _ts_to_iso(0) == ""
+    assert _ts_to_iso("") == ""
+    assert _ts_to_iso(None) == ""
