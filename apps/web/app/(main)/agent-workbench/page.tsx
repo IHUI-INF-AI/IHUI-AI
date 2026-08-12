@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import * as React from 'react'
 import {
   Loader2,
@@ -40,15 +42,15 @@ import { ToolCallChain } from './components/ToolCallChain'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 
 const STATUS_FILTERS = [
-  { value: 'all', label: '全部' },
-  { value: 'running', label: '运行中' },
-  { value: 'paused', label: '已暂停' },
-  { value: 'stopped', label: '已停止' },
-  { value: 'error', label: '异常' },
+  { value: 'all', label: 'filterAll' },
+  { value: 'running', label: 'filterRunning' },
+  { value: 'paused', label: 'filterPaused' },
+  { value: 'stopped', label: 'filterStopped' },
+  { value: 'error', label: 'filterError' },
 ]
 
 const MODEL_FILTERS = [
-  { value: 'all', label: '全部模型' },
+  { value: 'all', label: 'filterAllModels' },
   { value: 'gpt-4o', label: 'gpt-4o' },
   { value: 'claude-3-5-sonnet', label: 'claude-3-5-sonnet' },
   { value: 'glm-4.5', label: 'glm-4.5' },
@@ -58,6 +60,7 @@ const MODEL_FILTERS = [
 type ViewMode = 'management' | 'runtime'
 
 export default function AgentWorkbenchPage() {
+  const t = useTranslations('agentWorkbench')
   const [agents, setAgents] = React.useState<Agent[]>([])
   const [loading, setLoading] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
@@ -84,11 +87,11 @@ export default function AgentWorkbenchPage() {
         setAgents(normalized)
         setSelectedId((prev) => (prev && normalized.find((a) => a.id === prev) ? prev : null))
       } else {
-        setErr(res.error || '加载失败')
+        setErr(res.error || t('errorLoadFailed'))
         setAgents([])
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '网络异常')
+      setErr(e instanceof Error ? e.message : t('errorNetwork'))
       setAgents([])
     } finally {
       setLoading(false)
@@ -151,10 +154,10 @@ export default function AgentWorkbenchPage() {
         showToast(`${agent.name} 已${label}`)
         await loadAgents()
       } else {
-        showToast(res.error || '操作失败')
+        showToast(res.error || t('errorOperation'))
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '网络异常')
+      showToast(e instanceof Error ? e.message : t('errorNetwork'))
     } finally {
       setActionLoading(false)
     }
@@ -222,7 +225,7 @@ export default function AgentWorkbenchPage() {
             <SelectContent>
               {STATUS_FILTERS.map((f) => (
                 <SelectItem key={f.value} value={f.value}>
-                  {f.label}
+                  {t(f.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -234,7 +237,7 @@ export default function AgentWorkbenchPage() {
             <SelectContent>
               {MODEL_FILTERS.map((f) => (
                 <SelectItem key={f.value} value={f.value}>
-                  {f.label}
+                  {t(f.label)}
                 </SelectItem>
               ))}
             </SelectContent>
