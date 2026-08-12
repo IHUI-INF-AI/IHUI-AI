@@ -4,6 +4,7 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import { Trash2, Copy, RefreshCw, Loader2, Eye, EyeOff } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import type { ApiKey } from './types'
 
 interface Props {
@@ -68,12 +69,11 @@ export function KeysList({
                     </div>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <code
-                      className="truncate font-mono text-xs text-muted-foreground"
-                      title={visible[k.id] ? k.key : maskKey(k.key)}
-                    >
-                      {visible[k.id] ? k.key : maskKey(k.key)}
-                    </code>
+                    <Tooltip content={visible[k.id] ? k.key : maskKey(k.key)}>
+                      <code className="truncate font-mono text-xs text-muted-foreground">
+                        {visible[k.id] ? k.key : maskKey(k.key)}
+                      </code>
+                    </Tooltip>
                     <button
                       onClick={() => setVisible((v) => ({ ...v, [k.id]: !v[k.id] }))}
                       className="text-muted-foreground hover:text-foreground"

@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Check, Copy } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface CopyButtonProps {
   /** 要复制的文本 */
@@ -49,21 +50,22 @@ export const CopyButton = React.memo(function CopyButton({
   const Icon = copied ? Check : Copy
 
   return (
-    <button
-      type="button"
-      onClick={onCopy}
-      aria-label={resolvedLabel}
-      title={copied ? t('copied') : resolvedLabel}
-      tabIndex={-1}
-      className={cn(
-        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
-        copied && 'text-emerald-500',
-        className,
-      )}
-      data-testid={testId}
-    >
-      <Icon className="h-2.5 w-2.5" />
-    </button>
+    <Tooltip content={copied ? t('copied') : resolvedLabel}>
+      <button
+        type="button"
+        onClick={onCopy}
+        aria-label={resolvedLabel}
+        tabIndex={-1}
+        className={cn(
+          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
+          copied && 'text-emerald-500',
+          className,
+        )}
+        data-testid={testId}
+      >
+        <Icon className="h-2.5 w-2.5" />
+      </button>
+    </Tooltip>
   )
 })
 

@@ -4,6 +4,7 @@ import * as React from 'react'
 import { FileEdit, FilePlus, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection } from './foldable-section'
 import { CopyButton } from './copy-button'
 import type { AgentChange } from '@/hooks/use-agent-progress'
@@ -76,12 +77,11 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
             isNew ? 'text-emerald-500' : 'text-amber-500',
           )}
         />
-        <span
-          className="flex-1 break-all font-mono text-[10px] text-muted-foreground"
-          title={change.filePath}
-        >
-          {basename(change.filePath)}
-        </span>
+        <Tooltip content={change.filePath}>
+          <span className="flex-1 break-all font-mono text-[10px] text-muted-foreground">
+            {basename(change.filePath)}
+          </span>
+        </Tooltip>
         <span className="shrink-0 text-[10px] text-muted-foreground/60">
           {shortDir(change.filePath)}
         </span>

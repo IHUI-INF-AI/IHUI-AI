@@ -18,6 +18,7 @@ import {
 import { cn } from '../lib/utils'
 import { Input } from './input'
 import { ResizableHandle } from './resizable'
+import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
 
 /**
  * 工作展示区容器(通用,跨端共享)。
@@ -398,29 +399,37 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                     key={item.url}
                     className="group flex items-center gap-1 rounded px-1.5 py-1 hover:bg-muted"
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectFromList?.(item.url)
-                        setDropdownOpen(false)
-                      }}
-                      className="flex-1 truncate text-left text-xs text-foreground"
-                      title={item.url}
-                    >
-                      {item.title || item.url}
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectFromList?.(item.url)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex-1 truncate text-left text-xs text-foreground"
+                        >
+                          {item.title || item.url}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{item.url}</TooltipContent>
+                    </Tooltip>
                     {dropdownTab === 'favorites' && onRemoveFavorite && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onRemoveFavorite(item.url)
-                        }}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-                        title={labels.removeFavorite}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onRemoveFavorite(item.url)
+                            }}
+                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{labels.removeFavorite}</TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 ))

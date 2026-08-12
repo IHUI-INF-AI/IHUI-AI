@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 
 import { METHOD_COLOR, th } from './helpers'
 import type { ApiLog } from './types'
@@ -46,11 +47,8 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
                     {l.time}
                   </td>
-                  <td
-                    className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs"
-                    title={l.endpoint}
-                  >
-                    {l.endpoint}
+                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-xs">
+                    <TruncatedText value={l.endpoint} />
                   </td>
                   <td className="px-4 py-2.5">
                     <span
@@ -90,17 +88,11 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                       {l.latency}ms
                     </span>
                   </td>
-                  <td
-                    className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
-                    title={l.ip}
-                  >
-                    {l.ip}
+                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    <TruncatedText value={l.ip} />
                   </td>
-                  <td
-                    className="max-w-[160px] truncate px-4 py-2.5 text-muted-foreground"
-                    title={l.user}
-                  >
-                    {l.user}
+                  <td className="max-w-[160px] px-4 py-2.5 text-muted-foreground">
+                    <TruncatedText value={l.user} />
                   </td>
                 </tr>
               ))}

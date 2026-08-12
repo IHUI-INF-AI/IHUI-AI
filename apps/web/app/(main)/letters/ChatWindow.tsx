@@ -7,7 +7,7 @@ import { Loader2, MessageSquare, Send, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Input } from '@ihui/ui-react'
-import { Alert, ConfirmDialog } from '@/components/feedback'
+import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatLetterTime } from './helpers'
 import type { LetterListData, PrivateLetter } from './types'
@@ -138,10 +138,10 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
             const isMine = msg.senderId === currentUserId
             const isDeleting = deletingId === msg.id
             const deleteBtn = (
+              <Tooltip content={t('delete')}>
               <button
                 type="button"
                 aria-label={t('delete')}
-                title={t('delete')}
                 disabled={isDeleting}
                 onClick={() => setDeleteTarget(msg)}
                 className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
@@ -152,6 +152,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
                   <Trash2 className="h-3.5 w-3.5" />
                 )}
               </button>
+              </Tooltip>
             )
             return (
               <div
