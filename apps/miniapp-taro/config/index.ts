@@ -198,6 +198,14 @@ export default defineConfig(async (merge) => {
             },
           },
         })
+        // 关闭 react-refresh-webpack-plugin 的 overlay（H5 模式下远程图片加载失败
+        // 会触发 unhandledrejection 被 react-refresh overlay 捕获遮挡页面）
+        // 业务层已通过 app.tsx 的 unhandledrejection 拦截处理
+        if (chain.plugins.has('ReactRefreshPlugin')) {
+          chain.plugin('ReactRefreshPlugin').tap(([options]) => [
+            { ...options, overlay: false },
+          ])
+        }
       },
       postcss: {
         autoprefixer: { enable: true, config: {} },

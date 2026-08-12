@@ -149,6 +149,8 @@ grafanadata/
 # ============================================================================
 *.cjs
 *.html
+# 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
+!apps/miniapp-taro/src/index.html
 i18n-report*.json
 openapi.json
 openapi_problems.json
