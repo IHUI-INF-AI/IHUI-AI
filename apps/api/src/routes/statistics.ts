@@ -45,6 +45,7 @@ const listSnapshotsQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   type: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const createSnapshotSchema = z.object({
   type: z.enum(['overview', 'learn', 'exam', 'content']),
@@ -85,16 +86,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '学习统计',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -110,16 +102,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '考试统计',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -135,16 +118,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '内容统计',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -160,16 +134,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '总览统计',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -502,20 +467,7 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
             type: { type: 'string', description: '快照类型筛选: overview/learn/exam/content' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -535,24 +487,7 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '快照详情',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -635,24 +570,7 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除统计快照',
         tags: ['statistics'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {

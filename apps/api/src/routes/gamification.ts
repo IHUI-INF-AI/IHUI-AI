@@ -31,6 +31,7 @@ const listTransactionsQuerySchema = z.object({
   type: z.transform(emptyToUndefined).pipe(z.enum(TX_TYPE).optional()),
   source: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const adjustPointsSchema = z.object({
   userId: z.uuid({ error: '无效的用户 ID' }),
@@ -75,20 +76,7 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '获取积分余额',
         tags: ['gamification'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (request, reply) => {
@@ -114,24 +102,7 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
             source: { type: 'string', maxLength: 32 },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -230,20 +201,7 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '今日签到状态',
         tags: ['gamification'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (request, reply) => {
@@ -307,20 +265,7 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '获取所有等级定义',
         tags: ['gamification'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (_request, reply) => {

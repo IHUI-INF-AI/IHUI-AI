@@ -35,13 +35,14 @@ const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const listNotificationsQuery = z.object({
   ...paginationQuery,
   type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
-  unread: z.transform(
-    (v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'),
-  ).pipe(z.boolean().optional()),
+  unread: z
+    .transform((v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'))
+    .pipe(z.boolean().optional()),
 })
 
 const listMessagesQuery = z.object(paginationQuery)
@@ -128,24 +129,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             unread: { type: 'boolean', description: '仅查看未读(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -195,20 +179,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         summary: '标记全部通知已读',
         description: '将当前用户所有未读通知标记为已读',
         tags: ['notifications'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (request, reply) => {
@@ -317,28 +288,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             content: { type: 'string', maxLength: 5000, description: '通知内容' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
@@ -450,28 +400,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
