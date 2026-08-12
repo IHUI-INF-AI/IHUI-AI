@@ -824,3 +824,49 @@ async def test_tool_retry_zero_disabled():
     assert exec_count == 1  # 不重试
     tr = result.iterations[0].tool_results[0]
     assert tr.retry_count == 0
+
+
+# =============================================================================
+# L5-7 自进化:元认知反思注入 system prompt(2026-08-12 立)
+# =============================================================================
+
+
+async def test_metacognition_snippet_injected_into_system(monkeypatch):
+    """metacognition.build_system_prompt_snippet 有内容时注入 system prompt。"""
+    monkeypatch.setattr(
+        "app.services.metacognition.metacognition.build_system_prompt_snippet",
+        lambda **kw: "## 元认知提示\n- 反思发现1",
+    )
+
+    async def mock_llm(messages, tools):
+        # 第 1 轮就能看到注入后的 system prompt
+        sys_msg = messages[0]
+        assert sys_msg["role"] == "system"
+        assert "元认知提示" in sys_msg["content"]
+        assert "反思发现1" in sys_msg["content"]
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert result.stop_reason == "completed"
+
+
+async def test_metacognition_empty_snippet_noop(monkeypatch):
+    """metacognition 空缓存时不注入,不影响原 system prompt。"""
+    monkeypatch.setattr(
+        "app.services.metacognition.metacognition.build_system_prompt_snippet",
+        lambda **kw: "",
+    )
+
+    async def mock_llm(messages, tools):
+        sys_msg = messages[0]
+        assert sys_msg["role"] == "system"
+        assert "元认知" not in sys_msg["content"]
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
