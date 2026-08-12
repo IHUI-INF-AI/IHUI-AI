@@ -195,6 +195,12 @@ class AuditService:
         try:
             from app.core.db import get_db_pool
 
+            # asyncpg 的 timestamptz 参数需要 datetime 对象(不接受 ISO 字符串)
+            try:
+                ts = datetime.fromisoformat(entry.timestamp)
+            except (ValueError, TypeError):
+                ts = datetime.now(timezone.utc)
+
             pool = await get_db_pool()
             async with pool.acquire() as conn:
                 await conn.execute(
@@ -207,7 +213,7 @@ class AuditService:
                     entry.agent_id[:64] if entry.agent_id else None,
                     entry.trace_id[:64] if entry.trace_id else None,
                     json.dumps(entry.details, ensure_ascii=False),
-                    entry.timestamp,
+                    ts,
                 )
         except Exception as e:
             logger.warning("audit persist to db failed(降级,内存保留): %s", e)
