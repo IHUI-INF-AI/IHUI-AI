@@ -370,3 +370,33 @@ test('豁免: 多行 component prop <Modal title="..."> → 无违规', () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ─── 多行 小写 HTML 元素(2026-08-12 立,根因修复) ──────────
+// 原版仅跟踪大写组件跨行 state,小写 <button/<span/<div 等跨行 title= 漏检,
+// 导致 hover 时浏览器原生 tooltip 仍显示,用户报"必须彻底禁用自带样式"。
+
+test('违规: 多行 <button ...> 跨多行 + title=... 单独一行 → 报告 [title]', () => {
+  const dir = createTempScanDir({
+    'apps/web/NativeBtnMulti.tsx': `<button\n  type="button"\n  onClick={x}\n  className="ml-auto"\n  title="展开"\n>\n  x\n</button>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /\[title\]/)
+    assert.match(r.stdout, /NativeBtnMulti\.tsx/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('违规: 多行 <span ...> 跨多行 + title=... 单独一行 → 报告 [title]', () => {
+  const dir = createTempScanDir({
+    'apps/web/SpanMulti.tsx': `<span\n  className="truncate text-xs"\n  title={argPreview}\n>\n  text\n</span>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /\[title\]/)
+    assert.match(r.stdout, /SpanMulti\.tsx/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
