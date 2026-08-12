@@ -1588,13 +1588,6 @@ const NavGroupSection = React.memo(function NavGroupSection({
         suppressHydrationWarning
         className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
-        <ChevronDown
-          className={cn(
-            'h-3 w-3 shrink-0 transition-transform duration-200',
-            !open && '-rotate-90',
-          )}
-          aria-hidden="true"
-        />
         {group.label === 'hotGroupLabel' ? (
           <>
             <span className="min-w-0 whitespace-nowrap text-left text-red-600 transition-colors group-hover/grp:text-red-700 dark:text-red-400 dark:group-hover/grp:text-red-300">
@@ -1608,6 +1601,13 @@ const NavGroupSection = React.memo(function NavGroupSection({
         ) : (
           <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
         )}
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 shrink-0 transition-transform duration-200',
+            !open && '-rotate-90',
+          )}
+          aria-hidden="true"
+        />
       </button>
       {/*
         分组折叠动画(2026-07-20 立):用 CSS grid-template-rows 0fr↔1fr 现代方案。
