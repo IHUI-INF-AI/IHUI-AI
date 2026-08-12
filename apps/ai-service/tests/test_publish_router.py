@@ -337,7 +337,9 @@ async def test_public_platforms_endpoint_still_works(client) -> None:
     """GET /platforms 是公开端点,无需认证(IDOR 修复不影响)。"""
     resp = await client.get("/api/publish/platforms")
     assert resp.status_code == 200
-    data = resp.json()
+    body = resp.json()
+    assert body["code"] == 0
+    data = body["data"]
     assert "items" in data
     assert data["count"] >= 9
 
@@ -346,11 +348,11 @@ async def test_public_credentials_key_generate_still_works(client) -> None:
     """GET /credentials-key/generate 是公开端点,无需认证。"""
     resp = await client.get("/api/publish/credentials-key/generate")
     assert resp.status_code == 200
-    assert "key" in resp.json()
+    assert "key" in resp.json()["data"]
 
 
 async def test_public_running_endpoint_still_works(client) -> None:
     """GET /running 是公开端点,无需认证。"""
     resp = await client.get("/api/publish/running")
     assert resp.status_code == 200
-    assert "running" in resp.json()
+    assert "running" in resp.json()["data"]
