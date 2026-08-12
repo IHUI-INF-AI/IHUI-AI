@@ -23,11 +23,13 @@ interface InfoItem {
   content?: string
   createTime: string
   views?: number
+  categoryName?: string
 }
 
 interface CategoryItem {
   id: string | number
   name: string
+  count?: number
 }
 
 interface ChatHistoryItem {
@@ -63,6 +65,7 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
     content: asString(raw['content']),
     createTime: asString(raw['createTime']) || asString(raw['createdAt']),
     views: typeof raw['views'] === 'number' ? raw['views'] : Number(raw['viewCount'] ?? 0),
+    categoryName: asString(raw['categoryName']),
   }
 }
 
@@ -87,6 +90,7 @@ export default function ShareIndexPage() {
   const [modelList, setModelList] = useState<ModelItem[]>([])
   const [rankList, setRankList] = useState<RankingItem[]>([])
   const [showToodown, setShowToodown] = useState(false)
+  const [navScrolled, setNavScrolled] = useState(false)
 
   const pageScrollLocked = drawerVisible || tagWrapShow
 
@@ -131,7 +135,11 @@ export default function ShareIndexPage() {
       setCategories(
         rawList.map((r) => {
           const raw = r as Record<string, unknown>
-          return { id: (raw['id'] ?? '') as string | number, name: asString(raw['name']) }
+          return {
+            id: (raw['id'] ?? '') as string | number,
+            name: asString(raw['name']),
+            count: typeof raw['count'] === 'number' ? raw['count'] : undefined,
+          }
         }),
       )
     } catch {
@@ -226,7 +234,8 @@ export default function ShareIndexPage() {
   })
 
   usePageScroll((res) => {
-    setShowToodown(res.scrollTop > 400)
+    setShowToodown(res.scrollTop > 200)
+    setNavScrolled(res.scrollTop > 20)
   })
 
   useShareAppMessage(() => ({
@@ -323,17 +332,32 @@ export default function ShareIndexPage() {
       <View className="share-page">
         <View className="share-rank-wrap">
           <View className="share-rank-header">
-            <Text className="share-rank-title">{tt('share.index.title', 'AI资讯')}</Text>
+            <View className="share-rank-header-left">
+              <Text className="share-rank-title">{tt('share.index.title', 'AI资讯')}</Text>
+              <Text className="share-rank-subtitle">{tt('share.index.subtitle', '汇聚前沿科技资讯')}</Text>
+            </View>
             <View className="share-rank-enter" onClick={activeNav}>
-              <Text>{tt('share.index.enter', '进入资讯')}</Text>
+              <Text className="share-rank-enter-text">{tt('share.index.enter', '进入资讯')}</Text>
+              <Text className="share-rank-enter-arrow">→</Text>
             </View>
           </View>
-          <Ranking
-            list={rankList}
-            title={tt('share.index.hotRank', '热门排行')}
-            unit={tt('ranking.unitCreation', '分')}
-            loading={rankList.length === 0}
-          />
+          <View className="share-rank-card">
+            <View className="share-rank-card-header">
+              <Text className="share-rank-card-title">{tt('share.index.hotRank', '热门排行')}</Text>
+              <Text className="share-rank-card-unit">{tt('ranking.unitCreation', '分')}</Text>
+            </View>
+            <Ranking
+              list={rankList.slice(0, 10)}
+              title=""
+              unit={tt('ranking.unitCreation', '分')}
+              loading={rankList.length === 0}
+            />
+            {rankList.length > 0 ? (
+              <View className="share-rank-more" onClick={() => setActiveNavbar(true)}>
+                <Text className="share-rank-more-text">{tt('share.index.viewMore', '查看更多排行')}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
     )
@@ -344,14 +368,14 @@ export default function ShareIndexPage() {
     <View className="share-page">
       {/* 自定义导航栏:菜单(左) + 标题(中) + 分类(右) */}
       <View
-        className="share-navbar"
+        className={`share-navbar${navScrolled ? ' share-navbar--scrolled' : ''}`}
         style={{
           paddingTop: `${NAV_PADDING_TOP}px`,
           height: `${NAV_TOTAL}px`,
         }}
       >
         <View className="share-navbar-btn" onClick={() => setDrawerVisible(true)}>
-          <Text>{'☰'}</Text>
+          <Text className="share-navbar-btn-icon">{'☰'}</Text>
         </View>
         <Text className="share-navbar-title">{tt('share.index.title', 'AI资讯')}</Text>
         <View
@@ -412,7 +436,12 @@ export default function ShareIndexPage() {
                 <Text className="share-item-title">{n.title}</Text>
                 {n.summary ? <Text className="share-item-summary">{n.summary}</Text> : null}
                 <View className="share-item-meta">
-                  <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
+                  <View className="share-item-meta-left">
+                    {n.categoryName ? (
+                      <Text className="share-item-category">{n.categoryName}</Text>
+                    ) : null}
+                    <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
+                  </View>
                   <Text className="share-item-views">
                     {t('news.views', { n: n.views || 0 })}
                   </Text>
@@ -423,33 +452,28 @@ export default function ShareIndexPage() {
         ) : (
           !loading ? (
             <View className="share-empty">
-              <Text>{tt('news.empty', '暂无资讯')}</Text>
+              <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
             </View>
           ) : null
         )}
         {loading ? (
           <View className="share-loading">
-            <Text>{tt('common.loading', '加载中…')}</Text>
+            <View className="share-loading-dot" />
+            <View className="share-loading-dot" />
+            <View className="share-loading-dot" />
           </View>
         ) : null}
         {!loading && infoList.length && noMore ? (
           <View className="share-nomore">
-            <Text>{tt('common.noMore', '没有更多了')}</Text>
+            <Text className="share-nomore-text">{tt('common.noMore', '没有更多了')}</Text>
           </View>
         ) : null}
-      </View>
-
-      {/* 浮动入口(float-box 简化) */}
-      <View className="share-float">
-        <View className="share-float-btn" onClick={() => setTagWrapShow(true)}>
-          <Text>{'≡'}</Text>
-        </View>
       </View>
 
       {/* 返回顶部(对标原 toodown) */}
       {showToodown ? (
         <View className="share-to-top" onClick={backToTop}>
-          <Text>{'↑'}</Text>
+          <Text className="share-to-top-icon">{'↑'}</Text>
         </View>
       ) : null}
 
@@ -458,21 +482,31 @@ export default function ShareIndexPage() {
         <View>
           <View className="share-tag-mask" onClick={() => setTagWrapShow(false)} onTouchMove={safePreventTouchMove} />
           <View className="share-tag-panel" onTouchMove={safePreventTouchMove}>
-            <View
-              className={`share-tag-item${activeCategory === '' ? ' active' : ''}`}
-              onClick={() => selectCategory({ id: '', name: '' })}
-            >
-              <Text>{tt('common.all', '全部')}</Text>
+            <View className="share-tag-panel-header">
+              <Text className="share-tag-panel-title">
+                {tt('share.index.selectCategory', '选择分类')}
+              </Text>
             </View>
-            {categories.map((cat) => (
+            <View className="share-tag-list">
               <View
-                key={cat.id}
-                className={`share-tag-item${activeCategory === cat.id ? ' active' : ''}`}
-                onClick={() => selectCategory(cat)}
+                className={`share-tag-item${activeCategory === '' ? ' active' : ''}`}
+                onClick={() => selectCategory({ id: '', name: '' })}
               >
-                <Text>{cat.name}</Text>
+                <Text className="share-tag-item-text">{tt('common.all', '全部')}</Text>
               </View>
-            ))}
+              {categories.map((cat) => (
+                <View
+                  key={cat.id}
+                  className={`share-tag-item${activeCategory === cat.id ? ' active' : ''}`}
+                  onClick={() => selectCategory(cat)}
+                >
+                  <Text className="share-tag-item-text">{cat.name}</Text>
+                  {cat.count !== undefined ? (
+                    <Text className="share-tag-item-count">{cat.count}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       ) : null}
