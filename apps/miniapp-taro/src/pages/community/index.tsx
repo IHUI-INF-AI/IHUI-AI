@@ -285,30 +285,60 @@ function AgentHorizontalScroll({
   )
 }
 
-/** FloatBox 浮动组件 */
-function FloatBox({
-  visible,
-  onClose,
-}: {
-  visible: boolean
-  onClose?: () => void
-}) {
-  if (!visible) return null
+/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue，始终可见，fixed 定位右下角 */
+function FloatBox() {
+  const [isOpen, setIsOpen] = useState(true)
   return (
-    <View className="community-float-box" onClick={onClose}>
-      <View className="community-float-box-content" onClick={(e) => e.stopPropagation()}>
-        <Text className="community-float-box-title">AI 助手</Text>
-        <Text className="community-float-box-desc">需要帮助？点击这里开启智能对话</Text>
-        <View
-          className="community-float-box-btn"
-          onClick={() => {
-            Taro.navigateTo({ url: '/pages/ai/chat' })
-          }}
-        >
-          <Text className="community-float-box-btn-text">开始对话</Text>
+    <>
+      {!isOpen ? (
+        <View className="community-float-mask" onClick={() => setIsOpen(true)} />
+      ) : null}
+      <View
+        className={`community-float-box ${isOpen ? '' : 'community-float-box--open'}`}
+      >
+        {isOpen ? (
+          <View
+            className="community-float-arrow"
+            onClick={() => setIsOpen(false)}
+          >
+            <Text className="community-float-arrow-text">{'›'}</Text>
+          </View>
+        ) : null}
+        <View className="community-float-content">
+          <View
+            className="community-float-item"
+            onClick={() => {
+              Taro.navigateTo({ url: '/pages/ai/chat' })
+            }}
+          >
+            <Text className="community-float-item-icon">💬</Text>
+            <Text className="community-float-item-text">AI 助手</Text>
+          </View>
+          <View
+            className="community-float-item"
+            onClick={() => {
+              Taro.makePhoneCall({ phoneNumber: '400-000-0000' }).catch(() => {
+                Taro.showToast({ title: '客服功能暂未开放', icon: 'none' })
+              })
+            }}
+          >
+            <Text className="community-float-item-icon">📞</Text>
+            <Text className="community-float-item-text">客 服</Text>
+          </View>
+          <View
+            className="community-float-item"
+            onClick={() => {
+              Taro.navigateTo({ url: '/pages/feedback/index' }).catch(() => {
+                Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
+              })
+            }}
+          >
+            <Text className="community-float-item-icon">✉️</Text>
+            <Text className="community-float-item-text">反 馈</Text>
+          </View>
         </View>
       </View>
-    </View>
+    </>
   )
 }
 
@@ -329,7 +359,6 @@ export default function Community() {
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
-  const [showFloatBox, setShowFloatBox] = useState(false)
   const scrollTopRef = useRef(0)
 
   const PAGE_SIZE = 10
@@ -577,6 +606,9 @@ export default function Community() {
 
   return (
     <View className="community-page">
+      {/* FloatBox 浮动组件 — 始终可见，fixed 定位右下角，对齐原项目 */}
+      <FloatBox />
+
       {/* 导航栏 */}
       <NavBar
         title="AI应用商店"
@@ -607,7 +639,7 @@ export default function Community() {
           onRecharge={handleIntelligentRecharge}
         />
 
-        {/* 分类筛选 + 菜单按钮 + FloatBox 触发 */}
+        {/* 分类筛选 + 菜单按钮 */}
         <View className="community-toolbar">
           <View className="community-toolbar-left">
             <View className="community-menu-btn" onClick={handleMenuClick}>
@@ -617,12 +649,6 @@ export default function Community() {
               <Text className="community-category-text">{currentCategoryName}</Text>
               <Text className={`community-category-arrow ${showCategoryPopup ? 'rotated' : ''}`}>▾</Text>
             </View>
-          </View>
-          <View
-            className="community-float-trigger"
-            onClick={() => setShowFloatBox(!showFloatBox)}
-          >
-            <Text className="community-float-trigger-icon">✦</Text>
           </View>
         </View>
 
@@ -690,12 +716,6 @@ export default function Community() {
           ) : null}
         </View>
       </View>
-
-      {/* FloatBox 浮动组件 */}
-      <FloatBox
-        visible={showFloatBox}
-        onClose={() => setShowFloatBox(false)}
-      />
 
       {/* 返回顶部按钮 */}
       {showBackTop ? (
