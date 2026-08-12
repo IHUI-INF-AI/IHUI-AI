@@ -16713,7 +16713,14 @@
       "lessonsExtracted": "提取知识数",
       "failurePattern": "失败模式",
       "improvementTip": "改进建议",
-      "bestPractice": "最佳实践"
+      "bestPractice": "最佳实践",
+      "agentFailures": "Agent 失败与恢复",
+      "errorType": "错误类型",
+      "recentFailures": "最近失败",
+      "failedCheckpoints": "失败检查点",
+      "toolFailures": "工具失败",
+      "agentErrors": "Agent 错误",
+      "noFailures": "暂无失败记录"
     }
   },
   "fundData": {
