@@ -297,81 +297,119 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
   )
 }
 
-/** 升级权益 popover(2026-08-06 立,workbuddy 风格)
- *  - 悬停或聚焦 "会员2.5折" 徽章触发
+/** 升级权益徽章 + 弹层(2026-08-06 立,workbuddy 风格)
+ *  - 悬停 "会员2.5折" 徽章触发
  *  - 展示会员额外折扣说明 + 跳转 /user/subscription
  *
- *  2026-08-06 bugfix:父组件在 onMouseEnter 时 setPopoverAnchor({el, multiplier}),
- *  但本组件 useState(open=false) 默认未打开,且没有 useEffect 把 anchor 变化同步到 open,
- *  导致 popover 永远不显示。改为 anchor 变化时自动 setOpen(true) + 定位 pos。 */
-function MemberDiscountPopover({
-  currentMultiplier,
-  anchor,
+ *  2026-08-12 bugfix:原实现父 + 子双状态 + setTimeout 闭包读取已失效的 e.currentTarget
+ *  (React 17+ SyntheticEvent 在 handler 返回后 currentTarget 置 null),导致 setPopoverAnchor
+ *  永远走 prev?.el === null 分支(永真为 false)→ popover 常驻显示。改为单组件持有
+ *  hover 状态 + useRef 管理 timer,徽章与 popover 共享同一 show/scheduleHide 桥接。 */
+function MemberDiscountSection({
+  opt,
+  children,
 }: {
-  currentMultiplier: number
-  anchor: HTMLElement | null
+  opt: ModelOption
+  children: React.ReactNode
 }) {
   const router = useRouter()
   const t = useTranslations('chat')
   const [open, setOpen] = React.useState(false)
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null)
+  const anchorRef = React.useRef<HTMLDivElement | null>(null)
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // anchor 变化时自动打开 + 定位
-  React.useEffect(() => {
-    if (!anchor) {
-      setOpen(false)
-      return
+  const eligible =
+    opt.memberDiscountEligible && (opt.pointsMultiplier ?? 0) > 0
+
+  const cancelHide = React.useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
     }
-    const rect = anchor.getBoundingClientRect()
+  }, [])
+
+  const show = React.useCallback(() => {
+    if (!eligible) return
+    cancelHide()
+    const el = anchorRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
     setPos({
       top: rect.top + window.scrollY,
       left: rect.right + window.scrollX + 8,
     })
     setOpen(true)
-  }, [anchor])
+  }, [eligible, cancelHide])
 
-  if (!open || !pos) return null
-  // 会员额外 2.5 折 = 25% 折扣,会员后倍数 = currentMultiplier * 0.25
-  const memberRate = (currentMultiplier * 0.25).toFixed(2)
+  // 徽章/弹层都共用 scheduleHide,实现 hover bridge
+  const scheduleHide = React.useCallback(() => {
+    cancelHide()
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null
+      setOpen(false)
+    }, 120)
+  }, [cancelHide])
+
+  React.useEffect(() => {
+    return () => cancelHide()
+  }, [cancelHide])
+
+  if (!eligible) return <>{children}</>
+
   return (
-    <div
-      role="dialog"
-      aria-label={t('modelPopoverMemberTitle')}
-      className={cn(
-        'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-lg',
-        'animate-in fade-in-0 zoom-in-95',
-      )}
-      style={{ top: pos.top, left: pos.left }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <div className="flex items-start gap-2">
-        <Crown className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{t('modelPopoverMemberTitle')}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {t('modelPopoverMemberDesc', {
-              from: currentMultiplier.toFixed(2),
-              to: memberRate,
-            })}
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          router.push('/user/subscription')
-        }}
-        className={cn(
-          'mt-3 inline-flex h-8 w-full items-center justify-center rounded-md px-3 text-xs font-medium',
-          'bg-foreground text-background transition-colors hover:bg-foreground/90',
-        )}
+    <>
+      <div
+        ref={anchorRef}
+        onMouseEnter={show}
+        onMouseLeave={scheduleHide}
       >
-        {t('modelPopoverUpgradeButton')}
-      </button>
-    </div>
+        {children}
+      </div>
+      {open && pos && opt.pointsMultiplier !== undefined && (
+        <div
+          role="dialog"
+          aria-label={t('modelPopoverMemberTitle')}
+          className={cn(
+            'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-lg',
+            'animate-in fade-in-0 zoom-in-95',
+          )}
+          style={{ top: pos.top, left: pos.left }}
+          onMouseEnter={show}
+          onMouseLeave={scheduleHide}
+        >
+          <div className="flex items-start gap-2">
+            <Crown className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{t('modelPopoverMemberTitle')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {t('modelPopoverMemberDesc', {
+                  from: opt.pointsMultiplier.toFixed(2),
+                  to: (opt.pointsMultiplier * 0.25).toFixed(2),
+                })}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              // 立即关闭(不走 scheduleHide 延迟),防止跳转瞬间残留
+              cancelHide()
+              setOpen(false)
+              router.push('/user/subscription')
+            }}
+            className={cn(
+              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-md px-3 text-xs font-medium',
+              'bg-foreground text-background transition-colors hover:bg-foreground/90',
+            )}
+          >
+            {t('modelPopoverUpgradeButton')}
+          </button>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -397,11 +435,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   })
   const [loading, setLoading] = React.useState(true)
   const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
-  // 会员折扣 popover 状态(2026-08-06 立,workbuddy 风格)
-  const [popoverAnchor, setPopoverAnchor] = React.useState<{
-    el: HTMLElement | null
-    multiplier: number
-  } | null>(null)
+  // 2026-08-12 bugfix:升级权益 popover 状态已收敛到 MemberDiscountSection 内部,
+  // 父组件不再持有 popoverAnchor / timer。hover 状态机完全自包含,
+  // 避免原 e.currentTarget 闭包失效导致 popover 常驻显示的 bug。
 
   // 拉取用户已保存的 LLM 配置
   const { data: cfgData } = useQuery({
@@ -634,25 +670,13 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                         />
                       )}
                     </div>
-                    {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立) */}
-                    <div
-                      onMouseEnter={(e) => {
-                        if (opt.memberDiscountEligible && opt.pointsMultiplier !== undefined) {
-                          e.stopPropagation()
-                          setPopoverAnchor({ el: e.currentTarget, multiplier: opt.pointsMultiplier })
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (opt.memberDiscountEligible) {
-                          // 延迟关闭,允许鼠标移到 popover 上
-                          setTimeout(() => {
-                            setPopoverAnchor((prev) => (prev?.el === e.currentTarget ? null : prev))
-                          }, 100)
-                        }
-                      }}
-                    >
+                    {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
+                       2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
+                       setTimeout 闭包读 e.currentTarget 失效导致 popover 常驻显示。
+                       改为 MemberDiscountSection 内部自管理 hover 状态,父组件只管渲染 children。 */}
+                    <MemberDiscountSection opt={opt}>
                       <ModelTierTags opt={opt} />
-                    </div>
+                    </MemberDiscountSection>
                   </DropdownMenu.Item>
                 )
               })}
@@ -661,13 +685,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           ))}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
-      {/* 升级权益 popover(2026-08-06 立,固定在右下,通过锚点元素的 bounding rect 定位到右侧) */}
-      {popoverAnchor?.el && popoverAnchor.multiplier > 0 && (
-        <MemberDiscountPopover
-          currentMultiplier={popoverAnchor.multiplier}
-          anchor={popoverAnchor.el}
-        />
-      )}
+      {/* 2026-08-12 bugfix:升级权益 popover 已收敛到 MemberDiscountSection 内部,
+          hover 状态自包含,父组件不再持有 popoverAnchor / 渲染顶层 popover。 */}
     </DropdownMenu.Root>
   )
 }
