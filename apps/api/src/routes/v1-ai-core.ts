@@ -27,7 +27,7 @@
  * 19. POST   /v1/agents/parallel           — 并行执行(权限: agents:call)
  * 20. POST   /v1/agents/decompose          — 任务分解(权限: agents:call)
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { config } from '../config/index.js'
@@ -60,6 +60,7 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
+import { getUserId, maskKey, jsonInit } from './v1-shared.js'
 
 // =============================================================================
 // Zod schemas
@@ -159,30 +160,10 @@ const errorResponseSchema = {
 // 辅助函数
 // =============================================================================
 
-/** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
-interface ApiKeyContext {
-  id: string
-  userId: string
-  key: string
-  permissions: string[]
-  rateLimit: number
-}
 
 /** 从 apiKey 上下文取 userId,失败 reply 401。 */
-function getUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-  const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-  if (!apiKey) {
-    reply.status(401).send(error(401, 'API key authentication required'))
-    return null
-  }
-  return apiKey.userId
-}
 
 /** 屏蔽 API Key 中间部分,只保留首 4 + 末 4 字符。 */
-function maskKey(key: string): string {
-  if (key.length <= 8) return '****'
-  return `${key.slice(0, 4)}****${key.slice(-4)}`
-}
 
 /**
  * 通用 ai-service 转发(JSON 请求 + JSON 响应)。
@@ -209,13 +190,6 @@ async function forwardAiService(
 }
 
 /** 构造 JSON 请求 init。 */
-function jsonInit(body: unknown, method: 'POST' | 'PUT' = 'POST'): RequestInit {
-  return {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }
-}
 
 /**
  * 从 ai-service /api/llm/models 提取模型列表(兼容多种格式)。

@@ -79,7 +79,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { eq, sql, and, or, like } from 'drizzle-orm'
 import { z } from 'zod'
-import { signAccessToken } from '@ihui/auth'
 import type {
   V1KnowledgeDocumentsResponse,
   V1IngestDocumentRequest,
@@ -135,6 +134,7 @@ import { users, apiLogs, apiKeyQuotas, llmCallLogs, aiCostRecords } from '@ihui/
 import { knowledgeRagService } from '../services/knowledge-rag-service.js'
 import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
 import { XlsxFileTooLargeError } from '../services/xlsx-parser.js'
+import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 
 // =============================================================================
 // 常量
@@ -346,32 +346,10 @@ const errorResponseSchema = {
 // =============================================================================
 
 /** 从 apiKey 上下文取 userId,失败 reply 401。 */
-function getUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-  const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-  if (!apiKey) {
-    reply.status(401).send(error(401, 'API key authentication required'))
-    return null
-  }
-  return apiKey.userId
-}
 
 /** 用 apiKey.userId 签发短期内部 JWT,模拟内部调用满足 /api/* 的 JWT 鉴权。 */
-function mintInternalJwt(userId: string): Promise<string> {
-  return signAccessToken({ userId, phone: '', familyId: `apikey-${userId}`, roleId: 0 })
-}
 
 /** 构造 JSON 请求 init。 */
-function jsonInit(body: unknown, method: 'POST' | 'PUT' | 'DELETE' = 'POST'): RequestInit {
-  return {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }
-}
-
-function asObj(v: unknown): Record<string, unknown> {
-  return (v ?? {}) as Record<string, unknown>
-}
 
 interface InternalResult {
   ok: boolean
