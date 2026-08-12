@@ -35,7 +35,7 @@ const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 const listNotificationsQuery = z.object({
   ...paginationQuery,
@@ -113,14 +113,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
             type: {
               type: 'string',
               enum: ['system', 'order', 'project', 'comment', 'mention', 'follow'],
