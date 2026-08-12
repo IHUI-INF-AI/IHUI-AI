@@ -379,7 +379,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                       !isSel &&
                       'ring-1 ring-ring/40 ring-offset-1 ring-offset-popover',
                     // 高风险 + 选中:琥珀色边框强化警告
-                    isSel && opt.risk === 'high' && 'border-amber-500/60 bg-amber-500/5',
+                    isSel && opt.risk === 'high' && 'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5',
                   )}
                 >
                   <Icon
