@@ -4,6 +4,7 @@ import * as React from 'react'
 import { WifiOff, RotateCw, SignalHigh, SignalMedium } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 /**
  * Phase 16: SSE 连接状态指示器(2026-07-28 立)
@@ -100,57 +101,58 @@ export const ConnectionStatus = React.memo(function ConnectionStatus({
   const showTextLabel = state === 'reconnecting' || state === 'disconnected'
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-sm transition-colors',
-        showTextLabel ? 'px-1' : '',
-        className,
-      )}
-      role="status"
-      aria-live={state === 'disconnected' ? 'assertive' : 'polite'}
-      aria-atomic="true"
-      aria-label={tooltip}
-      title={tooltip}
-      data-testid={`connection-status-${state}`}
-      data-state={state}
-    >
-      {/* 状态点 + 图标 */}
-      <span className="relative inline-flex items-center justify-center">
-        {/* 状态点(背景灯) */}
-        <span
-          className={cn(
-            'absolute inset-0 m-auto h-1.5 w-1.5 rounded-full',
-            state === 'connected' && 'bg-emerald-500',
-            state === 'connecting' && 'bg-amber-500',
-            state === 'reconnecting' && 'bg-amber-500',
-            state === 'disconnected' && 'bg-red-500',
-            STATE_ANIM[state],
-          )}
-        />
-        {/* 图标(在点的上层) */}
-        <Icon
-          className={cn(
-            'relative h-3 w-3 shrink-0',
-            STATE_CLS[state],
-            state === 'reconnecting' && 'animate-spin',
-          )}
-        />
-      </span>
-      {/* 文字标签(仅在重连中/已断开时显示) */}
-      {showTextLabel && (
-        <span
-          className={cn(
-            'shrink-0 text-[10px] tabular-nums',
-            state === 'reconnecting' && 'text-amber-500',
-            state === 'disconnected' && 'text-red-500',
-          )}
-        >
-          {state === 'reconnecting'
-            ? t('sseStatus.reconnectingShort', { n: reconnectAttempt, max: totalAttempts })
-            : t('sseStatus.disconnectedShort')}
+    <Tooltip content={tooltip}>
+      <span
+        className={cn(
+          'inline-flex items-center gap-0.5 rounded-sm transition-colors',
+          showTextLabel ? 'px-1' : '',
+          className,
+        )}
+        role="status"
+        aria-live={state === 'disconnected' ? 'assertive' : 'polite'}
+        aria-atomic="true"
+        aria-label={tooltip}
+        data-testid={`connection-status-${state}`}
+        data-state={state}
+      >
+        {/* 状态点 + 图标 */}
+        <span className="relative inline-flex items-center justify-center">
+          {/* 状态点(背景灯) */}
+          <span
+            className={cn(
+              'absolute inset-0 m-auto h-1.5 w-1.5 rounded-full',
+              state === 'connected' && 'bg-emerald-500',
+              state === 'connecting' && 'bg-amber-500',
+              state === 'reconnecting' && 'bg-amber-500',
+              state === 'disconnected' && 'bg-red-500',
+              STATE_ANIM[state],
+            )}
+          />
+          {/* 图标(在点的上层) */}
+          <Icon
+            className={cn(
+              'relative h-3 w-3 shrink-0',
+              STATE_CLS[state],
+              state === 'reconnecting' && 'animate-spin',
+            )}
+          />
         </span>
-      )}
-    </span>
+        {/* 文字标签(仅在重连中/已断开时显示) */}
+        {showTextLabel && (
+          <span
+            className={cn(
+              'shrink-0 text-[10px] tabular-nums',
+              state === 'reconnecting' && 'text-amber-500',
+              state === 'disconnected' && 'text-red-500',
+            )}
+          >
+            {state === 'reconnecting'
+              ? t('sseStatus.reconnectingShort', { n: reconnectAttempt, max: totalAttempts })
+              : t('sseStatus.disconnectedShort')}
+          </span>
+        )}
+      </span>
+    </Tooltip>
   )
 })
 

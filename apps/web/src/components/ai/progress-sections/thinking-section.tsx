@@ -5,6 +5,7 @@ import { Brain, Loader2, Copy, Check } from 'lucide-react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
 import { formatDuration } from './foldable-section'
 
 // Phase 22: localStorage key(ihui: 命名空间)
@@ -192,23 +193,25 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         )}
         {/* v2: 折叠态耗时(从 mount 累积,>500ms 才显示) */}
         {!expanded && elapsedMs > 500 && (
-          <span
-            className="shrink-0 tabular-nums text-[10px] text-muted-foreground/45"
-            data-testid="thinking-elapsed"
-            title={t('thinkingElapsedTitle', { time: formatDuration(elapsedMs) })}
-          >
-            {formatDuration(elapsedMs)}
-          </span>
+          <Tooltip content={t('thinkingElapsedTitle', { time: formatDuration(elapsedMs) })}>
+            <span
+              className="shrink-0 tabular-nums text-[10px] text-muted-foreground/45"
+              data-testid="thinking-elapsed"
+            >
+              {formatDuration(elapsedMs)}
+            </span>
+          </Tooltip>
         )}
         {/* 展开态:字符数提示(右上角) */}
         {expanded && content.length > 0 && (
-          <span
-            className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/45"
-            data-testid="thinking-char-count"
-            title={t('thinkingCharCountTitle', { n: content.length })}
-          >
-            {content.length} {t('thinkingChars')}
-          </span>
+          <Tooltip content={t('thinkingCharCountTitle', { n: content.length })}>
+            <span
+              className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/45"
+              data-testid="thinking-char-count"
+            >
+              {content.length} {t('thinkingChars')}
+            </span>
+          </Tooltip>
         )}
       </button>
       {/* v2: 展开态内容区(代码块样式) */}
@@ -236,21 +239,22 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               </pre>
             )}
             {content && (
-              <button
-                type="button"
-                onClick={onCopy}
-                className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-accent/30 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-                title={copied ? t('copied') : t('copyThinking')}
-                aria-label={copied ? t('copied') : t('copyThinking')}
-                data-testid="thinking-copy-btn"
-                data-copied={copied ? 'true' : undefined}
-              >
-                {copied ? (
-                  <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
-                ) : (
-                  <Copy className="h-2.5 w-2.5" aria-hidden />
-                )}
-              </button>
+              <Tooltip content={copied ? t('copied') : t('copyThinking')}>
+                <button
+                  type="button"
+                  onClick={onCopy}
+                  className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-accent/30 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+                  aria-label={copied ? t('copied') : t('copyThinking')}
+                  data-testid="thinking-copy-btn"
+                  data-copied={copied ? 'true' : undefined}
+                >
+                  {copied ? (
+                    <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
+                  ) : (
+                    <Copy className="h-2.5 w-2.5" aria-hidden />
+                  )}
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../src/i18n'
 import { voiceSttFromBlob } from '@ihui/api-client'
 import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 
 /** Mic 图标 SVG(extension 端不依赖 lucide-react,保持依赖精简)。 */
 function MicIcon({ className }: { className?: string }) {
@@ -188,20 +189,26 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const buttonTitle = recording ? t('chat.voiceStop') : t('chat.voiceStart')
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={disabled}
-      aria-label={buttonTitle}
-      title={buttonTitle}
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
-        recording
-          ? 'bg-red-500 text-white hover:bg-red-500/90'
-          : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-      } disabled:cursor-not-allowed disabled:opacity-50`}
-    >
-      <MicIcon className="h-4 w-4" />
-    </button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={disabled}
+            aria-label={buttonTitle}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+              recording
+                ? 'bg-red-500 text-white hover:bg-red-500/90'
+                : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <MicIcon className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{buttonTitle}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 

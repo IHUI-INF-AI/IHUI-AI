@@ -732,11 +732,12 @@ function BudgetTab() {
               return (
                 <div key={i} className="flex flex-1 flex-col items-center gap-1">
                   <div className="flex w-full flex-1 items-end">
-                    <div
-                      className="w-full rounded-t bg-gradient-to-t from-cyan-500/40 to-cyan-400"
-                      style={{ height: `${h}%` }}
-                      title={`${formatNumber(tokens)} · $${num(p.cost).toFixed(4)}`}
-                    />
+                    <Tooltip content={`${formatNumber(tokens)} · $${num(p.cost).toFixed(4)}`}>
+                      <div
+                        className="w-full rounded-t bg-gradient-to-t from-cyan-500/40 to-cyan-400"
+                        style={{ height: `${h}%` }}
+                      />
+                    </Tooltip>
                   </div>
                   <span className="text-[9px] text-muted-foreground">
                     {p.date ? String(p.date).slice(5) : ''}

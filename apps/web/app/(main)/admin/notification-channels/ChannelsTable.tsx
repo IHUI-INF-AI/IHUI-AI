@@ -2,6 +2,7 @@
 
 import { Loader2, Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { TruncatedText } from '@/components/common'
 import { briefConfig, type Item, TYPE_KEY } from './helpers'
 
 interface Props {
@@ -44,11 +45,8 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
           ) : (
             list.map((item) => (
               <tr key={item.id} className="hover:bg-muted/30">
-                <td
-                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
-                  title={item.id}
-                >
-                  {item.id.slice(0, 8)}
+                <td className="max-w-[160px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <TruncatedText value={item.id.slice(0, 8)} />
                 </td>
                 <td className="px-4 py-2.5 font-medium">{item.name}</td>
                 <td className="px-4 py-2.5">
@@ -56,11 +54,8 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
                     {t(TYPE_KEY[item.type] ?? 'type_unknown')}
                   </span>
                 </td>
-                <td
-                  className="max-w-[200px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
-                  title={briefConfig(item.config)}
-                >
-                  {briefConfig(item.config)}
+                <td className="max-w-[200px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <TruncatedText value={briefConfig(item.config)} />
                 </td>
                 <td className="px-4 py-2.5">
                   {item.is_active ? (

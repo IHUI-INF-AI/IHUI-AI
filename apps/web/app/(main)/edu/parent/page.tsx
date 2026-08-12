@@ -39,7 +39,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@ihui/ui-react'
-import { Alert, ConfirmDialog } from '@/components/feedback'
+import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
 import { Input } from '@/components/form'
 import { Badge } from '@/components/data'
 
@@ -1028,29 +1028,32 @@ function BindingsManagement() {
                   <div className="flex items-center gap-2">
                     {b.status === 'pending' && (
                       <>
+                        <Tooltip content="确认">
                         <button
                           onClick={() => confirmMutation.mutate(b.id)}
                           className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
-                          title="确认"
                         >
                           <CheckCircle2 className="h-4 w-4" />
                         </button>
+                        </Tooltip>
+                        <Tooltip content="拒绝">
                         <button
                           onClick={() => rejectMutation.mutate(b.id)}
                           className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                          title="拒绝"
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
+                        </Tooltip>
                       </>
                     )}
+                    <Tooltip content="删除">
                     <button
                       onClick={() => setShowDeleteId(b.id)}
                       className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
-                      title="删除"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
