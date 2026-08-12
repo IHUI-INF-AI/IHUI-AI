@@ -355,6 +355,12 @@ class AgentLoopV2:
             })
         except Exception:
             logger.warning("hook_engine.emit(session.end) 失败(降级,不阻塞)")
+        # L5-12(2026-08-12):执行次数指标埋点(按 stop_reason)
+        try:
+            from ..middleware.agent_metrics import agent_loop_runs_total
+            agent_loop_runs_total.labels(result.stop_reason).inc()
+        except Exception:
+            pass
         return result
 
     # ------------------------------------------------------------------
@@ -446,6 +452,14 @@ class AgentLoopV2:
                 last_exc = e
                 if attempt >= self.llm_retry_max:
                     break
+                # L5-12(2026-08-12):LLM 重试指标埋点
+                try:
+                    from ..middleware.agent_metrics import agent_loop_llm_retries_total
+                    agent_loop_llm_retries_total.labels(
+                        self._classify_error(e)
+                    ).inc()
+                except Exception:
+                    pass
                 backoff = self.llm_retry_backoff * (2**attempt) * (
                     0.5 + random.random() * 0.5
                 )
@@ -981,6 +995,12 @@ class AgentLoopV2:
                 )
 
             retry_count += 1
+            # L5-12(2026-08-12):工具重试指标埋点
+            try:
+                from ..middleware.agent_metrics import agent_loop_tool_retries_total
+                agent_loop_tool_retries_total.inc()
+            except Exception:
+                pass
             backoff = self.tool_retry_backoff * retry_count
             logger.warning(
                 "工具 %s 执行失败[%s]: %s,%.1fs 后重试(%d/%d)",
