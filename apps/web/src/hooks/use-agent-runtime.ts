@@ -122,12 +122,30 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
           const d = data as ToolCallEvent & { type: 'tool_call' }
           setToolCallChain((prev) => [
             ...prev,
-            { id: d.id, tool: d.tool, args: d.args, status: d.status ?? 'pending' },
+            {
+              id: d.id,
+              tool: d.tool,
+              args: d.args,
+              status: d.status ?? 'pending',
+              // L5-8(2026-08-12):透传重试次数/错误分类(AgentLoopV2 事件源)
+              retryCount: d.retryCount,
+              errorType: d.errorType,
+            },
           ])
         } else if (data.type === 'tool_result') {
-          const d = data as { id: string; result?: unknown; status: ToolCallEvent['status'] }
+          const d = data as {
+            id: string
+            result?: unknown
+            status: ToolCallEvent['status']
+            retryCount?: number
+            errorType?: string
+          }
           setToolCallChain((prev) =>
-            prev.map((c) => (c.id === d.id ? { ...c, result: d.result, status: d.status } : c)),
+            prev.map((c) =>
+              c.id === d.id
+                ? { ...c, result: d.result, status: d.status, retryCount: d.retryCount, errorType: d.errorType }
+                : c,
+            ),
           )
         }
       } catch {
