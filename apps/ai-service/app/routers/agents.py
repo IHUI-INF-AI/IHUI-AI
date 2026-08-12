@@ -2,11 +2,14 @@
 
 提供 agent 执行、状态查询、取消、trace 可视化,以及会话记忆管理。
 新增 SSE 流式执行端点(事件缓冲 + 断线重连重放 + SSE event 字段 + 心跳保活)。
+L5-10(2026-08-12):AgentLoopV2 执行器(env AGENT_EXECUTOR=loop_v2 启用,
+重试/错误分类/元学习/事件总线),MCP 工具包装 + OpenAI tool_calls 格式转换。
 """
 
 import asyncio
 import json
 import logging
+import os
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
@@ -24,6 +27,150 @@ from ..services.vector_memory import vector_memory
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# L5-10 AgentLoopV2 执行器接线(2026-08-12 立)
+# ---------------------------------------------------------------------------
+
+
+def _convert_openai_tool_calls(
+    tc_list: Any,
+) -> list[dict[str, Any]] | None:
+    """llm_gateway 返回的 OpenAI 格式 tool_calls → AgentLoopV2 格式。
+
+    OpenAI: [{id, type, function: {name, arguments: JSON字符串}}]
+    AgentLoopV2: [{id, name, args: dict}]
+    """
+    if not tc_list:
+        return None
+    result: list[dict[str, Any]] = []
+    for tc in tc_list:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function") or {}
+        args_raw = fn.get("arguments") or "{}"
+        if isinstance(args_raw, str):
+            try:
+                args = json.loads(args_raw)
+            except (ValueError, TypeError):
+                args = {}
+        else:
+            args = args_raw
+        result.append(
+            {"id": tc.get("id", ""), "name": fn.get("name", ""), "args": args}
+        )
+    return result or None
+
+
+def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
+    """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
+
+    工具执行器走 mcp_server.call_tool(与 v1 agent_executor 同源),
+    失败抛异常由 AgentLoopV2 的瞬时错误重试/错误分类机制处理。
+    """
+    from ..services.agent_loop_v2 import ToolDefinition
+    from ..services.mcp_server import mcp_server
+
+    tools: list[Any] = []
+    for mt in mcp_server.list_tools():
+        if tool_names and mt.name not in tool_names:
+            continue
+
+        async def _exec(args: dict[str, Any], _name: str = mt.name) -> Any:
+            return await mcp_server.call_tool(_name, args)
+
+        tools.append(
+            ToolDefinition(
+                name=mt.name,
+                description=mt.description,
+                parameters=mt.input_schema,
+                executor=_exec,
+            )
+        )
+    return tools
+
+
+def _make_loop_v2_llm(model: str | None):
+    """构造 AgentLoopV2 的 llm_complete_fn(包装 llm_gateway.complete)。"""
+
+    async def _llm(messages: list[dict[str, Any]], tools: list[Any]) -> dict[str, Any]:
+        from ..core.llm_gateway import llm_gateway
+
+        result = await llm_gateway.complete(messages, model=model)
+        return {
+            "content": result.get("content", ""),
+            "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
+        }
+
+    return _llm
+
+
+def _is_loop_v2_enabled() -> bool:
+    """生产执行器开关(默认保持 langgraph 现状,env 显式启用 loop_v2)。"""
+    return os.environ.get("AGENT_EXECUTOR", "langgraph").lower() == "loop_v2"
+
+
+def _map_hook_event_to_sse(event: str) -> str:
+    """hook_engine 事件 → SSE event 类型(前端 use-agent-runtime 对齐)。"""
+    return {
+        "session.start": "session",
+        "tool.before": "tool_call",
+        "tool.after": "tool_result",
+        "error": "error",
+        "message.receive": "message",
+    }.get(event, event)
+
+
+@router.get("/agents/tasks/stream")
+async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingResponse:
+    """L5-10(2026-08-12):AgentLoopV2 实时事件订阅(workbench runtime 视图)。
+
+    通过 hook_engine 订阅器实时推送 tool_call/tool_result/error/session 事件
+    (按 agentId=session_id 过滤)。AgentLoopV2 执行器启用(AGENT_EXECUTOR=loop_v2)
+    后,execute/stream 的事件会在此实时可见;未启用时无事件源(静默心跳)。
+    """
+
+    async def event_generator() -> AsyncIterator[str]:
+        from ..services.hook_engine import hook_engine
+
+        subs: dict[str, asyncio.Queue] = {}
+        for evt in ("session.start", "tool.before", "tool.after", "error"):
+            subs[evt] = hook_engine.subscribe(evt)
+        try:
+            # 心跳保活(30s) + 事件转发
+            last_beat = asyncio.get_running_loop().time()
+            while True:
+                if await request.is_disconnected():
+                    break
+                got = False
+                for evt, q in subs.items():
+                    try:
+                        payload = q.get_nowait()
+                    except asyncio.QueueEmpty:
+                        continue
+                    got = True
+                    if agentId and payload.get("session_id") not in (agentId, ""):
+                        continue
+                    sse_evt = {
+                        "type": _map_hook_event_to_sse(evt),
+                        "payload": payload,
+                    }
+                    yield f"event: {sse_evt['type']}\ndata: {json.dumps(sse_evt, ensure_ascii=False)}\n\n"
+                now = asyncio.get_running_loop().time()
+                if not got and now - last_beat > 30:
+                    yield ": keep-alive\n\n"
+                    last_beat = now
+                await asyncio.sleep(0.2)
+        finally:
+            for evt, q in subs.items():
+                hook_engine.unsubscribe(evt, q)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
 
 # ---------------------------------------------------------------------------
 # Trace 存储(进程内 LRU,供 agent 执行轨迹可视化)
@@ -126,6 +273,69 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
             start_event = {"type": "start", "task_id": task_id, "session_id": req.session_id, "resume_from": last_event_id}
             eid = sse_buffer.append(task_id, start_event)
             yield _format_sse(eid, start_event)
+
+            # L5-10(2026-08-12):AgentLoopV2 执行器(env AGENT_EXECUTOR=loop_v2 启用)。
+            # 重试/错误分类/元学习/事件总线,SSE 事件经 hook_engine 订阅器按 session 过滤。
+            if _is_loop_v2_enabled():
+                from ..services.agent_loop_v2 import AgentLoopV2
+                from ..services.hook_engine import hook_engine
+
+                session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
+                loop = AgentLoopV2(
+                    _make_loop_v2_llm(req.model),
+                    tools=_build_loop_v2_tools(req.tools),
+                    session_id=session_id,
+                    max_iterations=req.max_iterations or 8,
+                    enable_checkpoint=True,
+                )
+                # 订阅事件 → SSE(只转发本 session 的 tool/error/session 事件)
+                subs: dict[str, asyncio.Queue] = {}
+                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
+                    subs[evt] = hook_engine.subscribe(evt)
+                try:
+                    result = await loop.run(
+                        [{"role": "user", "content": req.goal}]
+                    )
+                    # 转发所有订阅事件(按 session_id 过滤)
+                    import time as _time
+                    deadline = _time.monotonic() + 3
+                    while _time.monotonic() < deadline:
+                        got = False
+                        for evt, q in subs.items():
+                            try:
+                                payload = q.get_nowait()
+                            except asyncio.QueueEmpty:
+                                continue
+                            got = True
+                            if payload.get("session_id") not in (session_id, ""):
+                                continue
+                            sse_evt = {
+                                "type": _map_hook_event_to_sse(evt),
+                                "session_id": session_id,
+                                "payload": payload,
+                            }
+                            eid2 = sse_buffer.append(task_id, sse_evt)
+                            yield _format_sse(eid2, sse_evt)
+                        if not got:
+                            await asyncio.sleep(0.1)
+                    # 结果事件
+                    result_evt = {
+                        "type": "done",
+                        "task_id": task_id,
+                        "session_id": session_id,
+                        "success": result.success,
+                        "stop_reason": result.stop_reason,
+                        "output": getattr(result, "final_response", "")[:2000],
+                    }
+                    eid3 = sse_buffer.append(task_id, result_evt)
+                    yield _format_sse(eid3, result_evt)
+                finally:
+                    for evt, q in subs.items():
+                        hook_engine.unsubscribe(evt, q)
+                done_event = {"type": "done", "task_id": task_id}
+                eid = sse_buffer.append(task_id, done_event)
+                yield _format_sse(eid, done_event)
+                return
 
             # 优先用 LangGraph 工作流(完整 plan→execute→summarize)
             try:
