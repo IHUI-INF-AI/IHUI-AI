@@ -16073,7 +16073,16 @@
       "statusPending": "대기 중",
       "statusSuccess": "성공",
       "statusError": "실패"
-    }
+    },
+    "filterAll": "전체",
+    "filterRunning": "실행 중",
+    "filterPaused": "일시 중지",
+    "filterStopped": "중지됨",
+    "filterError": "오류",
+    "filterAllModels": "전체 모델",
+    "errorLoadFailed": "로드 실패",
+    "errorNetwork": "네트워크 오류",
+    "errorOperation": "작업 실패"
   },
   "swarmTopology": {
     "dispatchStatus": {
