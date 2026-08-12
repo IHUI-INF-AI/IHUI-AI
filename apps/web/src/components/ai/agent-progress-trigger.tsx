@@ -5,6 +5,7 @@ import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import {
   hydrateAgentProgressPaneFromStorage,
   useAgentProgressPaneStore,
@@ -130,7 +131,11 @@ export function AgentProgressTrigger({
   }, [togglePane])
 
   // v10:trigger 永远渲染,Pane 由 ai-side-panel.tsx mount,trigger 只切换 store.open
-  return (
+  // 2026-08-12 修复:移除原生 title= 属性(浏览器默认 tooltip 样式,无 border/无动画/
+  // 字体颜色与项目不一致),改用项目统一 <Tooltip> 组件(Radix UI 实现,rounded-md +
+  // bg-popover + border + Arrow + fade/zoom 动画)。hover/focus 时显示
+  // `liveStatusText (Ctrl+Shift+J)`,确保快捷键提示与样式完全统一。
+  const triggerButton = (
     <button
       ref={undefined}
       type="button"
@@ -141,7 +146,6 @@ export function AgentProgressTrigger({
       aria-label={hasLiveActivity ? `任务进度 ${liveStatusText}` : `${modeLabel}任务`}
       aria-expanded={paneOpen}
       aria-haspopup="dialog"
-      title={`${liveStatusText} (Ctrl+Shift+J)`}
       className={cn(
         // 尺寸 + 圆角
         'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150 ease-out',
@@ -192,6 +196,13 @@ export function AgentProgressTrigger({
         </span>
       )}
     </button>
+  )
+
+  // hover/focus 显示项目统一 Tooltip:实时任务名 + 快捷键提示,样式与项目全站一致
+  return (
+    <Tooltip content={`${liveStatusText} (Ctrl+Shift+J)`} side="bottom">
+      {triggerButton}
+    </Tooltip>
   )
 }
 
