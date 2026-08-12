@@ -80,18 +80,35 @@ export default function Carousel({
         <View style={{ display: 'flex', width: `${total * 100}%` }}>
           {items.map((item, index) => {
             const meta = variant === 'course' ? courseMeta[index] : undefined
-            // 修复 (2026-08-12):img 为空时显示渐变 + 文字 banner fallback,
-            // 避免 broken image 占用布局 + 让 banner 也能展示标题/副标题
+            // 修复 (2026-08-12 v2):img 为空 → 渐变 banner fallback。
+            //   H5 实测 inline backgroundImage 会被 Taro 样式序列化丢弃，导致首屏只剩浅灰。
+            //   方案:① className 绑定 carousel-fallback-0/1/2（由 app.css 全局写死 linear-gradient）；
+            //        ② 同时给一个深色 solid backgroundColor 兜底，避免任何情况下出现浅灰；
+            //        ③ 保留 inline backgroundImage 作为额外保险。
             const hasImg = !!item.img
-            const fallbackBg = ['linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)']
+            const FALLBACK_COUNT = 3
+            const fbIndex = index % FALLBACK_COUNT
+            const FALLBACK_SOLID = ['#1a1a3e', '#3e1a1a', '#0a3a2a']
+            const FALLBACK_GRAD = [
+              'linear-gradient(135deg, #1a1a3e 0%, #2d2d6b 50%, #667eea 100%)',
+              'linear-gradient(135deg, #3e1a1a 0%, #6b2d2d 50%, #f5576c 100%)',
+              'linear-gradient(135deg, #0a3a2a 0%, #1a5a4a 50%, #00d4aa 100%)',
+            ]
             return (
               <View
                 key={index}
                 id={`carousel-item-${index}`}
-                className="relative h-full"
+                className={hasImg ? 'relative' : `relative carousel-fallback carousel-fallback-$(fbIndex)`.replace('$(fbIndex)', String(fbIndex))}
                 style={{
                   width: `${100 / total}%`,
-                  background: hasImg ? undefined : fallbackBg[index % fallbackBg.length],
+                  // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
+                  // 显式设置高度,保证 banner 的深色渐变/纯色完整铺满可见区域。
+                  height: heightStyle,
+                  flex: '0 0 auto',
+                  backgroundColor: hasImg ? undefined : FALLBACK_SOLID[fbIndex],
+                  backgroundImage: hasImg ? undefined : FALLBACK_GRAD[fbIndex],
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                 }}
                 onClick={() => onItemClick?.(item, index)}
               >
@@ -103,12 +120,12 @@ export default function Carousel({
                     className="absolute inset-0 flex flex-col items-center justify-center p-4"
                   >
                     {item.title ? (
-                      <Text className="text-xl font-bold text-white text-center mb-2">
+                      <Text className="text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] text-center mb-2">
                         {item.title}
                       </Text>
                     ) : null}
                     {item.subtitle ? (
-                      <Text className="text-sm text-white/90 text-center">
+                      <Text className="text-sm text-white/95 drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] text-center">
                         {item.subtitle}
                       </Text>
                     ) : null}
