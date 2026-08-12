@@ -168,23 +168,29 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
   }, [qr.action, qr.copyValue])
 
   // action='copy' 用 <button>(无障碍 + 键盘 Enter 触发);普通二维码用 <div>
+  // 2026-08-12 改:去掉 trigger 上的 <Tooltip> 包装(用户反馈"hover 时 Tooltip 提示窗
+  // 跟放大的二维码窗重合,导致二维码底部看不全扫不上")
+  // - 根因:Tooltip 弹"点击复制微信号"等文字,放大二维码窗也 absolute 定位在 trigger 上方,
+  //   两者重叠,放大窗部分被 Tooltip 盖住
+  // - 修复:用 aria-label 替代 Tooltip 文字(无障碍等价),放大二维码窗仍保留(扫码更友好)
+  // - 微信号 QR 的"点击复制"行为提示放在 aria-label 中(屏幕阅读器可读,鼠标 hover 不再弹)
   const trigger =
     qr.action === 'copy' ? (
-      <Tooltip content={`点击复制微信号: ${qr.copyValue ?? ''}`}>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="cursor-pointer transition-opacity hover:opacity-80"
-        >
-          <div className={QR_BOX}>{img}</div>
-        </button>
-      </Tooltip>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="cursor-pointer transition-opacity hover:opacity-80"
+        aria-label={`点击复制微信号: ${qr.copyValue ?? ''}`}
+      >
+        <div className={QR_BOX}>{img}</div>
+      </button>
     ) : (
-      <Tooltip content={t(qr.altKey)}>
-        <div className="cursor-pointer transition-opacity hover:opacity-80">
-          <div className={QR_BOX}>{img}</div>
-        </div>
-      </Tooltip>
+      <div
+        className="cursor-pointer transition-opacity hover:opacity-80"
+        aria-label={t(qr.altKey)}
+      >
+        <div className={QR_BOX}>{img}</div>
+      </div>
     )
 
   return (
