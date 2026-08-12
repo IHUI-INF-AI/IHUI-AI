@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react'
 
+import { Tooltip } from '@/components/feedback'
 import { Card } from '@ihui/ui-react'
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { Input } from '@ihui/ui-react'
@@ -522,6 +523,7 @@ function PluginCardActions({
   if (!isAuthenticated) return null
   return (
     <div className="flex items-center gap-1">
+      <Tooltip content={isPinned ? unpinLabel : pinLabel}>
       <button
         type="button"
         onClick={(e) => {
@@ -531,7 +533,6 @@ function PluginCardActions({
         }}
         disabled={!isInstalled}
         aria-label={isPinned ? unpinLabel : pinLabel}
-        title={isPinned ? unpinLabel : pinLabel}
         className={cn(
           'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
           isPinned
@@ -542,6 +543,8 @@ function PluginCardActions({
       >
         {isPinned ? <Pin className="h-3.5 w-3.5 fill-current" /> : <Pin className="h-3.5 w-3.5" />}
       </button>
+      </Tooltip>
+      <Tooltip content={isInstalled ? uninstallLabel : installLabel}>
       <button
         type="button"
         onClick={(e) => {
@@ -550,7 +553,6 @@ function PluginCardActions({
           onToggleInstall()
         }}
         aria-label={isInstalled ? uninstallLabel : installLabel}
-        title={isInstalled ? uninstallLabel : installLabel}
         className={cn(
           'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
           isInstalled
@@ -560,6 +562,7 @@ function PluginCardActions({
       >
         <Power className="h-3.5 w-3.5" />
       </button>
+      </Tooltip>
     </div>
   )
 }
@@ -765,25 +768,27 @@ function MarketPluginCard({
             )}
             {isInstalled && <InstalledBadge label={installedBadgeLabel} />}
             {/* 集成度徽章:已集成(绿)/ 模型接入(蓝)/ 仅参考(灰) */}
-            <span
-              className={cn(
-                'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-                integrationBadge.className,
-              )}
-              title={
+            <Tooltip content={
                 integrationLevel === true
                   ? 'ai-service 后端有对应 MCP 工具,LLM 真能调用'
                   : integrationLevel === 'model'
                     ? 'LiteLLM 已接入,需配 .env 激活'
                     : '仅前端 prompt 意图,后端无对应实现'
-              }
+              }>
+            <span
+              className={cn(
+                'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                integrationBadge.className,
+              )}
             >
               {integrationBadge.label}
             </span>
+            </Tooltip>
           </div>
         </div>
         {/* 添加到对话按钮(2026-07-22 新增):独立 + 图标,与 Pin/Power 并列
             点击后把插件作为"已选工具"加入 chat store,在 AI 输入框上方显示 chip */}
+        <Tooltip content={isAddedToChat ? addedToChatLabel : addToChatLabel}>
         <button
           type="button"
           onClick={(e) => {
@@ -792,7 +797,6 @@ function MarketPluginCard({
             onAddToChat()
           }}
           aria-label={isAddedToChat ? addedToChatLabel : addToChatLabel}
-          title={isAddedToChat ? addedToChatLabel : addToChatLabel}
           className={cn(
             'flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
             isAddedToChat
@@ -802,6 +806,7 @@ function MarketPluginCard({
         >
           {isAddedToChat ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
         </button>
+        </Tooltip>
         <PluginCardActions
           isAuthenticated={isAuthenticated}
           isInstalled={isInstalled}

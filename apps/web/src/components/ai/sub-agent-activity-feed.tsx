@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, Zap } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { SubAgentActivity, AgentStatus } from './types'
 import { MarkdownStream } from './markdown-stream'
 
@@ -64,31 +65,32 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
 
   return (
     <div className="text-[11px]">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        title={statusLabel}
-        className="flex w-full items-center gap-1.5 text-left"
-      >
-        <span
-          className={cn(
-            'inline-block h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-150',
-            STATUS_DOT_COLOR[agent.status],
-            active && 'animate-pulse',
-          )}
-        />
-        <span className="font-medium text-foreground/80">{agent.name || agent.type || defaultName}</span>
-        <span className="rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground/70">
-          {badgeLabel}
-        </span>
-        <ChevronDown
-          className={cn(
-            'ml-auto h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
+      <Tooltip content={statusLabel}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-1.5 text-left"
+        >
+          <span
+            className={cn(
+              'inline-block h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-150',
+              STATUS_DOT_COLOR[agent.status],
+              active && 'animate-pulse',
+            )}
+          />
+          <span className="font-medium text-foreground/80">{agent.name || agent.type || defaultName}</span>
+          <span className="rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground/70">
+            {badgeLabel}
+          </span>
+          <ChevronDown
+            className={cn(
+              'ml-auto h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
+              open && 'rotate-180',
+            )}
+          />
+        </button>
+      </Tooltip>
 
       {open && (
         <div className="ml-3 mt-0.5 space-y-1 border-l border-border/20 pl-2">

@@ -13,6 +13,7 @@
 import { type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 
 export interface AppItem {
   /** 内部路由路径(优先) */
@@ -87,13 +88,19 @@ export function AppListPage({ titleKey, items }: AppListPageProps) {
                   </span>
                 ) : null}
                 {isExternal && !item.comingSoon ? (
-                  <span
-                    className="text-[10px] text-muted-foreground shrink-0"
-                    aria-label={t('apps.openInWeb')}
-                    title={t('apps.openInWeb')}
-                  >
-                    ↗
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="text-[10px] text-muted-foreground shrink-0"
+                          aria-label={t('apps.openInWeb')}
+                        >
+                          ↗
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('apps.openInWeb')}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ) : null}
                 {item.comingSoon ? (
                   <span className="text-[10px] text-muted-foreground shrink-0">

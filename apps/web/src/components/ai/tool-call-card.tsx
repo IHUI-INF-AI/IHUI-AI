@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { InlineDiffCard } from './inline-diff-card'
 import type { InlineDiffInfo } from './types'
@@ -352,24 +353,26 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
           让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
         {serverSource === 'plugin' && (
-          <span
-            aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
-            title={`插件工具${serverName ? ` · ${serverName}` : ''}`}
-            data-testid={`tool-call-source-plugin-${toolName}`}
-            className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400"
-          >
-            {serverName ?? '插件'}
-          </span>
+          <Tooltip content={`插件工具${serverName ? ` · ${serverName}` : ''}`}>
+            <span
+              aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+              data-testid={`tool-call-source-plugin-${toolName}`}
+              className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400"
+            >
+              {serverName ?? '插件'}
+            </span>
+          </Tooltip>
         )}
         {serverSource === 'mcp' && (
-          <span
-            aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
-            title={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
-            data-testid={`tool-call-source-mcp-${toolName}`}
-            className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400"
-          >
-            MCP{serverName ? ` · ${serverName}` : ''}
-          </span>
+          <Tooltip content={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}>
+            <span
+              aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
+              data-testid={`tool-call-source-mcp-${toolName}`}
+              className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400"
+            >
+              MCP{serverName ? ` · ${serverName}` : ''}
+            </span>
+          </Tooltip>
         )}
         {iteration !== undefined && iteration > 1 && (
           <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70">

@@ -14,6 +14,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
+import { Tooltip } from '@/components/feedback'
 import {
   Card,
   CardHeader,
@@ -691,15 +692,16 @@ export default function LoginSecurityPage() {
             {recoveryCodes && (
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {recoveryCodes.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => copyRecoveryCode(code)}
-                    title={s('copySecret')}
-                    className="cursor-pointer rounded-md border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
-                  >
-                    {code}
-                  </button>
+                  <Tooltip content={s('copySecret')}>
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => copyRecoveryCode(code)}
+                      className="cursor-pointer rounded-md border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
+                    >
+                      {code}
+                    </button>
+                    </Tooltip>
                 ))}
               </div>
             )}
