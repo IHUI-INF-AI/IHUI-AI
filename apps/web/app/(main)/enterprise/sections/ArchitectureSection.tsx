@@ -37,7 +37,7 @@ export function ArchitectureSection() {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
         <Card>
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 min-[640px]:p-5">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 LAYER 01
@@ -64,7 +64,7 @@ export function ArchitectureSection() {
         </Card>
 
         <Card>
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 min-[640px]:p-5">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 LAYER 02
@@ -107,7 +107,7 @@ export function ArchitectureSection() {
         </Card>
 
         <Card className="border-primary/20">
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 min-[640px]:p-5">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 LAYER 03

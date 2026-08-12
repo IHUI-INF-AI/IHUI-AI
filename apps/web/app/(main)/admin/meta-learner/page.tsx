@@ -236,7 +236,7 @@ export default function MetaLearnerPage() {
           <div className="space-y-2">
             {history.map((entry, i) => (
               <Card key={`${i}-${entry.triggered_at}`}>
-                <CardContent className="flex flex-wrap items-center gap-3 p-3 text-sm">
+                <CardContent className="flex flex-wrap items-center gap-3 p-3 text-sm min-[640px]:p-3">
                   <Badge className={RUN_BADGE[entry.status]}>{t(RUN_I18N[entry.status])}</Badge>
                   <span className="text-muted-foreground">{t('runAt')}: {formatShortDateTime(entry.triggered_at, locale)}</span>
                   <span className="text-muted-foreground">{t('duration')}: {(entry.duration_ms / 1000).toFixed(1)}s</span>

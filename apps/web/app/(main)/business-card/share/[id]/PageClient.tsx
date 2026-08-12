@@ -202,7 +202,7 @@ export default function CardSharePage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-6 min-[640px]:flex-row min-[640px]:justify-between">
+        <CardContent className="flex flex-col items-center gap-4 p-6 min-[640px]:flex-row min-[640px]:justify-between min-[640px]:p-6">
           <div className="flex flex-col items-center gap-2">
             <div className="rounded-lg border p-2">
               <Image

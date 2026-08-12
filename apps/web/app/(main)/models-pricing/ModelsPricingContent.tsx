@@ -145,7 +145,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 pt-0">
+              <CardContent className="p-5 pt-0 min-[640px]:p-5">
                 <Table>
                   <TableHeader>
                     <TableRow>

@@ -103,7 +103,7 @@ export default function NotificationsPage() {
             className={`cursor-pointer hover:bg-muted/50 transition-colors ${n.isRead ? '' : 'border-primary/40'}`}
             onClick={() => !n.isRead && onMarkOne(n.id)}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="font-medium text-sm flex-1 min-w-0">{n.title}</div>
                 {!n.isRead ? (
