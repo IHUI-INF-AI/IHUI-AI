@@ -1,7 +1,8 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
-import { aizhsUrl } from '@/constants/icon-urls'
+// 本地化远程 CDN 图片:原 aizhs 图库在 H5 模式下加载失败,改为本地 SVG 占位
+import vipActIcon from '@/assets/remote-images/user-vip-act.svg'
 // 图标引用对齐原项目 zhs_app-ZZ/UserInfoCard.vue
 // 本地有副本(@/assets/remote/,从原项目 src/static/ 复制)→ import 引入
 import defaultAvatarImg from '@/assets/remote/images/daixaodiming.png'
@@ -10,10 +11,6 @@ import editIconImg from '@/assets/remote/images/xiugai.jpg'
 import wirelessLogoImg from '@/assets/remote/images/wirelesslogo.jpg'
 import rechargeBtnImg from '@/assets/remote/images/default/rechargebtn.png'
 import vipNorIcon from '@/assets/remote/images/userVip_nor.png'
-
-// 本地无副本 → 直接用远程 URL(与原项目一致)
-// 原项目 src: https://file.aizhs.top/sys-mini/default/home/userVip_act.png
-const vipActIcon = aizhsUrl('sys-mini/default/home/userVip_act.png')
 
 // 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
 // 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)。
