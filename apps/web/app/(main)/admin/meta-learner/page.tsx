@@ -38,6 +38,13 @@ interface HistoryEntry {
   error: string | null
 }
 
+interface AgentFailuresData {
+  agentErrors: { total: number; byType: Record<string, number> }
+  toolFailures: { total: number; byType: Record<string, number> }
+  failedCheckpoints: number
+  recent: Array<{ kind: string; errorType: string; error: string; time: string }>
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -106,6 +113,10 @@ export default function MetaLearnerPage() {
     queryKey: ['meta-learner', 'history'],
     queryFn: () => api<{ history: HistoryEntry[] }>('/api/admin/meta-learner/history?limit=20'),
   })
+  const failuresQuery = useQuery({
+    queryKey: ['meta-learner', 'agent-failures'],
+    queryFn: () => api<AgentFailuresData>('/api/admin/meta-learner/agent-failures'),
+  })
   const triggerMutation = useMutation({
     mutationFn: () => api<{ status: string }>('/api/admin/meta-learner/trigger', { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meta-learner'] }),
@@ -171,6 +182,91 @@ export default function MetaLearnerPage() {
             </Card>
           </div>
         ) : null}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Activity className="h-5 w-5 text-primary" />
+          {t('agentFailures')}
+        </h2>
+        {failuresQuery.isLoading ? (
+          <LoadingRow label={tc('loading')} />
+        ) : failuresQuery.isError ? (
+          <Alert variant="danger" description={(failuresQuery.error as Error).message} />
+        ) : (
+          (() => {
+            const f = failuresQuery.data
+            if (!f) return null
+            const typeBadge: Record<string, string> = {
+              timeout: 'border-transparent bg-amber-500/10 text-amber-600',
+              connection: 'border-transparent bg-red-500/10 text-red-600',
+              http_5xx: 'border-transparent bg-red-500/10 text-red-600',
+              http_4xx: 'border-transparent bg-amber-500/10 text-amber-600',
+              unknown: 'border-transparent bg-muted text-muted-foreground',
+            }
+            const byTypeRows = (m: Record<string, number>) =>
+              Object.entries(m).map(([k, v]) => (
+                <span key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Badge className={typeBadge[k] ?? typeBadge.unknown}>{k}</Badge>
+                  {v}
+                </span>
+              ))
+            return (
+              <>
+                <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-primary" />{t('agentErrors')}</CardTitle></CardHeader>
+                    <CardContent className="space-y-1 text-sm">
+                      <p className="text-2xl font-medium">{f.agentErrors.total}</p>
+                      <div className="flex flex-wrap gap-2">{byTypeRows(f.agentErrors.byType)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Zap className="h-4 w-4 text-primary" />{t('toolFailures')}</CardTitle></CardHeader>
+                    <CardContent className="space-y-1 text-sm">
+                      <p className="text-2xl font-medium">{f.toolFailures.total}</p>
+                      <div className="flex flex-wrap gap-2">{byTypeRows(f.toolFailures.byType)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-primary" />{t('failedCheckpoints')}</CardTitle></CardHeader>
+                    <CardContent className="space-y-1 text-sm">
+                      <p className="text-2xl font-medium">{f.failedCheckpoints}</p>
+                      <p className="text-xs text-muted-foreground">{t('lessonsExtracted')}: {t('recentFailures')}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">{t('recentFailures')}</p>
+                  {f.recent.length === 0 ? (
+                    <EmptyState icon={<Activity className="h-8 w-8 text-muted-foreground" />} label={t('noFailures')} />
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">{t('errorType')}</th>
+                            <th className="px-3 py-2 text-left font-medium">{t('title')}</th>
+                            <th className="px-3 py-2 text-left font-medium">{t('runAt')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {f.recent.map((r, i) => (
+                            <tr key={`${i}-${r.time}`} className="border-t">
+                              <td className="px-3 py-2"><Badge className={typeBadge[r.errorType] ?? typeBadge.unknown}>{r.errorType}</Badge></td>
+                              <td className="max-w-md truncate px-3 py-2">{r.error || '-'}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{formatShortDateTime(r.time, locale)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )
+          })()
+        )}
       </section>
 
       <section className="space-y-3">
