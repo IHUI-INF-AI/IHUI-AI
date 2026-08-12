@@ -28,6 +28,37 @@ interface PathLabelEntry {
   spec: PathLabelSpec
 }
 
+/**
+ * i18n 路由前缀列表(2026-08-12 立,用户反馈"标签栏卡片文本没做好 i18n")。
+ *
+ * 背景:Next.js 顶层独立 SEO 路由使用 `/en/...` 前缀(app/en/),
+ * (main) 路由组下用 `/ko/`、`/ja/`、`/zh-TW/` 区分语言版 use-cases。
+ * usePathname() 会原样返回这些前缀,直接送进 resolvePathLabelSpec 找不到 spec,
+ * 走 deriveTitle 兜底成英文 Title Case,在中文/日文/韩文环境下视觉违和。
+ *
+ * 根治:resolvePathLabelSpec 入口先调用 stripI18nPrefix 剥离前缀,再走精确/前缀匹配。
+ * 同步:i18n 路由目录或 (main)/<locale>/ 新增语言前缀时,必须在此处同步追加;
+ * 与 i18n/request.ts LOCALES 保持语义一致(那里列了全部 5 语言,这里仅列实际有路由目录的)。
+ */
+const I18N_PATH_PREFIXES: readonly string[] = ['en', 'ko', 'ja', 'zh-TW', 'zh-CN']
+
+/**
+ * 剥离 pathname 起始的 i18n 路由前缀。
+ * - `/en/docs` → `/docs`
+ * - `/ko/use-cases/ai-translation` → `/use-cases/ai-translation`
+ * - `/docs` → `/docs`(不变)
+ * - `/` → `/`(不变)
+ */
+function stripI18nPrefix(pathname: string): string {
+  if (!pathname) return pathname
+  const segs = pathname.split('/').filter(Boolean)
+  if (segs.length === 0) return pathname
+  if (I18N_PATH_PREFIXES.includes(segs[0]!)) {
+    return '/' + segs.slice(1).join('/')
+  }
+  return pathname
+}
+
 /** 主侧边栏路由 → ns='nav',key=labelKey */
 const NAV_ENTRIES: PathLabelEntry[] = FLAT_NAV_ITEMS.map((item) => ({
   href: item.href,
@@ -162,6 +193,8 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/plugins', spec: { ns: 'plugins', key: 'title' } },
   { href: '/points/sign-in', spec: { ns: 'points', key: 'signIn' } },
   { href: '/publish/accounts', spec: { ns: 'publish', key: 'accounts.title' } },
+  { href: '/publish/analytics', spec: { ns: 'publish', key: 'analytics.title' } },
+  { href: '/publish/calendar', spec: { ns: 'publish', key: 'calendar.title' } },
   { href: '/publish/history', spec: { ns: 'publish', key: 'history.title' } },
   { href: '/publish/new', spec: { ns: 'publish', key: 'new.title' } },
   { href: '/search/history', spec: { ns: 'search', key: 'history' } },
@@ -197,20 +230,27 @@ const SORTED_PATH_LABELS = [...ALL_PATH_LABEL_MAP].sort((a, b) => b.href.length 
  * 解析 pathname → 标签规格。
  *
  * 1. '/' → {ns:'nav', key:'home'}
- * 2. 精确匹配 ALL_PATH_LABEL_MAP
- * 3. 最长前缀匹配(SORTED_PATH_LABELS 中按 href 长度降序的第一条 startsWith 命中)
- * 4. 未命中返回 null(TagsView 会回退到 deriveTitle,kebab-case → Title Case)
+ * 2. 先剥离 i18n 路由前缀(/en//ko//ja//zh-TW//zh-CN-)→ 复用 /docs 等非前缀版本 spec
+ * 3. 精确匹配 ALL_PATH_LABEL_MAP
+ * 4. 最长前缀匹配(SORTED_PATH_LABELS 中按 href 长度降序的第一条 startsWith 命中)
+ * 5. 未命中返回 null(TagsView 会回退到 deriveTitle,kebab-case → Title Case)
  */
 export function resolvePathLabelSpec(pathname: string): PathLabelSpec | null {
   if (!pathname || pathname === '/') return { ns: 'nav', key: 'home' }
 
+  // 2026-08-12 修复:i18n 路由前缀剥离(用户反馈"/en/docs 标签栏卡片文本没做好 i18n")。
+  // 例:`/en/docs` → 剥离后 `/docs` → 命中 EXTRA_PATH_LABELS 的 nav.docs = "文档"。
+  // 副作用:`/en/agents`、`/en/models`、`/ko/use-cases/...` 等 i18n 路由全部自动受益,
+  // 不再退化为 deriveTitle 兜底的英文 Title Case。
+  const normalized = stripI18nPrefix(pathname)
+
   // 精确匹配
-  const exact = ALL_PATH_LABEL_MAP.find((e) => e.href === pathname)
+  const exact = ALL_PATH_LABEL_MAP.find((e) => e.href === normalized)
   if (exact) return exact.spec
 
   // 最长前缀匹配(已按 href 长度降序)
   for (const entry of SORTED_PATH_LABELS) {
-    if (pathname.startsWith(`${entry.href}/`)) return entry.spec
+    if (normalized.startsWith(`${entry.href}/`)) return entry.spec
   }
 
   return null
