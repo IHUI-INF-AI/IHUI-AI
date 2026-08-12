@@ -278,6 +278,13 @@ const nextConfig: NextConfig = {
           source: '/api/prompts/:path*',
           destination: 'http://localhost:8803/api/prompts/:path*',
         },
+        // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
+        // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/admin/news/:path*',
+          destination: 'http://localhost:8803/api/admin/news/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
