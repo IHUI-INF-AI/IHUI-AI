@@ -163,30 +163,33 @@ function scanFile(src) {
     }
 
     // 2. 更新 inJsxTag 状态
-    // 2a. 检测"开启新 tag 但未在同一行关闭"
-    //   - 模式 A:单行 <TagName ... > (tag 完整,无未关闭)
-    //   - 模式 B:多行 <TagName ... \n  (tag 跨行,设置 inJsxTag)
-    const hasOpening = /<([A-Z][a-zA-Z0-9]*)\b/.exec(trimmed) // 仅大写开头(组件)
-    if (hasOpening) {
-      // 找该行最后一个 > 位置
-      const lastGt = trimmed.lastIndexOf('>')
-      const firstLt = trimmed.indexOf('<')
-      if (lastGt === -1 || lastGt < firstLt) {
-        // tag 未在本行关闭(只有开 tag,没有 >)
-        inJsxTag = {
-          tagName: hasOpening[1],
-          hasAsChild: /\basChild\b/.test(trimmed),
-          startLine: lineNumber,
-        }
-      } else {
-        // tag 完整关闭
-        inJsxTag = null
+  // 2a. 检测"开启新 tag 但未在同一行关闭"
+  //   - 模式 A:单行 <TagName ... > (tag 完整,无未关闭)
+  //   - 模式 B:多行 <TagName ... \n  (tag 跨行,设置 inJsxTag)
+  // 2026-08-12 修复:小写 HTML 元素(<button/<div/<span/<p 等)跨行 title= 也需跟踪
+  //   原版仅匹配大写组件,导致 <button\n  ...\n  title=...> 多行模式漏检,
+  //   用户 hover 时仍显示浏览器原生 tooltip,触发"彻底禁用自带样式"用户规则。
+  const hasOpening = /<([a-zA-Z][a-zA-Z0-9]*)\b/.exec(trimmed) // 大写组件 + 小写 HTML 元素
+  if (hasOpening) {
+    // 找该行最后一个 > 位置
+    const lastGt = trimmed.lastIndexOf('>')
+    const firstLt = trimmed.indexOf('<')
+    if (lastGt === -1 || lastGt < firstLt) {
+      // tag 未在本行关闭(只有开 tag,没有 >)
+      inJsxTag = {
+        tagName: hasOpening[1],
+        hasAsChild: /\basChild\b/.test(trimmed),
+        startLine: lineNumber,
       }
-    } else if (inJsxTag && /^\s*\/?>\s*$/.test(line)) {
-      // 2b. 之前有未关闭 tag,本行是纯关闭标记 `>` 或 `/>`
-      // 严格匹配:整行只有 `>`(避免箭头函数 `=>` 误判)
+    } else {
+      // tag 完整关闭
       inJsxTag = null
     }
+  } else if (inJsxTag && /^\s*\/?>\s*$/.test(line)) {
+    // 2b. 之前有未关闭 tag,本行是纯关闭标记 `>` 或 `/>`
+    // 严格匹配:整行只有 `>`(避免箭头函数 `=>` 误判)
+    inJsxTag = null
+  }
   }
   return findings
 }
