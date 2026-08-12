@@ -4,6 +4,7 @@
  * 适配 ESLint 9 flat config。
  */
 import tseslint from 'typescript-eslint'
+import ihuiRules from './rules/no-unpaired-card-content-padding.js'
 
 export default tseslint.config(
   {
@@ -19,7 +20,15 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
     extends: [...tseslint.configs.recommended],
+    plugins: {
+      ihui: ihuiRules,
+    },
     rules: {
+      // 自定义规则:CardContent className 含 p-X (X ∈ {2,3,5,6,8} 等非默认) 时,
+      // 若未来 CardContent 默认值引入 min-[640px]:p-Z 响应式,p-X 类会行为不可控。
+      // 现状(2026-08-12):CardContent 默认统一 p-4,本规则为 warn 而非 error;
+      // 不阻塞提交,但要求未来开发偏离默认 p-X 时加 min-[640px]:p-Y 限定。
+      'ihui/no-unpaired-card-content-padding': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
