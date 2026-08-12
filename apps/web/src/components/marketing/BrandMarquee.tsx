@@ -4,6 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
+import { Tooltip } from '@/components/feedback'
 import { IMG_EAGER, MARQUEE_BRANDS, SCHOOL_BRANDS } from './footer-data'
 
 /**
@@ -85,20 +86,18 @@ function MarqueeRow({
               ? darkInvertFilter
               : ''
           return (
-            <div
-              key={`${loopKey}-${brand.nameKey}-${idx}`}
-              className={box}
-              title={label}
-            >
-              <Image
-                src={brand.src}
-                alt={label}
-                width={shape === 'wide' ? 144 : 36}
-                height={shape === 'wide' ? 40 : 36}
-                className={`${img}${filter}`}
-                {...IMG_EAGER}
-              />
-            </div>
+            <Tooltip key={`${loopKey}-${brand.nameKey}-${idx}`} content={label}>
+              <div className={box}>
+                <Image
+                  src={brand.src}
+                  alt={label}
+                  width={shape === 'wide' ? 144 : 36}
+                  height={shape === 'wide' ? 40 : 36}
+                  className={`${img}${filter}`}
+                  {...IMG_EAGER}
+                />
+              </div>
+            </Tooltip>
           )
         })}
       </div>
