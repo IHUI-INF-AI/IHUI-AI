@@ -10,6 +10,8 @@ export {
   CardContent,
   CardFooter,
 } from './components/card'
+export { StatCard, StatGrid } from './components/stat-card'
+export type { StatCardProps, StatGridProps } from './components/stat-card'
 export {
   Dialog,
   DialogTrigger,
