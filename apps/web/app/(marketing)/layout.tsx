@@ -74,6 +74,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     // - 桌面端(≥1024px):--topbar-content-left=0px,无左侧 padding
     // - 移动端(<1024px):--topbar-content-left=46px(动态测量),对齐搜索按钮
     // - pl-2 去掉:MainShell wrapper 也没有单独的 pl-2
+    // 2026-08-12 回退:pb-0 → pb-2(用户反馈"工作展示区不应贴屏底,应保留 8px 呼吸空";
+    // 上一版改 pb-0 是为了强行让 footer 贴屏底,破坏了卡片底部 8px 呼吸空。
+    // 正确策略:让 footer 在 page-7 内部自然紧跟内容,外层 8px padding 保留视觉舒适度)
     <div className="flex min-h-0 flex-1 flex-col pb-2 pl-[var(--topbar-content-left)] pr-2">
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel">
         {children}
