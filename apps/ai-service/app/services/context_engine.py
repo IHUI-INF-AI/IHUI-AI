@@ -37,9 +37,15 @@ from ..core.llm_gateway import llm_gateway
 logger = logging.getLogger(__name__)
 
 # 压缩触发阈值(占比达 context_limit 的 88% 时触发,跨端统一)
-COMPACTION_THRESHOLD = 0.88
-# 保留最近消息数(不参与压缩的滑窗大小)
-KEEP_RECENT_COUNT = 6
+# L5-4 可配置化(2026-08-12 立):支持环境变量覆盖,默认保持原值
+#   CONTEXT_COMPACTION_THRESHOLD: 压缩触发阈值(0~1,越小越激进)
+#   CONTEXT_KEEP_RECENT: 保留最近消息数(不参与压缩的滑窗大小)
+_COMPACTION_THRESHOLD_DEFAULT = 0.88
+_KEEP_RECENT_COUNT_DEFAULT = 6
+COMPACTION_THRESHOLD = float(
+    os.environ.get("CONTEXT_COMPACTION_THRESHOLD", _COMPACTION_THRESHOLD_DEFAULT)
+)
+KEEP_RECENT_COUNT = int(os.environ.get("CONTEXT_KEEP_RECENT", _KEEP_RECENT_COUNT_DEFAULT))
 # 粗略 token 估算系数(中文 ~1.5 char/token,英文 ~4 char/token,取折中)
 CHARS_PER_TOKEN_ESTIMATE = 3.5
 # 上下文增强默认 token 预算(2026-07-22 立)
