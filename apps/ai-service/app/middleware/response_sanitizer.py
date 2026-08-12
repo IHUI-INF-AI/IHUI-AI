@@ -36,10 +36,14 @@ SENSITIVE_KEYS: set[str] = {
 
 # 白名单:即便命中敏感规则也不脱敏(LLM usage 计量字段,调用方必需)
 # P0-5m(2026-07-30):prompt_tokens 等含 "token" 子串会被误伤,导致 usage 返回 ***
+# L5-12(2026-08-12):tokenUsage(agent-runtime TokenUsageChart 数据)含 "token"
+# 子串被误伤 → 整个值脱敏为 ***;补充白名单。
 SAFE_KEYS: set[str] = {
     "prompt_tokens",
     "completion_tokens",
     "total_tokens",
+    "tokenusage",
+    "token_usage",
 }
 
 MASK = "***"
