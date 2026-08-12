@@ -7,6 +7,7 @@ import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { maskKey } from './v1-shared.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
@@ -90,11 +91,6 @@ const chatSchemaFrontend = z.union([
       conversationId: v.conversationId,
     })),
 ])
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return '****'
-  return `${key.slice(0, 4)}****${key.slice(-4)}`
-}
 
 interface LLMCallParams {
   vendor: string
