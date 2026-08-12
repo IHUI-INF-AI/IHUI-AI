@@ -1586,7 +1586,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         // (用户持久化 stored='0'/'1' 场景),允许 React 在此属性上 mismatch,避免 console warning。
         // 不影响交互和 grid-rows 展开行为(首帧 open 已是正确值,无过渡闪烁)。
         suppressHydrationWarning
-        className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        className="group/grp flex w-full items-center gap-1.5 px-2.5 pb-1.5 pt-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         {group.label === 'hotGroupLabel' ? (
           <>
@@ -1594,7 +1594,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
               {groupLabel}
             </span>
             <Flame
-              className="h-3 w-3 shrink-0 text-orange-500 transition-colors group-hover/grp:text-orange-600 dark:text-orange-400 dark:group-hover/grp:text-orange-300"
+              className="h-4 w-4 shrink-0 text-orange-500 transition-colors group-hover/grp:text-orange-600 dark:text-orange-400 dark:group-hover/grp:text-orange-300"
               aria-hidden="true"
             />
           </>
@@ -1603,7 +1603,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         )}
         <ChevronDown
           className={cn(
-            'h-3 w-3 shrink-0 transition-transform duration-200',
+            'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
             !open && '-rotate-90',
           )}
           aria-hidden="true"
