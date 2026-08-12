@@ -48,6 +48,7 @@ import ModelConfigDialog from '@/components/ModelConfigDialog'
 import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
+import { FloatBox } from '@/components'
 import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
 // ===== 内联模型类型按钮 SVG 资源(对齐原项目 ai_index.vue model-type-btn) =====
@@ -203,195 +204,7 @@ interface AiHomeState {
   showSharePopup: boolean
   // 公告文本
   announcementText: string
-  // FloatBox 悬浮组件可见性(对齐原项目 floatboxVisible)
-  floatboxVisible: boolean
-}
-
-/**
- * FloatBox 悬浮侧边栏组件(对齐原项目 FloatBox.vue)
- * - 固定在右下侧,包含"赚米"/"客服"/"反馈"按钮
- * - 可展开/收起
- */
-function FloatBox({
-  visible,
-  onToggle,
-  onShare,
-  onCustomerService,
-  onFeedback,
-}: {
-  visible: boolean
-  onToggle: () => void
-  onShare?: () => void
-  onCustomerService?: () => void
-  onFeedback?: () => void
-}) {
-  return (
-    <View>
-      {/* 侧边栏展开时显示透明遮罩 */}
-      {!visible && (
-        <View
-          className="fixed inset-0"
-          style={{ zIndex: 1004, background: 'transparent' }}
-          onClick={onToggle}
-        />
-      )}
-      <View
-        className="float-box"
-        style={{
-          position: 'fixed',
-          right: visible ? rpx(20) : rpx(-240),
-          bottom: '9%',
-          width: rpx(118),
-          minHeight: rpx(340),
-          backgroundColor: '#fff',
-          borderRadius: rpx(30),
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-          transition: 'right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1)',
-          zIndex: 1005,
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        {/* 展开箭头 */}
-        <View
-          className="float-arrow"
-          style={{
-            width: rpx(40),
-            height: rpx(100),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'absolute',
-            left: visible ? rpx(-161) : rpx(-37),
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: 'transparent',
-            zIndex: 10000,
-            transition: 'left 0.3s',
-          }}
-          onClick={(e: { stopPropagation: () => void }) => {
-            e.stopPropagation()
-            onToggle()
-          }}
-        >
-          <Text
-            style={{
-              fontSize: rpx(36),
-              color: '#333',
-              fontWeight: 'bold',
-            }}
-          >
-            {visible ? '◀' : '▶'}
-          </Text>
-        </View>
-        {/* 悬浮内容 */}
-        {visible && (
-          <View
-            className="float-content"
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: `${rpx(14)} 0`,
-              boxSizing: 'border-box',
-              justifyContent: 'center',
-            }}
-          >
-            {/* 赚米按钮 */}
-            <View
-              className="float-item"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                margin: `${rpx(5)} 0`,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-              }}
-              onClick={(e: { stopPropagation: () => void }) => {
-                e.stopPropagation()
-                onShare?.()
-              }}
-            >
-              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>💰</Text>
-              <Text
-                style={{
-                  fontSize: rpx(28),
-                  fontWeight: 'bold',
-                  color: '#ff0000',
-                  letterSpacing: rpx(2),
-                }}
-              >
-                赚米
-              </Text>
-            </View>
-            {/* 客服按钮 */}
-            <View
-              className="float-item"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                margin: `${rpx(5)} 0`,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-              }}
-              onClick={(e: { stopPropagation: () => void }) => {
-                e.stopPropagation()
-                onCustomerService?.()
-              }}
-            >
-              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>💬</Text>
-              <Text
-                style={{
-                  fontSize: rpx(28),
-                  fontWeight: 'bold',
-                  color: '#222',
-                  letterSpacing: rpx(2),
-                }}
-              >
-                客服
-              </Text>
-            </View>
-            {/* 反馈按钮 */}
-            <View
-              className="float-item"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                margin: `${rpx(5)} 0`,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-              }}
-              onClick={(e: { stopPropagation: () => void }) => {
-                e.stopPropagation()
-                onFeedback?.()
-              }}
-            >
-              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>📝</Text>
-              <Text
-                style={{
-                  fontSize: rpx(28),
-                  fontWeight: 'bold',
-                  color: '#222',
-                  letterSpacing: rpx(2),
-                }}
-              >
-                反馈
-              </Text>
-            </View>
-          </View>
-        )}
-      </View>
-    </View>
-  )
-}
+  }
 
 /**
  * PushNotification 推送通知弹窗组件(对齐原项目 PushNotification.vue)
@@ -485,9 +298,7 @@ export default function Index() {
     showSharePopup: false,
     // 公告文本
     announcementText: '🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！',
-    // FloatBox 可见性(对齐原项目 floatboxVisible: true)
-    floatboxVisible: true,
-  }))
+    }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
@@ -610,28 +421,6 @@ export default function Index() {
   const handleInnerClick = useCallback(() => {
     // 原项目用于切换 sourceIs/sourceIsAgent 状态
     // 当前 Taro 版本通过 BottomActionBar 的 toggle 按钮处理,此处为占位
-  }, [])
-
-  // FloatBox 切换可见性
-  const handleFloatBoxToggle = useCallback(() => {
-    setState((s) => ({ ...s, floatboxVisible: !s.floatboxVisible }))
-  }, [])
-
-  // FloatBox 分享(赚米)
-  const handleFloatBoxShare = useCallback(() => {
-    setState((s) => ({ ...s, showSharePopup: true }))
-  }, [])
-
-  // FloatBox 客服
-  const handleFloatBoxCustomerService = useCallback(() => {
-    Taro.showToast({ title: '客服功能开发中', icon: 'none' })
-  }, [])
-
-  // FloatBox 反馈
-  const handleFloatBoxFeedback = useCallback(() => {
-    Taro.navigateTo({ url: '/pagesA/fankui/index' }).catch(() => {
-      Taro.showToast({ title: '反馈页面未配置', icon: 'none' })
-    })
   }, [])
 
   const handleModelSelect = (model: ModelItem) => {
@@ -876,13 +665,7 @@ export default function Index() {
       />
 
       {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
-      <FloatBox
-        visible={state.floatboxVisible}
-        onToggle={handleFloatBoxToggle}
-        onShare={handleFloatBoxShare}
-        onCustomerService={handleFloatBoxCustomerService}
-        onFeedback={handleFloatBoxFeedback}
-      />
+      <FloatBox />
 
       {/* ===== container 主容器(对齐原项目 container @click=handleClick) ===== */}
       <View className="container" style={{ padding: 0 }} onClick={handleInnerClick}>
