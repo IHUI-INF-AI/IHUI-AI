@@ -6,6 +6,9 @@ import { logout } from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
+import DrawerComponent from '@/components/DrawerComponent'
+import UserInfoCard from '@/components/UserInfoCard'
+import LoginPopUp from '@/components/LoginPopUp'
 import { rpx } from '@/utils/rpx'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
@@ -20,6 +23,7 @@ import playIcon from '@/assets/remote/images/play.svg'
 import pauseIcon from '@/assets/remote/images/pause.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
+import './index.css'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
@@ -84,7 +88,12 @@ export default function UserIndex() {
   // 视频播放弹窗
   const [showVideoPlayer, setShowVideoPlayer] = useState<boolean>(false)
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('')
+  // 登录弹窗
   const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
+  // 侧边栏抽屉
+  const [showDrawer, setShowDrawer] = useState<boolean>(false)
+  // 分享弹窗
+  const [showSharePopup, setShowSharePopup] = useState<boolean>(false)
 
   const isLogin = useMemo(() => !!userInfo, [userInfo])
 
@@ -312,6 +321,34 @@ export default function UserIndex() {
     })
   }
 
+  // 打开/关闭侧边栏抽屉
+  const toggleDrawer = useCallback(() => {
+    setShowDrawer((v) => !v)
+  }, [])
+
+  // 分享弹窗
+  const openSharePopup = useCallback(() => {
+    setShowSharePopup(true)
+  }, [])
+
+  const closeSharePopup = useCallback(() => {
+    setShowSharePopup(false)
+  }, [])
+
+  // 会员权益点击跳转
+  const goVipDetail = useCallback(() => {
+    Taro.navigateTo({ url: '/pages/vip/index' })
+  }, [])
+
+  // 编辑个人资料
+  const goProfile = useCallback(() => {
+    if (!isLogin) {
+      goLogin()
+      return
+    }
+    Taro.navigateTo({ url: '/pages/user/profile' })
+  }, [isLogin])
+
   useDidShow(() => {
     refresh()
   })
@@ -328,40 +365,40 @@ export default function UserIndex() {
 
   return (
     <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
-      {/* ===== 导航栏(对齐原项目 navigation-bars:title="我的",showMenu,showFeedback)===== */}
+      {/* ===== 导航栏 ===== */}
       <NavBar
         variant="ai-home"
         title={tf('user.title', '我的')}
         bgColor="transparent"
         textColor="#fff"
-        onMenuClick={() => Taro.switchTab({ url: '/pages/index/index' })}
+        onMenuClick={toggleDrawer}
       />
-      {/* 用户信息头部 — primary 实色背景 */}
+
+      {/* ===== 用户信息头部 ===== */}
       <View
         className="pt-[120rpx] px-[32rpx] pb-[48rpx]"
         style={{ background: 'var(--color-primary)' }}
       >
         {userInfo ? (
           <View className="flex items-center">
-            <Image
-              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
-              src={userInfo.avatar || defaultAvatar}
-              mode="aspectFill"
-            />
-            <View className="ml-[24rpx]">
-              <Text className="block text-primary-foreground text-[36rpx] font-semibold">
-                {userInfo.userName || userInfo.nickname || t('common.user')}
-              </Text>
-              {userInfo.phone ? (
-                <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
-                  {maskPhone(userInfo.phone)}
-                </Text>
-              ) : null}
-              {userInfo.isVip ? (
-                <Text className="inline-block mt-[12rpx] px-[16rpx] py-[4rpx] bg-accent text-accent-foreground text-[20rpx] rounded-[20rpx]">
-                  {t('user.vipMember')}
-                </Text>
-              ) : null}
+            {/* 使用 UserInfoCard 替换内联用户信息 */}
+            <View className="flex-1">
+              <UserInfoCard
+                avatar={userInfo.avatar}
+                nickname={userInfo.userName || userInfo.nickname || t('common.user')}
+                isVip={!!userInfo.isVip}
+                vipTitle={userInfo.isVip ? 'VIP' : undefined}
+                desc={userInfo.phone ? maskPhone(userInfo.phone) : undefined}
+                onClick={goProfile}
+              />
+            </View>
+            {/* 分享按钮 */}
+            <View
+              className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.2)' }}
+              onClick={openSharePopup}
+            >
+              <Text className="text-[32rpx] text-white font-bold">⤴</Text>
             </View>
           </View>
         ) : (
@@ -383,63 +420,51 @@ export default function UserIndex() {
         )}
       </View>
 
-      {/* 登录弹窗（对齐原项目 loginPopUp） */}
-      {showLoginPopup ? (
-        <View
-          className="fixed inset-0 z-[1500]"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowLoginPopup(false)}
-        >
-          <View
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl p-[32rpx] pb-[60rpx]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <View className="flex flex-col items-center mb-[32rpx]">
-              <Image
-                className="w-[140rpx] h-[140rpx] rounded-full mb-[16rpx]"
-                src={userInfo?.avatar || defaultAvatar}
-                mode="aspectFill"
-              />
-              <Text className="text-[32rpx] font-semibold text-foreground">
-                {tf('user.loginWelcome', '欢迎使用')}
-              </Text>
-            </View>
-            <View
-              className="w-full h-[88rpx] leading-[88rpx] text-center rounded-lg mb-[16rpx]"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-foreground)' }}
-              onClick={() => {
-                setShowLoginPopup(false)
-                Taro.navigateTo({ url: '/pages/login/login' })
-              }}
-            >
-              <Text className="text-[32rpx] font-semibold">{tf('user.goLogin', '去登录')}</Text>
-            </View>
-            <View
-              className="w-full h-[72rpx] leading-[72rpx] text-center rounded-lg bg-muted"
-              onClick={() => setShowLoginPopup(false)}
-            >
-              <Text className="text-[28rpx] text-muted-foreground">{tf('common.cancel', '取消')}</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {/* ===== LoginPopUp 登录弹窗（对齐原项目 loginPopUp） ===== */}
+      <LoginPopUp
+        visible={showLoginPopup}
+        defaultAvatar={defaultAvatar}
+        userInfo={
+          userInfo
+            ? {
+                nickname: userInfo.nickname || userInfo.userName,
+                avatar: userInfo.avatar,
+                isVip: userInfo.isVip ? 1 : 0,
+                identityTypy: 0,
+              }
+            : undefined
+        }
+        onClose={() => setShowLoginPopup(false)}
+        onUpgrade={goVipDetail}
+        onNicknameChange={(nickname) => {
+          // 更新本地昵称（实际保存由 profile 页面处理）
+          if (userInfo) {
+            setUserInfo({ ...userInfo, nickname })
+          }
+        }}
+      />
 
-      {/* 会员权益卡片 — 展开/收起（对齐原项目 membership-benefits-container） */}
-      <View className="mx-[32rpx] mt-[24rpx] mb-0 bg-card border border-border rounded-lg overflow-hidden">
-        <View
-          className="flex items-center justify-between px-[32rpx] py-[28rpx]"
-          onClick={toggleBenefits}
-        >
+      {/* ===== 会员权益卡片 ===== */}
+      <View
+        className="mx-[32rpx] mt-[24rpx] mb-0 bg-card border border-border rounded-lg overflow-hidden"
+        onClick={goVipDetail}
+      >
+        <View className="flex items-center justify-between px-[32rpx] py-[28rpx]">
           <Text className="text-[28rpx] font-semibold text-foreground">
             {tf('user.benefits.title', '会员权益')}
           </Text>
-          <Text
-            className={`text-[24rpx] text-muted-foreground transition-transform duration-300 ${
-              showBenefits ? 'rotate-180' : ''
-            }`}
-          >
-            ▼
-          </Text>
+          <View className="flex items-center gap-[12rpx]">
+            <Text
+              className="text-[24rpx] text-primary"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleBenefits()
+              }}
+            >
+              {showBenefits ? tf('common.collapse', '收起') : tf('common.expand', '展开')}
+            </Text>
+            <Text className="text-[24rpx] text-muted-foreground">›</Text>
+          </View>
         </View>
         {showBenefits ? (
           <View className="flex flex-wrap px-[8rpx] pb-[16rpx]">
@@ -455,7 +480,7 @@ export default function UserIndex() {
         ) : null}
       </View>
 
-      {/* ===== StudyBar + 内容展示区(对齐原项目 user/index.vue,4个Tab:文本/图片/视频/音频)===== */}
+      {/* ===== StudyBar + 内容展示区 ===== */}
       <View style={{ padding: '0 20rpx', marginTop: '20rpx', marginBottom: '20rpx' }}>
         {/* StudyBar Tab 切换 */}
         <View
@@ -517,7 +542,7 @@ export default function UserIndex() {
             </View>
           )}
 
-          {/* 图片内容（对齐原项目：点击图片预览） */}
+          {/* 图片内容 */}
           {activeTab === 2 && (
             <View>
               {imageContentList.length === 0 ? (
@@ -550,7 +575,7 @@ export default function UserIndex() {
             </View>
           )}
 
-          {/* 视频内容（对齐原项目：使用图片播放图标） */}
+          {/* 视频内容 */}
           {activeTab === 3 && (
             <View>
               {videoContentList.length === 0 ? (
@@ -583,7 +608,7 @@ export default function UserIndex() {
             </View>
           )}
 
-          {/* 音频内容（对齐原项目：播放/暂停 + 进度条 + 时间 + 下载） */}
+          {/* 音频内容 */}
           {activeTab === 4 && (
             <View>
               {audioContentList.length === 0 ? (
@@ -612,7 +637,7 @@ export default function UserIndex() {
                           className="w-[36rpx] h-[36rpx]"
                         />
                       </View>
-                      {/* 进度条（对齐原项目 slider 组件） */}
+                      {/* 进度条 */}
                       <View className="flex-1" style={{ minWidth: 0 }}>
                         <Slider
                           value={audioProgress[index] || 0}
@@ -646,7 +671,7 @@ export default function UserIndex() {
         </View>
       </View>
 
-      {/* 快捷入口(订单/收藏/关注/订阅)— */}
+      {/* 快捷入口 */}
       <View className="mx-[32rpx] my-[24rpx] py-[28rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
@@ -689,7 +714,7 @@ export default function UserIndex() {
         </View>
       ) : null}
 
-      {/* 官网链接（对齐原项目 yejiao.png） */}
+      {/* 官网链接 */}
       <View className="w-full flex items-center justify-center pb-[20rpx]">
         <Image
           src={yejiaoIcon}
@@ -699,7 +724,7 @@ export default function UserIndex() {
         />
       </View>
 
-      {/* 视频播放弹窗（对齐原项目 video-player-popup） */}
+      {/* ===== 视频播放弹窗 ===== */}
       {showVideoPlayer ? (
         <View className="fixed inset-0 z-[2000] flex items-center justify-center">
           <View
@@ -726,6 +751,80 @@ export default function UserIndex() {
           </View>
         </View>
       ) : null}
+
+      {/* ===== 分享弹窗 ===== */}
+      {showSharePopup ? (
+        <View className="share-popup-mask" onClick={closeSharePopup}>
+          <View className="share-popup-content" onClick={(e) => e.stopPropagation()}>
+            {/* 关闭按钮 */}
+            <View className="share-popup-close" onClick={closeSharePopup}>
+              <Text className="text-white text-[28rpx]">×</Text>
+            </View>
+            {/* 分享卡片预览 */}
+            <View className="share-popup-image">
+              <Text className="share-popup-title">{tf('user.share.cardTitle', 'AI IHUI 智能平台')}</Text>
+              <Text className="share-popup-subtitle">
+                {tf('user.share.cardDesc', '开启智能学习之旅，探索无限可能')}
+              </Text>
+            </View>
+            {/* 分享提示 */}
+            <Text className="block text-center text-[28rpx] text-foreground font-semibold mb-[20rpx]">
+              {tf('user.share.shareTo', '分享给好友')}
+            </Text>
+            {/* 分享按钮 */}
+            <View
+              className="share-popup-btn"
+              onClick={() => {
+                Taro.showToast({
+                  title: tf('user.share.saveHint', '请截图保存后分享'),
+                  icon: 'none',
+                })
+                closeSharePopup()
+              }}
+            >
+              {tf('share.shareNow', '立即分享')}
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ===== DrawerComponent 侧边栏抽屉 ===== */}
+      <DrawerComponent
+        visible={showDrawer}
+        onClose={toggleDrawer}
+        side="left"
+        userinfo={
+          userInfo
+            ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
+            : undefined
+        }
+        onMenuItemClick={(item) => {
+          toggleDrawer()
+          // 根据菜单项 key 跳转不同页面
+          const menuRouteMap: Record<string, string> = {
+            appStore: '/pages/index/index',
+            demand: '/pages/demand/index',
+            inspiration: '/pages/inspiration/index',
+            dynamic: '/pages/dynamic/index',
+            course: '/pages/course/list',
+          }
+          const route = menuRouteMap[item.key]
+          if (route) Taro.navigateTo({ url: route })
+        }}
+        onLabelItemClick={(item) => {
+          toggleDrawer()
+          const labelRouteMap: Record<string, string> = {
+            company: '/pages/company/index',
+            freebie: '/pages/freebie/index',
+          }
+          const route = labelRouteMap[item.key]
+          if (route) Taro.navigateTo({ url: route })
+        }}
+        onCreateChat={() => {
+          toggleDrawer()
+          Taro.switchTab({ url: '/pages/index/index' })
+        }}
+      />
     </View>
   )
 }
