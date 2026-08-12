@@ -7378,6 +7378,7 @@
       "contentFormatVideo": "影片"
     },
     "history": {
+      "title": "發布歷史",
       "duration": "耗時",
       "time": "時間",
       "filterPlatform": "平臺篩選",
@@ -11077,7 +11078,14 @@
     "internationalModels": "國際大模型",
     "chineseModels": "國產大模型",
     "agreementSubtitle": "請仔細閱讀以下協議條款",
-    "contactSubtitle": "透過以下方式聯絡我們"
+    "contactSubtitle": "透過以下方式聯絡我們",
+    "copyRepoUrl": "複製倉庫地址",
+    "openOnGithub": "前往 GitHub",
+    "openOnGitee": "前往 Gitee 碼雲",
+    "openOnGitcode": "前往 GitCode",
+    "workingHours": "工作時間: 週一至週五 9:00-18:00",
+    "repoCopied": "倉庫地址已複製到剪貼簿",
+    "copyFailed": "複製失敗,請手動複製"
   },
   "plugins": {
     "title": "外掛市場",
