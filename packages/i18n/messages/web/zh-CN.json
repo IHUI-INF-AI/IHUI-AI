@@ -7381,6 +7381,7 @@
       "contentFormatVideo": "视频"
     },
     "history": {
+      "title": "发布历史",
       "duration": "耗时",
       "time": "时间",
       "filterPlatform": "平台筛选",
@@ -11110,7 +11111,14 @@
     "internationalModels": "国际大模型",
     "chineseModels": "国产大模型",
     "agreementSubtitle": "请仔细阅读以下协议条款",
-    "contactSubtitle": "通过以下渠道联系我们"
+    "contactSubtitle": "通过以下渠道联系我们",
+    "copyRepoUrl": "复制仓库地址",
+    "openOnGithub": "前往 GitHub",
+    "openOnGitee": "前往 Gitee 码云",
+    "openOnGitcode": "前往 GitCode",
+    "workingHours": "工作时间: 周一至周五 9:00-18:00",
+    "repoCopied": "仓库地址已复制到剪贴板",
+    "copyFailed": "复制失败,请手动复制"
   },
   "plugins": {
     "title": "插件市场",
