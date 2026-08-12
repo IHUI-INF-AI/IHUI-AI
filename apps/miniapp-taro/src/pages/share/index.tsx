@@ -125,23 +125,148 @@ function NavigationBars({
   )
 }
 
-/** FloatBox 浮动组件 — 简单的浮动层(对应原项目 FloatBox) */
-function FloatBox({
-  visible,
-  onClick,
-  icon,
-  className = '',
-}: {
-  visible: boolean
-  onClick?: () => void
-  icon?: string
-  className?: string
-}) {
-  if (!visible) return null
+/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue，固定定位右下角，含分享/客服/反馈按钮 */
+function FloatBox() {
+  const [isOpen, setIsOpen] = useState(true)
   return (
-    <View className={`share-float-box ${className}`} onClick={onClick}>
-      <Text className="share-float-box-icon">{icon || '↑'}</Text>
-    </View>
+    <>
+      {!isOpen ? (
+        <View
+          className="share-float-mask"
+          onClick={() => setIsOpen(true)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 59,
+            background: 'rgba(0,0,0,0.3)',
+          }}
+        />
+      ) : null}
+      <View
+        style={{
+          position: 'fixed',
+          right: '24rpx',
+          bottom: '200rpx',
+          zIndex: 60,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16rpx',
+        }}
+      >
+        {isOpen ? (
+          <>
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16rpx',
+              }}
+            >
+              {/* 分享按钮 */}
+              <View
+                className="share-float-item"
+                style={{
+                  width: '88rpx',
+                  height: '88rpx',
+                  background: '#1F1F28',
+                  borderRadius: '44rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
+                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
+                }}
+                onClick={() => {
+                  Taro.showShareMenu({
+                    withShareTicket: true,
+                  }).catch(() => {})
+                }}
+              >
+                <Text style={{ fontSize: '32rpx' }}>分享</Text>
+              </View>
+              {/* 客服按钮 */}
+              <View
+                className="share-float-item"
+                style={{
+                  width: '88rpx',
+                  height: '88rpx',
+                  background: '#1F1F28',
+                  borderRadius: '44rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
+                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
+                }}
+                onClick={() => {
+                  Taro.showToast({ title: '客服功能暂未开放', icon: 'none' })
+                }}
+              >
+                <Text style={{ fontSize: '28rpx', color: '#00F2FF' }}>客服</Text>
+              </View>
+              {/* 反馈按钮 */}
+              <View
+                className="share-float-item"
+                style={{
+                  width: '88rpx',
+                  height: '88rpx',
+                  background: '#1F1F28',
+                  borderRadius: '44rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
+                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
+                }}
+                onClick={() => {
+                  Taro.navigateTo({ url: '/pages/feedback/index' }).catch(() => {
+                    Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
+                  })
+                }}
+              >
+                <Text style={{ fontSize: '28rpx', color: '#00F2FF' }}>反馈</Text>
+              </View>
+            </View>
+            {/* 收起箭头 */}
+            <View
+              style={{
+                width: '88rpx',
+                height: '88rpx',
+                background: '#1F1F28',
+                borderRadius: '44rpx',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1rpx solid rgba(0, 242, 255, 0.15)',
+                boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
+              }}
+              onClick={() => setIsOpen(false)}
+            >
+              <Text style={{ fontSize: '36rpx', color: '#00F2FF' }}>{'›'}</Text>
+            </View>
+          </>
+        ) : (
+          <View
+            style={{
+              width: '88rpx',
+              height: '88rpx',
+              background: '#1F1F28',
+              borderRadius: '44rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1rpx solid rgba(0, 242, 255, 0.15)',
+              boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
+            }}
+            onClick={() => setIsOpen(true)}
+          >
+            <Text style={{ fontSize: '36rpx', color: '#00F2FF' }}>{'‹'}</Text>
+          </View>
+        )}
+      </View>
+    </>
   )
 }
 
@@ -152,6 +277,7 @@ export default function ShareIndexPage() {
   const [activeNavbar, setActiveNavbar] = useState(false)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [tagWrapShow, setTagWrapShow] = useState(false)
+  const [pageScrollLocked, setPageScrollLocked] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('latest')
   const [keyword, setKeyword] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | number>('')
@@ -168,15 +294,14 @@ export default function ShareIndexPage() {
   const [showToodown, setShowToodown] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
 
-  const pageScrollLocked = drawerVisible || tagWrapShow
-
-  /** 页面滚动锁定/解锁 */
+  /** 锁定页面滚动 — 对齐原项目 lockPageScroll */
   const lockPageScroll = useCallback(() => {
-    Taro.pageScrollTo({ scrollTop: 0, duration: 0 })
+    setPageScrollLocked(true)
   }, [])
 
+  /** 解锁页面滚动 — 对齐原项目 unlockPageScroll */
   const unlockPageScroll = useCallback(() => {
-    // 恢复滚动由关闭 drawer/tagWrap 时自然恢复
+    setPageScrollLocked(false)
   }, [])
 
   const loadList = useCallback(
@@ -321,6 +446,12 @@ export default function ShareIndexPage() {
   usePageScroll((res) => {
     setShowToodown(res.scrollTop > 200)
     setNavScrolled(res.scrollTop > 20)
+
+    // 对齐原项目：页面滚动时关闭分类弹层
+    if (tagWrapShow && res.scrollTop > 5) {
+      setTagWrapShow(false)
+      unlockPageScroll()
+    }
   })
 
   useShareAppMessage(() => ({
@@ -357,12 +488,13 @@ export default function ShareIndexPage() {
     (cat: CategoryItem) => {
       setActiveCategory(cat.id)
       setTagWrapShow(false)
+      unlockPageScroll()
       setPage(1)
       setNoMore(false)
       setInfoList([])
       setTimeout(() => void loadRef.current(true), 0)
     },
-    [],
+    [unlockPageScroll],
   )
 
   /** TitleSwitchScrollTitle 选择分类回调 */
@@ -402,29 +534,34 @@ export default function ShareIndexPage() {
     e.stopPropagation()
   }, [])
 
-  /** 打开抽屉时锁定页面滚动 */
-  const openDrawer = useCallback(() => {
-    setDrawerVisible(true)
-    lockPageScroll()
-  }, [lockPageScroll])
-
-  /** 关闭抽屉时解锁页面滚动 */
-  const handleCloseDrawer = useCallback(() => {
-    setDrawerVisible(false)
-    unlockPageScroll()
-  }, [unlockPageScroll])
-
-  /** 打开分类弹层时锁定页面滚动 */
-  const handleOpenTagWrap = useCallback(() => {
-    setTagWrapShow(true)
-    lockPageScroll()
-  }, [lockPageScroll])
-
-  /** 关闭分类弹层时解锁页面滚动 */
-  const handleCloseTagWrap = useCallback(() => {
+  /** 关闭弹出层 — 对齐原项目 closePopup */
+  const closePopup = useCallback(() => {
     setTagWrapShow(false)
     unlockPageScroll()
   }, [unlockPageScroll])
+
+  /** 分类按钮点击 — 对齐原项目 handleNavClick：只控制分类弹层，锁定/解锁页面滚动 */
+  const handleNavClick = useCallback(() => {
+    setTagWrapShow((prev) => {
+      const next = !prev
+      if (next) {
+        lockPageScroll()
+      } else {
+        unlockPageScroll()
+      }
+      return next
+    })
+  }, [lockPageScroll, unlockPageScroll])
+
+  /** 菜单按钮点击 — 对齐原项目 handleMenuClick：只控制侧边栏 */
+  const handleMenuClick = useCallback(() => {
+    setDrawerVisible((prev) => !prev)
+  }, [])
+
+  /** 关闭抽屉 — 对齐原项目 close_drawer */
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerVisible(false)
+  }, [])
 
   /** 构建 DrawerComponent 所需的 groupedData */
   const groupedData = useMemo(() => {
@@ -527,130 +664,10 @@ export default function ShareIndexPage() {
     )
   }
 
-  // ===== 主容器(activeNavbar=true) =====
+  // ===== 主容器(activeNavbar=true) — 对齐原项目 main-container =====
   return (
     <View className="share-page">
-      {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity 属性) */}
-      <NavigationBars
-        showFenLei
-        showMenu
-        viscosity
-        title={tt('share.index.title', 'AI资讯')}
-        navScrolled={navScrolled}
-        navPaddingTop={NAV_PADDING_TOP}
-        navTotal={NAV_TOTAL}
-        onMenuClick={openDrawer}
-        onFenLeiClick={handleOpenTagWrap}
-      />
-
-      {/* 占位空间,防止 fixed navbar 遮挡内容 */}
-      <View style={{ height: `${NAV_TOTAL}px` }} />
-
-      {/* Tabs(对标原 TitleSwitch) */}
-      <View className="share-tabs">
-        <View
-          className={`share-tab${activeTab === 'latest' ? ' active' : ''}`}
-          onClick={() => switchTab('latest')}
-        >
-          <Text>{tt('share.index.tabLatest', '最新')}</Text>
-        </View>
-        <View
-          className={`share-tab${activeTab === 'hot' ? ' active' : ''}`}
-          onClick={() => switchTab('hot')}
-        >
-          <Text>{tt('share.index.tabHot', '热门')}</Text>
-        </View>
-        <View
-          className={`share-tab${activeTab === 'following' ? ' active' : ''}`}
-          onClick={() => switchTab('following')}
-        >
-          <Text>{tt('share.index.tabFollowing', '关注')}</Text>
-        </View>
-      </View>
-
-      {/* 搜索栏 */}
-      <View className="share-search">
-        <Input
-          className="share-search-input"
-          placeholder={tt('news.search', '搜索资讯')}
-          value={keyword}
-          onInput={(e) => setKeyword(e.detail.value)}
-          onConfirm={onSearchConfirm}
-        />
-      </View>
-
-      {/* 资讯列表 */}
-      <View className="share-list">
-        {infoList.length ? (
-          infoList.map((n) => (
-            <View key={n.id} className="share-item" onClick={() => goInfoDetail(n.id)}>
-              {n.coverUrl ? (
-                <Image className="share-item-cover" src={n.coverUrl} mode="aspectFill" />
-              ) : null}
-              <View className="share-item-body">
-                <Text className="share-item-title">{n.title}</Text>
-                {n.summary ? <Text className="share-item-summary">{n.summary}</Text> : null}
-                <View className="share-item-meta">
-                  <View className="share-item-meta-left">
-                    {n.categoryName ? (
-                      <Text className="share-item-category">{n.categoryName}</Text>
-                    ) : null}
-                    <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
-                  </View>
-                  <Text className="share-item-views">
-                    {t('news.views', { n: n.views || 0 })}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ))
-        ) : (
-          !loading ? (
-            <View className="share-empty">
-              <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
-            </View>
-          ) : null
-        )}
-        {loading ? (
-          <View className="share-loading">
-            <View className="share-loading-dot" />
-            <View className="share-loading-dot" />
-            <View className="share-loading-dot" />
-          </View>
-        ) : null}
-        {!loading && infoList.length && noMore ? (
-          <View className="share-nomore">
-            <Text className="share-nomore-text">{tt('common.noMore', '没有更多了')}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* FloatBox 返回顶部(对标原 toodown) */}
-      <FloatBox visible={showToodown} onClick={backToTop} icon="↑" />
-
-      {/* 分类弹层 - TitleSwitchScrollTitle(替换当前内联的分类弹层) */}
-      {tagWrapShow ? (
-        <View>
-          <View className="share-tag-mask" onClick={handleCloseTagWrap} onTouchMove={safePreventTouchMove} />
-          <View className="share-tag-panel" onTouchMove={safePreventTouchMove}>
-            <View className="share-tag-panel-header">
-              <Text className="share-tag-panel-title">
-                {tt('share.index.selectCategory', '选择分类')}
-              </Text>
-            </View>
-            <View className="share-tag-scroll-title-wrap">
-              <TitleSwitchScrollTitle
-                mainList={titleSwitchMainList}
-                mainSwiperMargin="80rpx"
-                subSwiperMargin="80rpx"
-                onChange={handleTitleSwitchChange}
-              />
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* DrawerComponent 侧边栏抽屉(对齐原项目 DrawerComponentall.vue) */}
+      {/* DrawerComponent 侧边栏抽屉 — 对齐原项目：放在 main-container 外部顶层 */}
       <DrawerComponent
         visible={drawerVisible}
         onClose={handleCloseDrawer}
@@ -682,8 +699,196 @@ export default function ShareIndexPage() {
         }}
       />
 
-      {/* 页面滚动锁定覆盖层(对标原 pageScrollLocked) */}
-      {pageScrollLocked ? <View className="share-scroll-lock" /> : null}
+      {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制 */}
+      <View
+        className={`share-main-container${tagWrapShow ? ' no-scroll' : ''}`}
+        style={{ minHeight: '110vh' }}
+      >
+        {/* FloatBox 浮动组件 — 对齐原项目：放在 main-container 内部 */}
+        <FloatBox />
+
+        {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity 属性) */}
+        <NavigationBars
+          showFenLei
+          showMenu
+          viscosity
+          title={tt('share.index.title', 'AI资讯')}
+          navScrolled={navScrolled}
+          navPaddingTop={NAV_PADDING_TOP}
+          navTotal={NAV_TOTAL}
+          onMenuClick={handleMenuClick}
+          onFenLeiClick={handleNavClick}
+        />
+
+        {/* 占位空间,防止 fixed navbar 遮挡内容 */}
+        <View style={{ height: `${NAV_TOTAL}px` }} />
+
+        {/* Tabs(对标原 TitleSwitch) */}
+        <View className="share-tabs">
+          <View
+            className={`share-tab${activeTab === 'latest' ? ' active' : ''}`}
+            onClick={() => switchTab('latest')}
+          >
+            <Text>{tt('share.index.tabLatest', '最新')}</Text>
+          </View>
+          <View
+            className={`share-tab${activeTab === 'hot' ? ' active' : ''}`}
+            onClick={() => switchTab('hot')}
+          >
+            <Text>{tt('share.index.tabHot', '热门')}</Text>
+          </View>
+          <View
+            className={`share-tab${activeTab === 'following' ? ' active' : ''}`}
+            onClick={() => switchTab('following')}
+          >
+            <Text>{tt('share.index.tabFollowing', '关注')}</Text>
+          </View>
+        </View>
+
+        {/* 搜索栏 */}
+        <View className="share-search">
+          <Input
+            className="share-search-input"
+            placeholder={tt('news.search', '搜索资讯')}
+            value={keyword}
+            onInput={(e) => setKeyword(e.detail.value)}
+            onConfirm={onSearchConfirm}
+          />
+        </View>
+
+        {/* 资讯列表 */}
+        <View className="share-list">
+          {infoList.length ? (
+            infoList.map((n) => (
+              <View key={n.id} className="share-item" onClick={() => goInfoDetail(n.id)}>
+                {n.coverUrl ? (
+                  <Image className="share-item-cover" src={n.coverUrl} mode="aspectFill" />
+                ) : null}
+                <View className="share-item-body">
+                  <Text className="share-item-title">{n.title}</Text>
+                  {n.summary ? <Text className="share-item-summary">{n.summary}</Text> : null}
+                  <View className="share-item-meta">
+                    <View className="share-item-meta-left">
+                      {n.categoryName ? (
+                        <Text className="share-item-category">{n.categoryName}</Text>
+                      ) : null}
+                      <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
+                    </View>
+                    <Text className="share-item-views">
+                      {t('news.views', { n: n.views || 0 })}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+            !loading ? (
+              <View className="share-empty">
+                <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
+              </View>
+            ) : null
+          )}
+          {loading ? (
+            <View className="share-loading">
+              <View className="share-loading-dot" />
+              <View className="share-loading-dot" />
+              <View className="share-loading-dot" />
+            </View>
+          ) : null}
+          {!loading && infoList.length && noMore ? (
+            <View className="share-nomore">
+              <Text className="share-nomore-text">{tt('common.noMore', '没有更多了')}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* BackToTop 回到顶部按钮 — 对齐原项目 toodown-wrapper */}
+        {showToodown ? (
+          <View
+            className="share-toodown-wrapper"
+            style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: '88rpx',
+              zIndex: 2,
+              transform: 'translateX(-50%)',
+              width: '68rpx',
+              height: '68rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onClick={backToTop}
+          >
+            <Text
+              style={{
+                fontSize: '40rpx',
+                color: '#00F2FF',
+                fontWeight: 'bold',
+              }}
+            >
+              ↑
+            </Text>
+          </View>
+        ) : null}
+
+        {/* 分类弹层 - TitleSwitchScrollTitle(对齐原项目 tagWrapShow 控制) */}
+        {tagWrapShow ? (
+          <View>
+            <View className="share-tag-mask" onClick={closePopup} onTouchMove={safePreventTouchMove} />
+            <View className="share-tag-panel" onTouchMove={safePreventTouchMove}>
+              <View className="share-tag-panel-header">
+                <Text className="share-tag-panel-title">
+                  {tt('share.index.selectCategory', '选择分类')}
+                </Text>
+              </View>
+              <View className="share-tag-scroll-title-wrap">
+                <TitleSwitchScrollTitle
+                  mainList={titleSwitchMainList}
+                  mainSwiperMargin="80rpx"
+                  subSwiperMargin="80rpx"
+                  onChange={handleTitleSwitchChange}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 页面滚动锁定覆盖层 — 对齐原项目 scroll-lock-overlay */}
+        {pageScrollLocked ? (
+          <View
+            className="share-scroll-lock-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 900,
+              background: 'transparent',
+              touchAction: 'none',
+              overflow: 'hidden',
+            }}
+            onTouchMove={safePreventTouchMove}
+          />
+        ) : null}
+
+        {/* 遮罩层 — 对齐原项目 mask-overlay，tagWrapShow 时显示 */}
+        {tagWrapShow ? (
+          <View
+            className="share-mask-overlay"
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: 899,
+              background: 'rgba(0, 0, 0, 0.4)',
+              touchAction: 'none',
+              overflow: 'hidden',
+            }}
+            onTouchMove={safePreventTouchMove}
+          />
+        ) : null}
+      </View>
     </View>
   )
 }
