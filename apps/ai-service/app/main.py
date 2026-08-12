@@ -135,6 +135,11 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.self_media_scheduler import self_media_scheduler
     self_media_scheduler.start()
 
+    # 启动资讯板块每日自动刷新调度器(由 NEWS_CRON_ENABLED 环境变量控制开关,
+    # 默认 false,显式开启后才挂载 asyncio task + 消耗 LLM tokens)
+    from app.services.news_scheduler import news_scheduler
+    news_scheduler.start()
+
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
     # /llm/models 端点调用 model_availability.get_available_models() 过滤不可用模型。
@@ -276,6 +281,9 @@ async def lifespan(app: FastAPI) -> Any:
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
+    # 关闭资讯板块每日自动刷新调度器
+    from app.services.news_scheduler import news_scheduler
+    await news_scheduler.stop()
     # 关闭后台任务调度器(等待运行中任务完成)
     try:
         from app.services.scheduler_service import task_scheduler
