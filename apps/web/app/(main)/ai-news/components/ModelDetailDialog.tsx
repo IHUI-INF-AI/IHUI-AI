@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'lucide-react'
+import { Tooltip } from '@/components/feedback'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { CapabilityRadar } from './CapabilityRadar'
 import { getVendorPlatform, encodePrefill } from './vendor-platforms'
@@ -241,24 +242,26 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                   ) : null}
                   {platform.defaultBaseUrl ? (
                     <>
+                      <Tooltip content={platform.defaultBaseUrl}>
                       <button
                         type="button"
                         onClick={handleCopyBaseUrl}
                         className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
-                        title={platform.defaultBaseUrl}
                       >
                         <span>{t('copyBaseUrl')}</span>
                         <Copy className="h-3 w-3" />
                       </button>
+                    </Tooltip>
+                    <Tooltip content={platform.defaultBaseUrl}>
                       <button
                         type="button"
                         onClick={handleCopyAndImport}
                         className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
-                        title={platform.defaultBaseUrl}
                       >
                         <span>{t('copyAndImport')}</span>
                         <ExternalLink className="h-3 w-3" />
                       </button>
+                    </Tooltip>
                     </>
                   ) : null}
                 </div>

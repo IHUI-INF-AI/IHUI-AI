@@ -961,31 +961,32 @@ export default function DesignPage({ onComment }: DesignPageProps) {
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('design.title')}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={() => setTemplateDialogOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            aria-label={t('design.templates.title')}
-            title={t('design.templates.title')}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <Tooltip content={t('design.templates.title')}>
+            <button
+              type="button"
+              onClick={() => setTemplateDialogOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              aria-label={t('design.templates.title')}
             >
-              <rect x="3" y="3" width="7" height="9" rx="1" />
-              <rect x="14" y="3" width="7" height="5" rx="1" />
-              <rect x="14" y="12" width="7" height="9" rx="1" />
-              <rect x="3" y="16" width="7" height="5" rx="1" />
-            </svg>
-            <span>{t('design.templates.title')}</span>
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="3" width="7" height="9" rx="1" />
+                <rect x="14" y="3" width="7" height="5" rx="1" />
+                <rect x="14" y="12" width="7" height="9" rx="1" />
+                <rect x="3" y="16" width="7" height="5" rx="1" />
+              </svg>
+              <span>{t('design.templates.title')}</span>
+            </button>
+          </Tooltip>
           <input
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
@@ -1112,29 +1113,30 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                 ? `${t(device.nameKey)} (${device.width}×${device.height})`
                 : t(device.nameKey)
               return (
-                <button
-                  key={device.id}
-                  type="button"
-                  onClick={() => onSelectDevice(device.id)}
-                  title={title}
-                  aria-label={title}
-                  aria-pressed={isSelected}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
-                    height: 28,
-                    padding: 0,
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--text, inherit)',
-                  }}
-                >
-                  <DeviceIcon icon={device.icon} rotate={isLandscape} />
-                </button>
+                <Tooltip content={title}>
+                  <button
+                    key={device.id}
+                    type="button"
+                    onClick={() => onSelectDevice(device.id)}
+                    aria-label={title}
+                    aria-pressed={isSelected}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 32,
+                      height: 28,
+                      padding: 0,
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                      cursor: 'pointer',
+                      color: 'var(--text, inherit)',
+                    }}
+                  >
+                    <DeviceIcon icon={device.icon} rotate={isLandscape} />
+                  </button>
+                </Tooltip>
               )
             })}
             {customInputOpen && (
@@ -1162,36 +1164,37 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                 </button>
               </div>
             )}
+            <Tooltip content={t('design.responsive.deviceFrame')}>
+              <button
+                type="button"
+                onClick={() => setShowDeviceFrame((v) => !v)}
+                aria-label={t('design.responsive.deviceFrame')}
+                aria-pressed={showDeviceFrame}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 28,
+                  padding: '0 8px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  background: showDeviceFrame ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  color: 'var(--text, inherit)',
+                }}
+              >
+                {t('design.responsive.deviceFrame')}
+              </button>
+            </Tooltip>
+          </div>
+          <Tooltip content={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}>
             <button
               type="button"
-              onClick={() => setShowDeviceFrame((v) => !v)}
-              title={t('design.responsive.deviceFrame')}
-              aria-label={t('design.responsive.deviceFrame')}
-              aria-pressed={showDeviceFrame}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 28,
-                padding: '0 8px',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                background: showDeviceFrame ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
-                fontSize: 11,
-                cursor: 'pointer',
-                color: 'var(--text, inherit)',
-              }}
+              onClick={() => setGuidesEnabled((v) => !v)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              aria-label={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
             >
-              {t('design.responsive.deviceFrame')}
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setGuidesEnabled((v) => !v)}
-            title={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            aria-label={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
-          >
             <svg
               width="12"
               height="12"
@@ -1209,6 +1212,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             </svg>
             <span>{guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}</span>
           </button>
+          </Tooltip>
         </div>
       </header>
       {(saveMsg || aiMsg || exportMsg) && (
@@ -1232,12 +1236,12 @@ export default function DesignPage({ onComment }: DesignPageProps) {
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.noPreviews')}</span>
             )}
             {previews.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onLoadPreview(p)}
-                title={t('design.loadPreview')}
-                style={{
+              <Tooltip content={t('design.loadPreview')}>
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onLoadPreview(p)}
+                  style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 4,
@@ -1252,6 +1256,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                 <span style={{ fontSize: 12, fontWeight: 500 }}>{p.name}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{dateFormatter.format(new Date(p.createdAt))}</span>
               </button>
+            </Tooltip>
             ))}
           </div>
 
