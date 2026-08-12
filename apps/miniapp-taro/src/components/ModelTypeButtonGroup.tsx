@@ -9,6 +9,8 @@ import audioIcon from '../assets/images/add/audio.svg'
 import videoaIcon from '../assets/images/add/videoa.svg'
 import otherIcon from '../assets/images/add/other.svg'
 import sckIcon from '../assets/images/add/sck.svg'
+import { rpx } from '@/utils/rpx'
+
 
 export interface ModelTypeConfig {
   type: ModelType
@@ -66,7 +68,7 @@ export default function ModelTypeButtonGroup({
     return (
       <View
         className="flex flex-row justify-center"
-        style={{ marginBottom: '10rpx' }}
+        style={{ marginBottom: rpx(10) }}
       >
         <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
           <View
