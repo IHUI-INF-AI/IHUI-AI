@@ -12,6 +12,7 @@ import { Activity, Database as DatabaseIcon, Gauge, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { Skeleton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { useCustomerQuotaQuery } from '@/hooks/use-saas-tenants'
 
 interface QuotaCardProps {
@@ -60,13 +61,12 @@ export function QuotaCard({ slug }: QuotaCardProps) {
         <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <span className="min-w-0 truncate">{t('title')}</span>
           {data.placeholder ? (
-            <span
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-              title={data.expectedFrom}
-            >
-              <Info className="h-3 w-3 shrink-0" />
-              {t('placeholder')}
-            </span>
+            <Tooltip content={data.expectedFrom}>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <Info className="h-3 w-3 shrink-0" />
+                {t('placeholder')}
+              </span>
+            </Tooltip>
           ) : null}
         </CardTitle>
       </CardHeader>

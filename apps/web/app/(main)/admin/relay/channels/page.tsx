@@ -45,6 +45,7 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 
 type Strategy = 'weight' | 'round-robin' | 'least-latency'
 type CircuitState = 'closed' | 'open' | 'half-open'
@@ -609,12 +610,11 @@ export default function AdminRelayChannelsPage() {
                                 ) : (
                                   members.map((m) => (
                                     <tr key={m.memberId}>
-                                      <td
-                                        className="px-3 py-2 font-mono text-xs"
-                                        title={m.keyPoolId}
-                                      >
-                                        {m.keyPoolName ?? maskId(m.keyPoolId)}
-                                      </td>
+                                      <Tooltip content={m.keyPoolId}>
+                                        <td className="px-3 py-2 font-mono text-xs">
+                                          {m.keyPoolName ?? maskId(m.keyPoolId)}
+                                        </td>
+                                      </Tooltip>
                                       <td className="px-3 py-2 text-xs">
                                         {m.keyPoolProviderCode ?? '—'}
                                       </td>

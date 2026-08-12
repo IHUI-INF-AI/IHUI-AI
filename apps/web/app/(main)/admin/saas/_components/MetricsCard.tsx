@@ -10,6 +10,7 @@ import { Activity, Cpu, Database as DatabaseIcon, Info, Network } from 'lucide-r
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { Skeleton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { useCustomerMetricsQuery } from '@/hooks/use-saas-tenants'
 
 interface MetricsCardProps {
@@ -62,13 +63,12 @@ export function MetricsCard({ slug }: MetricsCardProps) {
         <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <span className="min-w-0 truncate">{t('cardTitle')}</span>
           {!available ? (
-            <span
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-              title={t('degraded')}
-            >
-              <Info className="h-3 w-3 shrink-0" />
-              {t('degraded')}
-            </span>
+            <Tooltip content={t('degraded')}>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <Info className="h-3 w-3 shrink-0" />
+                {t('degraded')}
+              </span>
+            </Tooltip>
           ) : (
             <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
               <Activity className="h-3 w-3 shrink-0" />

@@ -31,6 +31,10 @@ interface ToolCallCardProps {
   onReject?: () => void
   /** 后端重复调用检测命中时标记(渲染"已跳过"徽章) */
   repeated?: boolean
+  /** 工具瞬时失败自动重试次数(L5-8,>0 时显示"重试N次"徽章) */
+  retryCount?: number
+  /** 失败错误分类(L5-8:timeout/connection/http_5xx/http_4xx/unknown,错误时显示徽章) */
+  errorType?: string
   /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
   imageUrl?: string
   /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
@@ -288,6 +292,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   applyStatus,
   applyError,
   repeated,
+  retryCount,
+  errorType,
   imageUrl,
   summaryData,
   serverSource,
@@ -385,6 +391,30 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             className="shrink-0 rounded-sm border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground/70"
           >
             已跳过
+          </span>
+        )}
+        {retryCount !== undefined && retryCount > 0 && (
+          <span
+            aria-label={`工具瞬时失败后自动重试 ${retryCount} 次`}
+            className="shrink-0 rounded-sm border border-border/50 bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600"
+          >
+            重试{retryCount}次
+          </span>
+        )}
+        {status === 'error' && errorType && (
+          <span
+            className={cn(
+              'shrink-0 rounded-sm border border-border/50 px-1 py-0.5 text-[9px]',
+              errorType === 'timeout' && 'bg-amber-500/10 text-amber-600',
+              errorType === 'http_4xx' && 'bg-amber-500/10 text-amber-600',
+              (errorType === 'connection' || errorType === 'http_5xx') &&
+                'bg-red-500/10 text-red-600',
+              errorType === 'cancelled' && 'bg-muted/40 text-muted-foreground',
+              !['timeout', 'http_4xx', 'connection', 'http_5xx', 'cancelled'].includes(errorType) &&
+                'bg-muted/40 text-muted-foreground',
+            )}
+          >
+            {errorType}
           </span>
         )}
         {duration !== undefined && (

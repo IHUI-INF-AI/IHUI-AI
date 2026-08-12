@@ -3376,3 +3376,22 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-11) 菜谱:营养分析汇总(热量/蛋白质/碳水)、采购清单自动生成、菜品图片上传
 - [x] ✅(2026-08-11) 学习计划:完成率统计报表、进度时间线、教师审核
 - [x] ✅(2026-08-11) typecheck + lint + build 全绿
+
+### 产品 AI 能力满分开发(2026-08-12 立,P1,ai-service 为主) ✅
+
+> 用户指令:"继续开发到满分""都需要推进到满分""按你的建议去做执行,最多 agent 并行开发最大化效率"。目标:错误恢复/自进化/任务/对话/使用便利五维度失分点清零。
+
+- [x] ✅(2026-08-12) LLM 调用指数退避重试:agent_loop_v2 新增 `llm_retry_max=3`/`llm_retry_backoff=1.5` + `_llm_call_with_retry`(抖动防风暴,CancelledError 不重试)
+- [x] ✅(2026-08-12) 错误六分类:`_classify_error`(timeout/connection/http_5xx/http_4xx/cancelled/unknown),checkpoint metadata + hook error 事件带 error_type
+- [x] ✅(2026-08-12) Agent 失败进元学习闭环:meta_learner_scheduler `_collect_all_failure_cases` 新增收集 checkpoint status=failed(此前只收 skill 失败)→ lesson 沉淀 → 注入 agent system prompt
+- [x] ✅(2026-08-12) 工具瞬时失败自动重试:`tool_retry_max=1` + `_TOOL_RETRYABLE_ERRORS`(timeout/connection/http_5xx),http_4xx/unknown 不重试;ToolResult 加 retry_count
+- [x] ✅(2026-08-12) 错误结构化上报:agent_error → audit_service.log_agent_action + tool_execution(status=error:*),三路可观测
+- [x] ✅(2026-08-12) 审计落库持久化:audit_service 内存缓冲 + 异步落库 audit_logs 表(asyncpg),DB 不可达降级;实测抓出并修复 timestamptz 需 datetime 对象 bug(INSERT→SELECT→CLEANUP 全链路验证)
+- [x] ✅(2026-08-12) 上下文压缩阈值可配置化:CONTEXT_COMPACTION_THRESHOLD(0.88)/CONTEXT_KEEP_RECENT(6) 环境变量,默认不变兼容
+- [x] ✅(2026-08-12) 任务复杂度感知模型路由:model_router(此前 0 生产引用)接入 `_resolve_auto_model`,COMPLEX/EXPERT 任务升级高级模型,评估失败静默降级
+- [x] ✅(2026-08-12) 元认知模块激活:metacognition(此前 0 生产引用)build_system_prompt_snippet 注入 agent system prompt,失败降级
+- [x] ✅(2026-08-12) Agent 失败可视化:GET /api/admin/meta-learner/agent-failures 聚合端点 + web meta-learner 页「Agent 失败与恢复」区块(i18n 7 key × 5 语言)
+- [x] ✅(2026-08-12) 既有测试失配修复 5 批:registry mock list→list_skills / deque 兼容 / checkpoint 全局污染隔离 / llm_gateway 17(auto 路由隔离+async with) / orchestrator 4(mock_invoke 缺 progress_callback)
+- [x] ✅(2026-08-12) 环境恢复:PostgreSQL 服务(STOPPED→RUNNING)+ 推送链路(GitHub TLS 波动重试,`git -c credential.helper=store push` + 后台幂等重推)
+- [x] ✅(2026-08-12) 事故防护:git stash 破坏性 bug 实锤(.git 被删 2 次 100% 复现)→ 全禁 stash,隔离验证用文件覆盖法;git-repository-recovery skill 补充事故记录 2;远端 clone 恢复流程跑通 2 次
+- [x] ✅(2026-08-12) 验证:相关模块 400+ 用例全绿(agent_loop_v2 23 / orchestrator 31 / dag 71 / context_engine 162 / llm_gateway 110 / scheduler 30 / audit 15 等),web typecheck 0 error,i18n 13588 key parity OK,15 个 commits 上线远端
