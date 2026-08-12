@@ -155,7 +155,7 @@ export default function VoiceSttPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6">
+        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
           <input
             ref={fileInputRef}
             type="file"

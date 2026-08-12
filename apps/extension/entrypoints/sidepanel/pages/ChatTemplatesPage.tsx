@@ -86,7 +86,7 @@ export default function ChatTemplatesPage() {
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => openItemInWeb(`/chat/templates/${encodeURIComponent(tpl.id)}`)}
             >
-              <CardContent className="p-2.5">
+              <CardContent className="p-2.5 min-[640px]:p-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base shrink-0" aria-hidden>
                     {tpl.icon || '📋'}

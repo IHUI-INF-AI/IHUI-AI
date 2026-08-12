@@ -118,7 +118,7 @@ export default function SpecListPage() {
             模板
           </h2>
           <Card>
-            <CardContent className="space-y-1 p-3">
+            <CardContent className="space-y-1 p-3 min-[640px]:p-3">
               {SPEC_BUILTIN_TEMPLATES.map((tpl) => (
                 <Link
                   key={tpl.id}

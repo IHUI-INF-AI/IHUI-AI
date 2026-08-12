@@ -37,12 +37,12 @@ function walk(dir) {
       if (ent.name === 'dist' || ent.name === 'build') continue;
       walk(p);
     } else if (ent.name.endsWith('.tsx') || ent.name.endsWith('.ts')) {
-      process(p);
+      processFile(p);
     }
   }
 }
 
-function process(file) {
+function processFile(file) {
   fileCount++;
   let content;
   try {
@@ -69,8 +69,11 @@ function process(file) {
     }
     if (pxList.length === 0) return full;
     // 追加:在末尾加 min-[640px]:p-X for each X(去重)
+    // 注意:这里是模板字面量(非 JS 字符串),`[`/`]` 是普通字符,不需要反斜杠转义;
+    // 错误历史:2026-08-12 初版用 `\\[` 错误转义,导致输出 `min-\[640px\]:p-X`(字面反斜杠),
+    // Tailwind 不识别,响应式限定完全失效。
     const uniqueXs = Array.from(new Set(pxList.map((p) => p.x)));
-    const additions = uniqueXs.map((x) => `min-\\[640px\\]:p-${x}`).join(' ');
+    const additions = uniqueXs.map((x) => `min-[640px]:p-${x}`).join(' ');
     const newCn = `${cn} ${additions}`;
     return full.replace(quoted, quoted[0] + newCn + quoted[0]);
   });

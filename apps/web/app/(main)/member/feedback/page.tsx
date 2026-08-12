@@ -146,7 +146,7 @@ export default function MemberFeedbackPage() {
           <div className="space-y-2">
             {items.map((item) => (
               <Card key={item.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-1 p-3">
+                <CardContent className="space-y-1 p-3 min-[640px]:p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

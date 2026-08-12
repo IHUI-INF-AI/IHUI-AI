@@ -94,7 +94,7 @@ export default function EduFinanceStatisticsPage() {
         <>
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             <Card>
-              <CardContent className="flex items-center gap-3 p-5">
+              <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-400 text-white">
                   <DollarSign className="h-6 w-6" />
                 </div>
@@ -107,7 +107,7 @@ export default function EduFinanceStatisticsPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-5">
+              <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white">
                   <ShoppingCart className="h-6 w-6" />
                 </div>
@@ -118,7 +118,7 @@ export default function EduFinanceStatisticsPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-5">
+              <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white">
                   <TrendingUp className="h-6 w-6" />
                 </div>
@@ -129,7 +129,7 @@ export default function EduFinanceStatisticsPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-5">
+              <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 text-white">
                   <DollarSign className="h-6 w-6" />
                 </div>
@@ -219,7 +219,7 @@ export default function EduFinanceStatisticsPage() {
           </div>
 
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-5 min-[640px]:p-5">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium">{tc('avgOrderAmount')}</span>
                 <span className="text-lg font-semibold text-primary">
