@@ -383,7 +383,7 @@ class MetaLearner:
                         title varchar(512) NOT NULL,
                         content text,
                         source_skills text[] DEFAULT '{}',
-                        failure_pattern_id uuid,
+                        failure_pattern_id varchar(64),
                         occurrence_count integer DEFAULT 1,
                         confidence double precision DEFAULT 0.5,
                         system_prompt_snippet text,
@@ -395,6 +395,14 @@ class MetaLearner:
                 await conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_agent_meta_lessons_type_title "
                     "ON agent_meta_lessons (lesson_type, title)"
+                )
+                # L5-11 自愈迁移(2026-08-12 实测抓出):初版表 failure_pattern_id 为
+                # uuid 类型,但 FailureClusterer 的 pattern id 是 'fp_1' 字符串,
+                # INSERT 抛 invalid UUID 异常 → lesson 降级仅内存。
+                # 幂等 ALTER 转换 varchar(64)(已转换时同类型 no-op)。
+                await conn.execute(
+                    "ALTER TABLE agent_meta_lessons "
+                    "ALTER COLUMN failure_pattern_id TYPE varchar(64)"
                 )
         except Exception as e:
             logger.warning(
