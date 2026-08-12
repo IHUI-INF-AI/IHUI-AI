@@ -236,9 +236,44 @@ const nextConfig: NextConfig = {
         // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
         // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
+        // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
+        // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
+        // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
         {
-          source: '/api/agents/:path*',
-          destination: 'http://localhost:8803/api/agents/:path*',
+          source: '/api/agents/execute/stream',
+          destination: 'http://localhost:8803/api/agents/execute/stream',
+        },
+        {
+          source: '/api/agents/execute',
+          destination: 'http://localhost:8803/api/agents/execute',
+        },
+        {
+          source: '/api/agents/running',
+          destination: 'http://localhost:8803/api/agents/running',
+        },
+        {
+          source: '/api/agents/sessions/:path*',
+          destination: 'http://localhost:8803/api/agents/sessions/:path*',
+        },
+        {
+          source: '/api/agents/memory/search',
+          destination: 'http://localhost:8803/api/agents/memory/search',
+        },
+        {
+          source: '/api/agents/:taskId/status',
+          destination: 'http://localhost:8803/api/agents/:taskId/status',
+        },
+        {
+          source: '/api/agents/:taskId/cancel',
+          destination: 'http://localhost:8803/api/agents/:taskId/cancel',
+        },
+        {
+          source: '/api/agents/skill-evolution',
+          destination: 'http://localhost:8803/api/agents/skill-evolution',
+        },
+        {
+          source: '/api/agents/debate',
+          destination: 'http://localhost:8803/api/agents/debate',
         },
         // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
         // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),

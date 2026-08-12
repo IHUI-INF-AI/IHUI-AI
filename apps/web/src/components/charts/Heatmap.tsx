@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface HeatmapProps {
   data: number[][]
@@ -51,18 +52,21 @@ export const Heatmap = React.memo(function Heatmap({
               </span>
             )}
             {row.map((v, j) => (
-              <div
-                key={j}
-                className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-xs font-medium transition-transform hover:scale-110"
-                style={{
-                  backgroundColor: color,
-                  opacity: getOpacity(v),
-                  color: getOpacity(v) > 0.5 ? '#fff' : undefined,
-                }}
-                title={`${xLabels?.[j] ?? ''} ${yLabels?.[i] ?? ''}: ${v}`}
+              <Tooltip
+                key={`${i}-${j}`}
+                content={`${xLabels?.[j] ?? ''} ${yLabels?.[i] ?? ''}: ${v}`}
               >
-                {v}
-              </div>
+                <div
+                  className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-xs font-medium transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: color,
+                    opacity: getOpacity(v),
+                    color: getOpacity(v) > 0.5 ? '#fff' : undefined,
+                  }}
+                >
+                  {v}
+                </div>
+              </Tooltip>
             ))}
           </div>
         ))}
