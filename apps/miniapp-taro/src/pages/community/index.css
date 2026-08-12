@@ -611,3 +611,125 @@
   color: var(--color-primary, #00F2FF);
   font-weight: 700;
 }
+
+/* ===== FloatBox 浮动组件 ===== */
+
+.community-float-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  border: 1px solid var(--color-primary, #00F2FF);
+  box-shadow: 0 0 20rpx rgba(0, 242, 255, 0.2);
+}
+
+.community-float-trigger:active {
+  opacity: 0.8;
+}
+
+.community-float-trigger-icon {
+  font-size: 28rpx;
+  color: var(--color-background, #121217);
+  line-height: 1;
+}
+
+.community-float-box {
+  position: fixed;
+  right: 30rpx;
+  bottom: 260rpx;
+  z-index: 950;
+  animation: float-box-in 0.3s ease;
+}
+
+@keyframes float-box-in {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.community-float-box-content {
+  width: 280rpx;
+  padding: 24rpx;
+  background-color: var(--color-card, #1F1F28);
+  border: 1px solid var(--color-primary, #00F2FF);
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.4), 0 0 30rpx rgba(0, 242, 255, 0.1);
+}
+
+.community-float-box-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary, #00F2FF);
+  margin-bottom: 8rpx;
+}
+
+.community-float-box-desc {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground, rgba(255, 255, 255, 0.7));
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+}
+
+.community-float-box-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60rpx;
+  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.5));
+  border-radius: 30rpx;
+}
+
+.community-float-box-btn:active {
+  opacity: 0.8;
+}
+
+.community-float-box-btn-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-background, #121217);
+}
+
+/* ===== 搜索框 InputArea 适配 ===== */
+
+.community-search-bar .w-full {
+  padding: 0;
+}
+
+.community-search-bar .w-full .flex.items-center {
+  padding: 0 4rpx;
+}
+
+/* ===== 分类弹层 TitleSwitchScrollTitle 适配 ===== */
+
+.community-category-popup .w-full.rounded-b-\[30rpx\] {
+  background-color: var(--color-card, #1F1F28);
+  border-radius: 16rpx;
+  padding-bottom: 16rpx;
+}
+
+.community-category-popup .text-\[60rpx\] {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground, rgba(255, 255, 255, 0.7));
+}
+
+.community-category-popup .text-black {
+  color: var(--color-foreground, #FFFFFF);
+}
+
+.community-category-popup .text-\[\#7361FF\] {
+  color: var(--color-primary, #00F2FF);
+}
+
+.community-category-popup .border-\[\#7361FF\] {
+  border-color: var(--color-primary, #00F2FF);
+}
