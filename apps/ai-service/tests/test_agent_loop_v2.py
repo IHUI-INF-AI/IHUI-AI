@@ -870,3 +870,51 @@ async def test_metacognition_empty_snippet_noop(monkeypatch):
     result = await loop.run(_default_messages())
 
     assert result.success is True
+
+
+# =============================================================================
+# L5-12 指标埋点回归测试(2026-08-12 立)
+# =============================================================================
+
+
+async def test_metrics_recorded_for_run_and_error(monkeypatch):
+    """执行计数 + 错误计数埋点真实工作(增量断言,防全局污染)。"""
+    from prometheus_client import REGISTRY
+
+    def _get(name: str, labels: dict[str, str]) -> float:
+        return REGISTRY.get_sample_value(name, labels) or 0.0
+
+    base_runs_completed = _get(
+        "ihui_agent_loop_runs_total", {"status": "completed"}
+    )
+    base_runs_error = _get("ihui_agent_loop_runs_total", {"status": "error"})
+    base_errs_conn = _get(
+        "ihui_agent_loop_errors_total", {"error_type": "connection"}
+    )
+
+    # 1. 成功任务 → runs_total{completed} +1
+    async def ok_llm(messages, tools):
+        return {"content": "完成", "tool_calls": None}
+
+    loop_ok = AgentLoopV2(ok_llm, [], max_iterations=3)
+    await loop_ok.run(_default_messages())
+
+    # 2. 失败任务(LLM 抛连接错误,不重试)→ runs_total{error} + errors_total{connection} +1
+    async def bad_llm(messages, tools):
+        raise ConnectionError("network down")
+
+    loop_bad = AgentLoopV2(bad_llm, [], max_iterations=3, llm_retry_max=0)
+    await loop_bad.run(_default_messages())
+
+    assert (
+        _get("ihui_agent_loop_runs_total", {"status": "completed"})
+        == base_runs_completed + 1
+    )
+    assert (
+        _get("ihui_agent_loop_runs_total", {"status": "error"})
+        == base_runs_error + 1
+    )
+    assert (
+        _get("ihui_agent_loop_errors_total", {"error_type": "connection"})
+        == base_errs_conn + 1
+    )
