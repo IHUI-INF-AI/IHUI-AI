@@ -13,6 +13,9 @@ export type { DrawerComponentProps } from './DrawerComponent'
 export { default as Ranking } from './Ranking'
 export type { RankingProps, RankingItem } from './Ranking'
 
+export { default as FloatBox } from './FloatBox'
+export type { FloatBoxProps } from './FloatBox'
+
 export { default as EmptyState } from './EmptyState'
 export type { EmptyStateProps } from './EmptyState'
 
