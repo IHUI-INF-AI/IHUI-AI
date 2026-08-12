@@ -1,4 +1,4 @@
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -13,6 +13,8 @@ import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
 import { FloatBox } from '@/components'
+import RecentAgents from './components/RecentAgents'
+import MyAgents from './components/MyAgents'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
@@ -221,70 +223,6 @@ interface CategoryItem {
   url: string
 }
 
-/* ============ 工具函数 ============ */
-
-function getInitials(name: string): string {
-  return name.charAt(0) || '?'
-}
-
-/* ============ 组件 ============ */
-
-/** 横向滚动智能体列表（RecentAgents / MyAgents 共用） */
-function AgentHorizontalScroll({
-  title,
-  agents,
-  showTeamBtn = false,
-  onTeamClick,
-  onAgentClick,
-}: {
-  title: string
-  agents: Array<{ id: string; agentName: string; agentAvatar: string }>
-  showTeamBtn?: boolean
-  onTeamClick?: () => void
-  onAgentClick?: (agent: { id: string; agentName: string }) => void
-}) {
-  if (agents.length === 0) return null
-  return (
-    <View className="agent-h-scroll-container">
-      <View className="agent-h-scroll-header">
-        <Text className="agent-h-scroll-title">{title}</Text>
-        {showTeamBtn ? (
-          <View className="team-button" onClick={onTeamClick}>
-            <Text className="team-button-text">我的AI员工</Text>
-            <Text className="team-button-arrow">{'>'}</Text>
-          </View>
-        ) : null}
-      </View>
-      <ScrollView scrollX className="agent-h-scroll" showScrollbar={false}>
-        <View className="agent-h-list">
-          {agents.map((agent) => (
-            <View
-              key={agent.id}
-              className="agent-h-item"
-              onClick={() => onAgentClick?.(agent)}
-            >
-              <View className="agent-h-avatar-wrap">
-                {agent.agentAvatar ? (
-                  <Image
-                    className="agent-h-avatar"
-                    src={agent.agentAvatar}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="agent-h-avatar-fallback">
-                    <Text className="agent-h-avatar-text">{getInitials(agent.agentName)}</Text>
-                  </View>
-                )}
-              </View>
-              <Text className="agent-h-name">{agent.agentName}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  )
-}
-
 /* ============ 页面主组件 ============ */
 
 export default function Community() {
@@ -414,12 +352,6 @@ export default function Community() {
     }
   }
 
-  function onAgentClick(agent: { id: string; agentName: string }) {
-    Taro.navigateTo({
-      url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.agentName)}`,
-    })
-  }
-
   function onSearch(value: string) {
     const keyword = value.replace(/[,.!?;:。，！？；：'"（）【】《》]+/g, '')
     setSearchKeyword(keyword)
@@ -448,10 +380,6 @@ export default function Community() {
       )
       setAgentList(filtered)
     }
-  }
-
-  function goToTeam() {
-    Taro.navigateTo({ url: '/pages/tools/ai_group/index' })
   }
 
   function backToTop() {
@@ -662,21 +590,11 @@ export default function Community() {
             </View>
           ) : null}
 
-          {/* RecentAgents 最近使用(对齐原项目) */}
-          <AgentHorizontalScroll
-            title="最近使用"
-            agents={recentAgents}
-            onAgentClick={onAgentClick}
-          />
+          {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
+          {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
 
-          {/* MyAgents 我的智能体(对齐原项目) */}
-          <AgentHorizontalScroll
-            title="我的AI APP"
-            agents={myAgents}
-            showTeamBtn
-            onTeamClick={goToTeam}
-            onAgentClick={onAgentClick}
-          />
+          {/* MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0) */}
+          {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
 
           {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
           <View className="community-ailist-content">
