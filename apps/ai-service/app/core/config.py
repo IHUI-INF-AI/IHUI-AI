@@ -269,6 +269,11 @@ def _sync_env_file_to_os() -> None:
             ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN")
         ):
             os.environ.setdefault(key, value)
+        # L5-10(2026-08-12):配置开关类变量同步到 os.environ
+        # (AGENT_EXECUTOR 由 routers/agents.py _is_loop_v2_enabled 直接读 os.environ,
+        #  需与 API_KEY 类同样同步,否则 .env 配置不生效)
+        elif key in ("AGENT_EXECUTOR",):
+            os.environ.setdefault(key, value)
 
 
 _sync_env_file_to_os()
