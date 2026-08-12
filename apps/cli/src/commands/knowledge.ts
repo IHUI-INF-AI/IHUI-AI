@@ -27,8 +27,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { loadSettings } from './settings.js';
-import { ensureFreshAccessToken } from './token-manager.js';
+import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const TEXT_TRUNCATE_LEN = 60;
@@ -117,72 +116,8 @@ interface IndexOptions {
 
 // === 解析工具(复用 memory.ts 模式) ===
 
-/** 解析 baseUrl:CLI flag > settings.json > 默认值 http://localhost:8802(api 端口)。 */
-function resolveBaseUrl(cliApiUrl: unknown): string {
-  if (typeof cliApiUrl === 'string' && cliApiUrl) return cliApiUrl.replace(/\/+$/, '');
-  const settings = loadSettings();
-  const url = settings.apiUrl || process.env.IHUI_API_URL || 'http://localhost:8802';
-  return url.replace(/\/+$/, '');
-}
-
-/**
- * 解析 apiKey:CLI flag > 自动 refresh 续期(settings.refreshToken)。
- * 返回 null 表示无 token / refresh 失败,调用方应提示用户 `ihui login`。
- */
-async function resolveApiKeyAsync(
-  cliApiKey: unknown,
-  baseUrl: string,
-): Promise<string | null> {
-  if (typeof cliApiKey === 'string' && cliApiKey) return cliApiKey;
-  return ensureFreshAccessToken(baseUrl);
-}
-
-/** 远程 HTTP 调用(Node 20+ 内置 fetch)。失败抛错,由调用方 try/catch 输出友好错误。 */
-async function apiRequest(
-  baseUrl: string,
-  fullPath: string,
-  options: {
-    method?: 'GET' | 'POST' | 'DELETE';
-    body?: unknown;
-    timeoutMs?: number;
-    apiKey?: string;
-  } = {},
-): Promise<unknown> {
-  const url = `${baseUrl.replace(/\/$/, '')}${fullPath}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-  try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (options.apiKey) {
-      headers.Authorization = `Bearer ${options.apiKey}`;
-    }
-    const resp = await fetch(url, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      signal: controller.signal,
-    });
-    const text = await resp.text();
-    let parsed: unknown;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      throw new Error(`HTTP ${resp.status} 响应非 JSON: ${text.slice(0, 200)}`);
-    }
-    if (!resp.ok) {
-      const msg =
-        (parsed && typeof parsed === 'object' && 'message' in parsed
-          ? String((parsed as { message: unknown }).message)
-          : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
-      const err = new Error(msg) as Error & { status?: number };
-      err.status = resp.status;
-      throw err;
-    }
-    return parsed;
-  } finally {
-    clearTimeout(timer);
-  }
-}
+// knowledge 用完整 path(无固定 API_PREFIX),createApiRequest 传 ''。
+const apiRequest = createApiRequest('', DEFAULT_TIMEOUT_MS);
 
 /** multipart 文件上传(Node 20+ 内置 FormData / Blob / File)。 */
 async function apiUploadFile(
@@ -226,29 +161,6 @@ async function apiUploadFile(
   } finally {
     clearTimeout(timer);
   }
-}
-
-function printJson(data: unknown): void {
-  console.info(JSON.stringify(data, null, 2));
-}
-
-/** 提取标准 API 响应的 data 字段;非标准格式原样返回。 */
-function extractData(resp: unknown): unknown {
-  if (resp && typeof resp === 'object' && 'data' in resp) {
-    return (resp as { data: unknown }).data;
-  }
-  return resp;
-}
-
-/** 友好错误输出(不触发 crash handler)。 */
-function handleError(scope: string, err: unknown): void {
-  const e = err as Error & { status?: number };
-  const status = typeof e.status === 'number' ? ` [${e.status}]` : '';
-  console.error(chalk.red(`✗ ${scope}${status}: ${e.message || err}`));
-  if (e.message?.includes('ECONNREFUSED') || e.message?.includes('fetch failed')) {
-    console.error(chalk.dim('  请确认 API 服务已启动:pnpm --filter @ihui/api dev(默认 http://localhost:8802)'));
-  }
-  process.exitCode = 1;
 }
 
 // === 类型守卫 ===
