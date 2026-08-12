@@ -62,7 +62,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="p-3 min-[640px]:p-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {icon}
           <span>{label}</span>
@@ -142,7 +142,7 @@ export default function RelayOverviewPage() {
       </div>
 
       <Card className="bg-muted/50">
-        <CardContent className="flex items-center justify-between gap-3 p-3">
+        <CardContent className="flex items-center justify-between gap-3 p-3 min-[640px]:p-3">
           <div className="flex min-w-0 flex-1 items-start gap-2">
             <div className="rounded-md bg-background p-1.5">
               <Bot className="h-3.5 w-3.5" />
