@@ -33,9 +33,8 @@
  * 20. GET    /v1/generation/status/:id     — 生成队列状态(generation:write)
  * 21. POST   /v1/generation/cancel/:id     — 生成队列取消(generation:write)
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { signAccessToken } from '@ihui/auth'
 import type {
   V1AudioVoicesResponse,
   V1AudioTranscriptionsResponse,
@@ -55,6 +54,7 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
+import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 
 // =============================================================================
 // 常量
@@ -64,13 +64,6 @@ import { error } from '../utils/response.js'
 const INTERNAL_BASE = `http://localhost:${process.env.PORT || 3001}`
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
-interface ApiKeyContext {
-  id: string
-  userId: string
-  key: string
-  permissions: string[]
-  rateLimit: number
-}
 
 // =============================================================================
 // Zod schemas
@@ -206,28 +199,10 @@ const errorResponseSchema = {
 // =============================================================================
 
 /** 从 apiKey 上下文取 userId,失败 reply 401。 */
-function getUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-  const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-  if (!apiKey) {
-    reply.status(401).send(error(401, 'API key authentication required'))
-    return null
-  }
-  return apiKey.userId
-}
 
 /** 用 apiKey.userId 签发短期内部 JWT,模拟内部调用满足 /api/* 的 JWT 鉴权。 */
-function mintInternalJwt(userId: string): Promise<string> {
-  return signAccessToken({ userId, phone: '', familyId: `apikey-${userId}`, roleId: 0 })
-}
 
 /** 构造 JSON 请求 init。 */
-function jsonInit(body: unknown, method: 'POST' | 'PUT' | 'DELETE' = 'POST'): RequestInit {
-  return {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }
-}
 
 interface InternalResult {
   ok: boolean
@@ -353,10 +328,6 @@ function mapJobStatus(s: unknown): 'queued' | 'processing' | 'completed' | 'fail
   if (v === 'failed' || v === 'error') return 'failed'
   if (v === 'cancelled' || v === 'canceled') return 'cancelled'
   return 'queued'
-}
-
-function asObj(v: unknown): Record<string, unknown> {
-  return (v ?? {}) as Record<string, unknown>
 }
 
 /**
