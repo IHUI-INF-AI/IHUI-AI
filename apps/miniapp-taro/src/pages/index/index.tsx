@@ -35,18 +35,19 @@ import BottomActionBar, {
   type ToggleButtonItem,
 } from '@/components/BottomActionBar'
 import Toolbar from '@/components/Toolbar'
-import { icon } from '@/constants/remote-icons'
+import Carousel from '@/components/Carousel'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
+import { rpx } from '@/utils/rpx'
+
 import './index.css'
 
 const DEFAULT_AVATAR =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 // 首页静态资源(Taro config copy.patterns 把 src/static/* 复制到 dist/static/*)
-const SHARE_ZHUANMI_IMG = '/static/images/share_zhuanmi.png'
 const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
 const QRCODE_IMG = '/static/images/qewm.png'
 
@@ -122,11 +123,21 @@ export default function Index() {
   }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
+  // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
+  const [inputText, setInputText] = useState('')
 
   const systemInfo = Taro.getSystemInfoSync()
   const statusBarHeight = systemInfo.statusBarHeight || 20
 
   useDidShow(() => {
+    // 修复 (2026-08-12):Taro H5 在 dev server 模式下挂载完页面会自动滚动到
+    // scrollTop=426,导致首屏 Hero + Toolbar 在视口上方不可见,留下 40% 空白。
+    // 这里强制重置到顶部,确保用户首屏看到 Hero。
+    try {
+      Taro.pageScrollTo({ scrollTop: 0, duration: 0 })
+    } catch {
+      // 静默:部分 Taro 版本可能不支持 pageScrollTo API
+    }
     const logged = isLoggedIn()
     const info = getUserInfo()
     setState((s) => ({
@@ -267,10 +278,10 @@ export default function Index() {
         onCreateChat={handleCreateNewChat}
       />
 
-      {/* ===== container 主容器 ===== */}
+      {/* ===== container 主容器(自然流,无 minHeight,让内容真实高度驱动)===== */}
       <View
         className="flex flex-col"
-        style={{ minHeight: '100vh', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
+        style={{}}
       >
         {/* ===== NavBar(粘性 + 标题"智汇AI社区" + 菜单 + 加入社区群)===== */}
         <NavBar
@@ -282,92 +293,225 @@ export default function Index() {
           onJoinClick={handleJoinClick}
         />
 
-        {/* ===== top_box(顶部 72vh 区域,share-image 140rpx×140rpx,pulse 动画)===== */}
+        {/* ===== Hero 区(欢迎语 + 主操作区)===== */}
         <View
-          className="relative flex flex-col"
-          style={{ padding: '0 20rpx', height: 'calc(72vh)' }}
+          className="flex flex-col items-center"
+          style={{ padding: '40rpx 20rpx 20rpx' }}
         >
-          <View className="flex flex-col items-end relative">
-            <View
-              className="flex flex-col items-end relative"
-              style={{ gap: '6rpx', marginTop: '10rpx' }}
-            >
-              {/* share-image:140rpx×140rpx + pulse 动画 + 点击跳转"我的" */}
-              <Image
-                className="ai-pulse"
-                src={SHARE_ZHUANMI_IMG}
-                style={{ width: '140rpx', height: '140rpx', zIndex: 10 }}
-                mode="aspectFit"
-                onClick={() => Taro.switchTab({ url: '/pages/user/index' })}
-              />
-            </View>
+          {/* 主标题 */}
+          <Text
+            style={{
+              fontSize: rpx(44),
+              fontWeight: 'bold',
+              color: 'var(--color-foreground)',
+              textAlign: 'center',
+              marginBottom: rpx(20),
+            }}
+          >
+            智汇AI 智能对话
+          </Text>
+          {/* 副标题 */}
+          <Text
+            style={{
+              fontSize: rpx(26),
+              color: 'var(--color-muted-foreground, #666)',
+              textAlign: 'center',
+              marginBottom: rpx(30),
+            }}
+          >
+            多模型聚合 · 一键切换 · 智能创作
+          </Text>
+          {/* share-image 分享按钮(顶部右上) */}
+          <View
+            className="flex items-center justify-center"
+            style={{
+              width: rpx(200),
+              height: rpx(200),
+              borderRadius: rpx(20),
+              background: 'linear-gradient(135deg, #93d2f3, #b3e5fc)',
+              boxShadow: '0 4rpx 20rpx rgba(147, 210, 243, 0.3)',
+              marginBottom: rpx(20),
+            }}
+            onClick={() => Taro.switchTab({ url: '/pages/user/index' })}
+          >
+            <Text style={{ fontSize: rpx(80), color: '#fff' }}>🤖</Text>
           </View>
+          {/* 邀请文字 */}
+          <Text
+            style={{
+              fontSize: rpx(24),
+              color: 'var(--color-muted-foreground, #888)',
+              textAlign: 'center',
+            }}
+          >
+            点击上方图标,分享给好友领取智汇值
+          </Text>
         </View>
 
-        {/* ===== Toolbar(快捷入口工具栏,横向滚动,不带背景)===== */}
+        {/* ===== Toolbar(快捷入口工具栏,横向滚动)===== */}
         <View className="px-[20rpx] py-[16rpx]">
           <Toolbar
             items={[
               { id: 'ai', name: tt('toolbar.ai', 'AI对话'), icon: aiIconLocal, onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
               { id: 'course', name: tt('toolbar.course', '课程'), icon: courseIconLocal, onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
               { id: 'plaza', name: tt('toolbar.plaza', '广场'), icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
-              { id: 'rank', name: tt('toolbar.rank', '排行'), icon: icon('rankone'), onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
+              { id: 'rank', name: tt('toolbar.rank', '排行'), icon: '🏆', onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
               { id: 'vip', name: tt('toolbar.vip', '会员'), icon: vipActIconLocal, onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
             ]}
           />
         </View>
 
-        {/* ===== input_box_content(底部输入区,position fixed)===== */}
-        <View
-          className="left-0 right-0"
-          style={{
-            position: 'fixed',
-            bottom: computedContainerBottom,
-            background: 'var(--color-card)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
-            transition: 'bottom 0.3s ease',
-            zIndex: 1000,
-          }}
-        >
-          {/* ===== posi_angeetlis(相对定位容器)===== */}
-          <View className="relative">
-            {/* ModelList 弹出层 */}
-            <View style={{ padding: '0 20rpx' }}>
-              {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
-                <ModelList
-                  variant="popup"
-                  models={filteredModels}
-                  selectedId={state.selectedModelId}
-                  onSelect={handleModelSelect}
-                  currentType={state.currentModelType}
-                  agentActive={state.agentModeActive}
-                  onAgentSelect={handleAgentToggle}
-                />
-              ) : null}
-            </View>
-
-            {/* 8 个 model-type-btn 横向滚动 */}
-            <ModelTypeButtonGroup
-              variant="wide"
-              activeType={state.currentModelType}
-              onSelect={handleModelTypeClick}
-            />
-          </View>
-
-          {/* ===== BottomActionBar(ToggleButtonGroup + InputArea + icon-button-group)===== */}
-          <BottomActionBar
-            variant="ai-home"
-            modelName={state.modelName}
-            showIconButtons={state.showIconButtons}
-            toggleButtons={state.toggleButtons}
-            onToggle={handleToggleButtonClick}
-            inputAreaProps={{
-              onSend: handleSend,
-              disabled: !state.isLogin,
-              placeholder: state.isLogin ? tt('index.placeholder.input', '输入消息...') : tt('index.placeholder.loginRequired', '请先登录'),
-            }}
+        {/* ===== 8 个 model-type-btn 横向滚动(模型类型)===== */}
+        <View className="px-[20rpx]">
+          <ModelTypeButtonGroup
+            variant="wide"
+            activeType={state.currentModelType}
+            onSelect={handleModelTypeClick}
           />
         </View>
+
+        {/* ===== 已选模型提示由 BottomActionBar(button-group-box)统一渲染,
+            避免与 fixed 底部输入区 z-index 冲突 ===== */}
+
+        {/* ===== ModelList 弹出层(选择模型时显示)===== */}
+        {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
+          <View style={{ padding: '0 20rpx' }}>
+            <ModelList
+              variant="popup"
+              models={filteredModels}
+              selectedId={state.selectedModelId}
+              onSelect={handleModelSelect}
+              currentType={state.currentModelType}
+              agentActive={state.agentModeActive}
+              onAgentSelect={handleAgentToggle}
+            />
+          </View>
+        ) : null}
+      </View>
+
+      {/* ===== 轮播图(资源位)===== */}
+      <View className="px-[20rpx] py-[16rpx]">
+        <Carousel
+          items={[
+            { id: 'b1', img: '', title: 'AI 创作工坊上线', subtitle: '一键生成营销文案/海报/短视频脚本' },
+            { id: 'b2', img: '', title: '智汇会员限时 5 折', subtitle: '畅享全模型 + 知识库 + 永久记忆' },
+            { id: 'b3', img: '', title: '新人大礼包', subtitle: '注册即送 1000 智汇值,可免费对话 200 次' },
+          ]}
+        />
+      </View>
+
+      {/* ===== 课程推荐区 ===== */}
+      <View
+        className="mx-[20rpx]"
+        style={{
+          background: 'var(--color-card)',
+          borderRadius: rpx(20),
+          padding: `${rpx(24)} ${rpx(20)}`,
+          marginBottom: rpx(20),
+        }}
+      >
+        <View className="flex flex-row items-center justify-between" style={{ marginBottom: rpx(20) }}>
+          <Text style={{ fontSize: rpx(32), fontWeight: 'bold', color: 'var(--color-foreground)' }}>
+            精选课程
+          </Text>
+          <Text
+            style={{ fontSize: rpx(24), color: 'var(--color-accent-blue, #5a85ff)' }}
+            onClick={() => Taro.switchTab({ url: '/pages/course/list' })}
+          >
+            查看更多 →
+          </Text>
+        </View>
+        <View
+          className="flex flex-row"
+          style={{ gap: rpx(16), overflowX: 'auto', whiteSpace: 'nowrap' }}
+        >
+          {[
+            { id: 'c1', title: 'ChatGPT 入门到精通', tag: 'AI 对话', price: '¥99', color: '#FFE4B5' },
+            { id: 'c2', title: 'Midjourney 绘画实战', tag: 'AI 绘画', price: '¥129', color: '#E0F0FF' },
+            { id: 'c3', title: 'Prompt 提示词工程', tag: 'AI 进阶', price: '¥79', color: '#F0E0FF' },
+            { id: 'c4', title: 'Stable Diffusion 部署', tag: 'AI 绘画', price: '¥199', color: '#E0FFE0' },
+          ].map((c) => (
+            <View
+              key={c.id}
+              className="flex flex-col"
+              style={{
+                flexShrink: 0,
+                width: rpx(280),
+                background: c.color,
+                borderRadius: rpx(16),
+                padding: rpx(20),
+              }}
+              onClick={() => Taro.navigateTo({ url: '/pages/course/list' }).catch(() => {})}
+            >
+              <View
+                style={{
+                  height: rpx(120),
+                  borderRadius: rpx(12),
+                  background: 'rgba(255,255,255,0.6)',
+                  marginBottom: rpx(12),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: rpx(40) }}>📚</Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: rpx(26),
+                  fontWeight: 'bold',
+                  color: 'var(--color-foreground)',
+                  marginBottom: rpx(6),
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {c.title}
+              </Text>
+              <View className="flex flex-row items-center justify-between">
+                <Text style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground, #666)' }}>
+                  {c.tag}
+                </Text>
+                <Text style={{ fontSize: rpx(26), fontWeight: 'bold', color: '#ff6b35' }}>
+                  {c.price}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* ===== input_box_content(底部输入区,fixed 贴底,高 z-index)=====
+          用 BottomActionBar 组件复用完整 toggleButtons + InputArea + icon-button-group
+          修复 (2026-08-12):原手写版 Text 占位 + 4 emoji 圆按钮布局错位,
+          改为组件化版本,box-sizing 边框计算修正 + 已选模型行 z-index 重排 */}
+      <View
+        style={{
+          position: 'fixed',
+          bottom: computedContainerBottom,
+          left: 0,
+          right: 0,
+          background: 'var(--color-card)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
+          transition: 'bottom 0.3s ease',
+          zIndex: 1000,
+          boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        <BottomActionBar
+          variant="ai-home"
+          modelName={state.modelName}
+          showIconButtons
+          toggleButtons={state.toggleButtons}
+          inputAreaProps={{
+            value: inputText,
+            onInput: setInputText,
+            onSend: handleSend,
+            placeholder: state.isLogin ? '输入消息...' : '请先登录',
+          }}
+          onToggle={handleToggleButtonClick}
+        />
       </View>
 
       {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if)===== */}
@@ -383,7 +527,7 @@ export default function Index() {
           >
             <Image
               src={SHARE_ZHZ_IMG}
-              style={{ width: '440rpx' }}
+              style={{ width: rpx(440) }}
               mode="widthFix"
             />
           </View>
@@ -401,26 +545,26 @@ export default function Index() {
             className="ai-popup-fade-in flex flex-col items-center"
             style={{
               background: 'var(--color-card)',
-              borderRadius: '20rpx',
+              borderRadius: rpx(20),
               padding: '50rpx 40rpx 20rpx',
             }}
             onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
             <Image
               src={QRCODE_IMG}
-              style={{ width: '600rpx', height: '600rpx' }}
+              style={{ width: rpx(600), height: rpx(600) }}
               mode="aspectFit"
             />
-            <Text style={{ fontSize: '32rpx', color: 'var(--color-foreground)', marginTop: '20rpx' }}>
+            <Text style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}>
               {tt('index.qrCodeHint', '扫描二维码加入社区')}
             </Text>
             {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
             <View
               className="ai-close-btn"
-              style={{ top: '10rpx', right: '10rpx', width: '60rpx', height: '60rpx', border: '1px solid #000' }}
+              style={{ top: rpx(10), right: rpx(10), width: rpx(60), height: rpx(60), border: '1px solid #000' }}
               onClick={handleQrCodeClose}
             >
-              <Text style={{ fontSize: '60rpx', lineHeight: '60rpx', color: 'var(--color-foreground)' }}>×</Text>
+              <Text style={{ fontSize: rpx(60), lineHeight: rpx(60), color: 'var(--color-foreground)' }}>×</Text>
             </View>
           </View>
         </View>
