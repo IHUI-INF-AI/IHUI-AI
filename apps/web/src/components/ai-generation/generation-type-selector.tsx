@@ -41,7 +41,7 @@ export function GenerationTypeSelector({ value, onChange }: GenerationTypeSelect
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
               active
-                ? 'border-primary bg-primary/10 text-primary'
+                ? 'outline outline-1 outline-black dark:outline-white bg-primary/10 text-primary'
                 : 'border-border bg-card text-muted-foreground hover:bg-accent',
             )}
           >
