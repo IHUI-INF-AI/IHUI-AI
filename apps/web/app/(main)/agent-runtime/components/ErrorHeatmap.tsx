@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 
 export interface ErrorCell {
@@ -107,22 +108,19 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
               >
                 <div />
                 {times.map((t) => (
-                  <div
-                    key={t}
-                    className="truncate text-center text-[10px] text-muted-foreground"
-                    title={t}
-                  >
-                    {t}
-                  </div>
+                  <Tooltip content={t} key={t}>
+                    <div className="truncate text-center text-[10px] text-muted-foreground">
+                      {t}
+                    </div>
+                  </Tooltip>
                 ))}
                 {tools.map((tool) => (
                   <React.Fragment key={tool}>
-                    <div
-                      className="flex items-center truncate pr-2 text-[10px] text-muted-foreground"
-                      title={tool}
-                    >
-                      {tool}
-                    </div>
+                    <Tooltip content={tool}>
+                      <div className="flex items-center truncate pr-2 text-[10px] text-muted-foreground">
+                        {tool}
+                      </div>
+                    </Tooltip>
                     {times.map((t) => {
                       const c = lookup.get(`${t}|${tool}`)
                       const count = c?.count ?? 0
