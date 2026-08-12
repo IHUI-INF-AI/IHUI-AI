@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
+import Carousel from '@/components/Carousel'
 import {
   SearchBar,
   ModelTypeButtonGroup,
@@ -225,6 +226,16 @@ export default function AgentPage() {
 
   return (
     <View className="min-h-screen bg-background">
+      {/* ===== 轮播图(对齐原项目 tools/index.vue Carousel 组件)===== */}
+      <View className="px-[20rpx] pt-[16rpx] pb-[8rpx]">
+        <Carousel
+          items={[
+            { id: 'b1', img: '', title: 'AI 应用商店', subtitle: '发现更多智能助手,提升工作效率' },
+            { id: 'b2', img: '', title: '开发者入驻', subtitle: '创建并发布你自己的 AI 智能体' },
+            { id: 'b3', img: '', title: '热门推荐', subtitle: '本周最受欢迎的智能体排行' },
+          ]}
+        />
+      </View>
       <View className="bg-card pb-2 sticky top-0 z-10">
         <SearchBar
           value={keyword}

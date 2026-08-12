@@ -17,56 +17,77 @@
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#4F6EF7">
   <title>智汇AI社区 - 一站式AI学习与交流平台</title>
-  <!-- 隐藏 react-refresh-webpack-plugin 和 webpack-dev-server 的 overlay iframe
-       (H5 模式下远程图片加载失败等异步错误触发 unhandledrejection,
-       被 overlay 捕获显示遮挡页面;业务层已通过 app.tsx 自行处理) -->
+  <!-- 兜底拦截 react-refresh-webpack-plugin 的 ErrorOverlay iframe
+       (H5 模式下未处理的 Promise rejection 会触发 overlay 遮挡页面)。
+       即使 ReactRefreshPlugin 仍被加载, 也必须在客户端彻底屏蔽。 -->
   <style>
+    /* 强制隐藏所有可能的 overlay 容器(无论是否已注入) */
     #react-refresh-overlay, #webpack-dev-server-client-overlay,
-    [id*='react-refresh-overlay'], [id*='webpack-dev-server'],
-    iframe[src*='react-refresh'], iframe[src*='webpack-dev-server'] {
+    iframe#react-refresh-overlay, iframe#webpack-dev-server-client-overlay {
       display: none !important;
       visibility: hidden !important;
+      opacity: 0 !important;
       pointer-events: none !important;
       width: 0 !important;
       height: 0 !important;
       position: fixed !important;
-      left: -9999px !important;
-      top: -9999px !important;
-      opacity: 0 !important;
-      z-index: -9999 !important;
+      left: -99999px !important;
+      top: -99999px !important;
+      z-index: -2147483648 !important;
     }
   </style>
-  <!-- 在 webpack-dev-server overlay 之前拦截全局错误,防止全屏弹窗(AGENTS.md §4) -->
   <script>
-    // 拦截所有 error 和 unhandledrejection,阻止 webpack-dev-server overlay 弹窗
-    // 必须在 webpack-dev-server client 脚本加载之前注册
-    // 业务层错误由 app.tsx 的 initCrashReport 和全局 handler 处理
-    var __origOnError = window.onerror;
-    window.addEventListener('error', function(e) { e.preventDefault(); }, true);
-    window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); }, true);
-    // 覆盖 window.onerror 确保早期错误也被捕获
-    window.onerror = function() { return true; };
-    // 使用 MutationObserver 在 overlay iframe 插入 DOM 后立即移除
-    // 防止 react-refresh-webpack-plugin 动态注入的 iframe 遮挡页面
-    try {
-      var __observer = new MutationObserver(function(mutations) {
-        for (var i = 0; i < mutations.length; i++) {
-          var nodes = mutations[i].addedNodes || [];
-          for (var j = 0; j < nodes.length; j++) {
-            var node = nodes[j];
-            if (node && node.nodeType === 1) {
-              var id = node.id || '';
-              var src = node.src || '';
-              if (id.indexOf('react-refresh') > -1 || id.indexOf('webpack-dev-server') > -1 ||
-                  src.indexOf('react-refresh') > -1 || src.indexOf('webpack-dev-server') > -1) {
-                node.parentNode && node.parentNode.removeChild(node);
+    (function () {
+      var noop = function () {}
+      // 第 1 层: 劫持 react-refresh 全局 hook, 让其 register 不真正注册
+      try {
+        Object.defineProperty(window, '__REACT_ERROR_OVERLAY_GLOBAL_HOOK__', {
+          configurable: true,
+          writable: true,
+          value: {
+            onBuildError: noop,
+            onRuntimeError: noop,
+            reportBuildError: noop,
+            reportRuntimeError: noop,
+            register: function (overlay) {
+              try { overlay && overlay.dispose && overlay.dispose() } catch (e) {}
+              try { overlay && overlay.componentDidMount && (overlay.componentDidMount = noop) } catch (e) {}
+              try { overlay && overlay.componentDidUpdate && (overlay.componentDidUpdate = noop) } catch (e) {}
+              return function () {}
+            },
+            unregister: noop,
+            setRuntimeErrorHandler: function () { return noop },
+            overlay: null,
+          },
+        })
+      } catch (e) {}
+
+      // 第 2 层: 持续轮询 + MutationObserver 双保险, 反复删除已注入的 iframe
+      var IFRAME_IDS = ['react-refresh-overlay', 'webpack-dev-server-client-overlay']
+      var cleanup = function () {
+        try {
+          for (var i = 0; i < IFRAME_IDS.length; i++) {
+            var id = IFRAME_IDS[i]
+            var nodes = document.querySelectorAll('#' + id)
+            for (var j = 0; j < nodes.length; j++) {
+              var n = nodes[j]
+              if (n && n.parentNode) {
+                try { n.parentNode.removeChild(n) } catch (e) {}
               }
             }
           }
-        }
-      });
-      __observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
-    } catch(e) { /* MutationObserver 降级 */ }
+        } catch (e) {}
+      }
+      // 立即执行一次
+      cleanup()
+      // 监听 DOM 变化
+      try {
+        var obs = new MutationObserver(function () { cleanup() })
+        obs.observe(document.documentElement || document.body, { childList: true, subtree: true })
+      } catch (e) {}
+      // 高频轮询兜底(每 100ms 扫一次, iframe 一旦出现立即删除)
+      setInterval(cleanup, 100)
+    })()
   </script>
   <script><%= htmlWebpackPlugin.options.script %></script>
 </head>
