@@ -39,6 +39,7 @@ const cozeStreamSchema = z.object({
   query: z.string().min(1),
   conversationId: z.string().optional().default(''),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 async function getCozeConversationId(uuid: string, botId: string): Promise<string> {
   const rows = await db.execute(
@@ -342,24 +343,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             search: { type: 'string', maxLength: 255, description: '按标题搜索' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -511,32 +495,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             after: { type: 'string', format: 'uuid', description: '游标:返回该消息 ID 之后的记录' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403, 404),
       },
     },
     async (request, reply) => {
