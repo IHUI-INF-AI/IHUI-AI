@@ -208,26 +208,37 @@ export function HomePage3Magazine() {
   }, [allItems, activeTab])
 
   const hero = items[0]
-  // 自适应列表项数:保证 listItems 至少 4 条以便填满 4 列网格,不足时减少 sideItems
-  const targetList = 4
+  // 2026-08-12 改(方案 B — footer 完整显示在视口内):listItems 0 + sideCount 2 → 1
+  // 去掉整行 miniCard + 一张侧边卡,magazine 区域总高 1042px → ≤ 742px,
+  // page-7 section ≤ main 视口 742px,footer 在 page-7 视口内完整显示
+  // (用户选 B 确认);保留 hero + 1 张侧边卡的核心信息密度。
+  const targetList = 0
   const availAfterHero = items.length - 1
-  const sideCount = Math.min(2, Math.max(0, availAfterHero - targetList))
+  const sideCount = Math.min(1, Math.max(0, availAfterHero - targetList))
   const sideItems = items.slice(1, 1 + sideCount)
-  const listItems = items.slice(1 + sideCount, 1 + sideCount + Math.min(8, availAfterHero - sideCount))
+  const listItems: typeof items = []
 
   const tabClass = (key: TabKey) =>
     activeTab === key
       ? 'rounded-md bg-card px-4 py-1.5 text-sm font-medium text-foreground'
       : 'rounded-md px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground'
 
-  // 2026-07-20 改(自适应 v4,根因):根 section 改 flex flex-1 flex-col,让它在 page4
+  // 2026-07-20 改(自适应 v4,根因):根容器改 flex flex-1 flex-col,让它在 page4
   // wrapper (flex-1 min-h-0) 内撑开 = 视口 - footer 自然高度。
   // - 中间 Card / grid 区域继承 flex-1,占满 magazine 容器剩余空间;
   // - "查看更多" 链接用 mt-auto 贴底,跟 footer 顶边无缝衔接;
-  // - 之前缺 flex-1,根 section 高度 = 内容自然高度 (~140px),container 撑到
+  // - 之前缺 flex-1,根容器高度 = 内容自然高度 (~140px),container 撑到
   //   ~500px,导致 Card 下方 ~360px 大空白 (用户反馈"大量空余空间" 根因)。
+  // 2026-08-12 改(根治 section 嵌套违规):根容器从 <section> 改为 <div>。
+  // - 此前根是 <section> 时,外层 MagazineSection 根也是 <section>(HTML5 不允许 section 嵌套),
+  //   浏览器对嵌套 section 的 scroll-snap 计算/aria 树构建会异常,导致 page-7 内部内容
+  //   "跑"到最后一个分页(实际是嵌套 section 被 snap 视为独立分页单元,scrollIntoView 命中后
+  //   继续向下滚到嵌套 section 的某个位置);
+  // - 改为 <div> 后,scroll-snap 唯一识别外层 page-7,所有内容严格归属 page-7;
+  // - <section> 嵌套属于内容分组,根容器用 <div> 不影响语义(magazine 已由外层
+  //   MagazineSection 的 <section id="home-page-7"> 提供 a11y 标签)。
   return (
-    <section className="flex flex-1 flex-col space-y-4">
+    <div className="flex flex-1 flex-col space-y-4">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1">
           <h2 className="text-2xl font-bold tracking-tight min-[768px]:text-3xl">{t('title')}</h2>
@@ -289,7 +300,7 @@ export function HomePage3Magazine() {
       )}
 
       {/* 2026-07-20 改:mt-auto 推到底部,贴齐 magazine 容器底边 = footer 顶边,
-          配合根 section flex-1,空数据时 Card 已占满中间空间,链接紧跟 Card 下方
+          配合根容器 flex-1,空数据时 Card 已占满中间空间,链接紧跟 Card 下方
           不再悬空。 */}
       <div className="mt-auto flex justify-end pt-2">
         <Link
@@ -300,6 +311,6 @@ export function HomePage3Magazine() {
           <ChevronRight className="h-3 w-3" />
         </Link>
       </div>
-    </section>
+    </div>
   )
 }
