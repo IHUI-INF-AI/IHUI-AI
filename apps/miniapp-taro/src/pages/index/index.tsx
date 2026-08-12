@@ -40,7 +40,6 @@ import DrawerComponent, {
   type DrawerChatItem,
 } from '@/components/DrawerComponent'
 import ModelList, { type ModelItem } from '@/components/ModelList'
-import ModelTypeButtonGroup from '@/components/ModelTypeButtonGroup'
 import type { ModelType } from '@/components/ModelTypeButton'
 import BottomActionBar, {
   type ToggleButtonItem,
@@ -53,6 +52,18 @@ import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
+// ===== 内联模型类型按钮 SVG 资源(对齐原项目 ai_index.vue model-type-btn) =====
+import skillsIcon from '@/assets/images/add/skills.svg'
+import talkIcon from '@/assets/images/add/talk.svg'
+import imageIcon from '@/assets/images/add/image.svg'
+import videoIcon from '@/assets/images/add/video.svg'
+import audioIcon from '@/assets/images/add/audio.svg'
+import videoaIcon from '@/assets/images/add/videoa.svg'
+import otherIcon from '@/assets/images/add/other.svg'
+import sckIcon from '@/assets/images/add/sck.svg'
+import activeBackSvg from '@/static/images/add/active_back.svg'
+import backDefaultSvg from '@/static/images/add/back_default.svg'
+import jiantouSvg from '@/static/images/add/jiantou.svg'
 
 import './index.css'
 
@@ -194,6 +205,194 @@ interface AiHomeState {
   showSharePopup: boolean
   // 公告文本
   announcementText: string
+  // FloatBox 悬浮组件可见性(对齐原项目 floatboxVisible)
+  floatboxVisible: boolean
+}
+
+/**
+ * FloatBox 悬浮侧边栏组件(对齐原项目 FloatBox.vue)
+ * - 固定在右下侧,包含"赚米"/"客服"/"反馈"按钮
+ * - 可展开/收起
+ */
+function FloatBox({
+  visible,
+  onToggle,
+  onShare,
+  onCustomerService,
+  onFeedback,
+}: {
+  visible: boolean
+  onToggle: () => void
+  onShare?: () => void
+  onCustomerService?: () => void
+  onFeedback?: () => void
+}) {
+  return (
+    <View>
+      {/* 侧边栏展开时显示透明遮罩 */}
+      {!visible && (
+        <View
+          className="fixed inset-0"
+          style={{ zIndex: 1004, background: 'transparent' }}
+          onClick={onToggle}
+        />
+      )}
+      <View
+        className="float-box"
+        style={{
+          position: 'fixed',
+          right: visible ? rpx(20) : rpx(-240),
+          bottom: '9%',
+          width: rpx(118),
+          minHeight: rpx(340),
+          backgroundColor: '#fff',
+          borderRadius: rpx(30),
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          transition: 'right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1)',
+          zIndex: 1005,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        {/* 展开箭头 */}
+        <View
+          className="float-arrow"
+          style={{
+            width: rpx(40),
+            height: rpx(100),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'absolute',
+            left: visible ? rpx(-161) : rpx(-37),
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'transparent',
+            zIndex: 10000,
+            transition: 'left 0.3s',
+          }}
+          onClick={(e: { stopPropagation: () => void }) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+        >
+          <Text
+            style={{
+              fontSize: rpx(36),
+              color: '#333',
+              fontWeight: 'bold',
+            }}
+          >
+            {visible ? '◀' : '▶'}
+          </Text>
+        </View>
+        {/* 悬浮内容 */}
+        {visible && (
+          <View
+            className="float-content"
+            style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: `${rpx(14)} 0`,
+              boxSizing: 'border-box',
+              justifyContent: 'center',
+            }}
+          >
+            {/* 赚米按钮 */}
+            <View
+              className="float-item"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                margin: `${rpx(5)} 0`,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+              }}
+              onClick={(e: { stopPropagation: () => void }) => {
+                e.stopPropagation()
+                onShare?.()
+              }}
+            >
+              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>💰</Text>
+              <Text
+                style={{
+                  fontSize: rpx(28),
+                  fontWeight: 'bold',
+                  color: '#ff0000',
+                  letterSpacing: rpx(2),
+                }}
+              >
+                赚米
+              </Text>
+            </View>
+            {/* 客服按钮 */}
+            <View
+              className="float-item"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                margin: `${rpx(5)} 0`,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+              }}
+              onClick={(e: { stopPropagation: () => void }) => {
+                e.stopPropagation()
+                onCustomerService?.()
+              }}
+            >
+              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>💬</Text>
+              <Text
+                style={{
+                  fontSize: rpx(28),
+                  fontWeight: 'bold',
+                  color: '#222',
+                  letterSpacing: rpx(2),
+                }}
+              >
+                客服
+              </Text>
+            </View>
+            {/* 反馈按钮 */}
+            <View
+              className="float-item"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                margin: `${rpx(5)} 0`,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+              }}
+              onClick={(e: { stopPropagation: () => void }) => {
+                e.stopPropagation()
+                onFeedback?.()
+              }}
+            >
+              <Text style={{ fontSize: rpx(36), marginBottom: rpx(6) }}>📝</Text>
+              <Text
+                style={{
+                  fontSize: rpx(28),
+                  fontWeight: 'bold',
+                  color: '#222',
+                  letterSpacing: rpx(2),
+                }}
+              >
+                反馈
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    </View>
+  )
 }
 
 export default function Index() {
@@ -279,6 +478,8 @@ export default function Index() {
     showSharePopup: false,
     // 公告文本
     announcementText: '🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！',
+    // FloatBox 可见性(对齐原项目 floatboxVisible: true)
+    floatboxVisible: true,
   }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
@@ -379,6 +580,44 @@ export default function Index() {
         showMaterialList: false,
       }))
     }
+  }, [])
+
+  // ===== 容器点击关闭逻辑(对齐原项目 handleContainerClick) =====
+  // 点击容器空白处关闭所有弹出层(由内层组件自行 stopPropagation)
+  const handleContainerClick = useCallback(() => {
+    setState((s) => {
+      if (!s.showModelList && !s.showAgentList && !s.showSkillsPopup && !s.showMaterialList) return s
+      return {
+        ...s,
+        showModelList: false,
+        showAgentList: false,
+        showSkillsPopup: false,
+        showMaterialList: false,
+        currentModelType: '',
+      }
+    })
+  }, [])
+
+  // FloatBox 切换可见性
+  const handleFloatBoxToggle = useCallback(() => {
+    setState((s) => ({ ...s, floatboxVisible: !s.floatboxVisible }))
+  }, [])
+
+  // FloatBox 分享(赚米)
+  const handleFloatBoxShare = useCallback(() => {
+    setState((s) => ({ ...s, showSharePopup: true }))
+  }, [])
+
+  // FloatBox 客服
+  const handleFloatBoxCustomerService = useCallback(() => {
+    Taro.showToast({ title: '客服功能开发中', icon: 'none' })
+  }, [])
+
+  // FloatBox 反馈
+  const handleFloatBoxFeedback = useCallback(() => {
+    Taro.navigateTo({ url: '/pagesA/fankui/index' }).catch(() => {
+      Taro.showToast({ title: '反馈页面未配置', icon: 'none' })
+    })
   }, [])
 
   const handleModelSelect = (model: ModelItem) => {
@@ -604,7 +843,7 @@ export default function Index() {
   }, [state.materialTab, state.materialTextList, state.materialImageList, state.materialVideoList, state.materialAudioList])
 
   return (
-    <View className="ai-home-page min-h-screen" style={{ background: 'var(--color-background)' }}>
+    <View className="ai-home-page min-h-screen" style={{ background: 'var(--color-background)' }} onClick={handleContainerClick}>
       {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
       <DrawerComponent
         side="left"
@@ -617,6 +856,15 @@ export default function Index() {
         onMenuItemClick={handleMenuItemClick}
         onChatItemClick={handleChatItemClick}
         onCreateChat={handleCreateNewChat}
+      />
+
+      {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
+      <FloatBox
+        visible={state.floatboxVisible}
+        onToggle={handleFloatBoxToggle}
+        onShare={handleFloatBoxShare}
+        onCustomerService={handleFloatBoxCustomerService}
+        onFeedback={handleFloatBoxFeedback}
       />
 
       {/* ===== container 主容器(自然流,无 minHeight,让内容真实高度驱动)===== */}
@@ -668,8 +916,8 @@ export default function Index() {
             />
           </View>
 
-          {/* 智能体列表(AgentList,对齐原项目 AgentListPanel) */}
-          <View className="w-full" style={{ marginBottom: rpx(16) }}>
+          {/* 智能体列表(AgentList,对齐原项目 AgentListPanel,使用 stopPropagation) */}
+          <View className="w-full" style={{ marginBottom: rpx(16) }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
             <AgentListPanel
               visible={state.showAgentList}
               agents={MOCK_AGENTS}
@@ -714,21 +962,219 @@ export default function Index() {
           </View>
         </View>
 
-        {/* ===== 8 个 model-type-btn 横向滚动(模型类型)===== */}
-        <View className="px-[20rpx]">
-          <ModelTypeButtonGroup
-            variant="wide"
-            activeType={state.currentModelType}
-            onSelect={handleModelTypeClick}
-          />
+        {/* ===== 8 个 model-type-btn 横向滚动(模型类型,内联渲染对齐原项目 ai_index.vue)===== */}
+        <View
+          className="flex flex-row justify-center"
+          style={{ marginBottom: rpx(10) }}
+          onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+        >
+          <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
+            <View
+              className="inline-flex flex-row items-center"
+              style={{ padding: '0 20rpx' }}
+            >
+              {/* skills 技能商店 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('skills')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'skills' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'skills' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={skillsIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'skills' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* talk 文本对话 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('talk')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'talk' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'talk' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={talkIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'talk' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* image 图片生成 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('image')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'image' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'image' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={imageIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'image' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* video 视频生成 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('video')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'video' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'video' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={videoIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'video' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* audio 音频生成 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('audio')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'audio' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'audio' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={audioIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'audio' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* videoa 数字人 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('videoa')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'videoa' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'videoa' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={videoaIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'videoa' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* other 通用 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('other')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'other' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'other' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={otherIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'other' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+              {/* sck 素材库 */}
+              <View
+                className="ai-model-type-btn"
+                onClick={(e: { stopPropagation: () => void }) => {
+                  e.stopPropagation()
+                  handleModelTypeClick('sck')
+                }}
+              >
+                <Image
+                  className="absolute top-0 left-0"
+                  src={state.currentModelType === 'sck' ? activeBackSvg : backDefaultSvg}
+                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'sck' ? 1 : 0.6 }}
+                  mode="aspectFill"
+                />
+                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                  <Image src={sckIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                  <Image
+                    src={jiantouSvg}
+                    className={state.currentModelType === 'sck' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
 
         {/* ===== 已选模型提示由 BottomActionBar(button-group-box)统一渲染,
             避免与 fixed 底部输入区 z-index 冲突 ===== */}
 
-        {/* ===== ModelList 弹出层(选择模型时显示)===== */}
+        {/* ===== ModelList 弹出层(选择模型时显示,使用 stopPropagation 防止容器点击关闭)===== */}
         {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
-          <View style={{ padding: '0 20rpx' }}>
+          <View style={{ padding: '0 20rpx' }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
             <ModelList
               variant="popup"
               models={filteredModels}
@@ -741,9 +1187,9 @@ export default function Index() {
           </View>
         ) : null}
 
-        {/* ===== MaterialList 素材库弹窗(对齐原项目 ai_index.vue MaterialList 组件)===== */}
+        {/* ===== MaterialList 素材库弹窗(对齐原项目 ai_index.vue MaterialList 组件,使用 stopPropagation)===== */}
         {state.showMaterialList ? (
-          <View className="material-list-container" style={{ padding: '0 20rpx' }}>
+          <View className="material-list-container" style={{ padding: '0 20rpx' }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
             {/* Tab 栏:文本/图片/视频/音频 */}
             <View className="material-tabs">
               {MATERIAL_TABS.map((tab) => (
