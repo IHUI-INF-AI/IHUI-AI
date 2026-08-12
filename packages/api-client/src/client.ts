@@ -257,6 +257,12 @@ async function fetchOnce<T>(
 
   const json = (await response.json()) as ApiResponse<T>
 
+  // 2026-08-12 修复:ai-service 端点(如 /api/admin/news/status)返回裸 JSON 对象,
+  // 没有 {code, message, data} 包装。code===undefined 时视整个响应为 data 返回。
+  if (json.code === undefined) {
+    return { success: true, data: json as unknown as T }
+  }
+
   if (json.code !== 0) {
     return {
       success: false,
