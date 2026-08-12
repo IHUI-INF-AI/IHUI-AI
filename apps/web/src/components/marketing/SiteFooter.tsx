@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Clock, Copy, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import {
@@ -244,6 +245,78 @@ export function SiteFooter({ className }: { className?: string }) {
   const t = useTranslations('footer')
   const dlg = useDialogSwitch()
 
+  // 2026-08-12 加:Row 1 第一栏底部"代码仓库"小节,平衡左右栏视觉对称
+  // (用户反馈"左边底部有点空,跟右侧不太对称,可以再加点什么内容吗 比如仓库地址?一键跳转?")
+  // - 复制按钮:点击复制完整仓库地址 + toast 提示
+  // - 跳转按钮:外部链接(新窗口打开)
+  // - 2026-08-12 加 Gitee/GitCode 国内镜像(用户"再往下加国内的两个镜像仓库")
+  // 仓库数据放在组件内常量(非 props,简单场景无需提升到 footer-data.ts)
+  const REPOS: ReadonlyArray<{
+    key: 'github' | 'gitee' | 'gitcode'
+    url: string
+    display: string
+    nameKey: 'githubRepo' | 'giteeRepo' | 'gitcodeRepo'
+    openKey: 'openOnGithub' | 'openOnGitee' | 'openOnGitcode'
+    icon: 'github' | 'gitee' | 'gitcode'
+  }> = [
+    {
+      key: 'github',
+      url: 'https://github.com/IHUI-INF-AI/IHUI-AI',
+      display: 'github.com/IHUI-INF-AI/IHUI-AI',
+      nameKey: 'githubRepo',
+      openKey: 'openOnGithub',
+      icon: 'github',
+    },
+    {
+      key: 'gitee',
+      url: 'https://gitee.com/IHUI-INF-AI/IHUI-AI',
+      display: 'gitee.com/IHUI-INF-AI/IHUI-AI',
+      nameKey: 'giteeRepo',
+      openKey: 'openOnGitee',
+      icon: 'gitee',
+    },
+    {
+      key: 'gitcode',
+      url: 'https://gitcode.com/IHUI-INF-AI/IHUI-AI',
+      display: 'gitcode.com/IHUI-INF-AI/IHUI-AI',
+      nameKey: 'gitcodeRepo',
+      openKey: 'openOnGitcode',
+      icon: 'gitcode',
+    },
+  ]
+
+  // 通用复制函数(支持任意 url + tooltip key)
+  const handleCopyUrl = React.useCallback(
+    async (url: string) => {
+      try {
+        await navigator.clipboard.writeText(url)
+        toast.success(t('repoCopied'), {
+          description: url,
+          duration: 3000,
+        })
+      } catch {
+        const ta = document.createElement('textarea')
+        ta.value = url
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        try {
+          document.execCommand('copy')
+          toast.success(t('repoCopied'), {
+            description: url,
+            duration: 3000,
+          })
+        } catch {
+          toast.error(t('copyFailed'))
+        } finally {
+          document.body.removeChild(ta)
+        }
+      }
+    },
+    [t],
+  )
+
   return (
     // v10 排版(2026-07-30 第七次重构,用户反馈"footer 三个二维码被截断 + 备案图标未显示"):
     // - py-2 min-[768px]:py-3(从 v9 py-0.5 min-[768px]:py-1 拉回,footer 高度 95→~140px,3 个 QR + ICP 图标完全可见)
@@ -251,10 +324,14 @@ export function SiteFooter({ className }: { className?: string }) {
     // - icon box h-7 w-7 + QR box h-16 w-16(配合 ICON_BOX/QR_BOX 原子常量)
     // - 备案图标 h-5 w-5(从 h-4 w-4 放大 4px,清晰可见)
     // - 取消 max-w-7xl mx-auto,撑满 w-full,与 page-7 容器左右对齐
+    // 2026-08-12 改(用户反馈"Row 2 div 整体下降贴合 footer 底部"):
+    // 去掉 footer 底部 padding(py-2 → pt-2 pb-0 / min-[768px]:py-3 → min-[768px]:pt-3 min-[768px]:pb-0),
+    // 让 Row 2 容器底边 = footer 容器底边,Row 2 整体下沉贴合 footer 底(之前 footer pb-3=12px
+    // 让 Row 2 距 footer 底 12px 间隙,现在消除);顶部 pt-2/pt-3 保留,Row 1 仍有呼吸空。
     <footer
-      className={`border-t bg-card/50 px-4 py-2 min-[768px]:px-8 min-[768px]:py-3${className ? ` ${className}` : ''}`}
+      className={`border-t bg-card/50 px-4 pt-2 pb-0 min-[768px]:px-8 min-[768px]:pt-3 min-[768px]:pb-0${className ? ` ${className}` : ''}`}
     >
-      <div className="flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-0">
         {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
             - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白
             - 栏 2: 生态合作 4 类分组 — grid-cols-2 min-[768px]:grid-cols-4 响应式自适应屏幕宽度
@@ -272,8 +349,11 @@ export function SiteFooter({ className }: { className?: string }) {
                 <br />
                 {t('addressLine2')}
               </p>
-              <p className="whitespace-nowrap text-[11px] leading-snug text-muted-foreground">
-                {t('companyContact')} · {t('companyEmail')}
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {t('companyContact')}
+              </p>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {t('companyEmail')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -295,6 +375,79 @@ export function SiteFooter({ className }: { className?: string }) {
               <button type="button" onClick={() => dlg.open('contact')} className={FOOTER_BTN}>
                 {t('contactUs')}
               </button>
+            </div>
+            {/* 2026-08-12 加:Row 1 栏 1 底部"代码仓库"小节(用户反馈"左边底部有点空,
+                跟右侧不太对称,可以再加点什么内容吗 比如仓库地址?一键跳转?")
+                - 2026-08-12 扩展:3 个仓库(GitHub + Gitee + GitCode 国内镜像)
+                - 视觉:每个仓库一行 = 平台 icon + 仓库地址 + 复制按钮 + 跳转按钮
+                - 交互:复制→toast 提示,跳转→新窗口打开
+                - 样式:text-[10px] 比 link 区更小,作为辅助信息不抢视觉焦点
+                - GitHub/Gitee/GitCode logo 用 inline SVG(lucide-react 不提供品牌图标) */}
+            <div className="space-y-0.5 text-[10px] text-muted-foreground/80">
+              {REPOS.map((repo) => (
+                <div key={repo.key} className="flex items-center gap-1">
+                  {repo.icon === 'github' && (
+                    <svg
+                      className="h-3 w-3 flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                    </svg>
+                  )}
+                  {repo.icon === 'gitee' && (
+                    <svg
+                      className="h-3 w-3 flex-shrink-0"
+                      viewBox="0 0 1024 1024"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M512 1024C229.222 1024 0 794.778 0 512S229.222 0 512 0s512 229.222 512 512-229.222 512-512 512z m259.148-534.738H394.034l86.546-86.546a23.273 23.273 0 0 0 0-32.92 23.273 23.273 0 0 0-32.92 0l-131.99 131.99a46.546 46.546 0 0 0 0 65.84l131.99 131.99a23.273 23.273 0 1 0 32.92-32.92l-86.546-86.546h377.114a23.273 23.273 0 0 0 0-46.546z" />
+                    </svg>
+                  )}
+                  {repo.icon === 'gitcode' && (
+                    <svg
+                      className="h-3 w-3 flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M.057 12.035c-.057-.81.034-1.63.196-2.443l.108-.5.107-.5c.092-.43.222-.855.38-1.27.34-.91.81-1.78 1.39-2.59l.21-.29.22-.29c.32-.41.66-.8 1.04-1.17l.25-.25.26-.25c.36-.34.74-.66 1.15-.96l.28-.2.29-.21c.79-.56 1.66-1.04 2.59-1.39.41-.16.84-.29 1.27-.38l.5-.1.5-.11c.81-.16 1.63-.25 2.44-.2.81-.05 1.63.04 2.44.2l.5.11.5.1c.43.09.85.22 1.27.38.93.35 1.8.83 2.59 1.39l.29.21.28.2c.41.3.79.62 1.15.96l.26.25.25.25c.38.37.72.76 1.04 1.17l.22.29.21.29c.58.81 1.05 1.68 1.39 2.59.16.42.29.85.38 1.27l.11.5.1.5c.16.81.26 1.63.2 2.44.06.81-.04 1.63-.2 2.44l-.1.5-.11.5c-.09.43-.22.85-.38 1.27-.34.91-.81 1.78-1.39 2.59l-.21.29-.22.29c-.32.41-.66.8-1.04 1.17l-.25.25-.26.25c-.36.34-.74.66-1.15.96l-.28.2-.29.21c-.79.56-1.66 1.04-2.59 1.39-.42.16-.84.29-1.27.38l-.5.11-.5.1c-.81.16-1.63.26-2.44.2-.81.06-1.63-.04-2.44-.2l-.5-.1-.5-.11c-.43-.09-.85-.22-1.27-.38-.93-.35-1.8-.83-2.59-1.39l-.29-.21-.28-.2c-.41-.3-.79-.62-1.15-.96l-.26-.25-.25-.25c-.38-.37-.72-.76-1.04-1.17l-.22-.29-.21-.29c-.58-.81-1.05-1.68-1.39-2.59-.16-.42-.29-.85-.38-1.27l-.11-.5-.1-.5c-.16-.81-.26-1.63-.2-2.44z M11.83 7.16a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4z" />
+                    </svg>
+                  )}
+                  <code className="truncate font-mono">{repo.display}</code>
+                  <Tooltip content={t('copyRepoUrl')}>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyUrl(repo.url)}
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label={t('copyRepoUrl')}
+                    >
+                      <Copy className="h-2.5 w-2.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t(repo.openKey)}>
+                    <a
+                      href={repo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label={t(repo.openKey)}
+                    >
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  </Tooltip>
+                </div>
+              ))}
+            </div>
+            {/* 2026-08-12 加:Row 1 栏 1 底部"工作时间"信息(用户反馈"下面还是空,继续优化"),
+                进一步平衡栏 1 跟栏 3(官方推广 + 3QR)的高度差
+                - Clock icon + 文本,样式与仓库行保持一致(text-[10px])
+                - 让栏 1 高度更接近栏 3,缩小左右视觉不对称 */}
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80">
+              <Clock className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+              <span>{t('workingHours')}</span>
             </div>
           </div>
 
@@ -350,8 +503,10 @@ export function SiteFooter({ className }: { className?: string }) {
 
         {/* Row 2: ICP + 版权居中(v10 拉高 — 备案图标 h-5 w-5 替代 h-4 w-4 让 16→20px 更清晰)
             - justify-center 居中显示
-            - 只保留 ICP 图标 + ICP 文字 + 版权 */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2 pt-2 text-xs text-muted-foreground">
+            - 只保留 ICP 图标 + ICP 文字 + 版权
+            2026-08-12 改:Row 2 mt-2 pt-2 → mt-0 pt-1.5(配合外层 gap-0),让 Row 1/Row 2 真正贴合
+            (用户反馈"两 div 没挨上")。 */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-0 pt-1.5 text-xs text-muted-foreground">
           <Image
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}
