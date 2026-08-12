@@ -337,6 +337,42 @@ class HookEngine:
         self._use_redis = redis_client is not None
         # 是否已从 Redis 加载配置(惰性,首次 emit 时触发)
         self._loaded = False
+        # L5-9(2026-08-12):SSE 实时订阅器(单进程内存实现,event → [Queue])
+        self._subscribers: dict[str, list[asyncio.Queue]] = {}
+
+    # ---------- L5-9 SSE 实时订阅器(2026-08-12 立) ----------
+
+    def subscribe(self, event: str) -> asyncio.Queue:
+        """订阅事件,返回 Queue(SSE 端点消费)。
+
+        单进程内存实现(多实例需换 Redis pub/sub)。emit() 时向订阅者
+        广播 context 载荷,队列满时丢弃最旧(防慢消费者阻塞)。
+        """
+        q: asyncio.Queue = asyncio.Queue(maxsize=500)
+        self._subscribers.setdefault(event, []).append(q)
+        return q
+
+    def unsubscribe(self, event: str, q: asyncio.Queue) -> None:
+        """取消订阅(SSE 断开时清理)。"""
+        subs = self._subscribers.get(event)
+        if subs and q in subs:
+            subs.remove(q)
+
+    def _broadcast(self, event: str, payload: dict[str, Any]) -> None:
+        """向订阅者广播(非阻塞,异常隔离;队列满丢弃最旧)。"""
+        subs = self._subscribers.get(event)
+        if not subs:
+            return
+        for q in list(subs):
+            try:
+                if q.full():
+                    try:
+                        q.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                q.put_nowait(payload)
+            except Exception:
+                pass
 
     # ---------- Redis 持久化 ----------
 
@@ -599,6 +635,12 @@ class HookEngine:
 
         # 惰性加载 Redis 配置(首次 emit 时触发)
         await self._load_hooks()
+
+        # L5-9(2026-08-12):向 SSE 订阅者广播(非阻塞,异常隔离,不丢主流程)
+        try:
+            self._broadcast(event, context)
+        except Exception:
+            logger.debug("[hook_engine] broadcast 失败(降级,不阻塞): event=%s", event)
 
         triggered_logs: list[dict[str, Any]] = []
         # 取所有 enabled 且 event 匹配的 Hook(快照,避免执行过程中被修改)
