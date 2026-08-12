@@ -1617,7 +1617,10 @@ class TestSingleton:
 
     def test_singleton_has_compression_events(self):
         assert hasattr(context_engine, "_compression_events")
-        assert isinstance(context_engine._compression_events, list)
+        # 实现已由 list 演进为 deque(性能优化),两者都是可迭代容器
+        assert isinstance(
+            context_engine._compression_events, (list, __import__("collections").deque)
+        )
 
     def test_singleton_has_redis_client(self):
         assert hasattr(context_engine, "_redis_client")

@@ -15,6 +15,7 @@
 import asyncio
 import json
 import logging
+import random
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -128,6 +129,9 @@ class AgentLoopV2:
         conversation_id: Optional[str] = None,
         enable_memory: bool = True,
         memory_svc: Optional["MemoryService"] = None,
+        # L5-1 错误恢复:LLM 调用指数退避重试(2026-08-12 立)
+        llm_retry_max: int = 3,
+        llm_retry_backoff: float = 1.5,
     ):
         """
         Args:
@@ -146,12 +150,18 @@ class AgentLoopV2:
             conversation_id: 会话 id(用于 session scope 记忆;不传则用 session_id)
             enable_memory: 是否启用记忆闭环(默认 True;传 False 则关闭 load/save,即使 user_id 已给)
             memory_svc: 可注入 MemoryService 实例(测试 mock 用);不传则 lazy import 全局单例
+            llm_retry_max: LLM 调用失败最大重试次数(默认 3,0=不重试)
+            llm_retry_backoff: 指数退避基数秒(默认 1.5,实际等待 = base * 2^attempt * 抖动)
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
         self.max_iterations = max_iterations
         self.tool_timeout = tool_timeout
         self.parallel_tool_calls = parallel_tool_calls
+
+        # L5-1 错误恢复:LLM 重试配置(2026-08-12 立)
+        self.llm_retry_max = llm_retry_max
+        self.llm_retry_backoff = llm_retry_backoff
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
@@ -375,6 +385,64 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("memory_save 失败(user=%s): %s", self._user_id, e)
 
+    async def _llm_call_with_retry(
+        self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """LLM 调用带指数退避重试(错误恢复,2026-08-12 立)。
+
+        网络抖动/5xx/超时等瞬时故障自动重试,指数退避 + 抖动避免同时失败风暴;
+        重试耗尽后抛原始异常,由上层走 checkpoint(failed) 失败链路。
+        asyncio.CancelledError 不重试(用户取消必须立即生效)。
+        """
+        last_exc: Optional[BaseException] = None
+        for attempt in range(self.llm_retry_max + 1):
+            try:
+                return await self._llm_complete(messages, tools_schema)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                last_exc = e
+                if attempt >= self.llm_retry_max:
+                    break
+                backoff = self.llm_retry_backoff * (2**attempt) * (
+                    0.5 + random.random() * 0.5
+                )
+                logger.warning(
+                    "LLM 调用第 %d 次失败(%s: %s),%.1fs 后重试(共 %d 次)",
+                    attempt + 1,
+                    type(e).__name__,
+                    e,
+                    backoff,
+                    self.llm_retry_max,
+                )
+                await asyncio.sleep(backoff)
+        assert last_exc is not None
+        raise last_exc
+
+    @staticmethod
+    def _classify_error(e: BaseException) -> str:
+        """错误分类(错误恢复可观测性,2026-08-12 立)。
+
+        返回: timeout / connection / http_5xx / http_4xx / cancelled / unknown。
+        写入 checkpoint metadata + hook error 事件,供元学习失败聚类与排障使用。
+        """
+        if isinstance(e, asyncio.CancelledError):
+            return "cancelled"
+        name = type(e).__name__
+        if isinstance(e, (asyncio.TimeoutError, TimeoutError)) or "Timeout" in name:
+            return "timeout"
+        if "ConnectionError" in name or "ConnectError" in name or "NetworkError" in name:
+            return "connection"
+        text = str(e)
+        lowered = text.lower()
+        if ("http" in lowered or "status" in lowered or "server error" in lowered) and (
+            "5" in text[:12] or "5xx" in lowered
+        ):
+            return "http_5xx"
+        if ("http" in lowered or "status" in lowered) and "4" in text[:12]:
+            return "http_4xx"
+        return "unknown"
+
     async def _run_loop(
         self,
         messages: list[dict[str, Any]],
@@ -446,8 +514,8 @@ class AgentLoopV2:
                     })
                 except Exception:
                     logger.warning("hook_engine.emit(tool.before) 失败(降级,不阻塞)")
-                # 1. 调 LLM(带 tools)
-                llm_response = await self._llm_complete(messages, tools_schema)
+                # 1. 调 LLM(带 tools,带指数退避重试)
+                llm_response = await self._llm_call_with_retry(messages, tools_schema)
 
                 content = llm_response.get("content", "")
                 tool_calls_raw = llm_response.get("tool_calls")
@@ -560,13 +628,15 @@ class AgentLoopV2:
                 )
 
             except Exception as e:
-                logger.error("Agent 循环第 %d 轮异常: %s", i, e)
+                error_type = self._classify_error(e)
+                logger.error("Agent 循环第 %d 轮异常[%s]: %s", i, error_type, e)
                 # Hook 引擎: error
                 try:
                     await hook_engine.emit("error", {
                         "session_id": self._session_id or "",
                         "iteration": i,
                         "error": str(e),
+                        "error_type": error_type,
                     })
                 except Exception:
                     pass  # 异常中 emit 失败不记录日志(避免日志级联)
@@ -577,9 +647,10 @@ class AgentLoopV2:
                 iterations.append(iteration)
 
                 # Wave 9:异常时保存 checkpoint(status=failed),便于后续 resume
+                # L5-1:metadata 带 error_type,供元学习失败聚类(2026-08-12 立)
                 checkpoint_id = await self._save_checkpoint_safe(
                     iteration=i, messages=messages, status="failed",
-                    metadata={"error": str(e)},
+                    metadata={"error": str(e), "error_type": error_type},
                 )
 
                 return AgentLoopResult(
