@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
 import type {
   NotificationListItem,
   NotificationListScreenProps,
@@ -29,6 +30,7 @@ export function NotificationListScreen({
 }: NotificationListScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const cardStyles = useMemo(() => createCardStyles(tk), [tk])
 
   const typeLabel = (type: NotificationType) => {
     switch (type) {
@@ -70,37 +72,15 @@ export function NotificationListScreen({
               <Text style={styles.muted}>{t('notificationList.empty')}</Text>
             </View>
           ) : (
-            items.map((item: NotificationListItem) => {
-              const inner = (
-                <View style={[styles.card, !item.read && styles.unread]}>
-                  <View style={styles.cardHead}>
-                    <Text style={[styles.type, item.type === 'system' && styles.typeSystem]}>
-                      {typeLabel(item.type)}
-                    </Text>
-                    {!item.read ? <View style={styles.dot} /> : null}
-                    <Text style={styles.meta}>{item.createdAt}</Text>
-                  </View>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.cardContent} numberOfLines={2}>
-                    {item.content}
-                  </Text>
-                </View>
-              )
-              if (onPressItem) {
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => onPressItem(item)}
-                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                  >
-                    {inner}
-                  </TouchableOpacity>
-                )
-              }
-              return <View key={item.id}>{inner}</View>
-            })
+            items.map((item: NotificationListItem) => (
+              <NotificationCard
+                key={item.id}
+                item={item}
+                typeLabel={typeLabel}
+                onPress={onPressItem}
+                styles={cardStyles}
+              />
+            ))
           )}
         </ScrollView>
       )}
@@ -124,56 +104,5 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 16 },
-    card: {
-      padding: 16,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      marginBottom: 8,
-    },
-    unread: {
-      borderColor: tk.success.DEFAULT,
-      backgroundColor: tk.success.light,
-    },
-    cardHead: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    type: {
-      fontSize: 10,
-      color: tk.text.secondary,
-      backgroundColor: tk.surface.card,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-      overflow: 'hidden',
-    },
-    typeSystem: {
-      color: tk.success.DEFAULT,
-      backgroundColor: tk.success.light,
-    },
-    dot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: tk.danger.DEFAULT,
-    },
-    meta: {
-      marginLeft: 'auto',
-      fontSize: 11,
-      color: tk.text.tertiary,
-    },
-    cardTitle: {
-      marginTop: 6,
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    cardContent: {
-      marginTop: 4,
-      fontSize: 13,
-      color: tk.text.medium,
-    },
   })
 }
