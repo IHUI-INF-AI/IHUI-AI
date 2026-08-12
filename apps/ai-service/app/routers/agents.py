@@ -737,3 +737,106 @@ async def get_agent_errors(agent_id: str, range: str = "24h") -> dict[str, Any]:
                         "timestamp": trace.get("timestamp", 0),
                     })
     return {"code": 0, "message": "success", "data": {"errors": errors}}
+
+
+@router.get("/agents/{agent_id}/sessions")
+async def get_agent_sessions(agent_id: str, range: str = "24h") -> dict[str, Any]:
+    """Agent 会话树(agent-runtime SessionTree 数据源,2026-08-12 补缺)。
+
+    此前 web 端调用 /api/agents/{id}/sessions 在 8802/8803 均 404
+    (8802 的 sessions 注册在 /api/agent-runtime/ 前缀,路径不匹配)。
+    数据源:checkpoint manager 按 session 过滤(created_at 升序),
+    缺失时降级进程内 _trace_store。
+    """
+    nodes: list[dict[str, Any]] = []
+    try:
+        from ..services.agent_checkpoint import get_agent_checkpoint_manager
+
+        cps = await get_agent_checkpoint_manager().list_checkpoints(session_id=agent_id)
+        for cp in cps:
+            status_map = {
+                "completed": "completed",
+                "running": "active",
+                "paused": "active",
+                "failed": "error",
+                "cancelled": "archived",
+            }
+            nodes.append({
+                "id": cp.checkpoint_id,
+                "startedAt": _ts_to_iso(cp.created_at),
+                "messageCount": len(cp.messages or []),
+                "status": status_map.get(cp.status, "archived"),
+            })
+    except Exception as e:
+        logger.warning("get_agent_sessions checkpoint 提取失败(降级): %s", e)
+    if not nodes:
+        trace = _trace_store.get(agent_id)
+        if trace:
+            nodes.append({
+                "id": agent_id,
+                "startedAt": _ts_to_iso(trace.get("timestamp", 0)),
+                "messageCount": len(trace.get("steps") or []),
+                "status": "completed" if trace.get("status") != "failed" else "error",
+            })
+    return {"code": 0, "message": "success", "data": {"sessions": nodes}}
+
+
+@router.get("/agents/{agent_id}/token-usage")
+async def get_agent_token_usage(agent_id: str, range: str = "24h") -> dict[str, Any]:
+    """Agent Token 用量(agent-runtime TokenUsageChart 数据源,2026-08-12 补缺)。
+
+    此前 web 端调用 /api/agents/{id}/token-usage 在 8802/8803 均 404。
+    数据源:checkpoint messages 按轮估算(prompt=输入/工具结果,completion=
+    输出),缺失时降级 _trace_store。估算公式:字符数/4(中文约 1 token/字)。
+    """
+    items: list[dict[str, Any]] = []
+    try:
+        from ..services.agent_checkpoint import get_agent_checkpoint_manager
+
+        cps = await get_agent_checkpoint_manager().list_checkpoints(session_id=agent_id)
+        for cp in cps:
+            prompt = 0
+            completion = 0
+            for msg in (cp.messages or []):
+                role = msg.get("role", "")
+                content = str(msg.get("content", ""))
+                if role in ("user", "tool", "system"):
+                    prompt += max(1, len(content) // 4)
+                elif role == "assistant":
+                    completion += max(1, len(content) // 4)
+                    for tc in (msg.get("tool_calls") or []):
+                        if isinstance(tc, dict):
+                            completion += max(1, len(str(tc.get("args", ""))) // 4)
+            if prompt or completion:
+                items.append({
+                    "sessionLabel": f"I{cp.iteration}",
+                    "prompt": prompt,
+                    "completion": completion,
+                })
+    except Exception as e:
+        logger.warning("get_agent_token_usage checkpoint 提取失败(降级): %s", e)
+    if not items:
+        trace = _trace_store.get(agent_id)
+        if trace:
+            prompt = 0
+            completion = 0
+            for step in (trace.get("steps") or []):
+                if isinstance(step, dict):
+                    prompt += max(1, len(str(step.get("args", ""))) // 4)
+                    completion += max(1, len(str(step.get("result", ""))) // 4)
+            if prompt or completion:
+                items.append({
+                    "sessionLabel": agent_id[:8],
+                    "prompt": prompt,
+                    "completion": completion,
+                })
+    return {"code": 0, "message": "success", "data": {"tokenUsage": items}}
+
+
+def _ts_to_iso(ts) -> str:
+    """时间戳(秒) → ISO8601(带 Z);非数值原样返回。"""
+    if isinstance(ts, (int, float)) and ts > 0:
+        import datetime as _dt
+
+        return _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).isoformat()
+    return ""
