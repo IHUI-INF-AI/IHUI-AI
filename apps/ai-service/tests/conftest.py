@@ -60,6 +60,11 @@ def _isolate_llm_env(monkeypatch):
     for k in _VENDOR_ENV_KEYS:
         monkeypatch.delenv(k, raising=False)
 
+    # 2026-08-12 修复:COMBO_CHAINS 也会由 app.main 同步进 os.environ,
+    # combo_router 构造时自动加载 → 不清理会污染 test_combo_router::test_list_combos
+    # (环境泄漏导致断言 3==2)。与 vendor key 同规则清理。
+    monkeypatch.delenv("COMBO_CHAINS", raising=False)
+
     async def _noop_resolve_from_db(model, owner_uuid=None):
         return None
 
