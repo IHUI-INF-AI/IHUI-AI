@@ -4,6 +4,8 @@ import { cn } from '@ihui/design-tokens'
 import activeBackSvg from '@/static/images/add/active_back.svg'
 import backDefaultSvg from '@/static/images/add/back_default.svg'
 import jiantouSvg from '@/static/images/add/jiantou.svg'
+import { rpx } from '@/utils/rpx'
+
 
 export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
 
@@ -61,17 +63,17 @@ export default function ModelTypeButton({
           className="relative flex items-center justify-center"
           style={{ zIndex: 3 }}
         >
-          {/* btn-content 图标 140rpx×50rpx */}
+          {/* btn-content 图标 100rpx×36rpx(减到原 140rpx×50rpx 的~70%)*/}
           <Image
             src={icon}
-            style={{ width: '140rpx', height: '50rpx' }}
+            style={{ width: rpx(100), height: rpx(36) }}
             mode="aspectFit"
           />
           {/* btn-arrow 箭头 20rpx×20rpx(选中时 rotate 180deg)*/}
           <Image
             src={arrowIcon || jiantouSvg}
             className={cn('ai-btn-arrow ml-[6rpx]', active && 'ai-btn-arrow-rotate')}
-            style={{ width: '20rpx', height: '20rpx', position: 'relative', zIndex: 3 }}
+            style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3 }}
             mode="aspectFit"
           />
         </View>

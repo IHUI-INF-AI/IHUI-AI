@@ -198,13 +198,14 @@ export default defineConfig(async (merge) => {
             },
           },
         })
-        // 关闭 react-refresh-webpack-plugin 的 overlay（H5 模式下远程图片加载失败
-        // 会触发 unhandledrejection 被 react-refresh overlay 捕获遮挡页面）
-        // 业务层已通过 app.tsx 的 unhandledrejection 拦截处理
+        // 彻底删除 react-refresh-webpack-plugin 插件（H5 模式下远程图片加载
+        // 失败会触发 unhandledrejection 被 react-refresh overlay 捕获遮挡页面）
+        // 注意: 单纯 tap([options]) => [{...options, overlay:false}] 在该版本
+        // plugin(0.5+) 不生效——overlay 由 ErrorOverlay 子模块独立注入,需直接删除
+        // 整个插件才能彻底关闭。HMR 热更新对开发体验提升有限,代价是遮挡页面
+        // 不可接受。
         if (chain.plugins.has('ReactRefreshPlugin')) {
-          chain.plugin('ReactRefreshPlugin').tap(([options]) => [
-            { ...options, overlay: false },
-          ])
+          chain.plugins.delete('ReactRefreshPlugin')
         }
       },
       postcss: {

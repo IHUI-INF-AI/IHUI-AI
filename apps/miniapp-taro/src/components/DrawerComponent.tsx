@@ -14,6 +14,8 @@ import mianLabelPng from '@/assets/remote/images/mian_label.png'
 import settingIconPng from '@/assets/remote/images/setting_icon.png'
 import mesgSvg from '@/assets/remote/images/default/mesg.svg'
 import daixaodimingPng from '@/assets/remote/images/daixaodiming.png'
+import { rpx } from '@/utils/rpx'
+
 
 /**
  * DrawerComponent 抽屉组件
@@ -159,7 +161,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             visible ? 'ai-drawer-border-visible' : 'ai-drawer-border-hidden',
           )}
           style={{
-            width: '500rpx',
+            width: rpx(500),
             background: 'var(--color-card)',
             borderRadius: '0 30rpx 30rpx 0',
             paddingTop: `${statusBarHeight}px`,
@@ -174,14 +176,14 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           >
             <View className="flex items-center">
               {logoUrl ? (
-                <Image src={logoUrl} style={{ height: '66rpx' }} mode="heightFix" />
+                <Image src={logoUrl} style={{ height: rpx(66) }} mode="heightFix" />
               ) : (
-                <Image src={choutilogoH} style={{ height: '66rpx' }} mode="heightFix" />
+                <Image src={choutilogoH} style={{ height: rpx(66) }} mode="heightFix" />
               )}
             </View>
             <Image
               src={closeDrawerSvg}
-              style={{ width: '40rpx', height: '40rpx' }}
+              style={{ width: rpx(40), height: rpx(40) }}
               mode="aspectFit"
               onClick={onClose}
             />
@@ -198,15 +200,15 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 {item.icon ? (
                   <Image
                     src={item.icon}
-                    style={{ width: '60rpx', height: '60rpx' }}
+                    style={{ width: rpx(60), height: rpx(60) }}
                     mode="aspectFit"
                   />
                 ) : (
-                  <Text style={{ width: '60rpx', height: '60rpx', fontSize: '36rpx' }}>•</Text>
+                  <Text style={{ width: rpx(60), height: rpx(60), fontSize: rpx(36) }}>•</Text>
                 )}
                 <Text
                   className="mt-[8rpx]"
-                  style={{ fontSize: '24rpx', color: 'var(--color-foreground)' }}
+                  style={{ fontSize: rpx(24), color: 'var(--color-foreground)' }}
                 >
                   {item.label}
                 </Text>
@@ -221,8 +223,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 key={item.key}
                 className="flex items-center"
                 style={{
-                  fontSize: '28rpx',
-                  lineHeight: '56rpx',
+                  fontSize: rpx(28),
+                  lineHeight: rpx(56),
                   color: 'var(--color-foreground)',
                   padding: '4rpx 28rpx',
                 }}
@@ -237,7 +239,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 {item.icon ? (
                   <Image
                     src={item.icon}
-                    style={{ width: '36rpx', height: '36rpx', marginRight: '12rpx' }}
+                    style={{ width: rpx(36), height: rpx(36), marginRight: rpx(12) }}
                     mode="aspectFit"
                   />
                 ) : null}
@@ -251,7 +253,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             <Text
               className="font-bold"
               style={{
-                fontSize: '28rpx',
+                fontSize: rpx(28),
                 color: 'var(--color-text-drawer, var(--color-foreground))',
               }}
             >
@@ -263,7 +265,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           <ScrollView scrollY className="flex-1">
             {groupedData.length === 0 ? (
               <View style={{ padding: '40rpx 23rpx' }} className="text-center">
-                <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
+                <Text style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)' }}>
                   暂无历史对话
                 </Text>
               </View>
@@ -274,12 +276,12 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   <View className="inline-flex items-center" style={{ padding: '10rpx 23rpx' }}>
                     <Image
                       src={modelGroup.modelLogo || mianLabelPng}
-                      style={{ width: '40rpx', height: '40rpx' }}
+                      style={{ width: rpx(40), height: rpx(40) }}
                       mode="aspectFit"
                     />
                     <Text
                       className="font-bold ml-[10rpx]"
-                      style={{ fontSize: '28rpx', color: 'var(--color-muted-foreground)' }}
+                      style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}
                     >
                       {modelGroup.modelName}
                     </Text>
@@ -290,7 +292,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                       <View style={{ padding: '10rpx 23rpx' }}>
                         <Text
                           style={{
-                            fontSize: '22rpx',
+                            fontSize: rpx(22),
                             color: 'var(--color-text-date, var(--color-muted-foreground))',
                           }}
                         >
@@ -313,7 +315,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             <Text
                               className="truncate"
                               style={{
-                                fontSize: '30rpx',
+                                fontSize: rpx(30),
                                 color: isActive
                                   ? 'var(--color-text-selected, #0d11fc)'
                                   : 'var(--color-foreground)',
@@ -345,12 +347,12 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               <View className="flex items-center">
                 <Image
                   src={userinfo.avatar || daixaodimingPng}
-                  style={{ width: '60rpx', height: '60rpx', borderRadius: '8rpx' }}
+                  style={{ width: rpx(60), height: rpx(60), borderRadius: rpx(8) }}
                   mode="aspectFill"
                 />
                 <Text
                   className="ml-[12rpx]"
-                  style={{ fontSize: '28rpx', color: 'var(--color-foreground)' }}
+                  style={{ fontSize: rpx(28), color: 'var(--color-foreground)' }}
                 >
                   {userinfo.nickname || '未登录'}
                 </Text>
@@ -358,10 +360,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               <View className="flex items-center gap-[16rpx]">
                 <Image
                   src={settingIconPng}
-                  style={{ width: '40rpx', height: '40rpx' }}
+                  style={{ width: rpx(40), height: rpx(40) }}
                   mode="aspectFit"
                 />
-                <Image src={mesgSvg} style={{ width: '40rpx', height: '40rpx' }} mode="aspectFit" />
+                <Image src={mesgSvg} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
               </View>
             </View>
           ) : null}

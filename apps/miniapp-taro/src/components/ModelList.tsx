@@ -7,6 +7,8 @@ import type { ModelType } from './ModelTypeButton'
 import mianLabelIcon from '@/assets/remote/images/default/mian_label.png'
 import selectedModelIcon from '@/assets/remote/images/selected_model.png'
 import rankoneIcon from '@/assets/remote/images/default/rankone.png'
+import { rpx } from '@/utils/rpx'
+
 
 export type ModelItem = LlmModel
 
@@ -68,28 +70,28 @@ export default function ModelList({
               key={i}
               className="flex items-center"
               style={{
-                height: '80rpx',
+                height: rpx(80),
                 margin: '5rpx 0',
                 padding: '0 15rpx',
                 background: 'var(--color-muted)',
-                borderRadius: '15rpx',
+                borderRadius: rpx(15),
               }}
             >
               <View
                 style={{
-                  width: '40rpx',
-                  height: '40rpx',
-                  borderRadius: '8rpx',
+                  width: rpx(40),
+                  height: rpx(40),
+                  borderRadius: rpx(8),
                   background: 'var(--color-border)',
                 }}
               />
               <View
                 className="ml-[10rpx]"
                 style={{
-                  width: '160rpx',
-                  height: '16rpx',
+                  width: rpx(160),
+                  height: rpx(16),
                   background: 'var(--color-border)',
-                  borderRadius: '4rpx',
+                  borderRadius: rpx(4),
                 }}
               />
             </View>
@@ -113,14 +115,14 @@ export default function ModelList({
         className="flex flex-col"
         style={{
           background: 'transparent',
-          borderRadius: '15rpx',
+          borderRadius: rpx(15),
           padding: '10rpx 0 0',
         }}
       >
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
         {currentType && TYPE_LABELS[currentType] ? (
-          <View style={{ padding: '0 15rpx', height: '40rpx', display: 'none' }}>
-            <Text style={{ fontSize: '24rpx', fontWeight: 600 }}>{TYPE_LABELS[currentType]}</Text>
+          <View style={{ padding: '0 15rpx', height: rpx(40), display: 'none' }}>
+            <Text style={{ fontSize: rpx(24), fontWeight: 600 }}>{TYPE_LABELS[currentType]}</Text>
           </View>
         ) : null}
 
@@ -135,12 +137,12 @@ export default function ModelList({
               <Image
                 src={mianLabelIcon}
                 mode="widthFix"
-                style={{ width: '40rpx', height: '40rpx', borderRadius: '8rpx' }}
+                style={{ width: rpx(40), height: rpx(40), borderRadius: rpx(8) }}
               />
               <Text
                 className="ml-[10rpx]"
                 style={{
-                  fontSize: '28rpx',
+                  fontSize: rpx(28),
                   color: 'var(--color-foreground)',
                   fontWeight: agentActive ? 'bold' : 'normal',
                 }}
@@ -151,15 +153,15 @@ export default function ModelList({
               <Image
                 src={mianLabelIcon}
                 mode="widthFix"
-                style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+                style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
               />
             </View>
             {agentActive ? (
               <View
                 className="flex items-center justify-center"
                 style={{
-                  width: '32rpx',
-                  height: '32rpx',
+                  width: rpx(32),
+                  height: rpx(32),
                   borderRadius: '50%',
                   background: 'var(--color-foreground)',
                 }}
@@ -168,7 +170,7 @@ export default function ModelList({
                 <Image
                   src={selectedModelIcon}
                   mode="widthFix"
-                  style={{ width: '80rpx', height: '80rpx' }}
+                  style={{ width: rpx(80), height: rpx(80) }}
                 />
               </View>
             ) : null}
@@ -191,13 +193,13 @@ export default function ModelList({
                 <View
                   className="flex items-center justify-center"
                   style={{
-                    width: '40rpx',
-                    height: '40rpx',
-                    borderRadius: '8rpx',
+                    width: rpx(40),
+                    height: rpx(40),
+                    borderRadius: rpx(8),
                     background: 'var(--color-muted)',
                   }}
                 >
-                  <Text style={{ fontSize: '20rpx', color: 'var(--color-muted-foreground)' }}>
+                  <Text style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}>
                     {model.name.charAt(0)}
                   </Text>
                 </View>
@@ -205,7 +207,7 @@ export default function ModelList({
                 <Text
                   className="ml-[10rpx]"
                   style={{
-                    fontSize: '28rpx',
+                    fontSize: rpx(28),
                     color: 'var(--color-foreground)',
                     fontWeight: selected ? 'bold' : 'normal',
                   }}
@@ -217,14 +219,14 @@ export default function ModelList({
                   <Image
                     src={rankoneIcon}
                     mode="widthFix"
-                    style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+                    style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
                   />
                 ) : null}
                 {/* chu-power 徽章:对齐原项目 mian_label.png(始终显示)*/}
                 <Image
                   src={mianLabelIcon}
                   mode="widthFix"
-                  style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+                  style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
                 />
               </View>
               {/* 选中态:对齐原项目 .selected-icon 32rpx 圆形 + selected_model.png 80rpx×80rpx */}
@@ -232,8 +234,8 @@ export default function ModelList({
                 <View
                   className="flex items-center justify-center"
                   style={{
-                    width: '32rpx',
-                    height: '32rpx',
+                    width: rpx(32),
+                    height: rpx(32),
                     borderRadius: '50%',
                     background: 'var(--color-foreground)',
                   }}
@@ -241,7 +243,7 @@ export default function ModelList({
                   <Image
                     src={selectedModelIcon}
                     mode="widthFix"
-                    style={{ width: '80rpx', height: '80rpx' }}
+                    style={{ width: rpx(80), height: rpx(80) }}
                   />
                 </View>
               ) : null}
