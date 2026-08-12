@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import {
   useAgentProgressPaneStore,
   hydrateAgentProgressPaneFromStorage,
@@ -403,12 +404,11 @@ const PlanStepItem = React.memo(function PlanStepItem({
               </span>
             )}
             {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
-              <span
-                className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
-                title={`${step.tokenUsage} tokens`}
-              >
-                {Math.round(step.tokenUsage / 1000)}k
-              </span>
+              <Tooltip content={`${step.tokenUsage} tokens`}>
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+                  {Math.round(step.tokenUsage / 1000)}k
+                </span>
+              </Tooltip>
             )}
           </div>
           {step.status === 'in_progress' && step.explanation && (
@@ -493,16 +493,17 @@ function MinimizedSummaryBar({
           data-testid="pane-minimized-progress-fill"
         />
       </div>
-      <button
-        type="button"
-        onClick={onExpand}
-        className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-        aria-label={t('expand')}
-        title={t('expand')}
-        data-testid="pane-expand"
-      >
-        <Maximize2 className="h-3 w-3" aria-hidden />
-      </button>
+      <Tooltip content={t('expand')}>
+        <button
+          type="button"
+          onClick={onExpand}
+          className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+          aria-label={t('expand')}
+          data-testid="pane-expand"
+        >
+          <Maximize2 className="h-3 w-3" aria-hidden />
+        </button>
+      </Tooltip>
     </div>
   )
 }
@@ -1143,82 +1144,87 @@ export function AgentTaskProgressPane() {
           </div>
         )}
         {elapsedLabel && (
-          <span
-            className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
-            data-testid="pane-elapsed"
-            title={t('elapsedTitle', { time: elapsedLabel })}
-            aria-label={t('elapsedTitle', { time: elapsedLabel })}
-          >
-            <Timer
-              className={cn(
-                'h-2.5 w-2.5',
-                isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
-              )}
-              aria-hidden
-            />
-            {elapsedLabel}
-          </span>
+          <Tooltip content={t('elapsedTitle', { time: elapsedLabel })}>
+            <span
+              className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
+              data-testid="pane-elapsed"
+              aria-label={t('elapsedTitle', { time: elapsedLabel })}
+            >
+              <Timer
+                className={cn(
+                  'h-2.5 w-2.5',
+                  isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
+                )}
+                aria-hidden
+              />
+              {elapsedLabel}
+            </span>
+          </Tooltip>
         )}
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => setExpandAll(expandAll === true ? false : true)}
-          aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
-          title={expandAll === true ? t('collapseAll') : t('expandAll')}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          data-testid="pane-expand-all"
-        >
-          {expandAll === true ? (
-            <ChevronsDownUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronsUpDown className="h-3.5 w-3.5" />
-          )}
-        </button>
+        <Tooltip content={expandAll === true ? t('collapseAll') : t('expandAll')}>
+          <button
+            type="button"
+            onClick={() => setExpandAll(expandAll === true ? false : true)}
+            aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            data-testid="pane-expand-all"
+          >
+            {expandAll === true ? (
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </Tooltip>
         {/* v13: 帮助按钮(打开/关闭快捷键面板) */}
-        <button
-          type="button"
-          onClick={() => setShowHelp((v) => !v)}
-          aria-label={t('helpToggle')}
-          aria-expanded={showHelp}
-          aria-controls="pane-help-panel"
-          title={t('helpToggle')}
-          className={cn(
-            'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
-            showHelp
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          )}
-          data-testid="pane-help-toggle"
+        <Tooltip content={t('helpToggle')}>
+          <button
+            type="button"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-label={t('helpToggle')}
+            aria-expanded={showHelp}
+            aria-controls="pane-help-panel"
+            className={cn(
+              'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+              showHelp
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+            data-testid="pane-help-toggle"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip
+          content={pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`}
         >
-          <HelpCircle className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={togglePin}
-          aria-label={pinned ? t('unpin') : t('pin')}
-          className={cn(
-            'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
-            pinned
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          )}
-          title={
-            pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`
-          }
-          data-testid="pane-pin"
-        >
-          {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
-        </button>
-        <button
-          type="button"
-          onClick={() => setIsMinimized(true)}
-          aria-label={t('minimize')}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title={`${t('minimize')}(${t('minimizeHint')})`}
-          data-testid="pane-minimize"
-        >
-          <Minimize2 className="h-3.5 w-3.5" />
-        </button>
+          <button
+            type="button"
+            onClick={togglePin}
+            aria-label={pinned ? t('unpin') : t('pin')}
+            className={cn(
+              'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+              pinned
+                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+            data-testid="pane-pin"
+          >
+            {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+          </button>
+        </Tooltip>
+        <Tooltip content={`${t('minimize')}(${t('minimizeHint')})`}>
+          <button
+            type="button"
+            onClick={() => setIsMinimized(true)}
+            aria-label={t('minimize')}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            data-testid="pane-minimize"
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* v13: 完成态庆祝横幅(全部 plan steps completed 时显示 3s) */}
@@ -1508,17 +1514,18 @@ export function AgentTaskProgressPane() {
 
         {/* Phase 17: 跳到最新按钮 */}
         {showJumpToLatest && (
-          <button
-            type="button"
-            onClick={jumpToLatest}
-            aria-label={t('jumpToLatest')}
-            title={t('jumpToLatest')}
-            className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
-            data-testid="pane-jump-latest"
-          >
-            <ArrowDown className="h-2.5 w-2.5" />
-            <span>{t('latest')}</span>
-          </button>
+          <Tooltip content={t('jumpToLatest')}>
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              aria-label={t('jumpToLatest')}
+              className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
+              data-testid="pane-jump-latest"
+            >
+              <ArrowDown className="h-2.5 w-2.5" />
+              <span>{t('latest')}</span>
+            </button>
+          </Tooltip>
         )}
       </div>
     </div>
