@@ -72,6 +72,28 @@ function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }
           />
           <span className="font-mono text-xs font-medium">{call.tool}</span>
           <span className={cn('text-[10px]', cfg.color)}>{t(statusLabelKey(call.status))}</span>
+          {call.retryCount !== undefined && call.retryCount > 0 && (
+            <span className="shrink-0 rounded-sm border border-border/50 bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600">
+              重试{call.retryCount}次
+            </span>
+          )}
+          {call.status === 'error' && call.errorType && (
+            <span
+              className={cn(
+                'shrink-0 rounded-sm border border-border/50 px-1 py-0.5 text-[9px]',
+                (call.errorType === 'timeout' || call.errorType === 'http_4xx') &&
+                  'bg-amber-500/10 text-amber-600',
+                (call.errorType === 'connection' || call.errorType === 'http_5xx') &&
+                  'bg-red-500/10 text-red-600',
+                call.errorType === 'cancelled' && 'bg-muted/40 text-muted-foreground',
+                !['timeout', 'http_4xx', 'connection', 'http_5xx', 'cancelled'].includes(
+                  call.errorType,
+                ) && 'bg-muted/40 text-muted-foreground',
+              )}
+            >
+              {call.errorType}
+            </span>
+          )}
           <ChevronRight
             className={cn(
               'ml-auto h-3 w-3 text-muted-foreground transition-transform',
