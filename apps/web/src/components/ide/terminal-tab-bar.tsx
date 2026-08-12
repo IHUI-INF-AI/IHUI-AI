@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check, Server, FileText, Circle, Video, Play, Trash2, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type {
   TerminalSession,
   TerminalCreateInput,
@@ -297,12 +298,13 @@ export function TerminalTabBar({
             )}
             {/* 录制中:红色圆点闪烁(纯装饰点,豁免 rounded-full,用 Tailwind animate-pulse) */}
             {recordingBySession[session.id] && (
-              <span
-                className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
-                style={{ borderRadius: '50%' }}
-                title={t('terminalTabBar.recording')}
-                aria-label={t('terminalTabBar.recording')}
-              />
+              <Tooltip content={t('terminalTabBar.recording')}>
+                <span
+                  className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
+                  style={{ borderRadius: '50%' }}
+                  aria-label={t('terminalTabBar.recording')}
+                />
+              </Tooltip>
             )}
             {isRenaming ? (
               <input
@@ -328,16 +330,17 @@ export function TerminalTabBar({
                 aria-label={t('terminalTabBar.renameAria')}
               />
             ) : (
-              <span
-                className="max-w-32 truncate"
-                onDoubleClick={(e) => {
-                  e.stopPropagation()
-                  handleStartRename(session, fallbackLabel)
-                }}
-                title={t('terminalTabBar.renameHint')}
-              >
-                {label}
-              </span>
+              <Tooltip content={t('terminalTabBar.renameHint')}>
+                <span
+                  className="max-w-32 truncate"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    handleStartRename(session, fallbackLabel)
+                  }}
+                >
+                  {label}
+                </span>
+              </Tooltip>
             )}
             <span className="max-w-24 truncate text-[10px] opacity-50">{cwdShort}</span>
             {session.status === 'exited' && (
@@ -364,34 +367,40 @@ export function TerminalTabBar({
 
       {/* 新建按钮 + 下拉菜单(本地 shell / SSH 远程) */}
       <div className="relative flex items-center" ref={shellMenuRef}>
-        <button
-          type="button"
-          className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-background hover:text-foreground',
-            loading && 'pointer-events-none opacity-40',
-          )}
-          onClick={handleCreateSession}
-          disabled={loading}
-          aria-label={t('terminalTabBar.newTerminalAria')}
-          title={t('terminalTabBar.newTerminalTitle', { shell: connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell' })}
+        <Tooltip
+          content={t('terminalTabBar.newTerminalTitle', {
+            shell: connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell',
+          })}
         >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className={cn(
-            'flex h-6 w-4 items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-background hover:text-foreground',
-            loading && 'pointer-events-none opacity-40',
-          )}
-          onClick={() => setShellMenuOpen((v) => !v)}
-          disabled={loading}
-          aria-label={t('terminalTabBar.selectConnectType')}
-          title={t('terminalTabBar.selectConnectType')}
-        >
-          <ChevronDown className="h-3 w-3" />
-        </button>
+          <button
+            type="button"
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+              'hover:bg-background hover:text-foreground',
+              loading && 'pointer-events-none opacity-40',
+            )}
+            onClick={handleCreateSession}
+            disabled={loading}
+            aria-label={t('terminalTabBar.newTerminalAria')}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('terminalTabBar.selectConnectType')}>
+          <button
+            type="button"
+            className={cn(
+              'flex h-6 w-4 items-center justify-center rounded-md text-muted-foreground transition-colors',
+              'hover:bg-background hover:text-foreground',
+              loading && 'pointer-events-none opacity-40',
+            )}
+            onClick={() => setShellMenuOpen((v) => !v)}
+            disabled={loading}
+            aria-label={t('terminalTabBar.selectConnectType')}
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </Tooltip>
         {shellMenuOpen && (
           <div className="absolute left-0 top-7 z-50 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md">
             {/* 连接类型单选 */}
@@ -601,42 +610,54 @@ export function TerminalTabBar({
         )}
 
         {/* 录制按钮:切换当前激活 session 的录制状态 */}
-        <button
-          type="button"
-          className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+        <Tooltip
+          content={
             isCurrentRecording
-              ? 'bg-red-500/15 text-red-600 dark:text-red-400'
-              : 'text-muted-foreground hover:bg-background hover:text-foreground',
-            !activeSessionId && 'pointer-events-none opacity-40',
-          )}
-          onClick={handleToggleRecording}
-          disabled={!activeSessionId}
-          aria-label={isCurrentRecording ? t('terminalTabBar.stopRecording') : t('terminalTabBar.startRecording')}
-          title={isCurrentRecording ? t('terminalTabBar.stopRecording') : t('terminalTabBar.startRecording')}
+              ? t('terminalTabBar.stopRecording')
+              : t('terminalTabBar.startRecording')
+          }
         >
-          {isCurrentRecording ? (
-            <Circle className="h-3 w-3 fill-current" />
-          ) : (
-            <Video className="h-3 w-3" />
-          )}
-        </button>
-
-        {/* 录制列表抽屉触发器 */}
-        <div className="relative flex items-center" ref={recordingDrawerRef}>
           <button
             type="button"
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
-              'hover:bg-background hover:text-foreground',
-              recordingDrawerOpen && 'bg-background text-foreground',
+              'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+              isCurrentRecording
+                ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                : 'text-muted-foreground hover:bg-background hover:text-foreground',
+              !activeSessionId && 'pointer-events-none opacity-40',
             )}
-            onClick={() => setRecordingDrawerOpen((v) => !v)}
-            aria-label={t('terminalTabBar.recordingList')}
-            title={t('terminalTabBar.recordingList')}
+            onClick={handleToggleRecording}
+            disabled={!activeSessionId}
+            aria-label={
+              isCurrentRecording
+                ? t('terminalTabBar.stopRecording')
+                : t('terminalTabBar.startRecording')
+            }
           >
-            <Clock className="h-3 w-3" />
+            {isCurrentRecording ? (
+              <Circle className="h-3 w-3 fill-current" />
+            ) : (
+              <Video className="h-3 w-3" />
+            )}
           </button>
+        </Tooltip>
+
+        {/* 录制列表抽屉触发器 */}
+        <div className="relative flex items-center" ref={recordingDrawerRef}>
+          <Tooltip content={t('terminalTabBar.recordingList')}>
+            <button
+              type="button"
+              className={cn(
+                'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+                'hover:bg-background hover:text-foreground',
+                recordingDrawerOpen && 'bg-background text-foreground',
+              )}
+              onClick={() => setRecordingDrawerOpen((v) => !v)}
+              aria-label={t('terminalTabBar.recordingList')}
+            >
+              <Clock className="h-3 w-3" />
+            </button>
+          </Tooltip>
           {recordings.length > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
               {recordings.length > 99 ? '99+' : recordings.length}
@@ -679,31 +700,33 @@ export function TerminalTabBar({
                           <span>{t('terminalTabBar.eventCount', { count: rec.eventCount })}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onPlayRecording(rec.id)
-                          setRecordingDrawerOpen(false)
-                        }}
-                        aria-label={t('terminalTabBar.play')}
-                        title={t('terminalTabBar.play')}
-                      >
-                        <Play className="h-3 w-3" />
-                      </button>
-                      <button
-                        type="button"
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDeleteRecording(rec.id)
-                        }}
-                        aria-label={t('terminalTabBar.delete')}
-                        title={t('terminalTabBar.delete')}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      <Tooltip content={t('terminalTabBar.play')}>
+                        <button
+                          type="button"
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onPlayRecording(rec.id)
+                            setRecordingDrawerOpen(false)
+                          }}
+                          aria-label={t('terminalTabBar.play')}
+                        >
+                          <Play className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content={t('terminalTabBar.delete')}>
+                        <button
+                          type="button"
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDeleteRecording(rec.id)
+                          }}
+                          aria-label={t('terminalTabBar.delete')}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
                     </div>
                   ))
                 )}
