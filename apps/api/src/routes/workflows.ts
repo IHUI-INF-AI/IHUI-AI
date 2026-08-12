@@ -38,13 +38,24 @@ function evaluateCondition(condition: string, context: unknown): boolean {
   }
   return Boolean(condition)
 }
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // =============================================================================
 // Zod schemas
 // =============================================================================
 
 const TRIGGER_TYPES = ['manual', 'schedule', 'event', 'webhook'] as const
-const STEP_TYPES = ['echo', 'skill', 'llm', 'condition', 'delay', 'loop', 'parallel', 'tool', 'action'] as const
+const STEP_TYPES = [
+  'echo',
+  'skill',
+  'llm',
+  'condition',
+  'delay',
+  'loop',
+  'parallel',
+  'tool',
+  'action',
+] as const
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -188,24 +199,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -508,13 +502,17 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
             : 'echo'
 
         const stepName =
-          typeof step.name === 'string' && step.name.length > 0
-            ? step.name
-            : `step-${stepIdx + 1}`
+          typeof step.name === 'string' && step.name.length > 0 ? step.name : `step-${stepIdx + 1}`
         const stepInput = step.input ?? step.config
 
         // echo / skill / llm / tool / action 均创建可执行任务
-        if (type === 'echo' || type === 'skill' || type === 'llm' || type === 'tool' || type === 'action') {
+        if (
+          type === 'echo' ||
+          type === 'skill' ||
+          type === 'llm' ||
+          type === 'tool' ||
+          type === 'action'
+        ) {
           taskInputs.push({
             instanceId: instance.id,
             stepIndex: stepIdx++,
@@ -568,7 +566,8 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
           for (const subRaw of step.steps) {
             const subStep = (subRaw ?? {}) as Record<string, unknown>
             const subType =
-              typeof subStep.type === 'string' && (STEP_TYPES as readonly string[]).includes(subStep.type)
+              typeof subStep.type === 'string' &&
+              (STEP_TYPES as readonly string[]).includes(subStep.type)
                 ? subStep.type
                 : 'echo'
             const subName =

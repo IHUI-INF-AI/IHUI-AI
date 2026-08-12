@@ -26,6 +26,7 @@ const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const listSettingsQuerySchema = paginationSchema.extend({
   group: z.transform(emptyToUndefined).pipe(z.string().min(1).max(64).optional()),
@@ -113,16 +114,7 @@ export const settingRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '公开教育平台配置',
         tags: ['setting'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -138,20 +130,7 @@ export const settingRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '按分组查询配置',
         tags: ['setting'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -206,20 +185,7 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
             key: { type: 'string' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -240,24 +206,7 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '教育设置详情',
         tags: ['setting'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -326,28 +275,7 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
         summary: '更新教育设置',
         tags: ['setting'],
         body: { type: 'object', additionalProperties: true },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          409: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404, 409),
       },
     },
     async (request, reply) => {
@@ -389,24 +317,7 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除教育设置',
         tags: ['setting'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {

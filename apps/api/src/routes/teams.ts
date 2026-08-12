@@ -40,6 +40,7 @@ const createTeamSchema = z.object({
   description: z.string().max(2000).optional(),
   avatar: z.string().max(512).optional(),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const updateTeamSchema = z.object({
   name: z.string().min(1).max(128).optional(),
@@ -223,20 +224,7 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '团队列表',
         tags: ['teams'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (request, reply) => {
@@ -328,28 +316,7 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
             id: { type: 'string', description: '团队 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401, 403, 404),
       },
     },
     async (request, reply) => {

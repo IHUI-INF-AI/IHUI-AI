@@ -43,6 +43,7 @@ import {
   updateAskSchema,
   uuidParamSchema,
 } from './_shared.js'
+import { buildResponseSchema } from '../../utils/api-schemas.js'
 
 const asksRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
@@ -83,24 +84,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
             resolved: { type: 'boolean', description: '是否已解决筛选(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
@@ -575,9 +559,9 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
         keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
-        status: z.transform(emptyToUndefined).pipe(
-          z.enum(['published', 'deleted', 'pending', 'rejected']).optional(),
-        ),
+        status: z
+          .transform(emptyToUndefined)
+          .pipe(z.enum(['published', 'deleted', 'pending', 'rejected']).optional()),
         circleId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
       })
       .safeParse(request.query)
