@@ -4,6 +4,24 @@
 .share-page {
   min-height: 100vh;
   background: #121217;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 主容器(对齐原项目 main-container) ===== */
+.share-main-container {
+  min-height: 110vh;
+  position: relative;
+}
+
+.share-main-container.no-scroll {
+  overflow: hidden;
+  height: 100vh;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
 }
 
 /* ===== 排行榜入口视图(activeNavbar=false) ===== */

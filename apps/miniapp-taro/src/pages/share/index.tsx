@@ -9,7 +9,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
-import { Ranking, DrawerComponent, type RankingItem } from '@/components'
+import { Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import { useI18n } from '@/i18n'
@@ -122,151 +122,6 @@ function NavigationBars({
         <View className="share-navbar-btn" />
       )}
     </View>
-  )
-}
-
-/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue，固定定位右下角，含分享/客服/反馈按钮 */
-function FloatBox() {
-  const [isOpen, setIsOpen] = useState(true)
-  return (
-    <>
-      {!isOpen ? (
-        <View
-          className="share-float-mask"
-          onClick={() => setIsOpen(true)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 59,
-            background: 'rgba(0,0,0,0.3)',
-          }}
-        />
-      ) : null}
-      <View
-        style={{
-          position: 'fixed',
-          right: '24rpx',
-          bottom: '200rpx',
-          zIndex: 60,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16rpx',
-        }}
-      >
-        {isOpen ? (
-          <>
-            <View
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '16rpx',
-              }}
-            >
-              {/* 分享按钮 */}
-              <View
-                className="share-float-item"
-                style={{
-                  width: '88rpx',
-                  height: '88rpx',
-                  background: '#1F1F28',
-                  borderRadius: '44rpx',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
-                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
-                }}
-                onClick={() => {
-                  Taro.showShareMenu({
-                    withShareTicket: true,
-                  }).catch(() => {})
-                }}
-              >
-                <Text style={{ fontSize: '32rpx' }}>分享</Text>
-              </View>
-              {/* 客服按钮 */}
-              <View
-                className="share-float-item"
-                style={{
-                  width: '88rpx',
-                  height: '88rpx',
-                  background: '#1F1F28',
-                  borderRadius: '44rpx',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
-                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
-                }}
-                onClick={() => {
-                  Taro.showToast({ title: '客服功能暂未开放', icon: 'none' })
-                }}
-              >
-                <Text style={{ fontSize: '28rpx', color: '#00F2FF' }}>客服</Text>
-              </View>
-              {/* 反馈按钮 */}
-              <View
-                className="share-float-item"
-                style={{
-                  width: '88rpx',
-                  height: '88rpx',
-                  background: '#1F1F28',
-                  borderRadius: '44rpx',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1rpx solid rgba(0, 242, 255, 0.15)',
-                  boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
-                }}
-                onClick={() => {
-                  Taro.navigateTo({ url: '/pages/feedback/index' }).catch(() => {
-                    Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
-                  })
-                }}
-              >
-                <Text style={{ fontSize: '28rpx', color: '#00F2FF' }}>反馈</Text>
-              </View>
-            </View>
-            {/* 收起箭头 */}
-            <View
-              style={{
-                width: '88rpx',
-                height: '88rpx',
-                background: '#1F1F28',
-                borderRadius: '44rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1rpx solid rgba(0, 242, 255, 0.15)',
-                boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
-              }}
-              onClick={() => setIsOpen(false)}
-            >
-              <Text style={{ fontSize: '36rpx', color: '#00F2FF' }}>{'›'}</Text>
-            </View>
-          </>
-        ) : (
-          <View
-            style={{
-              width: '88rpx',
-              height: '88rpx',
-              background: '#1F1F28',
-              borderRadius: '44rpx',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1rpx solid rgba(0, 242, 255, 0.15)',
-              boxShadow: '0 4rpx 20rpx rgba(0,0,0,0.3)',
-            }}
-            onClick={() => setIsOpen(true)}
-          >
-            <Text style={{ fontSize: '36rpx', color: '#00F2FF' }}>{'‹'}</Text>
-          </View>
-        )}
-      </View>
-    </>
   )
 }
 
@@ -802,6 +657,22 @@ export default function ShareIndexPage() {
           ) : null}
         </View>
 
+        {/* 页面滚动锁定覆盖层 — 对齐原项目 scroll-lock-overlay */}
+        {pageScrollLocked ? (
+          <View
+            className="share-scroll-lock-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 900,
+              background: 'transparent',
+              touchAction: 'none',
+              overflow: 'hidden',
+            }}
+            onTouchMove={safePreventTouchMove}
+          />
+        ) : null}
+
         {/* BackToTop 回到顶部按钮 — 对齐原项目 toodown-wrapper */}
         {showToodown ? (
           <View
@@ -852,22 +723,6 @@ export default function ShareIndexPage() {
               </View>
             </View>
           </View>
-        ) : null}
-
-        {/* 页面滚动锁定覆盖层 — 对齐原项目 scroll-lock-overlay */}
-        {pageScrollLocked ? (
-          <View
-            className="share-scroll-lock-overlay"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 900,
-              background: 'transparent',
-              touchAction: 'none',
-              overflow: 'hidden',
-            }}
-            onTouchMove={safePreventTouchMove}
-          />
         ) : null}
 
         {/* 遮罩层 — 对齐原项目 mask-overlay，tagWrapShow 时显示 */}
