@@ -56,6 +56,24 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/publish", tags=["publish"])
 
 
+def _wrap_ok(data: Any, message: str = "success") -> dict[str, Any]:
+    """统一 {code, message, data} 响应信封(AGENTS.md §5 项目约定)。
+
+    前端 packages/api-client 的 fetchApi(fetchOnce) 强制检查 json.code === 0,
+    非 0 视为业务失败。所有成功响应必须包裹本函数,否则前端收到裸 dict
+    (无 code 字段)会被判为失败,表现为列表页"请求失败"、筛选无数据。
+    与 llm.py / ai_skills 等已合规路由保持同一信封格式。
+    """
+    return {"code": 0, "message": message, "data": data}
+
+
+def _error_json(message: str, status_code: int, **extra: Any) -> JSONResponse:
+    """统一错误响应信封(带 message 字段,供 fetchApi 的 fetchOnce 提取错误信息)。"""
+    payload: dict[str, Any] = {"code": 1, "message": message}
+    payload.update(extra)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
 # ===== DB 工具 =====
 
 async def _get_conn() -> asyncpg.Connection:
@@ -181,7 +199,7 @@ async def list_platforms() -> dict[str, Any]:
             "requiresCredentials": cls.requires_credentials,
             "needsBrowser": cls.needs_browser,
         })
-    return {"items": items, "count": len(items)}
+    return _wrap_ok({"items": items, "count": len(items)})
 
 
 # ===== 文件上传 =====
@@ -317,14 +335,14 @@ async def upload_file(
         save_path,
     )
 
-    return {
+    return _wrap_ok({
         "ok": True,
         "file_path": str(save_path),
         "filename": file.filename,
         "format": fmt,
         "size": size,
         "content_type": file.content_type or "",
-    }
+    })
 
 
 # ===== 账号管理 =====
@@ -355,7 +373,7 @@ async def list_accounts(
                 current_user_id,
             )
         items = [_serialize_account(r, include_credentials=False) for r in rows]
-        return {"items": items, "count": len(items)}
+        return _wrap_ok({"items": items, "count": len(items)})
     finally:
         await conn.close()
 
@@ -394,7 +412,7 @@ async def create_account(body: AccountCreate, request: Request) -> dict[str, Any
             cipher,
             json.dumps(body.extra, ensure_ascii=False),
         )
-        return {"ok": True, "account": _serialize_account(row)}
+        return _wrap_ok({"ok": True, "account": _serialize_account(row)})
     except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409, detail="account already exists (same user_id+platform+display_name)")
     finally:
@@ -447,13 +465,13 @@ async def update_account(account_id: int, body: AccountUpdate, request: Request)
             idx += 1
 
         if not sets:
-            return {"ok": True, "account": _serialize_account(existing), "note": "no fields to update"}
+            return _wrap_ok({"ok": True, "account": _serialize_account(existing), "note": "no fields to update"})
 
         sets.append(f"updated_at=NOW()")
         args.append(account_id)
         sql = f"UPDATE publish_accounts SET {', '.join(sets)} WHERE id=${idx} RETURNING *"
         row = await conn.fetchrow(sql, *args)
-        return {"ok": True, "account": _serialize_account(row)}
+        return _wrap_ok({"ok": True, "account": _serialize_account(row)})
     finally:
         await conn.close()
 
@@ -482,7 +500,7 @@ async def delete_account(account_id: int, request: Request) -> dict[str, Any]:
         )
         if result == "UPDATE 0":
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
-        return {"ok": True, "id": account_id, "status": "disabled"}
+        return _wrap_ok({"ok": True, "id": account_id, "status": "disabled"})
     finally:
         await conn.close()
 
@@ -529,7 +547,7 @@ async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
             account_id,
             f"{'OK' if ok else 'FAIL'}: {msg}"[:500],
         )
-        return {"ok": ok, "message": msg, "platform": row["platform"], "accountId": account_id}
+        return _wrap_ok({"ok": ok, "message": msg, "platform": row["platform"], "accountId": account_id})
     finally:
         await conn.close()
 
@@ -598,7 +616,7 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
         targets=targets_dicts,
         scheduled_at=body.scheduled_at,
     )
-    return result
+    return _wrap_ok(result)
 
 
 @router.get("/tasks")
@@ -628,7 +646,7 @@ async def list_tasks(
         rows = await conn.fetch(
             f"""
             SELECT id, task_id, user_id, title, format, status,
-                   scheduled_at, started_at, finished_at,
+                   scheduled_at, started_at, finished_at, targets,
                    (SELECT count(*) FROM publish_history WHERE task_id = t.task_id) as platform_count,
                    error, created_at, updated_at
             FROM publish_tasks t
@@ -650,12 +668,13 @@ async def list_tasks(
                 "startedAt": r["started_at"].isoformat() if r["started_at"] else None,
                 "finishedAt": r["finished_at"].isoformat() if r["finished_at"] else None,
                 "platformCount": r["platform_count"],
+                "targets": r["targets"],
                 "error": r["error"],
                 "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
             }
             for r in rows
         ]
-        return {"items": items, "count": len(items), "limit": limit, "offset": offset}
+        return _wrap_ok({"items": items, "count": len(items), "limit": limit, "offset": offset})
     finally:
         await conn.close()
 
@@ -700,7 +719,7 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
         ]
 
         results = task["results"] if isinstance(task["results"], list) else []
-        return {
+        return _wrap_ok({
             "taskId": task["task_id"],
             "userId": task["user_id"],
             "title": task["title"],
@@ -715,7 +734,7 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
             "finishedAt": task["finished_at"].isoformat() if task["finished_at"] else None,
             "error": task["error"],
             "createdAt": task["created_at"].isoformat() if task["created_at"] else None,
-        }
+        })
     finally:
         await conn.close()
 
@@ -743,17 +762,17 @@ async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
         # 归属校验通过,尝试从内存 running 集合取消
         cancelled = await publish_scheduler.cancel_task(task_id)
         if cancelled:
-            return {"ok": True, "taskId": task_id, "status": "cancelled"}
+            return _wrap_ok({"ok": True, "taskId": task_id, "status": "cancelled"})
 
         if row["status"] in ("success", "failed", "partial"):
-            return {"ok": False, "taskId": task_id, "status": row["status"],
-                    "error": "task already finished, cannot cancel"}
+            return _wrap_ok({"ok": False, "taskId": task_id, "status": row["status"],
+                    "error": "task already finished, cannot cancel"})
         # 标记为 cancelled
         await conn.execute(
             "UPDATE publish_tasks SET status='cancelled', finished_at=NOW(), updated_at=NOW() WHERE task_id=$1",
             task_id,
         )
-        return {"ok": True, "taskId": task_id, "status": "cancelled"}
+        return _wrap_ok({"ok": True, "taskId": task_id, "status": "cancelled"})
     finally:
         await conn.close()
 
@@ -784,7 +803,7 @@ async def retry_task(task_id: str, request: Request, platforms: Optional[list[st
     result = await publish_scheduler.retry_platforms(task_id, platforms)
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("error", "retry failed"))
-    return result
+    return _wrap_ok(result)
 
 
 # ===== 历史记录 =====
@@ -844,7 +863,7 @@ async def list_history(
             }
             for r in rows
         ]
-        return {"items": items, "count": len(items)}
+        return _wrap_ok({"items": items, "count": len(items)})
     finally:
         await conn.close()
 
@@ -919,7 +938,7 @@ async def get_stats(
             for r in platform_rows
         ]
 
-        return {
+        return _wrap_ok({
             "since": since.isoformat(),
             "days": days,
             "tasks": {
@@ -933,7 +952,7 @@ async def get_stats(
             },
             "platforms": platforms,
             "runningTasks": publish_scheduler.list_running(),
-        }
+        })
     finally:
         await conn.close()
 
@@ -941,18 +960,18 @@ async def get_stats(
 # ===== 调试工具 =====
 
 @router.get("/credentials-key/generate")
-async def gen_credentials_key() -> dict[str, str]:
+async def gen_credentials_key() -> dict[str, Any]:
     """生成一个新的 AES-256 密钥(base64),供用户初始化 PUBLISH_CREDENTIALS_KEY 用。
 
     注意:此端点仅供初始化时使用,生产环境应通过环境变量配置密钥,不调用此端点。
     """
-    return {"key": generate_key_b64(), "note": "Set as PUBLISH_CREDENTIALS_KEY env var"}
+    return _wrap_ok({"key": generate_key_b64(), "note": "Set as PUBLISH_CREDENTIALS_KEY env var"})
 
 
 @router.get("/running")
 async def list_running_tasks() -> dict[str, Any]:
     """列出当前正在执行的任务(内存)。"""
-    return {"running": publish_scheduler.list_running(), "history": publish_scheduler.list_history(limit=20)}
+    return _wrap_ok({"running": publish_scheduler.list_running(), "history": publish_scheduler.list_history(limit=20)})
 
 
 # ===== AI 辅助写作(2026-08-01 新增,暴露 ai_assistant.AiWritingService 单例)=====
