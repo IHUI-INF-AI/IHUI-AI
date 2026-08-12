@@ -668,3 +668,159 @@ def test_classify_error_categories():
     assert AgentLoopV2._classify_error(RuntimeError("HTTP 429 rate limited")) == "http_4xx"
     assert AgentLoopV2._classify_error(asyncio.CancelledError()) == "cancelled"
     assert AgentLoopV2._classify_error(ValueError("bad args")) == "unknown"
+
+
+# =============================================================================
+# L5-2 错误恢复:工具瞬时失败自动重试(2026-08-12 立)
+# =============================================================================
+
+
+async def test_tool_retry_success_after_transient_failure():
+    """工具瞬时失败(ConnectionError)1 次后成功:executor 调 2 次,retry_count=1,循环完成。"""
+    exec_count = 0
+
+    async def flaky_executor(args):
+        nonlocal exec_count
+        exec_count += 1
+        if exec_count == 1:
+            raise ConnectionError("网络抖动")
+        return {"ok": True}
+
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [{"id": "t1", "name": "get_weather", "args": {"city": "北京"}}],
+            }
+        return {"content": "重试后完成", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool(flaky_executor)],
+        max_iterations=5,
+        tool_retry_max=1,
+        tool_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert result.stop_reason == "completed"
+    assert exec_count == 2  # 1 次失败 + 1 次重试成功
+    tr = result.iterations[0].tool_results[0]
+    assert tr.error is None
+    assert tr.result == {"ok": True}
+    assert tr.retry_count == 1
+
+
+async def test_tool_retry_not_for_business_error():
+    """http_4xx 业务错误不重试:executor 只调 1 次,retry_count=0。"""
+    exec_count = 0
+
+    async def biz_error_executor(args):
+        nonlocal exec_count
+        exec_count += 1
+        raise RuntimeError("HTTP 429 rate limited")
+
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [{"id": "t2", "name": "get_weather", "args": {"city": "北京"}}],
+            }
+        return {"content": "放弃", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool(biz_error_executor)],
+        max_iterations=5,
+        tool_retry_max=3,  # 即使允许 3 次重试,业务错误也不重试
+        tool_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert exec_count == 1  # 业务错误不重试
+    tr = result.iterations[0].tool_results[0]
+    assert tr.error is not None
+    assert "429" in tr.error
+    assert tr.retry_count == 0
+
+
+async def test_tool_retry_exhausted():
+    """持续超时且重试耗尽:executor 调 retry_max+1 次,retry_count=重试次数。"""
+    exec_count = 0
+
+    async def always_timeout(args):
+        nonlocal exec_count
+        exec_count += 1
+        raise TimeoutError("工具超时")
+
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [{"id": "t3", "name": "get_weather", "args": {"city": "北京"}}],
+            }
+        return {"content": "工具仍失败", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool(always_timeout)],
+        max_iterations=5,
+        tool_retry_max=2,
+        tool_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True  # 工具失败回填 error,循环继续完成
+    assert exec_count == 3  # 1 + 2 次重试
+    tr = result.iterations[0].tool_results[0]
+    assert tr.error is not None
+    assert tr.retry_count == 2
+
+
+async def test_tool_retry_zero_disabled():
+    """tool_retry_max=0 时不重试:executor 只调 1 次。"""
+    exec_count = 0
+
+    async def flaky_executor(args):
+        nonlocal exec_count
+        exec_count += 1
+        raise ConnectionError("网络抖动")
+
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [{"id": "t4", "name": "get_weather", "args": {"city": "北京"}}],
+            }
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool(flaky_executor)],
+        max_iterations=5,
+        tool_retry_max=0,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert exec_count == 1  # 不重试
+    tr = result.iterations[0].tool_results[0]
+    assert tr.retry_count == 0
