@@ -281,3 +281,14 @@ def test_sensitive_keys_set_contents():
     assert "token" in SENSITIVE_KEYS
     assert "password" in SENSITIVE_KEYS
     assert "twofactorsecret" in SENSITIVE_KEYS
+
+
+def test_is_sensitive_key_tokenusage_safe():
+    """L5-12(2026-08-12):tokenUsage(含 token 子串)进白名单不脱敏。"""
+    from app.middleware.response_sanitizer import _is_sensitive_key
+
+    assert _is_sensitive_key("tokenUsage") is False
+    assert _is_sensitive_key("token_usage") is False
+    # 纯敏感字段仍应脱敏(白名单只保护计量字段)
+    assert _is_sensitive_key("refreshToken") is True
+    assert _is_sensitive_key("api_key") is True
