@@ -292,6 +292,13 @@ const nextConfig: NextConfig = {
           source: '/api/admin/meta-learner/:path*',
           destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
         },
+        // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
+        // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
+        // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
+        {
+          source: '/api/agents/tasks/stream',
+          destination: 'http://localhost:8803/api/agents/tasks/stream',
+        },
         // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
         // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
