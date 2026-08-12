@@ -1,5 +1,7 @@
 'use client'
 
+import { Tooltip } from '@/components/feedback'
+
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -111,20 +113,20 @@ export function CategoryFormDialog({
               {CATEGORY_ICONS.map((iconName) => {
                 const selected = form.icon === iconName
                 return (
-                  <button
-                    key={iconName}
-                    type="button"
-                    onClick={() => update('icon', iconName)}
-                    className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-                      selected
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    )}
-                    title={iconName}
-                  >
-                    {renderPreviewIcon(iconName)}
-                  </button>
+                  <Tooltip key={iconName} content={iconName}>
+                    <button
+                      type="button"
+                      onClick={() => update('icon', iconName)}
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )}
+                    >
+                      {renderPreviewIcon(iconName)}
+                    </button>
+                  </Tooltip>
                 )
               })}
             </div>
