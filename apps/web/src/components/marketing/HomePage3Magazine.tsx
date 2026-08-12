@@ -15,9 +15,15 @@ interface NewsItem {
   coverImage?: string | null
   authorName?: string | null
   createdAt?: string
+  categoryName?: string | null
 }
 
 type TabKey = 'platform' | 'external'
+
+const TAB_CATEGORY_MAP: Record<TabKey, string[]> = {
+  platform: ['AI 模型发布', 'AI 学术前沿', 'AI 产业动态', 'AI 安全与治理'],
+  external: ['科技前沿', '教育创新', '金融科技', '医疗健康', '机器人产业', 'AI 艺术', '创业投资', '政策法规'],
+}
 
 function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
   if (!r.success) throw new Error(r.error)
@@ -28,9 +34,9 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group relative flex min-h-[300px] overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5 min-[768px]:min-h-[340px]"
+      className="group relative flex h-full min-h-[220px] overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
-      <div className="absolute top-3 bottom-3 left-3 right-3">
+      <div className="absolute inset-0">
         {item.coverImage ? (
           <Image
             src={item.coverImage}
@@ -47,16 +53,34 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
         )}
         <div className="absolute inset-0 bg-black/50 transition-colors group-hover:bg-black/60" />
       </div>
-      <div className="relative z-10 mt-auto flex flex-col gap-2 p-6">
+      <div className="relative z-10 mt-auto flex flex-col gap-1.5 p-5">
         <span className="inline-flex w-fit items-center rounded-md bg-card px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-foreground">
           {tag}
         </span>
-        <h3 className="line-clamp-2 text-xl font-bold leading-tight text-white">{item.title}</h3>
-        <p className="line-clamp-2 text-sm text-white/85">{item.authorName || item.title}</p>
-        {item.createdAt && <time className="text-xs text-white/70">{item.createdAt}</time>}
+        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white min-[1024px]:text-xl">
+          {item.title}
+        </h3>
+        <div className="flex items-center gap-2 text-xs text-white/85">
+          <span className="truncate">{item.authorName || item.title}</span>
+          {item.createdAt && (
+            <>
+              <span className="text-white/40">·</span>
+              <time className="flex-shrink-0 text-white/70">{formatDate(item.createdAt)}</time>
+            </>
+          )}
+        </div>
       </div>
     </Link>
   )
+}
+
+function formatDate(input: string): string {
+  const d = new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
@@ -65,7 +89,7 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
       href={`/news/${item.id}`}
       className="group flex flex-1 flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
-      <div className="relative h-24 overflow-hidden bg-muted">
+      <div className="relative h-24 w-full overflow-hidden bg-muted">
         {item.coverImage ? (
           <Image
             src={item.coverImage}
@@ -81,36 +105,57 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
           </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <span className="inline-flex w-fit items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2.5">
+        <span className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-px text-xs font-semibold uppercase tracking-wider text-foreground/80">
           {tag}
         </span>
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{item.title}</h3>
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {item.authorName || item.title}
-        </p>
-        {item.createdAt && (
-          <time className="mt-auto text-xs text-muted-foreground/70">{item.createdAt}</time>
-        )}
+        <h3 className="line-clamp-2 text-xs font-semibold leading-snug">{item.title}</h3>
+        <div className="mt-auto flex items-center justify-between gap-1.5">
+          <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
+          {item.createdAt && (
+            <time className="flex-shrink-0 text-xs text-muted-foreground/70">
+              {formatDate(item.createdAt)}
+            </time>
+          )}
+        </div>
       </div>
     </Link>
   )
 }
 
-function ListItem({ item }: { item: NewsItem }) {
+function MiniCard({ item }: { item: NewsItem }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group flex items-start gap-2.5 rounded-md border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
-      <span className="mt-1 h-8 w-[3px] flex-shrink-0 rounded-sm bg-border transition-colors group-hover:bg-primary" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h4 className="line-clamp-2 text-xs font-medium leading-snug">{item.title}</h4>
-        {item.createdAt && (
-          <time className="text-xs text-muted-foreground/70">{item.createdAt}</time>
+      <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+        {item.coverImage ? (
+          <Image
+            src={item.coverImage}
+            alt={item.title}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(min-width: 1024px) 25vw, 50vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/10 to-muted">
+            <FileText className="h-6 w-6 text-muted-foreground/30" />
+          </div>
         )}
       </div>
-      <ChevronRight className="mt-1 h-3 w-3 flex-shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2">
+        <h4 className="line-clamp-2 text-xs font-semibold leading-snug">{item.title}</h4>
+        <div className="mt-auto flex items-center justify-between gap-1">
+          <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
+          {item.createdAt && (
+            <time className="flex-shrink-0 text-xs text-muted-foreground/70">
+              {formatDate(item.createdAt)}
+            </time>
+          )}
+        </div>
+      </div>
     </Link>
   )
 }
@@ -138,27 +183,42 @@ export function HomePage3Magazine() {
   const t = useTranslations('marketing.magazine')
   const [activeTab, setActiveTab] = React.useState<TabKey>('platform')
 
-  const { data: items = [], isLoading } = useQuery<NewsItem[]>({
+  const { data: allItems = [], isLoading } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'magazine'],
     queryFn: async () => {
-      // 2026-07-20 修正:后端 GET /api/news 根路由不存在,正确路由是 /api/news/articles
-      // (apps/api/src/routes/news.ts 第 122-130 行,GET /news/articles 公开路由)
-      // 之前调 /api/news 返回 404,导致"最新资讯"板块永远显示 empty
-      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=8'))
+      // pageSize=100 拉满(articlesQuerySchema 上限 100):前端按 TAB_CATEGORY_MAP 分类过滤,
+      // 若只拉 50 条,排序靠后的小分类(AI 学术前沿 / AI 安全与治理)会被截断,tab 过滤后永远为空
+      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=100'))
       return d.list ?? []
     },
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
 
+  const items = React.useMemo(() => {
+    const categories = TAB_CATEGORY_MAP[activeTab]
+    // categoryName 类型为 string | null | undefined(可选属性),必须同时排除 null 与 undefined
+    // 才能安全传给 categories.includes(string) —— 不能只写 !== null(会漏 undefined),也不能用 !=(违反 eqeqeq)
+    return allItems.filter(
+      (item) =>
+        item.categoryName !== null &&
+        item.categoryName !== undefined &&
+        categories.includes(item.categoryName),
+    )
+  }, [allItems, activeTab])
+
   const hero = items[0]
-  const sideItems = items.slice(1, 3)
-  const listItems = items.slice(3, 7)
+  // 自适应列表项数:保证 listItems 至少 4 条以便填满 4 列网格,不足时减少 sideItems
+  const targetList = 4
+  const availAfterHero = items.length - 1
+  const sideCount = Math.min(2, Math.max(0, availAfterHero - targetList))
+  const sideItems = items.slice(1, 1 + sideCount)
+  const listItems = items.slice(1 + sideCount, 1 + sideCount + Math.min(8, availAfterHero - sideCount))
 
   const tabClass = (key: TabKey) =>
     activeTab === key
-      ? 'rounded-md border border-border bg-background px-5 py-2 text-sm font-medium text-foreground shadow-sm'
-      : 'rounded-md border border-transparent px-5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground'
+      ? 'rounded-md bg-card px-4 py-1.5 text-sm font-medium text-foreground'
+      : 'rounded-md px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground'
 
   // 2026-07-20 改(自适应 v4,根因):根 section 改 flex flex-1 flex-col,让它在 page4
   // wrapper (flex-1 min-h-0) 内撑开 = 视口 - footer 自然高度。
@@ -176,7 +236,7 @@ export function HomePage3Magazine() {
           </h3>
           <p className="text-sm text-muted-foreground/80">{t('subtitle')}</p>
         </div>
-        <div className="inline-flex gap-1 rounded-lg bg-muted p-1">
+        <div className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5">
           <button
             type="button"
             onClick={() => setActiveTab('platform')}
@@ -197,11 +257,17 @@ export function HomePage3Magazine() {
       {isLoading ? (
         <Skeleton />
       ) : items.length === 0 ? (
-        // 2026-07-20 改:Card 加 flex-1 min-h-0,让"暂无内容"占满 magazine 容器
-        // 剩余空间,不再留下方大空隙;h-40 (固定 160px) 已删除,改由 flex-1 撑开。
         <Card className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
           {t('empty')}
         </Card>
+      ) : items.length < 3 ? (
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
+            {items.map((item) => (
+              <MiniCard key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
       ) : (
         <div className="flex flex-1 flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
@@ -212,11 +278,13 @@ export function HomePage3Magazine() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
-            {listItems.map((n) => (
-              <ListItem key={n.id} item={n} />
-            ))}
-          </div>
+          {listItems.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
+              {listItems.map((n) => (
+                <MiniCard key={n.id} item={n} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
