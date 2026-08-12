@@ -36,6 +36,10 @@ import BottomActionBar, {
 } from '@/components/BottomActionBar'
 import Toolbar from '@/components/Toolbar'
 import { icon } from '@/constants/remote-icons'
+// 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
+import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
+import courseIconLocal from '@/assets/remote-images/course-icon.svg'
+import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
 import './index.css'
 
 const DEFAULT_AVATAR =
@@ -304,11 +308,11 @@ export default function Index() {
         <View className="px-[20rpx] py-[16rpx]">
           <Toolbar
             items={[
-              { id: 'ai', name: tt('toolbar.ai', 'AI对话'), icon: icon('aiIcon'), onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
-              { id: 'course', name: tt('toolbar.course', '课程'), icon: icon('courseIcon'), onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
+              { id: 'ai', name: tt('toolbar.ai', 'AI对话'), icon: aiIconLocal, onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
+              { id: 'course', name: tt('toolbar.course', '课程'), icon: courseIconLocal, onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
               { id: 'plaza', name: tt('toolbar.plaza', '广场'), icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
               { id: 'rank', name: tt('toolbar.rank', '排行'), icon: icon('rankone'), onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
-              { id: 'vip', name: tt('toolbar.vip', '会员'), icon: icon('uservipAct'), onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
+              { id: 'vip', name: tt('toolbar.vip', '会员'), icon: vipActIconLocal, onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
             ]}
           />
         </View>
