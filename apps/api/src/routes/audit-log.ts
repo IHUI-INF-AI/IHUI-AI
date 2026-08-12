@@ -33,15 +33,24 @@ const auditLogQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
   action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
-  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.string().max(64).optional()),
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const auditLogExportSchema = z.object({
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
   action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
-  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.string().max(64).optional()),
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   format: z.enum(['json', 'cef', 'leef']).optional().default('json'),
@@ -58,7 +67,11 @@ const auditLogVerifySchema = z.object({
 const auditLogStatsSchema = z.object({
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
   action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
-  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.string().max(64).optional()),
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
@@ -102,28 +115,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
             endDate: { type: 'string', description: '结束时间(ISO)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
@@ -233,28 +225,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
             limit: { type: 'integer', minimum: 1, maximum: 50000, default: 10000 },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
@@ -290,28 +261,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
             endDate: { type: 'string' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {

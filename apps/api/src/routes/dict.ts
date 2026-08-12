@@ -22,16 +22,7 @@ export const dictPublicRoutes: FastifyPluginAsync = async (server) => {
             dictType: { type: 'string', minLength: 1 },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (request, reply) => {
@@ -41,3 +32,4 @@ export const dictPublicRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 }
+import { buildResponseSchema } from '../utils/api-schemas.js'
