@@ -20,6 +20,7 @@ const auditLogsQuerySchema = z.object({
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const auditLogsExportQuerySchema = z.object({
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -76,28 +77,7 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
             endDate: { type: 'string', description: '结束时间 YYYY-MM-DD(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
@@ -224,24 +204,7 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '详细统计',
         tags: ['audit'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401, 403),
       },
     },
     async (_request, reply) => {
