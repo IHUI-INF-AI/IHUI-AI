@@ -16710,7 +16710,14 @@
       "lessonsExtracted": "추출 지식 수",
       "failurePattern": "실패 패턴",
       "improvementTip": "개선 제안",
-      "bestPractice": "모범 사례"
+      "bestPractice": "모범 사례",
+      "agentFailures": "에이전트 실패 및 복구",
+      "errorType": "오류 유형",
+      "recentFailures": "최근 실패",
+      "failedCheckpoints": "실패 체크포인트",
+      "toolFailures": "도구 실패",
+      "agentErrors": "에이전트 오류",
+      "noFailures": "실패 기록 없음"
     }
   },
   "fundData": {

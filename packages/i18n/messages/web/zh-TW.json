@@ -16680,7 +16680,14 @@
       "lessonsExtracted": "提取知識數",
       "failurePattern": "失敗模式",
       "improvementTip": "改進建議",
-      "bestPractice": "最佳實踐"
+      "bestPractice": "最佳實踐",
+      "agentFailures": "Agent 失敗與恢復",
+      "errorType": "錯誤類型",
+      "recentFailures": "最近失敗",
+      "failedCheckpoints": "失敗檢查點",
+      "toolFailures": "工具失敗",
+      "agentErrors": "Agent 錯誤",
+      "noFailures": "尚無失敗記錄"
     }
   },
   "fundData": {
