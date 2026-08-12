@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 
 interface PeriodAgg {
@@ -310,14 +311,14 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
             ) : (
               <div className="flex h-40 items-end gap-1">
                 {trend.map((d) => (
-                  <div
+                  <Tooltip
                     key={d.date}
-                    className="flex flex-1 flex-col items-center justify-end gap-1"
-                    title={`${d.date} · 调用 ${d.callCount} · 错误率 ${(d.errorRate * 100).toFixed(1)}%`}
+                    content={`${d.date} · 调用 ${d.callCount} · 错误率 ${(d.errorRate * 100).toFixed(1)}%`}
                   >
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      {d.callCount > 0 ? numFmt.format(d.callCount) : ''}
-                    </span>
+                    <div className="flex flex-1 flex-col items-center justify-end gap-1">
+                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                        {d.callCount > 0 ? numFmt.format(d.callCount) : ''}
+                      </span>
                     <div
                       className="flex w-full items-end justify-center"
                       style={{ height: '110px' }}
@@ -333,7 +334,8 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
                     <span className="text-[10px] tabular-nums text-muted-foreground">
                       {d.date.slice(5)}
                     </span>
-                  </div>
+                    </div>
+                  </Tooltip>
                 ))}
               </div>
             )}
