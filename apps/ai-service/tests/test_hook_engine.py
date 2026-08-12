@@ -1176,3 +1176,40 @@ class TestRedis:
         """无 Redis 时 _persist_hooks 静默跳过。"""
         engine._use_redis = False
         await engine._persist_hooks()  # 不应抛错
+
+# =============================================================================
+# L5-9 SSE 实时订阅器(2026-08-12 立)
+# =============================================================================
+
+
+def test_subscribe_and_broadcast(engine):
+    """subscribe 后 _broadcast 投递载荷到队列。"""
+    q = engine.subscribe("tool.after")
+    engine._broadcast("tool.after", {"session_id": "s1", "retry_count": 1})
+    item = q.get_nowait()
+    assert item["session_id"] == "s1"
+    assert item["retry_count"] == 1
+
+
+def test_broadcast_unknown_event_noop(engine):
+    """无订阅者的事件广播为 noop(不抛错)。"""
+    engine._broadcast("tool.after", {"x": 1})  # 不应抛错
+    engine._broadcast("unknown.event", {"x": 1})  # 不应抛错
+
+
+def test_unsubscribe_removes_queue(engine):
+    """unsubscribe 后不再投递。"""
+    q = engine.subscribe("error")
+    engine.unsubscribe("error", q)
+    engine._broadcast("error", {"message": "boom"})
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_emit_broadcasts_to_subscriber(engine):
+    """emit() 会向订阅者广播 context(带未知事件校验)。"""
+    q = engine.subscribe("message.send")
+    await engine.emit("message.send", {"session_id": "s9", "content": "hi"})
+    item = q.get_nowait()
+    assert item["session_id"] == "s9"
+    assert item["content"] == "hi"
