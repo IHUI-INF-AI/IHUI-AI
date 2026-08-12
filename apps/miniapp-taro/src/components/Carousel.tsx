@@ -80,15 +80,40 @@ export default function Carousel({
         <View style={{ display: 'flex', width: `${total * 100}%` }}>
           {items.map((item, index) => {
             const meta = variant === 'course' ? courseMeta[index] : undefined
+            // 修复 (2026-08-12):img 为空时显示渐变 + 文字 banner fallback,
+            // 避免 broken image 占用布局 + 让 banner 也能展示标题/副标题
+            const hasImg = !!item.img
+            const fallbackBg = ['linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)']
             return (
               <View
                 key={index}
                 id={`carousel-item-${index}`}
                 className="relative h-full"
-                style={{ width: `${100 / total}%` }}
+                style={{
+                  width: `${100 / total}%`,
+                  background: hasImg ? undefined : fallbackBg[index % fallbackBg.length],
+                }}
                 onClick={() => onItemClick?.(item, index)}
               >
-                <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
+                {hasImg ? (
+                  <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
+                ) : null}
+                {!hasImg && (item.title || item.subtitle) ? (
+                  <View
+                    className="absolute inset-0 flex flex-col items-center justify-center p-4"
+                  >
+                    {item.title ? (
+                      <Text className="text-xl font-bold text-white text-center mb-2">
+                        {item.title}
+                      </Text>
+                    ) : null}
+                    {item.subtitle ? (
+                      <Text className="text-sm text-white/90 text-center">
+                        {item.subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
                 {meta ? (
                   <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                     {meta.title ? (

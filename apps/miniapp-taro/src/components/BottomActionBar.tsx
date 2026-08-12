@@ -7,6 +7,8 @@ import cammerInputPng from '@/assets/remote/images/cammer_input.png'
 import picterInputPng from '@/assets/remote/images/picter_input.png'
 import floderInputPng from '@/assets/remote/images/floder_input.png'
 import selectedModelPng from '@/assets/remote/images/selected_model.png'
+import { rpx } from '@/utils/rpx'
+
 
 /**
  * BottomActionBar 底部操作栏
@@ -113,7 +115,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             className="flex"
             style={{
               padding: '0 20rpx 10rpx',
-              gap: '16rpx',
+              gap: rpx(16),
             }}
           >
             {toggleButtons.map((btn) => {
@@ -123,10 +125,13 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   key={btn.key}
                   className="flex items-center justify-center"
                   style={{
+                    // 修复 (2026-08-12):box-sizing: border-box 让 border 算入 width,
+                    // 避免 4rpx 边框导致 4 个按钮总宽 > 100% 出现左裁切
+                    boxSizing: 'border-box',
                     width: 'calc(25% - 12rpx)',
                     border: '4rpx solid var(--color-card)',
-                    borderRadius: '15rpx',
-                    fontSize: '28rpx',
+                    borderRadius: rpx(15),
+                    fontSize: rpx(28),
                     padding: '12rpx 0',
                     background: active
                       ? 'var(--color-brand-cyan, #93d2f3)'
@@ -154,7 +159,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             className="flex"
             style={{
               justifyContent: 'flex-start',
-              gap: '16rpx',
+              gap: rpx(16),
               padding: '0 20rpx 10rpx',
             }}
           >
@@ -163,23 +168,23 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 key={btn.key}
                 className="flex flex-col items-center justify-center"
                 style={{
-                  width: '160rpx',
-                  height: '150rpx',
+                  width: rpx(160),
+                  height: rpx(150),
                   background:
                     'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
-                  borderRadius: '30rpx',
+                  borderRadius: rpx(30),
                   border: '6rpx solid var(--color-card)',
                 }}
                 onClick={() => onIconButtonClick?.(btn)}
               >
                 <Image
                   src={btn.icon}
-                  style={{ width: '70rpx', height: '70rpx', marginBottom: '12rpx' }}
+                  style={{ width: rpx(70), height: rpx(70), marginBottom: rpx(12) }}
                   mode="aspectFit"
                 />
                 <Text
                   style={{
-                    fontSize: '20rpx',
+                    fontSize: rpx(20),
                     color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
                   }}
                 >
@@ -196,22 +201,22 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             className="flex justify-between items-center"
             style={{
               width: 'calc(100% - 100rpx)',
-              gap: '16rpx',
+              gap: rpx(16),
               padding: '0 20rpx 10rpx',
             }}
           >
             <View
               className="flex items-center"
-              style={{ color: 'var(--color-foreground)', fontSize: '20rpx' }}
+              style={{ color: 'var(--color-foreground)', fontSize: rpx(20) }}
             >
               <Image
                 src={selectedModelPng}
-                style={{ width: '24rpx', height: '24rpx', marginRight: '8rpx' }}
+                style={{ width: rpx(24), height: rpx(24), marginRight: rpx(8) }}
                 mode="aspectFit"
               />
               <Text>已默认自动切换深度思考</Text>
             </View>
-            <View style={{ color: 'var(--color-accent-blue, #5a85ff)', fontSize: '20rpx' }}>
+            <View style={{ color: 'var(--color-accent-blue, #5a85ff)', fontSize: rpx(20) }}>
               <Text>已选模型: {modelName}</Text>
             </View>
           </View>
