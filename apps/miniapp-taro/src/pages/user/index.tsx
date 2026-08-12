@@ -6,7 +6,7 @@ import { logout } from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
-import DrawerComponent from '@/components/DrawerComponent'
+import DrawerComponent, { type DrawerModelGroup, type DrawerChatItem } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
 import { rpx } from '@/utils/rpx'
@@ -27,6 +27,10 @@ import './index.css'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+
+// 状态栏高度（对齐原项目 statusBarHeight，用于 DrawerComponent 顶部 padding）
+const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
+const statusBarHeight = menuButton.top
 
 // 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
 function isImagePath(icon: string): boolean {
@@ -143,6 +147,8 @@ export default function UserIndex() {
   const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
   // 侧边栏抽屉
   const [showDrawer, setShowDrawer] = useState<boolean>(false)
+  // 历史对话分组数据（对齐原项目 groupedData，实际由 API 填充）
+  const [groupedData] = useState<DrawerModelGroup[]>([])
   // 分享弹窗
   const [showSharePopup, setShowSharePopup] = useState<boolean>(false)
 
@@ -384,6 +390,12 @@ export default function UserIndex() {
 
   const closeSharePopup = useCallback(() => {
     setShowSharePopup(false)
+  }, [])
+
+  // 历史对话项点击回调（对齐原项目 onChatItemClick）
+  const handleChatItemClick = useCallback((chat: DrawerChatItem) => {
+    toggleDrawer()
+    Taro.navigateTo({ url: `/pages/chat/index?id=${chat.id}` })
   }, [])
 
   // 会员权益点击跳转
@@ -858,6 +870,8 @@ export default function UserIndex() {
         visible={showDrawer}
         onClose={toggleDrawer}
         side="left"
+        statusBarHeight={statusBarHeight}
+        groupedData={groupedData}
         userinfo={
           userInfo
             ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
@@ -885,6 +899,7 @@ export default function UserIndex() {
           const route = labelRouteMap[item.key]
           if (route) Taro.navigateTo({ url: route })
         }}
+        onChatItemClick={handleChatItemClick}
         onCreateChat={() => {
           toggleDrawer()
           Taro.switchTab({ url: '/pages/index/index' })
