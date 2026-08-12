@@ -178,7 +178,7 @@ export function WorkspacePermissionDialog({
                   className={cn(
                     'flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
                     isSel
-                      ? 'border-primary bg-primary/5'
+                      ? 'outline outline-1 outline-black dark:outline-white bg-primary/5'
                       : 'border-border hover:bg-muted/40',
                   )}
                 >
