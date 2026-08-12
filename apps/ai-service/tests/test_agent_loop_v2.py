@@ -394,12 +394,18 @@ async def test_run_unknown_tool():
 
 
 async def test_run_llm_error():
-    """LLM 调用抛异常,stop_reason=error,success=False。"""
+    """LLM 调用抛异常,stop_reason=error,success=False。
+
+    关闭重试(llm_retry_max=0),聚焦「异常 → error 结果」链路;
+    重试行为由 test_llm_retry_* 系列单独覆盖。
+    """
 
     async def mock_llm(messages, tools):
         raise RuntimeError("LLM 网关连接失败")
 
-    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    loop = AgentLoopV2(
+        mock_llm, [_weather_tool()], max_iterations=5, llm_retry_max=0
+    )
     result = await loop.run(_default_messages())
 
     assert result.success is False
@@ -551,3 +557,114 @@ async def test_run_appends_messages_in_place():
     assert messages[2]["tool_calls"][0]["name"] == "get_weather"
     assert messages[3]["role"] == "tool"
     assert messages[3]["tool_call_id"] == "m1"
+
+
+# =============================================================================
+# L5-1 错误恢复:LLM 指数退避重试(2026-08-12 立)
+# =============================================================================
+
+
+async def test_llm_retry_success_after_transient_failure():
+    """瞬时失败 2 次后成功:llm_complete 共被调 3 次,循环正常完成。"""
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise ConnectionError("网络抖动")
+        return {"content": "重试后成功", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=5,
+        llm_retry_max=3,
+        llm_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert result.stop_reason == "completed"
+    assert result.final_response == "重试后成功"
+    assert call_count == 3  # 2 次失败 + 1 次成功
+
+
+async def test_llm_retry_exhausted_raises_error():
+    """持续失败且重试耗尽:stop_reason=error,llm_complete 被调 retry_max+1 次。"""
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        raise TimeoutError("LLM 网关超时")
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=5,
+        llm_retry_max=2,
+        llm_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is False
+    assert result.stop_reason == "error"
+    assert "超时" in result.error
+    assert call_count == 3  # 2 次重试 + 1 次最终 = retry_max+1
+
+
+async def test_llm_retry_zero_disables_retry():
+    """llm_retry_max=0 时失败立即抛错,不重试。"""
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("一次性失败")
+
+    loop = AgentLoopV2(
+        mock_llm, [_weather_tool()], max_iterations=5, llm_retry_max=0
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is False
+    assert result.stop_reason == "error"
+    assert call_count == 1
+
+
+async def test_llm_retry_cancel_not_retried():
+    """asyncio.CancelledError 不重试(用户取消必须立即生效)。"""
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        raise asyncio.CancelledError()
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=5,
+        llm_retry_max=3,
+        llm_retry_backoff=0.01,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await loop.run(_default_messages())
+
+    assert call_count == 1  # 取消不重试
+
+
+def test_classify_error_categories():
+    """_classify_error 对常见异常分类正确。"""
+    from app.services.agent_loop_v2 import AgentLoopV2
+
+    assert AgentLoopV2._classify_error(TimeoutError("timeout")) == "timeout"
+    assert AgentLoopV2._classify_error(ConnectionError("conn reset")) == "connection"
+    assert (
+        AgentLoopV2._classify_error(RuntimeError("HTTP 503 Service Unavailable"))
+        == "http_5xx"
+    )
+    assert AgentLoopV2._classify_error(RuntimeError("HTTP 429 rate limited")) == "http_4xx"
+    assert AgentLoopV2._classify_error(asyncio.CancelledError()) == "cancelled"
+    assert AgentLoopV2._classify_error(ValueError("bad args")) == "unknown"
