@@ -743,6 +743,12 @@ class AgentLoopV2:
             except Exception as e:
                 error_type = self._classify_error(e)
                 logger.error("Agent 循环第 %d 轮异常[%s]: %s", i, error_type, e)
+                # L5-12(2026-08-12):错误指标埋点(按 error_type 六分类)
+                try:
+                    from ..middleware.agent_metrics import agent_loop_errors_total
+                    agent_loop_errors_total.labels(error_type).inc()
+                except Exception:
+                    pass
                 # L5-3 错误恢复:结构化上报审计服务(2026-08-12 立)
                 self._report_agent_error(i, str(e), error_type)
                 # Hook 引擎: error
