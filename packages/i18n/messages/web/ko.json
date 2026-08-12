@@ -7381,6 +7381,7 @@
       "contentFormatVideo": "동영상"
     },
     "history": {
+      "title": "발행 내역",
       "duration": "소요 시간",
       "time": "시간",
       "filterPlatform": "플랫폼 필터",
@@ -11107,7 +11108,14 @@
     "internationalModels": "해외 대형 모델",
     "chineseModels": "국산 대형 모델",
     "agreementSubtitle": "다음 약관 내용을 주의 깊게 읽어 주세요",
-    "contactSubtitle": "다음 경로로 문의해 주세요"
+    "contactSubtitle": "다음 경로로 문의해 주세요",
+    "copyRepoUrl": "저장소 URL 복사",
+    "openOnGithub": "GitHub에서 열기",
+    "openOnGitee": "Gitee에서 열기",
+    "openOnGitcode": "GitCode에서 열기",
+    "workingHours": "영업시간: 월~금 9:00-18:00",
+    "repoCopied": "저장소 URL이 클립보드에 복사되었습니다",
+    "copyFailed": "복사 실패,수동으로 복사하세요"
   },
   "plugins": {
     "title": "플러그인 마켓",
