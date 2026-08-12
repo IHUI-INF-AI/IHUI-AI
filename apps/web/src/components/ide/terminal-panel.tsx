@@ -9,6 +9,7 @@ import { useTerminalSession } from '@/hooks/use-terminal-session'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { TerminalSplitDirection } from '@/stores/terminal'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { TerminalWSServerMessage } from '@ihui/types'
 import type { Terminal } from '@xterm/xterm'
 import type { FitAddon } from '@xterm/addon-fit'
@@ -950,49 +951,53 @@ function TerminalViewport({
         <div className="pointer-events-auto flex items-center gap-0.5 rounded bg-background/80 p-0.5 backdrop-blur-sm">
           {/* AI 建议按钮(2026-07-23 立,仅活跃 pane 显示) */}
           {isActive && (
-            <button
-              type="button"
-              className={cn(
-                'flex h-5 w-5 items-center justify-center rounded transition-colors',
-                aiSuggestOpen
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={handleOpenSuggest}
-              title={t('terminalPanel.aiSuggestTitle')}
-              aria-label={t('terminalPanel.aiSuggestTitle')}
-            >
-              <Sparkles className="h-3 w-3" />
-            </button>
+            <Tooltip content={t('terminalPanel.aiSuggestTitle')}>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded transition-colors',
+                  aiSuggestOpen
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={handleOpenSuggest}
+                aria-label={t('terminalPanel.aiSuggestTitle')}
+              >
+                <Sparkles className="h-3 w-3" />
+              </button>
+            </Tooltip>
           )}
-          <button
-            type="button"
-            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => onSplitRequest('vertical')}
-            title={t('terminalPanel.splitVerticalTitle')}
-            aria-label={t('terminalPanel.splitVerticalAria')}
-          >
-            <Columns2 className="h-3 w-3" />
-          </button>
-          <button
-            type="button"
-            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => onSplitRequest('horizontal')}
-            title={t('terminalPanel.splitHorizontalTitle')}
-            aria-label={t('terminalPanel.splitHorizontalAria')}
-          >
-            <Rows2 className="h-3 w-3" />
-          </button>
-          {canClosePane && (
+          <Tooltip content={t('terminalPanel.splitVerticalTitle')}>
             <button
               type="button"
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-              onClick={onClosePane}
-              title={t('terminalPanel.closePane')}
-              aria-label={t('terminalPanel.closePane')}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => onSplitRequest('vertical')}
+              aria-label={t('terminalPanel.splitVerticalAria')}
             >
-              <X className="h-3 w-3" />
+              <Columns2 className="h-3 w-3" />
             </button>
+          </Tooltip>
+          <Tooltip content={t('terminalPanel.splitHorizontalTitle')}>
+            <button
+              type="button"
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => onSplitRequest('horizontal')}
+              aria-label={t('terminalPanel.splitHorizontalAria')}
+            >
+              <Rows2 className="h-3 w-3" />
+            </button>
+          </Tooltip>
+          {canClosePane && (
+            <Tooltip content={t('terminalPanel.closePane')}>
+              <button
+                type="button"
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+                onClick={onClosePane}
+                aria-label={t('terminalPanel.closePane')}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -1029,86 +1034,92 @@ function TerminalViewport({
             <span className="shrink-0 text-[10px] text-muted-foreground">
               {matchTotal > 0 ? `${matchIndex}/${matchTotal}` : '0/0'}
             </span>
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-              onClick={() => doSearch(false)}
-              disabled={!searchTerm}
-              aria-label={t('terminalPanel.prevMatchAria')}
-              title={t('terminalPanel.prevMatchTitle')}
-            >
-              <ChevronUp className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-              onClick={() => doSearch(true)}
-              disabled={!searchTerm}
-              aria-label={t('terminalPanel.nextMatchAria')}
-              title={t('terminalPanel.nextMatchTitle')}
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              onClick={() => {
-                setSearchOpen(false)
-                setSearchTerm('')
-                clearDecorations()
-              }}
-              aria-label={t('terminalPanel.closeSearchAria')}
-              title={t('terminalPanel.closeSearchTitle')}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip content={t('terminalPanel.prevMatchTitle')}>
+              <button
+                type="button"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                onClick={() => doSearch(false)}
+                disabled={!searchTerm}
+                aria-label={t('terminalPanel.prevMatchAria')}
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('terminalPanel.nextMatchTitle')}>
+              <button
+                type="button"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                onClick={() => doSearch(true)}
+                disabled={!searchTerm}
+                aria-label={t('terminalPanel.nextMatchAria')}
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('terminalPanel.closeSearchTitle')}>
+              <button
+                type="button"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => {
+                  setSearchOpen(false)
+                  setSearchTerm('')
+                  clearDecorations()
+                }}
+                aria-label={t('terminalPanel.closeSearchAria')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           </div>
           {/* 搜索选项开关(正则 / 全字 / 大小写) */}
           <div className="flex items-center gap-1 pl-5">
-            <button
-              type="button"
-              className={cn(
-                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
-                searchOpts.regex
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() => setSearchOpts((p) => ({ ...p, regex: !p.regex, wholeWord: false }))}
-              title={t('terminalPanel.regexModeTitle')}
-            >
-              <span>.*</span>
-              <span>{t('terminalPanel.regexMode')}</span>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
-                searchOpts.wholeWord
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() =>
-                setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))
-              }
-              title={t('terminalPanel.wholeWordTitle')}
-            >
-              <span>W</span>
-              <span>{t('terminalPanel.wholeWord')}</span>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
-                searchOpts.caseSensitive
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() => setSearchOpts((p) => ({ ...p, caseSensitive: !p.caseSensitive }))}
-              title={t('terminalPanel.caseSensitiveTitle')}
-            >
-              <span>Aa</span>
-              <span>{t('terminalPanel.caseSensitive')}</span>
-            </button>
+            <Tooltip content={t('terminalPanel.regexModeTitle')}>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+                  searchOpts.regex
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setSearchOpts((p) => ({ ...p, regex: !p.regex, wholeWord: false }))}
+              >
+                <span>.*</span>
+                <span>{t('terminalPanel.regexMode')}</span>
+              </button>
+            </Tooltip>
+            <Tooltip content={t('terminalPanel.wholeWordTitle')}>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+                  searchOpts.wholeWord
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() =>
+                  setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))
+                }
+              >
+                <span>W</span>
+                <span>{t('terminalPanel.wholeWord')}</span>
+              </button>
+            </Tooltip>
+            <Tooltip content={t('terminalPanel.caseSensitiveTitle')}>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+                  searchOpts.caseSensitive
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setSearchOpts((p) => ({ ...p, caseSensitive: !p.caseSensitive }))}
+              >
+                <span>Aa</span>
+                <span>{t('terminalPanel.caseSensitive')}</span>
+              </button>
+            </Tooltip>
             {searchOpts.regex && (
               <span className="text-[10px] text-amber-600 dark:text-amber-400">
                 {t('terminalPanel.regexModeHint')}
@@ -1134,25 +1145,27 @@ function TerminalViewport({
               </span>
             </div>
             <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-                onClick={handleRefreshSuggest}
-                disabled={aiSuggestLoading}
-                aria-label={t('terminalPanel.refreshSuggest')}
-                title={t('terminalPanel.refreshSuggest')}
-              >
-                <RefreshCw className={cn('h-3 w-3', aiSuggestLoading && 'animate-spin')} />
-              </button>
-              <button
-                type="button"
-                className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => setAiSuggestOpen(false)}
-                aria-label={t('terminalPanel.close')}
-                title={t('terminalPanel.close')}
-              >
-                <X className="h-3 w-3" />
-              </button>
+              <Tooltip content={t('terminalPanel.refreshSuggest')}>
+                <button
+                  type="button"
+                  className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  onClick={handleRefreshSuggest}
+                  disabled={aiSuggestLoading}
+                  aria-label={t('terminalPanel.refreshSuggest')}
+                >
+                  <RefreshCw className={cn('h-3 w-3', aiSuggestLoading && 'animate-spin')} />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('terminalPanel.close')}>
+                <button
+                  type="button"
+                  className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => setAiSuggestOpen(false)}
+                  aria-label={t('terminalPanel.close')}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Tooltip>
             </div>
           </div>
           <div className="max-h-60 overflow-y-auto">
@@ -1174,23 +1187,26 @@ function TerminalViewport({
               </div>
             ) : (
               aiSuggestions.map((s, i) => (
-                <button
+                <Tooltip
                   key={`${i}-${s.command}`}
-                  type="button"
-                  className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
-                  onClick={() => handleInsertSuggestion(s.command)}
-                  title={t('terminalPanel.insertSuggestTitle')}
+                  content={t('terminalPanel.insertSuggestTitle')}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <code className="truncate font-mono text-foreground">{s.command}</code>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {Math.round(s.confidence * 100)}%
-                    </span>
-                  </div>
-                  {s.description && (
-                    <span className="text-[10px] text-muted-foreground">{s.description}</span>
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                    onClick={() => handleInsertSuggestion(s.command)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="truncate font-mono text-foreground">{s.command}</code>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {Math.round(s.confidence * 100)}%
+                      </span>
+                    </div>
+                    {s.description && (
+                      <span className="text-[10px] text-muted-foreground">{s.description}</span>
+                    )}
+                  </button>
+                </Tooltip>
               ))
             )}
           </div>
@@ -1207,15 +1223,16 @@ function TerminalViewport({
                 {t('terminalPanel.aiDiagnoseTitle')}
               </span>
             </div>
-            <button
-              type="button"
-              className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              onClick={() => setAiDiagnoseOpen(false)}
-              aria-label={t('terminalPanel.close')}
-              title={t('terminalPanel.close')}
-            >
-              <X className="h-3 w-3" />
-            </button>
+            <Tooltip content={t('terminalPanel.close')}>
+              <button
+                type="button"
+                className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setAiDiagnoseOpen(false)}
+                aria-label={t('terminalPanel.close')}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Tooltip>
           </div>
           <div className="max-h-72 overflow-y-auto px-2.5 py-2 text-xs">
             {aiError ? (
@@ -1255,15 +1272,16 @@ function TerminalViewport({
                     <code className="flex-1 truncate font-mono text-[11px] text-foreground">
                       {aiDiagnoseResult.fixCommand}
                     </code>
-                    <button
-                      type="button"
-                      className="flex shrink-0 items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
-                      onClick={handleAutoFix}
-                      title={t('terminalPanel.autoFixTitle')}
-                    >
-                      <Wand2 className="h-2.5 w-2.5" />
-                      <span>{t('terminalPanel.autoFix')}</span>
-                    </button>
+                    <Tooltip content={t('terminalPanel.autoFixTitle')}>
+                      <button
+                        type="button"
+                        className="flex shrink-0 items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
+                        onClick={handleAutoFix}
+                      >
+                        <Wand2 className="h-2.5 w-2.5" />
+                        <span>{t('terminalPanel.autoFix')}</span>
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -1312,15 +1330,16 @@ function TerminalViewport({
             <span className="shrink-0 text-[10px] text-muted-foreground">
               {filteredHistory.length > 0 ? `${historyIndex + 1}/${filteredHistory.length}` : '0/0'}
             </span>
-            <button
-              type="button"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              onClick={handleHistoryClose}
-              aria-label={t('terminalPanel.close')}
-              title={t('terminalPanel.closeSearchTitle')}
-            >
-              <X className="h-3 w-3" />
-            </button>
+            <Tooltip content={t('terminalPanel.closeSearchTitle')}>
+              <button
+                type="button"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={handleHistoryClose}
+                aria-label={t('terminalPanel.close')}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Tooltip>
           </div>
           <div className="max-h-60 overflow-y-auto">
             {filteredHistory.length === 0 ? (
