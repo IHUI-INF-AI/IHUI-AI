@@ -293,20 +293,22 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
                     subs[evt] = hook_engine.subscribe(evt)
                 try:
-                    result = await loop.run(
-                        [{"role": "user", "content": req.goal}]
+                    # L5-10 打磨(2026-08-12):run() 与事件转发并发——
+                    # 此前 run() 完成后才消费队列(3s 窗口),SSE 不实时;
+                    # 现 run 在后台任务执行,主流程边跑边转发(真流式)。
+                    run_task = asyncio.create_task(
+                        loop.run([{"role": "user", "content": req.goal}])
                     )
-                    # 转发所有订阅事件(按 session_id 过滤)
-                    import time as _time
-                    deadline = _time.monotonic() + 3
-                    while _time.monotonic() < deadline:
-                        got = False
+                    while not run_task.done() or any(
+                        not q.empty() for q in subs.values()
+                    ):
+                        drained = False
                         for evt, q in subs.items():
                             try:
                                 payload = q.get_nowait()
                             except asyncio.QueueEmpty:
                                 continue
-                            got = True
+                            drained = True
                             if payload.get("session_id") not in (session_id, ""):
                                 continue
                             sse_evt = {
@@ -316,9 +318,12 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                             }
                             eid2 = sse_buffer.append(task_id, sse_evt)
                             yield _format_sse(eid2, sse_evt)
-                        if not got:
-                            await asyncio.sleep(0.1)
-                    # 结果事件
+                        if not drained:
+                            if run_task.done():
+                                break
+                            await asyncio.sleep(0.05)
+                    result = run_task.result()
+                    # 结果事件(唯一 done,含 success/stop_reason/output)
                     result_evt = {
                         "type": "done",
                         "task_id": task_id,
@@ -332,9 +337,6 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 finally:
                     for evt, q in subs.items():
                         hook_engine.unsubscribe(evt, q)
-                done_event = {"type": "done", "task_id": task_id}
-                eid = sse_buffer.append(task_id, done_event)
-                yield _format_sse(eid, done_event)
                 return
 
             # 优先用 LangGraph 工作流(完整 plan→execute→summarize)
