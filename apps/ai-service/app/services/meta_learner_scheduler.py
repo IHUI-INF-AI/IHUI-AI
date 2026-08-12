@@ -306,6 +306,40 @@ class MetaLearnerScheduler:
                 )
                 continue
 
+        # L5-1 错误恢复:补充收集 Agent 任务失败案例(checkpoint status=failed),
+        # 打通「Agent 失败 → 元学习 lesson → 注入 Agent」闭环(2026-08-12 立)
+        try:
+            from .agent_checkpoint import get_agent_checkpoint_manager
+
+            checkpoints = await get_agent_checkpoint_manager().list_checkpoints()
+            for cp in checkpoints:
+                if cp.status != "failed":
+                    continue
+                meta = cp.metadata or {}
+                all_failures.append(
+                    {
+                        "skillName": "agent_loop",
+                        "failureReason": str(
+                            meta.get("error")
+                            or meta.get("error_type")
+                            or "agent_loop failed"
+                        ),
+                        "usedAt": cp.created_at,
+                        "extra": {
+                            "checkpointId": cp.checkpoint_id,
+                            "iteration": cp.iteration,
+                            "sessionId": cp.session_id,
+                            "errorType": meta.get("error_type", "unknown"),
+                        },
+                    }
+                )
+        except Exception as e:
+            logger.warning(
+                "[meta_learner_scheduler] collect agent checkpoint failures failed: %s: %s",
+                type(e).__name__,
+                e,
+            )
+
         return all_failures
 
     # ===== 手动触发 =====
