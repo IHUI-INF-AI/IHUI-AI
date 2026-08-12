@@ -16043,7 +16043,16 @@
       "statusPending": "進行中",
       "statusSuccess": "成功",
       "statusError": "失敗"
-    }
+    },
+    "filterAll": "全部",
+    "filterRunning": "運行中",
+    "filterPaused": "已暫停",
+    "filterStopped": "已停止",
+    "filterError": "異常",
+    "filterAllModels": "全部模型",
+    "errorLoadFailed": "載入失敗",
+    "errorNetwork": "網路異常",
+    "errorOperation": "操作失敗"
   },
   "swarmTopology": {
     "dispatchStatus": {

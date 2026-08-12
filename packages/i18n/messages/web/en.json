@@ -16076,7 +16076,16 @@
       "statusPending": "Pending",
       "statusSuccess": "Success",
       "statusError": "Failed"
-    }
+    },
+    "filterAll": "All",
+    "filterRunning": "Running",
+    "filterPaused": "Paused",
+    "filterStopped": "Stopped",
+    "filterError": "Error",
+    "filterAllModels": "All Models",
+    "errorLoadFailed": "Load failed",
+    "errorNetwork": "Network error",
+    "errorOperation": "Operation failed"
   },
   "swarmTopology": {
     "dispatchStatus": {
