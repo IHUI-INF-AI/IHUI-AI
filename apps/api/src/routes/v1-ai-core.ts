@@ -60,7 +60,7 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
-import { getUserId, maskKey, jsonInit } from './v1-shared.js'
+import { getUserId, maskKey, jsonInit, deriveModelCapabilities } from './v1-shared.js'
 
 // =============================================================================
 // Zod schemas
@@ -160,7 +160,6 @@ const errorResponseSchema = {
 // 辅助函数
 // =============================================================================
 
-
 /** 从 apiKey 上下文取 userId,失败 reply 401。 */
 
 /** 屏蔽 API Key 中间部分,只保留首 4 + 末 4 字符。 */
@@ -225,38 +224,6 @@ async function fetchAiServiceModels(): Promise<
     const created = typeof mo.created === 'number' ? mo.created : undefined
     return { id, ownedBy, created }
   })
-}
-
-/**
- * 根据模型名推导能力标签(用于 GET /v1/models/:id capabilities)。
- * 规则:基于模型名前缀匹配主流厂商命名约定。
- */
-function deriveModelCapabilities(modelName: string): string[] {
-  const name = modelName.toLowerCase()
-  const caps: string[] = ['chat']
-  if (/^gpt-(4|5|o)/.test(name) || name.includes('gpt-4o') || name.includes('gpt-4-turbo')) {
-    caps.push('vision', 'tools')
-  } else if (/^gpt-3/.test(name)) {
-    caps.push('tools')
-  }
-  if (/^claude-3/.test(name) || /^claude-4/.test(name)) {
-    caps.push('vision', 'tools')
-  }
-  if (
-    /^o[134]-/.test(name) ||
-    name.startsWith('o1') ||
-    name.startsWith('o3') ||
-    name.startsWith('o4')
-  ) {
-    caps.push('reasoning', 'tools')
-  }
-  if (name.startsWith('gemini-')) {
-    caps.push('vision', 'tools')
-  }
-  if (name.includes('vl') || name.includes('vision')) {
-    caps.push('vision')
-  }
-  return Array.from(new Set(caps))
 }
 
 /** 主流模型上下文窗口大小静态映射(未知模型返回 undefined)。 */
