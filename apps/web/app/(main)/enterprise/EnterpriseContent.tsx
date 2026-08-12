@@ -154,7 +154,7 @@ export function EnterpriseContent() {
             {t('positioning.label')}
           </div>
           <Card className="overflow-hidden">
-            <CardContent className="flex flex-col items-start gap-4 p-6 min-[768px]:flex-row min-[768px]:items-center min-[768px]:gap-6">
+            <CardContent className="flex flex-col items-start gap-4 p-6 min-[768px]:flex-row min-[768px]:items-center min-[768px]:gap-6 min-[640px]:p-6">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Target className="h-7 w-7" />
               </div>
@@ -195,7 +195,7 @@ export function EnterpriseContent() {
                       {t('modules.coreServiceBadge')}
                     </span>
                   )}
-                  <CardContent className="space-y-3 p-5">
+                  <CardContent className="space-y-3 p-5 min-[640px]:p-5">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Icon className="h-5 w-5" />
@@ -234,7 +234,7 @@ export function EnterpriseContent() {
             {t('join.label')}
           </div>
           <Card className="overflow-hidden border-primary/20">
-            <CardContent className="space-y-5 p-4 min-[768px]:p-6">
+            <CardContent className="space-y-5 p-4 min-[768px]:p-6 min-[640px]:p-6">
               <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">
                   <h2 className="text-xl font-bold tracking-tight">{t('join.title')}</h2>

@@ -86,7 +86,7 @@ export default function ChatFavoritesPage() {
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => openItemInWeb(`/chat/favorites/${encodeURIComponent(f.id)}`)}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="font-medium text-sm truncate">{f.title || '—'}</div>
               {f.summary ? (
                 <p className="m-0 mt-1 text-xs text-muted-foreground line-clamp-2">{f.summary}</p>
