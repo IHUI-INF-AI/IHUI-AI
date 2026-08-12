@@ -16,6 +16,8 @@ import {
   agentExamines,
   agentBillings,
   agentCallbacks,
+  agentUseDetails,
+  agentReviews,
   type AgentCategory,
 } from '@ihui/database'
 import {
@@ -137,6 +139,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (url.startsWith('/api/callback/') || url.startsWith('/cozeZhsApi/agents/callback/coze')) {
       return // 跳过 requireAuth,由路由内部 verifyHmacSignature 处理
     }
+    // 2026-08-12:市场统计公开(agents/stats 未登录可浏览),与 /agents 列表一致
+    if (url === '/api/agents/stats') {
+      return
+    }
     if (!(await checkAuth(request, reply))) return
   })
 
@@ -177,6 +183,54 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   }
   server.get('/agents', handleListAgents)
   server.get('/agents/list', handleListAgents)
+
+  // GET /agents/my - 我的 Agent 列表(2026-08-12 补缺:此前双端均无,前端 agents/my 页 404)
+  // 复用 listAgents 的 userId 过滤,按当前登录用户过滤。
+  server.get('/agents/my', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
+    const result = await listAgents({
+      page: toInt(q.page),
+      pageSize: toInt(q.pageSize),
+      status: q.status,
+      userId: request.userId,
+    })
+    return reply.send(success(result))
+  })
+
+  // GET /agents/stats - Agent 市场统计(2026-08-12 补缺:此前双端均无,前端 agents/stats 页空态)
+  server.get('/agents/stats', async (_request, reply) => {
+    const [totalRow, pubRow, pendRow, usersRow, callsRow, ratingRow] = await Promise.all([
+      dbRead.select({ c: sql<number>`count(*)::int` }).from(agents),
+      dbRead
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agents)
+        .where(eq(agents.status, 'published')),
+      dbRead
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agents)
+        .where(eq(agents.status, 'pending')),
+      dbRead.select({ c: sql<number>`count(distinct user_id)::int` }).from(agents),
+      dbRead.select({ c: sql<number>`count(*)::int` }).from(agentUseDetails),
+      dbRead.select({ v: sql<number>`coalesce(avg(rating), 0)::numeric(3,2)` }).from(agentReviews),
+    ])
+    return reply.send(
+      success({
+        totalAgents: totalRow[0]?.c ?? 0,
+        publishedCount: pubRow[0]?.c ?? 0,
+        pendingCount: pendRow[0]?.c ?? 0,
+        totalUsers: usersRow[0]?.c ?? 0,
+        totalCalls: callsRow[0]?.c ?? 0,
+        avgRating: Number(ratingRow[0]?.v ?? 0),
+      }),
+    )
+  })
 
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {
