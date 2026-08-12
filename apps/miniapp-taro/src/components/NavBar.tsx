@@ -3,6 +3,8 @@ import Taro from '@tarojs/taro'
 import { cn } from '@ihui/design-tokens'
 // 菜单图标 SVG(对齐原项目,统一从 @/assets/remote/ 引入;Vite 编译时内联为 base64,兼容微信小程序 <Image>)
 import menuIconSrc from '@/assets/remote/images/menu.svg'
+import { rpx, px } from '@/utils/rpx'
+
 
 export interface NavBarNotification {
   text: string
@@ -76,42 +78,41 @@ export default function NavBar({
         style={{ backgroundColor: bgColor }}
       >
         {/* 状态栏占位 */}
-        <View style={{ height: `${statusBarHeight}px` }} />
+        <View style={{ height: px(statusBarHeight) }} />
         {/* 标题栏:flex 行布局,左菜单 / 中标题 / 右加入按钮 */}
         <View
           className="relative flex items-center"
-          style={{ height: `${navBarHeight}px`, padding: '0 20rpx' }}
+          style={{ height: px(navBarHeight), padding: '0 20rpx' }}
         >
           {/* 左侧:菜单按钮(对齐原项目 navigation-bars/index.vue:menu.svg)*/}
           <View
             className="flex items-center justify-center"
-            style={{ width: '40rpx', height: '40rpx' }}
+            style={{ width: rpx(40), height: rpx(40) }}
             onClick={onMenuClick}
           >
-            <Image src={menuIconSrc} style={{ width: '40rpx', height: '40rpx' }} mode="aspectFit" />
+            <Image src={menuIconSrc} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
           </View>
-          {/* 中间:标题(absolute 居中,对齐 .center-row-absolute)*/}
+          {/* 中间:标题(用 mx-auto 居中,给左右两侧留出空间) */}
           <View
-            className="absolute left-1/2 top-1/2 flex items-center justify-center"
-            style={{ transform: 'translate(-50%, -50%)' }}
+            className="flex flex-1 items-center justify-center"
           >
-            <Text className="font-bold" style={{ color: textColor, fontSize: '30rpx' }}>
+            <Text className="font-bold truncate" style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}>
               {title}
             </Text>
           </View>
           {/* 右侧:加入社区群按钮(对齐 .btn_join / .nav-join-btn:border 3rpx + 圆角 8rpx + 字号 24rpx)*/}
           <View
-            className="ml-auto flex items-center justify-center"
+            className="ml-auto flex flex-shrink-0 items-center justify-center"
             style={{
-              height: '48rpx',
-              padding: '0 14rpx',
-              border: '3rpx solid #000',
-              borderRadius: '8rpx',
+              height: rpx(48),
+              padding: '0 16rpx',
+              border: '3rpx solid var(--color-primary)',
+              borderRadius: rpx(8),
               background: 'var(--color-card)',
             }}
             onClick={onJoinClick}
           >
-            <Text style={{ color: '#000', fontSize: '24rpx', fontWeight: 'bold' }}>{joinText}</Text>
+            <Text style={{ color: 'var(--color-primary)', fontSize: rpx(22), fontWeight: 'bold', whiteSpace: 'nowrap' }}>{joinText}</Text>
           </View>
         </View>
         {notification && (
@@ -144,14 +145,14 @@ export default function NavBar({
       className={cn('fixed top-0 left-0 right-0 z-50 flex items-center justify-center')}
       style={{
         backgroundColor: bgColor,
-        paddingTop: `${statusBarHeight}px`,
-        height: `${statusBarHeight + navBarHeight}px`,
+        paddingTop: px(statusBarHeight),
+        height: px(statusBarHeight + navBarHeight),
       }}
     >
       {showBack && (
         <View
           className={cn('absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg')}
-          style={{ top: `${statusBarHeight + (navBarHeight - 32) / 2}px` }}
+          style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
           onClick={handleBack}
         >
           <Text style={{ color: textColor, fontSize: '22px' }}>{'‹'}</Text>
@@ -159,14 +160,14 @@ export default function NavBar({
       )}
       <Text
         className="text-base font-medium truncate max-w-[60%]"
-        style={{ color: textColor, lineHeight: `${navBarHeight}px` }}
+        style={{ color: textColor, lineHeight: px(navBarHeight) }}
       >
         {title}
       </Text>
       {rightText && (
         <View
           className={cn('absolute right-3 flex items-center justify-center h-8 px-2')}
-          style={{ top: `${statusBarHeight + (navBarHeight - 32) / 2}px` }}
+          style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
           onClick={onRightClick}
         >
           <Text style={{ color: textColor, fontSize: '14px' }}>{rightText}</Text>
@@ -176,7 +177,7 @@ export default function NavBar({
         <View
           className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
           style={{
-            top: `${statusBarHeight + navBarHeight}px`,
+            top: px(statusBarHeight + navBarHeight),
             backgroundColor: 'var(--color-notification-bg)',
           }}
         >
