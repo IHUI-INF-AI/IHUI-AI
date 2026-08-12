@@ -40,7 +40,7 @@ import {
   Label,
   Badge,
 } from '@ihui/ui-react'
-import { Alert } from '@/components/feedback'
+import { Alert, Tooltip } from '@/components/feedback'
 
 /* ─── Types ─── */
 
@@ -266,17 +266,18 @@ function ScheduleEditDialog({
             <Label>颜色标记</Label>
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  title={c.label}
-                  className={cn(
-                    'h-7 w-7 rounded-md transition-all',
-                    c.value,
-                    form.color === c.value && 'ring-2 ring-offset-2 ring-ring',
-                  )}
-                  onClick={() => update('color', c.value)}
-                />
+                <Tooltip content={c.label}>
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={cn(
+                      'h-7 w-7 rounded-md transition-all',
+                      c.value,
+                      form.color === c.value && 'ring-2 ring-offset-2 ring-ring',
+                    )}
+                    onClick={() => update('color', c.value)}
+                  />
+                  </Tooltip>
               ))}
             </div>
           </div>

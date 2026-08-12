@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall } from '@/hooks/use-agent-progress'
@@ -200,12 +201,11 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
           {tool.toolName}
         </code>
         {argPreview && (
-          <span
-            className="flex-1 truncate font-mono text-[10px] text-muted-foreground/70"
-            title={argPreview}
-          >
-            {argPreview}
-          </span>
+          <Tooltip content={argPreview}>
+            <span className="flex-1 truncate font-mono text-[10px] text-muted-foreground/70">
+              {argPreview}
+            </span>
+          </Tooltip>
         )}
         {tool.durationMs !== undefined && tool.status !== 'running' && (
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">

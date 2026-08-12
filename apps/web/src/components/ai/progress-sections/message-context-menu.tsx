@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
 
 /**
@@ -340,51 +341,54 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
       >
         {resultLabel}
       </span>
-      <button
-        type="button"
-        onClick={handlePrev}
-        disabled={prevDisabled}
-        aria-label={t('searchPrev')}
-        title={t('searchPrev')}
-        data-testid="message-search-prev"
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          prevDisabled &&
-            'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
-        )}
-      >
-        <ChevronUp className="h-3.5 w-3.5" aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={handleNext}
-        disabled={nextDisabled}
-        aria-label={t('searchNext')}
-        title={t('searchNext')}
-        data-testid="message-search-next"
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          nextDisabled &&
-            'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
-        )}
-      >
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={t('searchClose')}
-        title={t('searchClose')}
-        data-testid="message-search-close"
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-        )}
-      >
-        ×
-      </button>
+      <Tooltip content={t('searchPrev')}>
+        <button
+          type="button"
+          onClick={handlePrev}
+          disabled={prevDisabled}
+          aria-label={t('searchPrev')}
+          data-testid="message-search-prev"
+          className={cn(
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            prevDisabled &&
+              'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
+          )}
+        >
+          <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </Tooltip>
+      <Tooltip content={t('searchNext')}>
+        <button
+          type="button"
+          onClick={handleNext}
+          disabled={nextDisabled}
+          aria-label={t('searchNext')}
+          data-testid="message-search-next"
+          className={cn(
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            nextDisabled &&
+              'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
+          )}
+        >
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </Tooltip>
+      <Tooltip content={t('searchClose')}>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('searchClose')}
+          data-testid="message-search-close"
+          className={cn(
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          )}
+        >
+          ×
+        </button>
+      </Tooltip>
     </div>
   )
 })
