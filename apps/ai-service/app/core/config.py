@@ -75,7 +75,14 @@ class Settings(BaseSettings):
     # 匿名可 SSRF + 窃取 Cookie),现全部要求 JWT。
     # /api/publish/scan-login/platforms - 平台列表(公开信息,前端弹窗加载时用户可能未登录)
     # 注意:scan-login 的 /start /detect-from-cdp /{task_id}/* 不在白名单,仍需认证
-    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/publish/scan-login/platforms"
+    # 2026-08-12 新增:/api/admin/news/* - magazine 板块 status 文案 + 手动触发刷新
+    # (前端 page-7 展示"今日精选 X 条 / 最后更新 Y 分钟前"需要拉 status,该端点对
+    # 所有人公开以避免影响首页加载,后续 P1 加 admin 鉴权时再下架)
+    jwt_public_paths: str = (
+        "/api/health,/api/legacy,/health,/metrics,"
+        "/api/publish/scan-login/platforms,"
+        "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent"
+    )
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
