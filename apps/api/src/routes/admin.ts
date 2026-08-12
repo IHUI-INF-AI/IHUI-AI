@@ -39,10 +39,9 @@ const listUsersQuerySchema = z.object({
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
   // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
   includeDeleted: booleanStringSchemaOptional,
-  deptId: z.transform(emptyToUndefined).pipe(
-    z.coerce.number().int().optional(),
-  ),
+  deptId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const listProjectsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -130,28 +129,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         summary: 'Dashboard 统计卡片',
         description: '返回用户数、项目数、活跃会话数等概览统计',
         tags: ['admin'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          500: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401, 403, 500),
       },
     },
     async (request, reply) => {
@@ -260,28 +238,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             deptId: { type: 'integer', description: '部门 ID 筛选(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
@@ -318,32 +275,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             id: { type: 'string', format: 'uuid', description: '用户 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403, 404),
       },
     },
     async (request, reply) => {
@@ -382,32 +314,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             deptId: { type: 'integer', nullable: true, description: '部门 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403, 404),
       },
     },
     async (request, reply) => {
@@ -587,28 +494,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {
