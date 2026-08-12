@@ -18,6 +18,26 @@ import pytest
 from app.core.llm_gateway import LLMGateway, llm_gateway
 
 
+@pytest.fixture(autouse=True)
+def _isolate_auto_model_routing(monkeypatch):
+    """隔离跨厂商 auto 路由(2026-08-12 立)。
+
+    complete()/astream() 在 model 缺省时走 _resolve_auto_model(2026-08-06 引入),
+    依赖 default_models.json + model_availability,单元测试环境会解析到
+    opencode/big-pickle 等无 key provider → 提前 MODEL_NOT_CONFIGURED,
+    导致 mock litellm 永不生效。本 fixture 把 auto 路由固定为 settings.litellm_model,
+    让测试聚焦 litellm 调用行为本身(auto 路由属集成逻辑,由集成测试覆盖)。
+    """
+    from app.core.config import settings
+
+    async def _fake_auto_model(has_tools: bool = False, messages=None) -> str:
+        return settings.litellm_model
+
+    monkeypatch.setattr(
+        "app.core.llm_gateway._resolve_auto_model", _fake_auto_model
+    )
+
+
 # =============================================================================
 # _is_stub_mode
 # =============================================================================
@@ -2056,14 +2076,14 @@ def test_failover_openrouter_to_agnes_non_openrouter_returns_none():
 # --- _openrouter_proxy_context ---
 
 
-def test_openrouter_proxy_context_sets_env_var(monkeypatch):
+async def test_openrouter_proxy_context_sets_env_var(monkeypatch):
     """openrouter/ 前缀 + 有 proxy_url → with 块内 HTTPS_PROXY/HTTP_PROXY 被设置。"""
     from app.core.config import settings
     monkeypatch.setattr(settings, "openrouter_proxy_url", "http://proxy.example.com:8080")
     monkeypatch.delenv("HTTPS_PROXY", raising=False)
     monkeypatch.delenv("HTTP_PROXY", raising=False)
 
-    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+    async with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
         assert os.environ.get("HTTPS_PROXY") == "http://proxy.example.com:8080"
         assert os.environ.get("HTTP_PROXY") == "http://proxy.example.com:8080"
     # 退出后恢复(原值为 None → pop 掉)
@@ -2071,37 +2091,37 @@ def test_openrouter_proxy_context_sets_env_var(monkeypatch):
     assert "HTTP_PROXY" not in os.environ
 
 
-def test_openrouter_proxy_context_restores_original_value(monkeypatch):
+async def test_openrouter_proxy_context_restores_original_value(monkeypatch):
     """with 块退出后恢复原 HTTPS_PROXY 值(非 None 时还原)。"""
     from app.core.config import settings
     monkeypatch.setattr(settings, "openrouter_proxy_url", "http://new-proxy:8080")
     monkeypatch.setenv("HTTPS_PROXY", "http://original-proxy:9090")
     monkeypatch.setenv("HTTP_PROXY", "http://original-proxy:9090")
 
-    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+    async with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
         assert os.environ.get("HTTPS_PROXY") == "http://new-proxy:8080"
     # 退出后恢复原值
     assert os.environ.get("HTTPS_PROXY") == "http://original-proxy:9090"
     assert os.environ.get("HTTP_PROXY") == "http://original-proxy:9090"
 
 
-def test_openrouter_proxy_context_non_openrouter_model_noop(monkeypatch):
+async def test_openrouter_proxy_context_non_openrouter_model_noop(monkeypatch):
     """非 openrouter/ 前缀 → 不设置代理(noop)。"""
     from app.core.config import settings
     monkeypatch.setattr(settings, "openrouter_proxy_url", "http://proxy:8080")
     monkeypatch.delenv("HTTPS_PROXY", raising=False)
 
-    with _openrouter_proxy_context("agnes/gpt-4o"):
+    async with _openrouter_proxy_context("agnes/gpt-4o"):
         assert "HTTPS_PROXY" not in os.environ
 
 
-def test_openrouter_proxy_context_empty_proxy_url_noop(monkeypatch):
+async def test_openrouter_proxy_context_empty_proxy_url_noop(monkeypatch):
     """openrouter/ 前缀但 proxy_url 为空 → 不设置代理(走全局或直连)。"""
     from app.core.config import settings
     monkeypatch.setattr(settings, "openrouter_proxy_url", "")
     monkeypatch.delenv("HTTPS_PROXY", raising=False)
 
-    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+    async with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
         assert "HTTPS_PROXY" not in os.environ
 
 
