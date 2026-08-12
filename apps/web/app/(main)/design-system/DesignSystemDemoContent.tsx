@@ -84,7 +84,7 @@ function Section({
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       <Card>
-        <CardContent className="p-5">{children}</CardContent>
+        <CardContent className="p-5 min-[640px]:p-5">{children}</CardContent>
       </Card>
     </section>
   )

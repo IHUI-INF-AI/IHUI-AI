@@ -91,7 +91,7 @@ export function CombosTab() {
       <div className="space-y-2">
         {combos.map((c) => (
           <Card key={c.name}>
-            <CardContent className="p-3">
+            <CardContent className="p-3 min-[640px]:p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">

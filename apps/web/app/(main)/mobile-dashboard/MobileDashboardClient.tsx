@@ -285,7 +285,7 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
   const t = useTranslations('mobileDashboardPage')
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-5">
+      <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>

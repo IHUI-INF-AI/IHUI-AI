@@ -233,7 +233,7 @@ export default function EnglishHomePage() {
         {/* Open Source Section */}
         <section className="mb-16 md:mb-24">
           <Card className="overflow-hidden">
-            <CardContent className="flex flex-col items-center gap-6 p-8 text-center md:p-12">
+            <CardContent className="flex flex-col items-center gap-6 p-8 text-center md:p-12 min-[640px]:p-8 min-[640px]:p-12">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Code className="h-7 w-7" />
               </div>

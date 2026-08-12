@@ -44,7 +44,7 @@ export function PointsRedeemList() {
     <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
       {(redeemQ.data ?? []).map((item) => (
         <Card key={item.id} className="transition-colors hover:bg-accent">
-          <CardContent className="space-y-2 p-3">
+          <CardContent className="space-y-2 p-3 min-[640px]:p-3">
             <p className="line-clamp-2 text-sm font-medium">{item.name}</p>
             <p className="text-sm font-semibold tabular-nums text-primary">
               {t('pointsUnit', { n: item.points })}
