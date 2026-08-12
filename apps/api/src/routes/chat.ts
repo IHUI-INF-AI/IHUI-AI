@@ -39,7 +39,7 @@ const cozeStreamSchema = z.object({
   query: z.string().min(1),
   conversationId: z.string().optional().default(''),
 })
-import { buildResponseSchema } from '../utils/api-schemas.js'
+import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
 async function getCozeConversationId(uuid: string, botId: string): Promise<string> {
   const rows = await db.execute(
@@ -332,14 +332,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
             search: { type: 'string', maxLength: 255, description: '按标题搜索' },
           },
         },
@@ -479,14 +472,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         querystring: {
           type: 'object',
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-            pageSize: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 20,
-              description: '每页数量(1-100,默认 20)',
-            },
+            ...paginationQuerySchema,
             before: {
               type: 'string',
               format: 'uuid',
