@@ -114,12 +114,11 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
           {sa.handle}
         </span>
         {sa.failureReason && (sa.status === 'failed' || sa.status === 'dead') ? (
-          <span
-            className="flex-1 break-all text-[10px] text-red-500/80"
-            title={sa.failureReason}
-          >
-            {sa.failureReason}
-          </span>
+          <Tooltip content={sa.failureReason}>
+            <span className="flex-1 break-all text-[10px] text-red-500/80">
+              {sa.failureReason}
+            </span>
+          </Tooltip>
         ) : sa.currentTask ? (
           <span className="flex-1 break-all text-muted-foreground/70">{sa.currentTask}</span>
         ) : null}
@@ -131,12 +130,11 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
             </span>
           )}
         {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
-          <span
-            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
-            title={t('subagent.toolCallsTitle', { n: sa.toolCalls })}
-          >
-            {t('subagent.toolCallsCount', { n: sa.toolCalls })}
-          </span>
+          <Tooltip content={t('subagent.toolCallsTitle', { n: sa.toolCalls })}>
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+              {t('subagent.toolCallsCount', { n: sa.toolCalls })}
+            </span>
+          </Tooltip>
         )}
         {sa.tokenUsage !== undefined && sa.tokenUsage > 0 && (
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">

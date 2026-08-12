@@ -22,6 +22,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { fetchApi } from '@/lib/api'
+import { Tooltip } from '@/components/feedback'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -578,6 +579,7 @@ export default function DocumentsPage() {
                             paddingLeft: `${(item.level - 2) * 12}px`,
                           }}
                         >
+                          <Tooltip content={item.text}>
                           <button
                             type="button"
                             onClick={() => scrollToHeading(item.id)}
@@ -587,10 +589,10 @@ export default function DocumentsPage() {
                                 ? 'bg-primary/10 font-medium text-primary'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground')
                             }
-                            title={item.text}
                           >
                             {item.text}
                           </button>
+                          </Tooltip>
                         </li>
                       ))}
                     </ul>
@@ -719,6 +721,7 @@ export default function DocumentsPage() {
                             paddingLeft: `${(item.level - 2) * 12}px`,
                           }}
                         >
+                          <Tooltip content={item.text}>
                           <button
                             type="button"
                             onClick={() => {
@@ -731,10 +734,10 @@ export default function DocumentsPage() {
                                 ? 'bg-primary/10 font-medium text-primary'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground')
                             }
-                            title={item.text}
                           >
                             {item.text}
                           </button>
+                          </Tooltip>
                         </li>
                       ))}
                     </ul>

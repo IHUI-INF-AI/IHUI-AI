@@ -7,6 +7,7 @@ import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/tok
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { useI18n } from '../../src/i18n'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import LoginPage from './pages/LoginPage'
 import ChatPage from './pages/ChatPage'
 import ProfilePage from './pages/ProfilePage'
@@ -194,25 +195,37 @@ function SidepanelInner() {
     <div className="flex flex-col h-screen w-full">
       <header className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border bg-card shrink-0">
         <span className="font-semibold text-sm mr-auto">IHUI AI</span>
-        <button
-          type="button"
-          className="relative bg-transparent border-none cursor-pointer p-0.5 text-sm leading-none text-inherit shrink-0 hover:opacity-70"
-          onClick={() => setVisible(true)}
-          aria-label={t('nav.notifications')}
-          title={t('nav.notifications')}
-        >
-          <span aria-hidden>🔔</span>
-          {unreadCount > 0 ? (
-            <span className="absolute -top-0.5 -right-1 min-w-3.5 h-3.5 px-1 rounded-md bg-destructive text-primary-foreground text-[9px] leading-3.5 text-center font-semibold">
-              {unreadCount}
-            </span>
-          ) : null}
-        </button>
-        <span
-          className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`}
-          title={wsConnected ? t('notification.connected') : t('notification.disconnected')}
-          aria-label={wsConnected ? t('notification.connected') : t('notification.disconnected')}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="relative bg-transparent border-none cursor-pointer p-0.5 text-sm leading-none text-inherit shrink-0 hover:opacity-70"
+                onClick={() => setVisible(true)}
+                aria-label={t('nav.notifications')}
+              >
+                <span aria-hidden>🔔</span>
+                {unreadCount > 0 ? (
+                  <span className="absolute -top-0.5 -right-1 min-w-3.5 h-3.5 px-1 rounded-md bg-destructive text-primary-foreground text-[9px] leading-3.5 text-center font-semibold">
+                    {unreadCount}
+                  </span>
+                ) : null}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('nav.notifications')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`}
+                aria-label={wsConnected ? t('notification.connected') : t('notification.disconnected')}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{wsConnected ? t('notification.connected') : t('notification.disconnected')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-[120px]">
           {user?.nickname || ''}
         </span>

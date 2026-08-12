@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Flame } from 'lucide-react'
+import { Tooltip } from '@/components/feedback'
 
 interface Props {
   score: number | null
@@ -55,12 +56,13 @@ export function TrendingBadge({ score, metrics, updatedAt }: Props) {
   }
 
   return (
-    <span
-      title={tipParts.join(' · ')}
-      className={`inline-flex h-5 items-center gap-0.5 rounded-sm px-1.5 text-xs font-medium ${tier}`}
-    >
-      <Flame className="h-3 w-3" />
-      <span>{s}</span>
-    </span>
+    <Tooltip content={tipParts.join(' · ')}>
+      <span
+        className={`inline-flex h-5 items-center gap-0.5 rounded-sm px-1.5 text-xs font-medium ${tier}`}
+      >
+        <Flame className="h-3 w-3" />
+        <span>{s}</span>
+      </span>
+    </Tooltip>
   )
 }
