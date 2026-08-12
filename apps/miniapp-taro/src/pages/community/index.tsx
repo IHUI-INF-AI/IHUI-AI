@@ -285,35 +285,38 @@ function AgentHorizontalScroll({
   )
 }
 
-/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue，始终可见，fixed 定位右下角 */
+/** FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
+ *  - 始终可见，fixed 定位右下角
+ *  - isOpen=true(初始)= 收起状态(box 推到右侧 off-screen，仅箭头可见)
+ *  - isOpen=false= 展开状态(content 可见，透明遮罩覆盖全屏)
+ */
 function FloatBox() {
   const [isOpen, setIsOpen] = useState(true)
   return (
     <>
+      {/* 展开时显示透明遮罩，点击空白处收起 */}
       {!isOpen ? (
         <View className="community-float-mask" onClick={() => setIsOpen(true)} />
       ) : null}
-      <View
-        className={`community-float-box ${isOpen ? '' : 'community-float-box--open'}`}
-      >
+      <View className={`community-float-box ${isOpen ? 'community-float-box--open' : ''}`}>
+        {/* 收起箭头 — box 推到右侧时箭头留在左侧可见 */}
         {isOpen ? (
-          <View
-            className="community-float-arrow"
-            onClick={() => setIsOpen(false)}
-          >
-            <Text className="community-float-arrow-text">{'›'}</Text>
+          <View className="community-float-arrow" onClick={() => setIsOpen(false)}>
+            <Text className="community-float-arrow-text">{'‹'}</Text>
           </View>
         ) : null}
         <View className="community-float-content">
+          {/* 赚米 — 分享 / 推广 */}
           <View
             className="community-float-item"
             onClick={() => {
-              Taro.navigateTo({ url: '/pages/ai/chat' })
+              Taro.showToast({ title: '分享功能', icon: 'none' })
             }}
           >
-            <Text className="community-float-item-icon">💬</Text>
-            <Text className="community-float-item-text">AI 助手</Text>
+            <Text className="community-float-item-icon">💰</Text>
+            <Text className="community-float-item-text community-float-item-text-red">赚 米</Text>
           </View>
+          {/* 客服 */}
           <View
             className="community-float-item"
             onClick={() => {
@@ -325,6 +328,7 @@ function FloatBox() {
             <Text className="community-float-item-icon">📞</Text>
             <Text className="community-float-item-text">客 服</Text>
           </View>
+          {/* 反馈 */}
           <View
             className="community-float-item"
             onClick={() => {
