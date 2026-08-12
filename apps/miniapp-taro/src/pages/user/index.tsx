@@ -71,10 +71,61 @@ function formatAudioTime(seconds: number): string {
   return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
 }
 
+/** FloatBox 浮动组件 — 对齐原项目 FloatBox（分享/客服/反馈） */
+function FloatBox({
+  visible,
+  onClose,
+}: {
+  visible: boolean
+  onClose?: () => void
+}) {
+  if (!visible) return null
+  return (
+    <View className="fixed right-[20rpx] bottom-[9%] z-[1005] flex flex-col items-center gap-[12rpx]">
+      {/* 遮罩 */}
+      <View className="fixed inset-0 z-[-1]" onClick={onClose} />
+      {/* 分享赚米按钮 */}
+      <View
+        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
+        onClick={() => {
+          Taro.showToast({ title: '请点击右上角分享', icon: 'none' })
+          onClose?.()
+        }}
+      >
+        <Text className="text-[36rpx] text-red-500 font-bold">¥</Text>
+        <Text className="text-[20rpx] text-red-500 font-bold">赚米</Text>
+      </View>
+      {/* 客服按钮 */}
+      <View
+        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
+        onClick={() => {
+          Taro.showToast({ title: '客服功能开发中', icon: 'none' })
+          onClose?.()
+        }}
+      >
+        <Text className="text-[36rpx]">☎</Text>
+        <Text className="text-[20rpx] text-foreground">客服</Text>
+      </View>
+      {/* 反馈按钮 */}
+      <View
+        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
+        onClick={() => {
+          Taro.navigateTo({ url: '/pagesA/fankui/index' })
+          onClose?.()
+        }}
+      >
+        <Text className="text-[36rpx]">✉</Text>
+        <Text className="text-[20rpx] text-foreground">反馈</Text>
+      </View>
+    </View>
+  )
+}
+
 export default function UserIndex() {
   const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showBenefits, setShowBenefits] = useState<boolean>(false)
+  const [showFloatBox, setShowFloatBox] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<number>(1)
   const [textContentList] = useState<Array<{title: string; time: string; content: string}>>([])
   const [imageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
@@ -787,6 +838,20 @@ export default function UserIndex() {
           </View>
         </View>
       ) : null}
+
+      {/* ===== FloatBox 触发按钮 ===== */}
+      <View
+        className="fixed right-[16rpx] bottom-[160rpx] z-[1004] w-[80rpx] h-[80rpx] rounded-lg bg-card shadow-lg flex items-center justify-center"
+        onClick={() => setShowFloatBox((v) => !v)}
+      >
+        <Text className="text-[36rpx]">✦</Text>
+      </View>
+
+      {/* ===== FloatBox 浮动组件 ===== */}
+      <FloatBox
+        visible={showFloatBox}
+        onClose={() => setShowFloatBox(false)}
+      />
 
       {/* ===== DrawerComponent 侧边栏抽屉 ===== */}
       <DrawerComponent
