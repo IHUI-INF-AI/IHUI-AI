@@ -47,6 +47,12 @@ export interface NavBarProps {
   showSearch?: boolean
   /** ai-home 模式:搜索按钮点击(对齐原项目 @clicksearch) */
   onSearchClick?: () => void
+  /** showFeedback 反馈按钮(对齐原项目 @feedback-click) */
+  showFeedback?: boolean
+  /** 反馈按钮点击(对齐原项目 @feedback-click) */
+  onFeedbackClick?: () => void
+  /** @pack 返回首页回调(对齐原项目 @pack,区别于 onBack 的 navigateBack 行为) */
+  onPack?: () => void
 }
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
@@ -68,6 +74,9 @@ export default function NavBar({
   onFenLeiClick,
   showSearch,
   onSearchClick,
+  showFeedback,
+  onFeedbackClick,
+  onPack,
 }: NavBarProps) {
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
@@ -96,13 +105,24 @@ export default function NavBar({
           className="relative flex items-center"
           style={{ height: px(navBarHeight), padding: '0 20rpx' }}
         >
-          {/* 左侧:菜单按钮(对齐原项目 navigation-bars/index.vue:menu.svg)*/}
-          <View
-            className="flex items-center justify-center"
-            style={{ width: rpx(40), height: rpx(40) }}
-            onClick={onMenuClick}
-          >
-            <Image src={menuIconSrc} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
+          {/* 左侧:返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
+          <View className="flex items-center gap-[12rpx]">
+            {onPack ? (
+              <View
+                className="flex items-center justify-center"
+                style={{ width: rpx(40), height: rpx(40) }}
+                onClick={onPack}
+              >
+                <Text style={{ fontSize: rpx(32), color: textColor, fontWeight: 'bold' }}>{'‹'}</Text>
+              </View>
+            ) : null}
+            <View
+              className="flex items-center justify-center"
+              style={{ width: rpx(40), height: rpx(40) }}
+              onClick={onMenuClick}
+            >
+              <Image src={menuIconSrc} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
+            </View>
           </View>
           {/* 中间:标题(用 mx-auto 居中,给左右两侧留出空间) */}
           <View
@@ -112,8 +132,17 @@ export default function NavBar({
               {title}
             </Text>
           </View>
-          {/* 右侧:分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars 的 showFenLei / isShowSearch / showMenu) */}
+          {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
           <View className="ml-auto flex flex-shrink-0 items-center gap-[12rpx]">
+            {showFeedback ? (
+              <View
+                className="flex items-center justify-center"
+                style={{ width: rpx(40), height: rpx(40) }}
+                onClick={onFeedbackClick}
+              >
+                <Text style={{ fontSize: rpx(28), color: textColor }}>💬</Text>
+              </View>
+            ) : null}
             {showFenLei ? (
               <View
                 className="flex items-center justify-center"

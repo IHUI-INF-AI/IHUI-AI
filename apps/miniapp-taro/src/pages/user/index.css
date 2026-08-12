@@ -95,3 +95,70 @@
 .user-info-card-clickable:active {
   opacity: 0.8;
 }
+
+/* ===== 会员权益展开/收起样式（对齐原项目 membership-benefits） ===== */
+.membership-benefits-container {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.membership-benefits-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20rpx;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.membership-benefits-header:active {
+  background: transparent;
+}
+
+.membership-benefits-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60rpx;
+  height: 60rpx;
+  transition: transform 0.3s ease;
+  animation: bounce-arrow 1.5s ease-in-out infinite;
+}
+
+.membership-benefits-arrow .arrow-icon {
+  width: 40rpx;
+  height: 40rpx;
+  transform: rotate(-90deg);
+  transition: transform 0.3s ease;
+}
+
+.membership-benefits-arrow.arrow-rotate .arrow-icon {
+  transform: rotate(90deg);
+}
+
+@keyframes bounce-arrow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8rpx);
+  }
+}
+
+.membership-benefits-content {
+  margin-top: 10rpx;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

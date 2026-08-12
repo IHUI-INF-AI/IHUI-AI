@@ -235,6 +235,171 @@
   white-space: nowrap;
 }
 
+/* ===== RecentAgents 组件样式(对齐原项目 RecentAgents.vue) ===== */
+
+.recent-agents-container {
+  padding: 0;
+  background: transparent;
+  margin: 20rpx 0;
+}
+
+.recent-header {
+  padding: 0 0 20rpx;
+}
+
+.recent-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--color-foreground, #FFFFFF);
+}
+
+.recent-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  gap: 16rpx;
+}
+
+.recent-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120rpx;
+  padding: 20rpx 10rpx;
+  border-radius: 16rpx;
+  background: var(--color-muted, #232330);
+  transition: all 0.3s ease;
+}
+
+.recent-item:active {
+  transform: scale(0.95);
+  background: rgba(0, 242, 255, 0.1);
+}
+
+.recent-item .agent-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+  background: rgba(0, 242, 255, 0.1);
+}
+
+.recent-item .agent-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  border-radius: 10rpx;
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
+}
+
+.recent-item .agent-avatar-fallback-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-background, #121217);
+}
+
+.recent-item .agent-name {
+  font-size: 24rpx;
+  color: var(--color-foreground, #FFFFFF);
+  text-align: center;
+  max-width: 100rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== MyAgents 组件样式(对齐原项目 MyAgents.vue) ===== */
+
+.my-agents-container {
+  padding: 0;
+  background: transparent;
+  margin: 20rpx 0;
+}
+
+.my-header {
+  padding: 0 0 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.my-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--color-foreground, #FFFFFF);
+}
+
+.my-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.my-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  gap: 16rpx;
+}
+
+.my-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120rpx;
+  padding: 20rpx 10rpx;
+  border-radius: 16rpx;
+  background: var(--color-muted, #232330);
+  transition: all 0.3s ease;
+}
+
+.my-item:active {
+  transform: scale(0.95);
+  background: rgba(0, 242, 255, 0.1);
+}
+
+.my-item .agent-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+  background: rgba(0, 242, 255, 0.1);
+}
+
+.my-item .agent-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  border-radius: 10rpx;
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
+}
+
+.my-item .agent-avatar-fallback-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-background, #121217);
+}
+
+.my-item .agent-name {
+  font-size: 24rpx;
+  color: var(--color-foreground, #FFFFFF);
+  text-align: center;
+  max-width: 100rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ===== 智能体列表区域(对齐原项目 ailist_content) ===== */
 
 .community-ailist-content {

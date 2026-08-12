@@ -24,6 +24,7 @@ import playIcon from '@/assets/remote/images/play.svg'
 import pauseIcon from '@/assets/remote/images/pause.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
+import backSvg from '@/assets/remote/images/back.svg'
 import './index.css'
 
 const defaultAvatar =
@@ -355,6 +356,16 @@ export default function UserIndex() {
     setCurrentVideoUrl('')
   }
 
+  // 处理反馈按钮点击（对齐原项目 @feedback-click → handleFeedbackClick）
+  function handleFeedbackClick() {
+    Taro.navigateTo({ url: '/pages/feedback/index' })
+  }
+
+  // 处理返回首页（对齐原项目 @pack → onPackClick）
+  function onPackClick() {
+    Taro.switchTab({ url: '/pages/index/index' })
+  }
+
   // 复制官网链接（对齐原项目 copyWebsiteLink）
   function copyWebsiteLink() {
     const websiteUrl = 'https://www.aizhs.top'
@@ -427,13 +438,16 @@ export default function UserIndex() {
 
   return (
     <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
-      {/* ===== 导航栏 ===== */}
+      {/* ===== 导航栏(对齐原项目 navigation-bars: showFeedback / @pack / @feedback-click / @menu-click) ===== */}
       <NavBar
         variant="ai-home"
         title={tf('user.title', '我的')}
         bgColor="transparent"
         textColor="#fff"
+        showFeedback
         onMenuClick={toggleDrawer}
+        onFeedbackClick={handleFeedbackClick}
+        onPack={onPackClick}
       />
 
       {/* ===== 用户信息头部 ===== */}
@@ -513,42 +527,40 @@ export default function UserIndex() {
         </View>
       ) : null}
 
-      {/* ===== 会员权益卡片（对齐原项目，非 iOS 显示） ===== */}
+      {/* ===== 会员权益卡片（对齐原项目 membership-benefits-container：箭头旋转动画 + bounce 动画） ===== */}
       {!isshow ? (
-      <View
-        className="mx-[32rpx] mt-[24rpx] mb-0 bg-card border border-border rounded-lg overflow-hidden"
-        onClick={goVipDetail}
-      >
-        <View className="flex items-center justify-between px-[32rpx] py-[28rpx]">
-          <Text className="text-[28rpx] font-semibold text-foreground">
-            {tf('user.benefits.title', '会员权益')}
-          </Text>
-          <View className="flex items-center gap-[12rpx]">
-            <Text
-              className="text-[24rpx] text-primary"
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleBenefits()
-              }}
+        <View className="membership-benefits-container mx-[32rpx] mt-[24rpx] mb-0">
+          {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
+          <View
+            className="membership-benefits-header"
+            onClick={toggleBenefits}
+          >
+            <View
+              className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}
             >
-              {showBenefits ? tf('common.collapse', '收起') : tf('common.expand', '展开')}
-            </Text>
-            <Text className="text-[24rpx] text-muted-foreground">›</Text>
+              <Image
+                className="arrow-icon"
+                src={backSvg}
+                mode="aspectFit"
+              />
+            </View>
           </View>
-        </View>
-        {showBenefits ? (
-          <View className="flex flex-wrap px-[8rpx] pb-[16rpx]">
-            {membershipBenefits.map((b) => (
-              <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
-                {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
-                <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
-                  {tf(b.key, b.fallback)}
-                </Text>
+          {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
+          {showBenefits ? (
+            <View className="membership-benefits-content">
+              <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
+                {membershipBenefits.map((b) => (
+                  <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
+                    {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
+                    <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
+                      {tf(b.key, b.fallback)}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {/* ===== StudyBar + 内容展示区 ===== */}
