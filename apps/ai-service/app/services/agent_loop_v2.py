@@ -39,6 +39,12 @@ logger = logging.getLogger(__name__)
 # 防止 CPython GC 在 task 完成前回收(与 agent_loop.py 的 _pending_tasks 同模式)
 _pending_meta_eval_tasks: set[asyncio.Task[Any]] = set()
 
+# L5-2 错误恢复:工具瞬时失败自动重试的错误分类(2026-08-12 立)。
+# 只重试网络/超时类瞬时故障(重试语义安全);http_4xx 业务错误与 unknown 不重试。
+_TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
+    {"timeout", "connection", "http_5xx"}
+)
+
 
 @dataclass
 class ToolDefinition:
@@ -68,6 +74,8 @@ class ToolResult:
     result: Any
     error: Optional[str] = None
     duration_ms: float = 0.0
+    # L5-2 错误恢复:瞬时失败自动重试次数记录(2026-08-12 立)
+    retry_count: int = 0
 
 
 @dataclass
@@ -132,6 +140,9 @@ class AgentLoopV2:
         # L5-1 错误恢复:LLM 调用指数退避重试(2026-08-12 立)
         llm_retry_max: int = 3,
         llm_retry_backoff: float = 1.5,
+        # L5-2 错误恢复:工具瞬时失败自动重试(2026-08-12 立)
+        tool_retry_max: int = 1,
+        tool_retry_backoff: float = 0.5,
     ):
         """
         Args:
@@ -152,6 +163,9 @@ class AgentLoopV2:
             memory_svc: 可注入 MemoryService 实例(测试 mock 用);不传则 lazy import 全局单例
             llm_retry_max: LLM 调用失败最大重试次数(默认 3,0=不重试)
             llm_retry_backoff: 指数退避基数秒(默认 1.5,实际等待 = base * 2^attempt * 抖动)
+            tool_retry_max: 工具瞬时失败(timeout/connection/http_5xx)自动重试次数(默认 1,0=不重试;
+                             http_4xx 业务错误与 unknown 不重试)
+            tool_retry_backoff: 工具重试固定退避秒(默认 0.5,实际等待 = base * attempt)
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
@@ -162,6 +176,10 @@ class AgentLoopV2:
         # L5-1 错误恢复:LLM 重试配置(2026-08-12 立)
         self.llm_retry_max = llm_retry_max
         self.llm_retry_backoff = llm_retry_backoff
+
+        # L5-2 错误恢复:工具重试配置(2026-08-12 立)
+        self.tool_retry_max = tool_retry_max
+        self.tool_retry_backoff = tool_retry_backoff
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
@@ -443,6 +461,50 @@ class AgentLoopV2:
             return "http_4xx"
         return "unknown"
 
+    def _report_agent_error(self, iteration: int, error: str, error_type: str) -> None:
+        """Agent 循环错误结构化上报(错误恢复可观测性,2026-08-12 立)。
+
+        写 audit_service(内存缓冲),供审计查询与排障;失败降级不阻塞主流程。
+        """
+        try:
+            from .audit_service import audit_service
+
+            audit_service.log_agent_action(
+                agent_id=self._session_id or "agent_loop",
+                action="agent_error",
+                details={
+                    "iteration": iteration,
+                    "error": error[:500],
+                    "error_type": error_type,
+                },
+            )
+        except Exception:
+            logger.debug("audit_service.log_agent_action 失败(降级,不阻塞)")
+
+    def _report_tool_error(
+        self,
+        tc: ToolCall,
+        error: str,
+        error_type: str,
+        duration_ms: float,
+    ) -> None:
+        """工具执行失败结构化上报(错误恢复可观测性,2026-08-12 立)。
+
+        与 log_agent_action 同级,写 audit_service;失败降级不阻塞。
+        """
+        try:
+            from .audit_service import audit_service
+
+            audit_service.log_tool_execution(
+                tool_name=tc.name,
+                args=tc.args,
+                result=None,
+                status=f"error:{error_type}",
+                duration_ms=duration_ms,
+            )
+        except Exception:
+            logger.debug("audit_service.log_tool_execution 失败(降级,不阻塞)")
+
     async def _run_loop(
         self,
         messages: list[dict[str, Any]],
@@ -630,6 +692,8 @@ class AgentLoopV2:
             except Exception as e:
                 error_type = self._classify_error(e)
                 logger.error("Agent 循环第 %d 轮异常[%s]: %s", i, error_type, e)
+                # L5-3 错误恢复:结构化上报审计服务(2026-08-12 立)
+                self._report_agent_error(i, str(e), error_type)
                 # Hook 引擎: error
                 try:
                     await hook_engine.emit("error", {
@@ -819,7 +883,14 @@ class AgentLoopV2:
             return serial_results
 
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
-        """执行单个工具调用(含超时 + 错误处理)。"""
+        """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
+
+        重试策略(2026-08-12 立):
+        - 只重试瞬时错误(timeout/connection/http_5xx),重试语义安全(请求可能未达/响应丢失);
+        - http_4xx 业务错误与 unknown 不重试(重试无意义且可能放大副作用);
+        - 重试次数 tool_retry_max(默认 1),退避 tool_retry_backoff * attempt;
+        - 非幂等工具由调用方自行权衡:默认仅 1 次且仅瞬时错误,风险可控。
+        """
         start = time.time()
 
         tool = self._tools.get(tc.name)
@@ -832,33 +903,56 @@ class AgentLoopV2:
                 duration_ms=0,
             )
 
-        try:
-            result = await asyncio.wait_for(
-                tool.executor(tc.args),
-                timeout=self.tool_timeout,
+        retry_count = 0
+        while True:
+            try:
+                result = await asyncio.wait_for(
+                    tool.executor(tc.args),
+                    timeout=self.tool_timeout,
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result=result,
+                    duration_ms=(time.time() - start) * 1000,
+                    retry_count=retry_count,
+                )
+            except asyncio.TimeoutError:
+                error_msg = f"工具执行超时({self.tool_timeout}s)"
+                error_type = "timeout"
+            except Exception as e:
+                error_msg = str(e)
+                error_type = self._classify_error(e)
+
+            if (
+                retry_count >= self.tool_retry_max
+                or error_type not in _TOOL_RETRYABLE_ERRORS
+            ):
+                # L5-3 错误恢复:工具失败结构化上报(2026-08-12 立)
+                self._report_tool_error(
+                    tc, error_msg, error_type, (time.time() - start) * 1000
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result=None,
+                    error=error_msg,
+                    duration_ms=(time.time() - start) * 1000,
+                    retry_count=retry_count,
+                )
+
+            retry_count += 1
+            backoff = self.tool_retry_backoff * retry_count
+            logger.warning(
+                "工具 %s 执行失败[%s]: %s,%.1fs 后重试(%d/%d)",
+                tc.name,
+                error_type,
+                error_msg,
+                backoff,
+                retry_count,
+                self.tool_retry_max,
             )
-            return ToolResult(
-                tool_call_id=tc.id,
-                name=tc.name,
-                result=result,
-                duration_ms=(time.time() - start) * 1000,
-            )
-        except asyncio.TimeoutError:
-            return ToolResult(
-                tool_call_id=tc.id,
-                name=tc.name,
-                result=None,
-                error=f"工具执行超时({self.tool_timeout}s)",
-                duration_ms=(time.time() - start) * 1000,
-            )
-        except Exception as e:
-            return ToolResult(
-                tool_call_id=tc.id,
-                name=tc.name,
-                result=None,
-                error=str(e),
-                duration_ms=(time.time() - start) * 1000,
-            )
+            await asyncio.sleep(backoff)
 
     def _build_tools_schema(self) -> list[dict[str, Any]]:
         """构建 tools schema(给 LLM 的 function calling 格式)。"""
