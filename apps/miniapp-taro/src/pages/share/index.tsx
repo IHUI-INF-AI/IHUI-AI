@@ -57,6 +57,13 @@ interface NavigationBarsProps {
   navScrolled?: boolean
   navPaddingTop?: number
   navTotal?: number
+  tagWrapShow?: boolean
+  categoryActive?: boolean
+  backgroundColor?: string
+  onActiveNav?: (index: number) => void
+  statusBarHeight?: number
+  titleBarHeight?: number
+  topBarHeight?: number
 }
 
 const PAGE_SIZE = 10
@@ -84,7 +91,7 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
   }
 }
 
-/** 导航栏组件(对应原项目 navigationBars,props: showFenLei/showMenu/viscosity) */
+/** 导航栏组件(对应原项目 navigationBars,props: showFenLei/showMenu/viscosity/tagWrapShow/categoryActive) */
 function NavigationBars({
   showFenLei = true,
   showMenu = true,
@@ -96,6 +103,8 @@ function NavigationBars({
   navPaddingTop = NAV_PADDING_TOP,
   navTotal = NAV_TOTAL,
 }: NavigationBarsProps) {
+  // 以下 props 保留以对齐原项目 navigation-bars API，当前未使用但保持接口一致
+  void ({} as Pick<NavigationBarsProps, 'tagWrapShow' | 'categoryActive' | 'backgroundColor' | 'onActiveNav' | 'statusBarHeight' | 'titleBarHeight' | 'topBarHeight'>)
   return (
     <View
       className={`share-navbar${viscosity && navScrolled ? ' share-navbar--scrolled' : ''}`}
@@ -129,13 +138,14 @@ export default function ShareIndexPage() {
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
-  const [activeNavbar, setActiveNavbar] = useState(false)
+  const [activeNavbar, setActiveNavbar] = useState(true) // 对齐原项目：默认 true，显示主内容
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [tagWrapShow, setTagWrapShow] = useState(false)
   const [pageScrollLocked, setPageScrollLocked] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('latest')
   const [keyword, setKeyword] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | number>('')
+  const [categoryActive, setCategoryActive] = useState(false) // 对齐原项目：分类激活状态
 
   const [infoList, setInfoList] = useState<InfoItem[]>([])
   const [page, setPage] = useState(1)
@@ -148,6 +158,11 @@ export default function ShareIndexPage() {
   const [rankList, setRankList] = useState<RankingItem[]>([])
   const [showToodown, setShowToodown] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
+
+  // 对齐原项目：状态栏/标题栏/顶部栏高度
+  const statusBarHeight = NAV_PADDING_TOP
+  const titleBarHeight = NAV_HEIGHT
+  const topBarHeight = NAV_TOTAL
 
   /** 锁定页面滚动 — 对齐原项目 lockPageScroll */
   const lockPageScroll = useCallback(() => {
@@ -299,12 +314,18 @@ export default function ShareIndexPage() {
   })
 
   usePageScroll((res) => {
-    setShowToodown(res.scrollTop > 200)
+    // 对齐原项目：处理 toodown 按钮显示逻辑
+    if (res.scrollTop > 200) {
+      setShowToodown(true)
+    } else {
+      setShowToodown(false)
+    }
     setNavScrolled(res.scrollTop > 20)
 
     // 对齐原项目：页面滚动时关闭分类弹层
     if (tagWrapShow && res.scrollTop > 5) {
       setTagWrapShow(false)
+      setCategoryActive(false)
       unlockPageScroll()
     }
   })
@@ -318,14 +339,14 @@ export default function ShareIndexPage() {
     title: tt('share.index.title', 'AI资讯'),
   }))
 
-  const activeNav = useCallback(() => {
-    setActiveNavbar(true)
-    setTimeout(() => {
-      void loadRef.current(true)
-      void loadChatHistory()
-      void loadModelList()
-    }, 0)
-  }, [loadChatHistory, loadModelList])
+  /** 对齐原项目 activeNav：切换 rankings 与主内容视图 */
+  const activeNav = useCallback((index: number) => {
+    if (index === 0) {
+      setActiveNavbar(true)
+    } else {
+      setActiveNavbar(false)
+    }
+  }, [])
 
   const switchTab = useCallback(
     (tab: Tab) => {
@@ -343,6 +364,7 @@ export default function ShareIndexPage() {
     (cat: CategoryItem) => {
       setActiveCategory(cat.id)
       setTagWrapShow(false)
+      setCategoryActive(false)
       unlockPageScroll()
       setPage(1)
       setNoMore(false)
@@ -392,6 +414,14 @@ export default function ShareIndexPage() {
   /** 关闭弹出层 — 对齐原项目 closePopup */
   const closePopup = useCallback(() => {
     setTagWrapShow(false)
+    setCategoryActive(false)
+    unlockPageScroll()
+  }, [unlockPageScroll])
+
+  /** 关闭分类弹层 — 对齐原项目 closeTitleSwitch */
+  const closeTitleSwitch = useCallback(() => {
+    setTagWrapShow(false)
+    setCategoryActive(false)
     unlockPageScroll()
   }, [unlockPageScroll])
 
@@ -401,8 +431,10 @@ export default function ShareIndexPage() {
       const next = !prev
       if (next) {
         lockPageScroll()
+        setCategoryActive(true)
       } else {
         unlockPageScroll()
+        setCategoryActive(false)
       }
       return next
     })
@@ -492,7 +524,7 @@ export default function ShareIndexPage() {
               <Text className="share-rank-title">{tt('share.index.title', 'AI资讯')}</Text>
               <Text className="share-rank-subtitle">{tt('share.index.subtitle', '汇聚前沿科技资讯')}</Text>
             </View>
-            <View className="share-rank-enter" onClick={activeNav}>
+            <View className="share-rank-enter" onClick={() => activeNav(0)}>
               <Text className="share-rank-enter-text">{tt('share.index.enter', '进入资讯')}</Text>
               <Text className="share-rank-enter-arrow">→</Text>
             </View>
@@ -527,6 +559,7 @@ export default function ShareIndexPage() {
         visible={drawerVisible}
         onClose={handleCloseDrawer}
         side="left"
+        statusBarHeight={statusBarHeight}
         groupedData={groupedData}
         onMenuItemClick={(item) => {
           setDrawerVisible(false)
@@ -557,12 +590,12 @@ export default function ShareIndexPage() {
       {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制 */}
       <View
         className={`share-main-container${tagWrapShow ? ' no-scroll' : ''}`}
-        style={{ minHeight: '110vh' }}
+        style={{ minHeight: '110vh', color: '#333' }}
       >
         {/* FloatBox 浮动组件 — 对齐原项目：放在 main-container 内部 */}
         <FloatBox />
 
-        {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity 属性) */}
+        {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity/tagWrapShow/categoryActive 属性) */}
         <NavigationBars
           showFenLei
           showMenu
@@ -571,8 +604,15 @@ export default function ShareIndexPage() {
           navScrolled={navScrolled}
           navPaddingTop={NAV_PADDING_TOP}
           navTotal={NAV_TOTAL}
+          tagWrapShow={tagWrapShow}
+          categoryActive={categoryActive}
+          backgroundColor="#ffffff"
+          statusBarHeight={statusBarHeight}
+          titleBarHeight={titleBarHeight}
+          topBarHeight={topBarHeight}
           onMenuClick={handleMenuClick}
           onFenLeiClick={handleNavClick}
+          onActiveNav={activeNav}
         />
 
         {/* 占位空间,防止 fixed navbar 遮挡内容 */}
@@ -670,6 +710,7 @@ export default function ShareIndexPage() {
               overflow: 'hidden',
             }}
             onTouchMove={safePreventTouchMove}
+            onClick={closePopup}
           />
         ) : null}
 
@@ -677,69 +718,38 @@ export default function ShareIndexPage() {
         {showToodown ? (
           <View
             className="share-toodown-wrapper"
-            style={{
-              position: 'fixed',
-              left: '50%',
-              bottom: '88rpx',
-              zIndex: 2,
-              transform: 'translateX(-50%)',
-              width: '68rpx',
-              height: '68rpx',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
             onClick={backToTop}
           >
-            <Text
-              style={{
-                fontSize: '40rpx',
-                color: '#00F2FF',
-                fontWeight: 'bold',
-              }}
-            >
-              ↑
-            </Text>
-          </View>
-        ) : null}
-
-        {/* 分类弹层 - TitleSwitchScrollTitle(对齐原项目 tagWrapShow 控制) */}
-        {tagWrapShow ? (
-          <View>
-            <View className="share-tag-mask" onClick={closePopup} onTouchMove={safePreventTouchMove} />
-            <View className="share-tag-panel" onTouchMove={safePreventTouchMove}>
-              <View className="share-tag-panel-header">
-                <Text className="share-tag-panel-title">
-                  {tt('share.index.selectCategory', '选择分类')}
-                </Text>
-              </View>
-              <View className="share-tag-scroll-title-wrap">
-                <TitleSwitchScrollTitle
-                  mainList={titleSwitchMainList}
-                  mainSwiperMargin="80rpx"
-                  subSwiperMargin="80rpx"
-                  onChange={handleTitleSwitchChange}
-                />
-              </View>
+            <View className="share-toodown">
+              <Text className="share-toodown-arrow">↑</Text>
             </View>
           </View>
         ) : null}
 
-        {/* 遮罩层 — 对齐原项目 mask-overlay，tagWrapShow 时显示 */}
+        {/* 分类弹层 — 对齐原项目：TitleSwitchScrollTitle 作为分类选择器 */}
+        {tagWrapShow ? (
+          <View className="share-tag-panel">
+            <View className="share-tag-panel-header">
+              <Text className="share-tag-panel-title">
+                {tt('share.index.selectCategory', '选择分类')}
+              </Text>
+            </View>
+            <View className="share-tag-scroll-title-wrap">
+              <TitleSwitchScrollTitle
+                mainList={titleSwitchMainList}
+                mainSwiperMargin="80rpx"
+                subSwiperMargin="80rpx"
+                onChange={handleTitleSwitchChange}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {/* 遮罩层 — 对齐原项目 mask-overlay，tagWrapShow 时显示，z-index: 899（低于导航栏） */}
         {tagWrapShow ? (
           <View
             className="share-mask-overlay"
-            style={{
-              position: 'fixed',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              zIndex: 899,
-              background: 'rgba(0, 0, 0, 0.4)',
-              touchAction: 'none',
-              overflow: 'hidden',
-            }}
+            onClick={closeTitleSwitch}
             onTouchMove={safePreventTouchMove}
           />
         ) : null}
