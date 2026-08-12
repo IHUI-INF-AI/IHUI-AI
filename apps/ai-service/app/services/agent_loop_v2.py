@@ -644,6 +644,16 @@ class AgentLoopV2:
                     except Exception:
                         logger.warning("hook_engine.emit(message.receive) 失败(降级,不阻塞)")
 
+                    # L5-12(2026-08-12):提前返回路径也保存 checkpoint(status=completed)
+                    # 此前简单任务(无工具调用)直接 return 不落 checkpoint → workbench
+                    # sessions/tool-calls/errors 可视化全空;补齐使每个完成任务可追溯
+                    try:
+                        await self._save_checkpoint_safe(
+                            iteration=i, messages=messages, status="completed",
+                        )
+                    except Exception:
+                        logger.warning("简单任务 checkpoint 保存失败(降级,不阻塞)")
+
                     return AgentLoopResult(
                         success=True,
                         final_response=content,
