@@ -5,6 +5,10 @@ import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
+// 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
+import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
+import courseIconLocal from '@/assets/remote-images/course-icon.svg'
+import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
 import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
 import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
@@ -35,17 +39,17 @@ const quickEntries = [
 ]
 
 const menus = [
-  { icon: icon('courseIcon'), key: 'user.menu.courses', path: '/pages/course/list' },
-  { icon: icon('aiIcon'), key: 'user.menu.ai', path: '/pages/ai/chat' },
+  { icon: courseIconLocal, key: 'user.menu.courses', path: '/pages/course/list' },
+  { icon: aiIconLocal, key: 'user.menu.ai', path: '/pages/ai/chat' },
   { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
 // 会员权益项:i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
 const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
-  { icon: icon('aiIcon'), key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
+  { icon: aiIconLocal, key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
   { icon: icon('zuan'), key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
   { icon: icon('addKf'), key: 'user.benefits.prioritySupport', fallback: '优先客服' },
-  { icon: icon('uservipAct'), key: 'user.benefits.vipZone', fallback: '会员专区' },
+  { icon: vipActIconLocal, key: 'user.benefits.vipZone', fallback: '会员专区' },
   { icon: xianLabelIcon, key: 'user.benefits.discount', fallback: '折扣优惠' },
   { icon: icon('act'), key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
 ]
