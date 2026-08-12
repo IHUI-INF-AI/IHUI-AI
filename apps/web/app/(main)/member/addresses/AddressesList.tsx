@@ -34,7 +34,7 @@ export function AddressesList({
     <div className="space-y-2">
       {list.map((a) => (
         <Card key={a.id} className="transition-colors hover:bg-accent">
-          <CardContent className="space-y-1 p-3">
+          <CardContent className="space-y-1 p-3 min-[640px]:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{a.name}</span>

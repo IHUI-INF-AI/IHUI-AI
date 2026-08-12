@@ -133,7 +133,7 @@ export default function MemberDashboardPage() {
 
       {summary.expireAt && (
         <Card className="border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/10">
-          <CardContent className="flex items-center justify-between p-3 text-sm">
+          <CardContent className="flex items-center justify-between p-3 text-sm min-[640px]:p-3">
             <span className="text-muted-foreground">
               {t('expireAt')}{' '}
               <span className="font-medium text-foreground">

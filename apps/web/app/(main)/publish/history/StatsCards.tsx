@@ -4,7 +4,7 @@
  * 统计卡片（从 history/page.tsx 抽出，重构于 2026-08-12）
  *
  * 4 个统计卡片：总数 / 成功 / 失败 / 成功率。
- * 重写动机：原本使用 <CardContent className="p-3"> 试图压制 padding，但 ui-react CardContent
+ * 重写动机：原本使用 <CardContent className="p-3 min-[640px]:p-3"> 试图压制 padding，但 ui-react CardContent
  *          默认值为 pt-0 + min-[640px]:p-6（响应式不对称），自定义 p-3 被 min- 覆盖、pt-0 没被覆盖，
  *          导致宽屏下 label 贴顶 + value 底 24px 空白（用户反馈"空间浪费"）。
  *          修复后 CardContent 默认对称 p-4/p-6，由 ui-react 卡根。

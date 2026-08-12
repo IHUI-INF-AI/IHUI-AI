@@ -36,7 +36,7 @@ export function FilterBar({
 
   return (
     <Card>
-      <CardContent className="flex flex-wrap items-end gap-3 p-3">
+      <CardContent className="flex flex-wrap items-end gap-3 p-3 min-[640px]:p-3">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">{t('history.filterPlatform')}</label>
           <Select value={filterPlatform} onValueChange={onFilterPlatformChange}>

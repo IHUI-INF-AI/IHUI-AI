@@ -175,7 +175,7 @@ export default function AiWorldDetailPage() {
             <Sparkles className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>

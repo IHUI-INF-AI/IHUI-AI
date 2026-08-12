@@ -35,7 +35,7 @@ export function SocialProof(): React.JSX.Element {
       <div className="mt-8 grid grid-cols-2 gap-4 min-[1024px]:grid-cols-4">
         {METRICS.map(({ icon: Icon, value, decimals, suffix, labelKey }) => (
           <Card key={labelKey} className="border-border">
-            <CardContent className="flex flex-col items-center gap-2 p-5">
+            <CardContent className="flex flex-col items-center gap-2 p-5 min-[640px]:p-5">
               <Icon className="h-5 w-5 text-primary" />
               <div className="text-2xl font-bold tracking-tight text-foreground min-[768px]:text-3xl">
                 <AnimatedNumber value={value} decimals={decimals ?? 0} suffix={suffix ?? ''} />

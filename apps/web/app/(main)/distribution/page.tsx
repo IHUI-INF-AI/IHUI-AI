@@ -114,7 +114,7 @@ export default function DistributionHomePage() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <Card className="overflow-hidden">
-        <CardContent className="flex items-center gap-4 p-5">
+        <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
           <Image
             src="/images/logo.png?v=20260719-unify"
             alt=""

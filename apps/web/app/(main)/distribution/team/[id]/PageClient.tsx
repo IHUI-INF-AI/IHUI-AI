@@ -126,7 +126,7 @@ export default function DistributionTeamDetailPage() {
       </Link>
 
       <Card>
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
           <div className="flex items-center gap-4">
             {member.avatar ? (
               <Image

@@ -92,7 +92,7 @@ export function CompactionTab() {
     <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
       {/* Input */}
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="space-y-3 p-3 min-[640px]:p-3">
           <div className="space-y-1">
             <Label className="text-xs">{t('input')}</Label>
             <textarea
@@ -140,7 +140,7 @@ export function CompactionTab() {
 
       {/* Result */}
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="space-y-3 p-3 min-[640px]:p-3">
           {error && <Alert variant="danger" title="Error" description={error} />}
 
           {!result && !error && !loading && (

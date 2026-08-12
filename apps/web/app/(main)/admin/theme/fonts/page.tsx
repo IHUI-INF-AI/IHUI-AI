@@ -133,7 +133,7 @@ export default function FontsPage() {
       <div className="space-y-2">
         {list.map((f) => (
           <Card key={f.id}>
-            <CardContent className="flex items-center gap-3 p-3">
+            <CardContent className="flex items-center gap-3 p-3 min-[640px]:p-3">
               <Type className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{f.name}</p>

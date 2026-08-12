@@ -146,7 +146,7 @@ export default async function BillingPage() {
         {/* 余额卡片 */}
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           <Card className="min-[640px]:col-span-1">
-            <CardContent className="p-5">
+            <CardContent className="p-5 min-[640px]:p-5">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Wallet className="h-3.5 w-3.5" />
                 {t('billing.currentBalance')}
@@ -161,7 +161,7 @@ export default async function BillingPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-5 min-[640px]:p-5">
               <div className="text-xs text-muted-foreground">{t('billing.monthConsume')}</div>
               <div className="mt-2 text-2xl font-bold">¥ 285.40</div>
               <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
@@ -171,7 +171,7 @@ export default async function BillingPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-5 min-[640px]:p-5">
               <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
               <div className="mt-2 text-2xl font-bold">¥ 1,500.00</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -195,7 +195,7 @@ export default async function BillingPage() {
                     {t('billing.packages.recommended')}
                   </span>
                 )}
-                <CardContent className="p-5">
+                <CardContent className="p-5 min-[640px]:p-5">
                   <div className="text-sm font-semibold">{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
