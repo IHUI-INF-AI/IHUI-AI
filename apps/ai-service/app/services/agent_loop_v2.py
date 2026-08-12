@@ -76,6 +76,9 @@ class ToolResult:
     duration_ms: float = 0.0
     # L5-2 错误恢复:瞬时失败自动重试次数记录(2026-08-12 立)
     retry_count: int = 0
+    # L5-8 错误恢复:失败的错误分类(timeout/connection/http_5xx/http_4xx/unknown,
+    # 2026-08-12 立,供前端展示与可观测;成功为 None)
+    error_type: Optional[str] = None
 
 
 @dataclass
@@ -673,6 +676,19 @@ class AgentLoopV2:
                         "tool_calls_count": len(tool_calls),
                         "tool_results_count": len(tool_results),
                         "duration_ms": iteration.duration_ms,
+                        # L5-8(2026-08-12):带每个工具结果明细,供前端展示
+                        # 重试次数/错误分类(此前只有计数,用户侧看不到自动重试)
+                        "tool_results": [
+                            {
+                                "name": tr.name,
+                                "status": "error" if tr.error else "ok",
+                                "error": tr.error,
+                                "error_type": tr.error_type,
+                                "retry_count": tr.retry_count,
+                                "duration_ms": round(tr.duration_ms, 2),
+                            }
+                            for tr in tool_results
+                        ],
                     })
                 except Exception:
                     logger.warning("hook_engine.emit(tool.after) 失败(降级,不阻塞)")
@@ -922,6 +938,7 @@ class AgentLoopV2:
                 result=None,
                 error=f"工具 {tc.name} 不存在",
                 duration_ms=0,
+                error_type="unknown",
             )
 
         retry_count = 0
@@ -960,6 +977,7 @@ class AgentLoopV2:
                     error=error_msg,
                     duration_ms=(time.time() - start) * 1000,
                     retry_count=retry_count,
+                    error_type=error_type,
                 )
 
             retry_count += 1
