@@ -435,6 +435,32 @@ async def _resolve_auto_model(
         if premium_pool:
             candidates.append(min(premium_pool, key=lambda x: x["tier"])["id"])
 
+        # L5-6(2026-08-12):任务复杂度感知路由——复杂/专家任务跳过免费与廉价模型,
+        # 直接给高级模型(能力匹配),简单任务维持免费优先(成本优先)。
+        # 评估失败/无高级模型时静默维持原候选(降级不阻塞)。
+        try:
+            prompt_text = ""
+            if messages:
+                for m in messages:
+                    if isinstance(m, dict) and isinstance(m.get("content"), str):
+                        prompt_text += m["content"] + "\n"
+            from ..services.model_router import TaskComplexity, model_router
+
+            complexity = model_router.assess_complexity(
+                prompt=prompt_text[:20000],  # 截断避免超大 prompt 评估开销
+                token_count=max(0, len(prompt_text) // 4),
+                has_tools=has_tools,
+            )
+            if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT):
+                if premium_pool:
+                    candidates = [min(premium_pool, key=lambda x: x["tier"])["id"]]
+                    logger.info(
+                        "[auto-route] 任务复杂度=%s,路由升级到高级模型 %s",
+                        complexity.value, candidates[0],
+                    )
+        except Exception as e:
+            logger.debug("[auto-route] 复杂度评估失败,维持原路由(降级): %s", e)
+
         # tool calling 场景:筛掉不支持 function calling 的模型
         if has_tools and candidates:
             before = len(candidates)
