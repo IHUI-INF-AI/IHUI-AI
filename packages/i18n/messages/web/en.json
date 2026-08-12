@@ -16751,7 +16751,14 @@
       "lessonsExtracted": "Lessons Extracted",
       "failurePattern": "Failure Pattern",
       "improvementTip": "Improvement Tip",
-      "bestPractice": "Best Practice"
+      "bestPractice": "Best Practice",
+      "agentFailures": "Agent Failures & Recovery",
+      "errorType": "Error Type",
+      "recentFailures": "Recent Failures",
+      "failedCheckpoints": "Failed Checkpoints",
+      "toolFailures": "Tool Failures",
+      "agentErrors": "Agent Errors",
+      "noFailures": "No failures yet"
     }
   },
   "fundData": {
