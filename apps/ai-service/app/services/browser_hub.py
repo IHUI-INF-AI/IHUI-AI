@@ -664,8 +664,14 @@ class BrowserHub:
                     f"[browser_hub] session {session_id} 命中风控墙(attempt {attempt}/2, url={url}),重建 context..."
                 )
                 await session.close()
-                session = None
-                continue
+                if attempt == 1:
+                    # 首次命中:还有一次重建机会,丢弃当前 context
+                    session = None
+                    continue
+                # 第二次命中(2026-08-12 修):保留最后现场(即使已 close),
+                # 供 reload 端点触发 recreate_session 重建;此前 session 被置 None
+                # 导致循环后 assert session is not None 抛 AssertionError 崩溃
+                break
             return session
         # 连续命中风控墙 → 保留最后一个现场,用户可手动刷新(reload 端点会自动重建)
         assert session is not None
