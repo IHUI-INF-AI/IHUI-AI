@@ -30,7 +30,7 @@ export function initCrashReport(): void {
 
 function reportCrash(errorMessage: string): void {
   try {
-    Taro.request({
+    const task = Taro.request({
       url: `${BASE_URL}/crash-reports`,
       method: 'POST',
       data: {
@@ -41,6 +41,11 @@ function reportCrash(errorMessage: string): void {
       success: () => {},
       fail: () => {},
     })
+    // Taro.request 在 H5 模式下返回 Promise,必须 catch 防止未处理 rejection
+    // (403/网络错误等会触发 unhandledrejection → webpack overlay 弹窗)
+    if (task && typeof (task as Promise<unknown>).catch === 'function') {
+      ;(task as Promise<unknown>).catch(() => {})
+    }
   } catch {
     /* 上报失败静默 */
   }

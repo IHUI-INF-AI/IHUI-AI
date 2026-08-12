@@ -18,7 +18,13 @@
  */
 
 /** 本地开发默认 API 地址(未配置 TARO_APP_API_BASE 时回退) */
-const DEFAULT_BASE_URL = 'http://localhost:8802/api'
+// H5 模式下:走 devServer proxy 相对路径 /api(同源转发到后端 8802)
+// 小程序模式下(weapp/alipay)走绝对地址,需在 .env.local 配置 TARO_APP_API_BASE
+// 注意:process.env.TARO_ENV 由 Taro DefinePlugin 编译期替换为 'h5' 字面量,
+// 但 process.env.TARO_APP_API_BASE 仅在有 .env 文件时被替换,缺失时仍是运行时引用,
+// 因此 DEFAULT_BASE_URL 中不能出现 process.env.TARO_APP_API_BASE(浏览器无 process 全局)。
+// env 变量的读取统一由下方 getEnvApiBase() 的 try/catch 兜底。
+const DEFAULT_BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8802/api'
 
 /**
  * 读取 TARO_APP_API_BASE。

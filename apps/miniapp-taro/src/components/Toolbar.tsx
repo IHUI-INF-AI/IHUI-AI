@@ -1,14 +1,18 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import { useTt } from '@/i18n'
+// 本地化远程 CDN 图片:原 bspapp CDN / aizhs 图库在 H5 模式下加载失败,改为本地 SVG 占位
+import aiIconImg from '@/assets/remote-images/ai-icon.svg'
+import courseIconImg from '@/assets/remote-images/course-icon.svg'
+import vipActIconImg from '@/assets/remote-images/user-vip-act.svg'
 
 /**
  * Toolbar 首页工具栏 — 对齐原项目 Toolbar/index.vue
  * 横向滚动 + 多个工具入口(图标 + 文字 + 可选红点/角标)
  *
  * 与原项目对齐:
- * - 默认 items 与原项目 headerMenu 一致(3 项:流量运营陪跑/一站式设备应用/AI其他技术服务),
- *   icon 用原项目 bspapp CDN URL(本地 assets/remote 无 tabbar/tabbar/ 副本,直接远程引用)。
+ * - 默认 items 与原项目 headerMenu 一致(3 项:AI对话/课程/广场),
+ *   icon 已本地化到 assets/remote-images/。
  * - 原项目 item.imgUrl 是图片 URL;本组件 icon 支持图片路径或 emoji(兼容扩展)。
  * - 原项目 secondRowList/third-row 等运营位不在本组件范围(由页面层组合)。
  */
@@ -25,9 +29,6 @@ export interface ToolbarProps {
   className?: string
 }
 
-// 与原项目 Toolbar/index.vue 的 headerMenu 一致(bspapp CDN URL,本地无副本)
-const BSPAPP_BASE = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com'
-
 // 判断 icon 是否为图片路径(非 emoji)
 function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
@@ -37,19 +38,19 @@ export default function Toolbar({ items, className }: ToolbarProps) {
   const tt = useTt()
   const defaultItems: ToolbarItem[] = [
     {
-      id: 'traffic-service',
-      name: tt('toolbar.traffic-service', '流量运营陪跑'),
-      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 28@2x.png`,
+      id: 'ai',
+      name: tt('toolbar.ai', 'AI对话'),
+      icon: aiIconImg,
     },
     {
-      id: 'device-service',
-      name: tt('toolbar.device-service', '一站式设备应用'),
-      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x.png`,
+      id: 'course',
+      name: tt('toolbar.course', '课程'),
+      icon: courseIconImg,
     },
     {
-      id: 'ai-other-service',
-      name: tt('toolbar.ai-other-service', 'AI其他技术服务'),
-      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x (2).png`,
+      id: 'vip',
+      name: tt('toolbar.vip', '会员'),
+      icon: vipActIconImg,
     },
   ]
   const resolvedItems = items ?? defaultItems
