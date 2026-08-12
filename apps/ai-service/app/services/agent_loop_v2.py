@@ -287,6 +287,27 @@ class AgentLoopV2:
             logger.warning(
                 "meta_learner.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
             )
+        # L5-7 自进化:注入元认知反思发现到 system prompt(2026-08-12 立)。
+        # 与 meta_learner lesson 同模式:同步方法读内存缓存,失败降级不阻塞。
+        try:
+            from .metacognition import metacognition
+            meta_snippet = metacognition.build_system_prompt_snippet()
+            if meta_snippet:
+                if (
+                    messages
+                    and isinstance(messages[0], dict)
+                    and messages[0].get("role") == "system"
+                ):
+                    existing = messages[0].get("content", "")
+                    messages[0]["content"] = (
+                        f"{existing}\n\n{meta_snippet}" if existing else meta_snippet
+                    )
+                else:
+                    messages.insert(0, {"role": "system", "content": meta_snippet})
+        except Exception as e:
+            logger.warning(
+                "metacognition.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+            )
         result = await self._run_loop(
             messages=messages,
             start_iteration=1,
