@@ -29,6 +29,7 @@ const listTasksQuery = z.object({
   enabled: booleanStringSchemaOptional,
   name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const listLogsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -88,20 +89,7 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
             name: { type: 'string', description: '任务名称模糊搜索' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -121,24 +109,7 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '任务详情',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -170,20 +141,7 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
             status: { type: 'string', description: '状态筛选: running/success/failed/timeout' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -203,24 +161,7 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '日志详情',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -391,24 +332,7 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
             enabled: { type: 'boolean' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -436,24 +360,7 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除定时任务',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -477,24 +384,7 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '启用任务',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -518,24 +408,7 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '禁用任务',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -559,24 +432,7 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '立即执行任务',
         tags: ['schedule'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {

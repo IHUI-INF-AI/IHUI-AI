@@ -45,6 +45,7 @@ import type {
   WorkspaceRequest,
   WorkspaceEvent,
 } from '@ihui/types'
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // =============================================================================
 // 上传目录
@@ -155,20 +156,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         summary: '项目列表',
         description: '列出当前用户的所有项目(含文件数量)',
         tags: ['workspace'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (request, reply) => {
@@ -619,28 +607,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
             id: { type: 'string', format: 'uuid', description: '文件 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401, 403, 404),
       },
     },
     async (request, reply) => {

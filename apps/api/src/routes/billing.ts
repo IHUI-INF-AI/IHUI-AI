@@ -10,6 +10,7 @@ import { success, error } from '../utils/response.js'
 const idParamSchema = z.object({
   id: z.uuid({ error: '无效的 ID' }),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // =============================================================================
 // 公开路由（前缀 /api，无需鉴权）
@@ -24,16 +25,7 @@ export const billingRoutes: FastifyPluginAsync = async (server) => {
         summary: '订阅方案列表',
         description: '公开接口:列出所有启用的订阅方案(按 sort_order 升序)',
         tags: ['billing'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -57,24 +49,7 @@ export const billingRoutes: FastifyPluginAsync = async (server) => {
             id: { type: 'string', format: 'uuid', description: '方案 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
