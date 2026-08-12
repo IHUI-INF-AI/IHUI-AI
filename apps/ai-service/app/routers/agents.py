@@ -6,6 +6,7 @@
 
 import asyncio
 import json
+import logging
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
@@ -19,6 +20,8 @@ from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -327,3 +330,98 @@ async def list_agent_traces() -> dict[str, Any]:
 
     traces.sort(key=lambda t: t["timestamp"], reverse=True)
     return {"code": 0, "message": "success", "data": traces[:50]}
+
+
+@router.get("/agents/{agent_id}/tool-calls")
+async def get_agent_tool_calls(agent_id: str, range: str = "24h") -> dict[str, Any]:
+    """Agent 工具调用链(agent-runtime ToolCallTree 数据源,2026-08-12 补缺)。
+
+    此前 web 端调用 /api/agents/{id}/tool-calls 在 8802/8803 均 404。
+    数据源:checkpoint trace(messages 中 assistant.tool_calls + tool 结果),
+    缺失时降级进程内 _trace_store。
+    """
+    calls: list[dict[str, Any]] = []
+    try:
+        from ..services.agent_checkpoint import get_agent_checkpoint_manager
+
+        cp = await get_agent_checkpoint_manager().load_latest_by_session(agent_id)
+        if cp and cp.messages:
+            for msg in cp.messages:
+                if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                    for tc in msg["tool_calls"]:
+                        calls.append({
+                            "id": tc.get("id", ""),
+                            "name": tc.get("name", ""),
+                            "args": tc.get("args", {}),
+                            "status": "called",
+                            "result": "",
+                        })
+                elif msg.get("role") == "tool":
+                    content = str(msg.get("content", ""))
+                    matched = next(
+                        (c for c in reversed(calls)
+                         if c.get("id") == msg.get("tool_call_id")
+                         and c.get("status") == "called"),
+                        None,
+                    )
+                    if matched:
+                        matched["status"] = "error" if "error" in content[:200] else "ok"
+                        matched["result"] = content[:500]
+    except Exception as e:
+        logger.warning("get_agent_tool_calls checkpoint 提取失败(降级): %s", e)
+    if not calls:
+        trace = _trace_store.get(agent_id)
+        if trace:
+            for step in (trace.get("steps") or []):
+                if isinstance(step, dict) and step.get("tool"):
+                    calls.append({
+                        "id": str(step.get("tool_call_id", "")),
+                        "name": str(step.get("tool", "")),
+                        "args": step.get("args", {}),
+                        "status": "error" if step.get("error") else "ok",
+                        "result": str(step.get("result", ""))[:500],
+                    })
+    return {"code": 0, "message": "success", "data": {"toolCalls": calls}}
+
+
+@router.get("/agents/{agent_id}/errors")
+async def get_agent_errors(agent_id: str, range: str = "24h") -> dict[str, Any]:
+    """Agent 错误事件(agent-runtime ErrorHeatmap 数据源,2026-08-12 补缺)。
+
+    数据源:checkpoint(failed 状态 + metadata.error + tool 消息 error)。
+    """
+    errors: list[dict[str, Any]] = []
+    try:
+        from ..services.agent_checkpoint import get_agent_checkpoint_manager
+
+        cp = await get_agent_checkpoint_manager().load_latest_by_session(agent_id)
+        if cp:
+            meta = cp.metadata or {}
+            if cp.status == "failed" or meta.get("error"):
+                errors.append({
+                    "type": str(meta.get("error_type", "unknown")),
+                    "message": str(meta.get("error", "agent_loop failed"))[:300],
+                    "timestamp": cp.created_at,
+                })
+            for msg in (cp.messages or []):
+                if msg.get("role") == "tool":
+                    content = str(msg.get("content", ""))
+                    if content.startswith('{"error"'):
+                        errors.append({
+                            "type": "tool_error",
+                            "message": content[:300],
+                            "timestamp": cp.created_at,
+                        })
+    except Exception as e:
+        logger.warning("get_agent_errors checkpoint 提取失败(降级): %s", e)
+    if not errors:
+        trace = _trace_store.get(agent_id)
+        if trace:
+            for step in (trace.get("steps") or []):
+                if isinstance(step, dict) and step.get("error"):
+                    errors.append({
+                        "type": "step_error",
+                        "message": str(step.get("error", ""))[:300],
+                        "timestamp": trace.get("timestamp", 0),
+                    })
+    return {"code": 0, "message": "success", "data": {"errors": errors}}
