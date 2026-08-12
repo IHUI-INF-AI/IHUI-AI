@@ -9,6 +9,7 @@ import NavBar from '@/components/NavBar'
 import DrawerComponent, { type DrawerModelGroup, type DrawerChatItem } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
+import { FloatBox } from '@/components'
 import { rpx } from '@/utils/rpx'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
@@ -75,52 +76,42 @@ function formatAudioTime(seconds: number): string {
   return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
 }
 
-/** FloatBox 浮动组件 — 对齐原项目 FloatBox（分享/客服/反馈） */
-function FloatBox({
-  visible,
-  onClose,
-}: {
-  visible: boolean
-  onClose?: () => void
-}) {
-  if (!visible) return null
+/** UserCard 组件 — 对齐原项目 user_cards.vue（订单/公司/智汇值/钱包卡片） */
+function UserCard({ onGoPage }: { onGoPage: (path: string) => void }) {
+  const items = [
+    { key: 'order', icon: dingdanIcon, title: '我的订单', desc: '查看相关订单', path: '/pages/user_order_list/index' },
+    { key: 'distribution', icon: gerenIcon, title: '我的公司', desc: '查看员工与业绩', path: '/pagesA/distribution/index' },
+    { key: 'token', icon: xianLabelIcon, title: '我的智汇值', desc: '智汇消耗信息', path: '/pages/tools/token_value' },
+    { key: 'money', icon: shezhiIcon, title: '我的钱包', desc: '查看余额与充值', path: '/pagesA/top-up/index' },
+  ]
   return (
-    <View className="fixed right-[20rpx] bottom-[9%] z-[1005] flex flex-col items-center gap-[12rpx]">
-      {/* 遮罩 */}
-      <View className="fixed inset-0 z-[-1]" onClick={onClose} />
-      {/* 分享赚米按钮 */}
-      <View
-        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
-        onClick={() => {
-          Taro.showToast({ title: '请点击右上角分享', icon: 'none' })
-          onClose?.()
-        }}
-      >
-        <Text className="text-[36rpx] text-red-500 font-bold">¥</Text>
-        <Text className="text-[20rpx] text-red-500 font-bold">赚米</Text>
-      </View>
-      {/* 客服按钮 */}
-      <View
-        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
-        onClick={() => {
-          Taro.showToast({ title: '客服功能开发中', icon: 'none' })
-          onClose?.()
-        }}
-      >
-        <Text className="text-[36rpx]">☎</Text>
-        <Text className="text-[20rpx] text-foreground">客服</Text>
-      </View>
-      {/* 反馈按钮 */}
-      <View
-        className="w-[100rpx] h-[100rpx] rounded-lg bg-card shadow-lg flex flex-col items-center justify-center"
-        onClick={() => {
-          Taro.navigateTo({ url: '/pagesA/fankui/index' })
-          onClose?.()
-        }}
-      >
-        <Text className="text-[36rpx]">✉</Text>
-        <Text className="text-[20rpx] text-foreground">反馈</Text>
-      </View>
+    <View className="flex flex-wrap justify-between w-full mt-[20rpx] mb-[14rpx]">
+      {items.map((item, idx) => {
+        const isFullWidth = idx === 3 // 钱包占整行
+        return (
+          <View
+            key={item.key}
+            className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
+            style={{ background: 'rgba(0,4,255,0.03)', boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)' }}
+            onClick={() => {
+              const userInfodata = Taro.getStorageSync('data')
+              if (!userInfodata) {
+                Taro.showToast({ title: '请先登录', icon: 'none' })
+                return
+              }
+              onGoPage(item.path)
+            }}
+          >
+            <View className="w-[90rpx] h-[90rpx] mr-[15rpx] flex-shrink-0">
+              <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
+            </View>
+            <View>
+              <Text className="text-[32rpx] text-foreground">{item.title}</Text>
+              <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
+            </View>
+          </View>
+        )
+      })}
     </View>
   )
 }
@@ -129,7 +120,15 @@ export default function UserIndex() {
   const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showBenefits, setShowBenefits] = useState<boolean>(false)
-  const [showFloatBox, setShowFloatBox] = useState<boolean>(false)
+  // isshow: 对齐原项目，iOS 设备标识（UserCard 和会员权益在非 iOS 设备上显示）
+  const [isshow] = useState<boolean>(() => {
+    try {
+      const systemInfo = Taro.getSystemInfoSync()
+      return systemInfo.platform === 'ios'
+    } catch {
+      return false
+    }
+  })
   const [activeTab, setActiveTab] = useState<number>(1)
   const [textContentList] = useState<Array<{title: string; time: string; content: string}>>([])
   const [imageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
@@ -507,7 +506,15 @@ export default function UserIndex() {
         }}
       />
 
-      {/* ===== 会员权益卡片 ===== */}
+      {/* ===== UserCard 功能卡片（对齐原项目 user_cards.vue，非 iOS 显示） ===== */}
+      {!isshow ? (
+        <View className="mx-[32rpx]">
+          <UserCard onGoPage={goPage} />
+        </View>
+      ) : null}
+
+      {/* ===== 会员权益卡片（对齐原项目，非 iOS 显示） ===== */}
+      {!isshow ? (
       <View
         className="mx-[32rpx] mt-[24rpx] mb-0 bg-card border border-border rounded-lg overflow-hidden"
         onClick={goVipDetail}
@@ -542,6 +549,7 @@ export default function UserIndex() {
           </View>
         ) : null}
       </View>
+      ) : null}
 
       {/* ===== StudyBar + 内容展示区 ===== */}
       <View style={{ padding: '0 20rpx', marginTop: '20rpx', marginBottom: '20rpx' }}>
@@ -851,19 +859,8 @@ export default function UserIndex() {
         </View>
       ) : null}
 
-      {/* ===== FloatBox 触发按钮 ===== */}
-      <View
-        className="fixed right-[16rpx] bottom-[160rpx] z-[1004] w-[80rpx] h-[80rpx] rounded-lg bg-card shadow-lg flex items-center justify-center"
-        onClick={() => setShowFloatBox((v) => !v)}
-      >
-        <Text className="text-[36rpx]">✦</Text>
-      </View>
-
       {/* ===== FloatBox 浮动组件 ===== */}
-      <FloatBox
-        visible={showFloatBox}
-        onClose={() => setShowFloatBox(false)}
-      />
+      <FloatBox />
 
       {/* ===== DrawerComponent 侧边栏抽屉 ===== */}
       <DrawerComponent
