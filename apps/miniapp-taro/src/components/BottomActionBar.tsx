@@ -1,11 +1,13 @@
 import { View, Text, Input, Image } from '@tarojs/components'
+import audioSvg from '@/assets/images/add/audio.svg'
 import { cn } from '@ihui/design-tokens'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
-// 原项目"微信文件"按钮也用 floder_input.png(非 wechat_file.png),保持一致
+// 修复 (2026-08-12):微信文件改用 wenjian.png 区别于本地文件 floder_input.png
 import cammerInputPng from '@/assets/remote/images/cammer_input.png'
 import picterInputPng from '@/assets/remote/images/picter_input.png'
 import floderInputPng from '@/assets/remote/images/floder_input.png'
+import wenjianPng from '@/assets/remote/images/wenjian.png'
 import selectedModelPng from '@/assets/remote/images/selected_model.png'
 import { rpx } from '@/utils/rpx'
 
@@ -66,6 +68,10 @@ export interface BottomActionBarProps {
   onIconButtonClick?: (item: IconButtonItem) => void
   /** ToggleButton 切换回调 */
   onToggle?: (item: ToggleButtonItem) => void
+  /** 语音输入模式 */
+  isVoiceInput?: boolean
+  /** 语音输入切换回调 */
+  onVoiceInputToggle?: () => void
 }
 
 const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
@@ -76,12 +82,12 @@ const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
 ]
 
 // 4 个图标按钮对齐原项目 BottomActionBar.vue line 65-80:
-// 相机 / 相册 / 本地文件 / 微信文件(原项目微信文件也用 floder_input.png)
+// 相机 / 相册 / 本地文件 / 微信文件(微信文件用 wenjian.png 区别于 floder_input.png)
 const DEFAULT_ICON_BUTTONS: IconButtonItem[] = [
   { key: 'camera', label: '相机', icon: cammerInputPng },
   { key: 'album', label: '相册', icon: picterInputPng },
   { key: 'file', label: '本地文件', icon: floderInputPng },
-  { key: 'wxfile', label: '微信文件', icon: floderInputPng },
+  { key: 'wxfile', label: '微信文件', icon: wenjianPng },
 ]
 
 export default function BottomActionBar(props: BottomActionBarProps) {
@@ -94,6 +100,8 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     iconButtons = DEFAULT_ICON_BUTTONS,
     onIconButtonClick,
     onToggle,
+    isVoiceInput = false,
+    onVoiceInputToggle,
     // 默认模式 props(解构)
     value = '',
     placeholder = '输入消息...',
@@ -153,7 +161,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
         <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
 
-        {/* icon-button-group:4 个图标按钮(对齐原项目 .icon-button-group)*/}
+        {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)*/}
         {showIconButtons ? (
           <View
             className="flex"
@@ -192,6 +200,34 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 </Text>
               </View>
             ))}
+            {/* 语音输入按钮(对齐原项目 toggle-voice-input) */}
+            <View
+              className="flex flex-col items-center justify-center"
+              style={{
+                width: rpx(160),
+                height: rpx(150),
+                background: isVoiceInput
+                  ? 'var(--color-brand-cyan, #93d2f3)'
+                  : 'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
+                borderRadius: rpx(30),
+                border: '6rpx solid var(--color-card)',
+              }}
+              onClick={onVoiceInputToggle}
+            >
+              <Image
+                src={audioSvg}
+                style={{ width: rpx(70), height: rpx(70), marginBottom: rpx(12) }}
+                mode="aspectFit"
+              />
+              <Text
+                style={{
+                  fontSize: rpx(20),
+                  color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
+                }}
+              >
+                {isVoiceInput ? '语音输入中' : '语音输入'}
+              </Text>
+            </View>
           </View>
         ) : null}
 
