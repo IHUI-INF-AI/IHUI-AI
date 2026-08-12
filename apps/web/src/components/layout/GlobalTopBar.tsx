@@ -672,9 +672,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           </React.Suspense>
 
           {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
-            flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件) */}
+            flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件)
+            2026-08-12 去掉 overflow-hidden:配套 TagsView active 态改用 outline 外描边,
+            1px outline 上下方向会被 overflow-hidden 裁掉,必须放开让 outline 真外露 */}
           <React.Suspense fallback={null}>
-            <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
+            <div className="flex h-full min-w-0 flex-1 items-center">
               <TagsView />
             </div>
           </React.Suspense>
