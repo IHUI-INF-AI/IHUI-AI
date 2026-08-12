@@ -523,11 +523,12 @@ export function TagsView() {
                   TOPBAR_BTN_BASE,
                   'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
                   active
-                    ? // active(当前显示页面):2026-08-01 用户反馈"未选中比 active 还突出"→ 对换样式。
-                      //   active 用 bg-card + border 双重勾勒,白底(浅色)/更黑底(深色)+ 描边,
-                      //   + font-medium + text-foreground,最突出表示"当前页"。
-                      //   符合 AGENTS.md "容器完整描边 border border-border" 规则。
-                      'bg-card border border-border font-medium text-foreground hover:bg-card'
+                    ? // active(当前显示页面):2026-08-12 用户反馈"内描边改成外描边,色用纯白/纯黑"
+                      //   移除 border(1px 内描边,border-border 灰度低对比度弱),
+                      //   改用 outline(1px 外描边,纯黑亮色 / 纯白暗色),
+                      //   高对比 + 不占元素内部空间,视觉上"当前页"最突出
+                      //   配套 GlobalTopBar.tsx 父容器去掉 overflow-hidden,避免 outline 被裁剪
+                      'bg-card font-medium text-foreground hover:bg-card outline outline-1 outline-black dark:outline-white'
                     : isPinned
                       ? // pinned 标签(2026-08-07 立):改用专用 token --color-pinned-tag-bg。
                         //   亮色 88% L 接近 muted(92% L)略深;暗色 24% L 与 tag-inactive-bg 同档,
