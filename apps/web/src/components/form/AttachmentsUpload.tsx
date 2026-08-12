@@ -5,6 +5,7 @@ import { UploadCloud, X, Loader2, FileIcon } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
 
 /**
  * 附件项(与后端 AttachmentItem 一致)。
@@ -220,15 +221,16 @@ export function AttachmentsUpload({
               className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm"
             >
               <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 truncate hover:underline"
-                title={item.name}
-              >
-                {item.name}
-              </a>
+              <Tooltip content={item.name}>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 truncate hover:underline"
+                >
+                  {item.name}
+                </a>
+              </Tooltip>
               <span className="shrink-0 text-xs text-muted-foreground">
                 {(item.size / 1024).toFixed(1)} KB
               </span>

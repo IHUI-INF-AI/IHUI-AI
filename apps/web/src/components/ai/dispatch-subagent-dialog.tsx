@@ -40,6 +40,7 @@ import {
   Input,
 } from '@ihui/ui-react'
 
+import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
 import { activeDispatchesKey, swarmTopologyKey } from '@/hooks/use-subagent-dispatch'
@@ -524,12 +525,13 @@ function DispatchForm({
               </div>
               {dagNodes.map((node) => (
                 <div key={node.id} className="flex items-center gap-1.5">
-                  <code
-                    className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]"
-                    title={node.id}
-                  >
-                    {node.id.slice(0, 8)}
-                  </code>
+                  <Tooltip content={node.id}>
+                    <code
+                      className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]"
+                    >
+                      {node.id.slice(0, 8)}
+                    </code>
+                  </Tooltip>
                   <select
                     value={node.agentRole}
                     onChange={(e) => updateDagNode(node.id, 'agentRole', e.target.value)}

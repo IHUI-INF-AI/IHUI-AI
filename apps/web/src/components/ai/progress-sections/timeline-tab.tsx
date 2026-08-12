@@ -4,6 +4,7 @@ import * as React from 'react'
 import { MessageSquare, ListTree, Search, X, Download, Check, Inbox, FilterX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import {
   useTimelineStore,
   type TimelineEvent,
@@ -356,34 +357,37 @@ export const TimelineTab = React.memo(function TimelineTab({
             data-testid="timeline-status-counts"
           >
             {statusCounts.done > 0 && (
-              <span
-                className="inline-flex items-center gap-0.5 text-emerald-500"
-                data-testid="timeline-count-done"
-                title={safeT(t, 'timelineCountDone', 'Completed')}
-              >
-                <span aria-hidden>✓</span>
-                <span>{statusCounts.done}</span>
-              </span>
+              <Tooltip content={safeT(t, 'timelineCountDone', 'Completed')}>
+                <span
+                  className="inline-flex items-center gap-0.5 text-emerald-500"
+                  data-testid="timeline-count-done"
+                >
+                  <span aria-hidden>✓</span>
+                  <span>{statusCounts.done}</span>
+                </span>
+              </Tooltip>
             )}
             {statusCounts.failed > 0 && (
-              <span
-                className="inline-flex items-center gap-0.5 text-destructive"
-                data-testid="timeline-count-failed"
-                title={safeT(t, 'timelineCountFailed', 'Failed')}
-              >
-                <span aria-hidden>⚠</span>
-                <span>{statusCounts.failed}</span>
-              </span>
+              <Tooltip content={safeT(t, 'timelineCountFailed', 'Failed')}>
+                <span
+                  className="inline-flex items-center gap-0.5 text-destructive"
+                  data-testid="timeline-count-failed"
+                >
+                  <span aria-hidden>⚠</span>
+                  <span>{statusCounts.failed}</span>
+                </span>
+              </Tooltip>
             )}
             {statusCounts.running > 0 && (
-              <span
-                className="inline-flex items-center gap-0.5 text-primary"
-                data-testid="timeline-count-running"
-                title={safeT(t, 'timelineCountRunning', 'Running')}
-              >
-                <span aria-hidden>⏳</span>
-                <span>{statusCounts.running}</span>
-              </span>
+              <Tooltip content={safeT(t, 'timelineCountRunning', 'Running')}>
+                <span
+                  className="inline-flex items-center gap-0.5 text-primary"
+                  data-testid="timeline-count-running"
+                >
+                  <span aria-hidden>⏳</span>
+                  <span>{statusCounts.running}</span>
+                </span>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -409,24 +413,25 @@ export const TimelineTab = React.memo(function TimelineTab({
             data-testid="timeline-search-input"
           />
           {/* Phase 20 P1-3: 导出 Markdown 按钮 */}
-          <button
-            type="button"
-            onClick={onExportMarkdown}
-            aria-label={exported ? t('copied') : t('timelineExport')}
-            title={exported ? t('copied') : t('timelineExport')}
-            className={cn(
-              'absolute right-7 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground',
-              exported && 'text-emerald-500',
-            )}
-            data-testid="timeline-export-md"
-            data-copied={exported ? 'true' : undefined}
-          >
-            {exported ? (
-              <Check className="h-2.5 w-2.5" aria-hidden />
-            ) : (
-              <Download className="h-2.5 w-2.5" aria-hidden />
-            )}
-          </button>
+          <Tooltip content={exported ? t('copied') : t('timelineExport')}>
+            <button
+              type="button"
+              onClick={onExportMarkdown}
+              aria-label={exported ? t('copied') : t('timelineExport')}
+              className={cn(
+                'absolute right-7 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground',
+                exported && 'text-emerald-500',
+              )}
+              data-testid="timeline-export-md"
+              data-copied={exported ? 'true' : undefined}
+            >
+              {exported ? (
+                <Check className="h-2.5 w-2.5" aria-hidden />
+              ) : (
+                <Download className="h-2.5 w-2.5" aria-hidden />
+              )}
+            </button>
+          </Tooltip>
           {searchQuery.length > 0 && (
             <button
               type="button"
