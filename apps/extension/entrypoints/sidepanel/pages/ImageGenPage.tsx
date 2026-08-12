@@ -130,7 +130,7 @@ export default function ImageGenPage() {
       ) : null}
       {current && currentUrls.length > 0 ? (
         <Card className="rounded-md border-border shadow-none">
-          <CardContent className="p-3 flex flex-col gap-2">
+          <CardContent className="p-3 flex flex-col gap-2 min-[640px]:p-3">
             <div className="text-[11px] text-muted-foreground">
               {current.status} · {current.taskId.slice(0, 8)}
             </div>

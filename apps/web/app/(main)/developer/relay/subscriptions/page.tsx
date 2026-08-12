@@ -77,7 +77,7 @@ export default function RelaySubscriptionsPage() {
 
       {activePlan && (
         <Card className="bg-emerald-500/5 border-emerald-500/30">
-          <CardContent className="flex items-center justify-between gap-3 p-3">
+          <CardContent className="flex items-center justify-between gap-3 p-3 min-[640px]:p-3">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 当前订阅

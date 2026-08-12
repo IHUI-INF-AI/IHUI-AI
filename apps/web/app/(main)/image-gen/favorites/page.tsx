@@ -85,7 +85,7 @@ export default function ImageGenFavoritesPage() {
               <div className="relative aspect-square w-full bg-muted">
                 <Image src={item.imageUrl} alt={item.prompt} fill className="object-cover" />
               </div>
-              <CardContent className="space-y-1 p-3">
+              <CardContent className="space-y-1 p-3 min-[640px]:p-3">
                 <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
                 <p className="text-xs text-muted-foreground">{fmt(item.createdAt)}</p>
               </CardContent>

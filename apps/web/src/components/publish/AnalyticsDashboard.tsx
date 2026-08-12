@@ -229,7 +229,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="p-3 min-[640px]:p-3">
         <div className="text-[10px] text-muted-foreground">{label}</div>
         <div className={cn('mt-1 text-lg font-semibold', valueClass)}>{value}</div>
       </CardContent>

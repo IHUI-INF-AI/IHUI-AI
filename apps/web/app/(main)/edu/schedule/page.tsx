@@ -93,7 +93,7 @@ export default function EduSchedulePage() {
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 p-3 pt-0">
+              <CardContent className="space-y-2 p-3 pt-0 min-[640px]:p-3">
                 {(byDay[idx] ?? []).length === 0 ? (
                   <p className="py-2 text-center text-xs text-muted-foreground">{t('noClass')}</p>
                 ) : (

@@ -38,7 +38,7 @@ export function Testimonials(): React.JSX.Element {
       <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         {items.map((item, idx) => (
           <Card key={idx} className="border-border">
-            <CardContent className="flex flex-col gap-3 p-5">
+            <CardContent className="flex flex-col gap-3 p-5 min-[640px]:p-5">
               <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
