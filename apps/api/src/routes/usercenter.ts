@@ -39,6 +39,7 @@ const listUsersQuery = z.object({
   phone: z.transform(emptyToUndefined).pipe(z.string().min(1).max(11).optional()),
   status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const createUserSchema = z.object({
   phone: z.string().min(1, '手机号不能为空').max(11),
@@ -90,8 +91,16 @@ const updateDeptSchema = z.object({
 const createCertificateSchema = z.object({
   title: z.string().min(1, '证书标题不能为空').max(200),
   certificateNo: z.string().max(100).nullable().optional(),
-  issuedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
-  expireAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  issuedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
+  expireAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
@@ -128,20 +137,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
             status: { type: 'integer', minimum: 0, maximum: 1, description: '状态筛选' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -167,24 +163,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           properties: { phone: { type: 'string', description: '手机号' } },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -208,24 +187,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '按ID查用户',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -317,24 +279,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
             status: { type: 'integer' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -377,28 +322,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
             newPassword: { type: 'string', description: '新密码(至少6位)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 404),
       },
     },
     async (request, reply) => {
@@ -435,24 +359,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           properties: { newPassword: { type: 'string', description: '新密码(至少6位)' } },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -484,24 +391,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除用户',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -527,24 +417,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '用户证书列表',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -630,20 +503,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除证书',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -672,20 +532,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
             companyId: { type: 'integer', description: '公司ID筛选' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
     },
     async (request, reply) => {
@@ -708,24 +555,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '部门详情',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -799,24 +629,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
             sort: { type: 'integer' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -844,24 +657,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '删除部门',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 404),
       },
     },
     async (request, reply) => {
@@ -887,16 +683,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         summary: '用户统计',
         tags: ['usercenter'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {

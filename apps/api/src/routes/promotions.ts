@@ -37,6 +37,7 @@ const createInvitationSchema = z.object({
   rewardInvitee: z.number().int().min(0).optional(),
   expiresInDays: z.number().int().min(1).max(365).optional(),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const codeParamSchema = z.object({
   code: z.string().min(1, '邀请码不能为空').max(32),
@@ -77,8 +78,14 @@ const updateActivitySchema = z
     title: z.string().min(1).max(128).optional(),
     description: z.string().optional(),
     banner: z.url().max(512).optional(),
-    startAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
-    endAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+    startAt: z.coerce
+      .date()
+      .refine((d) => !isNaN(d.getTime()), '无效日期')
+      .optional(),
+    endAt: z.coerce
+      .date()
+      .refine((d) => !isNaN(d.getTime()), '无效日期')
+      .optional(),
     status: z.enum(ACTIVITY_STATUS).optional(),
     rules: z.unknown().optional(),
   })
@@ -256,16 +263,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (_request, reply) => {
@@ -380,24 +378,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
             amount: { type: 'number', description: '订单金额' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
@@ -573,28 +554,7 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403),
       },
     },
     async (request, reply) => {

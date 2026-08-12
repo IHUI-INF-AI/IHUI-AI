@@ -33,6 +33,7 @@ const scopeSchema = z.enum(['none', 'self', 'team', 'org', 'all'])
 const idParamSchema = z.object({
   id: z.uuid({ error: '无效的 ID' }),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const createRoleBodySchema = z.object({
   name: z.string().trim().min(1).max(64),
@@ -119,20 +120,7 @@ export const rbacRoutes: FastifyPluginAsync = async (server) => {
         summary: '角色列表',
         description: '获取所有角色列表(需登录)',
         tags: ['rbac'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (_request, reply) => {
@@ -289,32 +277,7 @@ export const rbacRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 403, 404),
       },
     },
     async (request, reply) => {
@@ -380,20 +343,7 @@ export const rbacRoutes: FastifyPluginAsync = async (server) => {
         summary: '权限点列表',
         description: '获取所有权限点列表(需登录)',
         tags: ['rbac'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(401),
       },
     },
     async (_request, reply) => {

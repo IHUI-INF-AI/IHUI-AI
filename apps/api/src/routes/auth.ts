@@ -60,6 +60,7 @@ const registerSchema = z.object({
   code: z.string().optional(),
   invitationCode: z.string().optional(),
 })
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const loginSchema = z.object({
   account: z.string().min(1, '账号不能为空'),
@@ -376,28 +377,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             newPassword: { type: 'string', description: '新密码(>=8 位,<=72 位)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 403, 404),
       },
       config: {
         // 2026-08-02 安全加固:密码重置端点配合账号锁定 + 验证码一次性,
@@ -464,24 +444,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             invitationCode: { type: 'string', description: '邀请码(可选)' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          409: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 409),
       },
       config: {
         // 2026-08-02 安全加固:注册端点收紧到 3 次/小时,防机器人批量刷号。
@@ -1149,24 +1112,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             refreshToken: { type: 'string', description: '刷新令牌' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
@@ -1275,20 +1221,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             refreshToken: { type: 'string', description: '刷新令牌' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400),
       },
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
@@ -1496,8 +1429,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   //      → PC 轮询 /qr/status 拿到 token 对 + userId 完成登录
 
   // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件)
-  const getRedis = (): Redis | null =>
-    (server as unknown as { redis?: Redis }).redis ?? null
+  const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
 
   // POST /qr/generate - PC 端生成扫码登录二维码(未鉴权)
   server.post(

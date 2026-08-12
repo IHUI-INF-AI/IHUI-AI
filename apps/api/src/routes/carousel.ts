@@ -17,16 +17,7 @@ export const carouselPublicRoutes: FastifyPluginAsync = async (server) => {
             position: { type: 'string', maxLength: 64 },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
+        response: buildResponseSchema(),
       },
     },
     async (request, reply) => {
@@ -52,5 +43,6 @@ export const carouselPublicRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 }
+import { buildResponseSchema } from '../utils/api-schemas.js'
 
 export default carouselPublicRoutes

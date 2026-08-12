@@ -34,6 +34,7 @@ import { queueNotificationEmail } from '../services/email-service.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // 2026-08-06:加 'aiworld'(AI World 收藏闭环,与下方 JSON schema enum 对齐;
+import { buildResponseSchema } from '../utils/api-schemas.js'
 // 此前仅 JSON schema 加了 aiworld,zod 常量漏同步会导致 POST /favorites 传 aiworld 被 400)
 const FAVORITE_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment', 'aiworld'] as const
 const TAG_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment'] as const
@@ -233,28 +234,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
             userId: { type: 'string', format: 'uuid', description: '目标用户 ID' },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          404: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401, 404),
       },
     },
     async (request, reply) => {
@@ -438,24 +418,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
+        response: buildResponseSchema(400, 401),
       },
     },
     async (request, reply) => {
