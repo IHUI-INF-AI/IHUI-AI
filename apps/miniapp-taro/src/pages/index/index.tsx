@@ -46,8 +46,6 @@ import BottomActionBar, {
 } from '@/components/BottomActionBar'
 import ModelConfigDialog from '@/components/ModelConfigDialog'
 import type { ModelConfig } from '@/components/ModelConfigDialog'
-import Carousel from '@/components/Carousel'
-import IntelligentAssistant from '@/components/IntelligentAssistant'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import closeInputPng from '@/assets/remote/images/close_input.png'
@@ -395,6 +393,15 @@ function FloatBox({
   )
 }
 
+/**
+ * PushNotification 推送通知弹窗组件(对齐原项目 PushNotification.vue)
+ * - 通过全局事件触发显示,固定在页面顶部
+ * - 当前为占位组件,待接入真实推送逻辑
+ */
+function PushNotification() {
+  return null
+}
+
 export default function Index() {
   const { t } = useI18n()
   const tt = useTt()
@@ -596,6 +603,13 @@ export default function Index() {
         currentModelType: '',
       }
     })
+  }, [])
+
+  // ===== 内部容器点击处理(对齐原项目 container @click="handleClick") =====
+  // 与 handleContainerClick 不同,此为 container 内部容器专用
+  const handleInnerClick = useCallback(() => {
+    // 原项目用于切换 sourceIs/sourceIsAgent 状态
+    // 当前 Taro 版本通过 BottomActionBar 的 toggle 按钮处理,此处为占位
   }, [])
 
   // FloatBox 切换可见性
@@ -844,6 +858,9 @@ export default function Index() {
 
   return (
     <View className="ai-home-page min-h-screen" style={{ background: 'var(--color-background)' }} onClick={handleContainerClick}>
+      {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
+      <PushNotification />
+
       {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
       <DrawerComponent
         side="left"
@@ -867,9 +884,9 @@ export default function Index() {
         onFeedback={handleFloatBoxFeedback}
       />
 
-      {/* ===== container 主容器(自然流,无 minHeight,让内容真实高度驱动)===== */}
-      <View className="flex flex-col">
-        {/* ===== NavBar(粘性 + 标题"智汇AI社区" + 菜单 + 加入社区群)===== */}
+      {/* ===== container 主容器(对齐原项目 container @click=handleClick) ===== */}
+      <View className="container" style={{ padding: 0 }} onClick={handleInnerClick}>
+        {/* ===== NavBar(导航栏,对齐原项目 navigation-bars) ===== */}
         <NavBar
           variant="ai-home"
           title={tt('index.title', '智汇AI社区')}
@@ -879,76 +896,15 @@ export default function Index() {
           onJoinClick={handleJoinClick}
         />
 
-        {/* ===== 公告栏(滚动文字,渐变色背景,对齐原项目 announcement bar)===== */}
-        <View className="announcement-bar">
-          <View className="announcement-scroll">
-            <Text className="announcement-text">{state.announcementText}</Text>
-          </View>
-        </View>
-
-        {/* ===== 轮播图(3 个指定 banner,img 为空 → Carousel 渐变 fallback 生效)===== */}
-        <View className="px-[20rpx] pt-[16rpx] pb-[8rpx]">
-          <Carousel
-            height={160}
-            items={[
-              { id: 'b1', img: '', title: 'AI 创作工坊上线', subtitle: '海量模板,一键生成 AI 原创作品' },
-              { id: 'b2', img: '', title: '智汇会员限时 5 折', subtitle: '升级会员解锁所有高级模型与专属特权' },
-              { id: 'b3', img: '', title: '新人大礼包', subtitle: '注册即赠 5000 智汇值 + 7 天会员体验' },
-            ]}
-          />
-        </View>
-
-        {/* ===== top_box(72vh 区域,IntelligentAssistant + share-image,对齐原项目 ai_index.vue)===== */}
+        {/* ===== top_box(对齐原项目 padding 0 20rpx,height: calc(72vh)) ===== */}
         <View
-          className="flex flex-col items-center"
+          className="top_box"
           style={{
-            height: '72vh',
             padding: '0 20rpx',
+            height: 'calc(72vh)',
             position: 'relative',
           }}
         >
-          {/* IntelligentAssistant(智汇助手卡片,显示问候语和 Token 余额) */}
-          <View className="w-full" style={{ marginBottom: rpx(16) }}>
-            <IntelligentAssistant
-              tokenBalance={state.isLogin ? 5000 : 0}
-              isLoggedIn={state.isLogin}
-              onRecharge={() => Taro.switchTab({ url: '/pages/user/index' })}
-            />
-          </View>
-
-          {/* 智能体列表(AgentList,对齐原项目 AgentListPanel,使用 stopPropagation) */}
-          <View className="w-full" style={{ marginBottom: rpx(16) }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-            <AgentListPanel
-              visible={state.showAgentList}
-              agents={MOCK_AGENTS}
-              loading={false}
-              onSelect={(agent) => {
-                setState((s) => ({
-                  ...s,
-                  selectedModelId: agent.id,
-                  modelName: agent.name,
-                  showAgentList: false,
-                }))
-              }}
-            />
-          </View>
-
-          {/* 展开/收起智能体列表按钮 */}
-          <View
-            className="flex items-center justify-center"
-            style={{
-              padding: '8rpx 24rpx',
-              borderRadius: rpx(20),
-              background: 'var(--color-brand-cyan-opacity-10, rgba(0,242,255,0.1))',
-              marginBottom: rpx(16),
-            }}
-            onClick={() => setState((s) => ({ ...s, showAgentList: !s.showAgentList }))}
-          >
-            <Text style={{ fontSize: rpx(24), color: 'var(--color-brand-cyan, #00F2FF)' }}>
-              {state.showAgentList ? '收起智能体' : '展开智能体 ▼'}
-            </Text>
-          </View>
-
           <View className="titlebox" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', paddingTop: rpx(20) }}>
             <View className="titlebox-right">
               <Image
@@ -962,319 +918,459 @@ export default function Index() {
           </View>
         </View>
 
-        {/* ===== 8 个 model-type-btn 横向滚动(模型类型,内联渲染对齐原项目 ai_index.vue)===== */}
+        {/* ===== input_box_content(底部输入区,fixed 贴底,对齐原项目) ===== */}
         <View
-          className="flex flex-row justify-center"
-          style={{ marginBottom: rpx(10) }}
-          onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+          className="input_box_content"
+          style={{
+            position: 'fixed',
+            bottom: computedContainerBottom,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+          }}
         >
-          <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
-            <View
-              className="inline-flex flex-row items-center"
-              style={{ padding: '0 20rpx' }}
-            >
-              {/* skills 技能商店 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('skills')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'skills' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'skills' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={skillsIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'skills' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
+          {/* ===== posi_angeetlis(对齐原项目,包裹 ModelList/AgentList/MaterialList + ModelType 按钮) ===== */}
+          <View className="posi_angeetlis">
+            {/* ModelList/AgentList/MaterialList 区域(对齐原项目 padding 0 20rpx) */}
+            <View style={{ padding: '0 20rpx' }}>
+              {/* ModelList 模型列表 */}
+              {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
+                <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                  <ModelList
+                    variant="popup"
+                    models={filteredModels}
+                    selectedId={state.selectedModelId}
+                    onSelect={handleModelSelect}
+                    currentType={state.currentModelType}
+                    agentActive={state.agentModeActive}
+                    onAgentSelect={handleAgentToggle}
                   />
                 </View>
-              </View>
-              {/* talk 文本对话 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('talk')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'talk' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'talk' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={talkIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'talk' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
+              ) : null}
+              {/* AgentList 智能体列表(对齐原项目 AgentList) */}
+              {state.showAgentList ? (
+                <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                  <AgentListPanel
+                    visible={state.showAgentList}
+                    agents={MOCK_AGENTS}
+                    loading={false}
+                    onSelect={(agent) => {
+                      setState((s) => ({
+                        ...s,
+                        selectedModelId: agent.id,
+                        modelName: agent.name,
+                        showAgentList: false,
+                      }))
+                    }}
                   />
                 </View>
-              </View>
-              {/* image 图片生成 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('image')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'image' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'image' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={imageIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'image' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-              {/* video 视频生成 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('video')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'video' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'video' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={videoIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'video' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-              {/* audio 音频生成 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('audio')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'audio' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'audio' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={audioIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'audio' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-              {/* videoa 数字人 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('videoa')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'videoa' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'videoa' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={videoaIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'videoa' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-              {/* other 通用 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('other')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'other' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'other' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={otherIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'other' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-              {/* sck 素材库 */}
-              <View
-                className="ai-model-type-btn"
-                onClick={(e: { stopPropagation: () => void }) => {
-                  e.stopPropagation()
-                  handleModelTypeClick('sck')
-                }}
-              >
-                <Image
-                  className="absolute top-0 left-0"
-                  src={state.currentModelType === 'sck' ? activeBackSvg : backDefaultSvg}
-                  style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'sck' ? 1 : 0.6 }}
-                  mode="aspectFill"
-                />
-                <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-                  <Image src={sckIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
-                  <Image
-                    src={jiantouSvg}
-                    className={state.currentModelType === 'sck' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
-                    style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
-                    mode="aspectFit"
-                  />
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* ===== 已选模型提示由 BottomActionBar(button-group-box)统一渲染,
-            避免与 fixed 底部输入区 z-index 冲突 ===== */}
-
-        {/* ===== ModelList 弹出层(选择模型时显示,使用 stopPropagation 防止容器点击关闭)===== */}
-        {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
-          <View style={{ padding: '0 20rpx' }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-            <ModelList
-              variant="popup"
-              models={filteredModels}
-              selectedId={state.selectedModelId}
-              onSelect={handleModelSelect}
-              currentType={state.currentModelType}
-              agentActive={state.agentModeActive}
-              onAgentSelect={handleAgentToggle}
-            />
-          </View>
-        ) : null}
-
-        {/* ===== MaterialList 素材库弹窗(对齐原项目 ai_index.vue MaterialList 组件,使用 stopPropagation)===== */}
-        {state.showMaterialList ? (
-          <View className="material-list-container" style={{ padding: '0 20rpx' }} onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-            {/* Tab 栏:文本/图片/视频/音频 */}
-            <View className="material-tabs">
-              {MATERIAL_TABS.map((tab) => (
-                <View
-                  key={tab.id}
-                  className={`material-tab ${state.materialTab === tab.id ? 'material-tab-active' : ''}`}
-                  onClick={() => handleMaterialTabChange(tab.id)}
-                >
-                  <Text className="material-tab-text">{tab.label}</Text>
-                </View>
-              ))}
-            </View>
-            {/* 素材列表 */}
-            <ScrollView
-              scrollY
-              className="material-list-scroll"
-              style={{ maxHeight: rpx(500) }}
-              onScrollToLower={() => {
-                // 加载更多(暂用 mock 数据,不重复加载)
-              }}
-            >
-              {currentMaterialList.length === 0 ? (
-                <View className="flex items-center justify-center py-[40rpx]">
-                  <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date, #888)' }}>
-                    {tt('index.material.empty', '暂无素材')}
-                  </Text>
-                </View>
-              ) : (
-                currentMaterialList.map((item) => (
-                  <View
-                    key={item.id}
-                    className="material-list-item"
-                    onClick={() => handleMaterialItemClick(item, state.materialTab)}
-                  >
-                    {/* 文本类型:显示标题 + 内容预览 */}
-                    {state.materialTab === 1 && (
-                      <View className="material-item-text">
-                        <Text className="material-item-title">{item.title}</Text>
-                        {item.content && (
-                          <Text className="material-item-preview">
-                            {(item.content || '').slice(0, 40)}{(item.content && item.content.length > 40) ? '...' : ''}
-                          </Text>
-                        )}
+              ) : null}
+              {/* MaterialList 素材库弹窗(对齐原项目 MaterialList) */}
+              {state.showMaterialList ? (
+                <View className="material-list-container" onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                  {/* Tab 栏:文本/图片/视频/音频 */}
+                  <View className="material-tabs">
+                    {MATERIAL_TABS.map((tab) => (
+                      <View
+                        key={tab.id}
+                        className={`material-tab ${state.materialTab === tab.id ? 'material-tab-active' : ''}`}
+                        onClick={() => handleMaterialTabChange(tab.id)}
+                      >
+                        <Text className="material-tab-text">{tab.label}</Text>
                       </View>
-                    )}
-                    {/* 图片类型:显示缩略图 + 标题 */}
-                    {state.materialTab === 2 && item.imageList && item.imageList[0] && (
-                      <View className="material-item-image">
-                        <Image
-                          src={item.imageList[0]}
-                          className="material-item-thumb"
-                          mode="aspectFill"
-                          style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
-                        />
-                        <Text className="material-item-title">{item.title}</Text>
-                      </View>
-                    )}
-                    {/* 视频类型:显示封面 + 标题 */}
-                    {state.materialTab === 3 && (
-                      <View className="material-item-video">
-                        <Image
-                          src={item.posterUrl || item.videoUrl || ''}
-                          className="material-item-thumb"
-                          mode="aspectFill"
-                          style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
-                        />
-                        <Text className="material-item-title">{item.title}</Text>
-                      </View>
-                    )}
-                    {/* 音频类型:显示标题 */}
-                    {state.materialTab === 4 && (
-                      <View className="material-item-audio">
-                        <Text className="material-item-title">{item.title}</Text>
-                        <Text className="material-item-preview">{tt('index.material.audio', '音频')}</Text>
-                      </View>
-                    )}
+                    ))}
                   </View>
-                ))
-              )}
-            </ScrollView>
+                  {/* 素材列表 */}
+                  <ScrollView
+                    scrollY
+                    className="material-list-scroll"
+                    style={{ maxHeight: rpx(500) }}
+                    onScrollToLower={() => {
+                      // 加载更多(暂用 mock 数据,不重复加载)
+                    }}
+                  >
+                    {currentMaterialList.length === 0 ? (
+                      <View className="flex items-center justify-center py-[40rpx]">
+                        <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date, #888)' }}>
+                          {tt('index.material.empty', '暂无素材')}
+                        </Text>
+                      </View>
+                    ) : (
+                      currentMaterialList.map((item) => (
+                        <View
+                          key={item.id}
+                          className="material-list-item"
+                          onClick={() => handleMaterialItemClick(item, state.materialTab)}
+                        >
+                          {/* 文本类型:显示标题 + 内容预览 */}
+                          {state.materialTab === 1 && (
+                            <View className="material-item-text">
+                              <Text className="material-item-title">{item.title}</Text>
+                              {item.content && (
+                                <Text className="material-item-preview">
+                                  {(item.content || '').slice(0, 40)}{(item.content && item.content.length > 40) ? '...' : ''}
+                                </Text>
+                              )}
+                            </View>
+                          )}
+                          {/* 图片类型:显示缩略图 + 标题 */}
+                          {state.materialTab === 2 && item.imageList && item.imageList[0] && (
+                            <View className="material-item-image">
+                              <Image
+                                src={item.imageList[0]}
+                                className="material-item-thumb"
+                                mode="aspectFill"
+                                style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
+                              />
+                              <Text className="material-item-title">{item.title}</Text>
+                            </View>
+                          )}
+                          {/* 视频类型:显示封面 + 标题 */}
+                          {state.materialTab === 3 && (
+                            <View className="material-item-video">
+                              <Image
+                                src={item.posterUrl || item.videoUrl || ''}
+                                className="material-item-thumb"
+                                mode="aspectFill"
+                                style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
+                              />
+                              <Text className="material-item-title">{item.title}</Text>
+                            </View>
+                          )}
+                          {/* 音频类型:显示标题 */}
+                          {state.materialTab === 4 && (
+                            <View className="material-item-audio">
+                              <Text className="material-item-title">{item.title}</Text>
+                              <Text className="material-item-preview">{tt('index.material.audio', '音频')}</Text>
+                            </View>
+                          )}
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
+
+            {/* ModelType 按钮区域(对齐原项目 display:flex justify-content:center margin-bottom:10rpx) */}
+            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', marginBottom: '10rpx' }}>
+              <ScrollView scrollX className="w-full" style={{ whiteSpace: 'nowrap' }} enhanced showScrollbar={false}>
+                <View
+                  className="inline-flex flex-row items-center"
+                  style={{ padding: '0 20rpx' }}
+                >
+                  {/* skills 技能商店 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('skills')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'skills' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'skills' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={skillsIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'skills' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* talk 文本对话 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('talk')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'talk' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'talk' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={talkIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'talk' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* image 图片生成 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('image')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'image' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'image' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={imageIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'image' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* video 视频生成 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('video')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'video' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'video' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={videoIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'video' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* audio 音频生成 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('audio')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'audio' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'audio' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={audioIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'audio' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* videoa 数字人 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('videoa')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'videoa' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'videoa' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={videoaIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'videoa' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* other 通用 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('other')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'other' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'other' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={otherIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'other' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                  {/* sck 素材库 */}
+                  <View
+                    className="ai-model-type-btn"
+                    onClick={(e: { stopPropagation: () => void }) => {
+                      e.stopPropagation()
+                      handleModelTypeClick('sck')
+                    }}
+                  >
+                    <Image
+                      className="absolute top-0 left-0"
+                      src={state.currentModelType === 'sck' ? activeBackSvg : backDefaultSvg}
+                      style={{ width: '100%', height: '100%', zIndex: 1, opacity: state.currentModelType === 'sck' ? 1 : 0.6 }}
+                      mode="aspectFill"
+                    />
+                    <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
+                      <Image src={sckIcon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
+                      <Image
+                        src={jiantouSvg}
+                        className={state.currentModelType === 'sck' ? 'ai-btn-arrow-rotate' : 'ai-btn-arrow'}
+                        style={{ width: rpx(20), height: rpx(20), position: 'relative', zIndex: 3, marginLeft: rpx(6) }}
+                        mode="aspectFit"
+                      />
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
           </View>
-        ) : null}
+
+          {/* ModelConfigDialog 模型配置弹窗(在 ModelList 和 MaterialCards 之间) */}
+          {state.showModelConfig && (
+            <ModelConfigDialog
+              visible
+              variant="default"
+              config={state.modelConfig}
+              onChange={handleModelConfigChange}
+              onClose={handleModelConfigClose}
+            />
+          )}
+
+          {/* MaterialCards 素材卡片流(在 ModelConfigDialog 和 BottomActionBar 之间) */}
+          {state.materialCards.length > 0 && (
+            <View className="material-cards-wrap" style={{ background: 'var(--color-card-subtle, #fafafa)' }}>
+              <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
+                <View className="material-cards-list" style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}>
+                  {state.materialCards.map((card, index) => (
+                    <View key={`mc-${card.id || index}-${index}`} className="material-card-item" style={{ marginRight: rpx(16) }}>
+                      <Image
+                        src={closeInputPng}
+                        mode="widthFix"
+                        className="material-card-close"
+                        style={{ width: rpx(32), height: rpx(32), position: 'absolute', top: rpx(-8), right: rpx(-8), zIndex: 2 }}
+                        onClick={() => removeMaterialCard(index)}
+                      />
+                      {card.type === 1 && (
+                        <View className="material-card-body material-card-text" style={{ width: rpx(200), height: rpx(160), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16) }}>
+                          <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}>{card.title}</Text>
+                          <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888' }}>
+                            {(card.content || '').slice(0, 20)}{(card.content && card.content.length > 20) ? '...' : ''}
+                          </Text>
+                        </View>
+                      )}
+                      {card.type === 2 && card.imageList && card.imageList[0] && (
+                        <View className="material-card-body material-card-img" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
+                          <Image src={card.imageList[0]} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
+                          <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                        </View>
+                      )}
+                      {card.type === 3 && (
+                        <View className="material-card-body material-card-video" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
+                          <Image src={card.posterUrl || card.videoUrl || ''} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
+                          <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                        </View>
+                      )}
+                      {card.type === 4 && (
+                        <View className="material-card-body material-card-audio" style={{ width: rpx(200), height: rpx(140), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold' }}>{card.title}</Text>
+                          <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}>{tt('index.material.audio', '音频')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {/* BottomActionBar 底部操作栏(对齐原项目) */}
+          <View
+            style={{
+              background: 'var(--color-card)',
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
+              boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
+            }}
+          >
+            <BottomActionBar
+              variant="ai-home"
+              modelName={state.modelName}
+              showIconButtons
+              isVoiceInput={state.isVoiceInput}
+              onVoiceInputToggle={toggleVoiceInput}
+              toggleButtons={state.toggleButtons}
+              inputAreaProps={{
+                value: inputText,
+                onInput: setInputText,
+                onSend: handleSend,
+                placeholder: state.isLogin ? '输入消息...' : '请先登录',
+                onFocus: handleInputFocus,
+                onBlur: handleInputBlur,
+                onKeyboardHeightChange: handleKeyboardShow,
+              }}
+              onToggle={handleToggleButtonClick}
+            />
+            {/* 分享触发按钮(在底部输入区右侧,对齐原项目 share trigger) */}
+            <View
+              style={{
+                position: 'absolute',
+                right: rpx(20),
+                top: rpx(-60),
+                zIndex: 1001,
+              }}
+              onClick={handleShareTrigger}
+            >
+              <View
+                style={{
+                  padding: '8rpx 20rpx',
+                  borderRadius: rpx(20),
+                  background: 'var(--color-brand-cyan, #00F2FF)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: rpx(8),
+                }}
+              >
+                <Text style={{ fontSize: rpx(22), color: '#000' }}>📤</Text>
+                <Text style={{ fontSize: rpx(22), color: '#000', fontWeight: 500 }}>
+                  {tt('index.share', '分享')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
       </View>
 
-      {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup)===== */}
+      {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup,在 input_box_content 之外) ===== */}
       <SkillsPopup
         visible={state.showSkillsPopup}
         agents={MOCK_SKILLS}
@@ -1283,132 +1379,6 @@ export default function Index() {
         onSelect={handleSkillSelect}
         onClose={handleSkillsClose}
       />
-
-      {/* ===== MaterialCards 素材卡片流(在输入区上方显示已选素材)===== */}
-      {state.materialCards.length > 0 && (
-        <View
-          className="material-cards-wrap"
-          style={{
-            position: 'fixed',
-            bottom: computedContainerBottom,
-            left: 0,
-            right: 0,
-            zIndex: 999,
-            background: 'var(--color-card-subtle, #fafafa)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
-          }}
-        >
-          <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
-            <View className="material-cards-list" style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}>
-              {state.materialCards.map((card, index) => (
-                <View key={`mc-${card.id || index}-${index}`} className="material-card-item" style={{ marginRight: rpx(16) }}>
-                  {/* 关闭按钮 */}
-                  <Image
-                    src={closeInputPng}
-                    mode="widthFix"
-                    className="material-card-close"
-                    style={{ width: rpx(32), height: rpx(32), position: 'absolute', top: rpx(-8), right: rpx(-8), zIndex: 2 }}
-                    onClick={() => removeMaterialCard(index)}
-                  />
-                  {/* 文本卡片 */}
-                  {card.type === 1 && (
-                    <View className="material-card-body material-card-text" style={{ width: rpx(200), height: rpx(160), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16) }}>
-                      <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}>{card.title}</Text>
-                      <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888' }}>
-                        {(card.content || '').slice(0, 20)}{(card.content && card.content.length > 20) ? '...' : ''}
-                      </Text>
-                    </View>
-                  )}
-                  {/* 图片卡片 */}
-                  {card.type === 2 && card.imageList && card.imageList[0] && (
-                    <View className="material-card-body material-card-img" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                      <Image src={card.imageList[0]} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                      <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
-                    </View>
-                  )}
-                  {/* 视频卡片 */}
-                  {card.type === 3 && (
-                    <View className="material-card-body material-card-video" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                      <Image src={card.posterUrl || card.videoUrl || ''} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                      <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
-                    </View>
-                  )}
-                  {/* 音频卡片 */}
-                  {card.type === 4 && (
-                    <View className="material-card-body material-card-audio" style={{ width: rpx(200), height: rpx(140), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold' }}>{card.title}</Text>
-                      <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}>{tt('index.material.audio', '音频')}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      )}
-
-      {/* ===== input_box_content(底部输入区,fixed 贴底,高 z-index)=====
-          用 BottomActionBar 组件复用完整 toggleButtons + InputArea + icon-button-group + 语音输入
-          修复 (2026-08-12):原手写版 Text 占位 + 4 emoji 圆按钮布局错位,
-          改为组件化版本,box-sizing 边框计算修正 + 已选模型行 z-index 重排 */}
-      <View
-        style={{
-          position: 'fixed',
-          bottom: computedContainerBottom,
-          left: 0,
-          right: 0,
-          background: 'var(--color-card)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
-          transition: 'bottom 0.3s ease',
-          zIndex: 1000,
-          boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
-        }}
-      >
-        <BottomActionBar
-          variant="ai-home"
-          modelName={state.modelName}
-          showIconButtons
-          isVoiceInput={state.isVoiceInput}
-          onVoiceInputToggle={toggleVoiceInput}
-          toggleButtons={state.toggleButtons}
-          inputAreaProps={{
-            value: inputText,
-            onInput: setInputText,
-            onSend: handleSend,
-            placeholder: state.isLogin ? '输入消息...' : '请先登录',
-            onFocus: handleInputFocus,
-            onBlur: handleInputBlur,
-            onKeyboardHeightChange: handleKeyboardShow,
-          }}
-          onToggle={handleToggleButtonClick}
-        />
-        {/* 分享触发按钮(在底部输入区右侧,对齐原项目 share trigger) */}
-        <View
-          style={{
-            position: 'absolute',
-            right: rpx(20),
-            top: rpx(-60),
-            zIndex: 1001,
-          }}
-          onClick={handleShareTrigger}
-        >
-          <View
-            style={{
-              padding: '8rpx 20rpx',
-              borderRadius: rpx(20),
-              background: 'var(--color-brand-cyan, #00F2FF)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: rpx(8),
-            }}
-          >
-            <Text style={{ fontSize: rpx(22), color: '#000' }}>📤</Text>
-            <Text style={{ fontSize: rpx(22), color: '#000', fontWeight: 500 }}>
-              {tt('index.share', '分享')}
-            </Text>
-          </View>
-        </View>
-      </View>
 
       {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay) ===== */}
       {state.isVoiceAnimationActive && (
@@ -1454,18 +1424,7 @@ export default function Index() {
         </View>
       )}
 
-      {/* ===== ModelConfigDialog 模型配置弹窗 ===== */}
-      {state.showModelConfig && (
-        <ModelConfigDialog
-          visible
-          variant="default"
-          config={state.modelConfig}
-          onChange={handleModelConfigChange}
-          onClose={handleModelConfigClose}
-        />
-      )}
-
-      {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if)===== */}
+      {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if,在 input_box_content 之外) ===== */}
       {state.showSharePointsPopup ? (
         <View
           className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -1485,7 +1444,7 @@ export default function Index() {
         </View>
       ) : null}
 
-      {/* ===== share-popup(分享弹窗,分享成功后触发显示)===== */}
+      {/* ===== share-popup(分享弹窗,分享成功后触发显示,在 input_box_content 之外) ===== */}
       {state.showSharePopup ? (
         <View
           className="fixed inset-0 z-[9999] flex items-center justify-center share-popup-overlay"
@@ -1535,7 +1494,7 @@ export default function Index() {
         </View>
       ) : null}
 
-      {/* ===== qr-code-modal(二维码弹窗)===== */}
+      {/* ===== qr-code-modal(二维码弹窗,在 input_box_content 之外) ===== */}
       {state.showQrCodeModal ? (
         <View
           className="fixed inset-0 z-[9999] flex items-center justify-center"
