@@ -160,29 +160,30 @@ export const OverviewSection = React.memo(function OverviewSection({
       headerExtra={
         // 注:不能放 <button>(HTML 不允许 button 嵌套 button,会触发 hydration 错误)
         // 用 div + role=button 模拟,行为一致(键盘 Enter/Space 触发由 onClick 兜底)
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={onCopySummary}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              e.stopPropagation()
-              onCopySummary()
-            }
-          }}
-          aria-label={copied ? t('copied') : t('overview.copySummary')}
-          title={copied ? t('copied') : t('overview.copySummary')}
-          className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
-          data-testid="overview-copy-summary"
-          data-copied={copied ? 'true' : undefined}
-        >
-          {copied ? (
-            <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
-          ) : (
-            <Clipboard className="h-2.5 w-2.5" aria-hidden />
-          )}
-        </div>
+        <Tooltip content={copied ? t('copied') : t('overview.copySummary')}>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onCopySummary}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                onCopySummary()
+              }
+            }}
+            aria-label={copied ? t('copied') : t('overview.copySummary')}
+            className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+            data-testid="overview-copy-summary"
+            data-copied={copied ? 'true' : undefined}
+          >
+            {copied ? (
+              <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
+            ) : (
+              <Clipboard className="h-2.5 w-2.5" aria-hidden />
+            )}
+          </div>
+        </Tooltip>
       }
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">

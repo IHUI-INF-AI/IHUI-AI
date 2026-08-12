@@ -33,6 +33,7 @@ import {
   type WorkspacePermission,
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
 import { saveBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
@@ -334,19 +335,23 @@ function PathNav({
               return (
                 <React.Fragment key={bc.path}>
                   {idx > 0 && <span className="select-none text-muted-foreground/30">/</span>}
-                  <button
-                    type="button"
-                    onClick={() => onNavigate(bc.path)}
-                    title={bc.path}
-                    className={cn(
-                      'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded px-1.5 text-xs transition-colors',
-                      isLast
-                        ? 'font-medium text-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    {bc.label}
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(bc.path)}
+                        className={cn(
+                          'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded px-1.5 text-xs transition-colors',
+                          isLast
+                            ? 'font-medium text-foreground'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {bc.label}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{bc.path}</TooltipContent>
+                  </Tooltip>
                 </React.Fragment>
               )
             })}
@@ -413,36 +418,40 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
   const t = useTranslations('workspace.folderPicker')
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => onSelect(entry)}
-        onDoubleClick={() => onOpen(entry)}
-        data-selected={isSelected}
-        title={entry.path}
-        className={cn(
-          'group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
-          isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
-        )}
-      >
-        <Folder
-          className={cn(
-            'h-4 w-4 shrink-0 transition-colors',
-            isSelected ? 'text-amber-500' : 'text-amber-500/70 group-hover:text-amber-500',
-          )}
-        />
-        <span className="flex-1 truncate font-medium">{entry.name}</span>
-        <span
-          className={cn(
-            'inline-flex h-5 shrink-0 items-center gap-0.5 rounded px-1.5 text-[10px] font-medium transition-colors',
-            isSelected
-              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-              : 'text-muted-foreground/50 group-hover:text-muted-foreground',
-          )}
-        >
-          <CornerDownLeft className="h-2.5 w-2.5" />
-          {t('rowOpenHint')}
-        </span>
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onSelect(entry)}
+            onDoubleClick={() => onOpen(entry)}
+            data-selected={isSelected}
+            className={cn(
+              'group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
+              isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
+            )}
+          >
+            <Folder
+              className={cn(
+                'h-4 w-4 shrink-0 transition-colors',
+                isSelected ? 'text-amber-500' : 'text-amber-500/70 group-hover:text-amber-500',
+              )}
+            />
+            <span className="flex-1 truncate font-medium">{entry.name}</span>
+            <span
+              className={cn(
+                'inline-flex h-5 shrink-0 items-center gap-0.5 rounded px-1.5 text-[10px] font-medium transition-colors',
+                isSelected
+                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                  : 'text-muted-foreground/50 group-hover:text-muted-foreground',
+              )}
+            >
+              <CornerDownLeft className="h-2.5 w-2.5" />
+              {t('rowOpenHint')}
+            </span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{entry.path}</TooltipContent>
+      </Tooltip>
     </li>
   )
 }
@@ -904,12 +913,10 @@ export function LocalFolderPicker({
                     {selectedName || t('noTarget')}
                   </div>
                   {openTarget && (
-                    <div
-                      className="truncate font-mono text-[11px] text-muted-foreground"
-                      title={openTarget}
-                    >
-                      {openTarget}
-                    </div>
+                    <TruncatedText
+                      value={openTarget}
+                      className="font-mono text-[11px] text-muted-foreground"
+                    />
                   )}
                 </div>
               </div>

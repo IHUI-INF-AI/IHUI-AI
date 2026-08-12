@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Mic, CheckCircle2, History, Wand2, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { Tooltip } from '@/components/feedback'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 
@@ -391,12 +392,12 @@ export default function KouboPage() {
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h) => (
+                <Tooltip content={t('historyItemHint')}>
                 <button
                   key={h.id}
                   type="button"
                   onClick={() => applyHistory(h)}
                   className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  title={t('historyItemHint')}
                 >
                   <div className="truncate font-medium">{h.title}</div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
@@ -414,6 +415,7 @@ export default function KouboPage() {
                     {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
                   </div>
                 </button>
+                </Tooltip>
               ))}
             </div>
           )}

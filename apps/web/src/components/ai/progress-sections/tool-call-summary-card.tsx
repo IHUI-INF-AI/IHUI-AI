@@ -4,6 +4,7 @@ import * as React from 'react'
 import { FileSearch, Globe, FilePen, Plus, Minus, Wrench, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import type { ToolCallSummary } from '@ihui/types/ai'
 
@@ -105,18 +106,19 @@ function StatChip({
 }) {
   if (hideOnZero && value === 0) return null
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70',
-        colorClass,
-      )}
-      title={label}
-      aria-label={label}
-      data-testid={testId}
-    >
-      <Icon className="h-2 w-2" aria-hidden />
-      <span className="font-medium">{value}</span>
-    </span>
+    <Tooltip content={label}>
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70',
+          colorClass,
+        )}
+        aria-label={label}
+        data-testid={testId}
+      >
+        <Icon className="h-2 w-2" aria-hidden />
+        <span className="font-medium">{value}</span>
+      </span>
+    </Tooltip>
   )
 }
 
@@ -300,17 +302,18 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           })}
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
-              <span
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70"
-                title={safeT(t, 'toolSummaryDuration', '总耗时')}
-                aria-label={safeT(t, 'toolSummaryDuration', '总耗时')}
-                data-testid="tool-call-summary-chip-duration"
-              >
-                <Clock className="h-2 w-2" aria-hidden />
-                <span className="font-medium">
-                  {formatDuration(effectiveSummary.totalDurationMs)}
+              <Tooltip content={safeT(t, 'toolSummaryDuration', '总耗时')}>
+                <span
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70"
+                  aria-label={safeT(t, 'toolSummaryDuration', '总耗时')}
+                  data-testid="tool-call-summary-chip-duration"
+                >
+                  <Clock className="h-2 w-2" aria-hidden />
+                  <span className="font-medium">
+                    {formatDuration(effectiveSummary.totalDurationMs)}
+                  </span>
                 </span>
-              </span>
+              </Tooltip>
             )}
         </div>
 

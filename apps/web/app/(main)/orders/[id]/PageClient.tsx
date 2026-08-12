@@ -138,12 +138,7 @@ export default function OrderDetailPage() {
 
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p
-          className="max-w-full truncate font-mono text-sm text-muted-foreground"
-          title={order.orderNo}
-        >
-          {order.orderNo}
-        </p>
+        <TruncatedText value={order.orderNo} className="max-w-full font-mono text-sm text-muted-foreground" />
       </div>
 
       <div
@@ -165,11 +160,8 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('target')}</dt>
-          <dd
-            className="min-w-0 flex-1 truncate text-right font-medium"
-            title={order.targetTitle ?? '-'}
-          >
-            {order.targetTitle ?? '-'}
+          <dd className="min-w-0 flex-1 text-right font-medium">
+            <TruncatedText value={order.targetTitle ?? '-'} />
           </dd>
         </div>
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
