@@ -7381,6 +7381,7 @@
       "contentFormatVideo": "Video"
     },
     "history": {
+      "title": "Publish History",
       "duration": "Duration",
       "time": "Time",
       "filterPlatform": "Filter by Platform",
@@ -11110,7 +11111,14 @@
     "internationalModels": "International Models",
     "chineseModels": "Chinese Models",
     "agreementSubtitle": "Please read the following agreement terms carefully",
-    "contactSubtitle": "Reach us through the following channels"
+    "contactSubtitle": "Reach us through the following channels",
+    "copyRepoUrl": "Copy repository URL",
+    "openOnGithub": "Open on GitHub",
+    "openOnGitee": "Open on Gitee",
+    "openOnGitcode": "Open on GitCode",
+    "workingHours": "Hours: Mon-Fri 9:00-18:00 (UTC+8)",
+    "repoCopied": "Repository URL copied to clipboard",
+    "copyFailed": "Copy failed, please copy manually"
   },
   "plugins": {
     "title": "Plugin Market",
