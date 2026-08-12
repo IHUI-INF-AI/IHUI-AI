@@ -205,14 +205,17 @@ describe('TagsView 视觉守门', () => {
     expect(outerDiv.className, '应有 gap-1').toContain('gap-1')
   })
 
-  it('标签 Link 包含 border 描边(active 状态用 primary/30,非 active 状态用 border/40)', () => {
+  it('标签 Link active 态用 1px outline 外描边 + 亮色纯黑/暗色纯白', () => {
     const outerDiv = renderWithTags()
     const link = outerDiv.querySelector('a')
     expect(link, '应有 a 标签').not.toBeNull()
-    expect(link!.className, '应有 border').toContain('border')
-    // 当前 tag 是 active(addTag 后默认激活),实际渲染用 primary/30 描边
-    // 2026-08-05 更新:active 标签描边改为 border border-border
-    expect(link!.className, 'active tag 应用 border-border 描边').toContain('border-border')
+    // 当前 tag 是 active(addTag 后默认激活)
+    // 2026-08-12 更新:active 态从 1px 内描边 (border border-border) 改为 1px 外描边 (outline),
+    //   亮色模式纯黑 (outline-black),暗色模式纯白 (dark:outline-white),
+    //   高对比突出"当前页",不占元素内部空间(对比 border 占 1px 内边距)
+    expect(link!.className, 'active tag 应用 outline-1 宽度').toContain('outline-1')
+    expect(link!.className, 'active tag 应用 outline-black 亮色色').toContain('outline-black')
+    expect(link!.className, 'active tag 应用 dark:outline-white 暗色色').toContain('dark:outline-white')
   })
 
   it('关闭按钮 X 默认占位 w-5 + opacity-0(hover 不拉伸标签宽度,加大到接近文字大小)', () => {
