@@ -1171,23 +1171,23 @@ export function SpecPanel({ className }: { className?: string }) {
             const isActive = opt.type === scopeType
             const Icon = opt.icon
             return (
-              <button
-                key={opt.type}
-                type="button"
-                onClick={() => setScopeType(opt.type)}
-                aria-pressed={isActive}
-                title={opt.label}
-                className={cn(
-                  'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
-                  idx < SCOPE_OPTIONS.length - 1 && 'border-border',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                <span>{opt.label}</span>
-              </button>
+              <Tooltip key={opt.type} content={opt.label}>
+                <button
+                  type="button"
+                  onClick={() => setScopeType(opt.type)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
+                    idx < SCOPE_OPTIONS.length - 1 && 'border-border',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  <span>{opt.label}</span>
+                </button>
+              </Tooltip>
             )
           })}
         </div>
@@ -1236,39 +1236,41 @@ export function SpecPanel({ className }: { className?: string }) {
             {history.length > 0 && (
               <div className="flex items-center gap-1">
                 <History className="h-3 w-3" />
-                <select
-                  value={selectedVersion}
-                  onChange={(e) => void handleLoadVersion(e.target.value)}
-                  className="h-6 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                  title={t('historyVersion')}
-                >
-                  <option value="latest">最新</option>
-                  {history.map((h) => (
-                    <option key={h.timestamp} value={h.timestamp}>
-                      {h.timestamp}
-                    </option>
-                  ))}
-                </select>
+                <Tooltip content={t('historyVersion')}>
+                  <select
+                    value={selectedVersion}
+                    onChange={(e) => void handleLoadVersion(e.target.value)}
+                    className="h-6 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+                  >
+                    <option value="latest">最新</option>
+                    {history.map((h) => (
+                      <option key={h.timestamp} value={h.timestamp}>
+                        {h.timestamp}
+                      </option>
+                    ))}
+                  </select>
+                </Tooltip>
               </div>
             )}
             {/* 对比当前 */}
-            <button
-              type="button"
-              onClick={handleDiff}
-              disabled={diffLoading}
-              className={cn(
-                'flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/60',
-                diffLoading && 'cursor-not-allowed opacity-60',
-              )}
-              title={t('regenCompare')}
-            >
-              {diffLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <GitCompare className="h-3 w-3" />
-              )}
-              <span>对比当前</span>
-            </button>
+            <Tooltip content={t('regenCompare')}>
+              <button
+                type="button"
+                onClick={handleDiff}
+                disabled={diffLoading}
+                className={cn(
+                  'flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/60',
+                  diffLoading && 'cursor-not-allowed opacity-60',
+                )}
+              >
+                {diffLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <GitCompare className="h-3 w-3" />
+                )}
+                <span>对比当前</span>
+              </button>
+            </Tooltip>
             {/* 导出 */}
             <button
               type="button"
@@ -1881,19 +1883,20 @@ export function SpecPanel({ className }: { className?: string }) {
                     placeholder={t('branchNamePlaceholder')}
                     className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
                   />
-                  <select
-                    value={branchBaseVersion}
-                    onChange={(e) => setBranchBaseVersion(e.target.value)}
-                    className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                    title={t('baselineVersion')}
-                  >
-                    <option value="latest">最新</option>
-                    {history.map((h) => (
-                      <option key={h.timestamp} value={h.timestamp}>
-                        {h.timestamp}
-                      </option>
-                    ))}
-                  </select>
+                  <Tooltip content={t('baselineVersion')}>
+                    <select
+                      value={branchBaseVersion}
+                      onChange={(e) => setBranchBaseVersion(e.target.value)}
+                      className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+                    >
+                      <option value="latest">最新</option>
+                      {history.map((h) => (
+                        <option key={h.timestamp} value={h.timestamp}>
+                          {h.timestamp}
+                        </option>
+                      ))}
+                    </select>
+                  </Tooltip>
                   <button
                     type="button"
                     onClick={handleCreateBranch}
@@ -2011,36 +2014,39 @@ export function SpecPanel({ className }: { className?: string }) {
                             base: {b.baseVersion === 'latest' ? '最新' : b.baseVersion.slice(0, 8)}
                           </span>
                           <div className="ml-auto flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => void handleMergeBranch(b.name)}
-                              disabled={branchLoading || b.status !== 'active'}
-                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
-                              title={t('mergeToMain')}
-                            >
-                              <GitMerge className="h-3 w-3" />
-                              <span>合并</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDiffBranch(b.name)}
-                              disabled={branchLoading}
-                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
-                              title={t('compareMain')}
-                            >
-                              <GitCompare className="h-3 w-3" />
-                              <span>对比</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleAbandonBranch(b.name)}
-                              disabled={branchLoading || b.status !== 'active'}
-                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
-                              title={t('abandonBranch')}
-                            >
-                              <Square className="h-3 w-3" />
-                              <span>废弃</span>
-                            </button>
+                            <Tooltip content={t('mergeToMain')}>
+                              <button
+                                type="button"
+                                onClick={() => void handleMergeBranch(b.name)}
+                                disabled={branchLoading || b.status !== 'active'}
+                                className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              >
+                                <GitMerge className="h-3 w-3" />
+                                <span>合并</span>
+                              </button>
+                            </Tooltip>
+                            <Tooltip content={t('compareMain')}>
+                              <button
+                                type="button"
+                                onClick={() => void handleDiffBranch(b.name)}
+                                disabled={branchLoading}
+                                className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              >
+                                <GitCompare className="h-3 w-3" />
+                                <span>对比</span>
+                              </button>
+                            </Tooltip>
+                            <Tooltip content={t('abandonBranch')}>
+                              <button
+                                type="button"
+                                onClick={() => void handleAbandonBranch(b.name)}
+                                disabled={branchLoading || b.status !== 'active'}
+                                className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                              >
+                                <Square className="h-3 w-3" />
+                                <span>废弃</span>
+                              </button>
+                            </Tooltip>
                           </div>
                         </div>
                       </div>
@@ -2111,20 +2117,21 @@ export function SpecPanel({ className }: { className?: string }) {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Wand2 className="h-3 w-3 text-muted-foreground" />
-                  <select
-                    value={requirementFormat}
-                    onChange={(e) =>
-                      setRequirementFormat(
-                        e.target.value as 'text' | 'markdown' | 'image_description',
-                      )
-                    }
-                    className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                    title={t('requirementFormat')}
-                  >
-                    <option value="text">纯文本</option>
-                    <option value="markdown">markdown</option>
-                    <option value="image_description">截图描述</option>
-                  </select>
+                  <Tooltip content={t('requirementFormat')}>
+                    <select
+                      value={requirementFormat}
+                      onChange={(e) =>
+                        setRequirementFormat(
+                          e.target.value as 'text' | 'markdown' | 'image_description',
+                        )
+                      }
+                      className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+                    >
+                      <option value="text">纯文本</option>
+                      <option value="markdown">markdown</option>
+                      <option value="image_description">截图描述</option>
+                    </select>
+                  </Tooltip>
                   <button
                     type="button"
                     onClick={handleGenerateFromRequirement}
@@ -2210,22 +2217,21 @@ export function SpecPanel({ className }: { className?: string }) {
         {watchStatus?.watchers.length ? (
           <div className="flex flex-wrap items-center gap-1">
             {watchStatus.watchers.map((w) => (
-              <span
-                key={w.watchId}
-                className="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground"
-                title={`监听路径: ${w.watchPath}\n启动时间: ${w.startedAt}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                <span>{w.watchId.slice(0, 8)}</span>
-                <button
-                  type="button"
-                  onClick={() => void handleStopWatch(w.watchId)}
-                  className="text-red-500 hover:text-red-600"
-                  title={t('stopListening')}
-                >
-                  ×
-                </button>
-              </span>
+              <Tooltip key={w.watchId} content={`监听路径: ${w.watchPath}\n启动时间: ${w.startedAt}`}>
+                <span className="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span>{w.watchId.slice(0, 8)}</span>
+                  <Tooltip content={t('stopListening')}>
+                    <button
+                      type="button"
+                      onClick={() => void handleStopWatch(w.watchId)}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </Tooltip>
+                </span>
+              </Tooltip>
             ))}
           </div>
         ) : (

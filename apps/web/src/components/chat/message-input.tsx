@@ -499,16 +499,17 @@ export function MessageInput({
                     只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
                     展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
                 {activeWorkspaceMode === 'bypass-permissions' && (
-                  <button
-                    type="button"
-                    onClick={() => setInfoMode('bypass-permissions')}
-                    className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
-                    aria-label={t('permission.infoButtonLabel')}
-                    title={t('permission.infoButtonTitle')}
-                    data-testid="permission-mode-info-button"
-                  >
-                    <Info className="h-3 w-3" aria-hidden="true" />
-                  </button>
+                  <Tooltip content={t('permission.infoButtonTitle')}>
+                    <button
+                      type="button"
+                      onClick={() => setInfoMode('bypass-permissions')}
+                      className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                      aria-label={t('permission.infoButtonLabel')}
+                      data-testid="permission-mode-info-button"
+                    >
+                      <Info className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
                 )}
                 {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
                     复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
