@@ -58,6 +58,7 @@ export default function SettingsScreen() {
     { key: 'Feedback', label: t('menu.feedback') },
     { key: 'Privacy', label: t('menu.privacy') },
     { key: 'Agreement', label: t('menu.agreement') },
+    { key: 'ChangePwd', label: t('menu.changePwd') },
   ]
 
   const drawerMenuItems: SideMenuItem[] = [
@@ -65,6 +66,7 @@ export default function SettingsScreen() {
     { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
     { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
     { key: 'Agreement', label: t('menu.agreement'), icon: '📄' },
+    { key: 'ChangePwd', label: t('menu.changePwd'), icon: '🔑' },
   ]
 
   const onSelectLocale = (v: string) => {

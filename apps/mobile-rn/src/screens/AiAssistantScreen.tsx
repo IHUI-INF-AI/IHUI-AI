@@ -86,6 +86,9 @@ export default function AiAssistantScreen() {
       onPressItem={(item) =>
         navigation.navigate('AiAssistantN8n', { agentId: item.id })
       }
+      onPressCategory={(categoryId, title) =>
+        navigation.navigate('CategoryDetail', { categoryId, title })
+      }
       onBack={() => undefined}
     />
   )
