@@ -53,6 +53,10 @@ export interface NavBarProps {
   onFeedbackClick?: () => void
   /** @pack 返回首页回调(对齐原项目 @pack,区别于 onBack 的 navigateBack 行为) */
   onPack?: () => void
+  /** ai-home 模式:标题切换当前索引(0=每日资讯,1=排行榜) */
+  activeTitleIndex?: number
+  /** ai-home 模式:标题切换回调(接收索引) */
+  onActiveNav?: (index: number) => void
 }
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
@@ -77,6 +81,8 @@ export default function NavBar({
   showFeedback,
   onFeedbackClick,
   onPack,
+  activeTitleIndex = 0,
+  onActiveNav,
 }: NavBarProps) {
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
@@ -124,14 +130,33 @@ export default function NavBar({
               <Image src={menuIconSrc} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
             </View>
           </View>
-          {/* 中间:标题(用 mx-auto 居中,给左右两侧留出空间) */}
-          <View
-            className="flex flex-1 items-center justify-center"
-          >
-            <Text className="font-bold truncate" style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}>
-              {title}
-            </Text>
-          </View>
+          {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
+          {onActiveNav ? (
+            <View className="flex flex-1 items-center justify-center gap-[40rpx]">
+              <View onClick={() => onActiveNav(0)}>
+                <Text style={{
+                  color: activeTitleIndex === 0 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                  fontSize: rpx(28),
+                  fontWeight: activeTitleIndex === 0 ? '600' : 'normal' as const,
+                  textDecoration: activeTitleIndex === 0 ? 'underline' : 'none' as const,
+                }}>每日资讯</Text>
+              </View>
+              <View onClick={() => onActiveNav(1)}>
+                <Text style={{
+                  color: activeTitleIndex === 1 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                  fontSize: rpx(28),
+                  fontWeight: activeTitleIndex === 1 ? '600' : 'normal' as const,
+                  textDecoration: activeTitleIndex === 1 ? 'underline' : 'none' as const,
+                }}>排行榜</Text>
+              </View>
+            </View>
+          ) : (
+            <View className="flex flex-1 items-center justify-center">
+              <Text className="font-bold truncate" style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}>
+                {title}
+              </Text>
+            </View>
+          )}
           {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
           <View className="ml-auto flex flex-shrink-0 items-center gap-[12rpx]">
             {showFeedback ? (
