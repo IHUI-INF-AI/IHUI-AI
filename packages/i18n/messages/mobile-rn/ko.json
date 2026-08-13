@@ -25,7 +25,18 @@
     "title": "마이",
     "myCourses": "내 강의",
     "myFavorites": "내 즐겨찾기",
-    "feedback": "피드백"
+    "feedback": "피드백",
+    "userCard": {
+      "order": "내 주문",
+      "orderSubtitle": "관련 주문 보기",
+      "company": "내 회사",
+      "companySubtitle": "직원 및 실적 보기",
+      "token": "내 토큰",
+      "tokenSubtitle": "토큰 사용 정보",
+      "wallet": "내 지갑",
+      "walletSubtitle": "잔액 및 충전 보기",
+      "loginRequired": "먼저 로그인하세요"
+    }
   },
   "payment": {
     "title": "결제 주문",
