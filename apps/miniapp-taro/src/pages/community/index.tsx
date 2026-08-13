@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -15,6 +15,7 @@ import AgentListPanel from '@/components/AgentListPanel'
 import { FloatBox } from '@/components'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
+import backSvg from '@/assets/remote/images/back.svg'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
@@ -45,6 +46,7 @@ const MOCK_MY_AGENTS = [
   { id: '104', agentName: '数据报表', agentAvatar: '', isNew: 1 },
 ]
 
+// TODO: 接入 api.getAgentList 替代 mock,待 API 路由确认后实施
 const MOCK_AGENT_LIST = [
   {
     id: '201',
@@ -185,16 +187,16 @@ const MOCK_AGENT_LIST = [
 ]
 
 const MOCK_CATEGORIES = [
-  { id: 'all', name: '全部', url: '' },
-  { id: 'hot', name: '热门', url: '' },
-  { id: 'new', name: '最新', url: '' },
-  { id: 'office', name: '办公', url: '' },
-  { id: 'dev', name: '开发', url: '' },
-  { id: 'design', name: '设计', url: '' },
-  { id: 'data', name: '数据', url: '' },
-  { id: 'marketing', name: '营销', url: '' },
-  { id: 'video', name: '视频', url: '' },
-  { id: 'edu', name: '教育', url: '' },
+  { id: 'all', name: '全部', url: '', butUrl: '' },
+  { id: 'hot', name: '热门', url: '', butUrl: '' },
+  { id: 'new', name: '最新', url: '', butUrl: '' },
+  { id: 'office', name: '办公', url: '', butUrl: '' },
+  { id: 'dev', name: '开发', url: '', butUrl: '' },
+  { id: 'design', name: '设计', url: '', butUrl: '' },
+  { id: 'data', name: '数据', url: '', butUrl: '' },
+  { id: 'marketing', name: '营销', url: '', butUrl: '' },
+  { id: 'video', name: '视频', url: '', butUrl: '' },
+  { id: 'edu', name: '教育', url: '', butUrl: '' },
 ]
 
 /* ============ 类型定义 ============ */
@@ -221,6 +223,7 @@ interface CategoryItem {
   id: string
   name: string
   url: string
+  butUrl: string
 }
 
 /* ============ 页面主组件 ============ */
@@ -412,6 +415,28 @@ export default function Community() {
     })
   }
 
+  /** 收藏智能体 — 对齐原项目 getAgentCollect(待 AgentListPanel 扩展 onCollect 回调后接入) */
+  const handleAgentCollect = useCallback(async (id: string) => {
+    try {
+      // TODO: 接入 api.collectAgent(id) 真实接口
+      setAgentList(prev => prev.map(a => a.id === id ? { ...a, isCollect: a.isCollect ? 0 : 1, collectCount: a.collectCount + (a.isCollect ? -1 : 1) } : a))
+      Taro.showToast({ title: '已收藏', icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }, [])
+
+  /** 点赞智能体 — 对齐原项目 getAgentLike(待 AgentListPanel 扩展 onLike 回调后接入) */
+  const handleAgentLike = useCallback(async (id: string) => {
+    try {
+      // TODO: 接入 api.likeAgent(id) 真实接口
+      setAgentList(prev => prev.map(a => a.id === id ? { ...a, isThumbs: a.isThumbs ? 0 : 1, likeCount: a.likeCount + (a.isThumbs ? -1 : 1) } : a))
+      Taro.showToast({ title: '已点赞', icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }, [])
+
   function onTitleSwitchChange(item: TitleSwitchScrollTitleItem) {
     const matched = categories.find((c) => c.name === item.name)
     if (matched) {
@@ -421,33 +446,50 @@ export default function Community() {
 
   function handleDrawerGoPage(item: { key: string }) {
     setShowDrawer(false)
-    if (item.key === 'appStore') {
-      Taro.pageScrollTo({ scrollTop: 0, duration: 300 })
-    } else if (item.key === 'demand') {
-      Taro.navigateTo({ url: '/pages/ranking/index' })
-    } else if (item.key === 'course') {
-      Taro.navigateTo({ url: '/pages/course/list' })
-    } else if (item.key === 'inspiration') {
-      Taro.showToast({ title: '灵感模块即将上线', icon: 'none' })
-    } else if (item.key === 'dynamic') {
-      Taro.showToast({ title: '动态模块即将上线', icon: 'none' })
+    const routeMap: Record<string, string> = {
+      appStore: '/pages/index/index',        // 对齐原项目 gopage: 跳首页 AI 对话
+      demand: '/pages/ranking/index',        // 对齐原项目 square: 跳需求广场
+      inspiration: '/pages/aigc/list',       // 对齐原项目 aigc: 跳 AIGC 创作列表
+      dynamic: '/pages/share/index',         // 对齐原项目 share: 跳 AI 资讯
+      course: '/pages/course/list',          // 对齐原项目 studyindex: 跳课程
+    }
+    const url = routeMap[item.key]
+    if (url) {
+      // appStore 用 switchTab(因为是 tabbar 页),其他用 navigateTo
+      if (item.key === 'appStore') {
+        Taro.switchTab({ url, fail: () => Taro.navigateTo({ url }) })
+      } else {
+        Taro.navigateTo({ url, fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }) })
+      }
     }
   }
 
   function handleDrawerLabelClick(item: { key: string }) {
     setShowDrawer(false)
     if (item.key === 'newChat') {
-      Taro.navigateTo({ url: '/pages/ai/chat' })
+      // 对齐原项目 addNewChat:跳首页 AI 对话
+      Taro.switchTab({ url: '/pages/index/index', fail: () => Taro.navigateTo({ url: '/pages/ai/chat' }) })
     } else if (item.key === 'company') {
-      Taro.navigateTo({ url: '/pages/company/index' })
+      // 对齐原项目 gotocompany:跳分销页
+      Taro.navigateTo({ url: '/pages/distribution/index', fail: () => Taro.navigateTo({ url: '/pages/company/index' }) })
     } else if (item.key === 'freebie') {
-      Taro.showToast({ title: '免费资料领取即将上线', icon: 'none' })
+      // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
+      const feishuUrl = 'https://ihui.feishu.cn/wiki/免费资料'
+      Taro.setClipboardData({
+        data: feishuUrl,
+        success: () => Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
+        fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
+      })
     }
   }
 
   function handleDrawerChatClick(chat: { id: string | number; title: string }) {
     setShowDrawer(false)
-    Taro.navigateTo({ url: `/pages/ai/chat?chatId=${chat.id}` })
+    // 对齐原项目 handleShowFullList:携带 chatId + title 参数
+    Taro.navigateTo({
+      url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+      fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+    })
   }
 
   function handleFenleiBtnClick(index: number, item: CategoryItem) {
@@ -462,6 +504,11 @@ export default function Community() {
       children: categories.map((c) => ({ name: c.name })),
     },
   ]
+
+  // handleAgentCollect / handleAgentLike 暂未被 AgentListPanel 触发(等扩展 onCollect/onLike 回调),
+  // 此处 void 引用防止 TS6133 未使用警告,接入后移除
+  void handleAgentCollect
+  void handleAgentLike
 
   /** 映射 AgentItem[] 到 AgentInfo[] */
   const agentInfoList: AgentInfo[] = agentList.map((a) => ({
@@ -479,7 +526,7 @@ export default function Community() {
       className="community-out-container"
       style={{
         height: showCategoryPopup ? '100vh' : 'auto',
-        overflowY: showCategoryPopup ? 'hidden' : 'auto' as any,
+        overflowY: showCategoryPopup ? 'hidden' : 'auto',
       }}
     >
       {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
@@ -549,6 +596,11 @@ export default function Community() {
                     className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
                     onClick={() => handleFenleiBtnClick(index, item)}
                   >
+                    <Image
+                      className="fenlei_icon"
+                      src={fenleiActive.includes(index) ? item.butUrl : item.url}
+                      mode="widthFix"
+                    />
                     <Text className="community-fenlei-btn-text">{item.name}</Text>
                   </View>
                 ))}
@@ -615,11 +667,11 @@ export default function Community() {
           </View>
         </View>
 
-        {/* toodown 返回顶部按钮(对齐原项目) */}
+        {/* toodown 返回顶部按钮(对齐原项目, 用 back.svg) */}
         {showBackTop ? (
           <View className="community-toodown-wrapper">
             <View className="community-toodown" onClick={backToTop}>
-              <Text className="community-toodown-icon">↑</Text>
+              <Image src={backSvg} className="community-toodown-img" mode="aspectFit" />
             </View>
           </View>
         ) : null}
