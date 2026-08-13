@@ -1,3 +1,4 @@
+#requires -Version 7
 # IHUI AI CLI — 一键安装脚本 (Windows PowerShell)
 # 用法: irm https://aizhs.top/install.ps1 | iex
 #   或: irm https://aizhs.top/install.ps1 | iex -Version 1.0.0

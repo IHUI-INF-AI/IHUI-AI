@@ -1,3 +1,4 @@
+#requires -Version 7
 # 启动 Cloudflare Tunnel,把本地 localhost:8801 暴露到
 #   https://aizhs.top         (主域,完整应用)
 #   https://bsm.aizhs.top     (认证子域,只承载登录/OAuth 回调)
