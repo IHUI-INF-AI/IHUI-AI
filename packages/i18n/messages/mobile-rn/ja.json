@@ -115,6 +115,7 @@
     "navLogout": "ログアウト"
   },
   "settings": {
+    "title": "設定",
     "about": "IHUI AI について",
     "lang_zhCN": "簡体字中国語",
     "lang_en": "英語",
@@ -125,14 +126,27 @@
     "theme_dark": "ダーク",
     "theme_system": "システム",
     "languageChanged": "言語が切り替わりました",
-    "themeChanged": "テーマが切り替わりました"
+    "themeChanged": "テーマが切り替わりました",
+    "checkUpdateTitle": "アップデート確認",
+    "checkUpdateLatest": "最新のバージョンです",
+    "changePhoneMissingUser": "ユーザー情報が不足しています",
+    "logoutConfirm": "ログアウトしますか?"
   },
   "menu": {
     "about": "について",
     "feedback": "フィードバック",
     "privacy": "プライバシー",
     "agreement": "利用規約",
-    "changePwd": "パスワード変更"
+    "changePwd": "パスワード変更",
+    "accountManage": "アカウント管理",
+    "changePhone": "電話番号変更",
+    "accountCancel": "アカウント退会",
+    "checkUpdate": "アップデート確認",
+    "appPermission": "アプリ権限",
+    "usageRules": "利用規範",
+    "businessLicense": "営業許可証",
+    "icpRecord": "ICP備案",
+    "modelRecord": "モデル備案"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -177,13 +191,43 @@
   },
   "common": {
     "ok": "OK",
-    "gotIt": "了解しました"
+    "gotIt": "了解しました",
+    "back": "戻る",
+    "loading": "読み込み中...",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "error": "エラー",
+    "menu": "メニュー",
+    "empty": "データなし"
   },
   "aiAssistant": {
+    "title": "AIアシスタント",
+    "subtitle": "エージェントを選んで対話を開始",
+    "searchPlaceholder": "エージェントを検索",
+    "empty": "エージェントがありません",
+    "useCount": "{count} 回使用",
+    "favoriteCount": "{count} 件のお気に入り",
+    "startChat": "チャット開始",
+    "catAll": "全て",
+    "catWriting": "文章作成",
+    "catCoding": "プログラミング",
+    "catOffice": "オフィス",
+    "catStudy": "学習",
+    "loadFailed": "読み込み失敗",
     "chat": {
       "title": "チャットを開始",
       "message": "「{name}」とのチャットを開始します"
     }
+  },
+  "aiAssistantN8n": {
+    "title": "AIアシスタント",
+    "placeholder": "質問を入力してください",
+    "empty": "メッセージを送って対話を開始",
+    "emptyNoAgent": "ワークフロー未設定、モック応答",
+    "send": "送信",
+    "streaming": "生成中...",
+    "callFailed": "呼び出し失敗,再試行してください",
+    "mockResponse": "モック応答,agentId 設定で実際のワークフローに接続"
   },
   "aiCareer": {
     "plan": {
@@ -330,5 +374,36 @@
     "voiceInput": "音声入力",
     "voicePlaceholder": "長押しして話す",
     "submit": "共有"
+  },
+  "vipScreen": {
+    "plans": {
+      "continuous": "連続月額",
+      "monthly": "月額購入"
+    },
+    "discount": "期間限定割引",
+    "trial": "体験",
+    "subscribe": "今すぐ開通",
+    "agreement": "入金することで《ユーザー入金規約》に同意したことになります",
+    "pay": {
+      "title": "支払い確認",
+      "message": "¥{amount} で「{name}」を開通しますか?",
+      "confirm": "支払い確認",
+      "cancel": "キャンセル",
+      "success": "支払い成功",
+      "failed": "支払い失敗またはキャンセルされました"
+    },
+    "banner": {
+      "trader": "トレーダー専用権益",
+      "traderSubtitle": "高額還元 · 優先カスタマイズ · 1対1コーチング",
+      "level": "会員レベルアップグレード",
+      "levelHint": "1¥ = 1 成長ポイント",
+      "privateAdvisory": "プライベートアドバイザリー"
+    },
+    "qr": {
+      "title": "スキャンしてカスタマーサポートに連絡",
+      "hint": "QRコードを長押しで保存",
+      "card": "名刺QRコード",
+      "close": "閉じる"
+    }
   }
 }
