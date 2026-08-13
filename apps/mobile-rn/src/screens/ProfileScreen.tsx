@@ -30,6 +30,7 @@ import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import { UserCard, type UserCardKey } from '../components/UserCard'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
@@ -143,6 +144,24 @@ export function ProfileScreen() {
     }
   }
 
+  /** UserCard 4 宫格点击跳转(对齐 Uniapp user_cards.vue handleClick) */
+  const handleUserCardPress = (key: UserCardKey) => {
+    switch (key) {
+      case 'order':
+        navigation.navigate('Order')
+        break
+      case 'wallet':
+        navigation.navigate('Wallet')
+        break
+      case 'company':
+        navigateRoot(rootNav, 'Distribution')
+        break
+      case 'token':
+        navigateRoot(rootNav, 'TokenValue')
+        break
+    }
+  }
+
   /** FloatBox 悬浮提示触发器(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
     setFloatMessage(message)
@@ -253,32 +272,39 @@ export function ProfileScreen() {
             <ColorfulLoader size={48} />
           </View>
         ) : (
-          <SharedProfileScreen
-            t={t}
-            user={
-              user
-                ? {
-                    id: user.id,
-                    nickname: user.nickname,
-                    avatar: user.avatar ?? null,
-                    email: user.email,
-                    phone: user.phone,
-                  }
-                : null
-            }
-            stats={stats}
-            orderCount={orderCount}
-            loading={false}
-            error={error}
-            colorScheme={resolvedTheme}
-            menuSections={menuSections}
-            onNavigate={(key) => {
-              const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
-              if (item) onNavigate(item)
-            }}
-            onLogout={() => void logout()}
-            onBack={() => navigation.goBack()}
-          />
+          <>
+            <UserCard
+              t={t}
+              isLoggedIn={!!user}
+              onPress={handleUserCardPress}
+            />
+            <SharedProfileScreen
+              t={t}
+              user={
+                user
+                  ? {
+                      id: user.id,
+                      nickname: user.nickname,
+                      avatar: user.avatar ?? null,
+                      email: user.email,
+                      phone: user.phone,
+                    }
+                  : null
+              }
+              stats={stats}
+              orderCount={orderCount}
+              loading={false}
+              error={error}
+              colorScheme={resolvedTheme}
+              menuSections={menuSections}
+              onNavigate={(key) => {
+                const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+                if (item) onNavigate(item)
+              }}
+              onLogout={() => void logout()}
+              onBack={() => navigation.goBack()}
+            />
+          </>
         )}
         <ProfileContentSection />
       </ScrollView>
