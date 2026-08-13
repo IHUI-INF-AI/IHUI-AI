@@ -387,6 +387,7 @@ function createStyles(tk: RnThemeTokens) {
     categoryGrid: {
       flexDirection: 'row',
       paddingVertical: 4,
+      gap: 12,
     } as ViewStyle,
     categoryItem: {
       flex: 1,

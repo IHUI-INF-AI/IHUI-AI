@@ -140,8 +140,8 @@ const newStyles = StyleSheet.create({
     padding: 8,
   },
   avatarWrap: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
@@ -149,8 +149,8 @@ const newStyles = StyleSheet.create({
     borderColor: tokens.indigo.light,
   },
   avatar: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     resizeMode: 'cover',
   },
   infoWrap: {
