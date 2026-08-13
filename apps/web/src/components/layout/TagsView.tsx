@@ -471,7 +471,16 @@ export function TagsView() {
       data-empty={tags.length === 0 ? 'true' : 'false'}
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
-      <div className="hover-scroll flex h-full flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+      <div
+        className="hover-scroll flex h-full flex-1 items-center gap-1 whitespace-nowrap"
+        onWheel={(e) => {
+          // 2026-08-13 水平滚动:去掉 overflow-x:auto 后 outline 不被裁剪,
+          // 用 onWheel 把垂直滚动转为水平滚动,保持标签可滚动。
+          if (e.deltaY !== 0) {
+            e.currentTarget.scrollLeft += e.deltaY
+          }
+        }}
+      >
         {/* 第十一轮"做减法 v7"(2026-07-30 用户反馈"把 chevron/Plus 挪到搜索按钮后面 a 标签前面"):
             搜索按钮和 chevron 按钮已抽出为 TagsViewSearchButton / TagsViewChevronButton 独立组件,
             移到 GlobalTopBar 内层 flex 直接渲染,本组件只保留 a 标签 + 关闭按钮 (a 标签本身)。
@@ -528,7 +537,12 @@ export function TagsView() {
                       //   改用 outline(1px 外描边,纯黑亮色 / 纯白暗色),
                       //   高对比 + 不占元素内部空间,视觉上"当前页"最突出
                       //   配套 GlobalTopBar.tsx 父容器去掉 overflow-hidden,避免 outline 被裁剪
-                      'bg-card font-medium text-foreground hover:bg-card outline outline-1 outline-black dark:outline-white'
+                      // 2026-08-13 用户反馈:pure black/white 太突兀,改 outline-border(灰色主题色),
+                      //   同时 scroll 容器加 py-0.5 避免 outline 被 overflow-x-auto 裁剪
+                      // 2026-08-13 第四轮:用户要求描边与背景对比柔和,只做轻微区分。
+                      //   仍用 outline(外描边,不占空间),但改 outline-2(2px 描边),
+                      //   颜色用 --color-border(主题灰,与全局边框同色,对比度刚好可辨)。
+                      'bg-card font-medium text-foreground hover:bg-card outline outline-2 outline-border'
                     : isPinned
                       ? // pinned 标签(2026-08-07 立):改用专用 token --color-pinned-tag-bg。
                         //   亮色 88% L 接近 muted(92% L)略深;暗色 24% L 与 tag-inactive-bg 同档,
