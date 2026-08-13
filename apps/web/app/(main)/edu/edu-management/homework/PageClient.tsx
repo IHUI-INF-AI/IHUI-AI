@@ -144,9 +144,18 @@ function GradeDialog({
         {submission && (
           <div className="space-y-3 py-2">
             <div className="rounded-md border p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">学生：</span>{submission.studentName}</p>
-              <p><span className="text-muted-foreground">内容：</span>{submission.content}</p>
-              <p><span className="text-muted-foreground">提交时间：</span>{new Date(submission.submittedAt).toLocaleString('zh-CN')}</p>
+              <p>
+                <span className="text-muted-foreground">学生：</span>
+                {submission.studentName}
+              </p>
+              <p>
+                <span className="text-muted-foreground">内容：</span>
+                {submission.content}
+              </p>
+              <p>
+                <span className="text-muted-foreground">提交时间：</span>
+                {new Date(submission.submittedAt).toLocaleString('zh-CN')}
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label>分数</Label>
@@ -207,7 +216,8 @@ export default function HomeworkPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () => api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -220,7 +230,10 @@ export default function HomeworkPage() {
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'homework-submission', 'stats', selectedClassId],
-    queryFn: () => api<HomeworkStats>(`/api/edu-ai-management/homework-submission/stats?classId=${selectedClassId}`),
+    queryFn: () =>
+      api<HomeworkStats>(
+        `/api/edu-ai-management/homework-submission/stats?classId=${selectedClassId}`,
+      ),
     enabled: !!selectedClassId,
   })
 
@@ -255,11 +268,33 @@ export default function HomeworkPage() {
   }
 
   /* ── Stats cards ── */
+  const avgScore = statsData?.averageScore
+  const completionRate = statsData?.completionRate
   const statsCards = [
-    { label: '总提交数', value: statsData?.totalSubmissions ?? '-', icon: FileText, color: 'text-blue-600' },
-    { label: '已批改数', value: statsData?.gradedCount ?? '-', icon: CheckCircle2, color: 'text-green-600' },
-    { label: '平均分', value: statsData?.averageScore != null ? `${statsData.averageScore}分` : '-', icon: BarChart3, color: 'text-purple-600' },
-    { label: '完成率', value: statsData?.completionRate != null ? `${statsData.completionRate}%` : '-', icon: Users, color: 'text-orange-600' },
+    {
+      label: '总提交数',
+      value: statsData?.totalSubmissions ?? '-',
+      icon: FileText,
+      color: 'text-blue-600',
+    },
+    {
+      label: '已批改数',
+      value: statsData?.gradedCount ?? '-',
+      icon: CheckCircle2,
+      color: 'text-green-600',
+    },
+    {
+      label: '平均分',
+      value: avgScore !== undefined && avgScore !== null ? `${avgScore}分` : '-',
+      icon: BarChart3,
+      color: 'text-purple-600',
+    },
+    {
+      label: '完成率',
+      value: completionRate !== undefined && completionRate !== null ? `${completionRate}%` : '-',
+      icon: Users,
+      color: 'text-orange-600',
+    },
   ]
 
   return (
@@ -276,14 +311,21 @@ export default function HomeworkPage() {
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedTermId} onValueChange={(v) => { setSelectedTermId(v); setSelectedClassId('') }}>
+            <Select
+              value={selectedTermId}
+              onValueChange={(v) => {
+                setSelectedTermId(v)
+                setSelectedClassId('')
+              }}
+            >
               <SelectTrigger className="w-44">
                 <SelectValue placeholder="选择学期" />
               </SelectTrigger>
               <SelectContent>
                 {terms.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}{t.isCurrent ? ' (当前)' : ''}
+                    {t.name}
+                    {t.isCurrent ? ' (当前)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -293,7 +335,9 @@ export default function HomeworkPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
             <Select
               value={selectedClassId}
-              onValueChange={(v) => { setSelectedClassId(v) }}
+              onValueChange={(v) => {
+                setSelectedClassId(v)
+              }}
               disabled={!selectedTermId || classes.length === 0}
             >
               <SelectTrigger className="w-44">
@@ -302,7 +346,8 @@ export default function HomeworkPage() {
               <SelectContent>
                 {classes.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name}{c.grade ? ` (${c.grade})` : ''}
+                    {c.name}
+                    {c.grade ? ` (${c.grade})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -342,14 +387,19 @@ export default function HomeworkPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium">作业提交</CardTitle>
           <div className="flex items-center gap-2">
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
+            >
               <SelectTrigger className="h-8 w-32">
                 <SelectValue placeholder="全部状态" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
                 {SUBMISSION_STATUS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -370,17 +420,21 @@ export default function HomeworkPage() {
               加载作业提交...
             </div>
           ) : submissions.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              暂无作业提交
-            </div>
+            <div className="py-12 text-center text-sm text-muted-foreground">暂无作业提交</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">学生姓名</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">作业内容</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">提交时间</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      学生姓名
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      作业内容
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      提交时间
+                    </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">分数</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">评语</th>
@@ -398,20 +452,26 @@ export default function HomeworkPage() {
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           {new Date(s.submittedAt).toLocaleString('zh-CN', {
-                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
                           })}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <Badge
                           variant="secondary"
-                          className={cn('text-[10px] text-white', SUBMISSION_COLOR_MAP.get(s.status) ?? 'bg-gray-500')}
+                          className={cn(
+                            'text-[10px] text-white',
+                            SUBMISSION_COLOR_MAP.get(s.status) ?? 'bg-gray-500',
+                          )}
                         >
                           {SUBMISSION_STATUS_MAP.get(s.status) ?? s.status}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-xs font-medium">
-                        {s.score != null ? (
+                        {s.score !== null ? (
                           <span className={cn(s.score >= 60 ? 'text-green-600' : 'text-red-600')}>
                             {s.score}
                           </span>
@@ -428,7 +488,10 @@ export default function HomeworkPage() {
                             variant="outline"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => { setGradingSubmission(s); setGradeOpen(true) }}
+                            onClick={() => {
+                              setGradingSubmission(s)
+                              setGradeOpen(true)
+                            }}
                           >
                             <CheckCircle2 className="mr-1 h-3 w-3" />
                             批改

@@ -266,9 +266,8 @@ function ScheduleEditDialog({
             <Label>颜色标记</Label>
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((c) => (
-                <Tooltip content={c.label}>
+                <Tooltip key={c.value} content={c.label}>
                   <button
-                    key={c.value}
                     type="button"
                     className={cn(
                       'h-7 w-7 rounded-md transition-all',
@@ -277,7 +276,7 @@ function ScheduleEditDialog({
                     )}
                     onClick={() => update('color', c.value)}
                   />
-                  </Tooltip>
+                </Tooltip>
               ))}
             </div>
           </div>
@@ -285,7 +284,11 @@ function ScheduleEditDialog({
         <DialogFooter>
           {initial && onDelete && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               删除
             </Button>
           )}
@@ -368,7 +371,9 @@ function TermDialog({
                 tabIndex={0}
                 className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                 onClick={() => resetForm(t)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') resetForm(t) }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') resetForm(t)
+                }}
               >
                 <span className={cn(editTerm?.id === t.id && 'font-medium')}>
                   {t.name}
@@ -390,7 +395,11 @@ function TermDialog({
           <p className="text-sm font-medium">{editTerm ? '编辑学期' : '新建学期'}</p>
           <div className="grid gap-1.5">
             <Label>学期名称</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：2026年春季学期" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：2026年春季学期"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -477,7 +486,9 @@ function ClassDialog({
               >
                 <span>
                   {c.name}
-                  {c.grade && <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>}
+                  {c.grade && (
+                    <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>
+                  )}
                 </span>
               </div>
             ))
@@ -488,11 +499,19 @@ function ClassDialog({
           <p className="text-sm font-medium">新建班级</p>
           <div className="grid gap-1.5">
             <Label>班级名称</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：计算机科学1班" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：计算机科学1班"
+            />
           </div>
           <div className="grid gap-1.5">
             <Label>年级</Label>
-            <Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="例如：2024级" />
+            <Input
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="例如：2024级"
+            />
           </div>
         </div>
 
@@ -544,12 +563,10 @@ export default function SchedulePage() {
     }
   }, [terms, selectedTermId])
 
-  const {
-    data: classesData,
-    isLoading: classesLoading,
-  } = useQuery({
+  const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () => api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
 
@@ -562,10 +579,7 @@ export default function SchedulePage() {
     }
   }, [classes, selectedClassId])
 
-  const {
-    data: schedulesData,
-    isLoading: schedulesLoading,
-  } = useQuery({
+  const { data: schedulesData, isLoading: schedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'schedule', selectedTermId, selectedClassId],
     queryFn: () =>
       api<{ list: ScheduleEntry[] }>(
@@ -577,12 +591,9 @@ export default function SchedulePage() {
   const schedules = (schedulesData?.list ?? []).filter((s) => !s.deletedAt)
 
   /* ── Mutations ── */
-  const invalidate = React.useCallback(
-    () => {
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management'] })
-    },
-    [queryClient],
-  )
+  const invalidate = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['edu-ai-management'] })
+  }, [queryClient])
 
   const createSchedule = useMutation({
     mutationFn: (data: ScheduleFormData) =>
@@ -621,8 +632,7 @@ export default function SchedulePage() {
   })
 
   const deleteSchedule = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
@@ -657,14 +667,20 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setCopyingLastWeek(true)
     try {
-      const result = await api<{ count: number }>('/api/edu-ai-management/schedule/copy-last-week', {
-        method: 'POST',
-        body: JSON.stringify({ classId: selectedClassId, targetWeekStart: formatDate(currentMonday) }),
-      })
+      const result = await api<{ count: number }>(
+        '/api/edu-ai-management/schedule/copy-last-week',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            classId: selectedClassId,
+            targetWeekStart: formatDate(currentMonday),
+          }),
+        },
+      )
       invalidate()
       alert(`已复制 ${result.count} 条课程`)
-    } catch (e: any) {
-      alert(e.message ?? '复制失败')
+    } catch (e: unknown) {
+      alert((e as { message?: string }).message ?? '复制失败')
     } finally {
       setCopyingLastWeek(false)
     }
@@ -689,8 +705,8 @@ export default function SchedulePage() {
       a.download = `课程表_${data.class?.name ?? 'unknown'}_${data.dateRange.startDate}_${data.dateRange.endDate}.json`
       a.click()
       URL.revokeObjectURL(url)
-    } catch (e: any) {
-      alert(e.message ?? '导出失败')
+    } catch (e: unknown) {
+      alert((e as { message?: string }).message ?? '导出失败')
     } finally {
       setExporting(false)
     }
@@ -749,8 +765,6 @@ export default function SchedulePage() {
     }
     return map
   }, [schedules])
-
-  
 
   /* ── Edit handlers ── */
   const handleAddSchedule = (weekday: number) => {
@@ -897,11 +911,7 @@ export default function SchedulePage() {
               <SelectTrigger className="w-44">
                 <SelectValue
                   placeholder={
-                    classesLoading
-                      ? '加载中...'
-                      : selectedTermId
-                        ? '选择班级'
-                        : '请先选择学期'
+                    classesLoading ? '加载中...' : selectedTermId ? '选择班级' : '请先选择学期'
                   }
                 />
               </SelectTrigger>
@@ -956,16 +966,14 @@ export default function SchedulePage() {
               size="sm"
               onClick={() => setViewMode('week')}
             >
-              <Calendar className="mr-1 h-3.5 w-3.5" />
-              周
+              <Calendar className="mr-1 h-3.5 w-3.5" />周
             </Button>
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('month')}
             >
-              <CalendarDays className="mr-1 h-3.5 w-3.5" />
-              月
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />月
             </Button>
           </div>
         </CardContent>
@@ -1012,7 +1020,10 @@ export default function SchedulePage() {
 
             {/* Week grid */}
             <CardContent className="overflow-x-auto p-0">
-              <div className="grid min-w-[700px]" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+              <div
+                className="grid min-w-[700px]"
+                style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}
+              >
                 {/* Header row */}
                 <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
                 {WEEKDAY_LABELS.map((label, i) => {
@@ -1049,11 +1060,13 @@ export default function SchedulePage() {
                         const endHour = Number.parseInt(e.endTime.split(':')[0]!, 10)
                         return startHour <= slotHour && slotHour < endHour
                       })
-                      const isFirstSlot = slotEntries.length > 0 && slotEntries.some((e) => {
-                        const startHour = Number.parseInt(e.startTime.split(':')[0]!, 10)
-                        const slotHour = Number.parseInt(time.split(':')[0]!, 10)
-                        return startHour === slotHour
-                      })
+                      const isFirstSlot =
+                        slotEntries.length > 0 &&
+                        slotEntries.some((e) => {
+                          const startHour = Number.parseInt(e.startTime.split(':')[0]!, 10)
+                          const slotHour = Number.parseInt(time.split(':')[0]!, 10)
+                          return startHour === slotHour
+                        })
                       return (
                         <div
                           key={`${time}-${wi}`}
@@ -1066,11 +1079,11 @@ export default function SchedulePage() {
                             if (slotEntries.length === 0) handleAddSchedule(weekday)
                           }}
                           onKeyDown={(e) => {
-                            if ((e.key === 'Enter' || e.key === ' ') && slotEntries.length === 0) handleAddSchedule(weekday)
+                            if ((e.key === 'Enter' || e.key === ' ') && slotEntries.length === 0)
+                              handleAddSchedule(weekday)
                           }}
                         >
-                          {isFirstSlot &&
-                            slotEntries.map((e) => renderScheduleCard(e))}
+                          {isFirstSlot && slotEntries.map((e) => renderScheduleCard(e))}
                         </div>
                       )
                     })}
