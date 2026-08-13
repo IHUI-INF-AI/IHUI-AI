@@ -95,6 +95,8 @@ export interface DrawerComponentProps {
   onLabelItemClick?: (item: DrawerMenuItem) => void
   /** 历史对话项点击回调 */
   onChatItemClick?: (chat: DrawerChatItem) => void
+  /** 历史对话项删除回调(传入则显示删除按钮) */
+  onRemoveChat?: (chat: DrawerChatItem) => void
   /** 创建新对话回调 */
   onCreateChat?: () => void
 }
@@ -135,6 +137,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     onMenuItemClick,
     onLabelItemClick,
     onChatItemClick,
+    onRemoveChat,
     onCreateChat,
   } = props
 
@@ -313,7 +316,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             onClick={() => onChatItemClick?.(chat)}
                           >
                             <Text
-                              className="truncate"
+                              className="truncate flex-1"
                               style={{
                                 fontSize: rpx(30),
                                 color: isActive
@@ -324,6 +327,22 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             >
                               {chat.title}
                             </Text>
+                            {onRemoveChat ? (
+                              <Text
+                                className="flex-shrink-0 ml-[12rpx]"
+                                style={{
+                                  fontSize: rpx(28),
+                                  color: 'var(--color-muted-foreground)',
+                                  padding: '0 8rpx',
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onRemoveChat(chat)
+                                }}
+                              >
+                                ×
+                              </Text>
+                            ) : null}
                           </View>
                         )
                       })}
