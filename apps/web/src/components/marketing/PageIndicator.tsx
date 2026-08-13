@@ -53,6 +53,24 @@ interface PageIndicatorProps {
  *       - 容器宽度 28px → 14px(-50%),视觉紧凑
  *     - 容器 py-0.5 (2px) → py-1 (4px):首尾圆点离容器边缘有 4px 留白,不再"贴上"
  *     - gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
+ * 2026-08-13 v13 间距再压缩:用户反馈"每个按钮之间的间距还是太大了"。
+ *   根因(v12):所有 button 命中区统一 h-6 (24px),button 内只有非激活态 8x8 圆点
+ *     → button 内上空 16px,加上非激活态 8x8 + 下一 button 内上空 16px = 32px 视觉间距
+ *     (实际测得 16px 是因为 items-end 底部对齐,顶部 16px 空白全部"折叠"到 button 边界外,
+ *      但 button 本身 24px 仍然让整体指示器总高 168px 太长,看起来"按钮间空隙大")
+ *   修复:
+ *     - 激活态 button 保持 h-6 (24px):需要容下 24x8 竖向胶囊(不能砍)
+ *     - 非激活态 button h-6 (24px) → h-2 (8px):只装 8x8 圆点,砍掉 16px 上空
+ *       - HTML 结构上 button 高度独立(active=24 / inactive=8),flex 容器自动按各自高度堆叠
+ *       - 视觉上:激活态是"竖向拉长棒",非激活态是"小圆点",高度差本身就是激活 vs 非激活的视觉对比
+ *     - 容器 gap-0 (0px) → gap-1 (4px):点与点之间用 4px 间隙分隔
+ *       - 间距计算(假设激活态在 idx=0):激活 24 + gap 4 + 非激活 8 + gap 4 + 非激活 8 + ... = 24 + 4 + 6*(8+4) = 24+4+72 = 100px
+ *       - 不算 py:96px,比 v12 的 168px 减 43%
+ *       - 视觉间距(非激活态底 8 → 下一非激活态顶 12) = 4px(1/2 非激活态直径,极致紧凑)
+ *     - hover 态实现调整(原 10x10 圆点改为 transform scale-125):button 高 8px 装不下 10x10,
+ *       改用 transform scale-125 让 8x8 圆点视觉上 10x10,溢出 button 1px(在 4px gap 内,不影响相邻)
+ *     - items-end → items-stretch:active 24x8 填满 button,非激活态 8x8 填满 button,
+ *       flex 自然撑满,无需 items-* 修饰
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
@@ -89,7 +107,9 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //     - 容器宽度 = 10 + 2*2 = 14px(原 28px,减 50%)
       //   同步修复容器 py-0.5 (2px) → py-1 (4px),首尾圆点离容器边缘有 4px 留白,不再"贴上"
       //   gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-0 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      // 2026-08-13 v13:间距再压缩 — gap-0 (0px) → gap-1 (4px),启用 4px 间隙作为点间距,
+      //   配合非激活态 button h-2 (8px),视觉间距从 16px 降到 4px(-75%),极致紧凑
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
@@ -108,7 +128,15 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             //   原因:button 24px 宽 vs 内容 8px → 容器左右 8px 空白"漂浮",视觉比例失衡
             //   修复:button 10px 宽,active 8w (留 1px) / inactive 8w (留 1px) / hover 10w (填满)
             //   容器宽度 28px → 14px (-50%),视觉紧凑
-            className="group flex h-6 w-2.5 items-end justify-center"
+            // 2026-08-13 v13:非激活态 button h-6 (24px) → h-2 (8px),只装 8x8 圆点,砍掉 16px 上空
+            //   激活态 button 保持 h-6 (24px) 容下 24x8 竖向胶囊
+            //   HTML 上 button 高度独立(active=24 / inactive=8),flex 容器自动按各自高度堆叠
+            //   视觉:激活态"竖向拉长棒" + 非激活态"小圆点"对比,高度差本身就是激活 vs 非激活视觉对比
+            className={
+              isActive
+                ? 'group flex h-6 w-2.5 items-stretch justify-center'
+                : 'group flex h-2 w-2.5 items-stretch justify-center'
+            }
           >
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
@@ -116,11 +144,14 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
               // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x8 胶囊(等宽)。
               // 2026-08-13 v10:激活态改为 24x8 (h-6 w-2) 竖向胶囊,宽度=非激活态直径 8,高度=3x 直径放大
               // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-2,激活态宽度对齐非激活态直径(8px)
+              // 2026-08-13 v13:hover 态实现调整 — 原 group-hover:h-2.5 w-2.5 改 transform scale-125
+              //   原因:非激活 button 高 8px 装不下 10x10 hover 态,改用 transform 让 8x8 圆点视觉上 10x10
+              //   scale 中心点默认 button 中心,溢出 ±1px 在 4px gap 内,不影响相邻
               // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
               className={
                 isActive
                   ? 'block h-6 w-2 rounded-full bg-foreground transition-all duration-300'
-                  : 'block h-2 w-2 rounded-full bg-foreground/30 transition-all duration-300 group-hover:h-2.5 group-hover:w-2.5 group-hover:bg-foreground/60'
+                  : 'block h-2 w-2 origin-center rounded-full bg-foreground/30 transition-all duration-300 group-hover:scale-125 group-hover:bg-foreground/60'
               }
             />
           </button>
