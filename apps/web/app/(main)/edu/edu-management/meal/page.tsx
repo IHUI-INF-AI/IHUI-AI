@@ -233,7 +233,11 @@ function MealEditDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>日期</Label>
-              <Input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} />
+              <Input
+                type="date"
+                value={form.date}
+                onChange={(e) => update('date', e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label>餐类型</Label>
@@ -295,7 +299,11 @@ function MealEditDialog({
         <DialogFooter>
           {initial && onDelete && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               删除
             </Button>
           )}
@@ -386,9 +394,7 @@ function TemplateDialog({
     const nameEntries = templates.filter((t) => t.name === name)
     const entries = initEntries()
     for (const ne of nameEntries) {
-      const idx = entries.findIndex(
-        (e) => e.weekday === ne.weekday && e.mealType === ne.mealType,
-      )
+      const idx = entries.findIndex((e) => e.weekday === ne.weekday && e.mealType === ne.mealType)
       if (idx >= 0) {
         entries[idx] = {
           weekday: ne.weekday,
@@ -405,9 +411,16 @@ function TemplateDialog({
     setMode('create')
   }
 
-  const updateEntry = (weekday: number, mealType: string, key: keyof TemplateEntryForm, value: string) => {
+  const updateEntry = (
+    weekday: number,
+    mealType: string,
+    key: keyof TemplateEntryForm,
+    value: string,
+  ) => {
     setTemplateEntries((prev) =>
-      prev.map((e) => (e.weekday === weekday && e.mealType === mealType ? { ...e, [key]: value } : e)),
+      prev.map((e) =>
+        e.weekday === weekday && e.mealType === mealType ? { ...e, [key]: value } : e,
+      ),
     )
   }
 
@@ -498,11 +511,7 @@ function TemplateDialog({
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditTemplate(name)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleEditTemplate(name)}>
                           编辑
                         </Button>
                         <Button
@@ -543,10 +552,7 @@ function TemplateDialog({
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
                   <div className="p-1.5 text-xs font-medium text-muted-foreground" />
                   {WEEKDAY_LABELS.map((label) => (
-                    <div
-                      key={label}
-                      className="border-b p-1.5 text-center text-xs font-medium"
-                    >
+                    <div key={label} className="border-b p-1.5 text-center text-xs font-medium">
                       {label}
                     </div>
                   ))}
@@ -649,7 +655,11 @@ function TemplateDialog({
                 onClick={handleApply}
                 disabled={applying || !selectedTemplate || !applyStartDate}
               >
-                {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+                {applying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-1 h-4 w-4" />
+                )}
                 应用
               </Button>
             </DialogFooter>
@@ -758,18 +768,14 @@ export default function MealPage() {
 
   const meals = (mealsData?.list ?? []).filter((m) => !m.deletedAt)
 
-  const {
-    data: templatesData,
-  } = useQuery({
+  const { data: templatesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template'],
     queryFn: () => api<{ list: MealTemplate[] }>('/api/edu-ai-management/meal/template'),
   })
 
   const templates = templatesData?.list ?? []
 
-  const {
-    data: templateNamesData,
-  } = useQuery({
+  const { data: templateNamesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template-names'],
     queryFn: () => api<{ list: string[] }>('/api/edu-ai-management/meal/template-names'),
   })
@@ -777,12 +783,9 @@ export default function MealPage() {
   const templateNames = templateNamesData?.list ?? []
 
   /* ── Mutations ── */
-  const invalidate = React.useCallback(
-    () => {
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'meal'] })
-    },
-    [queryClient],
-  )
+  const invalidate = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'meal'] })
+  }, [queryClient])
 
   const createMeal = useMutation({
     mutationFn: (data: MealFormData) =>
@@ -819,8 +822,7 @@ export default function MealPage() {
   })
 
   const deleteMeal = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
@@ -857,9 +859,7 @@ export default function MealPage() {
     mutationFn: (name: string) => {
       const ids = templates.filter((t) => t.name === name).map((t) => t.id)
       return Promise.all(
-        ids.map((id) =>
-          api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
-        ),
+        ids.map((id) => api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' })),
       )
     },
     onSuccess: () => {
@@ -887,12 +887,25 @@ export default function MealPage() {
   const [generatingShopping, setGeneratingShopping] = React.useState(false)
 
   const nutritionQuery = useQuery({
-    queryKey: ['edu-ai-management', 'meal', 'nutrition-summary', dateRange.startDate, dateRange.endDate],
+    queryKey: [
+      'edu-ai-management',
+      'meal',
+      'nutrition-summary',
+      dateRange.startDate,
+      dateRange.endDate,
+    ],
     queryFn: () =>
       api<{
         totalMeals: number
         summary: { totalCalories: number; totalProtein: number; totalCarbs: number }
-        byType: Array<{ mealType: string; count: number; calories: number; protein: number; carbs: number; avgCalories: number }>
+        byType: Array<{
+          mealType: string
+          count: number
+          calories: number
+          protein: number
+          carbs: number
+          avgCalories: number
+        }>
       }>(
         `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
       ),
@@ -911,8 +924,8 @@ export default function MealPage() {
       })
       setShoppingListData(data)
       setShoppingListOpen(true)
-    } catch (e: any) {
-      alert(e.message ?? '生成采购清单失败')
+    } catch (e: unknown) {
+      alert((e as { message?: string }).message ?? '生成采购清单失败')
     } finally {
       setGeneratingShopping(false)
     }
@@ -974,16 +987,15 @@ export default function MealPage() {
         onClick={() => handleEditMeal(meal)}
       >
         <div className="truncate font-medium">{meal.dishName}</div>
-        {meal.ingredients && (
-          <div className="truncate opacity-80">{meal.ingredients}</div>
-        )}
+        {meal.ingredients && <div className="truncate opacity-80">{meal.ingredients}</div>}
       </button>
     )
   }
 
   const renderMealTypeSection = (date: string, mealType: string) => {
     const mealsForType = mealsByDateAndType.get(date)?.get(mealType) ?? []
-    const mtLabel = MEAL_TYPE_MAP.get(mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? mealType
+    const mtLabel =
+      MEAL_TYPE_MAP.get(mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? mealType
     const Icon = MEAL_ICONS[mealType as keyof typeof MEAL_ICONS]
 
     return (
@@ -1004,9 +1016,7 @@ export default function MealPage() {
         {mealsForType.length === 0 ? (
           <p className="py-2 text-center text-[10px] text-muted-foreground">暂无菜谱</p>
         ) : (
-          <div className="space-y-1">
-            {mealsForType.map((m) => renderMealCard(m))}
-          </div>
+          <div className="space-y-1">{mealsForType.map((m) => renderMealCard(m))}</div>
         )}
       </div>
     )
@@ -1019,11 +1029,16 @@ export default function MealPage() {
     return (
       <div className="mt-1 flex flex-wrap gap-1">
         {types.map((t) => (
-          <Tooltip content={MEAL_TYPE_MAP.get(t as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? t}>
-          <span
+          <Tooltip
             key={t}
-            className={cn('inline-block h-2 w-2 rounded-sm', MEAL_COLORS[t as keyof typeof MEAL_COLORS] ?? 'bg-gray-500')}
-          />
+            content={MEAL_TYPE_MAP.get(t as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? t}
+          >
+            <span
+              className={cn(
+                'inline-block h-2 w-2 rounded-sm',
+                MEAL_COLORS[t as keyof typeof MEAL_COLORS] ?? 'bg-gray-500',
+              )}
+            />
           </Tooltip>
         ))}
       </div>
@@ -1060,24 +1075,21 @@ export default function MealPage() {
               size="sm"
               onClick={() => setViewMode('day')}
             >
-              <Calendar className="mr-1 h-3.5 w-3.5" />
-              日
+              <Calendar className="mr-1 h-3.5 w-3.5" />日
             </Button>
             <Button
               variant={viewMode === 'week' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('week')}
             >
-              <CalendarDays className="mr-1 h-3.5 w-3.5" />
-              周
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />周
             </Button>
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('month')}
             >
-              <List className="mr-1 h-3.5 w-3.5" />
-              月
+              <List className="mr-1 h-3.5 w-3.5" />月
             </Button>
           </div>
 
@@ -1129,9 +1141,7 @@ export default function MealPage() {
           <>
             {/* Day navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                {formatDate(currentDay)}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">{formatDate(currentDay)}</CardTitle>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setDayOffset((o) => o - 1)}>
                   <ChevronLeft className="h-4 w-4" />
@@ -1158,9 +1168,7 @@ export default function MealPage() {
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {MEAL_TYPES.map((mt) =>
-                    renderMealTypeSection(formatDate(currentDay), mt.value),
-                  )}
+                  {MEAL_TYPES.map((mt) => renderMealTypeSection(formatDate(currentDay), mt.value))}
                 </div>
               )}
             </CardContent>
@@ -1314,12 +1322,7 @@ export default function MealPage() {
                     ))}
                     {monthGrid.map((cell, i) => {
                       if (!cell.day || !cell.date) {
-                        return (
-                          <div
-                            key={`empty-${i}`}
-                            className="border-b border-r bg-muted/20"
-                          />
-                        )
+                        return <div key={`empty-${i}`} className="border-b border-r bg-muted/20" />
                       }
                       const isToday = formatDate(cell.date) === formatDate(today)
                       const dateStr = formatDate(cell.date)
@@ -1397,33 +1400,43 @@ export default function MealPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-orange-500">{nutritionQuery.data.summary.totalCalories}</span>
+                      <span className="text-2xl font-bold text-orange-500">
+                        {nutritionQuery.data.summary.totalCalories}
+                      </span>
                       <span className="text-xs text-muted-foreground">总热量 (kcal)</span>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-blue-500">{nutritionQuery.data.summary.totalProtein}g</span>
+                      <span className="text-2xl font-bold text-blue-500">
+                        {nutritionQuery.data.summary.totalProtein}g
+                      </span>
                       <span className="text-xs text-muted-foreground">总蛋白质</span>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-green-500">{nutritionQuery.data.summary.totalCarbs}g</span>
+                      <span className="text-2xl font-bold text-green-500">
+                        {nutritionQuery.data.summary.totalCarbs}g
+                      </span>
                       <span className="text-xs text-muted-foreground">总碳水</span>
                     </CardContent>
                   </Card>
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  共 {nutritionQuery.data.totalMeals} 餐 · 日期范围: {dateRange.startDate} ~ {dateRange.endDate}
+                  共 {nutritionQuery.data.totalMeals} 餐 · 日期范围: {dateRange.startDate} ~{' '}
+                  {dateRange.endDate}
                 </p>
 
                 {/* By meal type breakdown */}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">按餐类型统计</h4>
                   {nutritionQuery.data.byType.map((type) => {
-                    const typeLabel = MEAL_TYPE_MAP.get(type.mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? type.mealType
+                    const typeLabel =
+                      MEAL_TYPE_MAP.get(
+                        type.mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+                      ) ?? type.mealType
                     return (
                       <div key={type.mealType} className="rounded-md border p-3">
                         <div className="mb-2 flex items-center justify-between">
@@ -1432,7 +1445,9 @@ export default function MealPage() {
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-center text-xs">
                           <div>
-                            <span className="block font-medium text-orange-500">{type.calories}</span>
+                            <span className="block font-medium text-orange-500">
+                              {type.calories}
+                            </span>
                             <span className="text-muted-foreground">热量</span>
                           </div>
                           <div>
@@ -1465,14 +1480,18 @@ export default function MealPage() {
           {shoppingListData ? (
             <div className="space-y-3 py-2">
               <p className="text-xs text-muted-foreground">
-                日期范围: {dateRange.startDate} ~ {dateRange.endDate} · 共 {shoppingListData.totalIngredients} 种食材
+                日期范围: {dateRange.startDate} ~ {dateRange.endDate} · 共{' '}
+                {shoppingListData.totalIngredients} 种食材
               </p>
               {shoppingListData.shoppingList.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">暂无食材数据</p>
               ) : (
                 <div className="space-y-1">
                   {shoppingListData.shoppingList.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded-md border px-3 py-2"
+                    >
                       <div className="flex items-center gap-2">
                         <ChefHat className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{item.ingredient}</span>
@@ -1490,7 +1509,9 @@ export default function MealPage() {
                 <div className="rounded-md bg-muted/30 p-3">
                   <p className="mb-1 text-xs font-medium text-muted-foreground">涉及菜品</p>
                   <div className="flex flex-wrap gap-1">
-                    {Array.from(new Set(shoppingListData.shoppingList.flatMap((s) => s.dishes))).map((dish) => (
+                    {Array.from(
+                      new Set(shoppingListData.shoppingList.flatMap((s) => s.dishes)),
+                    ).map((dish) => (
                       <Badge key={dish} variant="secondary" className="text-xs">
                         {dish}
                       </Badge>
