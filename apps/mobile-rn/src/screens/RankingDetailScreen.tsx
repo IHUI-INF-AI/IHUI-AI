@@ -14,7 +14,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
-import Drawer, { type DrawerConversationItem, type DrawerTab } from '../components/Drawer'
+import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type RankingDetailParams = {
@@ -61,9 +61,33 @@ export default function RankingDetailScreen() {
   const onNavigate = (tab: DrawerTab) => {
     navigation.navigate('Tabs', { screen: TAB_MAP[tab] } as never)
   }
-  const onNavigateCompany = () => Alert.alert('提示', '一人公司入口待接入')
-  const onClaimFree = () => Alert.alert('提示', '领取免费资料待接入')
-  const onCreateNewChat = () => Alert.alert('提示', '创建新对话待接入')
+  const onNavigateCompany = () => {
+    closeDrawer()
+    navigation.navigate('Settings')
+  }
+  const onClaimFree = () => Alert.alert('领取免费资料', '功能即将上线,敬请期待')
+  const onCreateNewChat = () => {
+    closeDrawer()
+    navigation.navigate('Tabs', { screen: 'ai' } as never)
+  }
+  const onNavigateExtra = (menu: DrawerExtraMenu) => {
+    closeDrawer()
+    switch (menu) {
+      case 'aigc':
+        navigation.navigate('AigcList')
+        break
+      case 'learn':
+        navigation.navigate('Learn')
+        break
+      case 'modelPlaza':
+        navigation.navigate('ModelPlaza')
+        break
+      case 'company':
+      case 'tools':
+        navigation.navigate('Settings')
+        break
+    }
+  }
   const onSelectConversation = (convId: string) => Alert.alert('历史榜单', `查看 ${convId}`)
   const onDeleteConversation = (convId: string) =>
     setHistory((prev) => prev.filter((c) => c.id !== convId))
@@ -121,6 +145,7 @@ export default function RankingDetailScreen() {
         onOpenSettings={onOpenSettings}
         onOpenMessages={onOpenMessages}
         onGoHome={onGoHome}
+        onNavigateExtra={onNavigateExtra}
       />
     </View>
   )
