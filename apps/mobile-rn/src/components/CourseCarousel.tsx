@@ -67,7 +67,7 @@ export interface CourseCarouselProps {
 // ===== 共享常量 =====
 
 const CARD_WIDTH = 240
-const CARD_HEIGHT = 160
+const CARD_HEIGHT = 144
 const CARD_GAP = 12
 const CONTAINER_PADDING = 16
 const THUMB_HEIGHT_RATIO = 0.8
@@ -155,7 +155,7 @@ const indexStyles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 8,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.light,
