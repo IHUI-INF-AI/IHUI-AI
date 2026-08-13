@@ -1,15 +1,14 @@
 /**
- * AiAssistantN8nScreen N8N 助手对话(mobile-rn 端,复杂页)
+ * AiAssistantN8nScreen AI 助手对话(mobile-rn 端,流式版)
  *
- * 1:1 复刻历史 Uniapp pages/tools/ai_assistant_n8n.vue 的对话框架(简化版):
- * - NavBar「N8N 助手」+ 返回
- * - 消息列表:FlatList 渲染气泡(user 右 / assistant 左),复用 ChatScreen 气泡视觉(自实现简化版)
- * - 输入区:TextInput + 发送按钮(简化,不接 BottomActionBar 全套)
- * - n8n 工作流调用:agentId 路由参数作为 workflowId,调 executeN8nWorkflow(@ihui/api-client);
- *   无 agentId 或调用失败 → mock 响应 + Alert「n8n 工作流待接入」(chatWithN8n API 仓库暂无)
+ * 对齐历史 Uniapp pages/tools/ai_assistant_n8n.vue 的流式对话核心:
+ * - NavBar「AI 助手」+ 返回(对齐 Uniapp page_title 动态标题,P2 改为 agent.name)
+ * - 消息列表:FlatList 渲染气泡(user 右 / assistant 左)
+ * - 输入区:TextInput + 发送/停止按钮
+ * - 流式输出:复用 streamChat(@ihui/api-client)SSE 端点 + agentId 绑定 N8n 工作流;
+ *   onDelta 累积实时更新最后一条 assistant 消息(对齐 Uniapp onMessage 累积 data.content)
+ * - 无 agentId → 模拟响应 + Alert(对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent)
  * - 路由参数:{ agentId?: string }
- *
- * 拆子组件到同文件内 function(AGENTS.md §4):AiAssistantN8nScreen(主)+ MessageBubble。
  *
  * 平台独占:仅 mobile-rn 端。
  */
@@ -29,10 +28,12 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { executeN8nWorkflow } from '@ihui/api-client'
+import { streamChat, formatSSEError } from '@ihui/api-client'
+import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import Empty from '../components/common/Empty'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type LocalParamList = RootStackParamList & {
@@ -61,10 +62,12 @@ function MessageBubble({ message }: { message: N8nMessage }): React.JSX.Element 
 }
 
 export default function AiAssistantN8nScreen() {
+  const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const route = useRoute<N8nRouteProp>()
   const agentId = route.params?.agentId
   const listRef = useRef<FlatList<N8nMessage> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const nextId = (): string => `n8n-${++idCounter.current}`
 
@@ -83,35 +86,80 @@ export default function AiAssistantN8nScreen() {
     if (!text || sending) return
     setInput('')
     const userMsg: N8nMessage = { id: nextId(), role: 'user', content: text }
-    setMessages((prev) => [...prev, userMsg])
+    const aiMsg: N8nMessage = { id: nextId(), role: 'assistant', content: '' }
+    setMessages((prev) => [...prev, userMsg, aiMsg])
     setSending(true)
     scrollToEnd()
 
-    let reply = ''
-    if (agentId) {
-      const res = await executeN8nWorkflow(agentId, { message: text })
-      if (res.success && res.data) {
-        reply = '已提交 n8n 工作流执行(执行ID:' + res.data.executionId + '),结果将通过通知推送。'
-      } else {
-        reply = 'n8n 工作流调用失败:' + (res.error || '请稍后重试')
-        Alert.alert('提示', 'n8n 工作流执行失败,请稍后重试')
-      }
-    } else {
-      reply = 'n8n 工作流待接入。您的输入已记录:「' + text + '」,配置 agentId 后可对接真实工作流。'
-      Alert.alert('提示', '当前为模拟响应,配置 agentId 后可对接真实工作流')
+    // 无 agentId:模拟响应(对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent)
+    if (!agentId) {
+      setMessages((prev) => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.mockResponse') }
+        }
+        return next
+      })
+      setSending(false)
+      Alert.alert(t('common.confirm'), t('aiAssistantN8n.mockResponse'))
+      return
     }
 
-    const aiMsg: N8nMessage = { id: nextId(), role: 'assistant', content: reply }
-    setMessages((prev) => [...prev, aiMsg])
+    // 有 agentId:复用 streamChat SSE 流式(对齐 Uniapp connectSocket + onMessage 累积)
+    const controller = new AbortController()
+    abortRef.current = controller
+    const defaultModel = FALLBACK_MODELS[0]?.value ?? 'stepfun/step-router-v1'
+
+    await streamChat({
+      model: defaultModel,
+      messages: [{ role: 'user', content: text }],
+      agentId,
+      signal: controller.signal,
+      onDelta: (delta) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = { ...last, content: last.content + delta }
+          }
+          return next
+        })
+        scrollToEnd()
+      },
+      onError: (err) => {
+        const formatted = formatSSEError(new Error(err))
+        setSending(false)
+        abortRef.current = null
+        // 空回复时填充错误提示
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant' && !last.content) {
+            next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
+          }
+          return next
+        })
+        Alert.alert(formatted.title, formatted.message)
+      },
+      onDone: () => {
+        setSending(false)
+        abortRef.current = null
+      },
+    })
+  }
+
+  const onStop = (): void => {
+    abortRef.current?.abort()
+    abortRef.current = null
     setSending(false)
-    scrollToEnd()
   }
 
   const renderItem: ListRenderItem<N8nMessage> = ({ item }) => <MessageBubble message={item} />
 
   return (
     <View style={styles.root}>
-      <NavBar title="N8N 助手" onBack={() => navigation.goBack()} />
+      <NavBar title={t('aiAssistantN8n.title')} onBack={() => navigation.goBack()} />
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -126,7 +174,7 @@ export default function AiAssistantN8nScreen() {
           onLayout={scrollToEnd}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Empty text={agentId ? '向 N8N 助手发送消息开始对话' : '未绑定工作流,发送消息将得到模拟响应'} />
+            <Empty text={agentId ? t('aiAssistantN8n.empty') : t('aiAssistantN8n.emptyNoAgent')} />
           }
         />
         <View style={styles.inputRow}>
@@ -134,30 +182,43 @@ export default function AiAssistantN8nScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="请输入您的问题"
+            placeholder={t('aiAssistantN8n.placeholder')}
             placeholderTextColor={tokens.text.tertiary}
             multiline
             maxLength={2000}
             editable={!sending}
           />
-          <Pressable
-            onPress={() => void onSend()}
-            disabled={sending || input.trim().length === 0}
-            style={({ pressed }) => [
-              styles.sendBtn,
-              sending || input.trim().length === 0 ? styles.sendBtnDisabled : null,
-              pressed ? styles.pressed : null,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="发送"
-          >
-            {sending ? (
-              <ActivityIndicator color={tokens.surface.light} size="small" />
-            ) : (
-              <Text style={styles.sendText}>发送</Text>
-            )}
-          </Pressable>
+          {sending ? (
+            <Pressable
+              onPress={onStop}
+              style={({ pressed }) => [styles.stopBtn, pressed ? styles.pressed : null]}
+              accessibilityRole="button"
+              accessibilityLabel={t('chat.stop')}
+            >
+              <Text style={styles.stopText}>{t('chat.stop')}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => void onSend()}
+              disabled={input.trim().length === 0}
+              style={({ pressed }) => [
+                styles.sendBtn,
+                input.trim().length === 0 ? styles.sendBtnDisabled : null,
+                pressed ? styles.pressed : null,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={t('aiAssistantN8n.send')}
+            >
+              <Text style={styles.sendText}>{t('aiAssistantN8n.send')}</Text>
+            </Pressable>
+          )}
         </View>
+        {sending ? (
+          <View style={styles.streamingBar}>
+            <ActivityIndicator color={tokens.brand.DEFAULT} size="small" />
+            <Text style={styles.streamingText}>{t('aiAssistantN8n.streaming')}</Text>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </View>
   )
@@ -197,7 +258,25 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.5 },
   sendText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
+  stopBtn: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: tokens.danger.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
   pressed: { opacity: 0.85 },
+  streamingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    backgroundColor: tokens.surface.card,
+  },
+  streamingText: { fontSize: 12, color: tokens.text.tertiary },
 })
 
 const bubbleStyles = StyleSheet.create({
