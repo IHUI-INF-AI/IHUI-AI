@@ -14,7 +14,9 @@ import DrawerComponent from '@/components/DrawerComponent'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
-import { FloatBox, EmptyState } from '@/components'
+import { FloatBox, EmptyState, PayPopup } from '@/components'
+import type { PayInfo } from '@/components'
+import { chooseImages } from '@/utils/upload-image'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
@@ -107,6 +109,10 @@ export default function Community() {
   const [showDrawer, setShowDrawer] = useState(false)
   // 服务弹窗(二维码名片,对齐原项目 isServicePopupVisible)
   const [showServicePopup, setShowServicePopup] = useState(false)
+  // 支付弹窗(对齐原项目 Ai-list_b.vue L264-292 buyThisModel/toPay 流程)
+  const [showPayPopup, setShowPayPopup] = useState(false)
+  const [payInfo, setPayInfo] = useState<PayInfo | null>(null)
+  const purchasingAgentRef = useRef<AgentInfo | null>(null)
   const [showBackTop, setShowBackTop] = useState(false)
   const [fenleiActive, setFenleiActive] = useState<number[]>([0])
   const [drawerGroupedData, setDrawerGroupedData] = useState<DrawerModelGroup[]>([])
@@ -393,6 +399,31 @@ export default function Community() {
     setSearchKeyword(text)
   }
 
+  /** 购买月费智能体(对齐原项目 Ai-list_b.vue L264-292 buyThisModel) */
+  const handlePurchase = useCallback(async (agent: AgentInfo) => {
+    purchasingAgentRef.current = agent
+    try {
+      const res = (await api.getChargeInfoById(agent.id)) as {
+        price?: number
+        discountPrice?: number
+        duration?: string
+        agentName?: string
+      } | undefined
+      const info: PayInfo = {
+        title: res?.agentName || agent.name,
+        amount: res?.price ?? 0,
+        originalPrice: res?.discountPrice,
+        benefits: [`${res?.duration ?? '1个月'}时长`],
+        payType: 3, // 月费
+        payCrowd: 0,
+      }
+      setPayInfo(info)
+      setShowPayPopup(true)
+    } catch {
+      Taro.showToast({ title: '获取价格信息失败', icon: 'none' })
+    }
+  }, [])
+
   function onAgentListSelect(agent: AgentInfo) {
     Taro.navigateTo({
       url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
@@ -536,6 +567,7 @@ export default function Community() {
     category: a.agentMainCategory[0]?.name,
     useCount: a.usageCount,
     isVipExclusive: false,
+    vipType: a.type === 3 ? 4 : undefined, // type=3 月费(简化映射,对齐原项目 Ai-list_b.vue)
   }))
 
   return (
@@ -655,16 +687,46 @@ export default function Community() {
             <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>联系客服</Text>
           </View>
 
-          {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染) */}
+          {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
           {showSearch ? (
-            <View className="community-search-area">
-              <InputArea
-                value={searchKeyword}
-                placeholder="请输入查找的智能体名称"
-                onInput={handleSearchInput}
-                onSend={handleSearchSend}
-                variant="default"
-              />
+            <View
+              className="community-search-area"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: rpx(12) }}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <InputArea
+                  value={searchKeyword}
+                  placeholder="请输入查找的智能体名称"
+                  onInput={handleSearchInput}
+                  onSend={handleSearchSend}
+                  variant="default"
+                />
+              </View>
+              {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277) */}
+              <Text
+                style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
+                onClick={() => {
+                  Taro.showToast({ title: '语音搜索开发中', icon: 'none' })
+                  // TODO: 接入 Taro.getRecorderManager + 语音识别 API
+                }}
+              >
+                🎤
+              </Text>
+              {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207) */}
+              <Text
+                style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
+                onClick={async () => {
+                  try {
+                    await chooseImages(1)
+                    // TODO: 上传图片 + 识别内容 + 搜索
+                    Taro.showToast({ title: '图片搜索开发中', icon: 'none' })
+                  } catch {
+                    // 用户取消或失败,静默
+                  }
+                }}
+              >
+                📷
+              </Text>
             </View>
           ) : null}
 
@@ -695,6 +757,7 @@ export default function Community() {
               agents={agentInfoList}
               loading={loading}
               onSelect={onAgentListSelect}
+              onPurchase={handlePurchase}
             />
             {!loading && agentList.length === 0 ? (
               <EmptyState text="暂无智能体" />
@@ -766,6 +829,29 @@ export default function Community() {
           </View>
         </View>
       ) : null}
+
+      {/* PayPopup 支付弹窗(对齐原项目 Ai-list_b.vue L264-292) */}
+      <PayPopup
+        visible={showPayPopup}
+        pay={payInfo ?? {}}
+        payButtonType="subscription"
+        onClose={() => setShowPayPopup(false)}
+        onPay={async () => {
+          const agent = purchasingAgentRef.current
+          if (!agent) return
+          try {
+            await api.createPayHistory({
+              agentId: agent.id,
+              amount: payInfo?.amount ?? 0,
+            })
+            // TODO: 后端返回 payParams 后,改用 payParams + onPaySuccess 触发微信 JSAPI 支付
+            Taro.showToast({ title: '支付功能开发中', icon: 'none' })
+            setShowPayPopup(false)
+          } catch {
+            Taro.showToast({ title: '创建订单失败', icon: 'none' })
+          }
+        }}
+      />
     </View>
   )
 }
