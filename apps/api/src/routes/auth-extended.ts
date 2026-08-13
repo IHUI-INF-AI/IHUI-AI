@@ -792,6 +792,54 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // POST /auth/bind-user — 绑定/更新用户信息(前端 bindUser)
+  // 入参:nickname / phone / avatar / openId;nickname→users.nickname,openId→userThirdPartyAccounts
+  server.post(
+    '/auth/bind-user',
+    { bodyLimit: 1024 * 16 },
+    async (request, reply) => {
+      await authenticate(request)
+      const userId = request.userId!
+      const body = (request.body ?? {}) as {
+        nickname?: string
+        phone?: string
+        avatar?: string
+        openId?: string
+      }
+
+      const updateData: { nickname?: string; phone?: string; avatar?: string } = {}
+      if (body.nickname) updateData.nickname = body.nickname
+      if (body.phone) updateData.phone = body.phone
+      if (body.avatar) updateData.avatar = body.avatar
+
+      if (Object.keys(updateData).length === 0 && !body.openId) {
+        return reply.send(success({ bound: true, userId, message: '无更新字段' }))
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await updateUser(userId, updateData)
+      }
+
+      if (body.openId) {
+        const existing = await findThirdPartyAccount('wechat', body.openId)
+        if (existing && existing.userId !== userId) {
+          return reply.status(409).send(error(409, '该微信已绑定其他账号'))
+        }
+        if (!existing) {
+          await createThirdPartyBinding({
+            userId,
+            openId: body.openId,
+            platform: 'wechat',
+          })
+        }
+      }
+
+      return reply.send(
+        success({ bound: true, userId, updated: Object.keys(updateData) }),
+      )
+    },
+  )
+
   // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
