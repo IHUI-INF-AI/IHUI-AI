@@ -1,7 +1,7 @@
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
-import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
+import { isLoggedIn, getUserInfo, clearAuth, setToken, setUserInfo as persistUserInfo, type UserInfo } from '@/utils/auth'
 import { getShareInfo } from '@/utils/share'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
@@ -304,10 +304,8 @@ export default function UserIndex() {
   )
 
   function goLogin() {
-    // TODO: 一键登录(对齐原项目 getPhoneNumber L577-712)需要 LoginPopUp 组件扩展
-    // 支持 <Button openType="getPhoneNumber" onGetPhoneNumber={...}>,并接入
-    // api.openId(code) + api.loginByWechat(e.detail.code) 完整链路。
-    // 当前降级:弹 LoginPopUp 让用户手动输入昵称登录(组件不支持手机号一键登录回调)。
+    // 一键登录链路已接入 LoginPopUp(对齐原项目 getPhoneNumber L577-712):
+    // Button openType="getPhoneNumber" → onOneClickLogin → api.openId + api.getPhoneNumber
     setShowLoginPopup(true)
   }
 
@@ -787,6 +785,60 @@ export default function UserIndex() {
         }
         onClose={() => setShowLoginPopup(false)}
         onUpgrade={goVipDetail}
+        onOneClickLogin={async ({ loginCode, phoneCode }) => {
+          try {
+            // 1. 获取 openId(对齐原项目 api.openId(loginCode) → GET /auth/wechat/mini/login)
+            const openIdRes = (await api.openId(loginCode)) as {
+              openId?: string
+              unionId?: string
+              needPhone?: boolean
+              token?: string
+            }
+
+            // 已绑定用户:openId 接口直接返回 token,登录成功
+            if (openIdRes?.token) {
+              setToken(openIdRes.token)
+              // 拉取用户信息并持久化到 storage(refresh 读取 storage,需先写入)
+              try {
+                const profile = await api.getProfile()
+                persistUserInfo(profile)
+              } catch {
+                // getProfile 失败不阻塞登录态(token 已保存)
+              }
+              setShowLoginPopup(false)
+              refresh()
+              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+              return
+            }
+
+            // 2. 未绑定用户:用手机号登录(对齐原项目 api.getPhoneNumber → POST /auth/wechat/mini/phone)
+            const phoneRes = (await api.getPhoneNumber({
+              code: phoneCode,
+              phoneCode: loginCode,
+            })) as {
+              userId?: string
+              phone?: string
+              token?: string
+            }
+
+            if (phoneRes?.token) {
+              setToken(phoneRes.token)
+              try {
+                const profile = await api.getProfile()
+                persistUserInfo(profile)
+              } catch {
+                // getProfile 失败不阻塞登录态
+              }
+              setShowLoginPopup(false)
+              refresh()
+              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+            } else {
+              Taro.showToast({ title: tf('login.noToken', '登录失败,未获取到 token'), icon: 'none' })
+            }
+          } catch {
+            Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+          }
+        }}
         onNicknameChange={async (nickname) => {
           if (!userInfo) return
           try {
