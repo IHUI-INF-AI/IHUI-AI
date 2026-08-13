@@ -1,4 +1,4 @@
-import { View, Text, Image, Input } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -13,7 +13,7 @@ import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import { useI18n } from '@/i18n'
-import { formatDateByTemplate } from '@ihui/shared'
+import InformationItem from './components/InformationItem'
 import './index.css'
 
 type Tab = 'latest' | 'hot' | 'following'
@@ -489,18 +489,46 @@ export default function ShareIndexPage() {
         groupedData={groupedData}
         onMenuItemClick={(item) => {
           setDrawerVisible(false)
+          // 对齐原项目 gopage L324-351:5 个菜单项路由映射
+          const routeMap: Record<string, string> = {
+            appStore: '/pages/index/index', // 对齐原项目 aiIndex
+            demand: '/pages/ranking/index', // 对齐原项目 square
+            inspiration: '/pages/aigc/list', // 对齐原项目 aigc
+            dynamic: '/pages/share/index', // 对齐原项目 share(当前页)
+            course: '/pages/course/list', // 对齐原项目 studyindex
+          }
+          const url = routeMap[item.key]
+          if (!url) return
           if (item.key === 'appStore') {
-            Taro.pageScrollTo({ scrollTop: 0, duration: 300 })
-          } else if (item.key === 'demand') {
-            Taro.navigateTo({ url: '/pages/ranking/index' })
-          } else if (item.key === 'course') {
-            Taro.navigateTo({ url: '/pages/course/list' })
+            // tabBar 页用 switchTab,失败回退 navigateTo
+            Taro.switchTab({ url, fail: () => Taro.navigateTo({ url }) })
+          } else if (item.key === 'dynamic') {
+            // 当前页,无需跳转
+          } else {
+            Taro.navigateTo({ url, fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }) })
           }
         }}
         onLabelItemClick={(item) => {
           setDrawerVisible(false)
+          // 对齐原项目 gotocompany/lingqu L352-373
           if (item.key === 'newChat') {
-            addNewChat()
+            // 对齐原项目 addNewChat:跳首页 AI 对话(defensive,DrawerComponent 实际走 onCreateChat)
+            Taro.switchTab({ url: '/pages/index/index', fail: () => addNewChat() })
+          } else if (item.key === 'company') {
+            // 对齐原项目 gotocompany:跳分销页
+            Taro.navigateTo({
+              url: '/pages/distribution/index',
+              fail: () => Taro.showToast({ title: '分销页未配置', icon: 'none' }),
+            })
+          } else if (item.key === 'freebie') {
+            // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
+            const feishuUrl = 'https://ihui.feishu.cn/wiki/免费资料'
+            Taro.setClipboardData({
+              data: feishuUrl,
+              success: () =>
+                Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
+              fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
+            })
           }
         }}
         onCreateChat={() => {
@@ -509,7 +537,11 @@ export default function ShareIndexPage() {
         }}
         onChatItemClick={(chat) => {
           setDrawerVisible(false)
-          Taro.navigateTo({ url: `/pages/ai/chat?id=${chat.id}` })
+          // 对齐原项目 handleShowFullList:携带 chatId + title 参数
+          Taro.navigateTo({
+            url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+            fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+          })
         }}
       />
 
@@ -569,27 +601,25 @@ export default function ShareIndexPage() {
         {/* 资讯列表 */}
         <View className="share-list">
           {infoList.length ? (
-            infoList.map((n) => (
-              <View key={n.id} className="share-item" onClick={() => goInfoDetail(n.id)}>
-                {n.coverUrl ? (
-                  <Image className="share-item-cover" src={n.coverUrl} mode="aspectFill" />
-                ) : null}
-                <View className="share-item-body">
-                  <Text className="share-item-title">{n.title}</Text>
-                  {n.summary ? <Text className="share-item-summary">{n.summary}</Text> : null}
-                  <View className="share-item-meta">
-                    <View className="share-item-meta-left">
-                      {n.categoryName ? (
-                        <Text className="share-item-category">{n.categoryName}</Text>
-                      ) : null}
-                      <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
-                    </View>
-                    <Text className="share-item-views">
-                      {t('news.views', { n: n.views || 0 })}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+            infoList.map((n, idx) => (
+              <InformationItem
+                key={n.id}
+                item={{
+                  id: n.id,
+                  title: n.title,
+                  content: n.summary,
+                  // 仅在首项或与前一项日期不同时显示日期分组标题
+                  date:
+                    idx === 0 || infoList[idx - 1]?.createTime.slice(0, 10) !== n.createTime.slice(0, 10)
+                      ? n.createTime.slice(0, 10)
+                      : undefined,
+                  source: n.categoryName,
+                  views: n.views,
+                  coverUrl: n.coverUrl,
+                }}
+                showTimeline={true}
+                onClick={(item) => goInfoDetail(item.id)}
+              />
             ))
           ) : (
             !loading ? (

@@ -97,6 +97,14 @@
   color: inherit;
 }
 
+/* fenlei_icon — 分类按钮图标(对齐原项目 tools/styles/index.scss L1644-1646) */
+.community-fenlei-btn .fenlei_icon {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 10rpx;
+  vertical-align: middle;
+}
+
 /* ===== 内容区域(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) ===== */
 
 .community-content-area {
@@ -400,10 +408,10 @@
   white-space: nowrap;
 }
 
-/* ===== 智能体列表区域(对齐原项目 ailist_content) ===== */
+/* ===== 智能体列表区域(对齐原项目 ailist_content, 原项目无 margin-top) ===== */
 
 .community-ailist-content {
-  margin-top: 24rpx;
+  /* 对齐原项目 ailist_content: 不设置 margin-top(由上层 padding 控制) */
 }
 
 .community-agent-list-header {
@@ -511,6 +519,13 @@
   font-weight: 700;
   transform: rotate(90deg);
   display: block;
+}
+
+/* toodown 图标(对齐原项目 toodownimg, 用 back.svg) */
+.community-toodown-img {
+  width: 32rpx;
+  height: 32rpx;
+  transform: rotate(90deg);
 }
 
 /* ===== FloatBox 浮动组件 ===== */
