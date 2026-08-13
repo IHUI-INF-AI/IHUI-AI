@@ -119,6 +119,39 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
+  test('容器宽度压缩(2026-08-13 v12):容器宽度 ≈ 14px (button 10 + px-0.5×2)', async ({
+    page,
+  }) => {
+    const dims = await page.evaluate((selector) => {
+      const container = document.querySelector(selector) as HTMLElement | null
+      if (!container) return { error: 'indicator not found' as const }
+      const r = container.getBoundingClientRect()
+      const firstBtn = container.querySelector('button') as HTMLElement | null
+      const br = firstBtn?.getBoundingClientRect()
+      return {
+        containerW: r.width,
+        containerH: r.height,
+        buttonW: br?.width ?? 0,
+        buttonH: br?.height ?? 0,
+        // 容器 top 距首 button top = py-1 (4px)
+        topPadding: firstBtn ? firstBtn.getBoundingClientRect().top - r.top : 0,
+      }
+    }, INDICATOR_SELECTOR)
+    if ('error' in dims) throw new Error(dims.error)
+
+    // 容器宽度:10 (button) + 2*2 (px-0.5) = 14px,容差 ±1px
+    expect(dims.containerW).toBeGreaterThanOrEqual(13)
+    expect(dims.containerW).toBeLessThanOrEqual(15)
+    // button:10x24,容差 ±0.5px
+    expect(dims.buttonW).toBeGreaterThanOrEqual(9.5)
+    expect(dims.buttonW).toBeLessThanOrEqual(10.5)
+    expect(dims.buttonH).toBeGreaterThanOrEqual(23.5)
+    expect(dims.buttonH).toBeLessThanOrEqual(24.5)
+    // 顶部 padding:py-1 (4px),容差 ±1px
+    expect(dims.topPadding).toBeGreaterThanOrEqual(3)
+    expect(dims.topPadding).toBeLessThanOrEqual(5)
+  })
+
   test('间距一致 + 紧凑(2026-08-13 v11):任意相邻两点间距 ≈ 16px (2x 非激活态直径)', async ({
     page,
   }) => {

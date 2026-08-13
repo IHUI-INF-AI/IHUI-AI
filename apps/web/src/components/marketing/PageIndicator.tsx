@@ -44,6 +44,15 @@ interface PageIndicatorProps {
  *     - 间距 = gap + 16(非激活态 8x8 顶部距 button 底部 16px),所有态一致
  *     - 容器 gap-1 (4px) → gap-0 (0px),py-1.5 (6px) → py-0.5 (2px)
  *     - 最终间距:16px(2x 非激活态直径,紧凑但清晰)
+ * 2026-08-13 v12 左右压缩 + 上下留白:用户反馈"左右两侧内边距那么大 上下都快贴上了"。
+ *   根因(button w-6 24px):button 命中区宽 24px 但内容(active 8w / inactive 8w)仅 8px
+ *     容器宽度 28px,内容占比 28%,左右各 8px 空白"漂浮",比例严重失衡
+ *   修复:
+ *     - button w-6 (24px) → w-2.5 (10px):与内容宽度匹配
+ *       - active 8w 留 1px / inactive 8w 留 1px / hover 10w 填满(刚好命中)
+ *       - 容器宽度 28px → 14px(-50%),视觉紧凑
+ *     - 容器 py-0.5 (2px) → py-1 (4px):首尾圆点离容器边缘有 4px 留白,不再"贴上"
+ *     - gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
@@ -72,11 +81,15 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       // 2026-07-28 v9 根因修复:旧公式把左侧 sidebar/ai-panel 算进 right,
       //   实则工作区右边距 viewport 固定 8px(mr-2),与 sidebar/ai-panel 开关无关
       style={{ right: '12px' }}
-      // 2026-08-13 v11:间距一致化 — gap-1 (4px) → gap-0 (0px),py-1.5 (6px) → py-0.5 (2px)
-      //   button items-end 底部对齐,所有态底部都对齐 button 底部,间距 = 16 + gap
-      //   gap-0 → 间距 16px (= 2x 非激活态直径 8,紧凑但清晰)
-      //   py-0.5 让首尾留 2px 边缘,不至于贴死
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-0 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-0.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      // 2026-08-13 v12:左右内边距压缩 + 上下留白增大
+      //   根因(button w-6 24px):button 命中区与内容(active 8w / inactive 8w)宽度严重不匹配,
+      //     容器宽度 = 24 + 2*2 = 28px,但内容仅 8px → 左右各 8px 空白"漂浮",用户反馈"内边距那么大 上下都快贴上"
+      //   修复(button w-2.5 10px):
+      //     - 适配 active 8w 留 1px / inactive 8w 留 1px / hover 10w 填满(刚好命中)
+      //     - 容器宽度 = 10 + 2*2 = 14px(原 28px,减 50%)
+      //   同步修复容器 py-0.5 (2px) → py-1 (4px),首尾圆点离容器边缘有 4px 留白,不再"贴上"
+      //   gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-0 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
@@ -90,8 +103,12 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             aria-label={t('switchTo', { index: idx + 1 })}
             aria-current={isActive ? 'true' : undefined}
             // 2026-08-13 v10:button 命中区 h-4 w-4 (16x16) → h-6 w-6 (24x24),容下 24x8 激活态胶囊
-            // 正方形命中区让激活态(24x8)/非激活态(8x8)/hover态(10x10)都能在中心完美居中
-            className="group flex h-6 w-6 items-end justify-center"
+            //   正方形命中区让激活态(24x8)/非激活态(8x8)/hover态(10x10)都能在中心完美居中
+            // 2026-08-13 v12:button w-6 (24px) → w-2.5 (10px) — 与内容宽度适配
+            //   原因:button 24px 宽 vs 内容 8px → 容器左右 8px 空白"漂浮",视觉比例失衡
+            //   修复:button 10px 宽,active 8w (留 1px) / inactive 8w (留 1px) / hover 10w (填满)
+            //   容器宽度 28px → 14px (-50%),视觉紧凑
+            className="group flex h-6 w-2.5 items-end justify-center"
           >
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
