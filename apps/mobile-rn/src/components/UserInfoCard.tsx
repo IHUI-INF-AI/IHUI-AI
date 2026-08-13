@@ -14,8 +14,9 @@
  * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
  * 不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
  */
+import { useState } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
@@ -33,6 +34,10 @@ export interface UserInfoCardProps {
   onEdit?: () => void
   onRecharge?: () => void
   onLogin?: () => void
+  /** 退订回调(对齐 Uniapp unsubscribe,仅 isVip 时显示) */
+  onUnsubscribe?: () => void
+  /** 邀请码复制回调(不传则内部 Alert 提示) */
+  onCopyInviteCode?: (code: string) => void
   /** 变体选择,默认 'new' */
   variant?: UserInfoCardVariant
 }
@@ -51,7 +56,11 @@ function UserInfoCardNew({
   onEdit,
   onRecharge,
   onLogin,
+  onUnsubscribe,
+  onCopyInviteCode,
 }: UserInfoCardProps) {
+  const [levelModalVisible, setLevelModalVisible] = useState(false)
+
   // 未登录态:显示一键登录按钮
   if (!userInfo.uuid) {
     return (
@@ -67,6 +76,32 @@ function UserInfoCardNew({
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
   const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
+
+  // 成长值进度条(对齐 Uniapp growthValue/growthMax)
+  const growthValue = typeof userInfo.growthValue === 'number' ? userInfo.growthValue : undefined
+  const growthMax = typeof userInfo.growthMax === 'number' ? userInfo.growthMax : undefined
+  const hasGrowth = growthValue !== undefined && growthMax !== undefined && growthMax > 0
+  const growthPercent = hasGrowth ? Math.min(100, Math.round((growthValue! / growthMax!) * 100)) : 0
+
+  // 邀请码(对齐 Uniapp inviteCode)
+  const inviteCode = typeof userInfo.inviteCode === 'string' ? userInfo.inviteCode : undefined
+
+  // VIP 等级标题(对齐 Uniapp vipLevel,如"VIP1"/"SVIP")
+  const vipLevel = typeof userInfo.vipLevel === 'string' ? userInfo.vipLevel : undefined
+  const vipExpireAt = typeof userInfo.vipExpireAt === 'string' ? userInfo.vipExpireAt : undefined
+
+  const handleCopyInviteCode = () => {
+    if (!inviteCode) return
+    if (onCopyInviteCode) {
+      onCopyInviteCode(inviteCode)
+    } else {
+      Alert.alert('邀请码', `邀请码:${inviteCode}\n(长按复制)`)
+    }
+  }
+
+  const handleRoleBadgePress = () => {
+    setLevelModalVisible(true)
+  }
 
   return (
     <View style={newStyles.card}>
@@ -85,12 +120,44 @@ function UserInfoCardNew({
           </TouchableOpacity>
 
           <View style={newStyles.roleRow}>
-            <View style={[newStyles.roleBadge, isVip ? newStyles.roleBadgeVip : null]}>
-              <Text style={[newStyles.roleText, isVip ? newStyles.roleTextVip : null]}>{role}</Text>
-            </View>
+            <TouchableOpacity
+              style={[newStyles.roleBadge, isVip ? newStyles.roleBadgeVip : null]}
+              activeOpacity={0.7}
+              onPress={handleRoleBadgePress}
+            >
+              <Text style={[newStyles.roleText, isVip ? newStyles.roleTextVip : null]}>
+                {vipLevel || role}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
+
+      {/* 成长值进度条(对齐 Uniapp growthValue/growthMax) */}
+      {hasGrowth ? (
+        <View style={newStyles.growthRow}>
+          <View style={newStyles.growthLabelWrap}>
+            <Text style={newStyles.growthLabel}>成长值</Text>
+            <Text style={newStyles.growthValue}>
+              {growthValue}/{growthMax}
+            </Text>
+          </View>
+          <View style={newStyles.growthBarBg}>
+            <View style={[newStyles.growthBarFill, { width: `${growthPercent}%` }]} />
+          </View>
+        </View>
+      ) : null}
+
+      {/* 邀请码(对齐 Uniapp inviteCode,带复制提示) */}
+      {inviteCode ? (
+        <View style={newStyles.inviteRow}>
+          <Text style={newStyles.inviteLabel}>邀请码:</Text>
+          <Text style={newStyles.inviteCode}>{inviteCode}</Text>
+          <TouchableOpacity style={newStyles.copyBtn} activeOpacity={0.7} onPress={handleCopyInviteCode}>
+            <Text style={newStyles.copyBtnText}>复制</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
       <View style={newStyles.tokenRow}>
@@ -104,6 +171,38 @@ function UserInfoCardNew({
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {/* 退订按钮(对齐 Uniapp unsubscribe,仅 VIP 时显示) */}
+      {isVip && onUnsubscribe ? (
+        <TouchableOpacity style={newStyles.unsubscribeBtn} activeOpacity={0.7} onPress={onUnsubscribe}>
+          <Text style={newStyles.unsubscribeText}>退订</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {/* 等级弹窗(对齐 Uniapp levelPopup,点击角色徽章触发) */}
+      <Modal visible={levelModalVisible} transparent animationType="fade" onRequestClose={() => setLevelModalVisible(false)}>
+        <TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={() => setLevelModalVisible(false)}>
+          <View style={newStyles.modalCard}>
+            <Text style={newStyles.modalTitle}>{vipLevel || (isVip ? 'VIP 会员' : '普通会员')}</Text>
+            {isVip && vipExpireAt ? (
+              <Text style={newStyles.modalExpireText}>到期时间:{vipExpireAt}</Text>
+            ) : null}
+            <Text style={newStyles.modalDesc}>
+              {isVip
+                ? '您当前为 VIP 会员,享受专属权益。继续积累成长值可升级至更高等级。'
+                : '您当前为普通会员,升级 VIP 可享受更多权益。'}
+            </Text>
+            <View style={newStyles.modalBenefitList}>
+              <Text style={newStyles.modalBenefitItem}>· AI 助手免费次数增加</Text>
+              <Text style={newStyles.modalBenefitItem}>· 部分课程免费学习</Text>
+              <Text style={newStyles.modalBenefitItem}>· 建立专属知识库</Text>
+            </View>
+            <TouchableOpacity style={newStyles.modalCloseBtn} activeOpacity={0.7} onPress={() => setLevelModalVisible(false)}>
+              <Text style={newStyles.modalCloseBtnText}>关闭</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   )
 }
@@ -229,6 +328,137 @@ const newStyles = StyleSheet.create({
     fontSize: 12,
     color: tokens.surface.light,
     fontWeight: '500',
+  },
+  unsubscribeBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: tokens.text.tertiary,
+  },
+  unsubscribeText: {
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  // 成长值进度条
+  growthRow: {
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 6,
+  },
+  growthLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  growthLabel: {
+    fontSize: 11,
+    color: tokens.text.secondary,
+  },
+  growthValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: tokens.indigo.DEFAULT,
+  },
+  growthBarBg: {
+    height: 4,
+    backgroundColor: tokens.surface.muted,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  growthBarFill: {
+    height: 4,
+    backgroundColor: tokens.indigo.DEFAULT,
+    borderRadius: 2,
+  },
+  // 邀请码
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 6,
+  },
+  inviteLabel: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  inviteCode: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginLeft: 4,
+  },
+  copyBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: tokens.indigo.light,
+    borderRadius: 4,
+  },
+  copyBtnText: {
+    fontSize: 11,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  },
+  // 等级弹窗
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    width: '80%',
+    backgroundColor: tokens.surface.card,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: 8,
+  },
+  modalExpireText: {
+    fontSize: 12,
+    color: tokens.text.tertiary,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  modalBenefitList: {
+    alignSelf: 'stretch',
+    gap: 6,
+    marginBottom: 16,
+  },
+  modalBenefitItem: {
+    fontSize: 12,
+    color: tokens.text.primary,
+  },
+  modalCloseBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    backgroundColor: tokens.indigo.DEFAULT,
+    borderRadius: 8,
+  },
+  modalCloseBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '600',
   },
 })
 
