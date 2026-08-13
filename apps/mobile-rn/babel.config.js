@@ -1,4 +1,4 @@
-module.exports = function (api) {
+export default function (api) {
   api.cache(true)
   return {
     // nativewind/babel 返回 { plugins: [...] } (preset 格式),必须放 presets 而非 plugins。

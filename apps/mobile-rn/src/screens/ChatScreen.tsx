@@ -38,6 +38,7 @@ import {
   View,
   type ListRenderItem,
 } from 'react-native'
+import Clipboard from '@react-native-clipboard/clipboard'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
@@ -155,14 +156,8 @@ const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
   { key: 'audio', label: '音频' },
 ] as const
 
-/** DrawerTab → RN Tabs 路由映射(RN 无 square/share tab,fallback home) */
-const DRAWER_TAB_TO_RN: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
-  home: 'home',
-  ai: 'ai',
-  square: 'home',
-  share: 'home',
-  mine: 'mine',
-}
+// DrawerTab 中 home/ai/mine 是 Tab 路由(走 Tabs navigator);
+// square/share 是 RootStack 路由(直接 navigate,见 handleDrawerNavigate)。
 
 // ── ChatScreen 组件 ──
 
@@ -242,6 +237,25 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
 
   // ── 发送消息(send-message 事件) ──
   const send = async (): Promise<void> => {
+    // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
+    if (!authUser) {
+      Alert.alert('提示', '请先登录后再发送消息', [
+        { text: '去登录', onPress: () => { void logout() } },
+        { text: '取消', style: 'cancel' },
+      ])
+      return
+    }
+    // VIP 校验:付费模型(input_price > 0)需 VIP,非 VIP 提示跳转 Vip
+    const currentModelInfo = models.find((m) => m.id === model)
+    const isPaidModel = currentModelInfo ? currentModelInfo.input_price > 0 : false
+    const isVip = authUser.isVip === 1
+    if (isPaidModel && !isVip) {
+      Alert.alert('提示', '该模型为 VIP 专享,开通会员后可使用', [
+        { text: '开通会员', onPress: () => navigation.navigate('Vip') },
+        { text: '取消', style: 'cancel' },
+      ])
+      return
+    }
     const text = prompt.trim()
     if (!text || isStreaming) return
     setPrompt('')
@@ -410,7 +424,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
    *   type='file' → expo-document-picker getDocumentAsync(依赖未安装)
    */
   const handleIconClick = (): void => {
-    Alert.alert('图标点击', '图片/文件选择功能即将上线')
+    Alert.alert('提示', '图片/文件选择功能开发中')
   }
 
   /** fangda:放大输入区(切换展开状态,占位提示) */
@@ -426,6 +440,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const showQrCode = (): void => setQrCodeVisible(true)
   const hideQrCode = (): void => setQrCodeVisible(false)
   const handleLongPressQrCode = (): void => {
+    // TODO: 对接 expo-media-library 保存二维码到相册(需相机相册权限),当前仅提示
     Alert.alert('提示', '长按二维码图片可保存到相册')
   }
 
@@ -461,15 +476,28 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   // ── Drawer 回调 ──
   const closeDrawer = (): void => setDrawerVisible(false)
   const handleDrawerNavigate = (tab: DrawerTab): void => {
-    const rnTab = DRAWER_TAB_TO_RN[tab]
+    // square/share 是 RootStack 路由(非 Tab),直接 navigate 到根路由
+    if (tab === 'square') {
+      navigation.navigate('Square')
+      return
+    }
+    if (tab === 'share') {
+      navigation.navigate('Share')
+      return
+    }
+    // home/ai/mine 是 Tab 路由,通过 Tabs navigator 跳转
+    const rnTab: 'home' | 'ai' | 'mine' = tab
     navigation.navigate('Tabs', { screen: rnTab } as never)
   }
   const handleDrawerNavigateCompany = (): void => {
-    // 无独立"一人公司"页面,跳到设置页作为占位(后续任务对接真实页面)
-    navigation.navigate('Settings')
+    // 一人公司:跳 Distribution 路由(已在 RootNavigator 注册)
+    navigation.navigate('Distribution')
   }
   const handleDrawerClaimFree = (): void => {
-    Alert.alert('领取免费资料', '领取免费资料功能即将上线,敬请期待')
+    // 复制飞书免费资料链接到剪贴板 + Alert 提示
+    const feishuUrl = 'https://ihui.feishu.cn/wiki/'
+    Clipboard.setString(feishuUrl)
+    Alert.alert('领取免费资料', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
@@ -477,10 +505,21 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setMaterialCards([])
   }
   const handleDrawerSelectConversation = (_id: string): void => {
-    Alert.alert('历史对话', '历史对话加载中...')
+    // TODO: Chat 路由当前 params 为 undefined,需 RootNavigator 增加 chatId 参数后对接
+    Alert.alert('提示', '历史对话加载功能开发中')
   }
   const handleDrawerDeleteConversation = (_id: string): void => {
-    Alert.alert('删除对话', '确认删除此对话?')
+    // TODO: 对接 removeModelChat API 真实删除对话(需后端接口),成功后刷新 conversations 列表
+    Alert.alert('删除对话', '确认删除此对话?', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确认',
+        style: 'destructive',
+        onPress: () => {
+          // TODO: 调用 removeModelChat(_id) 删除后端对话,刷新 conversations 列表
+        },
+      },
+    ])
   }
   const handleDrawerOpenSettings = (): void => {
     navigation.navigate('Settings')
@@ -596,9 +635,11 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const agentListItems: AgentListItem[] = []
 
   // ── AgentList 选中回调 ──
-  const handleAgentSelect = (_id: string): void => {
+  const handleAgentSelect = (id: string): void => {
     setAgentListVisible(false)
-    Alert.alert('Agent 选择', 'Agent 详情即将上线')
+    // 跳 Agent 详情页(AgentDetail 路由接受 { id: string },已在 RootNavigator 注册)
+    // 注:AiAssistant 路由 params 为 undefined 无法传 code,故用 AgentDetail 承载 agent.id
+    navigation.navigate('AgentDetail', { id })
   }
 
   // ── BottomActionBar actions(模型列表 + 模型配置 + 发送,对齐 Uniapp show-model-list / showModelConfig / send-message) ──
