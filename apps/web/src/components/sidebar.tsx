@@ -1618,7 +1618,10 @@ const NavGroupSection = React.memo(function NavGroupSection({
         折叠态(grid-rows-[0fr]):内容高度 0,被 overflow-hidden 裁剪不可见。
         展开态(grid-rows-[1fr]):内容高度自适应,可见。
       */}
+      {/* suppressHydrationWarning:open 在 SSR 固定 defaultOpen,但 client 可能读 localStorage 不同值,
+          导致 grid-rows 类名 server/client 不一致。这是预期行为,不影响交互。 */}
       <div
+        suppressHydrationWarning
         className={cn(
           'grid transition-[grid-template-rows] duration-200 ease-out',
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
