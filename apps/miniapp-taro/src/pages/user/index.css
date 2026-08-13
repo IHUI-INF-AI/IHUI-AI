@@ -214,10 +214,19 @@
   background: linear-gradient(90deg, #FFD700, #FFE45C);
 }
 
-/* TODO: AlimamaFangYuanTi 字体需上传到项目 CDN 后引入(对齐原项目 font-family: "AlimamaFangYuanTi")。
- * 原项目用 src/static/fonts/AlimamaFangYuanTiVF-Thin.ttf 本地字体。
- * 注意:
- *   1. 小程序端不支持 @font-face 远程字体,只在 H5 端生效;
- *   2. 远程 URL https://cdn.bspapp.com/fonts/AlimamaFangYuanTiVF-Thin.ttf 可能失效;
- *   3. 字体上线时建议:本地字体 → CDN 上传 → @font-face + font-display: swap 降级;
- *   4. 应用范围:仅标题等关键文字(避免全文字应用导致性能问题)。 */
+/* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")
+ * 字体文件:src/static/fonts/AlimamaFangYuanTiVF-Thin.ttf(7.4MB,Taro copy.patterns 复制到 dist/static/)
+ * H5 端:本地路径加载;小程序端:不支持本地 @font-face,降级到系统字体(font-display: swap) */
+@font-face {
+  font-family: 'AlimamaFangYuanTi';
+  src: url('/static/fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 应用到关键标题文字(对齐原项目) */
+.user-content-title,
+.user-section-title {
+  font-family: 'AlimamaFangYuanTi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
