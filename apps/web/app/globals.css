@@ -89,6 +89,17 @@
   background-color: hsl(0 0% 18%);
 }
 
+/* Checkbox 勾选态无描边(2026-08-13 立)
+   根因:Tailwind v4 preflight `* { border-color: var(--color-border) }` 在 CSS 文件中
+   位置在 utility 类之后(源顺序覆盖),且未用 @layer 包裹,导致 `border-transparent` /
+   `data-[state=checked]:border-transparent` 工具类被 preflight 覆盖,勾选态仍显示 1px 灰描边。
+   修复:用更具体的选择器 + !important 显式覆盖,确保 3 个 checkbox(记住密码/自动登录/我已阅读并同意)
+   勾选后 border-color 真正为 transparent,无任何残留描边。 */
+[role='checkbox'][data-state='checked'],
+[data-testid='agreement-checkbox'][aria-checked='true'] > span {
+  border-color: transparent !important;
+}
+
 /* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
    移动端(<1024px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
      占 ml-1.5(6px) + w-9(36px) + gap-1(4px) = 46px,把搜索按钮挤到 left=46px。
