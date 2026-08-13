@@ -312,5 +312,11 @@
     "document": "문서",
     "video": "동영상",
     "addFile": "파일 추가"
+  },
+  "share": {
+    "aiContent": "AI 콘텐츠",
+    "voiceInput": "음성 입력",
+    "voicePlaceholder": "눌러서 말하기",
+    "submit": "공유"
   }
 }

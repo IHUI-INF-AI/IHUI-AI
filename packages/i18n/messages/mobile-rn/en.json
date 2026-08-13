@@ -312,5 +312,11 @@
     "document": "Document",
     "video": "Video",
     "addFile": "Add file"
+  },
+  "share": {
+    "aiContent": "AI Content",
+    "voiceInput": "Voice Input",
+    "voicePlaceholder": "Hold to speak",
+    "submit": "Share"
   }
 }
