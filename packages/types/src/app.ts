@@ -4025,6 +4025,8 @@ export interface TeamScreenProps {
   onSelectTab: (tab: TeamTab) => void
   onRefresh: () => void
   onBack: () => void
+  /** 点击成员卡片跳转详情(可选,不传则卡片不可点击) */
+  onPressMember?: (memberId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
