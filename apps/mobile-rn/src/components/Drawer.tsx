@@ -449,7 +449,12 @@ export function Drawer(props: DrawerProps) {
         <Animated.View style={[styles.drawer, { width: drawerWidth, transform: [{ translateX }] }]}>
           <View
             className="flex-1 bg-white"
-            style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+            style={{
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+              borderTopRightRadius: 12,
+              borderBottomRightRadius: 12,
+            }}
           >
             <ScrollView
               className="flex-1"
