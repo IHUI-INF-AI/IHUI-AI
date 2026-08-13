@@ -22,11 +22,15 @@ interface PageIndicatorProps {
  *   - gap 6px (1.5) → 4px (1),更紧凑
  *   - py-2 (8px) → py-1.5 (6px),上下更贴圆点
  *   - 整体精致度提升,点与点间节奏更紧凑
- * 2026-08-13 v10 等比例:用户反馈"激活态宽度跟下面未激活态的直径不统一 请等比例调整",
- *   且"光调宽度不调高度吗" — 明确要求所有态同尺寸 1:1,只通过不透明度区分激活/hover/默认。
- *   - 取消激活态竖向拉长胶囊(h-4 w-2 → h-2 w-2),激活态 = 非激活态直径(8x8)
- *   - hover 态保留 h-2.5 w-2.5 (10x10) 作为"可点击"视觉反馈,与激活态概念分离
- *   - 激活/非激活/hover 三态宽度都基于非激活态直径 8px 的整数倍(8/10/8),比例协调
+ * 2026-08-13 v10 等比例:用户三轮反馈最终确认"宽度跟下面圆统一为 8 没毛病啊,
+ *   高度你要调整大咯" — 明确设计:
+ *   - 宽度 = 8(与非激活态直径一致,w-2)
+ *   - 高度 = 24(3x 直径,h-6,放大)
+ *   - 激活态 = 24x8 竖向胶囊(3:1 比例),保持"竖向拉长"激活态视觉特征
+ *   - 非激活态 = 8x8 圆点(h-2 w-2,1x 直径)
+ *   - hover 态 = 10x10 圆点(h-2.5 w-2.5,1.25x 直径,作为可点击视觉反馈)
+ *   - button 命中区同步调整为 h-6 w-2 (24x8) 容下激活态,非激活/hover 态居中
+ *   - 激活态通过"宽度 = 直径 + 高度 = 3x 直径"形成竖向胶囊,与非激活圆点形成强对比
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
@@ -68,17 +72,20 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             onClick={() => onClick(idx)}
             aria-label={t('switchTo', { index: idx + 1 })}
             aria-current={isActive ? 'true' : undefined}
-            className="group flex h-4 w-4 items-center justify-center"
+            // 2026-08-13 v10:button 命中区 h-4 w-4 (16x16) → h-6 w-6 (24x24),容下 24x8 激活态胶囊
+            // 正方形命中区让激活态(24x8)/非激活态(8x8)/hover态(10x10)都能在中心完美居中
+            className="group flex h-6 w-6 items-center justify-center"
           >
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
               // 旧实现模板字符串拼接导致 h-4 / h-2、w-1.5 / w-2 同元素冲突,Tailwind 源序后值获胜
               // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x8 胶囊(等宽)。
+              // 2026-08-13 v10:激活态改为 24x8 (h-6 w-2) 竖向胶囊,宽度=非激活态直径 8,高度=3x 直径放大
               // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-2,激活态宽度对齐非激活态直径(8px)
               // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
               className={
                 isActive
-                  ? 'block h-2 w-2 rounded-full bg-foreground transition-all duration-300'
+                  ? 'block h-6 w-2 rounded-full bg-foreground transition-all duration-300'
                   : 'block h-2 w-2 rounded-full bg-foreground/30 transition-all duration-300 group-hover:h-2.5 group-hover:w-2.5 group-hover:bg-foreground/60'
               }
             />
