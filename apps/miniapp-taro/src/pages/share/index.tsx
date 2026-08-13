@@ -543,6 +543,23 @@ export default function ShareIndexPage() {
             fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
           })
         }}
+        onRemoveChat={(chat) => {
+          Taro.showModal({
+            title: '提示',
+            content: '确定删除此对话?',
+            success: async (res) => {
+              if (res.confirm) {
+                try {
+                  await api.removeModelChat(String(chat.id))
+                  Taro.showToast({ title: '已删除', icon: 'success' })
+                  void loadChatHistory()
+                } catch {
+                  Taro.showToast({ title: '删除失败', icon: 'none' })
+                }
+              }
+            },
+          })
+        }}
       />
 
       {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制 */}
