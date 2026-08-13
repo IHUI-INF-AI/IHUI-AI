@@ -103,7 +103,7 @@ export interface BottomActionBarProps {
 
 // ── 常量 ──
 
-const CONTAINER_PADDING_HORIZONTAL = 16
+const CONTAINER_PADDING_HORIZONTAL = 12
 const CONTAINER_PADDING_VERTICAL = 4
 const ROW_GAP = 12
 const COLUMN_GAP = 8
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
   // ── 新模式:图标按钮组 ──
   iconGroup: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     paddingBottom: 12,
   } as ViewStyle,
   iconGroupItem: {
@@ -910,6 +910,7 @@ const styles = StyleSheet.create({
     height: ICON_GROUP_ITEM_SIZE,
     borderRadius: ICON_GROUP_ITEM_RADIUS,
     backgroundColor: tokens.surface.muted,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,

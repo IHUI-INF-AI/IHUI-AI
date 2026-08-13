@@ -178,6 +178,16 @@ import N8nModelScreen from '../screens/N8nModelScreen'
 import ModelIncomeScreen from '../screens/ModelIncomeScreen'
 import AiCareerScreen from '../screens/AiCareerScreen'
 import AssistantScreen from '../screens/AssistantScreen'
+import ChangePwdScreen from '../screens/ChangePwdScreen'
+import TopupSuccessScreen from '../screens/TopupSuccessScreen'
+import TopupFailScreen from '../screens/TopupFailScreen'
+import CategoryDetailScreen from '../screens/CategoryDetailScreen'
+import RankingDetailScreen from '../screens/RankingDetailScreen'
+import TeamDetailScreen from '../screens/TeamDetailScreen'
+import DistributionOrderListScreen from '../screens/DistributionOrderListScreen'
+import EarnCommissionScreen from '../screens/EarnCommissionScreen'
+import StudyPublishScreen from '../screens/StudyPublishScreen'
+import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -345,6 +355,16 @@ export type RootStackParamList = {
   ModelIncome: { agentId?: string }
   AiCareer: undefined
   Assistant: undefined
+  ChangePwd: undefined
+  TopupSuccess: { amount: number; orderId: string }
+  TopupFail: { reason?: string }
+  CategoryDetail: { categoryId: string; title: string }
+  RankingDetail: { id: string }
+  TeamDetail: { memberId: string }
+  DistributionOrderList: undefined
+  EarnCommission: undefined
+  StudyPublish: undefined
+  AiAssistantN8n: { agentId?: string }
 }
 
 export type HomeStackParamList = {
@@ -705,6 +725,16 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ModelIncome" component={ModelIncomeScreen} />
             <RootStack.Screen name="AiCareer" component={AiCareerScreen} />
             <RootStack.Screen name="Assistant" component={AssistantScreen} />
+            <RootStack.Screen name="ChangePwd" component={ChangePwdScreen} />
+            <RootStack.Screen name="TopupSuccess" component={TopupSuccessScreen} />
+            <RootStack.Screen name="TopupFail" component={TopupFailScreen} />
+            <RootStack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
+            <RootStack.Screen name="RankingDetail" component={RankingDetailScreen} />
+            <RootStack.Screen name="TeamDetail" component={TeamDetailScreen} />
+            <RootStack.Screen name="DistributionOrderList" component={DistributionOrderListScreen} />
+            <RootStack.Screen name="EarnCommission" component={EarnCommissionScreen} />
+            <RootStack.Screen name="StudyPublish" component={StudyPublishScreen} />
+            <RootStack.Screen name="AiAssistantN8n" component={AiAssistantN8nScreen} />
           </>
         ) : (
           <>
