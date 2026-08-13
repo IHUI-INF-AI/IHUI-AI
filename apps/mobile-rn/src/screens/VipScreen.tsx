@@ -15,6 +15,7 @@ import {
 } from '@ihui/rn-app'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
+import { IntroducePopup } from '../components/IntroducePopup'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -57,6 +58,8 @@ export function VipScreen() {
   // VIP 权益介绍弹窗(首次进入自动展示,关闭后本次会话不再弹出)
   const [introVisible, setIntroVisible] = useState(false)
   const [introShown, setIntroShown] = useState(false)
+  // VIP 等级介绍弹窗(H18,复刻 Uniapp vip_info/index.vue 的 introduce-popup levelIndex 变体)
+  const [levelIntroVisible, setLevelIntroVisible] = useState(false)
 
   const load = useCallback(
     async (refresh = false) => {
@@ -76,6 +79,9 @@ export function VipScreen() {
 
   useEffect(() => {
     void load()
+    // 首次进入自动展示 VIP 等级介绍弹窗(复刻 Uniapp vip_info/index.vue)
+    const timer = setTimeout(() => setLevelIntroVisible(true), 500)
+    return () => clearTimeout(timer)
   }, [load])
 
   const onPurchase = async (level: VipLevelItem2) => {
@@ -120,6 +126,13 @@ export function VipScreen() {
         primaryLabel="立即查看"
         onClose={() => setIntroVisible(false)}
         onPrimary={() => setIntroVisible(false)}
+      />
+      <IntroducePopup
+        visible={levelIntroVisible}
+        onClose={() => setLevelIntroVisible(false)}
+        variant="levelIndex"
+        level={membership?.level ?? 0}
+        onConfirm={() => setLevelIntroVisible(false)}
       />
     </>
   )
