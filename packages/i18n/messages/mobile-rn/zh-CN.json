@@ -115,6 +115,7 @@
     "navLogout": "退出"
   },
   "settings": {
+    "title": "设置",
     "about": "关于智汇 AI",
     "lang_zhCN": "简体中文",
     "lang_en": "English",
@@ -125,14 +126,27 @@
     "theme_dark": "深色",
     "theme_system": "跟随系统",
     "languageChanged": "语言已切换",
-    "themeChanged": "主题已切换"
+    "themeChanged": "主题已切换",
+    "checkUpdateTitle": "检查更新",
+    "checkUpdateLatest": "当前已是最新版本",
+    "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
+    "logoutConfirm": "确认退出当前账号?"
   },
   "menu": {
     "about": "关于",
     "feedback": "意见反馈",
     "privacy": "隐私协议",
     "agreement": "用户协议",
-    "changePwd": "修改密码"
+    "changePwd": "修改密码",
+    "accountManage": "账号管理",
+    "changePhone": "更换手机号",
+    "accountCancel": "账号注销",
+    "checkUpdate": "检查更新",
+    "appPermission": "应用权限",
+    "usageRules": "使用规范",
+    "businessLicense": "营业执照",
+    "icpRecord": "ICP 备案",
+    "modelRecord": "模型备案"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -177,13 +191,43 @@
   },
   "common": {
     "ok": "好的",
-    "gotIt": "知道了"
+    "gotIt": "知道了",
+    "back": "返回",
+    "loading": "加载中...",
+    "cancel": "取消",
+    "confirm": "确认",
+    "error": "错误",
+    "menu": "菜单",
+    "empty": "暂无数据"
   },
   "aiAssistant": {
+    "title": "AI 助手",
+    "subtitle": "选择智能体开始对话",
+    "searchPlaceholder": "搜索智能体",
+    "empty": "暂无智能体",
+    "useCount": "{count} 使用",
+    "favoriteCount": "{count} 收藏",
+    "startChat": "开始对话",
+    "catAll": "全部",
+    "catWriting": "写作",
+    "catCoding": "编程",
+    "catOffice": "办公",
+    "catStudy": "学习",
+    "loadFailed": "加载失败",
     "chat": {
       "title": "进入对话",
       "message": "即将与「{name}」开始对话"
     }
+  },
+  "aiAssistantN8n": {
+    "title": "AI 助手",
+    "placeholder": "请输入您的问题",
+    "empty": "向 AI 助手发送消息开始对话",
+    "emptyNoAgent": "未绑定工作流,发送消息将得到模拟响应",
+    "send": "发送",
+    "streaming": "正在生成...",
+    "callFailed": "调用失败,请稍后重试",
+    "mockResponse": "当前为模拟响应,配置 agentId 后可对接真实工作流"
   },
   "aiCareer": {
     "plan": {
@@ -330,5 +374,36 @@
     "voiceInput": "语音输入",
     "voicePlaceholder": "按住说出分享内容",
     "submit": "分享"
+  },
+  "vipScreen": {
+    "plans": {
+      "continuous": "连续包月",
+      "monthly": "按月购买"
+    },
+    "discount": "限时折扣",
+    "trial": "试用",
+    "subscribe": "立即开通",
+    "agreement": "充值即表示同意并阅读《用户充值协议》",
+    "pay": {
+      "title": "确认支付",
+      "message": "确认支付 ¥{amount} 开通「{name}」?",
+      "confirm": "确认支付",
+      "cancel": "取消",
+      "success": "支付成功",
+      "failed": "支付失败或已取消"
+    },
+    "banner": {
+      "trader": "操盘手专属权益",
+      "traderSubtitle": "大额分销 · 优先定制 · 一对一陪跑",
+      "level": "会员等级升级机制",
+      "levelHint": "1¥ = 1 点成长值",
+      "privateAdvisory": "私董会服务"
+    },
+    "qr": {
+      "title": "扫码联系客服",
+      "hint": "长按二维码保存到相册",
+      "card": "名片二维码",
+      "close": "关闭"
+    }
   }
 }
