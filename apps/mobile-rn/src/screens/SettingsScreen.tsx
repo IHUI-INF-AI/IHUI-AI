@@ -54,43 +54,42 @@ export default function SettingsScreen() {
   ]
 
   // 菜单项分组:账号与安全 / 通用设置 / 帮助与反馈 / 隐私与权限 / 关于
-  // 注意:新增菜单项暂用中文直串(i18n key 待主 agent 补 menu.accountManage 等)
   const menuItems: SharedMenuItem[] = [
     // 账号与安全
-    { key: 'SettingsAccount', label: '账号管理' },
-    { key: 'ChangePhone', label: '更换手机号' },
+    { key: 'SettingsAccount', label: t('menu.accountManage') },
+    { key: 'ChangePhone', label: t('menu.changePhone') },
     { key: 'ChangePwd', label: t('menu.changePwd') },
-    { key: 'AccountCancel', label: '账号注销' },
+    { key: 'AccountCancel', label: t('menu.accountCancel') },
     // 通用设置
-    { key: 'CheckUpdate', label: '检查更新' },
+    { key: 'CheckUpdate', label: t('menu.checkUpdate') },
     // 帮助与反馈
     { key: 'Feedback', label: t('menu.feedback') },
     // 隐私与权限
     { key: 'Agreement', label: t('menu.agreement') },
     { key: 'Privacy', label: t('menu.privacy') },
-    { key: 'AppPermission', label: '应用权限' },
-    { key: 'UsageRules', label: '使用规范' },
+    { key: 'AppPermission', label: t('menu.appPermission') },
+    { key: 'UsageRules', label: t('menu.usageRules') },
     // 关于
-    { key: 'BusinessLicense', label: '营业执照' },
-    { key: 'IcpRecord', label: 'ICP 备案' },
-    { key: 'ModelRecord', label: '模型备案' },
+    { key: 'BusinessLicense', label: t('menu.businessLicense') },
+    { key: 'IcpRecord', label: t('menu.icpRecord') },
+    { key: 'ModelRecord', label: t('menu.modelRecord') },
     { key: 'About', label: t('menu.about') },
   ]
 
   const drawerMenuItems: SideMenuItem[] = [
-    { key: 'SettingsAccount', label: '账号管理', icon: '👤' },
-    { key: 'ChangePhone', label: '更换手机号', icon: '📱' },
+    { key: 'SettingsAccount', label: t('menu.accountManage'), icon: '👤' },
+    { key: 'ChangePhone', label: t('menu.changePhone'), icon: '📱' },
     { key: 'ChangePwd', label: t('menu.changePwd'), icon: '🔑' },
-    { key: 'AccountCancel', label: '账号注销', icon: '⚠' },
-    { key: 'CheckUpdate', label: '检查更新', icon: '🔄' },
+    { key: 'AccountCancel', label: t('menu.accountCancel'), icon: '⚠' },
+    { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: '🔄' },
     { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
     { key: 'Agreement', label: t('menu.agreement'), icon: '📄' },
     { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
-    { key: 'AppPermission', label: '应用权限', icon: '🛡' },
-    { key: 'UsageRules', label: '使用规范', icon: '📋' },
-    { key: 'BusinessLicense', label: '营业执照', icon: '🏛' },
-    { key: 'IcpRecord', label: 'ICP 备案', icon: '🌐' },
-    { key: 'ModelRecord', label: '模型备案', icon: '🤖' },
+    { key: 'AppPermission', label: t('menu.appPermission'), icon: '🛡' },
+    { key: 'UsageRules', label: t('menu.usageRules'), icon: '📋' },
+    { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: '🏛' },
+    { key: 'IcpRecord', label: t('menu.icpRecord'), icon: '🌐' },
+    { key: 'ModelRecord', label: t('menu.modelRecord'), icon: '🤖' },
     { key: 'About', label: t('menu.about'), icon: 'ℹ' },
   ]
 
