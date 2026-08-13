@@ -54,6 +54,9 @@ logger = get_logger(__name__)
 _MAX_CONCURRENT_PER_USER = 3
 # 调度器轮询间隔(秒)
 _POLL_INTERVAL_SEC = 60
+# DB 连接失败指数退避(2026-08-13 立,修复 Postgres 未启动时每 62s 空转重试)
+_DB_BACKOFF_BASE_SEC = 5.0
+_DB_BACKOFF_MAX_SEC = 300.0
 # 历史保留上限(内存 LRU)
 _HISTORY_LIMIT = 200
 
@@ -183,23 +186,39 @@ class PublishScheduler:
     # ===== 轮询循环 =====
 
     async def _poll_loop(self) -> None:
-        """主轮询循环:每 60s 检查 scheduled_at 到期的任务。"""
+        """主轮询循环:每 60s 检查 scheduled_at 到期的任务。
+
+        DB 连接失败时指数退避(5s → 300s 上限),恢复后回落到 _POLL_INTERVAL_SEC,
+        避免 Postgres 未启动时高频空转(2026-08-13 立)。
+        """
         # 启动延迟 30s,避免与 schema_check/DB 初始化争抢
         await asyncio.sleep(30)
+        backoff = _DB_BACKOFF_BASE_SEC
         while self._started:
             try:
-                await self._poll_once()
+                ok = await self._poll_once()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning("[publish.scheduler] poll error: %s: %s", type(e).__name__, e)
-            await asyncio.sleep(_POLL_INTERVAL_SEC)
+                ok = False
+            if ok:
+                backoff = _DB_BACKOFF_BASE_SEC
+                await asyncio.sleep(_POLL_INTERVAL_SEC)
+            else:
+                logger.warning(
+                    "[publish.scheduler] db unavailable, backoff %.0fs (max %ds)",
+                    backoff,
+                    _DB_BACKOFF_MAX_SEC,
+                )
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, _DB_BACKOFF_MAX_SEC)
 
-    async def _poll_once(self) -> None:
-        """单次轮询:捞起到期任务并提交执行。"""
+    async def _poll_once(self) -> bool:
+        """单次轮询:捞起到期任务并提交执行。返回 DB 是否可用(True=正常轮询)。"""
         conn = await self._get_conn()
         if conn is None:
-            return
+            return False
         try:
             await self._ensure_tables(conn)
             now = datetime.now(timezone.utc)
@@ -238,6 +257,7 @@ class PublishScheduler:
                     task_id,
                 )
                 self._spawn_task(self._run_task(task_id, user_id, content, targets))
+            return True
         finally:
             await conn.close()
 
