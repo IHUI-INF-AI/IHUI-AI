@@ -139,9 +139,9 @@ test.describe('PageIndicator 几何守门', () => {
     }, INDICATOR_SELECTOR)
     if ('error' in dims) throw new Error(dims.error)
 
-    // 容器宽度:10 (button) + 2*2 (px-0.5) = 14px,容差 ±1px
-    expect(dims.containerW).toBeGreaterThanOrEqual(13)
-    expect(dims.containerW).toBeLessThanOrEqual(15)
+    // 容器宽度:14 (button + px) + 2 (1px border × 2) = 16px,容差 ±1px
+    expect(dims.containerW).toBeGreaterThanOrEqual(15)
+    expect(dims.containerW).toBeLessThanOrEqual(17)
     // button:10x24,容差 ±0.5px
     expect(dims.buttonW).toBeGreaterThanOrEqual(9.5)
     expect(dims.buttonW).toBeLessThanOrEqual(10.5)
