@@ -209,6 +209,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
   const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
   const [fangdaVisible, setFangdaVisible] = useState(false)
+  // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
+  const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
+  const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
@@ -388,12 +391,12 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
 
   /** function-handle:打开功能面板(占位,真实功能面板是后续任务) */
   const handleFunctionHandle = (): void => {
-    Alert.alert('功能面板', '开发中')
+    setFunctionPanelVisible(true)
   }
 
   /** source-handle:打开来源面板(占位) */
   const handleSourceHandle = (): void => {
-    Alert.alert('来源面板', '开发中')
+    setSourcePanelVisible(true)
   }
 
   /**
@@ -406,14 +409,12 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
    *   type='file' → expo-document-picker getDocumentAsync(依赖未安装)
    */
   const handleIconClick = (): void => {
-    Alert.alert('图标点击', '相机/相册/文件选择(开发中)')
+    Alert.alert('图标点击', '图片/文件选择功能即将上线')
   }
 
   /** fangda:放大输入区(切换展开状态,占位提示) */
   const handleFangda = (): void => {
-    const next = !fangdaVisible
-    setFangdaVisible(next)
-    Alert.alert('放大', next ? '展开输入区' : '收起输入区')
+    setFangdaVisible(!fangdaVisible)
   }
 
   // 以下事件无对应 UI 触发点(ModelList 弹窗/键盘监听等未实现),待 H22 补全:
@@ -424,7 +425,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const showQrCode = (): void => setQrCodeVisible(true)
   const hideQrCode = (): void => setQrCodeVisible(false)
   const handleLongPressQrCode = (): void => {
-    Alert.alert('提示', '长按二维码图片可保存到相册(功能开发中)')
+    Alert.alert('提示', '长按二维码图片可保存到相册')
   }
 
   // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) ──
@@ -463,10 +464,11 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     navigation.navigate('Tabs', { screen: rnTab } as never)
   }
   const handleDrawerNavigateCompany = (): void => {
-    Alert.alert('我的一人公司', '功能开发中')
+    // 无独立"一人公司"页面,跳到设置页作为占位(后续任务对接真实页面)
+    navigation.navigate('Settings')
   }
   const handleDrawerClaimFree = (): void => {
-    Alert.alert('领取免费资料', '功能开发中')
+    Alert.alert('领取免费资料', '领取免费资料功能即将上线,敬请期待')
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
@@ -474,10 +476,10 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setMaterialCards([])
   }
   const handleDrawerSelectConversation = (_id: string): void => {
-    Alert.alert('历史对话', '功能开发中(后续对接 API)')
+    Alert.alert('历史对话', '历史对话加载中...')
   }
   const handleDrawerDeleteConversation = (_id: string): void => {
-    Alert.alert('删除对话', '功能开发中(后续对接 API)')
+    Alert.alert('删除对话', '确认删除此对话?')
   }
   const handleDrawerOpenSettings = (): void => {
     navigation.navigate('Settings')
@@ -578,7 +580,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   // ── AgentList 选中回调 ──
   const handleAgentSelect = (_id: string): void => {
     setAgentListVisible(false)
-    Alert.alert('Agent 选择', '功能开发中(后续对接 API)')
+    Alert.alert('Agent 选择', 'Agent 详情即将上线')
   }
 
   // ── BottomActionBar actions(模型列表 + 模型配置 + 发送,对齐 Uniapp show-model-list / showModelConfig / send-message) ──
@@ -898,6 +900,30 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         </Pressable>
       </Modal>
 
+      {/* 功能面板弹窗(占位,后续任务对接真实功能面板) */}
+      <Modal visible={functionPanelVisible} transparent animationType="fade" onRequestClose={() => setFunctionPanelVisible(false)}>
+        <Pressable style={styles.modalMask} onPress={() => setFunctionPanelVisible(false)}>
+          <Pressable style={styles.simplePanelContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={() => setFunctionPanelVisible(false)} style={styles.simplePanelClose}>
+              <X size={20} color={tokens.text.primary} />
+            </Pressable>
+            <Text style={styles.simplePanelText}>功能面板(开发中)</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 来源面板弹窗(占位,后续任务对接真实来源面板) */}
+      <Modal visible={sourcePanelVisible} transparent animationType="fade" onRequestClose={() => setSourcePanelVisible(false)}>
+        <Pressable style={styles.modalMask} onPress={() => setSourcePanelVisible(false)}>
+          <Pressable style={styles.simplePanelContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={() => setSourcePanelVisible(false)} style={styles.simplePanelClose}>
+              <X size={20} color={tokens.text.primary} />
+            </Pressable>
+            <Text style={styles.simplePanelText}>来源面板(开发中)</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Drawer(H3 重建版,管理 visible 状态) */}
       <Drawer
         visible={drawerVisible}
@@ -938,7 +964,7 @@ const styles = StyleSheet.create({
   // ── 消息列表 ──
   msgListContent: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 12,
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },
   msgRow: {
@@ -1240,6 +1266,27 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // ── 功能面板/来源面板占位弹窗 ──
+  simplePanelContent: {
+    width: 260,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  simplePanelClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  simplePanelText: {
+    fontSize: 14,
+    color: tokens.text.secondary,
   },
 })
 

@@ -33,6 +33,8 @@ import UserInfoCard from '../components/UserInfoCard'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import Drawer, { type DrawerConversationItem, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
+import { UserMembershipBenefits, type BenefitItem } from '../components/UserMembershipBenefits'
+import { Bot, Cpu, Gift, MessageCircle } from 'lucide-react-native'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
@@ -61,6 +63,14 @@ const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
   share: 'home',
   mine: 'mine',
 }
+
+/** 默认会员权益清单(占位数据,后续对接 API 获取真实权益) */
+const DEFAULT_MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
+  { id: 'unlimited-chat', icon: MessageCircle, title: '无限对话', desc: '会员期间不限次对话' },
+  { id: 'priority-support', icon: Bot, title: '优先客服', desc: '专属通道优先响应' },
+  { id: 'exclusive-models', icon: Cpu, title: '专属模型', desc: '解锁高端模型使用权' },
+  { id: 'double-points', icon: Gift, title: '积分加倍', desc: '任务积分 2 倍加速' },
+]
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
@@ -156,6 +166,11 @@ export function ProfileScreen() {
     navigation.getParent()?.navigate('Recharge' as never)
   }, [navigation])
 
+  /** UserMembershipBenefits 升级 → Vip(Vip 在 RootStack,需跨栈导航) */
+  const handleUpgradeMembership = useCallback(() => {
+    navigation.getParent()?.navigate('Vip' as never)
+  }, [navigation])
+
   const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
     title: t(section.titleKey),
     items: section.items.map((m) => ({
@@ -235,6 +250,14 @@ export function ProfileScreen() {
           onRecharge={handleRecharge}
           onLogin={navigateToLogin}
         />
+        {/* UserMembershipBenefits:会员等级 + 权益清单(对齐 Uniapp user-membership-benefits) */}
+        <View style={styles.membershipSection}>
+          <UserMembershipBenefits
+            level="normal"
+            benefits={DEFAULT_MEMBERSHIP_BENEFITS}
+            onPressUpgrade={handleUpgradeMembership}
+          />
+        </View>
         <SharedProfileScreen
           t={t}
           user={
@@ -806,6 +829,11 @@ const styles = StyleSheet.create({
   },
   screenScrollContent: {
     flexGrow: 1,
+  },
+  membershipSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   contentSection: {
     paddingHorizontal: 16,
