@@ -1,31 +1,127 @@
+/**
+ * ChatScreen — AI 对话社区主屏 (mobile-rn 端)
+ *
+ * 1:1 复刻历史 Uniapp ai_index.vue 核心结构:
+ * - 顶部 NavBar:菜单入口(打开 Drawer)+ 标题"智汇AI"+ 加入按钮(二维码弹窗)
+ * - 模型类型切换区:8 种模型类型按钮(skills/talk/image/video/audio/videoa/other/sck)
+ *   注:Uniapp 第 8 个按钮是 'sck'(素材库/我的创作),非任务描述的 'all';
+ *   'sck' 是素材库入口,'all' 是任务作者语义映射,这里按 Uniapp 保真用 'sck'。
+ * - Material 卡片区:当前对话引入的素材(materialCards),横向卡片 + 关闭按钮(对齐 Uniapp materialCards)
+ *   素材库浏览弹窗(sck 点击)用现有 MaterialList 组件(分类 tab + 网格),不支持删除;
+ *   materialCards 是"引入到输入区的素材",需删除,故自定义实现。在注释中说明分工。
+ * - 消息列表:FlatList 渲染气泡(user 右 / assistant 左),保留 streamChat 流式逻辑
+ * - 底部输入区:输入框 + 语音 + 图片(自定义)+ 功能开关 chip 行(对齐 Uniapp ToggleButtonGroup)
+ *   + BottomActionBar(发送 + 模型列表,承载 send-message / show-model-list 事件)
+ * - 二维码弹窗 + 分享领智汇值弹窗(Modal)
+ * - Drawer 集成(H3 重建版,管理 visible 状态)
+ *
+ * BottomActionBar 30+ 事件回调:10 个核心实现(send-message/toggle-voice-input/
+ * toggle-super-agent/toggle-mcp/toggle-knowledge-base/toggle-permanent-memory/
+ * showModelConfig/show-model-list/remove-image/update:prompt),其余 stub(H22 补全)。
+ *
+ * 平台独占:仅 mobile-rn 端,不涉及其他端。
+ */
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Share } from 'react-native'
-import type { View } from 'react-native'
-import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import {
-  streamChat,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ListRenderItem,
+} from 'react-native'
+import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import {
+  Bot,
+  BookOpen,
+  Brain,
+  Clapperboard,
+  Cpu,
+  Image as ImageIcon,
+  Library,
+  type LucideIcon,
+  Menu,
+  MessageCircle,
+  Mic,
+  Music,
+  QrCode,
+  Server,
+  Share2,
+  Sparkles,
+  Video,
+  X,
+} from 'lucide-react-native'
+import {
   fetchModels,
   formatSSEError,
   getModelContextCapacity,
+  streamChat,
   type LlmModel,
 } from '@ihui/api-client'
-import { formatTokenCount } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
+import { NavBar } from '../components/NavBar'
+import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
+import MaterialList, {
+  type MaterialCategory,
+  type MaterialItem,
+} from '../components/MaterialList'
 import {
-  ChatScreen as SharedChatScreen,
-  type ChatScreenMessage,
-  type ChatScreenModel,
-  type ChatScreenNavItem,
-} from '@ihui/rn-app'
+  Drawer,
+  type DrawerConversationItem,
+  type DrawerTab,
+} from '../components/Drawer'
 import { useAuth } from '../context/AuthContext'
-import { useScreenshot } from '../hooks/use-screenshot'
 import { useChatInput } from '../hooks/useChatInput'
-import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-// 共享层兜底模型(FallbackModel:value/label/vendor)→ LlmModel 形态
-// 2026-08-04 Phase E 收敛:13 个硬编码模型收敛到共享层 3 个(AGENTS.md §3)
+// ── 类型定义(强类型,禁用 any) ──
+
+/**
+ * 模型类型(对齐 Uniapp ai_index.vue 的 8 种模型类型按钮)。
+ * Uniapp 实际第 8 个按钮是 'sck'(素材库),非 'all';按 Uniapp 保真用 'sck'。
+ */
+type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+
+/** 素材卡片(对齐 Uniapp materialCards,引入到输入区的素材,支持删除) */
+interface MaterialCard {
+  id: string
+  /** 1文本 2图片 3视频 4音频(对齐 Uniapp materialCards.type) */
+  type: 1 | 2 | 3 | 4
+  title: string
+  content?: string
+  imageList?: string[]
+  videoUrl?: string
+  audioUrl?: string
+  posterUrl?: string
+}
+
+/** 模型类型按钮配置 */
+interface ModelTypeConfig {
+  key: ModelType
+  label: string
+  Icon: LucideIcon
+}
+
+/** 功能开关 chip 配置 */
+interface ToggleChipConfig {
+  key: string
+  label: string
+  Icon: LucideIcon
+  active: boolean
+  onPress: () => void
+}
+
+// ── 常量 ──
+
 const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   id: m.value,
   name: m.label,
@@ -34,55 +130,77 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   input_price: 0,
 }))
 
-function toChatScreenModel(m: LlmModel): ChatScreenModel {
-  return {
-    id: m.id,
-    name: m.name,
-    provider: m.provider,
-    context_length: m.context_length,
-    input_price: m.input_price,
-  }
+/** 8 种模型类型按钮(对齐 Uniapp ai_index.vue 的 8 个 model-type-btn) */
+const MODEL_TYPES: readonly ModelTypeConfig[] = [
+  { key: 'skills', label: '技能', Icon: Sparkles },
+  { key: 'talk', label: '对话', Icon: MessageCircle },
+  { key: 'image', label: '图片', Icon: ImageIcon },
+  { key: 'video', label: '视频', Icon: Video },
+  { key: 'audio', label: '音频', Icon: Music },
+  { key: 'videoa', label: '视音', Icon: Clapperboard },
+  { key: 'other', label: '其他', Icon: Cpu },
+  { key: 'sck', label: '素材', Icon: Library },
+] as const
+
+/** 素材库分类(对齐 Uniapp MaterialList 的 4 tab:文本/图片/视频/音频) */
+const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
+  { key: 'text', label: '文本' },
+  { key: 'image', label: '图片' },
+  { key: 'video', label: '视频' },
+  { key: 'audio', label: '音频' },
+] as const
+
+/** DrawerTab → RN Tabs 路由映射(RN 无 square/share tab,fallback home) */
+const DRAWER_TAB_TO_RN: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
+  home: 'home',
+  ai: 'ai',
+  square: 'home',
+  share: 'home',
+  mine: 'mine',
 }
 
-function toChatScreenMessage(m: ChatMessage): ChatScreenMessage {
-  return { id: m.id, role: m.role, content: m.content }
-}
+// ── ChatScreen 组件 ──
 
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
-  const { logout } = useAuth()
-  const { t } = useI18n()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputText, setInputText] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [error, setError] = useState('')
-  const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
-  const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
-  const idCounter = useRef(0)
-  const nextId = () => `${++idCounter.current}`
-
-  // MessageInput 平台能力:图片/语音/全屏/焦点/Agent 变量(集中 useChatInput 封装)
+  const { user: authUser, logout } = useAuth()
   const {
     inputFiles,
     isVoiceMode,
-    isRecording,
-    isInputFullscreen,
-    isInputFocused,
-    agentVariables,
     onInputAddImage,
-    onInputAddFile,
     onInputRemoveFile,
     onInputVoiceToggle,
-    onInputFullscreenToggle,
-    onInputFocus,
-    onInputBlur,
-    onInputVoiceStart,
-    onInputVoiceEnd,
-    onInputAgentVariableTextChange,
-    onInputAgentVariableImageChange,
   } = useChatInput()
 
+  // ── 弹窗/抽屉状态 ──
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  const [qrCodeVisible, setQrCodeVisible] = useState(false)
+  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [showMaterialList, setShowMaterialList] = useState(false)
+  const [materialTab, setMaterialTab] = useState<string>('text')
+
+  // ── 模型/对话状态 ──
+  const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
+  const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
+  const [prompt, setPrompt] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
+  const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+
+  // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
+  const [superAgentEnabled, setSuperAgentEnabled] = useState(false)
+  const [mcpEnabled, setMcpEnabled] = useState(false)
+  const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false)
+  const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
+
+  const abortRef = useRef<AbortController | null>(null)
+  const idCounter = useRef(0)
+  const listRef = useRef<FlatList<ChatMessage> | null>(null)
+  const materialCardIdCounter = useRef(0)
+  const nextId = (): string => `msg-${++idCounter.current}`
+  const nextMaterialCardId = (): string => `card-${++materialCardIdCounter.current}`
+
+  // ── 模型列表加载(保留原 streamChat 链路) ──
   useEffect(() => {
     let cancelled = false
     fetchModels()
@@ -90,8 +208,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def =
-          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -102,38 +219,24 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     }
   }, [])
 
-  const send = async () => {
-    const text = inputText.trim()
+  // ── 发送消息(send-message 事件) ──
+  const send = async (): Promise<void> => {
+    const text = prompt.trim()
     if (!text || isStreaming) return
-    setInputText('')
-    setError('')
-
+    setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
     const history = [...messages, userMsg]
     setMessages([...history, aiMsg])
     setIsStreaming(true)
-
     const controller = new AbortController()
     abortRef.current = controller
-
     const apiMessages = history.map((m) => ({ role: m.role, content: m.content }))
-
     await streamChat({
       model,
       messages: apiMessages,
       signal: controller.signal,
       contextLimit: getModelContextCapacity(model),
-      onCompaction: (info) => {
-        Alert.alert(
-          t('chatAlert.compaction.title'),
-          t('chatAlert.compaction.message', {
-            before: formatTokenCount(info.tokensBefore),
-            after: formatTokenCount(info.tokensAfter),
-            removed: info.removedCount,
-          }),
-        )
-      },
       onDelta: (delta) => {
         setMessages((prev) => {
           const next = [...prev]
@@ -146,16 +249,13 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       },
       onError: (err) => {
         const formatted = formatSSEError(new Error(err))
-        setError(formatted.message)
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
           Alert.alert(formatted.title, formatted.message, [
-            { text: t('chatAlert.loginBtn'), onPress: () => logout() },
-            { text: t('common.cancel'), style: 'cancel' },
+            { text: '重新登录', onPress: () => logout() },
+            { text: '取消', style: 'cancel' },
           ])
-        } else if (formatted.severity === 'ratelimit') {
-          Alert.alert(formatted.title, formatted.message)
         } else {
           Alert.alert(formatted.title, formatted.message)
         }
@@ -167,107 +267,821 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     })
   }
 
-  const stop = () => {
+  const stop = (): void => {
     abortRef.current?.abort()
     abortRef.current = null
     setIsStreaming(false)
   }
 
-  const handleClear = () => {
-    setInputText('')
+  // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
+  const handleModelTypeClick = (type: ModelType): void => {
+    if (type === 'sck') {
+      // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
+      if (currentModelType === 'sck') {
+        setCurrentModelType('')
+        setShowMaterialList(false)
+      } else {
+        setCurrentModelType('sck')
+        setShowMaterialList(true)
+      }
+      return
+    }
+    // 其他类型:切换选中态(对齐 Uniapp handleModelTypeClick,二次点击收起)
+    setCurrentModelType((prev) => (prev === type ? '' : type))
+    setShowMaterialList(false)
   }
 
-  // 长按消息气泡:截图并弹出分享/保存菜单
-  const messageRefs = useRef<Map<string, View | null>>(new Map())
-  const { capture, busy: capturing } = useScreenshot()
-  const handleLongPress = async (item: ChatScreenMessage) => {
-    const original = messages.find((m) => m.id === item.id)
-    if (!original) return
-    const el = messageRefs.current.get(item.id)
-    if (!el || capturing) return
-    const uri = await capture({ current: el } as React.RefObject<View>)
-    if (!uri) return
-    Alert.alert(
-      original.role === 'user'
-        ? t('chatAlert.longPress.myTitle')
-        : t('chatAlert.longPress.aiTitle'),
-      t('chatAlert.longPress.message'),
-      [
-        {
-          text: t('chatAlert.longPress.shareBtn'),
-          onPress: () => Share.share({ url: uri, message: original.content }),
-        },
-        { text: t('common.cancel'), style: 'cancel' },
-      ],
+  // ── BottomActionBar 核心事件回调(10 个核心) ──
+
+  /** toggle-voice-input:切换语音输入(复用 useChatInput 平台能力) */
+  const toggleVoiceInput = (): void => {
+    onInputVoiceToggle()
+  }
+
+  /** toggle-super-agent:切换超级智能体 */
+  const toggleSuperAgent = (): void => {
+    setSuperAgentEnabled((prev) => !prev)
+  }
+
+  /** toggle-mcp:切换 MCP */
+  const toggleMCP = (): void => {
+    setMcpEnabled((prev) => !prev)
+  }
+
+  /** toggle-knowledge-base:切换知识库 */
+  const toggleKnowledgeBase = (): void => {
+    setKnowledgeBaseEnabled((prev) => !prev)
+  }
+
+  /** toggle-permanent-memory:切换永久记忆 */
+  const togglePermanentMemory = (): void => {
+    setPermanentMemoryEnabled((prev) => !prev)
+  }
+
+  /** showModelConfig:显示模型配置(stub,后续 H22 补全) */
+  const showModelConfig = (): void => {
+    Alert.alert('模型配置', '功能开发中')
+  }
+
+  /** show-model-list:显示模型列表(stub,后续对接 ModelList 弹窗) */
+  const showModelList = (): void => {
+    const names = models.map((m) => m.name).join('\n')
+    Alert.alert('模型列表', names || '暂无可用模型')
+  }
+
+  /** remove-image:删除图片(复用 useChatInput onInputRemoveFile) */
+  const removeImage = (id: string): void => {
+    onInputRemoveFile(id)
+  }
+
+  /** update:prompt:更新输入内容 */
+  const updatePrompt = (value: string): void => {
+    setPrompt(value)
+  }
+
+  // ── BottomActionBar 其余事件 stub(对齐 Uniapp 30+ 事件,后续 H22 补全) ──
+  // 已挂载到 UI 的:handleInputFocus/handleInputBlur(TextInput)、textareaHeightChange(TextInput onContentSizeChange)
+  const handleInputFocus = (): void => {}
+  const handleInputBlur = (): void => {}
+  const textareaHeightChange = (): void => {}
+  // 以下事件无对应 UI 触发点(ModelList 弹窗/相机相册/键盘监听等未实现),待 H22 补全:
+  // start-long-press / end-long-press / input-click / start-voice-animation / stop-voice-animation /
+  // function-handle / source-handle / icon-click / modelConfigChange / fangda / keyboard-show / keyboard-hide
+
+  // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
+  const showQrCode = (): void => setQrCodeVisible(true)
+  const hideQrCode = (): void => setQrCodeVisible(false)
+  const handleLongPressQrCode = (): void => {
+    Alert.alert('提示', '长按二维码图片可保存到相册(功能开发中)')
+  }
+
+  // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) ──
+  const showSharePoints = (): void => setShareValueVisible(true)
+  const hideSharePoints = (): void => setShareValueVisible(false)
+  const handleShareClick = async (): Promise<void> => {
+    try {
+      await Share.share({ message: '智汇AI社区 — 邀请你加入,一起探索 AI 对话!' })
+    } catch {
+      // 用户取消分享,静默处理
+    }
+  }
+
+  // ── Material 卡片操作(对齐 Uniapp handleMaterialItemClick / removeMaterialCard) ──
+  const handleMaterialItemClick = (id: string): void => {
+    // 素材库选中 → 引入到 materialCards(对齐 Uniapp handleMaterialItemClick)
+    // 注:MaterialList 组件 items 是 MaterialItem(无 content/imageList),这里用占位卡片
+    const card: MaterialCard = {
+      id: nextMaterialCardId(),
+      type: 1,
+      title: `素材 ${id}`,
+      content: '',
+    }
+    setMaterialCards((prev) => [...prev, card])
+    setShowMaterialList(false)
+    setCurrentModelType('')
+  }
+  const removeMaterialCard = (id: string): void => {
+    setMaterialCards((prev) => prev.filter((c) => c.id !== id))
+  }
+
+  // ── Drawer 回调 ──
+  const closeDrawer = (): void => setDrawerVisible(false)
+  const handleDrawerNavigate = (tab: DrawerTab): void => {
+    const rnTab = DRAWER_TAB_TO_RN[tab]
+    navigation.navigate('Tabs', { screen: rnTab } as never)
+  }
+  const handleDrawerNavigateCompany = (): void => {
+    Alert.alert('我的一人公司', '功能开发中')
+  }
+  const handleDrawerClaimFree = (): void => {
+    Alert.alert('领取免费资料', '功能开发中')
+  }
+  const handleDrawerCreateNewChat = (): void => {
+    setMessages([])
+    setPrompt('')
+    setMaterialCards([])
+  }
+  const handleDrawerSelectConversation = (_id: string): void => {
+    Alert.alert('历史对话', '功能开发中(后续对接 API)')
+  }
+  const handleDrawerDeleteConversation = (_id: string): void => {
+    Alert.alert('删除对话', '功能开发中(后续对接 API)')
+  }
+  const handleDrawerOpenSettings = (): void => {
+    navigation.navigate('Settings')
+  }
+  const handleDrawerOpenMessages = (): void => {
+    navigation.navigate('MessageCenter')
+  }
+  const handleDrawerGoHome = (): void => {
+    navigation.navigate('Tabs', { screen: 'home' } as never)
+  }
+
+  // ── Drawer user 映射(AuthUser → Drawer user) ──
+  const drawerUser = {
+    avatar: authUser?.avatar,
+    nickname: authUser?.nickname ?? authUser?.username ?? '未登录',
+    level: (authUser?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
+  }
+
+  // ── 素材库列表(占位,后续对接 getMyCreation API) ──
+  const materialItems: MaterialItem[] = []
+  const materialLoading = false
+
+  // ── 消息列表渲染 ──
+  const renderMessage: ListRenderItem<ChatMessage> = ({ item }) => {
+    const isUser = item.role === 'user'
+    return (
+      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
+        <View
+          style={[
+            styles.msgBubble,
+            isUser ? styles.msgBubbleUser : styles.msgBubbleAi,
+          ]}
+        >
+          <Text
+            style={[
+              styles.msgText,
+              isUser ? styles.msgTextUser : styles.msgTextAi,
+            ]}
+          >
+            {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
+          </Text>
+        </View>
+      </View>
     )
   }
 
-  const onMessageRef = (id: string, el: unknown) => {
-    const node = el as View | null
-    if (node) messageRefs.current.set(id, node)
-    else messageRefs.current.delete(id)
+  const handleMessagesChange = (): void => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: true })
+    })
   }
 
-  const navItems: ChatScreenNavItem[] = [
-    { key: 'agent', label: t('chat.navAgent'), onPress: () => navigation.navigate('Agent') },
-    { key: 'wallet', label: t('chat.navWallet'), onPress: () => navigation.navigate('Wallet') },
+  // ── 功能开关 chip 配置(对齐 Uniapp ToggleButtonGroup) ──
+  const toggleChips: ToggleChipConfig[] = [
+    { key: 'super-agent', label: '智能体', Icon: Bot, active: superAgentEnabled, onPress: toggleSuperAgent },
+    { key: 'mcp', label: 'MCP', Icon: Server, active: mcpEnabled, onPress: toggleMCP },
+    { key: 'knowledge-base', label: '知识库', Icon: BookOpen, active: knowledgeBaseEnabled, onPress: toggleKnowledgeBase },
+    { key: 'permanent-memory', label: '记忆', Icon: Brain, active: permanentMemoryEnabled, onPress: togglePermanentMemory },
+  ]
+
+  // ── BottomActionBar actions(模型列表 + 模型配置 + 发送,对齐 Uniapp show-model-list / showModelConfig / send-message) ──
+  const bottomActions: ReadonlyArray<BottomActionBarAction> = [
     {
-      key: 'course',
-      label: t('chat.navCourse'),
-      onPress: () => navigation.navigate('Tabs'),
-    },
-    { key: 'order', label: t('chat.navOrder'), onPress: () => navigation.navigate('Order') },
-    {
-      key: 'profile',
-      label: t('chat.navProfile'),
-      onPress: () => navigation.navigate('Tabs'),
+      key: 'model',
+      label: models.find((m) => m.id === model)?.name ?? '选择模型',
+      onPress: showModelList,
     },
     {
-      key: 'settings',
-      label: t('chat.navSettings'),
-      onPress: () => navigation.navigate('Settings'),
+      key: 'config',
+      icon: '⚙️',
+      onPress: showModelConfig,
     },
-    { key: 'logout', label: t('chat.navLogout'), onPress: logout },
+    {
+      key: 'send',
+      label: isStreaming ? '停止' : '发送',
+      primary: true,
+      onPress: isStreaming ? stop : send,
+      loading: isStreaming,
+    },
   ]
 
   return (
-    <SharedChatScreen
-      t={t}
-      messages={messages.map(toChatScreenMessage)}
-      inputText={inputText}
-      isStreaming={isStreaming}
-      error={error}
-      models={models.map(toChatScreenModel)}
-      model={model}
-      pickerOpen={pickerOpen}
-      navItems={navItems}
-      // MessageInput 平台能力(由 useChatInput 注入)
-      inputFiles={inputFiles}
-      agentVariables={agentVariables}
-      isInputFocused={isInputFocused}
-      isInputFullscreen={isInputFullscreen}
-      isVoiceMode={isVoiceMode}
-      isRecording={isRecording}
-      isSending={isStreaming}
-      onInputTextChange={setInputText}
-      onSend={send}
-      onStop={stop}
-      onModelChange={setModel}
-      onPickerOpenChange={setPickerOpen}
-      onLongPressMessage={handleLongPress}
-      onMessageRef={onMessageRef}
-      onInputFocus={onInputFocus}
-      onInputBlur={onInputBlur}
-      onInputFullscreenToggle={onInputFullscreenToggle}
-      onInputVoiceToggle={onInputVoiceToggle}
-      onInputAddImage={onInputAddImage}
-      onInputAddFile={onInputAddFile}
-      onInputRemoveFile={onInputRemoveFile}
-      onInputClear={handleClear}
-      onInputVoiceStart={onInputVoiceStart}
-      onInputVoiceEnd={onInputVoiceEnd}
-      onInputAgentVariableTextChange={onInputAgentVariableTextChange}
-      onInputAgentVariableImageChange={onInputAgentVariableImageChange}
-    />
+    <View style={styles.root}>
+      {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
+      <NavBar
+        title="智汇AI"
+        rightAction={
+          <View style={styles.navRight}>
+            {/* 菜单按钮:打开 Drawer(受限于 NavBar 组件左侧固定为返回/占位,菜单放右侧) */}
+            <Pressable
+              hitSlop={8}
+              onPress={() => setDrawerVisible(true)}
+              accessibilityLabel="打开菜单"
+            >
+              <Menu size={22} color={tokens.text.primary} />
+            </Pressable>
+            {/* 分享按钮:显示分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) */}
+            <Pressable
+              hitSlop={8}
+              onPress={showSharePoints}
+              accessibilityLabel="分享领智汇值"
+            >
+              <Share2 size={22} color={tokens.text.primary} />
+            </Pressable>
+            {/* 加入按钮:显示二维码弹窗 */}
+            <Pressable
+              hitSlop={8}
+              onPress={showQrCode}
+              accessibilityLabel="加入社区"
+            >
+              <QrCode size={22} color={tokens.text.primary} />
+            </Pressable>
+          </View>
+        }
+      />
+
+      <KeyboardAvoidingView
+        style={styles.body}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        {/* 消息列表区(对齐 Uniapp conversationMessages) */}
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.msgListContent}
+          onContentSizeChange={handleMessagesChange}
+          onLayout={handleMessagesChange}
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件) */}
+        {showMaterialList ? (
+          <View style={styles.materialPopup}>
+            <View style={styles.materialPopupHeader}>
+              <Text style={styles.materialPopupTitle}>我的创作</Text>
+              <Pressable hitSlop={8} onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}>
+                <X size={20} color={tokens.text.secondary} />
+              </Pressable>
+            </View>
+            <MaterialList
+              categories={[...MATERIAL_CATEGORIES]}
+              activeCategory={materialTab}
+              onCategoryChange={setMaterialTab}
+              items={materialItems}
+              onPress={handleMaterialItemClick}
+              loading={materialLoading}
+            />
+          </View>
+        ) : null}
+
+        {/* Material 卡片区(当前对话引入的素材,横向 + 删除,对齐 Uniapp materialCards) */}
+        {materialCards.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.materialCardsScroll}
+            contentContainerStyle={styles.materialCardsContent}
+          >
+            {materialCards.map((card) => (
+              <View key={card.id} style={styles.materialCard}>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => removeMaterialCard(card.id)}
+                  style={styles.materialCardClose}
+                  accessibilityLabel="删除素材"
+                >
+                  <X size={12} color={tokens.surface.light} />
+                </Pressable>
+                <Text style={styles.materialCardTitle} numberOfLines={1}>
+                  {card.title}
+                </Text>
+                <Text style={styles.materialCardPreview} numberOfLines={1}>
+                  {card.content ? card.content.slice(0, 20) : `类型${card.type}`}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* 图片附件列表(对齐 Uniapp imgsList,复用 useChatInput inputFiles) */}
+        {inputFiles.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.imgsListScroll}
+            contentContainerStyle={styles.imgsListContent}
+          >
+            {inputFiles.map((file) => (
+              <View key={file.id} style={styles.imgsListItem}>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => removeImage(file.id)}
+                  style={styles.imgsListClose}
+                  accessibilityLabel="删除图片"
+                >
+                  <X size={10} color={tokens.surface.light} />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* 模型类型切换区(横向 ScrollView,对齐 Uniapp 8 个 model-type-btn) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.modelTypeScroll}
+          contentContainerStyle={styles.modelTypeContent}
+        >
+          {MODEL_TYPES.map(({ key, label, Icon }) => {
+            const active = currentModelType === key
+            return (
+              <Pressable
+                key={key}
+                onPress={() => handleModelTypeClick(key)}
+                style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
+                accessibilityLabel={label}
+              >
+                <Icon size={16} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
+                <Text
+                  style={[
+                    styles.modelTypeLabel,
+                    active ? styles.modelTypeLabelActive : null,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </ScrollView>
+
+        {/* 功能开关 chip 行(对齐 Uniapp ToggleButtonGroup) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.toggleScroll}
+          contentContainerStyle={styles.toggleContent}
+        >
+          {toggleChips.map(({ key, label, Icon, active, onPress }) => (
+            <Pressable
+              key={key}
+              onPress={onPress}
+              style={[styles.toggleChip, active ? styles.toggleChipActive : null]}
+              accessibilityLabel={label}
+            >
+              <Icon size={14} color={active ? tokens.surface.light : tokens.text.secondary} />
+              <Text
+                style={[
+                  styles.toggleChipText,
+                  active ? styles.toggleChipTextActive : null,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* 输入框区域(对齐 Uniapp InputArea:update:prompt / toggle-voice-input / remove-image) */}
+        <View style={styles.inputRow}>
+          <Pressable
+            hitSlop={8}
+            onPress={toggleVoiceInput}
+            style={[styles.inputIconBtn, isVoiceMode ? styles.inputIconBtnActive : null]}
+            accessibilityLabel="语音输入"
+          >
+            <Mic size={20} color={isVoiceMode ? tokens.surface.light : tokens.text.secondary} />
+          </Pressable>
+          <TextInput
+            style={styles.input}
+            value={prompt}
+            onChangeText={updatePrompt}
+            placeholder="请输入描述"
+            placeholderTextColor={tokens.text.tertiary}
+            multiline
+            maxLength={2000}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            onContentSizeChange={textareaHeightChange}
+          />
+          <Pressable
+            hitSlop={8}
+            onPress={onInputAddImage}
+            style={styles.inputIconBtn}
+            accessibilityLabel="添加图片"
+          >
+            <ImageIcon size={20} color={tokens.text.secondary} />
+          </Pressable>
+        </View>
+
+        {/* BottomActionBar(发送 + 模型,承载 send-message / show-model-list) */}
+        <BottomActionBar actions={bottomActions} />
+      </KeyboardAvoidingView>
+
+      {/* 二维码弹窗(对齐 Uniapp qr-code-modal) */}
+      <Modal visible={qrCodeVisible} transparent animationType="fade" onRequestClose={hideQrCode}>
+        <Pressable style={styles.modalMask} onPress={hideQrCode}>
+          <Pressable style={styles.qrCodeContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
+              <X size={20} color={tokens.text.primary} />
+            </Pressable>
+            <View style={styles.qrCodePlaceholder}>
+              <QrCode size={180} color={tokens.text.primary} />
+            </View>
+            <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
+            <Pressable onPress={handleLongPressQrCode} style={styles.qrCodeHint}>
+              <Text style={styles.qrCodeHintText}>长按二维码可保存</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup) */}
+      <Modal visible={shareValueVisible} transparent animationType="fade" onRequestClose={hideSharePoints}>
+        <Pressable style={styles.modalMask} onPress={hideSharePoints}>
+          <Pressable style={styles.shareContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
+              <X size={20} color={tokens.text.primary} />
+            </Pressable>
+            <Share2 size={48} color={tokens.purple.DEFAULT} />
+            <Text style={styles.shareTitle}>分享领智汇值</Text>
+            <Text style={styles.shareDesc}>
+              邀请好友加入智汇AI社区,好友注册成功后双方均可获得智汇值奖励。智汇值可用于兑换模型算力、会员权益等。
+            </Text>
+            <Pressable onPress={handleShareClick} style={styles.shareBtn}>
+              <Text style={styles.shareBtnText}>立即分享</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Drawer(H3 重建版,管理 visible 状态) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={closeDrawer}
+        user={drawerUser}
+        conversations={[] as DrawerConversationItem[]}
+        onNavigate={handleDrawerNavigate}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
+      />
+    </View>
   )
 }
+
+// ── 样式(StyleSheet + tokens,禁用 rounded-full / 禁用分割线,compact 紧凑) ──
+
+const BOTTOM_BAR_TOTAL = 68 // BottomActionBar 高度估值(12+44+12)
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  },
+  body: {
+    flex: 1,
+  },
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  // ── 消息列表 ──
+  msgListContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: BOTTOM_BAR_TOTAL + 8,
+  },
+  msgRow: {
+    marginVertical: 4,
+    flexDirection: 'row',
+  },
+  msgRowUser: {
+    justifyContent: 'flex-end',
+  },
+  msgRowAi: {
+    justifyContent: 'flex-start',
+  },
+  msgBubble: {
+    maxWidth: '78%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  msgBubbleUser: {
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  msgBubbleAi: {
+    backgroundColor: tokens.surface.card,
+  },
+  msgText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  msgTextUser: {
+    color: tokens.surface.light,
+  },
+  msgTextAi: {
+    color: tokens.text.primary,
+  },
+  // ── 素材库弹窗 ──
+  materialPopup: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  materialPopupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  materialPopupTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  // ── Material 卡片区 ──
+  materialCardsScroll: {
+    maxHeight: 72,
+  },
+  materialCardsContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  materialCard: {
+    width: 120,
+    height: 56,
+    backgroundColor: tokens.surface.card,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    justifyContent: 'center',
+  },
+  materialCardClose: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: tokens.text.tertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  materialCardTitle: {
+    fontSize: 12,
+    color: tokens.text.primary,
+    fontWeight: '500',
+  },
+  materialCardPreview: {
+    fontSize: 11,
+    color: tokens.text.secondary,
+    marginTop: 2,
+  },
+  // ── 图片附件列表 ──
+  imgsListScroll: {
+    maxHeight: 60,
+  },
+  imgsListContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  imgsListItem: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.card,
+  },
+  imgsListClose: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: tokens.danger.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // ── 模型类型切换区 ──
+  modelTypeScroll: {
+    maxHeight: 44,
+  },
+  modelTypeContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  modelTypeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.card,
+    height: 32,
+  },
+  modelTypeBtnActive: {
+    backgroundColor: tokens.surface.light,
+    borderWidth: 1,
+    borderColor: tokens.brand.DEFAULT,
+  },
+  modelTypeLabel: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  modelTypeLabelActive: {
+    color: tokens.brand.DEFAULT,
+    fontWeight: '500',
+  },
+  // ── 功能开关 chip 行 ──
+  toggleScroll: {
+    maxHeight: 36,
+  },
+  toggleContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  toggleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.card,
+    height: 28,
+  },
+  toggleChipActive: {
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  toggleChipText: {
+    fontSize: 11,
+    color: tokens.text.secondary,
+  },
+  toggleChipTextActive: {
+    color: tokens.surface.light,
+    fontWeight: '500',
+  },
+  // ── 输入框区域 ──
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    backgroundColor: tokens.surface.light,
+    marginBottom: BOTTOM_BAR_TOTAL,
+  },
+  inputIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputIconBtnActive: {
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  input: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 100,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.card,
+    fontSize: 14,
+    color: tokens.text.primary,
+    textAlignVertical: 'top',
+  },
+  // ── 二维码弹窗 ──
+  modalMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrCodeContent: {
+    width: 280,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  qrCodeClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrCodePlaceholder: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  qrCodeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginBottom: 8,
+  },
+  qrCodeHint: {
+    padding: 4,
+  },
+  qrCodeHintText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  // ── 分享领值弹窗 ──
+  shareContent: {
+    width: 300,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  shareClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  shareDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  shareBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  shareBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  },
+})
+
+export default ChatScreen
