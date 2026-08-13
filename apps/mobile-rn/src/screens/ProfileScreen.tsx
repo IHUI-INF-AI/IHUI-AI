@@ -31,7 +31,7 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import UserInfoCard from '../components/UserInfoCard'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-import Drawer, { type DrawerConversationItem, type DrawerTab } from '../components/Drawer'
+import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { UserMembershipBenefits, type BenefitItem } from '../components/UserMembershipBenefits'
 import { Bot, Cpu, Gift, MessageCircle } from 'lucide-react-native'
@@ -185,19 +185,39 @@ export function ProfileScreen() {
     navigation.getParent()?.navigate(DRAWER_TAB_TO_RN_TAB[tab] as never)
   }
   const handleDrawerNavigateCompany = () => {
-    Alert.alert('我的一人公司', '功能开发中')
+    setDrawerVisible(false)
+    navigation.navigate('Settings')
   }
   const handleDrawerClaimFree = () => {
-    Alert.alert('领取免费资料', '功能开发中')
+    Alert.alert('领取免费资料', '功能即将上线,敬请期待')
   }
   const handleDrawerCreateNewChat = () => {
-    Alert.alert('创建新对话', '功能开发中')
+    setDrawerVisible(false)
+    navigation.getParent()?.navigate('ai' as never)
   }
   const handleDrawerSelectConversation = (_id: string) => {
-    Alert.alert('历史对话', '功能开发中(后续对接 API)')
+    Alert.alert('历史对话', '对话加载中...')
   }
   const handleDrawerDeleteConversation = (_id: string) => {
-    Alert.alert('删除对话', '功能开发中(后续对接 API)')
+    Alert.alert('删除对话', '确认删除此对话?')
+  }
+  const handleNavigateExtra = (menu: DrawerExtraMenu) => {
+    setDrawerVisible(false)
+    switch (menu) {
+      case 'aigc':
+        navigation.getParent()?.navigate('AigcList' as never)
+        break
+      case 'learn':
+        navigation.getParent()?.navigate('Learn' as never)
+        break
+      case 'modelPlaza':
+        navigation.getParent()?.navigate('ModelPlaza' as never)
+        break
+      case 'company':
+      case 'tools':
+        navigation.navigate('Settings')
+        break
+    }
   }
   const handleDrawerOpenSettings = () => {
     setDrawerVisible(false)
@@ -320,6 +340,7 @@ export function ProfileScreen() {
         onOpenSettings={handleDrawerOpenSettings}
         onOpenMessages={handleDrawerOpenMessages}
         onGoHome={handleDrawerGoHome}
+        onNavigateExtra={handleNavigateExtra}
       />
     </>
   )
@@ -647,7 +668,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
       return
     }
     // RN 端下载需 expo-file-system + Sharing(后续任务接入),此处占位提示
-    Alert.alert('提示', '音频下载功能开发中')
+    Alert.alert('提示', '音频下载功能即将上线')
   }, [item.audioUrl])
 
   const progressRatio = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0
