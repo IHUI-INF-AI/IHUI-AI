@@ -312,5 +312,11 @@
     "document": "ドキュメント",
     "video": "動画",
     "addFile": "添付ファイルを追加"
+  },
+  "share": {
+    "aiContent": "AIコンテンツ",
+    "voiceInput": "音声入力",
+    "voicePlaceholder": "長押しして話す",
+    "submit": "共有"
   }
 }
