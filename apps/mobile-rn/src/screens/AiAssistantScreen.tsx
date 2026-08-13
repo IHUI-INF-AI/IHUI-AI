@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAgents, type Agent } from '@ihui/api-client'
 import {
   AiAssistantScreen as SharedAiAssistantScreen,
@@ -7,9 +8,13 @@ import {
   type AiAssistantCategory,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export default function AiAssistantScreen() {
   const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
   const [category, setCategory] = useState('all')
   const [keyword, setKeyword] = useState('')
   const [agents, setAgents] = useState<Agent[]>([])
@@ -79,7 +84,7 @@ export default function AiAssistantScreen() {
         void load()
       }}
       onPressItem={(item) =>
-        Alert.alert(t('aiAssistant.chat.title'), t('aiAssistant.chat.message', { name: item.name }))
+        navigation.navigate('AiAssistantN8n', { agentId: item.id })
       }
       onBack={() => undefined}
     />
