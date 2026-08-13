@@ -500,3 +500,9 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground, #888);
 }
+
+/* ===== 流式光标闪烁动画(对标原项目流式接收光标)===== */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
