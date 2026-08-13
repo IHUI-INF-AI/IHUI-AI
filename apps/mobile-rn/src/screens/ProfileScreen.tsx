@@ -31,6 +31,8 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import UserInfoCard from '../components/UserInfoCard'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import Drawer, { type DrawerConversationItem, type DrawerTab } from '../components/Drawer'
+import { NavBar } from '../components/NavBar'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
@@ -50,6 +52,15 @@ import {
 } from './profileContentTypes'
 
 type ProfileStackNav = NativeStackNavigationProp<ProfileStackParamList>
+
+/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 无对应 RN Tab,fallback 到 home) */
+const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
+  home: 'home',
+  ai: 'ai',
+  square: 'home',
+  share: 'home',
+  mine: 'mine',
+}
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
@@ -73,6 +84,8 @@ export function ProfileScreen() {
   const [floatVisible, setFloatVisible] = useState(false)
   const [floatMessage, setFloatMessage] = useState('')
   const [floatType, setFloatType] = useState<FloatBoxType>('info')
+  // Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall)
+  const [drawerVisible, setDrawerVisible] = useState(false)
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -152,8 +165,51 @@ export function ProfileScreen() {
     })),
   }))
 
+  // ── Drawer 回调(对齐 Uniapp user/index.vue DrawerComponentall) ──
+  const handleDrawerNavigate = (tab: DrawerTab) => {
+    navigation.getParent()?.navigate(DRAWER_TAB_TO_RN_TAB[tab] as never)
+  }
+  const handleDrawerNavigateCompany = () => {
+    Alert.alert('我的一人公司', '功能开发中')
+  }
+  const handleDrawerClaimFree = () => {
+    Alert.alert('领取免费资料', '功能开发中')
+  }
+  const handleDrawerCreateNewChat = () => {
+    Alert.alert('创建新对话', '功能开发中')
+  }
+  const handleDrawerSelectConversation = (_id: string) => {
+    Alert.alert('历史对话', '功能开发中(后续对接 API)')
+  }
+  const handleDrawerDeleteConversation = (_id: string) => {
+    Alert.alert('删除对话', '功能开发中(后续对接 API)')
+  }
+  const handleDrawerOpenSettings = () => {
+    setDrawerVisible(false)
+    navigation.navigate('Settings')
+  }
+  const handleDrawerOpenMessages = () => {
+    setDrawerVisible(false)
+    navigation.navigate('MessageCenter')
+  }
+  const handleDrawerGoHome = () => {
+    setDrawerVisible(false)
+    navigation.getParent()?.navigate('home' as never)
+  }
+
+  /** Drawer user 映射(AuthUser → Drawer user) */
+  const drawerUser = {
+    avatar: user?.avatar,
+    nickname: user?.nickname ?? user?.username ?? '未登录',
+    level: (user?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
+  }
+
   return (
     <>
+      <NavBar
+        title={t('profile.title')}
+        rightActions={[{ icon: '☰', onPress: () => setDrawerVisible(true) }]}
+      />
       <ScrollView
         style={styles.screenScroll}
         contentContainerStyle={styles.screenScrollContent}
@@ -225,6 +281,22 @@ export function ProfileScreen() {
         type={floatType}
         message={floatMessage}
         onHide={() => setFloatVisible(false)}
+      />
+      {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        user={drawerUser}
+        conversations={[] as DrawerConversationItem[]}
+        onNavigate={handleDrawerNavigate}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
       />
     </>
   )
