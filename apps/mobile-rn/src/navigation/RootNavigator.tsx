@@ -5,7 +5,7 @@ import {
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp, type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -197,7 +197,7 @@ import { AppTopupScreen } from '../screens/AppTopupScreen'
 
 export type RootStackParamList = {
   Login: undefined
-  Tabs: undefined
+  Tabs: NavigatorScreenParams<MainTabParamList>
   Home: undefined
   Chat: undefined
   CourseDetail: { id: string }
