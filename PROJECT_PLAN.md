@@ -3395,3 +3395,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-12) 环境恢复:PostgreSQL 服务(STOPPED→RUNNING)+ 推送链路(GitHub TLS 波动重试,`git -c credential.helper=store push` + 后台幂等重推)
 - [x] ✅(2026-08-12) 事故防护:git stash 破坏性 bug 实锤(.git 被删 2 次 100% 复现)→ 全禁 stash,隔离验证用文件覆盖法;git-repository-recovery skill 补充事故记录 2;远端 clone 恢复流程跑通 2 次
 - [x] ✅(2026-08-12) 验证:相关模块 400+ 用例全绿(agent_loop_v2 23 / orchestrator 31 / dag 71 / context_engine 162 / llm_gateway 110 / scheduler 30 / audit 15 等),web typecheck 0 error,i18n 13588 key parity OK,15 个 commits 上线远端
+- [x] ✅(2026-08-12) L5-8 错误可观测前端化:ToolResult.error_type + tool.after 事件明细;tool-call-card/ToolCallChain 重试+错误分类徽章;修复并行进程 5 个 admin 页面 Tooltip 遗漏
+- [x] ✅(2026-08-12) 0 覆盖模块清零(5→0):im_bridge 33 + browser_hub 64 + model_availability 7 + scan_login 4 + news_scheduler 2;trust-but-verify 抓出并修复 2 缺陷(im_bridge 空列表脏数据 / browser_hub 双命中风控墙崩溃)
+- [x] ✅(2026-08-12) L5-9 hook_engine SSE 订阅器(subscribe/unsubscribe/_broadcast,队列满丢最旧)
+- [x] ✅(2026-08-12) L5-10 AgentLoopV2 生产执行器接线:env AGENT_EXECUTOR=loop_v2 渐进切换 + MCP 工具包装 + GET /api/agents/tasks/stream 订阅端点 + rewrite + 前端透传;test_agents_parity.py 切换回归保障 5 用例
+- [x] ✅(2026-08-12) AGENT_EXECUTOR 正式启用 + 实测抓出修复 2 真缺陷:config.py 同步(env 未入 os.environ)+ agent_meta_lessons 自愈建表(lessons 此前仅内存重启即丢);生产数据闭环实测(audit +2 行/lessons +7)
+- [x] ✅(2026-08-12) 文档化:AGENT_EXECUTOR .env.example + docs/AI_SERVICE.md;PROJECT_PLAN 全程登记
