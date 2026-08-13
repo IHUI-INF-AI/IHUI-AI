@@ -69,6 +69,7 @@ export function TeamScreen() {
       onSelectTab={setActiveTab}
       onRefresh={() => void load(true)}
       onBack={() => navigation.goBack()}
+      onPressMember={(memberId) => navigation.navigate('TeamDetail', { memberId })}
     />
   )
 }
