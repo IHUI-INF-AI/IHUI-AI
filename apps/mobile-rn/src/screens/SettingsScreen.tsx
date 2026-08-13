@@ -11,7 +11,7 @@ import type {
 } from '@ihui/rn-app'
 import { updatePassword } from '@ihui/api-client'
 import { getRnTokens } from '@ihui/design-tokens'
-import { Drawer, type DrawerMenuItem } from '../components/Drawer'
+import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -60,7 +60,7 @@ export default function SettingsScreen() {
     { key: 'Agreement', label: t('menu.agreement') },
   ]
 
-  const drawerMenuItems: DrawerMenuItem[] = [
+  const drawerMenuItems: SideMenuItem[] = [
     { key: 'About', label: t('menu.about'), icon: 'ℹ' },
     { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
     { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
@@ -156,11 +156,11 @@ export default function SettingsScreen() {
         appVersion={APP_VERSION}
         onBack={() => navigation.goBack()}
       />
-      <Drawer
+      <SideMenu
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        menuItems={drawerMenuItems}
-        onItemPress={onDrawerItemPress}
+        items={drawerMenuItems}
+        onSelect={onDrawerItemPress}
       />
     </View>
   )
