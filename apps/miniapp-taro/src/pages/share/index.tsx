@@ -9,7 +9,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
-import { Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
+import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import { useI18n } from '@/i18n'
@@ -47,32 +47,12 @@ interface ModelItem {
   name?: string
 }
 
-interface NavigationBarsProps {
-  showFenLei?: boolean
-  showMenu?: boolean
-  viscosity?: boolean
-  onMenuClick?: () => void
-  onFenLeiClick?: () => void
-  title?: string
-  navScrolled?: boolean
-  navPaddingTop?: number
-  navTotal?: number
-  tagWrapShow?: boolean
-  categoryActive?: boolean
-  backgroundColor?: string
-  onActiveNav?: (index: number) => void
-  statusBarHeight?: number
-  titleBarHeight?: number
-  topBarHeight?: number
-}
-
+/** 导航栏组件(对应原项目 navigationBars,功能已迁移至共享 NavBar 组件) */
 const PAGE_SIZE = 10
 
 /** 状态栏 + 胶囊按钮高度(对标 NavBar 组件,确保 fixed navbar 不遮挡状态栏) */
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 const NAV_PADDING_TOP = menuButton.top
-const NAV_HEIGHT = menuButton.height + 8
-const NAV_TOTAL = NAV_PADDING_TOP + NAV_HEIGHT
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
@@ -91,62 +71,18 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
   }
 }
 
-/** 导航栏组件(对应原项目 navigationBars,props: showFenLei/showMenu/viscosity/tagWrapShow/categoryActive) */
-function NavigationBars({
-  showFenLei = true,
-  showMenu = true,
-  viscosity = true,
-  onMenuClick,
-  onFenLeiClick,
-  title = '',
-  navScrolled = false,
-  navPaddingTop = NAV_PADDING_TOP,
-  navTotal = NAV_TOTAL,
-}: NavigationBarsProps) {
-  // 以下 props 保留以对齐原项目 navigation-bars API，当前未使用但保持接口一致
-  void ({} as Pick<NavigationBarsProps, 'tagWrapShow' | 'categoryActive' | 'backgroundColor' | 'onActiveNav' | 'statusBarHeight' | 'titleBarHeight' | 'topBarHeight'>)
-  return (
-    <View
-      className={`share-navbar${viscosity && navScrolled ? ' share-navbar--scrolled' : ''}`}
-      style={{
-        paddingTop: `${navPaddingTop}px`,
-        height: `${navTotal}px`,
-      }}
-    >
-      {showMenu ? (
-        <View className="share-navbar-btn" onClick={onMenuClick}>
-          <Text className="share-navbar-btn-icon">{'☰'}</Text>
-        </View>
-      ) : (
-        <View className="share-navbar-btn" />
-      )}
-      <Text className="share-navbar-title">{title}</Text>
-      {showFenLei ? (
-        <View className="share-navbar-btn" onClick={onFenLeiClick}>
-          <Text className="share-navbar-btn-text">
-            {'分类'}
-          </Text>
-        </View>
-      ) : (
-        <View className="share-navbar-btn" />
-      )}
-    </View>
-  )
-}
-
 export default function ShareIndexPage() {
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
   const [activeNavbar, setActiveNavbar] = useState(true) // 对齐原项目：默认 true，显示主内容
+  const [activeTitleIndex, setActiveTitleIndex] = useState(0) // 对齐原项目：标题切换(0=每日资讯,1=排行榜)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [tagWrapShow, setTagWrapShow] = useState(false)
   const [pageScrollLocked, setPageScrollLocked] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('latest')
   const [keyword, setKeyword] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | number>('')
-  const [categoryActive, setCategoryActive] = useState(false) // 对齐原项目：分类激活状态
-
   const [infoList, setInfoList] = useState<InfoItem[]>([])
   const [page, setPage] = useState(1)
   const [noMore, setNoMore] = useState(false)
@@ -157,12 +93,9 @@ export default function ShareIndexPage() {
   const [modelList, setModelList] = useState<ModelItem[]>([])
   const [rankList, setRankList] = useState<RankingItem[]>([])
   const [showToodown, setShowToodown] = useState(false)
-  const [navScrolled, setNavScrolled] = useState(false)
 
-  // 对齐原项目：状态栏/标题栏/顶部栏高度
+  // 对齐原项目：状态栏高度
   const statusBarHeight = NAV_PADDING_TOP
-  const titleBarHeight = NAV_HEIGHT
-  const topBarHeight = NAV_TOTAL
 
   /** 锁定页面滚动 — 对齐原项目 lockPageScroll */
   const lockPageScroll = useCallback(() => {
@@ -320,12 +253,9 @@ export default function ShareIndexPage() {
     } else {
       setShowToodown(false)
     }
-    setNavScrolled(res.scrollTop > 20)
-
     // 对齐原项目：页面滚动时关闭分类弹层
     if (tagWrapShow && res.scrollTop > 5) {
       setTagWrapShow(false)
-      setCategoryActive(false)
       unlockPageScroll()
     }
   })
@@ -341,6 +271,7 @@ export default function ShareIndexPage() {
 
   /** 对齐原项目 activeNav：切换 rankings 与主内容视图 */
   const activeNav = useCallback((index: number) => {
+    setActiveTitleIndex(index)
     if (index === 0) {
       setActiveNavbar(true)
     } else {
@@ -364,7 +295,6 @@ export default function ShareIndexPage() {
     (cat: CategoryItem) => {
       setActiveCategory(cat.id)
       setTagWrapShow(false)
-      setCategoryActive(false)
       unlockPageScroll()
       setPage(1)
       setNoMore(false)
@@ -414,14 +344,12 @@ export default function ShareIndexPage() {
   /** 关闭弹出层 — 对齐原项目 closePopup */
   const closePopup = useCallback(() => {
     setTagWrapShow(false)
-    setCategoryActive(false)
     unlockPageScroll()
   }, [unlockPageScroll])
 
   /** 关闭分类弹层 — 对齐原项目 closeTitleSwitch */
   const closeTitleSwitch = useCallback(() => {
     setTagWrapShow(false)
-    setCategoryActive(false)
     unlockPageScroll()
   }, [unlockPageScroll])
 
@@ -431,10 +359,8 @@ export default function ShareIndexPage() {
       const next = !prev
       if (next) {
         lockPageScroll()
-        setCategoryActive(true)
       } else {
         unlockPageScroll()
-        setCategoryActive(false)
       }
       return next
     })
@@ -595,28 +521,17 @@ export default function ShareIndexPage() {
         {/* FloatBox 浮动组件 — 对齐原项目：放在 main-container 内部 */}
         <FloatBox />
 
-        {/* 自定义导航栏(NavigationBars: showFenLei/showMenu/viscosity/tagWrapShow/categoryActive 属性) */}
-        <NavigationBars
-          showFenLei
-          showMenu
-          viscosity
+        {/* 共享 NavBar — 使用 variant="ai-home" 模式,传递标题切换回调 */}
+        <NavBar
+          variant="ai-home"
           title={tt('share.index.title', 'AI资讯')}
-          navScrolled={navScrolled}
-          navPaddingTop={NAV_PADDING_TOP}
-          navTotal={NAV_TOTAL}
-          tagWrapShow={tagWrapShow}
-          categoryActive={categoryActive}
-          backgroundColor="#ffffff"
-          statusBarHeight={statusBarHeight}
-          titleBarHeight={titleBarHeight}
-          topBarHeight={topBarHeight}
-          onMenuClick={handleMenuClick}
-          onFenLeiClick={handleNavClick}
+          bgColor="#121217"
+          activeTitleIndex={activeTitleIndex}
           onActiveNav={activeNav}
+          showFenLei
+          onFenLeiClick={handleNavClick}
+          onMenuClick={handleMenuClick}
         />
-
-        {/* 占位空间,防止 fixed navbar 遮挡内容 */}
-        <View style={{ height: `${NAV_TOTAL}px` }} />
 
         {/* Tabs(对标原 TitleSwitch) */}
         <View className="share-tabs">
