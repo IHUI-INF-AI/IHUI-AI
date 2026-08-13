@@ -120,7 +120,8 @@
     "about": "關於",
     "feedback": "意見反饋",
     "privacy": "隱私協議",
-    "agreement": "用戶協議"
+    "agreement": "用戶協議",
+    "changePwd": "修改密碼"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
