@@ -1,6 +1,6 @@
 import { View, Text, Image, Slider } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
@@ -74,6 +74,55 @@ function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = Math.floor(seconds % 60)
   return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
+}
+
+// 视频首帧图生成(对齐原项目 getVideoPoster,L1355-1386)
+function getVideoPoster(videoUrl: string): string {
+  if (!videoUrl) return ''
+  // 阿里云 OSS
+  if (videoUrl.includes('aliyuncs.com') || videoUrl.includes('oss-cn-')) {
+    return videoUrl + '?x-oss-process=video/snapshot,t_1000,m_fast'
+  }
+  // 腾讯云 COS
+  if (videoUrl.includes('myqcloud.com') || videoUrl.includes('cos.')) {
+    return videoUrl + '?ci-process=snapshot%2Fformat%3Djpg%2Ftime%3D1'
+  }
+  return ''
+}
+
+// 简化版 Markdown 渲染(对齐原项目 formatContent,L805-842,只处理代码块/加粗/换行)
+function renderMarkdown(content: string): ReactNode {
+  if (!content) return null
+  const lines = content.split('\n')
+  return lines.map((line, idx) => {
+    // 代码块 ```...```
+    if (line.startsWith('```')) {
+      return (
+        <View key={idx} style={{ background: 'var(--color-muted)', padding: rpx(12), borderRadius: rpx(8), marginTop: rpx(8), marginBottom: rpx(8) }}>
+          <Text style={{ fontSize: rpx(24), fontFamily: 'monospace', color: 'var(--color-foreground)' }}>
+            {line.replace(/```/g, '')}
+          </Text>
+        </View>
+      )
+    }
+    // 加粗 **text**
+    const boldParts = line.split(/\*\*(.+?)\*\*/)
+    if (boldParts.length > 1) {
+      return (
+        <Text key={idx} style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}>
+          {boldParts.map((part, i) => i % 2 === 1 ? (
+            <Text key={i} style={{ fontWeight: 'bold' }}>{part}</Text>
+          ) : part)}
+        </Text>
+      )
+    }
+    // 普通行
+    return (
+      <Text key={idx} style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6, display: 'block' }}>
+        {line || ' '}
+      </Text>
+    )
+  })
 }
 
 export default function UserIndex() {
@@ -512,13 +561,13 @@ export default function UserIndex() {
     void loadContentByTab(item.id)
   }
 
-  // 编辑个人资料
+  // 编辑个人资料(对齐原项目 handleEditProfile:已登录也弹 LoginPopUp 编辑资料)
   const goProfile = useCallback(() => {
     if (!isLogin) {
       goLogin()
       return
     }
-    Taro.navigateTo({ url: '/pages/user/profile' })
+    setShowLoginPopup(true)
   }, [isLogin])
 
   useDidShow(() => {
@@ -792,7 +841,7 @@ export default function UserIndex() {
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
-                    <Text className="text-[26rpx] text-muted-foreground leading-[1.6]">{item.content}</Text>
+                    {renderMarkdown(item.content)}
                   </View>
                 ))
               )}
@@ -853,6 +902,14 @@ export default function UserIndex() {
                       style={{ height: rpx(400) }}
                       onClick={() => openVideoPlayer(item.videoUrl)}
                     >
+                      {/* 视频封面图(对齐原项目 getVideoPoster)*/}
+                      {getVideoPoster(item.videoUrl) ? (
+                        <Image
+                          src={getVideoPoster(item.videoUrl)}
+                          mode="aspectFill"
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      ) : null}
                       <View className="absolute inset-0 flex items-center justify-center">
                         <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
                           <Image src={playIcon} mode="aspectFit" className="w-[60rpx] h-[60rpx]" />

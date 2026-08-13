@@ -212,6 +212,60 @@ function PushNotification() {
   return null
 }
 
+// ===== MaterialCards 子组件(提取自主组件,减少嵌套,对齐"做减法"原则)=====
+function MaterialCards({ cards, onRemove, tt }: {
+  cards: MaterialCard[]
+  onRemove: (index: number) => void
+  tt: (key: string, fallback: string) => string
+}) {
+  if (cards.length === 0) return null
+  return (
+    <View className="material-cards-wrap" style={{ background: 'var(--color-card-subtle, #fafafa)' }}>
+      <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
+        <View className="material-cards-list" style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}>
+          {cards.map((card, index) => (
+            <View key={`mc-${card.id || index}-${index}`} className="material-card-item" style={{ marginRight: rpx(16) }}>
+              <Image
+                src={closeInputPng}
+                mode="widthFix"
+                className="material-card-close"
+                style={{ width: rpx(32), height: rpx(32), position: 'absolute', top: rpx(-8), right: rpx(-8), zIndex: 2 }}
+                onClick={() => onRemove(index)}
+              />
+              {card.type === 1 && (
+                <View className="material-card-body material-card-text" style={{ width: rpx(200), height: rpx(160), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16) }}>
+                  <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}>{card.title}</Text>
+                  <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888' }}>
+                    {(card.content || '').slice(0, 20)}{(card.content && card.content.length > 20) ? '...' : ''}
+                  </Text>
+                </View>
+              )}
+              {card.type === 2 && card.imageList && card.imageList[0] && (
+                <View className="material-card-body material-card-img" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
+                  <Image src={card.imageList[0]} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
+                  <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                </View>
+              )}
+              {card.type === 3 && (
+                <View className="material-card-body material-card-video" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
+                  <Image src={card.posterUrl || card.videoUrl || ''} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
+                  <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                </View>
+              )}
+              {card.type === 4 && (
+                <View className="material-card-body material-card-audio" style={{ width: rpx(200), height: rpx(140), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold' }}>{card.title}</Text>
+                  <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}>{tt('index.material.audio', '音频')}</Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  )
+}
+
 export default function Index() {
   const { t } = useI18n()
   const tt = useTt()
@@ -363,7 +417,19 @@ export default function Index() {
   const handleDrawerClose = () => setState((s) => ({ ...s, drawerVisible: false }))
   const handleJoinClick = () => setState((s) => ({ ...s, showQrCodeModal: true }))
   const handleQrCodeClose = () => setState((s) => ({ ...s, showQrCodeModal: false }))
-  const handleSharePointsClose = () => setState((s) => ({ ...s, showSharePointsPopup: false }))
+  const handleSharePointsClose = () => {
+    // 对齐原项目 closeSharePointsPopup:storage 清理 + 事件移除
+    try {
+      Taro.setStorageSync('shareCancelled', true)
+      Taro.removeStorageSync('isSharing')
+      Taro.removeStorageSync('shareStatus')
+    } catch {
+      // 静默:部分平台可能不支持
+    }
+    Taro.eventCenter.off('shareSuccess')
+    Taro.eventCenter.off('shareFail')
+    setState((s) => ({ ...s, showSharePointsPopup: false }))
+  }
 
   // 处理模型类型点击(sck 特殊处理→素材库,skills 特殊处理→暂不实现,其他→ModelList)
   const handleModelTypeClick = useCallback((type: ModelType) => {
@@ -397,12 +463,28 @@ export default function Index() {
         }
       })
     } else {
+      // 其他类型(talk/image/video/audio/videoa/other):切换 + 自动选第一个模型
+      // 对齐原项目 ai_index.vue L698-777:setTimeout 500ms 自动选中
       setState((s) => ({
         ...s,
         currentModelType: s.currentModelType === type ? '' : type,
         showModelList: s.currentModelType !== type,
         showMaterialList: false,
       }))
+      // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
+      // 简化:从 MOCK_MODELS 取第一个作为默认选中(TODO: 接入真实 API 后按类型加载)
+      setTimeout(() => {
+        setState((s) => {
+          if (s.currentModelType !== type) return s // 用户已切换走,不自动选
+          const firstModel = MOCK_MODELS[0]
+          if (!firstModel) return s
+          return {
+            ...s,
+            selectedModelId: firstModel.id,
+            modelName: firstModel.name,
+          }
+        })
+      }, 500)
     }
   }, [])
 
@@ -1033,51 +1115,7 @@ export default function Index() {
           )}
 
           {/* MaterialCards 素材卡片流(在 ModelConfigDialog 和 BottomActionBar 之间) */}
-          {state.materialCards.length > 0 && (
-            <View className="material-cards-wrap" style={{ background: 'var(--color-card-subtle, #fafafa)' }}>
-              <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
-                <View className="material-cards-list" style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}>
-                  {state.materialCards.map((card, index) => (
-                    <View key={`mc-${card.id || index}-${index}`} className="material-card-item" style={{ marginRight: rpx(16) }}>
-                      <Image
-                        src={closeInputPng}
-                        mode="widthFix"
-                        className="material-card-close"
-                        style={{ width: rpx(32), height: rpx(32), position: 'absolute', top: rpx(-8), right: rpx(-8), zIndex: 2 }}
-                        onClick={() => removeMaterialCard(index)}
-                      />
-                      {card.type === 1 && (
-                        <View className="material-card-body material-card-text" style={{ width: rpx(200), height: rpx(160), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16) }}>
-                          <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}>{card.title}</Text>
-                          <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888' }}>
-                            {(card.content || '').slice(0, 20)}{(card.content && card.content.length > 20) ? '...' : ''}
-                          </Text>
-                        </View>
-                      )}
-                      {card.type === 2 && card.imageList && card.imageList[0] && (
-                        <View className="material-card-body material-card-img" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                          <Image src={card.imageList[0]} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                          <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
-                        </View>
-                      )}
-                      {card.type === 3 && (
-                        <View className="material-card-body material-card-video" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                          <Image src={card.posterUrl || card.videoUrl || ''} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                          <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
-                        </View>
-                      )}
-                      {card.type === 4 && (
-                        <View className="material-card-body material-card-audio" style={{ width: rpx(200), height: rpx(140), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold' }}>{card.title}</Text>
-                          <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}>{tt('index.material.audio', '音频')}</Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          )}
+          <MaterialCards cards={state.materialCards} onRemove={removeMaterialCard} tt={tt} />
 
           {/* BottomActionBar 底部操作栏(对齐原项目) */}
           <View
