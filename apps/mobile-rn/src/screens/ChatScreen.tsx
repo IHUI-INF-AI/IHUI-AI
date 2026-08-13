@@ -76,6 +76,7 @@ import MaterialList, {
 import {
   Drawer,
   type DrawerConversationItem,
+  type DrawerExtraMenu,
   type DrawerTab,
 } from '../components/Drawer'
 import {
@@ -489,6 +490,23 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   }
   const handleDrawerGoHome = (): void => {
     navigation.navigate('Tabs', { screen: 'home' } as never)
+  }
+  const handleNavigateExtra = (menu: DrawerExtraMenu): void => {
+    switch (menu) {
+      case 'aigc':
+        navigation.navigate('AigcList')
+        break
+      case 'learn':
+        navigation.navigate('Learn')
+        break
+      case 'modelPlaza':
+        navigation.navigate('ModelPlaza')
+        break
+      case 'company':
+      case 'tools':
+        navigation.navigate('Settings')
+        break
+    }
   }
 
   // ── Drawer user 映射(AuthUser → Drawer user) ──
@@ -939,6 +957,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         onOpenSettings={handleDrawerOpenSettings}
         onOpenMessages={handleDrawerOpenMessages}
         onGoHome={handleDrawerGoHome}
+        onNavigateExtra={handleNavigateExtra}
       />
     </View>
   )
