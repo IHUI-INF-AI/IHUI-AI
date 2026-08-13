@@ -1,3 +1,4 @@
+#requires -Version 7
 # scripts/fix-workspace-junctions.ps1
 # VM 环境下 pnpm workspace junction 修复脚本
 # 问题:VM 路径虚拟化导致 node_modules/@ihui/* 和 node_modules/@types/node 的 junction 指向 VM 缓存路径,无法解析

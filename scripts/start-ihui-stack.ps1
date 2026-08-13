@@ -1,4 +1,5 @@
-﻿<#
+#requires -Version 7
+<#
 .SYNOPSIS
   IHUI-AI 一键启动 web(8801) + api(8802) + ai-service(8803) 三个 dev server,
   并在单个终端实时合并输出三者的日志。
