@@ -62,6 +62,32 @@ export function createConversation(input: { title?: string; model?: string } = {
   })
 }
 
+/** 对话列表查询参数 */
+export interface ListConversationsParams {
+  page?: number
+  pageSize?: number
+  search?: string
+}
+
+/** 对话列表响应 */
+export interface ListConversationsResult {
+  conversations: ConversationDetail[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+/** 获取对话列表(分页 + 按 title 搜索) */
+export function listConversations(params: ListConversationsParams = {}) {
+  const qs = new URLSearchParams()
+  qs.set('page', String(params.page ?? 1))
+  qs.set('pageSize', String(params.pageSize ?? 20))
+  if (params.search) qs.set('search', params.search)
+  return fetchApi<ListConversationsResult>(
+    `/api/chat/conversations?${qs.toString()}`,
+  )
+}
+
 /** 获取对话详情 */
 export function getConversation(id: string) {
   return fetchApi<{ conversation: ConversationDetail }>(
