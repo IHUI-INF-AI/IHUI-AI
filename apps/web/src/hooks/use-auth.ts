@@ -5,7 +5,8 @@ import * as React from 'react'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { startAutoRefresh, stopAutoRefresh } from '@/lib/tokenUtils'
 import { fetchApi } from '@/lib/api'
-import { loadLocalLoginPrefs } from '@/lib/login-preferences'
+import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
+import { loadAutoLogin } from '@ihui/ui-react'
 
 export interface UseAuthReturn {
   user: AuthUser | null
@@ -30,9 +31,15 @@ export function useAuth(): UseAuthReturn {
     (newToken: string, newUser: AuthUser, newRefreshToken?: string) => {
       // 读取本地 autoLogin/autoRenew 偏好(登录页勾选状态)
       const prefs = loadLocalLoginPrefs()
+      // 同步登录表单保存的 autoLogin(ihui-auto-login)到 ihui-login-prefs
+      const formAutoLogin = loadAutoLogin()
+      const effectiveAutoLogin = prefs.autoLogin || formAutoLogin
+      if (formAutoLogin && !prefs.autoLogin) {
+        saveLocalLoginPrefs({ autoLogin: true })
+      }
       if (newRefreshToken) {
         // 用偏好写入 cookie(autoLogin=true → 30天;false → session)
-        setTokenWithPrefs(newToken, newRefreshToken, prefs.autoLogin)
+        setTokenWithPrefs(newToken, newRefreshToken, effectiveAutoLogin)
         // autoRenew=true 才启动自动续期(关闭则 30 天后强制重新登录)
         if (prefs.autoRenew) startAutoRefresh()
       } else {
