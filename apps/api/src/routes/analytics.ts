@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
 import { analyticsEvents } from '@ihui/database'
-import { eq, and, gte, lte, desc, sql, isNotNull } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, isNotNull, type SQL } from 'drizzle-orm'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { createAnalyticsEvent } from '../db/analytics-queries.js'
 
@@ -31,7 +31,11 @@ const dateRangeQuery = z.object({
 const eventListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  event: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  event: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.string().min(1).max(100).optional()),
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
   startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
@@ -87,7 +91,18 @@ export const analyticsRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const body = (request.body as { event?: string; events?: Array<{ name?: string; category?: string; label?: string; value?: number; props?: Record<string, unknown> }>; properties?: unknown } | null) ?? {}
+      const body =
+        (request.body as {
+          event?: string
+          events?: Array<{
+            name?: string
+            category?: string
+            label?: string
+            value?: number
+            props?: Record<string, unknown>
+          }>
+          properties?: unknown
+        } | null) ?? {}
       const ip = request.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ?? request.ip
       const ua = request.headers['user-agent']?.slice(0, 500) ?? null
       const userId = (request as { userId?: string }).userId ?? null
@@ -101,7 +116,12 @@ export const analyticsRoutes: FastifyPluginAsync = async (server) => {
             await createAnalyticsEvent({
               userId,
               event: String(ev.name).slice(0, 100),
-              properties: { category: ev.category, label: ev.label, value: ev.value, ...(ev.props ?? {}) },
+              properties: {
+                category: ev.category,
+                label: ev.label,
+                value: ev.value,
+                ...(ev.props ?? {}),
+              },
               ip: ip?.slice(0, 45) ?? null,
               userAgent: ua,
             })
@@ -155,7 +175,7 @@ export const adminAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { startTime, endTime } = parsed.data
-      const conds: any[] = []
+      const conds: SQL[] = []
       if (startTime) conds.push(gte(analyticsEvents.createdAt, new Date(`${startTime}T00:00:00`)))
       if (endTime) conds.push(lte(analyticsEvents.createdAt, new Date(`${endTime}T23:59:59`)))
       const where = conds.length > 0 ? and(...conds) : undefined
@@ -216,7 +236,7 @@ export const adminAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { startTime, endTime } = parsed.data
-      const conds: any[] = []
+      const conds: SQL[] = []
       if (startTime) conds.push(gte(analyticsEvents.createdAt, new Date(`${startTime}T00:00:00`)))
       if (endTime) conds.push(lte(analyticsEvents.createdAt, new Date(`${endTime}T23:59:59`)))
       const where = conds.length > 0 ? and(...conds) : undefined
@@ -253,7 +273,10 @@ export const adminAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { startTime, endTime } = parsed.data
-      const conds: any[] = [eq(analyticsEvents.event, 'page_view'), isNotNull(sql`${analyticsEvents.properties}->>'path'`)]
+      const conds: SQL[] = [
+        eq(analyticsEvents.event, 'page_view'),
+        isNotNull(sql`${analyticsEvents.properties}->>'path'`),
+      ]
       if (startTime) conds.push(gte(analyticsEvents.createdAt, new Date(`${startTime}T00:00:00`)))
       if (endTime) conds.push(lte(analyticsEvents.createdAt, new Date(`${endTime}T23:59:59`)))
       const where = and(...conds)
@@ -290,7 +313,7 @@ export const adminAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { startTime, endTime } = parsed.data
-      const conds: any[] = []
+      const conds: SQL[] = []
       if (startTime) conds.push(gte(analyticsEvents.createdAt, new Date(`${startTime}T00:00:00`)))
       if (endTime) conds.push(lte(analyticsEvents.createdAt, new Date(`${endTime}T23:59:59`)))
       const where = conds.length > 0 ? and(...conds) : undefined
@@ -335,7 +358,7 @@ export const adminAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize, event, userId, startTime, endTime } = parsed.data
-      const conds: any[] = []
+      const conds: SQL[] = []
       if (event) conds.push(eq(analyticsEvents.event, event))
       if (userId) conds.push(eq(analyticsEvents.userId, userId))
       if (startTime) conds.push(gte(analyticsEvents.createdAt, new Date(`${startTime}T00:00:00`)))
