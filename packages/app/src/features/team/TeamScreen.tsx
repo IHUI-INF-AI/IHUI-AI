@@ -56,6 +56,7 @@ export function TeamScreen({
   onSelectTab,
   onRefresh,
   onBack,
+  onPressMember,
   colorScheme = 'light',
 }: TeamScreenProps) {
   const tk = getTokens(colorScheme)
@@ -156,7 +157,12 @@ export function TeamScreen({
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => onPressMember?.(item.id)}
+            disabled={!onPressMember}
+            activeOpacity={0.7}
+          >
             <View style={styles.avatarBox}>
               {item.avatar ? (
                 <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
@@ -196,7 +202,7 @@ export function TeamScreen({
                 <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>
