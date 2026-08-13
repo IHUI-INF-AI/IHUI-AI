@@ -3401,3 +3401,86 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-12) L5-10 AgentLoopV2 生产执行器接线:env AGENT_EXECUTOR=loop_v2 渐进切换 + MCP 工具包装 + GET /api/agents/tasks/stream 订阅端点 + rewrite + 前端透传;test_agents_parity.py 切换回归保障 5 用例
 - [x] ✅(2026-08-12) AGENT_EXECUTOR 正式启用 + 实测抓出修复 2 真缺陷:config.py 同步(env 未入 os.environ)+ agent_meta_lessons 自愈建表(lessons 此前仅内存重启即丢);生产数据闭环实测(audit +2 行/lessons +7)
 - [x] ✅(2026-08-12) 文档化:AGENT_EXECUTOR .env.example + docs/AI_SERVICE.md;PROJECT_PLAN 全程登记
+
+---
+
+## P0 移动端 RN 完整复刻 Uniapp 历史项目(2026-08-13 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/mobile-rn/**`,不参与 web/api/ai-service/desktop/extension/miniapp-taro/cli 跨端契约同步。
+> AGENTS.md §24 用户已确认:"完整复刻 Uniapp (推荐)" + "启用 RN TabBar.tsx 5 Tab (推荐)" + 4 维度全做(架构对齐 + 核心组件补全 + 缺失页面补全 + 样式细节对齐)。
+> 对比对象:D 盘历史 Uniapp 项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src`(47+ 组件 / 75 页面) → `g:\IHUI-AI\apps\mobile-rn`(33 组件 / 137 Screen)。
+> 整体完成度:70-75%,需补齐至 100%。
+
+### 目标
+
+历史 Uniapp 是 Vue 2 + uni-app 项目,D 盘存档;RN 项目 [apps/mobile-rn](apps/mobile-rn) 是 React Native + Expo + React Navigation v6 + NativeWind 4。当前 RN 相对 Uniapp 整体完成度 70-75%,4 维度差异:
+
+1. **架构**:Uniapp 5 主入口(customTabBar 被禁用,实际靠 DrawerComponentall 抽屉 + uni.reLaunch 切换)→ RN 4 Bottom Tabs(TabBar.tsx 5 Tab 配置存在但未启用)
+2. **组件**:17 个组件缺失(8 个 P0 严重缺失:bottom-pops / hand-plate-pups / introduce-popup / KnowledgePlanet / AgentList / study-bar / customTabBar 未启用 / DrawerComponent 简化)
+3. **页面**:14 个 P0 严重缺失页面(learn / square / share / plaza/index / coursePlanet / learn_develop / studyindex / settings 6 子页 / vip_info introduce-popup)
+4. **样式**:字体不一致(AlimamaFangYuanTi → 系统字体) + 颜色不一致(#5088fa → hsl(0 0% 0%)) + Drawer/NavBar 大幅简化
+
+### 硬性指标(H1-H30)
+
+#### 阶段 1:架构对齐(串行,3 项)
+
+- [ ] H1:启用 [TabBar.tsx](apps/mobile-rn/src/components/TabBar.tsx) 5 Tab 配置(home/course/ai/live/mine),接入 [RootNavigator.tsx](apps/mobile-rn/src/navigation/RootNavigator.tsx),对齐 Uniapp 5 主入口
+- [ ] H2:Tab1=AI 对话社区(完整版,含 DrawerComponent + 8 种模型类型按钮 + Material 卡片 + 二维码 + 分享领值 + BottomActionBar 30+ 事件回调),复刻 Uniapp [ai_index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\aiIndex\ai_index.vue)
+- [ ] H3:重建 DrawerComponent 完整功能(logo + 5 主菜单 + 一人公司 + 领取资料 + 创建新对话 + 模型分组 + 日期分组 + 历史对话左滑删除 + 设置/消息按钮 + 用户头像/昵称 + 回到主页),复刻 Uniapp [DrawerComponentall.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\DrawerComponentall.vue)
+
+#### 阶段 2:核心组件补全(并行,6 项)
+
+- [ ] H4:新增 `apps/mobile-rn/src/components/BottomPops.tsx` 底部弹出层组件,复刻 Uniapp [bottom-pops/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\bottom-pops\index.vue)
+- [ ] H5:新增 `apps/mobile-rn/src/components/HandPlatePops.tsx` 手柄式弹出层组件,复刻 Uniapp [hand-plate-pups/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\hand-plate-pups\index.vue)
+- [ ] H6:新增 `apps/mobile-rn/src/components/IntroducePopup.tsx` VIP 介绍弹窗组件(4 变体:index/indexs/levelIndex/privateAdvisory),复刻 Uniapp [introduce-popup/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\introduce-popup\)
+- [ ] H7:新增 `apps/mobile-rn/src/components/KnowledgePlanet.tsx` 知识星球组件 + KnowledgePlanetScreen,复刻 Uniapp [KnowledgePlanet/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\KnowledgePlanet\index.vue)
+- [ ] H8:新增 `apps/mobile-rn/src/components/AgentList.tsx` Agent 列表组件(抽屉内核心),复刻 Uniapp [AgentList.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\AgentList.vue)
+- [ ] H9:新增 `apps/mobile-rn/src/components/StudyBar.tsx` 学习栏 Tab 组件 + `apps/mobile-rn/src/components/common/{Loading,Empty,Default}.tsx` 通用组件,复刻 Uniapp [study/bar.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\study\bar.vue) + [common/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\common\)
+
+#### 阶段 3:缺失页面补全(并行,14 个)
+
+- [ ] H10:新增 `apps/mobile-rn/src/screens/LearnScreen.tsx`,复刻 Uniapp [learn/learn.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\learn\learn.vue)
+- [ ] H11:新增 `apps/mobile-rn/src/screens/SquareScreen.tsx`,复刻 Uniapp [square/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\square\index.vue)
+- [ ] H12:新增 `apps/mobile-rn/src/screens/ShareScreen.tsx`(实际跳 Plaza),复刻 Uniapp [share/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\share\index.vue)
+- [ ] H13:新增 `apps/mobile-rn/src/screens/PlazaScreen.tsx` 动态/广场入口,复刻 Uniapp [plaza/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\plaza\index.vue)
+- [ ] H14:新增 `apps/mobile-rn/src/screens/CoursePlanetScreen.tsx` 知识星球页,复刻 Uniapp [coursePlanet/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\coursePlanet\index.vue)
+- [ ] H15:新增 `apps/mobile-rn/src/screens/LearnDevelopScreen.tsx`,复刻 Uniapp [learn_develop/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\learn_develop\index.vue)
+- [ ] H16:新增 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx`,复刻 Uniapp [studyindex/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\studyindex\index.vue)
+- [ ] H17:补全 settings 6 个独立子页:`AccountCancelScreen` / `BusinessLicenseScreen` / `IcpRecordScreen` / `ModelRecordScreen` / `UsageRulesScreen` / `AppPermissionScreen`,复刻 Uniapp [settings/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\settings\) 对应 .vue
+- [ ] H18:在 VipScreen 接入 IntroducePopup 入口,复刻 Uniapp [vip_info/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\vip_info\index.vue) 的 introduce-popup 调用
+
+#### 阶段 4:样式细节对齐(串行,12 项)
+
+- [ ] H19:统一字体 — 引入 AlimamaFangYuanTi 字体到 RN 项目(资源:Uniapp `src/static/fonts/`),全局应用
+- [ ] H20:统一颜色 — `apps/mobile-rn/global.css` + design-tokens 中 brand 色对齐 Uniapp `#5088fa`,或确认 design-tokens 已正确替代并记录依据
+- [ ] H21:补全 NavBar 多按钮能力(分类按钮 / 搜索按钮 / 侧边栏按钮 / 设置按钮 / 多角色变体),复刻 Uniapp [navigation-bars/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\navigation-bars\) 4 变体
+- [ ] H22:补全 BottomActionBar 25+ 事件回调(toggle-super-agent / toggle-mcp / toggle-knowledge-base / toggle-permanent-memory / toggle-voice-input / remove-image / send-message / start-long-press / end-long-press / input-focus / input-blur / input-click / start-voice-animation / stop-voice-animation / function-handle / source-handle / icon-click / update:prompt / showModelConfig / textareaHeightChange / modelConfigChange / fangda / keyboard-show / keyboard-hide / show-model-list),复刻 Uniapp [BottomActionBar.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\BottomActionBar.vue)
+- [ ] H23:补全 ModelConfigDialog 3 变体(index/indexa/selecter),复刻 Uniapp [ModelConfigDialog/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\ModelConfigDialog\)
+- [ ] H24:补全 CourseCarousel 3 变体(index/UpToDate/list),复刻 Uniapp [CourseCarousel/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\CourseCarousel\)
+- [ ] H25:补全 UserInfoCard 2 变体(UserInfoCard/UserInfoCardOld) + 图片资源对齐,复刻 Uniapp [UserInfoCard/](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\components\UserInfoCard\)
+- [ ] H26:补全 MoreTitles / CardWithList / ToggleButtonGroup / FunctionBlockColumn / BottomFigure / CommissionFloatingIcon 组件,复刻 Uniapp 对应 .vue
+- [ ] H27:ProfileScreen 补全 4 内容 Tab(文本/图片/视频/音频) + 4 媒体预览,复刻 Uniapp [user/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\user\index.vue) 的 Tab 体系
+- [ ] H28:App.tsx 补全全局浮窗(推广/咨询/更多 3 项) + 全局隐私政策弹窗,复刻 Uniapp [App.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\App.vue)
+- [ ] H29:RN NavBar padding 16dp → 与 Uniapp 20rpx(约 10dp)对齐,或确认 16dp 是 RN 平台规范并记录依据
+- [ ] H30:`pnpm --filter @ihui/mobile-rn typecheck` exit 0 + `pnpm --filter @ihui/mobile-rn lint` exit 0(本任务范围内)
+
+### 约束边界
+
+- 涉及文件(全部在 `apps/mobile-rn/`):
+  - 路由:`src/navigation/RootNavigator.tsx`(改:5 Tab + 新增 14 个 Screen 注册)
+  - TabBar:`src/components/TabBar.tsx`(改:启用)+ `TabBar.styles.ts`
+  - 组件新增:`src/components/{BottomPops,HandPlatePops,IntroducePopup,KnowledgePlanet,AgentList,StudyBar,MoreTitles,CardWithList,ToggleButtonGroup,FunctionBlockColumn,BottomFigure,CommissionFloatingIcon}.tsx` + `src/components/common/{Loading,Empty,Default}.tsx`
+  - 组件改造:`src/components/{Drawer,NavBar,BottomActionBar,ModelConfigDialog,CourseCarousel,UserInfoCard,FloatBox}.tsx`
+  - Screen 新增:`src/screens/{Learn,Square,Share,Plaza,CoursePlanet,LearnDevelop,StudyIndex,AccountCancel,BusinessLicense,IcpRecord,ModelRecord,UsageRules,AppPermission,KnowledgePlanet}Screen.tsx`
+  - Screen 改造:`src/screens/{HomeScreen,ChatScreen,ProfileScreen,VipScreen,SettingsScreen}.tsx`
+  - 全局:`App.tsx`(全局浮窗 + 隐私弹窗)+ `global.css`(字体 + 颜色)+ `app.config.js`(字体加载)
+- 不可触及:其他端(api/web/ai-service/desktop/extension/miniapp-taro/cli)、共享层 packages/*
+- 平台独占:本任务仅 mobile-rn 端,不涉及其他端代码改动
+- 复刻保真度:逐 .vue 文件对照,组件结构 / 事件回调 / 样式间距 1:1 还原;不能"看起来像"就交付,必须 DOM/Props/Events 数值对齐
+
+### 执行批次(4 批次,每批次独立 commit)
+
+- **批次 1(串行)**:阶段 1 架构对齐 — H1/H2/H3(TabBar 5 Tab + ChatScreen 升级 + Drawer 重建)+ typecheck + commit
+- **批次 2(并行 6 subagent)**:阶段 2 核心组件补全 — H4-H9(6 个新组件)+ typecheck + commit
+- **批次 3(并行 4 subagent)**:阶段 3 缺失页面补全 — H10-H18(14 个新 Screen + VipScreen 改造)+ typecheck + commit
+- **批次 4(串行)**:阶段 4 样式细节对齐 — H19-H30(字体/颜色/NavBar 多按钮/BottomActionBar 事件/ModelConfigDialog 变体/CourseCarousel 变体/UserInfoCard 变体/6 个新组件/ProfileScreen Tab/App.tsx 全局/NavBar padding)+ typecheck + commit + push
