@@ -469,12 +469,13 @@ async def test_publish_platforms_endpoint(client) -> None:
     resp = await client.get("/api/publish/platforms")
     assert resp.status_code == 200
     data = resp.json()
-    assert "items" in data
-    assert "count" in data
-    assert data["count"] >= 9
-    assert len(data["items"]) == data["count"]
+    payload = data["data"]
+    assert "items" in payload
+    assert "count" in payload
+    assert payload["count"] >= 9
+    assert len(payload["items"]) == payload["count"]
     # 每个平台都应有 platformId / platformName
-    for item in data["items"]:
+    for item in payload["items"]:
         assert "platformId" in item
         assert "platformName" in item
         assert "supportedFormats" in item
@@ -487,9 +488,9 @@ async def test_publish_credentials_key_generate_endpoint(client) -> None:
     resp = await client.get("/api/publish/credentials-key/generate")
     assert resp.status_code == 200
     data = resp.json()
-    assert "key" in data
+    assert "key" in data["data"]
     # 解码验证是 32 字节
-    decoded = base64.b64decode(data["key"], validate=True)
+    decoded = base64.b64decode(data["data"]["key"], validate=True)
     assert len(decoded) == 32
 
 
@@ -498,7 +499,46 @@ async def test_publish_running_endpoint(client) -> None:
     resp = await client.get("/api/publish/running")
     assert resp.status_code == 200
     data = resp.json()
-    assert "running" in data
-    assert "history" in data
-    assert isinstance(data["running"], list)
-    assert isinstance(data["history"], list)
+    payload = data["data"]
+    assert "running" in payload
+    assert "history" in payload
+    assert isinstance(payload["running"], list)
+    assert isinstance(payload["history"], list)
+
+
+# ===== 调度器 DB 退避(2026-08-13 立) =====
+
+async def test_scheduler_poll_backoff_sequence() -> None:
+    """DB 连接失败时退避序列:5s → 10s → 20s → ... → 300s 上限。"""
+    from app.services.publish import scheduler as sched_mod
+
+    seq = []
+    backoff = sched_mod._DB_BACKOFF_BASE_SEC
+    for _ in range(8):
+        seq.append(backoff)
+        backoff = min(backoff * 2, sched_mod._DB_BACKOFF_MAX_SEC)
+    assert seq[0] == 5.0
+    assert seq[1] == 10.0
+    assert seq[2] == 20.0
+    assert seq[-1] == 300.0  # 达到上限后不再增长
+    assert seq[-2] == 300.0
+
+
+async def test_scheduler_poll_once_returns_false_when_db_down() -> None:
+    """_get_conn 失败(None)时 _poll_once 返回 False → 触发退避。"""
+    sched = PublishScheduler()
+    sched._get_conn = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    ok = await sched._poll_once()
+    assert ok is False
+
+
+async def test_scheduler_poll_once_returns_true_when_db_ok() -> None:
+    """DB 可用时 _poll_once 返回 True → 恢复 60s 正常轮询。"""
+    sched = PublishScheduler()
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[])
+    conn.close = AsyncMock()
+    sched._get_conn = AsyncMock(return_value=conn)  # type: ignore[method-assign]
+    sched._ensure_tables = AsyncMock()  # type: ignore[method-assign]
+    ok = await sched._poll_once()
+    assert ok is True
