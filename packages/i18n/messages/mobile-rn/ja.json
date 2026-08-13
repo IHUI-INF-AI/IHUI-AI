@@ -120,7 +120,8 @@
     "about": "について",
     "feedback": "フィードバック",
     "privacy": "プライバシー",
-    "agreement": "利用規約"
+    "agreement": "利用規約",
+    "changePwd": "パスワード変更"
   },
   "error": {
     "network": "ネットワークエラー"
