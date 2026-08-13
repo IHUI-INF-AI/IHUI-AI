@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -14,6 +15,7 @@ import {
 } from '@ihui/rn-app'
 import { openWeChatPayment } from '../lib/wechat-pay'
 import { ConfirmPurchasePopUp, type ConfirmPurchaseProduct } from '../components/ConfirmPurchasePopUp'
+import { PayButton } from '../components/PayButton'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
@@ -135,6 +137,11 @@ export function PaymentScreen() {
     setPendingPurchase(null)
   }
 
+  /** 「去充值」入口:跳转 Recharge(钱包页),对齐 ProfileScreen handleRecharge */
+  const handleRecharge = () => {
+    navigation.navigate('Recharge')
+  }
+
   const pendingProduct: ConfirmPurchaseProduct | null = pendingPurchase
     ? {
         name: pendingPurchase.subject || t('payment.untitledOrder'),
@@ -144,7 +151,7 @@ export function PaymentScreen() {
     : null
 
   return (
-    <>
+    <View style={styles.container}>
       <SharedPaymentScreen
         t={t}
         orders={orders}
@@ -159,6 +166,9 @@ export function PaymentScreen() {
         onRefresh={() => load(true)}
         onBack={() => navigation.goBack()}
       />
+      <View style={styles.rechargeWrap}>
+        <PayButton amount={0} label="去充值" onPress={handleRecharge} />
+      </View>
       {pendingProduct ? (
         <ConfirmPurchasePopUp
           visible={pendingPurchase !== null}
@@ -174,6 +184,11 @@ export function PaymentScreen() {
           }}
         />
       ) : null}
-    </>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  rechargeWrap: { padding: 16, paddingBottom: 24 },
+})

@@ -250,12 +250,14 @@ const ENTRY_BUTTON_FONT_SIZE = 13
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   entryCard: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: tokens.surface.light,
+    borderRadius: 12,
   } as ViewStyle,
   entryTitle: {
     fontSize: ENTRY_TITLE_FONT_SIZE,
