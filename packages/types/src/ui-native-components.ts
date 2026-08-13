@@ -165,6 +165,16 @@ export interface UserInfo {
   isVip?: number
   identityType?: number
   tokenQuantity?: number | string
+  /** 成长值(当前) */
+  growthValue?: number
+  /** 成长值上限(当前等级阈值) */
+  growthMax?: number
+  /** 邀请码(分销/邀请体系) */
+  inviteCode?: string
+  /** VIP 等级标题(如"VIP1"/"SVIP") */
+  vipLevel?: string
+  /** VIP 到期时间(ISO 字符串或可读格式) */
+  vipExpireAt?: string
   [key: string]: unknown
 }
 

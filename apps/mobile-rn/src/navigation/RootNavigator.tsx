@@ -370,7 +370,7 @@ export type RootStackParamList = {
   DistributionOrderList: undefined
   EarnCommission: undefined
   StudyPublish: undefined
-  AiAssistantN8n: { agentId?: string }
+  AiAssistantN8n: { agentId?: string; title?: string }
   // H19 新增路由(对齐 Uniapp pagesA 缺失页面)
   MoreCourse: undefined
   DevEnterCover: undefined

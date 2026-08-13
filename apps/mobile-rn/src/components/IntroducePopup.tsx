@@ -53,6 +53,8 @@ interface VariantConfig {
   moreBenefits: string
   buttons: ButtonConfig[]
   levelText?: string
+  /** 权益列表项间距(对齐 Uniapp 各变体不同 gap:indexs 12rpx≈6px, levelIndex 6rpx≈3px) */
+  benefitGap?: number
 }
 
 const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
@@ -72,6 +74,8 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
     ],
     moreBenefits: '............约 20 项权益, 且持续增加 ↑',
     buttons: [{ text: '去开通', primary: true, action: 'confirm' }],
+    // 对齐 Uniapp index.vue padding 10rpx 0(≈5px)
+    benefitGap: 5,
   },
   indexs: {
     title: '操盘手权益介绍',
@@ -92,6 +96,8 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
       { text: '加入我们', primary: true, action: 'confirm' },
       { text: '再咨询一下', primary: false, action: 'close' },
     ],
+    // 对齐 Uniapp indexs.vue gap 12rpx(≈6px)
+    benefitGap: 6,
   },
   levelIndex: {
     title: '会员等级权益',
@@ -111,6 +117,8 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
     levelText:
       '0 级:智域访客,升级会员享受折扣包含全部课程 / 算力 / 自动化智能体 / 知识库 / 定制服务等,持续增加功能',
     buttons: [{ text: '去开通', primary: true, action: 'confirm' }],
+    // 对齐 Uniapp levelIndex.vue gap 6rpx(≈3px)
+    benefitGap: 3,
   },
   privateAdvisory: {
     title: '私人顾问介绍',
@@ -123,6 +131,8 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
     ],
     moreBenefits: '',
     buttons: [{ text: '加入我们', primary: true, action: 'confirm' }],
+    // 对齐 Uniapp privateAdvisory 默认间距 12rpx(≈6px)
+    benefitGap: 6,
   },
 }
 
@@ -140,7 +150,8 @@ const MORE_FONT_SIZE = 12
 const COPYRIGHT_FONT_SIZE = 10
 
 const BENEFIT_ITEM_RADIUS = 8
-const BENEFIT_ITEM_PADDING = 6
+// 对齐 Uniapp padding 8rpx(≈4px)
+const BENEFIT_ITEM_PADDING = 4
 const BENEFIT_GAP = 8
 
 const BUTTON_HEIGHT = 40
@@ -233,7 +244,10 @@ export function IntroducePopup({
             <Text style={styles.levelText}>{config.levelText}</Text>
           ) : null}
 
-          <ScrollView style={styles.benefitsScroll} contentContainerStyle={styles.benefitsContent}>
+          <ScrollView
+            style={styles.benefitsScroll}
+            contentContainerStyle={[styles.benefitsContent, { gap: config.benefitGap ?? BENEFIT_GAP }]}
+          >
             {config.benefits.map((text, idx) => (
               <View key={idx} style={styles.benefitItem}>
                 <Text style={styles.benefitNumber} allowFontScaling={false}>
