@@ -418,29 +418,28 @@ export default function WechatPage() {
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h) => (
-                <Tooltip content="点击复用此条历史参数">
-                <button
-                  key={h.id}
-                  type="button"
-                  onClick={() => applyHistory(h)}
-                  className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div className="truncate font-medium">{h.title}</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
-                    <span
-                      className={
-                        h.status === 'published'
-                          ? 'text-emerald-600'
-                          : h.status === 'failed'
-                            ? 'text-rose-600'
-                            : 'text-muted-foreground'
-                      }
-                    >
-                      {h.status}
-                    </span>
-                    {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
-                  </div>
-                </button>
+                <Tooltip key={h.id} content="点击复用此条历史参数">
+                  <button
+                    type="button"
+                    onClick={() => applyHistory(h)}
+                    className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="truncate font-medium">{h.title}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
+                      <span
+                        className={
+                          h.status === 'published'
+                            ? 'text-emerald-600'
+                            : h.status === 'failed'
+                              ? 'text-rose-600'
+                              : 'text-muted-foreground'
+                        }
+                      >
+                        {h.status}
+                      </span>
+                      {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
+                    </div>
+                  </button>
                 </Tooltip>
               ))}
             </div>
