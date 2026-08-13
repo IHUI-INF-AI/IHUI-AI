@@ -151,6 +151,19 @@ import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
+import { LearnScreen } from '../screens/LearnScreen'
+import { SquareScreen } from '../screens/SquareScreen'
+import { PlazaScreen } from '../screens/PlazaScreen'
+import { CoursePlanetScreen } from '../screens/CoursePlanetScreen'
+import { LearnDevelopScreen } from '../screens/LearnDevelopScreen'
+import { StudyIndexScreen } from '../screens/StudyIndexScreen'
+import { KnowledgePlanetScreen } from '../screens/KnowledgePlanetScreen'
+import { AccountCancelScreen } from '../screens/AccountCancelScreen'
+import { BusinessLicenseScreen } from '../screens/BusinessLicenseScreen'
+import { IcpRecordScreen } from '../screens/IcpRecordScreen'
+import { ModelRecordScreen } from '../screens/ModelRecordScreen'
+import { UsageRulesScreen } from '../screens/UsageRulesScreen'
+import { AppPermissionScreen } from '../screens/AppPermissionScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -283,13 +296,27 @@ export type RootStackParamList = {
   Search: undefined
   History: undefined
   Bookmark: undefined
-  Share: { targetType: string; targetId: string; title: string }
+  Share: undefined
   WorkPanel: { url: string }
   TaskDispatch: undefined
   SharedDemo: undefined
   Recharge: undefined
   AigcCover: { id: string; title: string }
   AigcPublish: undefined
+  // H10-H18 新增路由(复刻 Uniapp 缺失页面)
+  Learn: undefined
+  Square: undefined
+  Plaza: undefined
+  CoursePlanet: undefined
+  LearnDevelop: undefined
+  StudyIndex: undefined
+  KnowledgePlanet: undefined
+  AccountCancel: undefined
+  BusinessLicense: undefined
+  IcpRecord: undefined
+  ModelRecord: undefined
+  UsageRules: undefined
+  AppPermission: undefined
 }
 
 export type HomeStackParamList = {
@@ -622,6 +649,20 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Recharge" component={WalletScreen} />
             <RootStack.Screen name="AigcCover" component={AigcCoverScreen} />
             <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
+            {/* H10-H18 新增 Screen(复刻 Uniapp 缺失页面) */}
+            <RootStack.Screen name="Learn" component={LearnScreen} />
+            <RootStack.Screen name="Square" component={SquareScreen} />
+            <RootStack.Screen name="Plaza" component={PlazaScreen} />
+            <RootStack.Screen name="CoursePlanet" component={CoursePlanetScreen} />
+            <RootStack.Screen name="LearnDevelop" component={LearnDevelopScreen} />
+            <RootStack.Screen name="StudyIndex" component={StudyIndexScreen} />
+            <RootStack.Screen name="KnowledgePlanet" component={KnowledgePlanetScreen} />
+            <RootStack.Screen name="AccountCancel" component={AccountCancelScreen} />
+            <RootStack.Screen name="BusinessLicense" component={BusinessLicenseScreen} />
+            <RootStack.Screen name="IcpRecord" component={IcpRecordScreen} />
+            <RootStack.Screen name="ModelRecord" component={ModelRecordScreen} />
+            <RootStack.Screen name="UsageRules" component={UsageRulesScreen} />
+            <RootStack.Screen name="AppPermission" component={AppPermissionScreen} />
           </>
         ) : (
           <>
