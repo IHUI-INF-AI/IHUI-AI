@@ -1,3 +1,4 @@
+#requires -Version 7
 # C 盘自动维护脚本(计划任务用,每天凌晨 3 点自动执行)
 # 功能:① 清理 TRAE 旧 logs/Crashpad/CachedData ② 清理 Chrome 缓存 ③ 清理 Temp 旧文件
 #      ④ 触发 TRAE ModularData 迁移(如 TRAE 未运行)⑤ 报告 C 盘状态

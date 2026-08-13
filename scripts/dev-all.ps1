@@ -1,3 +1,4 @@
+#requires -Version 7
 <#
 .SYNOPSIS
   IHUI-AI 全链路一键启动脚本 (web + api + ai-service + 数据库/Redis 健康检查)

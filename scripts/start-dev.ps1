@@ -1,4 +1,5 @@
-﻿<#
+#requires -Version 7
+<#
 .SYNOPSIS
   IHUI-AI 8 端 dev 服务启动器(根治 SIGINT 免疫)
 .DESCRIPTION

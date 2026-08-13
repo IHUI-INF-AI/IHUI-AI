@@ -1,3 +1,4 @@
+#requires -Version 7
 # IHUI CLI PowerShell 一键安装脚本
 # 用法: iwr -useb https://aizhs.top/install.ps1 | iex
 # 依赖: Node.js 20+(自动检测,缺失则报错引导安装)
