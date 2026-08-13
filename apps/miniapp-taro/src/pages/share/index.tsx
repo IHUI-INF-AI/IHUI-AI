@@ -14,6 +14,8 @@ import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import { useI18n } from '@/i18n'
 import InformationItem from './components/InformationItem'
+import NewTitle, { type NewTitleItem } from './components/NewTitle'
+import CenterItem, { type CenterItemData } from './components/CenterItem'
 import './index.css'
 
 type Tab = 'latest' | 'hot' | 'following'
@@ -93,6 +95,8 @@ export default function ShareIndexPage() {
   const [modelList, setModelList] = useState<ModelItem[]>([])
   const [rankList, setRankList] = useState<RankingItem[]>([])
   const [showToodown, setShowToodown] = useState(false)
+  const [hotList, setHotList] = useState<NewTitleItem[]>([])
+  const [cardList, setCardList] = useState<CenterItemData[]>([])
 
   // 对齐原项目：状态栏高度
   const statusBarHeight = NAV_PADDING_TOP
@@ -218,6 +222,49 @@ export default function ShareIndexPage() {
     }
   }, [])
 
+  /** 加载热门资讯 — 对齐原项目 hot_data */
+  const loadHotList = useCallback(async () => {
+    try {
+      const params: Record<string, unknown> = { page: 1, pageSize: 5, sort: 'hot' }
+      const res = (await api.getNewsList(params)) as { list?: unknown[]; total?: number }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      setHotList(
+        rawList.map((r) => {
+          const raw = r as Record<string, unknown>
+          return {
+            id: (raw['id'] ?? '') as string | number,
+            title: asString(raw['title']) || asString(raw['name']) || '',
+          }
+        }),
+      )
+    } catch {
+      setHotList([])
+    }
+  }, [])
+
+  /** 加载推荐卡片 — 对齐原项目 all_data */
+  const loadCardList = useCallback(async () => {
+    try {
+      const params: Record<string, unknown> = { page: 1, pageSize: 4 }
+      const res = (await api.getNewsList(params)) as { list?: unknown[]; total?: number }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      setCardList(
+        rawList.map((r) => {
+          const raw = r as Record<string, unknown>
+          return {
+            id: (raw['id'] ?? '') as string | number,
+            title: asString(raw['title']) || asString(raw['name']) || '',
+            coverUrl: asString(raw['coverUrl']) || asString(raw['cover']),
+            categoryName: asString(raw['categoryName']),
+            views: typeof raw['views'] === 'number' ? raw['views'] : Number(raw['viewCount'] ?? 0),
+          }
+        }),
+      )
+    } catch {
+      setCardList([])
+    }
+  }, [])
+
   const loadRef = useRef(loadList)
   loadRef.current = loadList
 
@@ -231,6 +278,8 @@ export default function ShareIndexPage() {
       void loadRef.current(true)
       void loadChatHistory()
       void loadModelList()
+      void loadHotList()
+      void loadCardList()
     }
   })
 
@@ -614,6 +663,16 @@ export default function ShareIndexPage() {
             onConfirm={onSearchConfirm}
           />
         </View>
+
+        {/* 热门资讯(NewTitle)— 对齐原项目 hot_data */}
+        {hotList.length > 0 ? (
+          <NewTitle items={hotList} onItemClick={(item) => goInfoDetail(item.id)} />
+        ) : null}
+
+        {/* 推荐卡片(CenterItem)— 对齐原项目 all_data */}
+        {cardList.length > 0 ? (
+          <CenterItem items={cardList} onItemClick={(item) => goInfoDetail(item.id)} />
+        ) : null}
 
         {/* 资讯列表 */}
         <View className="share-list">
