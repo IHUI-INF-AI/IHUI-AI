@@ -6,6 +6,7 @@
  * - 广场动态列表(资讯/文章卡片:分类 / 标题 / 摘要 / 作者 / 相对时间 / 阅读量)
  * - 数据加载走 fetchApi(@ihui/api-client),拉取 /api/knowledge 文章流
  * - 下拉刷新 / 错误态 / 空态(common/Empty);浅色优雅风;圆角守门;无分割线
+ * - FloatBox 悬浮提示:加载失败/刷新失败时短暂弹出 error toast(对齐 Uniapp float-box)
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -25,6 +26,7 @@ import { fetchApi, type Knowledge } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import Empty from '../components/common/Empty'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -37,6 +39,14 @@ interface KnowledgePage {
   list: Knowledge[]
   total: number
 }
+
+interface FloatBoxState {
+  visible: boolean
+  type: FloatBoxType
+  message: string
+}
+
+const FLOAT_BOX_DEFAULT: FloatBoxState = { visible: false, type: 'info', message: '' }
 
 const PAGE_SIZE = 20
 const DEFAULT_AUTHOR = 'AI 智汇社'
@@ -52,6 +62,15 @@ export function SquareScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [floatBox, setFloatBox] = useState<FloatBoxState>(FLOAT_BOX_DEFAULT)
+
+  const showFloat = useCallback((message: string, type: FloatBoxType = 'error') => {
+    setFloatBox({ visible: true, type, message })
+  }, [])
+
+  const hideFloat = useCallback(() => {
+    setFloatBox((prev) => ({ ...prev, visible: false }))
+  }, [])
 
   const load = useCallback(async () => {
     setError('')
@@ -62,12 +81,15 @@ export function SquareScreen() {
       if (!res.success) throw new Error(res.error)
       setItems(res.data?.list ?? [])
     } catch {
-      setError(t('common.loadFailed'))
+      const message = t('common.loadFailed')
+      setError(message)
+      // 已有内容时刷新失败用 FloatBox 提示,避免覆盖列表;首次加载失败用 Empty
+      if (items.length > 0) showFloat(message)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [t])
+  }, [t, items.length, showFloat])
 
   useEffect(() => {
     void load()
@@ -149,6 +171,13 @@ export function SquareScreen() {
           ListEmptyComponent={<Empty />}
         />
       )}
+      {/* FloatBox 悬浮提示(对齐 Uniapp float-box:加载/刷新失败 toast) */}
+      <FloatBox
+        visible={floatBox.visible}
+        type={floatBox.type}
+        message={floatBox.message}
+        onHide={hideFloat}
+      />
     </View>
   )
 }
