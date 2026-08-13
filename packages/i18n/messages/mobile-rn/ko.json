@@ -120,7 +120,8 @@
     "about": "정보",
     "feedback": "피드백",
     "privacy": "개인정보처리방침",
-    "agreement": "이용약관"
+    "agreement": "이용약관",
+    "changePwd": "비밀번호 변경"
   },
   "error": {
     "network": "네트워크 오류"
