@@ -120,7 +120,8 @@
     "about": "About",
     "feedback": "Feedback",
     "privacy": "Privacy policy",
-    "agreement": "User agreement"
+    "agreement": "User agreement",
+    "changePwd": "Change Password"
   },
   "error": {
     "network": "Network error, please retry"
