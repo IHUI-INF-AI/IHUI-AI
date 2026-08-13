@@ -169,13 +169,13 @@ function createStyles(tk: RnThemeTokens) {
       padding: 8,
     } as ViewStyle,
     itemGap: {
-      height: 12,
+      height: 8,
     } as ViewStyle,
 
     // 卡片
     card: {
       borderRadius: 12,
-      padding: 12,
+      padding: 8,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     cardPressed: {

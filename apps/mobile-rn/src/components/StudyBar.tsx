@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingVertical: 2,
-    paddingHorizontal: 2,
+    paddingHorizontal: 8,
     gap: 6,
     borderRadius: 8,
     backgroundColor: tokens.surface.card,
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   tabActive: {
