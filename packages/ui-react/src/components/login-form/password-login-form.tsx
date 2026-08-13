@@ -341,7 +341,7 @@ export function PasswordLoginForm({
       {enableCredentialPersistence && (
         <div className="flex items-center justify-between pt-1">
           <label
-            className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+            className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
             onMouseDown={(e) => e.preventDefault()}
           >
             <Checkbox
@@ -351,14 +351,13 @@ export function PasswordLoginForm({
                 setRememberPassword(checked)
                 if (!checked) setAutoLogin(false)
               }}
-              className="h-3.5 w-3.5"
               aria-label={t('auth.rememberPassword')}
             />
             {t('auth.rememberPassword')}
           </label>
           <label
             className={cn(
-              'flex items-center gap-1.5 text-xs',
+              'flex items-center gap-2 text-xs',
               rememberPassword
                 ? 'cursor-pointer text-muted-foreground'
                 : 'cursor-not-allowed text-muted-foreground/50',
@@ -369,7 +368,6 @@ export function PasswordLoginForm({
               checked={autoLogin}
               disabled={!rememberPassword}
               onCheckedChange={(v) => setAutoLogin(v === true)}
-              className="h-3.5 w-3.5"
               aria-label={t('auth.autoLogin')}
             />
             {t('auth.autoLogin')}
