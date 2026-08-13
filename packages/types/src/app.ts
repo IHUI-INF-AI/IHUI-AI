@@ -2858,6 +2858,8 @@ export interface AiAssistantScreenProps {
   onKeywordChange: (kw: string) => void
   onRefresh: () => void
   onPressItem: (item: AiAssistantItem) => void
+  /** 点击"更多分类"按钮跳转分类详情页(可选,不传则不显示"更多"按钮) */
+  onPressCategory?: (categoryId: string, title: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
