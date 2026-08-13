@@ -20,7 +20,14 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
-import { getOrders, getUserStatistics, type UserStatistics } from '@ihui/api-client'
+import {
+  deleteConversation,
+  getOrders,
+  getUserStatistics,
+  listConversations,
+  type ConversationDetail,
+  type UserStatistics,
+} from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
@@ -31,6 +38,8 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { UserCard, type UserCardKey } from '../components/UserCard'
+import { UserMembershipBenefits, type BenefitItem, type MembershipLevel } from '../components/UserMembershipBenefits'
+import { Bot, BookOpen, Database } from 'lucide-react-native'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
@@ -54,6 +63,13 @@ import {
 
 type ProfileStackNav = NativeStackNavigationProp<ProfileStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+/** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310) */
+const MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
+  { id: 'ai-free', icon: Bot, title: 'AI助手免费次数增加', desc: '每日赠送免费对话次数' },
+  { id: 'course-free', icon: BookOpen, title: '部分课程免费学习', desc: '专享 VIP 课程资源' },
+  { id: 'knowledge-base', icon: Database, title: '建立专属知识库', desc: '私有知识库存储与管理' },
+]
 
 /**
  * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 178+ 路由的 RootStackParamList
@@ -100,6 +116,9 @@ export function ProfileScreen() {
   const [floatType, setFloatType] = useState<FloatBoxType>('info')
   // Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall)
   const [drawerVisible, setDrawerVisible] = useState(false)
+  // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
+  const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -135,6 +154,30 @@ export function ProfileScreen() {
       cancelled = true
     }
   }, [ready, t])
+
+  /**
+   * 加载 Drawer 历史对话(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)。
+   * 懒加载:首次打开 Drawer 时拉取,后续复用缓存(下拉刷新可手动触发)。
+   * Drawer 的 groupByModelAndDate 已在组件内实现,这里只需把 API 结果映射为 DrawerConversationItem[]。
+   */
+  const loadDrawerConversations = useCallback(async () => {
+    const res = await listConversations({ page: 1, pageSize: 50 })
+    if (res.success) {
+      const items: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+      setDrawerConversations(items)
+    } else {
+      // 静默失败:不弹错误(对齐 Uniapp loadHistoryChat catch 后 setGroupedData([]))
+      setDrawerConversations([])
+    }
+    setDrawerConversationsLoaded(true)
+  }, [])
+
+  // Drawer 首次打开时懒加载历史对话(对齐 Uniapp onShow + loadHistoryChat)
+  useEffect(() => {
+    if (drawerVisible && !drawerConversationsLoaded && user) {
+      void loadDrawerConversations()
+    }
+  }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
 
   const onNavigate = (item: MenuItem) => {
     if (item.viaParent) {
@@ -206,14 +249,26 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     rootNav?.navigate('Chat')
   }
-  const handleDrawerDeleteConversation = (_id: string) => {
+  const handleDrawerDeleteConversation = (id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
         style: 'destructive',
         onPress: () => {
-          // TODO: 对接 removeModelChat API 删除对话(需先有对话列表支持)
+          // 乐观删除:先从本地列表移除,API 失败时回滚(对齐 Uniapp 删除对话体验)
+          const snapshot = drawerConversations
+          setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
+          void (async () => {
+            const res = await deleteConversation(id)
+            if (!res.success) {
+              // 回滚
+              setDrawerConversations(snapshot)
+              showFloat('删除失败,请重试', 'warning')
+            } else {
+              showFloat('已删除', 'success')
+            }
+          })()
         },
       },
     ])
@@ -260,7 +315,10 @@ export function ProfileScreen() {
     <>
       <NavBar
         title={t('profile.title')}
-        rightActions={[{ icon: '☰', onPress: () => setDrawerVisible(true) }]}
+        rightActions={[
+          { icon: '✎', label: t('menu.feedback'), onPress: () => rootNav?.navigate('Feedback' as never) },
+          { icon: '☰', onPress: () => setDrawerVisible(true) },
+        ]}
       />
       <ScrollView
         style={styles.screenScroll}
@@ -277,6 +335,12 @@ export function ProfileScreen() {
               t={t}
               isLoggedIn={!!user}
               onPress={handleUserCardPress}
+            />
+            {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
+            <UserMembershipBenefits
+              level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+              benefits={MEMBERSHIP_BENEFITS}
+              onPressUpgrade={() => rootNav?.navigate('Vip' as never)}
             />
             <SharedProfileScreen
               t={t}
@@ -332,7 +396,7 @@ export function ProfileScreen() {
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         user={drawerUser}
-        conversations={[] as DrawerConversationItem[]} // TODO: 对接 getModelChat API 加载历史对话列表
+        conversations={drawerConversations}
         onNavigate={handleDrawerNavigate}
         onNavigateCompany={handleDrawerNavigateCompany}
         onClaimFree={handleDrawerClaimFree}
@@ -510,10 +574,6 @@ interface ImageTabProps {
 }
 
 function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element {
-  const { width: screenWidth } = useWindowDimensions()
-  // 图片网格:3 列,间距 8,容器 padding 16 → 每格 = (screenWidth - 32 - 16) / 3
-  const gridSize = Math.floor((screenWidth - 32 - 16) / 3)
-
   if (list.length === 0) {
     return <Empty text="暂无图片内容" icon="🖼️" />
   }
@@ -532,17 +592,18 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
             </Text>
             <Text style={styles.contentTime}>{item.time}</Text>
           </View>
-          <View style={[styles.contentBody, styles.imageGrid]}>
+          {/* 图片单列满宽(对齐 Uniapp 行 87-111 单列布局) */}
+          <View style={[styles.contentBody, styles.imageColumn]}>
             {item.imageList.map((url, idx) => (
               <TouchableOpacity
                 key={`${url}-${idx}`}
                 activeOpacity={0.85}
                 onPress={() => onPreview(item.imageList, idx)}
-                style={styles.imageGridItem}
+                style={styles.imageColumnItem}
               >
                 <Image
                   source={{ uri: url }}
-                  style={{ width: gridSize, height: gridSize, borderRadius: 8 }}
+                  style={styles.imageColumnImg}
                   resizeMode="cover"
                 />
               </TouchableOpacity>
@@ -828,6 +889,27 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
 /** 官网链接(对齐 Uniapp copyWebsiteLink 行 1316 'https://www.aizhs.top') */
 const WEBSITE_URL = 'https://www.aizhs.top'
 
+/**
+ * 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem。
+ * 对齐 Uniapp getModelChat 返回的 { id, title, time, modelName } 结构。
+ * - title: 空标题回退 "未命名对话"(对齐 miniapp-compat-routes.ts 行 1547)
+ * - modelConfig: 用 conversation.model 作为模型名(空则由 Drawer 内部回退 "默认模型")
+ * - createdAt: 优先 lastMessageAt(最近活跃),回退 updatedAt → createdAt
+ */
+function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+  const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
+  const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
+  const model = c.model ?? ''
+  return {
+    id: c.id,
+    title: c.title?.trim() || '未命名对话',
+    modelConfig: model
+      ? { id: model, name: model, icon: undefined }
+      : undefined,
+    createdAt,
+  }
+}
+
 /** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板) */
 const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/free-resources'
 
@@ -862,14 +944,17 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   contentSection: {
-    paddingHorizontal: 16,
+    // 对齐 Uniapp 20rpx(≈10px)水平 padding
+    paddingHorizontal: 10,
     paddingBottom: 12,
   },
   tabBarWrap: {
-    marginBottom: 8,
+    // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
+    marginBottom: 10,
   },
   contentDisplayArea: {
-    borderRadius: 12,
+    // 对齐 Uniapp 30rpx(≈15px)大容器圆角
+    borderRadius: 15,
     backgroundColor: tokens.surface.card,
     padding: 12,
   },
@@ -921,14 +1006,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: tokens.text.secondary,
   },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  imageColumn: {
     gap: 8,
   },
-  imageGridItem: {
+  imageColumnItem: {
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  imageColumnImg: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
   },
   videoPosterContainer: {
     position: 'relative',
