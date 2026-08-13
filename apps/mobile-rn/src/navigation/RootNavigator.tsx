@@ -188,6 +188,12 @@ import DistributionOrderListScreen from '../screens/DistributionOrderListScreen'
 import EarnCommissionScreen from '../screens/EarnCommissionScreen'
 import StudyPublishScreen from '../screens/StudyPublishScreen'
 import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
+import { MoreCourseScreen } from '../screens/MoreCourseScreen'
+import { DevEnterCoverScreen } from '../screens/DevEnterCoverScreen'
+import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
+import { SetNeedScreen } from '../screens/SetNeedScreen'
+import { SubPackageIndexScreen } from '../screens/SubPackageIndexScreen'
+import { AppTopupScreen } from '../screens/AppTopupScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -365,6 +371,13 @@ export type RootStackParamList = {
   EarnCommission: undefined
   StudyPublish: undefined
   AiAssistantN8n: { agentId?: string }
+  // H19 新增路由(对齐 Uniapp pagesA 缺失页面)
+  MoreCourse: undefined
+  DevEnterCover: undefined
+  PlazaCover: undefined
+  SetNeed: undefined
+  SubPackageIndex: undefined
+  AppTopup: undefined
 }
 
 export type HomeStackParamList = {
@@ -735,6 +748,13 @@ function RootNavigatorInner() {
             <RootStack.Screen name="EarnCommission" component={EarnCommissionScreen} />
             <RootStack.Screen name="StudyPublish" component={StudyPublishScreen} />
             <RootStack.Screen name="AiAssistantN8n" component={AiAssistantN8nScreen} />
+            {/* H19 新增 Screen(对齐 Uniapp pagesA 缺失页面) */}
+            <RootStack.Screen name="MoreCourse" component={MoreCourseScreen} />
+            <RootStack.Screen name="DevEnterCover" component={DevEnterCoverScreen} />
+            <RootStack.Screen name="PlazaCover" component={PlazaCoverScreen} />
+            <RootStack.Screen name="SetNeed" component={SetNeedScreen} />
+            <RootStack.Screen name="SubPackageIndex" component={SubPackageIndexScreen} />
+            <RootStack.Screen name="AppTopup" component={AppTopupScreen} />
           </>
         ) : (
           <>

@@ -99,7 +99,7 @@ export default function CategoryDetailScreen() {
   }
 
   const onItemClick = (id: string) => navigation.navigate('AgentDetail', { id })
-  const onItemAction = (id: string) => Alert.alert('收藏', `收藏 Agent ${id}(功能待接入)`)
+  const onItemAction = (_id: string) => Alert.alert('收藏', '收藏功能即将上线,敬请期待')
 
   const onLoadMore = () => {
     if (hasMore && !loadingMore && !loading) void loadAgents(activeId, page + 1, true)

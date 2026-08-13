@@ -33,6 +33,7 @@ import UserInfoCard from '../components/UserInfoCard'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
+import { ColorfulLoader } from '../components/ColorfulLoader'
 import { UserMembershipBenefits, type BenefitItem } from '../components/UserMembershipBenefits'
 import { Bot, Cpu, Gift, MessageCircle } from 'lucide-react-native'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
@@ -278,32 +279,38 @@ export function ProfileScreen() {
             onPressUpgrade={handleUpgradeMembership}
           />
         </View>
-        <SharedProfileScreen
-          t={t}
-          user={
-            user
-              ? {
-                  id: user.id,
-                  nickname: user.nickname,
-                  avatar: user.avatar ?? null,
-                  email: user.email,
-                  phone: user.phone,
-                }
-              : null
-          }
-          stats={stats}
-          orderCount={orderCount}
-          loading={loading}
-          error={error}
-          colorScheme={resolvedTheme}
-          menuSections={menuSections}
-          onNavigate={(key) => {
-            const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
-            if (item) onNavigate(item)
-          }}
-          onLogout={() => void logout()}
-          onBack={() => navigation.goBack()}
-        />
+        {loading ? (
+          <View style={styles.loaderWrap}>
+            <ColorfulLoader size={48} />
+          </View>
+        ) : (
+          <SharedProfileScreen
+            t={t}
+            user={
+              user
+                ? {
+                    id: user.id,
+                    nickname: user.nickname,
+                    avatar: user.avatar ?? null,
+                    email: user.email,
+                    phone: user.phone,
+                  }
+                : null
+            }
+            stats={stats}
+            orderCount={orderCount}
+            loading={false}
+            error={error}
+            colorScheme={resolvedTheme}
+            menuSections={menuSections}
+            onNavigate={(key) => {
+              const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+              if (item) onNavigate(item)
+            }}
+            onLogout={() => void logout()}
+            onBack={() => navigation.goBack()}
+          />
+        )}
         <ProfileContentSection />
       </ScrollView>
       <LoginPopUp
@@ -855,6 +862,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+  },
+  loaderWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
   },
   contentSection: {
     paddingHorizontal: 16,
