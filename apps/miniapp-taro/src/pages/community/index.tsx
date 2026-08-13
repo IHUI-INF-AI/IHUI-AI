@@ -15,189 +15,13 @@ import AgentListPanel from '@/components/AgentListPanel'
 import { FloatBox } from '@/components'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
+import * as api from '@/api'
 import backSvg from '@/assets/remote/images/back.svg'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
-import type { DrawerModelGroup, DrawerUserInfo } from '@/components/DrawerComponent'
+import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import './index.css'
-
-/* ============ Mock 数据 ============ */
-
-const MOCK_BANNERS: CarouselItem[] = [
-  { img: '', title: 'AI 智能应用商店', subtitle: '发现最强大的 AI 智能体，提升工作效率' },
-  { img: '', title: '智能体市场', subtitle: '上千款 AI 应用等你来体验' },
-  { img: '', title: '开发者入驻', subtitle: '上传你的 AI 应用，开启变现之旅' },
-  { img: '', title: 'AI 智汇社', subtitle: '让 AI 成为你的超级员工' },
-]
-
-const MOCK_RECENT_AGENTS = [
-  { id: '1', agentName: 'AI 写作助手', agentAvatar: '', desc: '智能写作与创作' },
-  { id: '2', agentName: '数据分析师', agentAvatar: '', desc: '数据可视化分析' },
-  { id: '3', agentName: '代码助手', agentAvatar: '', desc: '代码生成与优化' },
-  { id: '4', agentName: '设计大师', agentAvatar: '', desc: 'UI/UX 设计辅助' },
-  { id: '5', agentName: '翻译官', agentAvatar: '', desc: '多语言翻译' },
-]
-
-const MOCK_MY_AGENTS = [
-  { id: '101', agentName: '市场分析师', agentAvatar: '', isNew: 1 },
-  { id: '102', agentName: '内容创作师', agentAvatar: '', isNew: 0 },
-  { id: '103', agentName: '客服机器人', agentAvatar: '', isNew: 0 },
-  { id: '104', agentName: '数据报表', agentAvatar: '', isNew: 1 },
-]
-
-// TODO: 接入 api.getAgentList 替代 mock,待 API 路由确认后实施
-const MOCK_AGENT_LIST = [
-  {
-    id: '201',
-    agentName: '智能客服助手',
-    agentAvatar: '',
-    agentDescription: '7×24小时智能客服，支持多轮对话、工单自动分配、知识库问答',
-    agentMainCategory: [{ name: '客服' }, { name: '效率' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 12800,
-    isHot: 1,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 342,
-    collectCount: 156,
-    isNew: 1,
-    type: 1,
-  },
-  {
-    id: '202',
-    agentName: 'AI 文档处理',
-    agentAvatar: '',
-    agentDescription: '智能文档解析、摘要生成、格式转换、多语言翻译一体化',
-    agentMainCategory: [{ name: '办公' }, { name: '文档' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 9600,
-    isHot: 1,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 289,
-    collectCount: 98,
-    isNew: 0,
-    type: 1,
-  },
-  {
-    id: '203',
-    agentName: '数据分析仪表盘',
-    agentAvatar: '',
-    agentDescription: '连接数据源，自动生成可视化报表，支持多维度数据钻取',
-    agentMainCategory: [{ name: '数据' }, { name: '分析' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 7200,
-    isHot: 0,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 198,
-    collectCount: 67,
-    isNew: 1,
-    type: 1,
-  },
-  {
-    id: '204',
-    agentName: '代码审查助手',
-    agentAvatar: '',
-    agentDescription: '自动审查代码质量、安全漏洞、性能优化建议',
-    agentMainCategory: [{ name: '开发' }, { name: '代码' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 5300,
-    isHot: 0,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 156,
-    collectCount: 45,
-    isNew: 0,
-    type: 1,
-  },
-  {
-    id: '205',
-    agentName: '营销文案生成',
-    agentAvatar: '',
-    agentDescription: '一键生成营销文案、广告语、社媒帖子、邮件模板',
-    agentMainCategory: [{ name: '营销' }, { name: '文案' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 15000,
-    isHot: 1,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 423,
-    collectCount: 189,
-    isNew: 0,
-    type: 1,
-  },
-  {
-    id: '206',
-    agentName: '图片生成大师',
-    agentAvatar: '',
-    agentDescription: 'AI 文生图、图生图、风格迁移，支持多种艺术风格',
-    agentMainCategory: [{ name: '设计' }, { name: '创意' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 21000,
-    isHot: 1,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 567,
-    collectCount: 234,
-    isNew: 1,
-    type: 1,
-  },
-  {
-    id: '207',
-    agentName: '视频剪辑助手',
-    agentAvatar: '',
-    agentDescription: '智能视频剪辑、字幕生成、特效添加、一键成片',
-    agentMainCategory: [{ name: '视频' }, { name: '创作' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 8900,
-    isHot: 0,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 312,
-    collectCount: 123,
-    isNew: 0,
-    type: 1,
-  },
-  {
-    id: '208',
-    agentName: '知识库问答',
-    agentAvatar: '',
-    agentDescription: '基于企业知识库的智能问答系统，支持 RAG 检索增强生成',
-    agentMainCategory: [{ name: '知识' }, { name: '效率' }],
-    userNickname: '智汇AI',
-    userAvatar: '',
-    usageCount: 4300,
-    isHot: 0,
-    isCollect: 0,
-    isThumbs: 0,
-    likeCount: 167,
-    collectCount: 78,
-    isNew: 0,
-    type: 1,
-  },
-]
-
-const MOCK_CATEGORIES = [
-  { id: 'all', name: '全部', url: '', butUrl: '' },
-  { id: 'hot', name: '热门', url: '', butUrl: '' },
-  { id: 'new', name: '最新', url: '', butUrl: '' },
-  { id: 'office', name: '办公', url: '', butUrl: '' },
-  { id: 'dev', name: '开发', url: '', butUrl: '' },
-  { id: 'design', name: '设计', url: '', butUrl: '' },
-  { id: 'data', name: '数据', url: '', butUrl: '' },
-  { id: 'marketing', name: '营销', url: '', butUrl: '' },
-  { id: 'video', name: '视频', url: '', butUrl: '' },
-  { id: 'edu', name: '教育', url: '', butUrl: '' },
-]
 
 /* ============ 类型定义 ============ */
 
@@ -226,69 +50,58 @@ interface CategoryItem {
   butUrl: string
 }
 
+interface RecentAgentItem {
+  id: string
+  agentName: string
+  agentAvatar: string
+  desc: string
+}
+
+interface MyAgentItem {
+  id: string
+  agentName: string
+  agentAvatar: string
+  isNew: number
+}
+
+/** 从 unknown 类型的 API 响应中提取数组(兼容数组或 { list: [] } 两种返回结构) */
+function extractList(res: unknown): unknown[] {
+  if (Array.isArray(res)) return res
+  if (typeof res === 'object' && res !== null) {
+    const list = (res as { list?: unknown }).list
+    if (Array.isArray(list)) return list
+  }
+  return []
+}
+
 /* ============ 页面主组件 ============ */
 
 export default function Community() {
-  const [banners] = useState<CarouselItem[]>(MOCK_BANNERS)
-  const [recentAgents] = useState(MOCK_RECENT_AGENTS)
-  const [myAgents] = useState(MOCK_MY_AGENTS)
-  const [agentList, setAgentList] = useState<AgentItem[]>(MOCK_AGENT_LIST)
+  const [banners, setBanners] = useState<CarouselItem[]>([])
+  const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
+  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
+  const [agentList, setAgentList] = useState<AgentItem[]>([])
+  const [fullAgentList, setFullAgentList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [showSearch, setShowSearch] = useState(false)
-  const [categories] = useState<CategoryItem[]>(MOCK_CATEGORIES)
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [categories, setCategories] = useState<CategoryItem[]>([
+    { id: 'all', name: '全部', url: '', butUrl: '' },
+  ])
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
   const [fenleiActive, setFenleiActive] = useState<number[]>([0])
+  const [drawerGroupedData, setDrawerGroupedData] = useState<DrawerModelGroup[]>([])
+  const [drawerUserinfo, setDrawerUserinfo] = useState<DrawerUserInfo>({
+    avatar: '',
+    nickname: '智汇AI用户',
+  })
   const scrollTopRef = useRef(0)
 
   const PAGE_SIZE = 10
-
-  /* ============ 抽屉 Mock 数据 ============ */
-
-  const drawerGroupedData: DrawerModelGroup[] = [
-    {
-      modelName: 'GPT-4o',
-      modelLogo: '',
-      dateGroups: [
-        {
-          date: '今天',
-          chats: [
-            { id: 'c1', title: '帮我写一份市场分析报告', date: '今天' },
-            { id: 'c2', title: 'Python 代码优化建议', date: '今天' },
-          ],
-        },
-        {
-          date: '昨天',
-          chats: [
-            { id: 'c3', title: '翻译这段英文文档', date: '昨天' },
-          ],
-        },
-      ],
-    },
-    {
-      modelName: 'Claude 3.5',
-      modelLogo: '',
-      dateGroups: [
-        {
-          date: '昨天',
-          chats: [
-            { id: 'c4', title: '设计一个用户登录流程', date: '昨天' },
-            { id: 'c5', title: '数据分析报告生成', date: '昨天' },
-          ],
-        },
-      ],
-    },
-  ]
-
-  const drawerUserinfo: DrawerUserInfo = {
-    avatar: '',
-    nickname: '智汇AI用户',
-  }
 
   /* ============ 数据加载 ============ */
 
@@ -304,30 +117,176 @@ export default function Community() {
       if (!hasMore && !reset) return
       setLoading(true)
       try {
-        await new Promise((r) => setTimeout(r, 400))
-        const filtered = activeCategory === 'all'
-          ? MOCK_AGENT_LIST
-          : MOCK_AGENT_LIST.filter((a) =>
-              a.agentMainCategory.some((c) => c.name === categories.find((cat) => cat.id === activeCategory)?.name),
-            )
+        const res = await api.getAgentList()
+        const rawList = Array.isArray(res?.list) ? res.list : []
+        const mappedList: AgentItem[] = rawList.map((a, idx) => ({
+          id: a.id || String(idx),
+          agentName: a.name || '',
+          agentAvatar: a.avatar || '',
+          agentDescription: a.desc || '',
+          agentMainCategory: [{ name: '全部' }],
+          userNickname: '智汇AI',
+          userAvatar: '',
+          usageCount: a.uses || 0,
+          isHot: 0,
+          isCollect: 0,
+          isThumbs: 0,
+          likeCount: 0,
+          collectCount: 0,
+          isNew: 0,
+          type: 1,
+        }))
         if (reset) {
-          setAgentList(filtered)
+          setAgentList(mappedList)
+          setFullAgentList(mappedList)
         } else {
-          setAgentList((prev) => [...prev, ...filtered])
+          setAgentList((prev) => [...prev, ...mappedList])
+          setFullAgentList((prev) => [...prev, ...mappedList])
         }
-        setHasMore(curPage * PAGE_SIZE < filtered.length * 2)
+        setHasMore(curPage * PAGE_SIZE < (res?.total ?? mappedList.length))
         setPage(curPage + 1)
       } catch {
-        // 静默处理
+        // API 失败时降级到空列表(不再用 mock)
+        if (reset) {
+          setAgentList([])
+          setFullAgentList([])
+        }
       } finally {
         setLoading(false)
       }
     },
-    [loading, page, hasMore, activeCategory, categories],
+    [loading, page, hasMore],
   )
 
+  /** 加载历史对话(对齐原项目 loadHistoryChat) */
+  const loadHistoryChat = useCallback(async () => {
+    try {
+      const res = await api.getChatHistory({ page: 1, pageSize: 20 })
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
+      for (const chat of rawList) {
+        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+        dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+      }
+      setDrawerGroupedData([
+        {
+          modelName: '历史对话',
+          dateGroups: Array.from(dateMap.entries()).map(([date, chats]) => ({ date, chats })),
+        },
+      ])
+    } catch {
+      setDrawerGroupedData([])
+    }
+  }, [])
+
+  /** 加载首页 Banner */
+  const loadBanners = useCallback(async () => {
+    try {
+      const homeRes = await api.getHomePage()
+      if (Array.isArray(homeRes?.banner) && homeRes.banner.length > 0) {
+        setBanners(
+          homeRes.banner.map((b) => ({
+            img: b.coverUrl || '',
+            title: b.title,
+            link: b.link,
+          })),
+        )
+      } else {
+        setBanners([])
+      }
+    } catch {
+      setBanners([])
+    }
+  }, [])
+
+  /** 加载最近使用智能体 */
+  const loadRecentAgents = useCallback(async () => {
+    try {
+      const historyRes = await api.getAgentUseHistory()
+      const rawList = extractList(historyRes) as Array<{
+        id: string
+        agentName?: string
+        agentAvatar?: string
+        desc?: string
+      }>
+      setRecentAgents(
+        rawList.map((a) => ({
+          id: a.id,
+          agentName: a.agentName || '',
+          agentAvatar: a.agentAvatar || '',
+          desc: a.desc || '',
+        })),
+      )
+    } catch {
+      setRecentAgents([])
+    }
+  }, [])
+
+  /** 加载我的收藏智能体 */
+  const loadMyAgents = useCallback(async () => {
+    try {
+      const collectRes = await api.getAgentCollections()
+      const rawList = extractList(collectRes) as Array<{
+        id: string
+        agentName?: string
+        agentAvatar?: string
+        isNew?: number
+      }>
+      setMyAgents(
+        rawList.map((a) => ({
+          id: a.id,
+          agentName: a.agentName || '',
+          agentAvatar: a.agentAvatar || '',
+          isNew: a.isNew ?? 0,
+        })),
+      )
+    } catch {
+      setMyAgents([])
+    }
+  }, [])
+
+  /** 加载分类列表 */
+  const loadCategories = useCallback(async () => {
+    try {
+      const catRes = await api.getAgentCategories()
+      const rawList = extractList(catRes) as Array<{ id?: string; name?: string }>
+      const catList: CategoryItem[] = [
+        { id: 'all', name: '全部', url: '', butUrl: '' },
+        ...rawList.map((c, idx) => ({
+          id: c.id || String(idx),
+          name: c.name || '',
+          url: '',
+          butUrl: '',
+        })),
+      ]
+      setCategories(catList)
+    } catch {
+      // 降级:只保留"全部"
+      setCategories([{ id: 'all', name: '全部', url: '', butUrl: '' }])
+    }
+  }, [])
+
   useDidShow(() => {
-    loadData(true)
+    void loadData(true)
+    void loadHistoryChat()
+    void loadBanners()
+    void loadRecentAgents()
+    void loadMyAgents()
+    void loadCategories()
+    try {
+      const userData = Taro.getStorageSync('data') as
+        | { avatar?: string; userName?: string; nickname?: string }
+        | undefined
+      if (userData) {
+        setDrawerUserinfo({
+          avatar: userData.avatar || '',
+          nickname: userData.userName || userData.nickname || '智汇AI用户',
+        })
+      }
+    } catch {
+      // 静默
+    }
   })
 
   usePullDownRefresh(() => {
@@ -359,29 +318,28 @@ export default function Community() {
     const keyword = value.replace(/[,.!?;:。，！？；：'"（）【】《》]+/g, '')
     setSearchKeyword(keyword)
     if (!keyword) {
-      setAgentList(MOCK_AGENT_LIST)
+      setAgentList(fullAgentList)
     } else {
-      const filtered = MOCK_AGENT_LIST.filter(
-        (a) =>
-          a.agentName.includes(keyword) || a.agentDescription.includes(keyword),
+      setAgentList(
+        fullAgentList.filter(
+          (a) =>
+            a.agentName.includes(keyword) || a.agentDescription.includes(keyword),
+        ),
       )
-      setAgentList(filtered)
     }
   }
 
   function onCategorySelect(catId: string) {
-    setActiveCategory(catId)
     setShowCategoryPopup(false)
     setPage(1)
     setHasMore(true)
     if (catId === 'all') {
-      setAgentList(MOCK_AGENT_LIST)
+      setAgentList(fullAgentList)
     } else {
       const catName = categories.find((c) => c.id === catId)?.name || ''
-      const filtered = MOCK_AGENT_LIST.filter((a) =>
-        a.agentMainCategory.some((c) => c.name === catName),
+      setAgentList(
+        fullAgentList.filter((a) => a.agentMainCategory.some((c) => c.name === catName)),
       )
-      setAgentList(filtered)
     }
   }
 
@@ -415,22 +373,34 @@ export default function Community() {
     })
   }
 
-  /** 收藏智能体 — 对齐原项目 getAgentCollect(待 AgentListPanel 扩展 onCollect 回调后接入) */
+  /** 收藏智能体 */
   const handleAgentCollect = useCallback(async (id: string) => {
     try {
-      // TODO: 接入 api.collectAgent(id) 真实接口
-      setAgentList(prev => prev.map(a => a.id === id ? { ...a, isCollect: a.isCollect ? 0 : 1, collectCount: a.collectCount + (a.isCollect ? -1 : 1) } : a))
+      await api.collectAgent(id)
+      setAgentList((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? { ...a, isCollect: a.isCollect ? 0 : 1, collectCount: a.collectCount + (a.isCollect ? -1 : 1) }
+            : a,
+        ),
+      )
       Taro.showToast({ title: '已收藏', icon: 'success' })
     } catch {
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])
 
-  /** 点赞智能体 — 对齐原项目 getAgentLike(待 AgentListPanel 扩展 onLike 回调后接入) */
+  /** 点赞智能体 */
   const handleAgentLike = useCallback(async (id: string) => {
     try {
-      // TODO: 接入 api.likeAgent(id) 真实接口
-      setAgentList(prev => prev.map(a => a.id === id ? { ...a, isThumbs: a.isThumbs ? 0 : 1, likeCount: a.likeCount + (a.isThumbs ? -1 : 1) } : a))
+      await api.likeAgent(id)
+      setAgentList((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? { ...a, isThumbs: a.isThumbs ? 0 : 1, likeCount: a.likeCount + (a.isThumbs ? -1 : 1) }
+            : a,
+        ),
+      )
       Taro.showToast({ title: '已点赞', icon: 'success' })
     } catch {
       Taro.showToast({ title: '操作失败', icon: 'none' })
@@ -492,6 +462,25 @@ export default function Community() {
     })
   }
 
+  /** 删除历史对话 */
+  function handleRemoveChat(chat: DrawerChatItem) {
+    Taro.showModal({
+      title: '提示',
+      content: '确定删除此对话?',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            await api.removeModelChat(String(chat.id))
+            Taro.showToast({ title: '已删除', icon: 'success' })
+            void loadHistoryChat()
+          } catch {
+            Taro.showToast({ title: '删除失败', icon: 'none' })
+          }
+        }
+      },
+    })
+  }
+
   function handleFenleiBtnClick(index: number, item: CategoryItem) {
     setFenleiActive([index])
     onCategorySelect(item.id)
@@ -539,6 +528,7 @@ export default function Community() {
         onMenuItemClick={handleDrawerGoPage}
         onLabelItemClick={handleDrawerLabelClick}
         onChatItemClick={handleDrawerChatClick}
+        onRemoveChat={handleRemoveChat}
         onCreateChat={() => {
           setShowDrawer(false)
           Taro.navigateTo({ url: '/pages/ai/chat' })
