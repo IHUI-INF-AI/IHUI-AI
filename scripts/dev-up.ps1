@@ -1,3 +1,4 @@
+#requires -Version 7
 <#
 .SYNOPSIS
   IHUI-AI 本地开发一键启动脚本

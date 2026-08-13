@@ -1,3 +1,4 @@
+#requires -Version 7
 # TRAE ModularData 自动迁移脚本(计划任务用,TRAE 未运行时执行)
 # 用法:由计划任务在开机/登录时自动调用,也可手动运行
 # 原理:检测 TRAE 进程 → 未运行则复制 ModularData/logs 到 D 盘 → 删除原目录 → 创建符号链接
