@@ -33,6 +33,9 @@ export interface LoginPopUpProps {
   onChooseAvatar?: (avatarUrl: string) => void
   onNicknameChange?: (nickname: string) => void
   onUpgrade?: () => void
+  /** 一键登录回调(微信手机号登录,对齐原项目 getPhoneNumber L577-712)。
+   *  传入 loginCode(Taro.login code)+ phoneCode(onGetPhoneNumber e.detail.code)。 */
+  onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void>
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
@@ -45,6 +48,7 @@ export default function LoginPopUp({
   onChooseAvatar,
   onNicknameChange,
   onUpgrade,
+  onOneClickLogin,
 }: LoginPopUpProps) {
   const tt = useTt()
 
@@ -161,6 +165,44 @@ export default function LoginPopUp({
             </View>
           )}
         </View>
+
+        {/* 微信一键登录 Button(对齐原项目 getPhoneNumber L577-712)。
+            openType="getPhoneNumber" 仅微信小程序端生效,H5 端降级为普通按钮不触发 onGetPhoneNumber。
+            仅当父组件传入 onOneClickLogin 回调时渲染。 */}
+        {onOneClickLogin ? (
+          <Button
+            openType="getPhoneNumber"
+            onGetPhoneNumber={async (e) => {
+              if (e.detail.errMsg !== 'getPhoneNumber:ok') {
+                Taro.showToast({ title: tt('login.cancelAuth', '取消授权'), icon: 'none' })
+                return
+              }
+              const phoneCode = e.detail.code
+              if (!phoneCode) {
+                Taro.showToast({ title: tt('login.getPhoneFail', '获取手机号失败'), icon: 'none' })
+                return
+              }
+              // 获取微信 login code(对齐原项目:Taro.login → api.openId → api.getPhoneNumber)
+              try {
+                const loginRes = await Taro.login()
+                const loginCode = loginRes.code
+                if (!loginCode) {
+                  Taro.showToast({ title: tt('login.wechatFailed', '微信登录失败'), icon: 'none' })
+                  return
+                }
+                await onOneClickLogin({ loginCode, phoneCode })
+              } catch {
+                Taro.showToast({ title: tt('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+              }
+            }}
+            className="w-full !py-2 !px-4 rounded-md !border-none text-center mb-4"
+            style={{ background: 'var(--color-primary)' }}
+          >
+            <Text className="text-sm text-white font-medium">
+              {tt('login.wechatOneClick', '微信一键登录')}
+            </Text>
+          </Button>
+        ) : null}
 
         {/* 关闭按钮 */}
         <View
