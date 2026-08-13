@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     minWidth: 32,
     height: 32,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

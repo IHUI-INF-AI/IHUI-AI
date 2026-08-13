@@ -16,6 +16,7 @@
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -48,6 +49,15 @@ import {
 // ── 类型定义(强类型,禁用 any) ──
 
 export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
+/**
+ * 扩展菜单(对齐 Uniapp DrawerComponentall.vue 行 14-40 隐藏菜单 + label_content 入口)。
+ * 独立于 DrawerTab 以避免破坏 ChatScreen 的 `Record<DrawerTab, ...>` 严格映射
+ * (任务禁止改 ChatScreen,故新增独立类型 + 可选回调)。
+ * 主 agent 后续可在 ChatScreen 接 onNavigateExtra 实现真实跳转:
+ *   tools→AiAssistant/AgentScreen, aigc→AigcList, learn→StudyIndex,
+ *   modelPlaza→ModelPlaza, company→WorkPanel(路由均已注册,见 RootNavigator 行 673-698)。
+ */
+export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company'
 export type DrawerUserLevel = 'vip' | 'normal'
 
 export interface DrawerModelConfig {
@@ -76,6 +86,11 @@ export interface DrawerProps {
   conversations: DrawerConversationItem[]
   // 回调
   onNavigate: (tab: DrawerTab) => void
+  /**
+   * 扩展菜单跳转回调(可选)。未传入时点击扩展菜单弹 Alert 占位。
+   * 主 agent 后续在 ChatScreen 接入即可激活真实跳转。
+   */
+  onNavigateExtra?: (menu: DrawerExtraMenu) => void
   onNavigateCompany: () => void // 一人公司
   onClaimFree: () => void // 领取免费资料
   onCreateNewChat: () => void // 创建新对话
@@ -110,6 +125,24 @@ const MAIN_MENUS: readonly MainMenuConfig[] = [
   { key: 'square', label: '广场', Icon: LayoutGrid },
   { key: 'share', label: '动态', Icon: Share2 },
   { key: 'mine', label: '我的', Icon: User },
+] as const
+
+// ── 扩展菜单配置(对齐 Uniapp 行 14-40 隐藏菜单 + label_content 入口) ──
+// emoji 图标对齐 GlobalFloatBox 风格(任务约束:菜单项图标用 emoji)。
+// 5 项分别对应 Uniapp:应用商店/灵感/课程/模型广场(隐藏)/我的一人公司。
+
+interface ExtraMenuConfig {
+  key: DrawerExtraMenu
+  label: string
+  emoji: string
+}
+
+const EXTRA_MENUS: readonly ExtraMenuConfig[] = [
+  { key: 'tools', label: '工具', emoji: '🔧' },
+  { key: 'aigc', label: 'AIGC', emoji: '🎨' },
+  { key: 'learn', label: '学习', emoji: '📚' },
+  { key: 'modelPlaza', label: '模型广场', emoji: '🤖' },
+  { key: 'company', label: '一人公司', emoji: '🏢' },
 ] as const
 
 // ── 日期分组逻辑 ──
@@ -312,6 +345,7 @@ export function Drawer(props: DrawerProps) {
     user,
     conversations,
     onNavigate,
+    onNavigateExtra,
     onNavigateCompany,
     onClaimFree,
     onCreateNewChat,
@@ -364,6 +398,26 @@ export function Drawer(props: DrawerProps) {
     onClose()
   }
 
+  /**
+   * 扩展菜单点击:父级未接 onNavigateExtra 时 Alert 占位(对齐任务"依赖缺失用 Alert"约束)。
+   * 路由均已注册(RootNavigator 行 673-698),主 agent 后续在 ChatScreen 接回调即可激活。
+   */
+  const handleNavigateExtra = (menu: DrawerExtraMenu) => {
+    if (onNavigateExtra) {
+      onNavigateExtra(menu)
+    } else {
+      const labelMap: Record<DrawerExtraMenu, string> = {
+        tools: '工具',
+        aigc: 'AIGC',
+        learn: '学习',
+        modelPlaza: '模型广场',
+        company: '一人公司',
+      }
+      Alert.alert(labelMap[menu], '功能开发中(待接入路由)')
+    }
+    onClose()
+  }
+
   const handleSelectConversation = (id: string) => {
     onSelectConversation(id)
     onClose()
@@ -403,12 +457,20 @@ export function Drawer(props: DrawerProps) {
               contentContainerStyle={{ paddingBottom: 8 }}
             >
               {/* 1. 顶部用户区:头像 + 昵称 + 等级标识 + 关闭按钮 */}
-              <View className="px-4 pt-3 pb-4 flex-row items-center gap-3">
+              {/* 头部横向 padding 14dp(对齐 Uniapp 28rpx)/ 底部 12dp(对齐 Uniapp 25rpx≈12.5dp) */}
+              <View className="pt-3 pb-3 flex-row items-center gap-3" style={{ paddingHorizontal: 14 }}>
                 <View className="relative">
                   {user.avatar ? (
-                    <Image source={{ uri: user.avatar }} className="w-11 h-11 rounded-full" />
+                    <Image
+                      source={{ uri: user.avatar }}
+                      className="rounded-full"
+                      style={{ width: 60, height: 60 }}
+                    />
                   ) : (
-                    <View className="w-11 h-11 rounded-full items-center justify-center bg-gray-100">
+                    <View
+                      className="rounded-full items-center justify-center bg-gray-100"
+                      style={{ width: 60, height: 60 }}
+                    >
                       <Text className="text-[16px] font-semibold text-gray-700">{initials}</Text>
                     </View>
                   )}
@@ -445,8 +507,8 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
               </View>
 
-              {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu) */}
-              <View className="px-3 py-3 flex-row items-start justify-between">
+              {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu;容器 padding 8dp 对齐 Uniapp 15rpx≈7.5dp) */}
+              <View className="px-2 py-2 flex-row items-start justify-between">
                 {MAIN_MENUS.map(({ key, label, Icon }) => (
                   <Pressable
                     key={key}
@@ -456,6 +518,23 @@ export function Drawer(props: DrawerProps) {
                   >
                     <View className="w-11 h-11 rounded-xl items-center justify-center bg-gray-50 mb-1">
                       <Icon size={22} color={tokens.text.primary} />
+                    </View>
+                    <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* 2b. 5 扩展菜单(横向等分,对齐 Uniapp 隐藏菜单 + label_content 入口;emoji 图标对齐 GlobalFloatBox 风格) */}
+              <View className="px-2 py-2 flex-row items-start justify-between">
+                {EXTRA_MENUS.map(({ key, label, emoji }) => (
+                  <Pressable
+                    key={key}
+                    className="flex-1 items-center py-1.5 rounded-lg"
+                    onPress={() => handleNavigateExtra(key)}
+                    android_ripple={{ color: tokens.surface.muted, radius: 60 }}
+                  >
+                    <View className="w-11 h-11 rounded-xl items-center justify-center bg-gray-50 mb-1">
+                      <Text className="text-[22px] leading-none">{emoji}</Text>
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
                   </Pressable>

@@ -69,7 +69,7 @@ export interface CourseCarouselProps {
 const CARD_WIDTH = 240
 const CARD_HEIGHT = 144
 const CARD_GAP = 12
-const CONTAINER_PADDING = 16
+const CONTAINER_PADDING = 12
 const THUMB_HEIGHT_RATIO = 0.8
 const DEFAULT_ICON = '📘'
 const GRID_GAP = 12
