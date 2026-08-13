@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    // 对齐 Uniapp navigation-bars 的 padding: 0 20rpx(750rpx 制,20rpx ≈ 10dp)
+    paddingHorizontal: 10,
   },
   leftSection: {
     flexDirection: 'row',
