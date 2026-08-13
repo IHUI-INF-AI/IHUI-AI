@@ -128,7 +128,8 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
 
 const SHEET_MAX_HEIGHT_PERCENT = '80%'
 const SHEET_RADIUS = 16
-const SHEET_PADDING = 20
+const SHEET_PADDING_HORIZONTAL = 16
+const SHEET_PADDING_VERTICAL = 20
 
 const TITLE_FONT_SIZE = 18
 const SUBTITLE_FONT_SIZE = 13
@@ -139,11 +140,11 @@ const MORE_FONT_SIZE = 12
 const COPYRIGHT_FONT_SIZE = 10
 
 const BENEFIT_ITEM_RADIUS = 8
-const BENEFIT_ITEM_PADDING = 10
+const BENEFIT_ITEM_PADDING = 6
 const BENEFIT_GAP = 8
 
-const BUTTON_HEIGHT = 44
-const BUTTON_RADIUS = 8
+const BUTTON_HEIGHT = 40
+const BUTTON_RADIUS = 14
 const BUTTON_FONT_SIZE = 15
 
 export function IntroducePopup({
@@ -268,9 +269,9 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
-    paddingHorizontal: SHEET_PADDING,
-    paddingTop: SHEET_PADDING,
-    paddingBottom: SHEET_PADDING,
+    paddingHorizontal: SHEET_PADDING_HORIZONTAL,
+    paddingTop: SHEET_PADDING_VERTICAL,
+    paddingBottom: SHEET_PADDING_VERTICAL,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.18,
     shadowRadius: 16,

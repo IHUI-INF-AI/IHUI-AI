@@ -6,12 +6,14 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
@@ -337,30 +339,47 @@ interface TextTabProps {
 }
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
+  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334) */
+  const onCopyLink = useCallback(() => {
+    Clipboard.setString(WEBSITE_URL)
+    Alert.alert('提示', '已复制官网链接')
+  }, [])
+
   if (list.length === 0) {
     return <Empty text="暂无文本内容" icon="📝" />
   }
   return (
-    <FlatList
-      data={list}
-      scrollEnabled={false}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContent}
-      ItemSeparatorComponent={() => <View style={styles.itemGap} />}
-      renderItem={({ item }) => (
-        <View style={styles.contentItem}>
-          <View style={styles.contentHeader}>
-            <Text style={styles.contentTitle} numberOfLines={1}>
-              {item.title || '文本内容'}
-            </Text>
-            <Text style={styles.contentTime}>{item.time}</Text>
+    <View>
+      <FlatList
+        data={list}
+        scrollEnabled={false}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+        renderItem={({ item }) => (
+          <View style={styles.contentItem}>
+            <View style={styles.contentHeader}>
+              <Text style={styles.contentTitle} numberOfLines={1}>
+                {item.title || '文本内容'}
+              </Text>
+              <Text style={styles.contentTime}>{item.time}</Text>
+            </View>
+            <View style={styles.contentBody}>
+              <Text style={styles.textContent}>{item.content}</Text>
+            </View>
           </View>
-          <View style={styles.contentBody}>
-            <Text style={styles.textContent}>{item.content}</Text>
-          </View>
-        </View>
-      )}
-    />
+        )}
+      />
+      {/* 复制官网链接(对齐 Uniapp yejiao.png 行 192-197) */}
+      <TouchableOpacity
+        onPress={onCopyLink}
+        style={styles.copyLinkBtn}
+        activeOpacity={0.7}
+        accessibilityLabel="复制官网链接"
+      >
+        <Text style={styles.copyLinkText}>复制官网链接</Text>
+      </TouchableOpacity>
+    </View>
   )
 }
 
@@ -598,9 +617,35 @@ function ImagePreviewModal({
 }: ImagePreviewModalProps): React.JSX.Element {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions()
 
+  /** 分享当前预览图片(对齐 Uniapp showImageSharePopup / handleAppShareClick 行 1409+) */
+  const onShare = useCallback(async () => {
+    const currentUrl = images[index] ?? images[0] ?? ''
+    if (!currentUrl) {
+      Alert.alert('提示', '暂无可分享的图片')
+      return
+    }
+    try {
+      await Share.share({
+        message: currentUrl,
+        url: currentUrl,
+        title: '分享图片',
+      })
+    } catch {
+      Alert.alert('提示', '分享失败,请重试')
+    }
+  }, [images, index])
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.previewOverlay}>
+        <TouchableOpacity
+          onPress={onShare}
+          style={styles.previewShareBtn}
+          activeOpacity={0.7}
+          accessibilityLabel="分享图片"
+        >
+          <Text style={styles.previewShareText}>分享</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={styles.previewCloseBtn} activeOpacity={0.7}>
           <Text style={styles.previewCloseText}>×</Text>
         </TouchableOpacity>
@@ -662,6 +707,9 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
 
 // ============ 辅助函数(对齐 Uniapp formatAudioTime / getVideoPoster) ============
 
+/** 官网链接(对齐 Uniapp copyWebsiteLink 行 1316 'https://www.aizhs.top') */
+const WEBSITE_URL = 'https://www.aizhs.top'
+
 /** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
 function formatAudioTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -709,6 +757,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: tokens.surface.light,
     padding: 12,
+  },
+  copyLinkBtn: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  },
+  copyLinkText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
   },
   contentHeader: {
     flexDirection: 'row',
@@ -825,6 +885,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  previewShareBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 72,
+    zIndex: 2,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewShareText: {
+    fontSize: 14,
+    color: '#ffffff',
   },
   previewCloseBtn: {
     position: 'absolute',
