@@ -1,8 +1,14 @@
 /**
  * UserInfoCard 用户信息卡片 (mobile-rn 端)
  * 展示用户信息:头像/昵称/等级/VIP
- * 保留卡片样式
- * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/UserInfoCard/UserInfoCard.vue)
+ *
+ * 2 变体(对齐历史 Uniapp 项目):
+ * - new(默认):新版,带头像 + VIP 徽章 + 等级条 + 智汇值 + 充值按钮
+ * - old:旧版简化卡,无 VIP 徽章/渐变背景,仅头像 + 用户名 + VIP 文本 + token + 登出按钮
+ *
+ * 迁移自旧项目 Vue 组件:
+ * - UserInfoCard.vue → variant='new'
+ * - UserInfoCardOld.vue → variant='old'
  *
  * 共享类型 UserInfo 已下沉到 @ihui/types,消除两端数据类型重复定义。
  * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
@@ -18,15 +24,28 @@ import type { UserInfo } from '@ihui/types'
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
 
+/** 用户信息卡片变体 */
+export type UserInfoCardVariant = 'new' | 'old'
+
 export interface UserInfoCardProps {
   userInfo: UserInfo
   showRechargeBtn?: boolean
   onEdit?: () => void
   onRecharge?: () => void
   onLogin?: () => void
+  /** 变体选择,默认 'new' */
+  variant?: UserInfoCardVariant
 }
 
-export default function UserInfoCard({
+export default function UserInfoCard(props: UserInfoCardProps) {
+  const variant = props.variant ?? 'new'
+  if (variant === 'old') return <UserInfoCardOld {...props} />
+  return <UserInfoCardNew {...props} />
+}
+
+// ===== 新版(variant='new',对齐 UserInfoCard.vue)=====
+
+function UserInfoCardNew({
   userInfo,
   showRechargeBtn = true,
   onEdit,
@@ -36,9 +55,9 @@ export default function UserInfoCard({
   // 未登录态:显示一键登录按钮
   if (!userInfo.uuid) {
     return (
-      <View style={styles.loggedOutWrap}>
-        <TouchableOpacity style={styles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
-          <Text style={styles.loginBtnText}>一键登录</Text>
+      <View style={newStyles.loggedOutWrap}>
+        <TouchableOpacity style={newStyles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
+          <Text style={newStyles.loginBtnText}>一键登录</Text>
         </TouchableOpacity>
       </View>
     )
@@ -50,38 +69,38 @@ export default function UserInfoCard({
   const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   return (
-    <View style={styles.card}>
+    <View style={newStyles.card}>
       {/* 顶部:头像 + 昵称/角色 */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
-          <Image source={{ uri: avatar }} style={styles.avatar} />
+      <View style={newStyles.header}>
+        <TouchableOpacity style={newStyles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
+          <Image source={{ uri: avatar }} style={newStyles.avatar} />
         </TouchableOpacity>
 
-        <View style={styles.infoWrap}>
-          <TouchableOpacity style={styles.nameRow} activeOpacity={0.7} onPress={onEdit}>
-            <Text style={styles.name} numberOfLines={1}>
+        <View style={newStyles.infoWrap}>
+          <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
+            <Text style={newStyles.name} numberOfLines={1}>
               AI IHUI丨{userInfo.username || '用户'}
             </Text>
-            {showRechargeBtn ? <Text style={styles.editText}>编辑</Text> : null}
+            {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
           </TouchableOpacity>
 
-          <View style={styles.roleRow}>
-            <View style={[styles.roleBadge, isVip ? styles.roleBadgeVip : null]}>
-              <Text style={[styles.roleText, isVip ? styles.roleTextVip : null]}>{role}</Text>
+          <View style={newStyles.roleRow}>
+            <View style={[newStyles.roleBadge, isVip ? newStyles.roleBadgeVip : null]}>
+              <Text style={[newStyles.roleText, isVip ? newStyles.roleTextVip : null]}>{role}</Text>
             </View>
           </View>
         </View>
       </View>
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
-      <View style={styles.tokenRow}>
-        <View style={styles.tokenLabelWrap}>
-          <Text style={styles.tokenLabel}>剩余智汇值:</Text>
-          <Text style={styles.tokenValue}>{tokenStr}</Text>
+      <View style={newStyles.tokenRow}>
+        <View style={newStyles.tokenLabelWrap}>
+          <Text style={newStyles.tokenLabel}>剩余智汇值:</Text>
+          <Text style={newStyles.tokenValue}>{tokenStr}</Text>
         </View>
         {showRechargeBtn ? (
-          <TouchableOpacity style={styles.rechargeBtn} activeOpacity={0.7} onPress={onRecharge}>
-            <Text style={styles.rechargeBtnText}>充值</Text>
+          <TouchableOpacity style={newStyles.rechargeBtn} activeOpacity={0.7} onPress={onRecharge}>
+            <Text style={newStyles.rechargeBtnText}>充值</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -89,7 +108,7 @@ export default function UserInfoCard({
   )
 }
 
-const styles = StyleSheet.create({
+const newStyles = StyleSheet.create({
   loggedOutWrap: {
     marginTop: 8,
     alignItems: 'center',
@@ -210,5 +229,165 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.surface.light,
     fontWeight: '500',
+  },
+})
+
+// ===== 旧版(variant='old',对齐 UserInfoCardOld.vue)=====
+
+function UserInfoCardOld({
+  userInfo,
+  showRechargeBtn = true,
+  onEdit,
+  onLogin,
+}: UserInfoCardProps) {
+  // 未登录态:显示登录按钮
+  if (!userInfo.uuid) {
+    return (
+      <View style={oldStyles.loggedOutWrap}>
+        <TouchableOpacity style={oldStyles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
+          <Text style={oldStyles.loginBtnText}>登录</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  const isVip = userInfo.isVip === 1
+  const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
+
+  return (
+    <View style={oldStyles.card}>
+      {/* 头部:用户名 + 编辑按钮 */}
+      <View style={oldStyles.header}>
+        <Text style={oldStyles.username} numberOfLines={1}>
+          {userInfo.username || '用户'}
+        </Text>
+        {showRechargeBtn ? (
+          <TouchableOpacity style={oldStyles.editBtn} activeOpacity={0.7} onPress={onEdit}>
+            <Text style={oldStyles.editBtnText}>修改资料</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* 会员状态(简化文本,无徽章) */}
+      <View style={oldStyles.membershipRow}>
+        <Text style={oldStyles.membershipText}>
+          {isVip ? '' : '未开通会员'}
+        </Text>
+        {isVip ? <Text style={oldStyles.vipText}>VIP</Text> : null}
+      </View>
+
+      {/* 头像区 */}
+      <View style={oldStyles.avatarSection}>
+        <Image source={{ uri: avatar }} style={oldStyles.avatar} />
+        <Text style={oldStyles.userId}>ID:{userInfo.uuid}</Text>
+      </View>
+
+      {/* Token 信息(背景色对比分隔,非分割线) */}
+      <View style={oldStyles.tokenInfo}>
+        <Text style={oldStyles.tokenLabel}>我的剩余token值</Text>
+        <Text style={oldStyles.tokenValue}>{tokenStr}</Text>
+      </View>
+    </View>
+  )
+}
+
+const oldStyles = StyleSheet.create({
+  loggedOutWrap: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  loginBtn: {
+    backgroundColor: tokens.surface.light,
+    borderWidth: 2,
+    borderColor: tokens.text.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  loginBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  card: {
+    marginTop: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.light,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  username: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.text.primary,
+  },
+  editBtn: {
+    backgroundColor: tokens.indigo.light,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editBtnText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: tokens.surface.light,
+  },
+  membershipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  membershipText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  vipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: tokens.warning.DEFAULT,
+    marginLeft: 4,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
+    marginBottom: 4,
+  },
+  userId: {
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  tokenInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: tokens.surface.muted,
+    borderRadius: 8,
+  },
+  tokenLabel: {
+    fontSize: 13,
+    color: tokens.text.primary,
+  },
+  tokenValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tokens.text.primary,
   },
 })
