@@ -1,4 +1,3 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
 import {
@@ -6,11 +5,12 @@ import {
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
 import NotificationPanel from '../components/NotificationPanel'
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
@@ -155,6 +155,7 @@ import AigcPublishScreen from '../screens/AigcPublishScreen'
 export type RootStackParamList = {
   Login: undefined
   Tabs: undefined
+  Home: undefined
   Chat: undefined
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }
@@ -325,21 +326,50 @@ export type ProfileStackParamList = {
   ProfileEdit: undefined
 }
 
+/** 底部 5 Tab 路由表(键与 TabBarKey 对齐) */
+export type MainTabParamList = Record<TabBarKey, undefined>
+
+/** AI Tab Stack:AI 应用入口 + Agent 详情/对话子路由 */
+export type AiStackParamList = {
+  AiMain: undefined
+  AgentDetail: { id: string }
+  AgentChat: { agentId: string; name: string }
+}
+
 const RootStack = createNativeStackNavigator<RootStackParamList>()
-const Tabs = createBottomTabNavigator()
+const Tabs = createBottomTabNavigator<MainTabParamList>()
 const HomeStack = createNativeStackNavigator<HomeStackParamList>()
 const CourseStack = createNativeStackNavigator<CourseStackParamList>()
 const LiveStack = createNativeStackNavigator<LiveStackParamList>()
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>()
+const AiStack = createNativeStackNavigator<AiStackParamList>()
+
+// ChatScreen 期望 RootStackParamList 导航(向 root 搜索 Agent/Wallet/Settings 等路由);
+// 嵌入 HomeStack 后通过 useNavigation/useRoute 桥接 root 类型(H2 升级时改为 HomeStack 专属路由)
+function ChatHomeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Chat'>>()
+  const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
+  return <ChatScreen navigation={navigation} route={route} />
+}
 
 function HomeTabStack() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
-      <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="HomeMain" component={ChatHomeScreen} />
       <HomeStack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <HomeStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <HomeStack.Screen name="LiveDetail" component={LiveDetailScreen} />
     </HomeStack.Navigator>
+  )
+}
+
+function AiTabStack() {
+  return (
+    <AiStack.Navigator screenOptions={{ headerShown: false }}>
+      <AiStack.Screen name="AiMain" component={AgentScreen} />
+      <AiStack.Screen name="AgentDetail" component={AgentDetailScreen} />
+      <AiStack.Screen name="AgentChat" component={AgentChatScreen} />
+    </AiStack.Navigator>
   )
 }
 
@@ -382,41 +412,41 @@ function ProfileTabStack() {
   )
 }
 
+const TAB_KEYS = ['home', 'course', 'ai', 'live', 'mine'] as const
+
+function isTabBarKey(value: string): value is TabBarKey {
+  return (TAB_KEYS as readonly string[]).includes(value)
+}
+
 function MainTabs() {
   const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
+  const tabLabels: Partial<Record<TabBarKey, string>> = {
+    home: t('nav.home'),
+    course: t('nav.courses'),
+    ai: 'AI', // nav.ai key 待 i18n 补全
+    live: t('nav.live'),
+    mine: t('nav.profile'),
+  }
   return (
     <Tabs.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: tokens.brand.DEFAULT,
-        tabBarInactiveTintColor: resolvedTheme === 'dark' ? tokens.text.tertiary : tokens.gray[600],
-        tabBarStyle: {
-          backgroundColor: resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
-        },
-        tabBarLabelStyle: { fontSize: 11 },
+      tabBar={({ state, navigation }) => {
+        const routeName = state.routes[state.index]?.name ?? 'home'
+        const activeTab: TabBarKey = isTabBarKey(routeName) ? routeName : 'home'
+        return (
+          <TabBar
+            activeTab={activeTab}
+            onChange={(tab) => navigation.navigate(tab)}
+            labels={tabLabels}
+          />
+        )
       }}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen
-        name="HomeTab"
-        component={HomeTabStack}
-        options={{ title: t('nav.home'), tabBarLabel: t('nav.home') }}
-      />
-      <Tabs.Screen
-        name="CourseTab"
-        component={CourseTabStack}
-        options={{ title: t('nav.courses'), tabBarLabel: t('nav.courses') }}
-      />
-      <Tabs.Screen
-        name="LiveTab"
-        component={LiveTabStack}
-        options={{ title: t('nav.live'), tabBarLabel: t('nav.live') }}
-      />
-      <Tabs.Screen
-        name="ProfileTab"
-        component={ProfileTabStack}
-        options={{ title: t('nav.profile'), tabBarLabel: t('nav.profile') }}
-      />
+      <Tabs.Screen name="home" component={HomeTabStack} />
+      <Tabs.Screen name="course" component={CourseTabStack} />
+      <Tabs.Screen name="ai" component={AiTabStack} />
+      <Tabs.Screen name="live" component={LiveTabStack} />
+      <Tabs.Screen name="mine" component={ProfileTabStack} />
     </Tabs.Navigator>
   )
 }
@@ -460,6 +490,7 @@ function RootNavigatorInner() {
         {token ? (
           <>
             <RootStack.Screen name="Tabs" component={MainTabs} />
+            <RootStack.Screen name="Home" component={HomeScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
