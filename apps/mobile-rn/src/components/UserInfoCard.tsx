@@ -164,7 +164,7 @@ const newStyles = StyleSheet.create({
   },
   name: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: '600',
     color: tokens.text.primary,
   },
