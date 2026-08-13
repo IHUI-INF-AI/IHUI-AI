@@ -110,11 +110,11 @@ export default function N8nModelScreen() {
   }
 
   const handleEdit = (m: N8nModelItem) => {
-    Alert.alert(t('n8nModel.actionEdit'), m.name)
+    Alert.alert(t('common.hint'), `工作流「${m.name}」编辑功能即将上线,敬请期待`)
   }
 
   const handleCreate = () => {
-    Alert.alert(t('n8nModel.create'), t('common.comingSoon'))
+    Alert.alert(t('common.hint'), '新建工作流功能即将上线,敬请期待')
   }
 
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroup(workflows), [workflows])
