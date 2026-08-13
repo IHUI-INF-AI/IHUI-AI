@@ -1,53 +1,57 @@
-import { useState } from 'react'
-import { Share as RnShare } from 'react-native'
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+/**
+ * ShareScreen 分享入口占位页(mobile-rn 端)
+ *
+ * 对齐历史项目 pages/table/share/index.vue:
+ * - Uniapp 此页是 Loading 占位,onShow 立即 uni.reLaunch 到 pagesA/plaza/index
+ * - RN 复刻:挂载后立即 navigation.replace('Plaza') 跳转 PlazaScreen,期间显示 Loading
+ * - 显示简单 Loading(用 common/Loading 组件)
+ *
+ * 注:'Plaza' 路由由主 agent 在 RootNavigator 统一注册(本任务不修改 RootNavigator)。
+ * 此处用本地类型补声明 RootStackParamList & { Plaza: undefined } 保证 typecheck 通过,
+ * 主 agent 注册 'Plaza: undefined' 后该交集等价、无冲突。
+ */
+import { useEffect, useMemo } from 'react'
+import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
-import { ShareScreen as SharedShareScreen, type ShareResultItem } from '@ihui/rn-app'
+import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import Loading from '../components/common/Loading'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type Route = RouteProp<RootStackParamList, 'Share'>
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+/** 本地补声明 Plaza 路由(主 agent 将在 RootNavigator 注册) */
+type ShareNavParamList = RootStackParamList & { Plaza: undefined }
+type NavigationProp = NativeStackNavigationProp<ShareNavParamList>
 
 export function ShareScreen() {
   const { t } = useI18n()
-  const route = useRoute<Route>()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const { targetType, targetId, title } = route.params
-  const [result, setResult] = useState<ShareResultItem | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [remark, setRemark] = useState('')
+  const tk = getRnTokens(resolvedTheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
 
-  const onCreate = async () => {
-    setLoading(true); setError('')
-    const res = await fetchApi<ShareResultItem>('/api/shares', {
-      method: 'POST',
-      body: JSON.stringify({ targetType, targetId, remark: remark.trim() }),
-    })
-    setLoading(false)
-    if (res.success && res.data) setResult(res.data)
-    else if (!res.success) setError(res.error || t('share.createFailed'))
-  }
-
-  const onShare = async () => {
-    if (!result) return
-    try { await RnShare.share({ message: `${title}\n${result.shareUrl}` }) } catch { /* user cancelled */ }
-  }
+  useEffect(() => {
+    // 对齐 Uniapp onShow → uni.reLaunch:立即 replace 到 Plaza,不留返回栈
+    navigation.replace('Plaza')
+  }, [navigation])
 
   return (
-    <SharedShareScreen
-      t={t}
-      targetTitle={title}
-      remark={remark}
-      result={result}
-      loading={loading}
-      error={error}
-      onRemarkChange={setRemark}
-      onCreate={onCreate}
-      onShare={onShare}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={styles.container}>
+      <Loading text={t('common.loading')} />
+    </View>
   )
 }
+
+function createStyles(tk: RnThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+    } as ViewStyle,
+  })
+}
+
+export default ShareScreen
