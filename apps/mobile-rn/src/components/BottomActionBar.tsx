@@ -104,7 +104,7 @@ export interface BottomActionBarProps {
 // ── 常量 ──
 
 const CONTAINER_PADDING_HORIZONTAL = 16
-const CONTAINER_PADDING_VERTICAL = 12
+const CONTAINER_PADDING_VERTICAL = 4
 const ROW_GAP = 12
 const COLUMN_GAP = 8
 
@@ -136,7 +136,7 @@ const VOICE_BTN_SIZE = 36
 const SECONDARY_BTN_SIZE = 36
 const SECONDARY_BTN_EMOJI_SIZE = 18
 
-const ICON_GROUP_ITEM_SIZE = 64
+const ICON_GROUP_ITEM_SIZE = 72
 const ICON_GROUP_ITEM_EMOJI_SIZE = 24
 const ICON_GROUP_ITEM_RADIUS = 8
 
@@ -903,6 +903,7 @@ const styles = StyleSheet.create({
   iconGroup: {
     flexDirection: 'row',
     gap: 12,
+    paddingBottom: 12,
   } as ViewStyle,
   iconGroupItem: {
     width: ICON_GROUP_ITEM_SIZE,
