@@ -719,6 +719,52 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ---
 
+## 27. PowerShell 7 强制规则(强制,2026-08-13 立)
+
+### 触发背景
+
+Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已知 bug:
+
+- `Out-File -Encoding UTF8` 实际写 UTF-16 LE(BOM 处理 bug)
+- ANSI 代码页读 UTF-8 写入的 `.ps1` 文件时,`if/else` 块解析截断(`Missing closing '}'` 误报)
+- 中文路径/文件名处理在 5.1 上不稳定
+- 跨平台兼容性差(Linux/macOS 跑不通)
+- 真实事故:2026-08-13 C 盘 130MB 修复任务,D 盘诊断脚本二次报 `Missing closing '}'`,根因是 5.1 读 pwsh 7 写入的 UTF-8 文件的 BOM bug
+
+### 强制规则(违反视为交付事故)
+
+1. **agent 跑 PowerShell 必须用 `pwsh.exe`**(PowerShell 7+):
+   - ✅ `pwsh -File scripts/foo.ps1`
+   - ✅ `& "C:/Program Files/PowerShell/7/pwsh.exe" -File ...`
+   - ❌ `powershell -File scripts/foo.ps1`
+   - ❌ `powershell.exe -Command ...`
+   - 唯一例外:Windows 系统 5.1 专属 cmdlet 需在脚本里 `Set-Alias` 显式标注
+2. **所有项目内 `.ps1` 文件第一行必须 `#requires -Version 7`**:在 5.1 上跑会**直接报错退出**,这正是强制效果
+3. **CI / 守门脚本必须用 `pwsh`** 跑
+4. **路径统一用正斜杠 `/`**:`C:/Program Files/PowerShell/7/`,避免 5.1 反斜杠转义 bug
+5. **`.ps1` 文件用 UTF-8 with BOM 写**:PowerShell 5.1 默认以 ANSI 代码页读 `.ps1`,`Out-File -Encoding UTF8` 在 5.1 上写的是 UTF-16 LE,必须用 `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($true))`
+
+### 守门(blocking)
+
+- `scripts/check-pwsh-version.mjs`:扫 `g:\IHUI-AI` 下所有 `.ps1`(排除 venv / node_modules / .git / site-packages / .trae-cn/tmp),检查前 5 行是否含 `#requires -Version 7`,缺失则 exit 1
+- 集成位置:`scripts/guardian-runner.mjs` pre-commit 第 41 项(新增,2026-08-13 立项);跳过 `HUSKY_SKIP_PWSH_VERSION_CHECK=1`(应急,默认不推荐)
+- 检查范围:全项目 `.ps1`,包括 `scripts/`、`deploy/`、`apps/*/scripts/`、`.trae-cn/scripts/`(项目级,非 `.trae-cn/tmp/`)
+- 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`.trae-cn/tmp/*`、`site-packages/*`(playwright 驱动)
+
+### 安装指引(机器上没装 PowerShell 7)
+
+```powershell
+winget install --id Microsoft.PowerShell -e --source winget
+# 或一键脚本
+iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
+```
+
+### 历史教训
+
+- 2026-08-13:CredentialHelperSelector 弹窗修复任务全程用 `powershell`(5.1),导致 D 盘诊断脚本二次报 `Missing closing '}'`(5.1 对 BOM 处理 bug)。改用 `pwsh` + `#requires -Version 7` 后立即通过。教训:RunCommand 默认 PowerShell 解释器**不是 7 也不是 5 的中性选择**——必须显式指定 `pwsh`。
+
+---
+
 ## 关键参考文档
 
 | 文档                      | 说明                                                          |
