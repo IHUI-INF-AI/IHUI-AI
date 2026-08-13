@@ -9,6 +9,7 @@ import NavBar from '@/components/NavBar'
 import DrawerComponent, { type DrawerModelGroup, type DrawerChatItem } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
+import StudyBar from '@/components/StudyBar'
 import { FloatBox } from '@/components'
 import { rpx } from '@/utils/rpx'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
@@ -413,6 +414,22 @@ export default function UserIndex() {
     Taro.navigateTo({ url: '/pages/vip/index' })
   }, [])
 
+  // 对齐原项目 tabList
+  const tabList = useMemo(
+    () => [
+      { id: 1, name: tf('user.tab.text', '文本') },
+      { id: 2, name: tf('user.tab.image', '图片') },
+      { id: 3, name: tf('user.tab.video', '视频') },
+      { id: 4, name: tf('user.tab.audio', '音频') },
+    ],
+    [tf],
+  )
+
+  // 对齐原项目 handleTabChange
+  function handleTabChange(item: { id: number; name: string }) {
+    setActiveTab(item.id)
+  }
+
   // 编辑个人资料
   const goProfile = useCallback(() => {
     if (!isLogin) {
@@ -438,6 +455,50 @@ export default function UserIndex() {
 
   return (
     <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+      {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
+      <DrawerComponent
+        visible={showDrawer}
+        onClose={toggleDrawer}
+        side="left"
+        statusBarHeight={statusBarHeight}
+        groupedData={groupedData}
+        userinfo={
+          userInfo
+            ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
+            : undefined
+        }
+        onMenuItemClick={(item) => {
+          toggleDrawer()
+          // 根据菜单项 key 跳转不同页面
+          const menuRouteMap: Record<string, string> = {
+            appStore: '/pages/index/index',
+            demand: '/pages/demand/index',
+            inspiration: '/pages/inspiration/index',
+            dynamic: '/pages/dynamic/index',
+            course: '/pages/course/list',
+          }
+          const route = menuRouteMap[item.key]
+          if (route) Taro.navigateTo({ url: route })
+        }}
+        onLabelItemClick={(item) => {
+          toggleDrawer()
+          const labelRouteMap: Record<string, string> = {
+            company: '/pages/company/index',
+            freebie: '/pages/freebie/index',
+          }
+          const route = labelRouteMap[item.key]
+          if (route) Taro.navigateTo({ url: route })
+        }}
+        onChatItemClick={handleChatItemClick}
+        onCreateChat={() => {
+          toggleDrawer()
+          Taro.switchTab({ url: '/pages/index/index' })
+        }}
+      />
+
+      {/* ===== FloatBox 浮动组件 ===== */}
+      <FloatBox />
+
       {/* ===== 导航栏(对齐原项目 navigation-bars: showFeedback / @pack / @feedback-click / @menu-click) ===== */}
       <NavBar
         variant="ai-home"
@@ -564,44 +625,12 @@ export default function UserIndex() {
       ) : null}
 
       {/* ===== StudyBar + 内容展示区 ===== */}
-      <View style={{ padding: '0 20rpx', marginTop: '20rpx', marginBottom: '20rpx' }}>
-        {/* StudyBar Tab 切换 */}
-        <View
-          className="flex flex-row"
-          style={{
-            borderBottom: '2rpx solid rgba(255,255,255,0.1)',
-            marginBottom: '16rpx',
-          }}
-        >
-          {[
-            { key: 1, label: tf('user.tab.text', '文本') },
-            { key: 2, label: tf('user.tab.image', '图片') },
-            { key: 3, label: tf('user.tab.video', '视频') },
-            { key: 4, label: tf('user.tab.audio', '音频') },
-          ].map((tab) => (
-            <View
-              key={tab.key}
-              className="flex-1 py-[16rpx] text-center"
-              style={{
-                borderBottom: activeTab === tab.key ? '4rpx solid var(--color-primary)' : '4rpx solid transparent',
-              }}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <Text
-                style={{
-                  fontSize: rpx(28),
-                  color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-muted-foreground, #888)',
-                  fontWeight: activeTab === tab.key ? 'bold' : 'normal',
-                }}
-              >
-                {tab.label}
-              </Text>
-            </View>
-          ))}
-        </View>
+      <View className="content-display-area">
+        {/* StudyBar Tab 切换 — 对齐原项目 <StudyBar :barList="tabList" @change="handleTabChange" /> */}
+        <StudyBar barList={tabList} onChange={handleTabChange} />
 
         {/* 内容展示区 */}
-        <View>
+        <View className="content-list">
           {/* 文本内容 */}
           {activeTab === 1 && (
             <View>
@@ -871,49 +900,6 @@ export default function UserIndex() {
         </View>
       ) : null}
 
-      {/* ===== FloatBox 浮动组件 ===== */}
-      <FloatBox />
-
-      {/* ===== DrawerComponent 侧边栏抽屉 ===== */}
-      <DrawerComponent
-        visible={showDrawer}
-        onClose={toggleDrawer}
-        side="left"
-        statusBarHeight={statusBarHeight}
-        groupedData={groupedData}
-        userinfo={
-          userInfo
-            ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
-            : undefined
-        }
-        onMenuItemClick={(item) => {
-          toggleDrawer()
-          // 根据菜单项 key 跳转不同页面
-          const menuRouteMap: Record<string, string> = {
-            appStore: '/pages/index/index',
-            demand: '/pages/demand/index',
-            inspiration: '/pages/inspiration/index',
-            dynamic: '/pages/dynamic/index',
-            course: '/pages/course/list',
-          }
-          const route = menuRouteMap[item.key]
-          if (route) Taro.navigateTo({ url: route })
-        }}
-        onLabelItemClick={(item) => {
-          toggleDrawer()
-          const labelRouteMap: Record<string, string> = {
-            company: '/pages/company/index',
-            freebie: '/pages/freebie/index',
-          }
-          const route = labelRouteMap[item.key]
-          if (route) Taro.navigateTo({ url: route })
-        }}
-        onChatItemClick={handleChatItemClick}
-        onCreateChat={() => {
-          toggleDrawer()
-          Taro.switchTab({ url: '/pages/index/index' })
-        }}
-      />
     </View>
   )
 }

@@ -162,3 +162,16 @@
     transform: translateY(0);
   }
 }
+
+/* ===== 内容展示区域样式（对齐原项目 content-display-area） ===== */
+.content-display-area {
+  min-height: 200rpx;
+  margin-bottom: 20rpx;
+  padding: 0 20rpx;
+}
+
+.content-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
