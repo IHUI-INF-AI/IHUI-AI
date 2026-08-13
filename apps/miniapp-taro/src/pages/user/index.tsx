@@ -1,7 +1,8 @@
-import { View, Text, Image, Slider } from '@tarojs/components'
+import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
+import { getShareInfo } from '@/utils/share'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
@@ -576,11 +577,10 @@ export default function UserIndex() {
     void loadHistoryChat()
   })
 
-  useShareAppMessage(() => ({
-    title: t('share.appTitle'),
-    path: '/pages/index/index',
-    imageUrl: '/static/share.png',
-  }))
+  // 对齐原项目 onShareAppMessage:用 getShareInfo 注入 inviteCode(从 storage 读取)
+  useShareAppMessage(() =>
+    getShareInfo('/pages/index/index', t('share.appTitle'), '/static/images/share_zhz.png'),
+  )
   useShareTimeline(() => ({
     title: t('share.timelineTitle'),
     query: '',
@@ -1051,12 +1051,33 @@ export default function UserIndex() {
               controls
               onError={closeVideoPlayer}
             />
-            <View
-              className="absolute top-0 right-0 w-[60rpx] h-[60rpx] flex items-center justify-center z-10"
+            {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
+            <CoverView
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60rpx',
+                height: '60rpx',
+                background: 'rgba(0,0,0,0.5)',
+                borderTopRightRadius: '8rpx',
+                borderBottomLeftRadius: '8rpx',
+                zIndex: 10,
+              }}
               onClick={closeVideoPlayer}
             >
-              <Text className="text-white text-[40rpx] font-bold">×</Text>
-            </View>
+              <CoverView
+                style={{
+                  color: '#fff',
+                  fontSize: '40rpx',
+                  fontWeight: 'bold',
+                  lineHeight: '60rpx',
+                  textAlign: 'center',
+                }}
+              >
+                ×
+              </CoverView>
+            </CoverView>
           </View>
         </View>
       ) : null}
@@ -1084,11 +1105,34 @@ export default function UserIndex() {
             <View
               className="share-popup-btn"
               onClick={() => {
-                Taro.showToast({
-                  title: tf('user.share.saveHint', '请截图保存后分享'),
-                  icon: 'none',
+                // 对齐原项目 handleAppShareClick:调起分享菜单
+                Taro.showShareMenu({
+                  withShareTicket: true,
+                  showShareItems: ['shareAppMessage', 'shareTimeline'],
+                  success: () => {
+                    // 对齐原项目 handleShareSuccess:分享成功后调 firstShare 接口领取智汇值
+                    void api.firstShare({ source: 'user' }).catch(() => {
+                      // 静默:接口失败不阻塞分享成功提示
+                    })
+                    Taro.showToast({
+                      title: tf('share.success', '分享成功'),
+                      icon: 'success',
+                    })
+                    closeSharePopup()
+                  },
+                  fail: () => {
+                    // 部分平台不支持 showShareMenu,降级为复制链接
+                    Taro.setClipboardData({
+                      data: 'https://ihui.ai',
+                      success: () =>
+                        Taro.showToast({
+                          title: tf('user.share.linkCopied', '链接已复制'),
+                          icon: 'success',
+                        }),
+                    })
+                    closeSharePopup()
+                  },
                 })
-                closeSharePopup()
               }}
             >
               {tf('share.shareNow', '立即分享')}
