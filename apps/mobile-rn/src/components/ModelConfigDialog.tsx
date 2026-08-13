@@ -213,7 +213,7 @@ function BasicModelConfigDialog({
                   value={String(config.temperature)}
                   keyboardType="numeric"
                   onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-                  className="mr-2 h-8 flex-1 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                  className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
                 />
                 <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
               </View>
@@ -224,7 +224,7 @@ function BasicModelConfigDialog({
                 value={String(config.maxTokens)}
                 keyboardType="numeric"
                 onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-                className="h-8 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                className="h-10 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
               />
             </Row>
 
@@ -233,7 +233,7 @@ function BasicModelConfigDialog({
                 value={String(config.topP)}
                 keyboardType="numeric"
                 onChangeText={(v) => update({ topP: Number(v) || 0 })}
-                className="h-8 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                className="h-10 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
               />
             </Row>
 
@@ -500,7 +500,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   value={String(config.temperature)}
                   keyboardType="numeric"
                   onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-                  className="mr-2 h-8 flex-1 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                  className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
                 />
                 <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
               </View>
@@ -511,7 +511,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 value={String(config.maxTokens)}
                 keyboardType="numeric"
                 onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-                className="h-8 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                className="h-10 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
               />
             </Row>
 
@@ -520,7 +520,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 value={String(config.topP)}
                 keyboardType="numeric"
                 onChangeText={(v) => update({ topP: Number(v) || 0 })}
-                className="h-8 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
+                className="h-10 rounded-md bg-gray-50 px-2 text-xs text-gray-900"
               />
             </Row>
 
