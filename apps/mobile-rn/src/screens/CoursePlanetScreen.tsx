@@ -31,6 +31,12 @@ import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
+import MoreTitles from '../components/MoreTitles'
+import Menu from '../components/Menu'
+import TitleSwitchOverlap from '../components/TitleSwitchOverlap'
+import TitleSwitchScrollPicker from '../components/TitleSwitchScrollPicker'
+import TitleSwitchScrollTitle from '../components/TitleSwitchScrollTitle'
+import TitleSwitchTypeBar from '../components/TitleSwitchTypeBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -127,7 +133,7 @@ export function CoursePlanetScreen() {
     if (!courses || courses.length === 0) return null
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <MoreTitles title={title} onMore={() => navigation.navigate('Course' as never)} />
         <FlatList
           data={courses}
           keyExtractor={(item) => String(item.id)}
@@ -171,6 +177,42 @@ export function CoursePlanetScreen() {
             />
           }
         >
+          {/* Menu 功能菜单网格(对齐 Uniapp coursePlanet 菜单入口) */}
+          <View style={styles.menuWrap}>
+            <Menu columns={4} onPress={(item) => {
+              const routeMap: Record<number, string> = {
+                1: 'CoursePlanet', 2: 'CoursePlanet', 3: 'CoursePlanet',
+                4: 'Agent', 5: 'CoursePlanet', 6: 'CoursePlanet',
+              }
+              const route = routeMap[item.id as number] ?? 'CoursePlanet'
+              if (route === 'Agent') {
+                navigation.getParent()?.navigate('Agent' as never)
+              }
+            }} />
+          </View>
+
+          {/* TitleSwitchTypeBar 横向多选分类条(对齐 Uniapp type_bar.vue) */}
+          <View style={styles.typeBarWrap}>
+            <MoreTitles title="分类筛选" />
+            <TitleSwitchTypeBar showAll customize onChange={() => {}} />
+          </View>
+
+          {/* TitleSwitchScrollTitle 主子赛道横向选择器(对齐 Uniapp scroll_title.vue) */}
+          <View style={styles.trackSelectorWrap}>
+            <MoreTitles title="赛道选择" />
+            <TitleSwitchScrollTitle onChange={() => {}} />
+          </View>
+
+          {/* TitleSwitchOverlap 垂直滚动赛道选择器(对齐 Uniapp overlap_large.vue) */}
+          <View style={styles.overlapWrap}>
+            <TitleSwitchOverlap onCurrentChange={() => {}} />
+          </View>
+
+          {/* TitleSwitchScrollPicker 滚轮选择器(对齐 Uniapp scroll_picker.vue) */}
+          <View style={styles.scrollPickerWrap}>
+            <TitleSwitchScrollPicker onChange={() => {}} />
+          </View>
+
           {renderSection('推荐课程', data.hot_courses)}
           {renderSection('课程赛道', data.beginner_courses)}
           {renderSection('最新课程', data.selected_courses)}
@@ -194,12 +236,24 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   } as ViewStyle,
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tk.text.primary,
-    marginBottom: 12,
-  } as TextStyle,
+  menuWrap: {
+    marginBottom: 16,
+    backgroundColor: tk.surface.card,
+    borderRadius: 12,
+    paddingVertical: 8,
+  } as ViewStyle,
+  typeBarWrap: {
+    marginBottom: 16,
+  } as ViewStyle,
+  trackSelectorWrap: {
+    marginBottom: 16,
+  } as ViewStyle,
+  overlapWrap: {
+    marginBottom: 16,
+  } as ViewStyle,
+  scrollPickerWrap: {
+    marginBottom: 16,
+  } as ViewStyle,
   sectionList: {
     gap: 12,
     paddingRight: 4,

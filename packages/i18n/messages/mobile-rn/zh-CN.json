@@ -312,5 +312,11 @@
     "document": "文档",
     "video": "视频",
     "addFile": "添加附件"
+  },
+  "share": {
+    "aiContent": "AI 内容",
+    "voiceInput": "语音输入",
+    "voicePlaceholder": "按住说出分享内容",
+    "submit": "分享"
   }
 }
