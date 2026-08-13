@@ -22,7 +22,7 @@
  *
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   FlatList,
@@ -34,7 +34,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ListRenderItem,
 } from 'react-native'
@@ -50,7 +49,6 @@ import {
   type LucideIcon,
   Menu,
   MessageCircle,
-  Mic,
   Music,
   QrCode,
   Share2,
@@ -59,17 +57,23 @@ import {
   X,
 } from 'lucide-react-native'
 import {
+  deleteConversation,
   fetchModels,
   formatSSEError,
+  getAgents,
+  getMessages,
   getModelContextCapacity,
+  listConversations,
   streamChat,
+  type Agent,
+  type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { NavBar } from '../components/NavBar'
-import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
+import { BottomActionBar } from '../components/BottomActionBar'
 import MaterialList, {
   type MaterialCategory,
   type MaterialItem,
@@ -90,10 +94,6 @@ import ModelList, {
 import AgentList, {
   type AgentListItem,
 } from '../components/AgentList'
-import {
-  ToggleButtonGroup,
-  type ToggleButtonItem,
-} from '../components/ToggleButtonGroup'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -197,6 +197,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const [isStreaming, setIsStreaming] = useState(false)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  const [agents, setAgents] = useState<Agent[]>([])
 
   // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
   const [superAgentEnabled, setSuperAgentEnabled] = useState(false)
@@ -208,6 +209,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
+  // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
+  const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
@@ -234,6 +238,42 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       cancelled = true
     }
   }, [])
+
+  // ── Agent 列表加载(对齐 Uniapp getCozeApiList → AgentList) ──
+  useEffect(() => {
+    let cancelled = false
+    getAgents({ status: 'published' })
+      .then((res) => {
+        if (!cancelled && res.success) setAgents(res.data.list ?? [])
+      })
+      .catch(() => {
+        // 静默失败:Agent 列表非核心功能
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /**
+   * 加载 Drawer 历史对话(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)。
+   * 懒加载:首次打开 Drawer 时拉取。Drawer 的 groupByModelAndDate 在组件内实现。
+   */
+  const loadDrawerConversations = useCallback(async (): Promise<void> => {
+    const res = await listConversations({ page: 1, pageSize: 50 })
+    if (res.success) {
+      setDrawerConversations(res.data.conversations.map(mapConversationToDrawer))
+    } else {
+      setDrawerConversations([])
+    }
+    setDrawerConversationsLoaded(true)
+  }, [])
+
+  // Drawer 首次打开时懒加载历史对话
+  useEffect(() => {
+    if (drawerVisible && !drawerConversationsLoaded && authUser) {
+      void loadDrawerConversations()
+    }
+  }, [drawerVisible, drawerConversationsLoaded, authUser, loadDrawerConversations])
 
   // ── 发送消息(send-message 事件) ──
   const send = async (): Promise<void> => {
@@ -416,15 +456,12 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
 
   /**
    * icon-click:图标按钮点击(相机/相册/文件)。
-   * 注:BottomActionBar onIconClick 签名为 () => void,组件未传 type 参数;
-   * 三个图标按钮(相机/相册/文件)共用同一回调,无法区分具体点击的图标。
-   * TODO: 待 BottomActionBar 支持 type 参数后,按 type 分发:
-   *   type='camera' → expo-image-picker launchCameraAsync(依赖已安装)
-   *   type='album' → expo-image-picker launchImageLibraryAsync(依赖已安装)
-   *   type='file' → expo-document-picker getDocumentAsync(依赖未安装)
+   * BottomActionBar onIconClick 签名为 () => void,三个图标共用同一回调。
+   * 复用 useChatInput 的 onInputAddImage(expo-image-picker launchImageLibraryAsync)。
+   * 后续 BottomActionBar 支持 type 参数后可按 camera/album/file 分发。
    */
   const handleIconClick = (): void => {
-    Alert.alert('提示', '图片/文件选择功能开发中')
+    onInputAddImage()
   }
 
   /** fangda:放大输入区(切换展开状态,占位提示) */
@@ -490,7 +527,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     navigation.navigate('Tabs', { screen: rnTab } as never)
   }
   const handleDrawerNavigateCompany = (): void => {
-    // 一人公司:跳 Distribution 路由(已在 RootNavigator 注册)
+    // 一人公司:跳 Distribution 路由(已在 RootNavigator 注册,对齐 Uniapp gotocompany)
     navigation.navigate('Distribution')
   }
   const handleDrawerClaimFree = (): void => {
@@ -504,19 +541,45 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setPrompt('')
     setMaterialCards([])
   }
-  const handleDrawerSelectConversation = (_id: string): void => {
-    // TODO: Chat 路由当前 params 为 undefined,需 RootNavigator 增加 chatId 参数后对接
-    Alert.alert('提示', '历史对话加载功能开发中')
+  const handleDrawerSelectConversation = (id: string): void => {
+    // 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList)
+    setDrawerVisible(false)
+    void (async () => {
+      const res = await getMessages(id, { page: 1, pageSize: 100 })
+      if (res.success) {
+        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
+          id: `${m.id}-${idx}`,
+          role: m.role,
+          content: m.content,
+        }))
+        setMessages(loaded)
+        setPrompt('')
+        setMaterialCards([])
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: true })
+        })
+      } else {
+        Alert.alert('提示', '加载历史对话失败,请重试')
+      }
+    })()
   }
-  const handleDrawerDeleteConversation = (_id: string): void => {
-    // TODO: 对接 removeModelChat API 真实删除对话(需后端接口),成功后刷新 conversations 列表
+  const handleDrawerDeleteConversation = (id: string): void => {
     Alert.alert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '确认',
         style: 'destructive',
         onPress: () => {
-          // TODO: 调用 removeModelChat(_id) 删除后端对话,刷新 conversations 列表
+          // 乐观删除:先从本地列表移除,API 失败时回滚
+          const snapshot = drawerConversations
+          setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
+          void (async () => {
+            const res = await deleteConversation(id)
+            if (!res.success) {
+              setDrawerConversations(snapshot)
+              Alert.alert('提示', '删除失败,请重试')
+            }
+          })()
         },
       },
     ])
@@ -589,31 +652,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     })
   }
 
-  // ── ToggleButtonGroup items(对齐 Uniapp ToggleButtonGroup 多开关按钮组) ──
-  const toggleItems: ToggleButtonItem[] = [
-    { key: 'super-agent', label: '智能体', icon: '🤖', enabled: superAgentEnabled },
-    { key: 'mcp', label: 'MCP', icon: '🔌', enabled: mcpEnabled },
-    { key: 'knowledge-base', label: '知识库', icon: '📚', enabled: knowledgeBaseEnabled },
-    { key: 'permanent-memory', label: '记忆', icon: '🧠', enabled: permanentMemoryEnabled },
-  ]
-  const handleToggle = (key: string): void => {
-    switch (key) {
-      case 'super-agent':
-        toggleSuperAgent()
-        break
-      case 'mcp':
-        toggleMCP()
-        break
-      case 'knowledge-base':
-        toggleKnowledgeBase()
-        break
-      case 'permanent-memory':
-        togglePermanentMemory()
-        break
-      default:
-        break
-    }
-  }
+  // ToggleButtonGroup 已合并到 BottomActionBar prompt 模式的 toggle chips
 
   // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
   const modelListGroups: ModelListGroup[] = models.length > 0
@@ -631,8 +670,14 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       ]
     : []
 
-  // ── AgentList items(占位 mock,后续对接 getAgents API) ──
-  const agentListItems: AgentListItem[] = []
+  // ── AgentList items(由 agents 派生,对齐 Uniapp getCozeApiList → AgentList) ──
+  const agentListItems: AgentListItem[] = agents.map((a) => ({
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar ?? undefined,
+    description: a.description,
+    category: a.category,
+  }))
 
   // ── AgentList 选中回调 ──
   const handleAgentSelect = (id: string): void => {
@@ -642,26 +687,8 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     navigation.navigate('AgentDetail', { id })
   }
 
-  // ── BottomActionBar actions(模型列表 + 模型配置 + 发送,对齐 Uniapp show-model-list / showModelConfig / send-message) ──
-  const bottomActions: ReadonlyArray<BottomActionBarAction> = [
-    {
-      key: 'model',
-      label: models.find((m) => m.id === model)?.name ?? '选择模型',
-      onPress: showModelList,
-    },
-    {
-      key: 'config',
-      icon: '⚙️',
-      onPress: showModelConfig,
-    },
-    {
-      key: 'send',
-      label: isStreaming ? '停止' : '发送',
-      primary: true,
-      onPress: isStreaming ? stop : send,
-      loading: isStreaming,
-    },
-  ]
+  // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
+  // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
   return (
     <View style={styles.root}>
@@ -825,51 +852,39 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
           })}
         </ScrollView>
 
-        {/* 功能开关组(对齐 Uniapp ToggleButtonGroup,使用 ToggleButtonGroup 组件) */}
-        <View style={styles.toggleGroupWrap}>
-          <ToggleButtonGroup items={toggleItems} onToggle={handleToggle} />
-        </View>
+        {/* 功能开关组已合并到 BottomActionBar prompt 模式(对齐 Uniapp BottomActionBar 大一统) */}
 
-        {/* 输入框区域(对齐 Uniapp InputArea:update:prompt / toggle-voice-input / remove-image) */}
-        <View style={styles.inputRow}>
-          <Pressable
-            hitSlop={8}
-            onPress={toggleVoiceInput}
-            style={[styles.inputIconBtn, isVoiceMode ? styles.inputIconBtnActive : null]}
-            accessibilityLabel="语音输入"
-          >
-            <Mic size={20} color={isVoiceMode ? tokens.surface.light : tokens.text.secondary} />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            value={prompt}
-            onChangeText={updatePrompt}
-            placeholder="请输入描述"
-            placeholderTextColor={tokens.text.tertiary}
-            multiline
-            maxLength={2000}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            onContentSizeChange={textareaHeightChange}
-          />
-          <Pressable
-            hitSlop={8}
-            onPress={onInputAddImage}
-            style={styles.inputIconBtn}
-            accessibilityLabel="添加图片"
-          >
-            <ImageIcon size={20} color={tokens.text.secondary} />
-          </Pressable>
-        </View>
-
-        {/* BottomActionBar(发送 + 模型,承载 send-message / show-model-list) */}
+        {/* BottomActionBar prompt 模式(模型条 + 开关组 + 图片预览 + 输入框 + 发送 + 辅助行 + 图标组)
+            对齐 Uniapp BottomActionBar.vue 单一组件承载所有底部交互 */}
         <BottomActionBar
-          actions={bottomActions}
+          prompt={prompt}
+          onPromptChange={updatePrompt}
+          onSend={isStreaming ? stop : send}
+          modelName={models.find((m) => m.id === model)?.name}
+          onShowModelList={showModelList}
+          onShowModelConfig={showModelConfig}
+          onToggleSuperAgent={toggleSuperAgent}
           onToggleSuperAgentfu={toggleSuperAgentfu}
+          onToggleMcp={toggleMCP}
+          onToggleKnowledgeBase={toggleKnowledgeBase}
+          onTogglePermanentMemory={togglePermanentMemory}
+          onToggleVoiceInput={toggleVoiceInput}
+          onRemoveImage={inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
           onFunctionHandle={handleFunctionHandle}
           onSourceHandle={handleSourceHandle}
           onIconClick={handleIconClick}
           onFangda={handleFangda}
+          onTextareaHeightChange={textareaHeightChange}
+          superAgentEnabled={superAgentEnabled}
+          mcpEnabled={mcpEnabled}
+          knowledgeBaseEnabled={knowledgeBaseEnabled}
+          permanentMemoryEnabled={permanentMemoryEnabled}
+          voiceInputEnabled={isVoiceMode}
+          images={inputFiles.filter((f) => f.type === 'image').map((f) => f.url)}
+          isLoading={isStreaming}
+          isShowIcon={functionPanelVisible || sourcePanelVisible}
         />
       </KeyboardAvoidingView>
 
@@ -988,7 +1003,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         visible={drawerVisible}
         onClose={closeDrawer}
         user={drawerUser}
-        conversations={[] as DrawerConversationItem[]}
+        conversations={drawerConversations}
         onNavigate={handleDrawerNavigate}
         onNavigateCompany={handleDrawerNavigateCompany}
         onClaimFree={handleDrawerClaimFree}
@@ -1002,6 +1017,24 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       />
     </View>
   )
+}
+
+// ── 辅助函数(对齐 Uniapp getModelChat → DrawerConversationItem 映射) ──
+
+/**
+ * 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem。
+ * 对齐 Uniapp getModelChat 返回的 { id, title, time, modelName } 结构。
+ */
+function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+  const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
+  const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
+  const mdl = c.model ?? ''
+  return {
+    id: c.id,
+    title: c.title?.trim() || '未命名对话',
+    modelConfig: mdl ? { id: mdl, name: mdl, icon: undefined } : undefined,
+    createdAt,
+  }
 }
 
 // ── 样式(StyleSheet + tokens,禁用 rounded-full / 禁用分割线,compact 紧凑) ──

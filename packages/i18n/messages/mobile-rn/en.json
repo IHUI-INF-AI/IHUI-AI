@@ -115,6 +115,7 @@
     "navLogout": "Logout"
   },
   "settings": {
+    "title": "Settings",
     "about": "About IHUI AI",
     "lang_zhCN": "Simplified Chinese",
     "lang_en": "English",
@@ -125,14 +126,27 @@
     "theme_dark": "Dark",
     "theme_system": "System",
     "languageChanged": "Language changed",
-    "themeChanged": "Theme changed"
+    "themeChanged": "Theme changed",
+    "checkUpdateTitle": "Check Update",
+    "checkUpdateLatest": "You're on the latest version",
+    "changePhoneMissingUser": "Missing user info, cannot change phone",
+    "logoutConfirm": "Confirm logout?"
   },
   "menu": {
     "about": "About",
     "feedback": "Feedback",
     "privacy": "Privacy policy",
     "agreement": "User agreement",
-    "changePwd": "Change Password"
+    "changePwd": "Change Password",
+    "accountManage": "Account",
+    "changePhone": "Change Phone",
+    "accountCancel": "Cancel Account",
+    "checkUpdate": "Check Update",
+    "appPermission": "App Permissions",
+    "usageRules": "Usage Rules",
+    "businessLicense": "Business License",
+    "icpRecord": "ICP Record",
+    "modelRecord": "Model Record"
   },
   "error": {
     "network": "Network error, please retry"
@@ -177,13 +191,43 @@
   },
   "common": {
     "ok": "OK",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "back": "Back",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "error": "Error",
+    "menu": "Menu",
+    "empty": "No data"
   },
   "aiAssistant": {
+    "title": "AI Assistant",
+    "subtitle": "Select an agent to start",
+    "searchPlaceholder": "Search agents",
+    "empty": "No agents available",
+    "useCount": "{count} uses",
+    "favoriteCount": "{count} favorites",
+    "startChat": "Start Chat",
+    "catAll": "All",
+    "catWriting": "Writing",
+    "catCoding": "Coding",
+    "catOffice": "Office",
+    "catStudy": "Study",
+    "loadFailed": "Load failed",
     "chat": {
       "title": "Start Chat",
       "message": "Starting a chat with \"{name}\""
     }
+  },
+  "aiAssistantN8n": {
+    "title": "AI Assistant",
+    "placeholder": "Enter your question",
+    "empty": "Send a message to start",
+    "emptyNoAgent": "No workflow bound, mock response",
+    "send": "Send",
+    "streaming": "Generating...",
+    "callFailed": "Call failed, please retry",
+    "mockResponse": "Mock response, configure agentId for real workflow"
   },
   "aiCareer": {
     "plan": {
@@ -330,5 +374,36 @@
     "voiceInput": "Voice Input",
     "voicePlaceholder": "Hold to speak",
     "submit": "Share"
+  },
+  "vipScreen": {
+    "plans": {
+      "continuous": "Continuous Monthly",
+      "monthly": "Monthly"
+    },
+    "discount": "Limited Discount",
+    "trial": "Trial",
+    "subscribe": "Subscribe Now",
+    "agreement": "By subscribing, you agree to the User Recharge Agreement",
+    "pay": {
+      "title": "Confirm Payment",
+      "message": "Confirm payment of ¥{amount} for \"{name}\"?",
+      "confirm": "Confirm Payment",
+      "cancel": "Cancel",
+      "success": "Payment Successful",
+      "failed": "Payment failed or cancelled"
+    },
+    "banner": {
+      "trader": "Trader Exclusive Benefits",
+      "traderSubtitle": "High Rebate · Priority Customization · 1-on-1 Coaching",
+      "level": "Membership Level Upgrade",
+      "levelHint": "1¥ = 1 Growth Point",
+      "privateAdvisory": "Private Advisory Service"
+    },
+    "qr": {
+      "title": "Scan to Contact Support",
+      "hint": "Long press QR code to save",
+      "card": "Business Card QR Code",
+      "close": "Close"
+    }
   }
 }
