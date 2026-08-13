@@ -175,3 +175,49 @@
   flex-direction: column;
   gap: 24rpx;
 }
+
+/* ===== 内容项渐变顶边装饰（对齐原项目 .content-item::before,L2033-2064） ===== */
+/* 按类型(text/image/video/audio)显示不同颜色的渐变顶边 */
+.user-content-text,
+.user-content-image,
+.user-content-video,
+.user-content-audio {
+  position: relative;
+}
+
+.user-content-text::before,
+.user-content-image::before,
+.user-content-video::before,
+.user-content-audio::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4rpx;
+  border-radius: 20rpx 20rpx 0 0;
+}
+
+.user-content-text::before {
+  background: linear-gradient(90deg, #4A90E2, #6BA5F2);
+}
+
+.user-content-image::before {
+  background: linear-gradient(90deg, #FF6B9D, #FF8FB1);
+}
+
+.user-content-video::before {
+  background: linear-gradient(90deg, #9A99F3, #B8B7F7);
+}
+
+.user-content-audio::before {
+  background: linear-gradient(90deg, #FFD700, #FFE45C);
+}
+
+/* TODO: AlimamaFangYuanTi 字体需上传到项目 CDN 后引入(对齐原项目 font-family: "AlimamaFangYuanTi")。
+ * 原项目用 src/static/fonts/AlimamaFangYuanTiVF-Thin.ttf 本地字体。
+ * 注意:
+ *   1. 小程序端不支持 @font-face 远程字体,只在 H5 端生效;
+ *   2. 远程 URL https://cdn.bspapp.com/fonts/AlimamaFangYuanTiVF-Thin.ttf 可能失效;
+ *   3. 字体上线时建议:本地字体 → CDN 上传 → @font-face + font-display: swap 降级;
+ *   4. 应用范围:仅标题等关键文字(避免全文字应用导致性能问题)。 */
