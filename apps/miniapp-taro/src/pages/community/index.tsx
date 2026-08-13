@@ -16,6 +16,7 @@ import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
+import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
@@ -838,17 +839,60 @@ export default function Community() {
         onClose={() => setShowPayPopup(false)}
         onPay={async () => {
           const agent = purchasingAgentRef.current
-          if (!agent) return
+          if (!agent || !payInfo) return
           try {
+            // 1. 创建支付记录
             await api.createPayHistory({
               agentId: agent.id,
-              amount: payInfo?.amount ?? 0,
+              amount: payInfo.amount ?? 0,
             })
-            // TODO: 后端返回 payParams 后,改用 payParams + onPaySuccess 触发微信 JSAPI 支付
-            Taro.showToast({ title: '支付功能开发中', icon: 'none' })
+            // 2. 调微信支付 JSAPI 获取支付参数
+            const payRes = (await api.wechatPay({
+              amount: payInfo.amount ?? 0,
+              orderType: 'agent',
+              productId: agent.id,
+              description: `购买智能体:${agent.name}`,
+            })) as {
+              mock?: boolean
+              timeStamp?: string
+              nonceStr?: string
+              package?: string
+              signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
+              paySign?: string
+            }
+            // 3. mock 模式(后端未配置微信支付)
+            if (payRes?.mock) {
+              Taro.showToast({ title: '支付成功(mock)', icon: 'success' })
+              setShowPayPopup(false)
+              void loadData(true)
+              return
+            }
+            // 4. 调起微信支付
+            if (
+              !payRes?.paySign ||
+              !payRes.timeStamp ||
+              !payRes.nonceStr ||
+              !payRes.package ||
+              !payRes.signType
+            ) {
+              Taro.showToast({ title: '支付参数异常', icon: 'none' })
+              return
+            }
+            await requestPayment({
+              timeStamp: payRes.timeStamp,
+              nonceStr: payRes.nonceStr,
+              package: payRes.package,
+              signType: payRes.signType,
+              paySign: payRes.paySign,
+            })
+            Taro.showToast({ title: '支付成功', icon: 'success' })
             setShowPayPopup(false)
-          } catch {
-            Taro.showToast({ title: '创建订单失败', icon: 'none' })
+            void loadData(true)
+          } catch (err) {
+            // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
+            if (err !== 'cancel') {
+              Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
+            }
           }
         }}
       />

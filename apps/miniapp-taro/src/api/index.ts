@@ -1171,8 +1171,9 @@ export const getShareContentByCode = (code: string) => get(`/agent/creation/shar
 export const bindUser = (data: unknown) => post('/auth/bind-user', data)
 /** 绑定用户（新版） */
 export const bindUserNew = (data: unknown) => post('/auth/bind-user-new', data)
-/** 获取手机号（微信授权） */
-export const getPhoneNumber = (data: unknown) => post('/auth/phone-number', data)
+/** 微信手机号登录 — 对齐后端 POST /auth/wechat/mini/phone */
+export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
+  post('/auth/wechat/mini/phone', data)
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) => get(`/auth/pwd-exist?phone=${phone}`)
 /** 修改手机号 */
@@ -1183,6 +1184,22 @@ export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`,
 export const closeOrders = (orderIds: string[]) => post('/orders/batch-cancel', { ids: orderIds })
 /** 支付宝新支付 */
 export const zfbNewPay = (data: unknown) => post('/pay/zfb-new', data)
+/** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
+export const wechatPay = (params: {
+  amount: number
+  openId?: string
+  orderType?: string
+  productId?: string
+  description?: string
+}) => {
+  const qs = new URLSearchParams()
+  qs.append('amount', String(params.amount))
+  if (params.openId !== undefined) qs.append('openId', params.openId)
+  if (params.orderType !== undefined) qs.append('orderType', params.orderType)
+  if (params.productId !== undefined) qs.append('productId', params.productId)
+  if (params.description !== undefined) qs.append('description', params.description)
+  return post(`/payments/wechat/create?${qs.toString()}`)
+}
 /** Token 智汇值总数 */
 export const getTokenCount = () => get('/token/count')
 /** Token 智汇值返还 */
@@ -1293,8 +1310,8 @@ export const getZHZ = (params: ApiParams) => get('/agents/zhz', params)
 export const getZHZDMX = (params: ApiParams) => get('/agents/zhz-detail', params)
 
 /* ============ 登录变体 ============ */
-/** 微信 openid 获取 */
-export const openId = (code: string) => get('/auth/openid', { code })
+/** 微信小程序登录(获取 openId)— 对齐后端 GET /auth/wechat/mini/login */
+export const openId = (code: string) => get('/auth/wechat/mini/login', { code })
 /** 充值 */
 export const recharge = (params: ApiParams) => get('/member/recharge', params)
 /** 发送短信验证码（新版） */
