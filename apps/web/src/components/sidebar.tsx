@@ -1602,6 +1602,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
           <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
         )}
         <ChevronDown
+          suppressHydrationWarning
           className={cn(
             'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
             !open && '-rotate-90',
