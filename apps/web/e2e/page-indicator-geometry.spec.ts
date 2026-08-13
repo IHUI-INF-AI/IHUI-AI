@@ -118,4 +118,70 @@ test.describe('PageIndicator 几何守门', () => {
       expect(brNum).toBeGreaterThan(9000)
     }
   })
+
+  test('间距一致 + 紧凑(2026-08-13 v11):任意相邻两点间距 ≈ 16px (2x 非激活态直径)', async ({
+    page,
+  }) => {
+    const metrics = await page.evaluate((selector) => {
+      const container = document.querySelector(selector) as HTMLElement | null
+      if (!container) return { error: 'indicator not found' as const }
+      const buttons = container.querySelectorAll('button')
+      const out: Array<{ active: boolean; top: number; bottom: number; h: number }> = []
+      for (const btn of Array.from(buttons)) {
+        const span = btn.querySelector('span') as HTMLElement | null
+        if (!span) continue
+        const r = span.getBoundingClientRect()
+        out.push({
+          active: btn.getAttribute('aria-current') === 'true',
+          top: r.top,
+          bottom: r.bottom,
+          h: r.height,
+        })
+      }
+      return { dots: out }
+    }, INDICATOR_SELECTOR)
+    if ('error' in metrics) throw new Error(metrics.error)
+    const dots = metrics.dots
+    expect(dots.length).toBeGreaterThanOrEqual(2)
+
+    // 相邻两个 span 的中心间距(= 高度+上下间隙)
+    // items-end + gap-0 + h-6 button:
+    //   非激活 8x8 在 button 底部 → top = button.bottom - 8
+    //   激活 24x8 填满 button → bottom = button.bottom
+    //   相邻两点间距 = 16px (= 2x 非激活态直径 8,设计意图:紧凑但清晰)
+    // 容差:±1.5px(Tailwind/DPR 误差)
+    for (let i = 0; i < dots.length - 1; i++) {
+      const a = dots[i]
+      const b = dots[i + 1]
+      if (!a || !b) continue
+      const gap = b.top - a.bottom
+      // 期望 16px(2x 8)
+      expect(gap).toBeGreaterThanOrEqual(14.5)
+      expect(gap).toBeLessThanOrEqual(17.5)
+    }
+
+    // 额外断言:激活态底部到下一非激活态顶部 = 非激活态之间间距(一致性)
+    // 找到 active 索引,如果它不是最后一个,验证 active.bottom→next.top 与普通间距一致
+    const activeIdx = dots.findIndex((d) => d.active)
+    if (activeIdx >= 0 && activeIdx < dots.length - 1) {
+      const active = dots[activeIdx]
+      const next = dots[activeIdx + 1]
+      if (active && next) {
+        const gapAfterActive = next.top - active.bottom
+        // 找一个非 active 之间的间距作为对照
+        let gapInactive = 0
+        for (let i = 0; i < dots.length - 1; i++) {
+          if (i === activeIdx) continue
+          const x = dots[i]
+          const y = dots[i + 1]
+          if (x && y) {
+            gapInactive = y.top - x.bottom
+            break
+          }
+        }
+        // 差值 ≤ 1px(理论应当相等)
+        expect(Math.abs(gapAfterActive - gapInactive)).toBeLessThanOrEqual(1.5)
+      }
+    }
+  })
 })

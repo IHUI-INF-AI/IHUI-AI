@@ -29,8 +29,21 @@ interface PageIndicatorProps {
  *   - 激活态 = 24x8 竖向胶囊(3:1 比例),保持"竖向拉长"激活态视觉特征
  *   - 非激活态 = 8x8 圆点(h-2 w-2,1x 直径)
  *   - hover 态 = 10x10 圆点(h-2.5 w-2.5,1.25x 直径,作为可点击视觉反馈)
- *   - button 命中区同步调整为 h-6 w-2 (24x8) 容下激活态,非激活/hover 态居中
+ *   - button 命中区同步调整为 h-6 w-6 (24x24) 容下激活态,非激活/hover 态底部对齐
  *   - 激活态通过"宽度 = 直径 + 高度 = 3x 直径"形成竖向胶囊,与非激活圆点形成强对比
+ * 2026-08-13 v11 间距一致化:用户反馈"椭圆形底部到下面圆形的间距 跟下面圆形跟圆形的
+ *   间距不一致 而且间距现在太大了"。
+ *   根因:button 用 items-center(垂直居中)→ 非激活态 8x8 居中在 button 24x24 内
+ *   (顶 8 底 16),激活态 24x8 填满 button(顶 0 底 24)。
+ *   间距计算(items-center):
+ *     - 激活态底 24 → 下一非激活态顶 (24+gap+8) = gap+32
+ *     - 非激活态底 16 → 下一非激活态顶 (16+gap+8) = gap+24
+ *     - 差 8px,不一致
+ *   修复:
+ *     - button items-center → items-end(底部对齐):所有态底部都对齐 button 底部
+ *     - 间距 = gap + 16(非激活态 8x8 顶部距 button 底部 16px),所有态一致
+ *     - 容器 gap-1 (4px) → gap-0 (0px),py-1.5 (6px) → py-0.5 (2px)
+ *     - 最终间距:16px(2x 非激活态直径,紧凑但清晰)
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
@@ -59,7 +72,11 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       // 2026-07-28 v9 根因修复:旧公式把左侧 sidebar/ai-panel 算进 right,
       //   实则工作区右边距 viewport 固定 8px(mr-2),与 sidebar/ai-panel 开关无关
       style={{ right: '12px' }}
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      // 2026-08-13 v11:间距一致化 — gap-1 (4px) → gap-0 (0px),py-1.5 (6px) → py-0.5 (2px)
+      //   button items-end 底部对齐,所有态底部都对齐 button 底部,间距 = 16 + gap
+      //   gap-0 → 间距 16px (= 2x 非激活态直径 8,紧凑但清晰)
+      //   py-0.5 让首尾留 2px 边缘,不至于贴死
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-0 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-0.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
@@ -74,7 +91,7 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             aria-current={isActive ? 'true' : undefined}
             // 2026-08-13 v10:button 命中区 h-4 w-4 (16x16) → h-6 w-6 (24x24),容下 24x8 激活态胶囊
             // 正方形命中区让激活态(24x8)/非激活态(8x8)/hover态(10x10)都能在中心完美居中
-            className="group flex h-6 w-6 items-center justify-center"
+            className="group flex h-6 w-6 items-end justify-center"
           >
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
