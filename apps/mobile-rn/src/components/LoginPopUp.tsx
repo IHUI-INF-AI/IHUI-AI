@@ -30,7 +30,7 @@ export interface LoginPopUpProps {
 }
 
 const CARD_PADDING_TOP = 8
-const CARD_PADDING_HORIZONTAL = 24
+const CARD_PADDING_HORIZONTAL = 16
 const CARD_PADDING_BOTTOM = 32
 const DRAG_BAR_WIDTH = 36
 const DRAG_BAR_HEIGHT = 4

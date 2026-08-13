@@ -88,8 +88,8 @@ export interface DrawerProps {
 
 // ── 常量 ──
 
-const MAX_DRAWER_WIDTH = 320
-const DRAWER_WIDTH_RATIO = 0.8
+const MAX_DRAWER_WIDTH = 256
+const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
 const OVERLAY_OPACITY = 0.5
 const DELETE_WIDTH = 72 // 左滑露出的删除按钮宽度
