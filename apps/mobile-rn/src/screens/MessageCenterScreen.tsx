@@ -6,7 +6,7 @@ import { fetchApi } from '@ihui/api-client'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
 import type { MessageCenterItem, MessageTab } from '@ihui/rn-app'
 import { getRnTokens } from '@ihui/design-tokens'
-import { Drawer, type DrawerMenuItem } from '../components/Drawer'
+import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -54,7 +54,7 @@ export function MessageCenterScreen() {
     if (tab !== activeTab) setActiveTab(tab)
   }
 
-  const drawerMenuItems: DrawerMenuItem[] = [
+  const drawerMenuItems: SideMenuItem[] = [
     { key: 'system', label: '系统消息', icon: '🔔' },
     { key: 'direct', label: '私信', icon: '✉' },
     { key: 'group', label: '群聊', icon: '👥' },
@@ -96,11 +96,12 @@ export function MessageCenterScreen() {
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
       />
-      <Drawer
+      <SideMenu
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        menuItems={drawerMenuItems}
-        onItemPress={onDrawerItemPress}
+        items={drawerMenuItems}
+        onSelect={onDrawerItemPress}
+        activeKey={activeTab}
       />
     </View>
   )
