@@ -612,7 +612,11 @@ export default function LoginSecurityPage() {
             </>
           ) : (
             <Button onClick={startMfaSetup} disabled={mfaBusy}>
-              {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {mfaBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
               {s('enableMfa')}
             </Button>
           )}
@@ -692,22 +696,25 @@ export default function LoginSecurityPage() {
             {recoveryCodes && (
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {recoveryCodes.map((code) => (
-                  <Tooltip content={s('copySecret')}>
+                  <Tooltip key={code} content={s('copySecret')}>
                     <button
-                      key={code}
                       type="button"
                       onClick={() => copyRecoveryCode(code)}
                       className="cursor-pointer rounded-md border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
                     >
                       {code}
                     </button>
-                    </Tooltip>
+                  </Tooltip>
                 ))}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setRecoveryDialogOpen(false)} disabled={!recoveryCanClose} className="w-full min-[640px]:w-auto">
+            <Button
+              onClick={() => setRecoveryDialogOpen(false)}
+              disabled={!recoveryCanClose}
+              className="w-full min-[640px]:w-auto"
+            >
               {s('confirm')}
             </Button>
           </DialogFooter>

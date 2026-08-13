@@ -248,7 +248,7 @@ export default function ParentPortalPage() {
             />
           ) : (
             <ChildrenListView
-              children={confirmedChildren}
+              items={confirmedChildren}
               isLoading={childrenQuery.isLoading}
               error={childrenQuery.error}
               onSelectChild={(id) => setSelectedChildId(id)}
@@ -268,12 +268,12 @@ export default function ParentPortalPage() {
 /* ─── Children List View ─── */
 
 function ChildrenListView({
-  children,
+  items,
   isLoading,
   error,
   onSelectChild,
 }: {
-  children: ChildInfo[]
+  items: ChildInfo[]
   isLoading: boolean
   error: Error | null
   onSelectChild: (id: string) => void
@@ -293,7 +293,7 @@ function ChildrenListView({
     return <Alert variant="danger" description="加载孩子信息失败，请稍后重试" />
   }
 
-  if (children.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-12">
         <Users className="h-12 w-12 text-muted-foreground" />
@@ -307,7 +307,7 @@ function ChildrenListView({
 
   return (
     <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-      {children.map((child) => (
+      {items.map((child) => (
         <button
           key={child.bindingId}
           onClick={() => onSelectChild(child.studentId)}
@@ -416,7 +416,8 @@ function ChildDetailView({
 function CoursesView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
-    queryFn: () => api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
+    queryFn: () =>
+      api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
   })
 
   const courses = data?.list ?? []
@@ -472,7 +473,11 @@ function CoursesView({ childId }: { childId: string }) {
                       <Clock className="h-3 w-3" />
                       {c.startTime} - {c.endTime}
                     </div>
-                    {c.teacher && <div className="flex items-center gap-1"><span>{c.teacher}</span></div>}
+                    {c.teacher && (
+                      <div className="flex items-center gap-1">
+                        <span>{c.teacher}</span>
+                      </div>
+                    )}
                     {c.classroom && (
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
@@ -495,7 +500,8 @@ function CoursesView({ childId }: { childId: string }) {
 function MealsView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
-    queryFn: () => api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    queryFn: () =>
+      api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
   })
 
   const meals = data?.list ?? []
@@ -536,7 +542,9 @@ function MealsView({ childId }: { childId: string }) {
         return (
           <Card key={type}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{MEAL_TYPE_LABELS[type] ?? type}</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {MEAL_TYPE_LABELS[type] ?? type}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {items.map((m) => (
@@ -545,9 +553,7 @@ function MealsView({ childId }: { childId: string }) {
                   {m.ingredients && (
                     <p className="mt-1 text-xs text-muted-foreground">{m.ingredients}</p>
                   )}
-                  {m.nutrition && (
-                    <p className="mt-0.5 text-xs text-emerald-600">{m.nutrition}</p>
-                  )}
+                  {m.nutrition && <p className="mt-0.5 text-xs text-emerald-600">{m.nutrition}</p>}
                 </div>
               ))}
             </CardContent>
@@ -563,7 +569,10 @@ function MealsView({ childId }: { childId: string }) {
 function StudyPlansView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
-    queryFn: () => api<{ list: StudyPlanItem[] }>(`/api/edu-ai-management/parent/children/${childId}/study-plans`),
+    queryFn: () =>
+      api<{ list: StudyPlanItem[] }>(
+        `/api/edu-ai-management/parent/children/${childId}/study-plans`,
+      ),
   })
 
   const plans = data?.list ?? []
@@ -614,11 +623,11 @@ function StudyPlansView({ childId }: { childId: string }) {
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5" />
-              <span>{p.startDate} ~ {p.endDate}</span>
+              <span>
+                {p.startDate} ~ {p.endDate}
+              </span>
             </div>
-            {p.description && (
-              <p className="line-clamp-2 text-muted-foreground">{p.description}</p>
-            )}
+            {p.description && <p className="line-clamp-2 text-muted-foreground">{p.description}</p>}
           </CardContent>
         </Card>
       ))}
@@ -631,7 +640,8 @@ function StudyPlansView({ childId }: { childId: string }) {
 function GradesView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
-    queryFn: () => api<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
+    queryFn: () =>
+      api<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
   })
 
   const grades = data?.list ?? []
@@ -694,14 +704,16 @@ function GradesView({ childId }: { childId: string }) {
                 <div
                   className={cn(
                     'h-full rounded transition-all',
-                    s.percentage >= 80 ? 'bg-emerald-500' : s.percentage >= 60 ? 'bg-amber-500' : 'bg-red-500',
+                    s.percentage >= 80
+                      ? 'bg-emerald-500'
+                      : s.percentage >= 60
+                        ? 'bg-amber-500'
+                        : 'bg-red-500',
                   )}
                   style={{ width: `${s.percentage}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {s.count} 次考试
-              </p>
+              <p className="text-xs text-muted-foreground">{s.count} 次考试</p>
             </CardContent>
           </Card>
         ))}
@@ -759,7 +771,10 @@ function GradesView({ childId }: { childId: string }) {
 function AttendanceView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
-    queryFn: () => api<{ list: AttendanceRecord[] }>(`/api/edu-ai-management/parent/child/${childId}/attendance`),
+    queryFn: () =>
+      api<{ list: AttendanceRecord[] }>(
+        `/api/edu-ai-management/parent/child/${childId}/attendance`,
+      ),
   })
 
   const records = data?.list ?? []
@@ -853,13 +868,19 @@ function AttendanceView({ childId }: { childId: string }) {
                   {r.checkInTime && (
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(r.checkInTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(r.checkInTime).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </div>
                   )}
                   {r.checkOutTime && (
                     <div className="flex items-center gap-1">
                       <LogOut className="h-3 w-3" />
-                      {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </div>
                   )}
                 </div>
@@ -966,11 +987,15 @@ function BindingsManagement() {
               <p className="text-sm font-medium">关系</p>
               <select
                 value={relationship}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRelationship(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setRelationship(e.target.value)
+                }
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {RELATIONSHIP_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1022,37 +1047,39 @@ function BindingsManagement() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      关系: {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ?? b.relationship}
+                      关系:{' '}
+                      {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ??
+                        b.relationship}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {b.status === 'pending' && (
                       <>
                         <Tooltip content="确认">
-                        <button
-                          onClick={() => confirmMutation.mutate(b.id)}
-                          className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </button>
+                          <button
+                            onClick={() => confirmMutation.mutate(b.id)}
+                            className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
                         </Tooltip>
                         <Tooltip content="拒绝">
-                        <button
-                          onClick={() => rejectMutation.mutate(b.id)}
-                          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
+                          <button
+                            onClick={() => rejectMutation.mutate(b.id)}
+                            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
                         </Tooltip>
                       </>
                     )}
                     <Tooltip content="删除">
-                    <button
-                      onClick={() => setShowDeleteId(b.id)}
-                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <button
+                        onClick={() => setShowDeleteId(b.id)}
+                        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </Tooltip>
                   </div>
                 </div>
