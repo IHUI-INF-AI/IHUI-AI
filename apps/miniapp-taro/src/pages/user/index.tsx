@@ -2,7 +2,7 @@ import { View, Text, Image, Slider } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
-import { logout } from '@/api'
+import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
@@ -148,34 +148,80 @@ export default function UserIndex() {
   // 加载历史对话(对齐原项目 loadHistoryChat)
   const loadHistoryChat = useCallback(async () => {
     try {
-      // TODO: 接入 api.getModelChat({ user_uuid: userInfo?.uuid }) 真实接口
-      // const res = await api.getModelChat({ user_uuid: userInfo?.uuid })
-      // setGroupedData(groupDataByDate(res.list))
-      setGroupedData(groupDataByDate([])) // 暂用空数组,等 API 接入后替换
+      const res = (await api.getChatHistory({ page: 1, pageSize: 20 })) as {
+        list?: Array<{ id: string; title: string; time: string; messages?: unknown[] }>
+      }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      setGroupedData(
+        groupDataByDate(rawList.map((c) => ({ id: c.id, title: c.title, time: c.time }))),
+      )
     } catch {
-      // 静默
+      setGroupedData([])
     }
   }, [groupDataByDate])
 
   // 加载内容数据(对齐原项目 loadContentByTab)
   const loadContentByTab = useCallback(async (tabId: number) => {
-    void tabId // TODO: 接入 api.getMyCreation({ type: tabId, page: 1, pageSize: 10 }) 真实接口
     setContentLoading(true)
     try {
-      // 切换 tab 时清空当前列表(对齐原项目 loadContentByTab 的加载前重置)
-      setTextContentList([])
-      setImageContentList([])
-      setVideoContentList([])
-      setAudioContentList([])
-      // TODO: const res = await getMyCreation({ type: tabId, page: 1, pageSize: 10 })
-      // 按 tabId 填充对应列表(textContentList/imageContentList/...)
-      await new Promise((r) => setTimeout(r, 300)) // 模拟加载
+      const res = (await api.getMyCreation({ type: tabId, page: 1, pageSize: 10 })) as {
+        list?: unknown[]
+      }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      if (tabId === 1) {
+        setTextContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              content: String(item['content'] ?? ''),
+            }
+          }),
+        )
+      } else if (tabId === 2) {
+        setImageContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              imageList: Array.isArray(item['imageList']) ? (item['imageList'] as string[]) : [],
+            }
+          }),
+        )
+      } else if (tabId === 3) {
+        setVideoContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              videoUrl: String(item['videoUrl'] ?? ''),
+            }
+          }),
+        )
+      } else if (tabId === 4) {
+        setAudioContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              audioUrl: String(item['audioUrl'] ?? ''),
+            }
+          }),
+        )
+      }
     } catch {
-      // 静默
+      if (tabId === 1) setTextContentList([])
+      else if (tabId === 2) setImageContentList([])
+      else if (tabId === 3) setVideoContentList([])
+      else if (tabId === 4) setAudioContentList([])
     } finally {
       setContentLoading(false)
     }
-  }, [setTextContentList, setImageContentList, setVideoContentList, setAudioContentList])
+  }, [])
 
   const maskPhone = useCallback((phone: string) => {
     return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
@@ -208,7 +254,7 @@ export default function UserIndex() {
       success: async (res) => {
         if (res.confirm) {
           try {
-            await logout()
+            await api.logout()
           } catch {
             // 忽略退出接口错误
           }
@@ -532,6 +578,23 @@ export default function UserIndex() {
           toggleDrawer()
           Taro.switchTab({ url: '/pages/index/index' })
         }}
+        onRemoveChat={(chat) => {
+          Taro.showModal({
+            title: '提示',
+            content: '确定删除此对话?',
+            success: async (res) => {
+              if (res.confirm) {
+                try {
+                  await api.removeModelChat(String(chat.id))
+                  Taro.showToast({ title: '已删除', icon: 'success' })
+                  void loadHistoryChat()
+                } catch {
+                  Taro.showToast({ title: '删除失败', icon: 'none' })
+                }
+              }
+            },
+          })
+        }}
       />
 
       {/* ===== FloatBox 浮动组件 ===== */}
@@ -611,10 +674,14 @@ export default function UserIndex() {
         }
         onClose={() => setShowLoginPopup(false)}
         onUpgrade={goVipDetail}
-        onNicknameChange={(nickname) => {
-          // 更新本地昵称（实际保存由 profile 页面处理）
-          if (userInfo) {
+        onNicknameChange={async (nickname) => {
+          if (!userInfo) return
+          try {
+            await api.bindUser({ nickname, userId: userInfo.id || userInfo.uuid })
             setUserInfo({ ...userInfo, nickname })
+            Taro.showToast({ title: '保存成功', icon: 'success' })
+          } catch {
+            Taro.showToast({ title: '保存失败', icon: 'none' })
           }
         }}
       />
