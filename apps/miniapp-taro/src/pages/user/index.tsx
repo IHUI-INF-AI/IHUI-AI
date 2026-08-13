@@ -628,6 +628,38 @@ export default function UserIndex() {
                 vipTitle={userInfo.isVip ? 'VIP' : undefined}
                 desc={userInfo.phone ? maskPhone(userInfo.phone) : undefined}
                 onClick={goProfile}
+                // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
+                // growthValue/growthMax/tokenValue 暂未纳入 UserInfo 类型,用精确类型断言读取
+                growthValue={(userInfo as { growthValue?: number }).growthValue}
+                growthMax={(userInfo as { growthMax?: number }).growthMax}
+                tokenValue={(userInfo as { tokenValue?: number }).tokenValue}
+                identityType={userInfo.isVip ? 1 : 0}
+                onWallet={() =>
+                  Taro.navigateTo({
+                    url: '/pages/token/balance',
+                    fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
+                  })
+                }
+                onUnsubscribe={() =>
+                  Taro.showModal({
+                    title: '提示',
+                    content: '确定退订会员吗？退订后将失去会员权益。',
+                    success: (res) => {
+                      if (res.confirm) {
+                        // TODO: 接入退订 API
+                        Taro.showToast({ title: '退订功能开发中', icon: 'none' })
+                      }
+                    },
+                  })
+                }
+                onOpenVip={goVipDetail}
+                onOpenLevel={() =>
+                  Taro.navigateTo({
+                    url: '/pages/vip/index?type=levelPopup',
+                    fail: () => Taro.showToast({ title: '等级介绍页未配置', icon: 'none' }),
+                  })
+                }
+                onLogin={goLogin}
               />
             </View>
             {/* 分享按钮 */}
