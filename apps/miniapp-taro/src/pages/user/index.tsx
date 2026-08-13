@@ -32,15 +32,29 @@ import './index.css'
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
+/**
+ * bindUser 请求参数(对齐原项目 onLogin L587-624 接口字段)。
+ * api.bindUser(data: unknown) 参数类型为 unknown,本地接口用于约束字段类型。
+ * open_id/fileName 需微信登录后获取,此处不传。
+ */
+interface BindUserParams {
+  nickname: string
+  userId: string | number | undefined
+  phone?: string
+  avatar?: string
+}
+
 // 状态栏高度（对齐原项目 statusBarHeight，用于 DrawerComponent 顶部 padding）
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 const statusBarHeight = menuButton.top
 
+// TODO: 提取到 packages/shared/src/utils/icon-utils.ts(共享层优先,AGENTS.md §3)
 // 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
 function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
+// TODO: 提取到 packages/shared/src/utils/icon-utils.ts(renderIcon 返回 JSX,需评估改为 shared component)
 // 统一渲染 icon:图片路径 → <Image>,emoji → <Text>
 function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
   if (isImagePath(iconStr)) {
@@ -70,6 +84,7 @@ const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: s
   { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: '建立专属知识库' },
 ]
 
+// TODO: 提取到 packages/shared/src/utils/format-utils.ts(共享层优先,AGENTS.md §3)
 // 格式化音频时间（秒 → mm:ss）
 function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
@@ -289,7 +304,10 @@ export default function UserIndex() {
   )
 
   function goLogin() {
-    // 未登录时显示登录弹窗（对齐原项目 loginPopUp）
+    // TODO: 一键登录(对齐原项目 getPhoneNumber L577-712)需要 LoginPopUp 组件扩展
+    // 支持 <Button openType="getPhoneNumber" onGetPhoneNumber={...}>,并接入
+    // api.openId(code) + api.loginByWechat(e.detail.code) 完整链路。
+    // 当前降级:弹 LoginPopUp 让用户手动输入昵称登录(组件不支持手机号一键登录回调)。
     setShowLoginPopup(true)
   }
 
@@ -693,10 +711,24 @@ export default function UserIndex() {
                   Taro.showModal({
                     title: '提示',
                     content: '确定退订会员吗？退订后将失去会员权益。',
-                    success: (res) => {
-                      if (res.confirm) {
-                        // TODO: 接入退订 API
-                        Taro.showToast({ title: '退订功能开发中', icon: 'none' })
+                    success: async (res) => {
+                      if (!res.confirm || !userInfo) return
+                      try {
+                        // 对齐原项目 unsubscribe L933-972:优先取消微信支付订阅合约
+                        const contractsRes = (await api.listRecurringContracts()) as {
+                          list?: Array<{ id: number; status: string }>
+                        }
+                        const activeContract = contractsRes?.list?.find((c) => c.status === 'active')
+                        if (activeContract) {
+                          await api.cancelRecurringContract(activeContract.id, '用户主动退订')
+                        } else {
+                          // 无 active 订阅合约(可能是积分兑换 VIP),降级更新本地 isVip 标记
+                          await api.updateProfile({ isVip: false })
+                        }
+                        setUserInfo({ ...userInfo, isVip: false })
+                        Taro.showToast({ title: '退订成功', icon: 'success' })
+                      } catch {
+                        Taro.showToast({ title: '退订失败，请联系客服', icon: 'none' })
                       }
                     },
                   })
@@ -758,7 +790,16 @@ export default function UserIndex() {
         onNicknameChange={async (nickname) => {
           if (!userInfo) return
           try {
-            await api.bindUser({ nickname, userId: userInfo.id || userInfo.uuid })
+            // 对齐原项目 onLogin L587-624:bindUser(open_id, nickname, phone, avatar, fileName)
+            // open_id/fileName 需要微信登录后获取,此处仅传本地已有字段
+            // bindUser API 参数类型为 unknown(api/index.ts),用本地接口约束字段
+            const params: BindUserParams = {
+              nickname,
+              userId: userInfo.id ?? userInfo.uuid,
+              phone: userInfo.phone,
+              avatar: userInfo.avatar,
+            }
+            await api.bindUser(params)
             setUserInfo({ ...userInfo, nickname })
             Taro.showToast({ title: '保存成功', icon: 'success' })
           } catch {
@@ -836,7 +877,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 textContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -859,7 +900,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 imageContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -892,7 +933,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 videoContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video">
                     <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -933,7 +974,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 audioContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
