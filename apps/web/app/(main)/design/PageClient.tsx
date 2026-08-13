@@ -20,7 +20,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
-import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared/design/element'
+import type {
+  DesignComment,
+  DesignPreview,
+  DesignPreviewResponse,
+} from '@ihui/shared/design/element'
 import { useTheme } from '@/hooks/use-theme'
 import { Tooltip } from '@/components/feedback'
 import { createComment, exportCode, generateHtml, listComments } from '@/lib/design/design-api'
@@ -69,13 +73,65 @@ const CSS_GROUPS: CssGroup[] = [
     id: 'layout',
     label: 'design.cssGroup.layout',
     props: [
-      { key: 'display', label: 'design.css.display', type: 'select', group: 'layout', options: ['block', 'inline', 'inline-block', 'flex', 'inline-flex', 'grid', 'inline-grid', 'none'] },
-      { key: 'flexDirection', label: 'design.css.flexDirection', type: 'select', group: 'layout', options: ['row', 'row-reverse', 'column', 'column-reverse'] },
-      { key: 'justifyContent', label: 'design.css.justifyContent', type: 'select', group: 'layout', options: ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly'] },
-      { key: 'alignItems', label: 'design.css.alignItems', type: 'select', group: 'layout', options: ['flex-start', 'flex-end', 'center', 'baseline', 'stretch'] },
+      {
+        key: 'display',
+        label: 'design.css.display',
+        type: 'select',
+        group: 'layout',
+        options: [
+          'block',
+          'inline',
+          'inline-block',
+          'flex',
+          'inline-flex',
+          'grid',
+          'inline-grid',
+          'none',
+        ],
+      },
+      {
+        key: 'flexDirection',
+        label: 'design.css.flexDirection',
+        type: 'select',
+        group: 'layout',
+        options: ['row', 'row-reverse', 'column', 'column-reverse'],
+      },
+      {
+        key: 'justifyContent',
+        label: 'design.css.justifyContent',
+        type: 'select',
+        group: 'layout',
+        options: [
+          'flex-start',
+          'flex-end',
+          'center',
+          'space-between',
+          'space-around',
+          'space-evenly',
+        ],
+      },
+      {
+        key: 'alignItems',
+        label: 'design.css.alignItems',
+        type: 'select',
+        group: 'layout',
+        options: ['flex-start', 'flex-end', 'center', 'baseline', 'stretch'],
+      },
       { key: 'gap', label: 'design.css.gap', type: 'text', group: 'layout' },
-      { key: 'flexWrap', label: 'design.css.flexWrap', type: 'select', group: 'layout', options: ['nowrap', 'wrap', 'wrap-reverse'] },
-      { key: 'position', label: 'design.css.position', type: 'select', group: 'layout', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'] },
+      {
+        key: 'flexWrap',
+        label: 'design.css.flexWrap',
+        type: 'select',
+        group: 'layout',
+        options: ['nowrap', 'wrap', 'wrap-reverse'],
+      },
+      {
+        key: 'position',
+        label: 'design.css.position',
+        type: 'select',
+        group: 'layout',
+        options: ['static', 'relative', 'absolute', 'fixed', 'sticky'],
+      },
       { key: 'top', label: 'design.css.top', type: 'text', group: 'layout' },
       { key: 'right', label: 'design.css.right', type: 'text', group: 'layout' },
       { key: 'bottom', label: 'design.css.bottom', type: 'text', group: 'layout' },
@@ -93,7 +149,13 @@ const CSS_GROUPS: CssGroup[] = [
       { key: 'margin', label: 'design.css.margin', type: 'text', group: 'boxModel' },
       { key: 'border', label: 'design.css.border', type: 'text', group: 'boxModel' },
       { key: 'borderRadius', label: 'design.css.borderRadius', type: 'text', group: 'boxModel' },
-      { key: 'boxSizing', label: 'design.css.boxSizing', type: 'select', group: 'boxModel', options: ['content-box', 'border-box'] },
+      {
+        key: 'boxSizing',
+        label: 'design.css.boxSizing',
+        type: 'select',
+        group: 'boxModel',
+        options: ['content-box', 'border-box'],
+      },
     ],
   },
   {
@@ -102,10 +164,27 @@ const CSS_GROUPS: CssGroup[] = [
     props: [
       { key: 'color', label: 'design.css.color', type: 'color', group: 'typography' },
       { key: 'fontSize', label: 'design.css.fontSize', type: 'text', group: 'typography' },
-      { key: 'fontWeight', label: 'design.css.fontWeight', type: 'select', group: 'typography', options: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'] },
+      {
+        key: 'fontWeight',
+        label: 'design.css.fontWeight',
+        type: 'select',
+        group: 'typography',
+        options: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+      },
       { key: 'lineHeight', label: 'design.css.lineHeight', type: 'text', group: 'typography' },
-      { key: 'textAlign', label: 'design.css.textAlign', type: 'select', group: 'typography', options: ['left', 'right', 'center', 'justify'] },
-      { key: 'letterSpacing', label: 'design.css.letterSpacing', type: 'text', group: 'typography' },
+      {
+        key: 'textAlign',
+        label: 'design.css.textAlign',
+        type: 'select',
+        group: 'typography',
+        options: ['left', 'right', 'center', 'justify'],
+      },
+      {
+        key: 'letterSpacing',
+        label: 'design.css.letterSpacing',
+        type: 'text',
+        group: 'typography',
+      },
     ],
   },
   {
@@ -113,8 +192,18 @@ const CSS_GROUPS: CssGroup[] = [
     label: 'design.cssGroup.background',
     props: [
       { key: 'background', label: 'design.css.background', type: 'text', group: 'background' },
-      { key: 'backgroundColor', label: 'design.css.backgroundColor', type: 'color', group: 'background' },
-      { key: 'backgroundImage', label: 'design.css.backgroundImage', type: 'text', group: 'background' },
+      {
+        key: 'backgroundColor',
+        label: 'design.css.backgroundColor',
+        type: 'color',
+        group: 'background',
+      },
+      {
+        key: 'backgroundImage',
+        label: 'design.css.backgroundImage',
+        type: 'text',
+        group: 'background',
+      },
     ],
   },
   {
@@ -125,8 +214,20 @@ const CSS_GROUPS: CssGroup[] = [
       { key: 'boxShadow', label: 'design.css.boxShadow', type: 'text', group: 'effects' },
       { key: 'transform', label: 'design.css.transform', type: 'text', group: 'effects' },
       { key: 'transition', label: 'design.css.transition', type: 'text', group: 'effects' },
-      { key: 'cursor', label: 'design.css.cursor', type: 'select', group: 'effects', options: ['auto', 'default', 'pointer', 'text', 'wait', 'move', 'not-allowed'] },
-      { key: 'overflow', label: 'design.css.overflow', type: 'select', group: 'effects', options: ['visible', 'hidden', 'scroll', 'auto'] },
+      {
+        key: 'cursor',
+        label: 'design.css.cursor',
+        type: 'select',
+        group: 'effects',
+        options: ['auto', 'default', 'pointer', 'text', 'wait', 'move', 'not-allowed'],
+      },
+      {
+        key: 'overflow',
+        label: 'design.css.overflow',
+        type: 'select',
+        group: 'effects',
+        options: ['visible', 'hidden', 'scroll', 'auto'],
+      },
     ],
   },
   {
@@ -309,7 +410,10 @@ function TreeView({
   const [collapsed, setCollapsed] = useState(depth >= 2)
   const hasChildren = node.children.length > 0
   const isSelected = selectedElementId === node.id || (!selectedElementId && depth === 0)
-  const label = node.tagName + (node.id ? `#${node.id}` : '') + (node.className ? `.${node.className.split(/\s+/)[0]}` : '')
+  const label =
+    node.tagName +
+    (node.id ? `#${node.id}` : '') +
+    (node.className ? `.${node.className.split(/\s+/)[0]}` : '')
   return (
     <div>
       <button
@@ -333,7 +437,9 @@ function TreeView({
           color: 'var(--text, inherit)',
         }}
       >
-        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>{hasChildren ? (collapsed ? '▶' : '▼') : '·'}</span>
+        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>
+          {hasChildren ? (collapsed ? '▶' : '▼') : '·'}
+        </span>
         <span style={{ fontFamily: 'monospace' }}>{label}</span>
       </button>
       {!collapsed && hasChildren && (
@@ -358,7 +464,18 @@ function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: bool
   const transform = rotate ? 'rotate(90deg)' : undefined
   if (icon === 'phone') {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform }} aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ transform }}
+        aria-hidden="true"
+      >
         <rect x="5" y="2" width="14" height="20" rx="2" />
         <line x1="12" y1="18" x2="12" y2="18" />
       </svg>
@@ -366,7 +483,18 @@ function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: bool
   }
   if (icon === 'tablet') {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform }} aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ transform }}
+        aria-hidden="true"
+      >
         <rect x="4" y="2" width="16" height="20" rx="2" />
         <line x1="12" y1="18" x2="12" y2="18" />
       </svg>
@@ -374,7 +502,17 @@ function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: bool
   }
   if (icon === 'desktop') {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <rect x="2" y="3" width="20" height="14" rx="2" />
         <line x1="8" y1="21" x2="16" y2="21" />
         <line x1="12" y1="17" x2="12" y2="21" />
@@ -382,7 +520,17 @@ function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: bool
     )
   }
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
     </svg>
   )
@@ -398,7 +546,9 @@ function normalizeColorHex(v: string): string {
   const toHex = (n: string) => {
     const num = parseFloat(n)
     if (Number.isNaN(num)) return '00'
-    return Math.max(0, Math.min(255, Math.round(num))).toString(16).padStart(2, '0')
+    return Math.max(0, Math.min(255, Math.round(num)))
+      .toString(16)
+      .padStart(2, '0')
   }
   return '#' + toHex(parts[0] ?? '0') + toHex(parts[1] ?? '0') + toHex(parts[2] ?? '0')
 }
@@ -435,7 +585,9 @@ function CssPropRow({
       >
         <option value="">—</option>
         {prop.options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
         ))}
       </select>
     )
@@ -447,7 +599,14 @@ function CssPropRow({
           type="color"
           value={hex || '#000000'}
           onChange={(e) => onChange(e.target.value)}
-          style={{ width: 32, height: 24, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}
+          style={{
+            width: 32,
+            height: 24,
+            padding: 0,
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
         />
         <input
           value={value}
@@ -519,7 +678,9 @@ function CssGroupSection({
           color: 'var(--text, inherit)',
         }}
       >
-        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>{collapsed ? '▶' : '▼'}</span>
+        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>
+          {collapsed ? '▶' : '▼'}
+        </span>
         <span>{t(group.label)}</span>
       </button>
       {!collapsed && (
@@ -676,7 +837,12 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     const handler = (e: MessageEvent) => {
       const d = e.data
       if (!d || d.__ihui !== true || d.type !== 'select') return
-      setSelected({ elementId: d.elementId, tagName: d.tagName, text: d.text, style: d.style as Record<string, string> })
+      setSelected({
+        elementId: d.elementId,
+        tagName: d.tagName,
+        text: d.text,
+        style: d.style as Record<string, string>,
+      })
       setStyleEdits({ ...(d.style as Record<string, string>) })
     }
     window.addEventListener('message', handler)
@@ -725,10 +891,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
 
   const onResetStyles = () => {
     setStyleEdits({})
-    iframeRef.current?.contentWindow?.postMessage(
-      { __ihui: true, type: 'reset-style' },
-      '*',
-    )
+    iframeRef.current?.contentWindow?.postMessage({ __ihui: true, type: 'reset-style' }, '*')
   }
 
   const onRender = useCallback(() => {
@@ -859,7 +1022,13 @@ export default function DesignPage({ onComment }: DesignPageProps) {
       }
     } else {
       // 无 previewId 时,仅本地提示(评论尚未持久化,需先保存预览)
-      setCommentMsg(t('design.commented', { tagName: selected?.tagName ?? '', elementId: elementId || '?', comment: text }))
+      setCommentMsg(
+        t('design.commented', {
+          tagName: selected?.tagName ?? '',
+          elementId: elementId || '?',
+          comment: text,
+        }),
+      )
     }
     setCommentText('')
     setCommentOpen(false)
@@ -883,7 +1052,9 @@ export default function DesignPage({ onComment }: DesignPageProps) {
       setSelected(null)
       setAiMsg(t('design.aiGenerate.success'))
     } catch (err) {
-      setAiMsg(`${t('design.aiGenerate.failed')}: ${err instanceof Error ? err.message : String(err)}`)
+      setAiMsg(
+        `${t('design.aiGenerate.failed')}: ${err instanceof Error ? err.message : String(err)}`,
+      )
     } finally {
       setAiGenerating(false)
     }
@@ -943,13 +1114,16 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   }
 
   /** 应用模板:setHtml + setRenderedHtml + pushHistory + 清选中 + 关闭 Dialog。 */
-  const onApplyTemplate = useCallback((templateHtml: string) => {
-    setHtml(templateHtml)
-    setRenderedHtml(templateHtml)
-    pushHistory(templateHtml)
-    setSelected(null)
-    setTemplateDialogOpen(false)
-  }, [pushHistory])
+  const onApplyTemplate = useCallback(
+    (templateHtml: string) => {
+      setHtml(templateHtml)
+      setRenderedHtml(templateHtml)
+      pushHistory(templateHtml)
+      setSelected(null)
+      setTemplateDialogOpen(false)
+    },
+    [pushHistory],
+  )
 
   const canUndo = history.index > 0
   const canRedo = history.index < history.stack.length - 1
@@ -958,9 +1132,27 @@ export default function DesignPage({ onComment }: DesignPageProps) {
 
   return (
     <div className="page" style={{ maxWidth: 1280 }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 12,
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('design.title')}</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            flex: 1,
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
           <Tooltip content={t('design.templates.title')}>
             <button
               type="button"
@@ -1107,15 +1299,16 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           </div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '0 6px' }}>
             {RESPONSIVE_DEVICES.map((device) => {
-              const isLandscape = device.id === 'mobile-landscape' || device.id === 'tablet-landscape'
+              const isLandscape =
+                device.id === 'mobile-landscape' || device.id === 'tablet-landscape'
               const isSelected = selectedDeviceId === device.id
-              const title = device.width > 0
-                ? `${t(device.nameKey)} (${device.width}×${device.height})`
-                : t(device.nameKey)
+              const title =
+                device.width > 0
+                  ? `${t(device.nameKey)} (${device.width}×${device.height})`
+                  : t(device.nameKey)
               return (
-                <Tooltip content={title}>
+                <Tooltip key={device.id} content={title}>
                   <button
-                    key={device.id}
                     type="button"
                     onClick={() => onSelectDevice(device.id)}
                     aria-label={title}
@@ -1129,7 +1322,9 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                       padding: 0,
                       border: '1px solid var(--border)',
                       borderRadius: 6,
-                      background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                      background: isSelected
+                        ? 'var(--accent-soft, rgba(0,0,0,0.06))'
+                        : 'transparent',
                       cursor: 'pointer',
                       color: 'var(--text, inherit)',
                     }}
@@ -1142,13 +1337,20 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             {customInputOpen && (
               <div
                 ref={customInputRef}
-                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
               >
                 <input
                   type="number"
                   value={customWidthInput}
                   onChange={(e) => setCustomWidthInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onApplyCustomWidth() }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onApplyCustomWidth()
+                  }}
                   min={200}
                   max={3840}
                   placeholder={t('design.responsive.customWidth')}
@@ -1158,7 +1360,15 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                 <button
                   type="button"
                   onClick={onApplyCustomWidth}
-                  style={{ fontSize: 11, padding: '2px 8px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', cursor: 'pointer', color: 'var(--text, inherit)' }}
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 4,
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
                 >
                   {t('design.responsive.apply')}
                 </button>
@@ -1178,7 +1388,9 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                   padding: '0 8px',
                   border: '1px solid var(--border)',
                   borderRadius: 6,
-                  background: showDeviceFrame ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                  background: showDeviceFrame
+                    ? 'var(--accent-soft, rgba(0,0,0,0.06))'
+                    : 'transparent',
                   fontSize: 11,
                   cursor: 'pointer',
                   color: 'var(--text, inherit)',
@@ -1188,30 +1400,36 @@ export default function DesignPage({ onComment }: DesignPageProps) {
               </button>
             </Tooltip>
           </div>
-          <Tooltip content={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}>
+          <Tooltip
+            content={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
+          >
             <button
               type="button"
               onClick={() => setGuidesEnabled((v) => !v)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-              aria-label={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
+              aria-label={
+                guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')
+              }
             >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-            <span>{guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}</span>
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+              <span>
+                {guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
+              </span>
+            </button>
           </Tooltip>
         </div>
       </header>
@@ -1223,10 +1441,29 @@ export default function DesignPage({ onComment }: DesignPageProps) {
 
       <div style={{ display: 'flex', gap: 12, height: 'calc(100vh - 200px)' }}>
         {/* 左栏:预览列表 + 组件树(竖向堆叠,各自可滚动) */}
-        <section style={{ flex: '0 0 220px', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: '40%', overflow: 'auto', flexShrink: 0 }}>
+        <section
+          style={{
+            flex: '0 0 220px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              maxHeight: '40%',
+              overflow: 'auto',
+              flexShrink: 0,
+            }}
+          >
             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{t('design.previewList')}</h3>
-            {previewsLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('common.loading')}</span>}
+            {previewsLoading && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('common.loading')}</span>
+            )}
             {previewsError && (
               <span style={{ fontSize: 12, color: 'var(--danger, #dc2626)' }}>
                 {t('design.loadFailed')}: {previewsError}
@@ -1236,35 +1473,52 @@ export default function DesignPage({ onComment }: DesignPageProps) {
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.noPreviews')}</span>
             )}
             {previews.map((p) => (
-              <Tooltip content={t('design.loadPreview')}>
+              <Tooltip key={p.id} content={t('design.loadPreview')}>
                 <button
-                  key={p.id}
                   type="button"
                   onClick={() => onLoadPreview(p)}
                   style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  textAlign: 'left',
-                  padding: '6px 8px',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  background: currentPreviewId === p.id ? 'var(--accent-soft, rgba(0,0,0,0.04))' : 'var(--card)',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 500 }}>{p.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{dateFormatter.format(new Date(p.createdAt))}</span>
-              </button>
-            </Tooltip>
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    textAlign: 'left',
+                    padding: '6px 8px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    background:
+                      currentPreviewId === p.id
+                        ? 'var(--accent-soft, rgba(0,0,0,0.04))'
+                        : 'var(--card)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 500 }}>{p.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    {dateFormatter.format(new Date(p.createdAt))}
+                  </span>
+                </button>
+              </Tooltip>
             ))}
           </div>
 
           {/* 组件树面板 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflow: 'auto', minHeight: 0 }}>
-            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{t('design.componentTree.title')}</h3>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              flex: 1,
+              overflow: 'auto',
+              minHeight: 0,
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+              {t('design.componentTree.title')}
+            </h3>
             {tree.children.length === 0 ? (
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.componentTree.empty')}</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {t('design.componentTree.empty')}
+              </span>
             ) : (
               tree.children.map((child, i) => (
                 <TreeView
@@ -1306,7 +1560,15 @@ export default function DesignPage({ onComment }: DesignPageProps) {
         </section>
 
         {/* 中:iframe 画布(响应式预览:wrapper 控制最大宽度 + 居中 + 可选设备外框) */}
-        <section style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', padding: 8 }}>
+        <section
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'auto',
+            padding: 8,
+          }}
+        >
           <div
             style={{
               width: '100%',
@@ -1328,13 +1590,27 @@ export default function DesignPage({ onComment }: DesignPageProps) {
               ref={iframeRef}
               srcDoc={srcDoc}
               title="design-preview"
-              style={{ flex: 1, border: 'none', background: 'var(--card)', width: '100%', height: '100%' }}
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'var(--card)',
+                width: '100%',
+                height: '100%',
+              }}
             />
           </div>
         </section>
 
         {/* 右:tab(CSS / 评论) */}
-        <section style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+        <section
+          style={{
+            flex: '0 0 280px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            overflow: 'hidden',
+          }}
+        >
           <div style={{ display: 'flex', gap: 4 }}>
             <button
               type="button"
@@ -1373,10 +1649,29 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           </div>
 
           {rightTab === 'css' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1, padding: 8, border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                overflow: 'auto',
+                flex: 1,
+                padding: 8,
+                border: '1px solid var(--border)',
+                borderTop: 'none',
+                borderRadius: '0 0 6px 6px',
+              }}
+            >
               {selected ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                       {selected.tagName}
                       {selected.elementId ? `#${selected.elementId}` : ''}
@@ -1384,7 +1679,15 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                     <button
                       type="button"
                       onClick={onResetStyles}
-                      style={{ fontSize: 11, padding: '2px 8px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                      style={{
+                        fontSize: 11,
+                        padding: '2px 8px',
+                        border: '1px solid var(--border)',
+                        borderRadius: 4,
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        color: 'var(--muted)',
+                      }}
                     >
                       {t('design.css.reset')}
                     </button>
@@ -1398,7 +1701,11 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                       t={tf}
                     />
                   ))}
-                  <button type="button" onClick={() => setCommentOpen((v) => !v)} style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCommentOpen((v) => !v)}
+                    style={{ marginTop: 8 }}
+                  >
                     {t('design.commentToChat')}
                   </button>
                   {commentOpen && (
@@ -1413,20 +1720,40 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                         <button type="button" onClick={onSubmitComment} disabled={commentPosting}>
                           {commentPosting ? t('common.loading') : t('design.comments.send')}
                         </button>
-                        <button type="button" onClick={() => setCommentOpen(false)}>{t('common.cancel')}</button>
+                        <button type="button" onClick={() => setCommentOpen(false)}>
+                          {t('common.cancel')}
+                        </button>
                       </div>
                     </div>
                   )}
                 </>
               ) : (
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.clickElementHint')}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {t('design.clickElementHint')}
+                </span>
               )}
-              {commentMsg && <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{commentMsg}</p>}
+              {commentMsg && (
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{commentMsg}</p>
+              )}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1, padding: 8, border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                overflow: 'auto',
+                flex: 1,
+                padding: 8,
+                border: '1px solid var(--border)',
+                borderTop: 'none',
+                borderRadius: '0 0 6px 6px',
+              }}
+            >
               {!currentPreviewId && (
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.comments.empty')}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {t('design.comments.empty')}
+                </span>
               )}
               {currentPreviewId && commentsLoading && (
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('common.loading')}</span>
@@ -1437,7 +1764,9 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                 </span>
               )}
               {currentPreviewId && !commentsLoading && !commentsError && comments.length === 0 && (
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.comments.noComments')}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {t('design.comments.noComments')}
+                </span>
               )}
               {comments.map((c) => (
                 <div
@@ -1452,7 +1781,14 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                     gap: 4,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text, inherit)' }}>
                       {c.userName || `User ${c.userId}`}
                     </span>
@@ -1505,11 +1841,20 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t('design.templates.title')}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                {t('design.templates.title')}
+              </h3>
               <button
                 type="button"
                 onClick={() => setTemplateDialogOpen(false)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', lineHeight: 1 }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  color: 'var(--muted)',
+                  lineHeight: 1,
+                }}
                 aria-label={t('common.close')}
               >
                 ×
@@ -1549,9 +1894,13 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                   }}
                 >
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{t(tpl.nameKey)}</span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t(tpl.descriptionKey)}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    {t(tpl.descriptionKey)}
+                  </span>
                   <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
-                    {t(TEMPLATE_CATEGORY_KEY[tpl.category] ?? 'design.templates.categories.unknown')}
+                    {t(
+                      TEMPLATE_CATEGORY_KEY[tpl.category] ?? 'design.templates.categories.unknown',
+                    )}
                   </span>
                 </button>
               ))}
