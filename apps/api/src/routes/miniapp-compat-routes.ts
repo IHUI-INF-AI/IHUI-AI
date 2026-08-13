@@ -39,6 +39,7 @@ import {
   agentUseDetails,
   zhsUserAgentContext,
   zhsAgentBuy,
+  zhsAiUserModelChatHistory,
   userMargins,
   tokenFlows,
   commissionFlows,
@@ -1515,8 +1516,45 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /model/* (2 个 — 外部 AI 模型服务,需部署 LLM 推理服务后接入真实 API)
+  // /model/* (3 个 — 外部 AI 模型服务,需部署 LLM 推理服务后接入真实 API)
   // ==========================================================================
+
+  // GET /model/chat — 历史对话列表查询(前端 getModelChat)
+  // 数据源:zhsAiUserModelChatHistory(与 /ai/history 同源),按 createdAt 倒序分页。
+  // 注:该表按消息粒度存储(无独立 conversation 维度),前端期望的 title/modelId/modelName
+  // 通过 content 截断 / configId / model 字段映射得到。
+  server.get('/model/chat', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const offset = (page - 1) * pageSize
+    const where = eq(zhsAiUserModelChatHistory.userId, userId)
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(zhsAiUserModelChatHistory)
+        .where(where)
+        .orderBy(desc(zhsAiUserModelChatHistory.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(zhsAiUserModelChatHistory)
+        .where(where),
+    ])
+    const formattedList = list.map((item) => ({
+      id: String(item.id),
+      title: item.content.slice(0, 30) || '未命名对话',
+      time: item.createdAt ? new Date(item.createdAt).toISOString() : '',
+      messages: [],
+      modelId: String(item.configId),
+      modelName: item.model || undefined,
+    }))
+    return reply.send(
+      success({ list: formattedList, total: totalRows[0]?.count ?? 0, page, pageSize }),
+    )
+  })
+
   server.post('/model/chat', async (_request, reply) => {
     // 外部 AI 模型服务,需对接 LLM 推理 API
     return reply.send(success({ id: Date.now().toString() }))
