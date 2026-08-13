@@ -862,19 +862,29 @@ function MarketPluginCard({
     )
   }
   // dialog 模式(内置可调用):点击触发 onInvoke,不跳转外部
+  // 注意:用 <div role="button"> 而非 <button>,因为 card 内还包含 Tooltip 包裹的
+  // <button>(add to chat / pin / install),HTML 禁止 button 嵌套 button。
   if (isDialogMode) {
     return (
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => {
           onRecordClick()
           onInvoke()
         }}
-        className="group block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onRecordClick()
+            onInvoke()
+          }
+        }}
+        className="group block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
         aria-label={`${invokeLabel} ${plugin.name}`}
       >
         {card}
-      </button>
+      </div>
     )
   }
   // external 模式(纯外链参考):新窗口跳转
