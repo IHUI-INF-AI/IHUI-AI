@@ -569,15 +569,49 @@ iframe::-webkit-scrollbar {
 /* 拖拽手柄可见线:中间蓝色,向上下两端渐变为浅蓝直至透明("消失"效果)。
    适用于侧边栏与 AI 面板的右侧 resize handle 内层 1px 线条。
    默认完全隐藏(opacity:0),仅 hover 命中区或拖拽时显现。
-   明暗双主题统一使用品牌蓝(#3b82f6 / blue-500),不做 dark 模式 override。
+   明色调使用品牌蓝(#3b82f6),暗色调使用偏亮蓝(#60a5fa)以适配深色背景。
+   暗色模式 drop-shadow 使用亮蓝光晕,与明色调区分。
    例外说明:"不要蓝色发光边框"规则约束输入框/按钮 hover 描边,
    resize 手柄是品牌色装饰元素,不在此规则范围内。 */
 .resize-handle-line {
-  background: rgb(59 130 246 / 0.4);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(59, 130, 246, 0.2) 10%,
+    rgba(59, 130, 246, 0.5) 25%,
+    rgba(59, 130, 246, 0.85) 40%,
+    #3b82f6 50%,
+    rgba(59, 130, 246, 0.85) 60%,
+    rgba(59, 130, 246, 0.5) 75%,
+    rgba(59, 130, 246, 0.2) 90%,
+    transparent 100%
+  );
   opacity: 0;
   transition:
     opacity 0.2s ease,
     filter 0.2s ease;
+}
+
+/* 暗色模式:中心色偏亮蓝,两端浅蓝,与深色背景形成对比 */
+.dark .resize-handle-line {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 10%,
+    rgba(96, 165, 250, 0.5) 25%,
+    rgba(96, 165, 250, 0.85) 40%,
+    #60a5fa 50%,
+    rgba(96, 165, 250, 0.85) 60%,
+    rgba(96, 165, 250, 0.5) 75%,
+    rgba(96, 165, 250, 0.2) 90%,
+    transparent 100%
+  );
+}
+
+.dark .group:hover .resize-handle-line,
+.dark .group:focus-within .resize-handle-line,
+:where(.dark .resize-handle-line.is-resizing) {
+  filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.65));
 }
 /* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现并带蓝色光晕(明暗统一) */
 .group:hover .resize-handle-line,
