@@ -6,12 +6,15 @@
  * - 三段横向课程列表(推荐 hot_courses / 赛道 beginner_courses / 最新 selected_courses)
  * - 数据加载:fetchApi 拉取 /api/course-planet(对齐 .vue getCoursePlanet)
  * - 下拉刷新 / 空态(Empty)/ 加载态(Loading)/ 错误重试
+ * - SingleTypeBar 课程类型筛选(全部/免费/付费)驱动真实数据过滤
+ * - Menu 功能菜单(id=4 跳 Agent,其余弹"功能开发中"Alert)
  * - 浅色优雅风,rnLightTokens;圆角守门(无 rounded-full);无分割线(gap 间距)
  *
  * 与 KnowledgePlanetScreen(知识星球资讯页)区分:本页为课程列表,非资讯。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Alert,
   FlatList,
   Image,
   Pressable,
@@ -33,10 +36,6 @@ import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
 import MoreTitles from '../components/MoreTitles'
 import Menu from '../components/Menu'
-import TitleSwitchOverlap from '../components/TitleSwitchOverlap'
-import TitleSwitchScrollPicker from '../components/TitleSwitchScrollPicker'
-import TitleSwitchScrollTitle from '../components/TitleSwitchScrollTitle'
-import TitleSwitchTypeBar from '../components/TitleSwitchTypeBar'
 import { SingleTypeBar, type SingleTypeBarItem } from '../components/SingleTypeBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -118,6 +117,22 @@ export function CoursePlanetScreen() {
     navigation.navigate('CourseDetail', { id: String(course.id) })
   }
 
+  /** 按 selectedType 过滤课程:all=全部 / free=免费 / paid=付费 */
+  const filterByType = useCallback(
+    (courses: CoursePlanetCourse[] | undefined): CoursePlanetCourse[] => {
+      if (!courses || courses.length === 0) return []
+      if (selectedType === 'all') return courses
+      if (selectedType === 'free') return courses.filter((c) => c.isFree === true)
+      // paid:非免费(含 isFree=false 或 isFree 未定义但有 price)
+      return courses.filter((c) => c.isFree !== true)
+    },
+    [selectedType],
+  )
+
+  const hotCourses = useMemo(() => filterByType(data?.hot_courses), [data, filterByType])
+  const beginnerCourses = useMemo(() => filterByType(data?.beginner_courses), [data, filterByType])
+  const selectedCourses = useMemo(() => filterByType(data?.selected_courses), [data, filterByType])
+
   const renderCourse = ({ item }: { item: CoursePlanetCourse }) => (
     <Pressable
       style={({ pressed }) => [styles.courseCard, pressed ? styles.courseCardPressed : null]}
@@ -139,11 +154,11 @@ export function CoursePlanetScreen() {
     </Pressable>
   )
 
-  const renderSection = (title: string, courses: CoursePlanetCourse[] | undefined) => {
-    if (!courses || courses.length === 0) return null
+  const renderSection = (title: string, courses: CoursePlanetCourse[]) => {
+    if (courses.length === 0) return null
     return (
       <View style={styles.section}>
-        <MoreTitles title={title} onMore={() => navigation.navigate('Course' as never)} />
+        <MoreTitles title={title} onMore={() => navigation.navigate('CourseFilter')} />
         <FlatList
           data={courses}
           keyExtractor={(item) => String(item.id)}
@@ -160,6 +175,16 @@ export function CoursePlanetScreen() {
     data &&
       (data.hot_courses?.length || data.beginner_courses?.length || data.selected_courses?.length),
   )
+
+  /** Menu 功能菜单点击:id=4 跳 Agent,其余弹"功能开发中"提示 */
+  const onMenuPress = (id: number | string) => {
+    if (Number(id) === 4) {
+      const parent = navigation.getParent<NavigationProp>()
+      parent?.navigate('Agent')
+      return
+    }
+    Alert.alert('功能开发中', '此功能正在开发中,敬请期待')
+  }
 
   return (
     <View style={styles.container}>
@@ -189,19 +214,10 @@ export function CoursePlanetScreen() {
         >
           {/* Menu 功能菜单网格(对齐 Uniapp coursePlanet 菜单入口) */}
           <View style={styles.menuWrap}>
-            <Menu columns={4} onPress={(item) => {
-              const routeMap: Record<number, string> = {
-                1: 'CoursePlanet', 2: 'CoursePlanet', 3: 'CoursePlanet',
-                4: 'Agent', 5: 'CoursePlanet', 6: 'CoursePlanet',
-              }
-              const route = routeMap[item.id as number] ?? 'CoursePlanet'
-              if (route === 'Agent') {
-                navigation.getParent()?.navigate('Agent' as never)
-              }
-            }} />
+            <Menu columns={4} onPress={(item) => onMenuPress(item.id)} />
           </View>
 
-          {/* SingleTypeBar 单选课程类型(对齐 Uniapp type-bar/single.vue) */}
+          {/* SingleTypeBar 单选课程类型(对齐 Uniapp type-bar/single.vue),onSelect 驱动真实数据过滤 */}
           <View style={styles.singleTypeBarWrap}>
             <SingleTypeBar
               items={COURSE_TYPE_ITEMS}
@@ -210,31 +226,9 @@ export function CoursePlanetScreen() {
             />
           </View>
 
-          {/* TitleSwitchTypeBar 横向多选分类条(对齐 Uniapp type_bar.vue) */}
-          <View style={styles.typeBarWrap}>
-            <MoreTitles title="分类筛选" />
-            <TitleSwitchTypeBar showAll customize onChange={() => {}} />
-          </View>
-
-          {/* TitleSwitchScrollTitle 主子赛道横向选择器(对齐 Uniapp scroll_title.vue) */}
-          <View style={styles.trackSelectorWrap}>
-            <MoreTitles title="赛道选择" />
-            <TitleSwitchScrollTitle onChange={() => {}} />
-          </View>
-
-          {/* TitleSwitchOverlap 垂直滚动赛道选择器(对齐 Uniapp overlap_large.vue) */}
-          <View style={styles.overlapWrap}>
-            <TitleSwitchOverlap onCurrentChange={() => {}} />
-          </View>
-
-          {/* TitleSwitchScrollPicker 滚轮选择器(对齐 Uniapp scroll_picker.vue) */}
-          <View style={styles.scrollPickerWrap}>
-            <TitleSwitchScrollPicker onChange={() => {}} />
-          </View>
-
-          {renderSection('推荐课程', data.hot_courses)}
-          {renderSection('课程赛道', data.beginner_courses)}
-          {renderSection('最新课程', data.selected_courses)}
+          {renderSection('推荐课程', hotCourses)}
+          {renderSection('课程赛道', beginnerCourses)}
+          {renderSection('最新课程', selectedCourses)}
         </ScrollView>
       ) : (
         <View style={styles.centerWrap}>
@@ -266,18 +260,6 @@ const styles = StyleSheet.create({
     backgroundColor: tk.surface.card,
     borderRadius: 12,
     paddingVertical: 4,
-  } as ViewStyle,
-  typeBarWrap: {
-    marginBottom: 16,
-  } as ViewStyle,
-  trackSelectorWrap: {
-    marginBottom: 16,
-  } as ViewStyle,
-  overlapWrap: {
-    marginBottom: 16,
-  } as ViewStyle,
-  scrollPickerWrap: {
-    marginBottom: 16,
   } as ViewStyle,
   sectionList: {
     gap: 12,
