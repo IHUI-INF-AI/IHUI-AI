@@ -33,7 +33,7 @@ import Taro, {
   usePullDownRefresh,
   useReachBottom,
 } from '@tarojs/taro'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { useI18n, useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
@@ -204,11 +204,31 @@ interface AiHomeState {
   }
 
 /**
- * PushNotification 推送通知弹窗组件(对齐原项目 PushNotification.vue)
- * - 通过全局事件触发显示,固定在页面顶部
- * - 当前为占位组件,待接入真实推送逻辑
+ * PushNotification 推送通知(对齐原项目 PushNotification.vue L4 + L3646-3653)
+ * - 通过 Taro.eventCenter 监听 'showPushNotification' 全局事件
+ * - showToast 兜底显示通知(简化版,原项目是有 UI 渲染的弹窗)
  */
 function PushNotification() {
+  // 对齐原项目:监听 showPushNotification 全局事件
+  useDidShow(() => {
+    Taro.eventCenter.on('showPushNotification', (options: { title?: string; content?: string }) => {
+      if (options?.title) {
+        Taro.showToast({
+          title: options.title,
+          icon: 'none',
+          duration: 3000,
+        })
+      }
+    })
+  })
+
+  // 清理监听(防止内存泄漏)
+  useEffect(() => {
+    return () => {
+      Taro.eventCenter.off('showPushNotification')
+    }
+  }, [])
+
   return null
 }
 
@@ -262,6 +282,61 @@ function MaterialCards({ cards, onRemove, tt }: {
           ))}
         </View>
       </ScrollView>
+    </View>
+  )
+}
+
+// ===== VoiceAnimationOverlay 子组件(提取自主组件,对齐原项目 voice-animation-overlay)=====
+function VoiceAnimationOverlay({
+  visible,
+  tt,
+  onClose,
+}: {
+  visible: boolean
+  tt: (key: string, fallback: string) => string
+  onClose: () => void
+}) {
+  if (!visible) return null
+  return (
+    <View
+      className="voice-animation-overlay"
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1001,
+        background: 'var(--color-card)',
+        padding: '30rpx 0',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', marginBottom: rpx(20) }}>
+        {tt('index.voice.listening', '正在聆听...')}
+      </Text>
+      <View className="voice-wave-container" style={{ display: 'flex', alignItems: 'center', gap: rpx(8), height: rpx(80) }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View
+            key={i}
+            className="ai-voice-move voice-wave-bar"
+            style={{
+              width: rpx(8),
+              height: rpx(60),
+              background: 'var(--color-brand-cyan, #93d2f3)',
+              borderRadius: rpx(4),
+              animationDelay: `${i * 0.1}s`,
+              animationDuration: `${0.5 + i * 0.1}s`,
+            }}
+          />
+        ))}
+      </View>
+      <Text style={{ fontSize: rpx(24), color: '#888', marginTop: rpx(16) }}>
+        {tt('index.voice.tapToStop', '点击停止录音')}
+      </Text>
     </View>
   )
 }
@@ -502,17 +577,6 @@ export default function Index() {
         currentModelType: '',
       }
     })
-  }, [])
-
-  // ===== 内部容器点击处理(对齐原项目 container @click="handleClick") =====
-  // 原项目用于切换 sourceIs/sourceIsAgent 状态,此处重置 toggle 状态
-  const handleInnerClick = useCallback(() => {
-    // 对齐原项目 handleClick: 重置 sourceIs/sourceIsAgent 状态
-    // 当前 Taro 版本通过 BottomActionBar 的 toggle 按钮处理,此处为防误触占位
-    setState((s) => ({
-      ...s,
-      // 重置 toggle buttons 的高亮折叠状态(如果有展开的 toggle 则收起)
-    }))
   }, [])
 
   const handleModelSelect = (model: ModelItem) => {
@@ -828,8 +892,8 @@ export default function Index() {
       {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
       <FloatBox />
 
-      {/* ===== container 主容器(对齐原项目 container @click=handleClick) ===== */}
-      <View className="container" style={{ padding: 0 }} onClick={handleInnerClick}>
+      {/* ===== container 主容器(对齐原项目 container) ===== */}
+      <View className="container" style={{ padding: 0 }}>
         {/* ===== NavBar(导航栏,对齐原项目 navigation-bars) ===== */}
         <NavBar
           variant="ai-home"
@@ -1157,49 +1221,12 @@ export default function Index() {
         onClose={handleSkillsClose}
       />
 
-      {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay) ===== */}
-      {state.isVoiceAnimationActive && (
-        <View
-          className="voice-animation-overlay"
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1001,
-            background: 'var(--color-card)',
-            padding: '30rpx 0',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => setState((s) => ({ ...s, isVoiceAnimationActive: false, isVoiceInput: false, isRecording: false }))}
-        >
-          <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', marginBottom: rpx(20) }}>
-            {tt('index.voice.listening', '正在聆听...')}
-          </Text>
-          <View className="voice-wave-container" style={{ display: 'flex', alignItems: 'center', gap: rpx(8), height: rpx(80) }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <View
-                key={i}
-                className="ai-voice-move voice-wave-bar"
-                style={{
-                  width: rpx(8),
-                  height: rpx(60),
-                  background: 'var(--color-brand-cyan, #93d2f3)',
-                  borderRadius: rpx(4),
-                  animationDelay: `${i * 0.1}s`,
-                  animationDuration: `${0.5 + i * 0.1}s`,
-                }}
-              />
-            ))}
-          </View>
-          <Text style={{ fontSize: rpx(24), color: '#888', marginTop: rpx(16) }}>
-            {tt('index.voice.tapToStop', '点击停止录音')}
-          </Text>
-        </View>
-      )}
+      {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay,提取为子组件) ===== */}
+      <VoiceAnimationOverlay
+        visible={state.isVoiceAnimationActive}
+        tt={tt}
+        onClose={() => setState((s) => ({ ...s, isVoiceAnimationActive: false, isVoiceInput: false, isRecording: false }))}
+      />
 
       {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if,在 input_box_content 之外) ===== */}
       {state.showSharePointsPopup ? (
