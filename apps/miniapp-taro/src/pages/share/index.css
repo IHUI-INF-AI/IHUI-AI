@@ -158,6 +158,26 @@
   border-radius: 8rpx;
 }
 
+/* 导航栏标题链接组(对齐原项目 .center-row-absolute: 每日资讯/排行榜) */
+.share-navbar-title-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 40rpx;
+}
+.share-navbar-title-link {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 6rpx 0;
+  transition: color 0.2s;
+}
+.share-navbar-title-link--active {
+  color: #00F2FF;
+  font-weight: 600;
+  border-bottom: 4rpx solid #00F2FF;
+}
+
 /* ===== Tabs(对标原 TitleSwitch) ===== */
 .share-tabs {
   display: flex;
