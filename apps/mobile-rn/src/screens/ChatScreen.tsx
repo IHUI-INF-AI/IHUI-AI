@@ -840,7 +840,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
               <X size={20} color={tokens.text.primary} />
             </Pressable>
             <View style={styles.qrCodePlaceholder}>
-              <QrCode size={180} color={tokens.text.primary} />
+              <QrCode size={240} color={tokens.text.primary} />
             </View>
             <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
             <Pressable onPress={handleLongPressQrCode} style={styles.qrCodeHint}>
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   qrCodeContent: {
-    width: 280,
+    width: 320,
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
     padding: 20,
@@ -1192,12 +1192,13 @@ const styles = StyleSheet.create({
     right: 12,
     width: 28,
     height: 28,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   qrCodePlaceholder: {
-    width: 200,
-    height: 200,
+    width: 256,
+    height: 256,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
@@ -1205,7 +1206,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   qrCodeTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: tokens.text.primary,
     marginBottom: 8,
