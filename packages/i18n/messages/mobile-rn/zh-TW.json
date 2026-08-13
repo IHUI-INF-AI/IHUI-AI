@@ -115,6 +115,7 @@
     "navLogout": "登出"
   },
   "settings": {
+    "title": "設定",
     "about": "關於智匯 AI",
     "lang_zhCN": "簡體中文",
     "lang_en": "English",
@@ -125,14 +126,27 @@
     "theme_dark": "深色",
     "theme_system": "跟隨系統",
     "languageChanged": "語言已切換",
-    "themeChanged": "主題已切換"
+    "themeChanged": "主題已切換",
+    "checkUpdateTitle": "檢查更新",
+    "checkUpdateLatest": "當前已是最新版本",
+    "changePhoneMissingUser": "使用者資訊缺失,無法更換手機號",
+    "logoutConfirm": "確認退出當前帳號?"
   },
   "menu": {
     "about": "關於",
     "feedback": "意見反饋",
     "privacy": "隱私協議",
     "agreement": "用戶協議",
-    "changePwd": "修改密碼"
+    "changePwd": "修改密碼",
+    "accountManage": "帳號管理",
+    "changePhone": "更換手機號",
+    "accountCancel": "帳號註銷",
+    "checkUpdate": "檢查更新",
+    "appPermission": "應用權限",
+    "usageRules": "使用規範",
+    "businessLicense": "營業執照",
+    "icpRecord": "ICP 備案",
+    "modelRecord": "模型備案"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -177,13 +191,43 @@
   },
   "common": {
     "ok": "好的",
-    "gotIt": "知道了"
+    "gotIt": "知道了",
+    "back": "返回",
+    "loading": "載入中...",
+    "cancel": "取消",
+    "confirm": "確認",
+    "error": "錯誤",
+    "menu": "選單",
+    "empty": "暫無資料"
   },
   "aiAssistant": {
+    "title": "AI 助手",
+    "subtitle": "選擇智慧體開始對話",
+    "searchPlaceholder": "搜尋智慧體",
+    "empty": "暫無智慧體",
+    "useCount": "{count} 使用",
+    "favoriteCount": "{count} 收藏",
+    "startChat": "開始對話",
+    "catAll": "全部",
+    "catWriting": "寫作",
+    "catCoding": "程式設計",
+    "catOffice": "辦公",
+    "catStudy": "學習",
+    "loadFailed": "載入失敗",
     "chat": {
       "title": "進入對話",
       "message": "即將與「{name}」開始對話"
     }
+  },
+  "aiAssistantN8n": {
+    "title": "AI 助手",
+    "placeholder": "請輸入您的問題",
+    "empty": "向 AI 助手發送訊息開始對話",
+    "emptyNoAgent": "未綁定工作流,發送訊息將得到模擬回應",
+    "send": "傳送",
+    "streaming": "正在生成...",
+    "callFailed": "呼叫失敗,請稍後重試",
+    "mockResponse": "當前為模擬回應,設定 agentId 後可對接真實工作流"
   },
   "aiCareer": {
     "plan": {
@@ -330,5 +374,36 @@
     "voiceInput": "語音輸入",
     "voicePlaceholder": "按住說出分享內容",
     "submit": "分享"
+  },
+  "vipScreen": {
+    "plans": {
+      "continuous": "連續包月",
+      "monthly": "按月購買"
+    },
+    "discount": "限時折扣",
+    "trial": "試用",
+    "subscribe": "立即開通",
+    "agreement": "儲值即表示同意並閱讀《用戶儲值協議》",
+    "pay": {
+      "title": "確認支付",
+      "message": "確認支付 ¥{amount} 開通「{name}」?",
+      "confirm": "確認支付",
+      "cancel": "取消",
+      "success": "支付成功",
+      "failed": "支付失敗或已取消"
+    },
+    "banner": {
+      "trader": "操盤手專屬權益",
+      "traderSubtitle": "大額分銷 · 優先客製 · 一對一陪跑",
+      "level": "會員等級升級機制",
+      "levelHint": "1¥ = 1 點成長值",
+      "privateAdvisory": "私董會服務"
+    },
+    "qr": {
+      "title": "掃碼聯繫客服",
+      "hint": "長按二維碼儲存至相簿",
+      "card": "名片二維碼",
+      "close": "關閉"
+    }
   }
 }

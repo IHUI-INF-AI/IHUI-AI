@@ -71,16 +71,20 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    // 对齐 Uniapp 14rpx(≈7px)卡片间距
+    gap: 7,
     marginBottom: 10,
   },
   card: {
     width: '48%',
+    // 对齐 Uniapp 120rpx(≈60px)卡片高度
     height: 60,
     flexDirection: 'row',
     alignItems: 'center',
+    // 对齐 Uniapp padding: 0 10rpx 0 12rpx
     paddingVertical: 6,
     paddingHorizontal: 10,
+    // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
     borderRadius: 8,
     backgroundColor: tokens.surface.light,
     shadowColor: '#000',
