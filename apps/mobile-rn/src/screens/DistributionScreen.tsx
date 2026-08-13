@@ -36,6 +36,8 @@ export function DistributionScreen() {
     { id: 'bankcard', title: '银行卡', icon: '🏦', description: '管理绑定银行卡' },
     { id: 'realname', title: '实名认证', icon: '🪪', description: '完成实名认证' },
     { id: 'income', title: '收入明细', icon: '📊', description: '查看收入记录' },
+    { id: 'orders', title: '分销订单', icon: '📦', description: '查看分销订单记录' },
+    { id: 'commission', title: '分佣计划', icon: '💰', description: '了解分佣规则与收益' },
   ]
 
   const onBlockPress = useCallback((id: string) => {
@@ -44,6 +46,8 @@ export function DistributionScreen() {
       bankcard: 'BankCard',
       realname: 'RealNameAuth',
       income: 'Income',
+      orders: 'DistributionOrderList',
+      commission: 'EarnCommission',
     }
     const route = routeMap[id]
     if (route) navigation.navigate(route as never)
