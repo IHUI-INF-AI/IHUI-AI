@@ -177,6 +177,16 @@
   transform: rotate(180deg);
 }
 
+/* ===== posi_angeetlis(对齐原项目 position: relative)===== */
+.posi_angeetlis {
+  position: relative;
+}
+
+/* ===== input_box_content(对齐原项目 background-color: #fff)===== */
+.input_box_content {
+  background-color: var(--color-card, #fff);
+}
+
 /* ===== model-type-btn 容器尺寸(对齐原项目 200rpx×60rpx)===== */
 .ai-model-type-btn {
   position: relative;
@@ -187,6 +197,12 @@
   flex-shrink: 0;
   width: 200rpx;
   height: 60rpx;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ai-model-type-btn.active {
+  /* 原项目仅靠 active_back.svg 切换背景图区分 active 态,无 border-bottom/box-shadow */
 }
 
 /* ===== 输入区底部安全区(对齐原项目 env(safe-area-inset-bottom))===== */
@@ -463,83 +479,6 @@
   100% {
     transform: translateX(-100%);
   }
-}
-
-/* ===== 分享弹窗样式(遮罩+内容弹层,深色科技风) ===== */
-.share-popup-overlay {
-  animation: popupFadeIn 0.2s ease-out forwards;
-}
-
-.share-popup-content {
-  position: relative;
-  z-index: 10;
-  background: var(--color-card, #1F1F28);
-  border-radius: 24rpx;
-  width: 80%;
-  max-width: 600rpx;
-  padding: 30rpx 20rpx;
-  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.4);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
-}
-
-.share-popup-header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding-bottom: 24rpx;
-  border-bottom: 2rpx solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 24rpx;
-}
-
-.share-popup-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--color-foreground, #fff);
-}
-
-.share-popup-channels {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-around;
-  padding: 10rpx 0;
-}
-
-.share-popup-channel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12rpx;
-  cursor: pointer;
-  padding: 10rpx;
-}
-
-.share-popup-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 20rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.share-popup-label {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground, #999);
-}
-
-.share-popup-cancel {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 24rpx;
-  padding-top: 20rpx;
-  border-top: 2rpx solid rgba(255, 255, 255, 0.1);
-}
-
-.share-popup-cancel-text {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground, #999);
-  padding: 10rpx 40rpx;
 }
 
 /* ===== 模型列表选中样式增强 ===== */
