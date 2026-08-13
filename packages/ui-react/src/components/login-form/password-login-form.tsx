@@ -105,6 +105,9 @@ export function PasswordLoginForm({
   const [captchaOk, setCaptchaOk] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const formRef = React.useRef<HTMLFormElement>(null)
+  /** 自动登录提交标记:绕过 agreement 检查(agreed 默认 false 会阻止自动提交) */
+  const isAutoLoginRef = React.useRef(false)
 
   // 加载图形验证码
   const refreshCaptcha = React.useCallback(async () => {
@@ -126,12 +129,32 @@ export function PasswordLoginForm({
     if (captchaEnabled) void refreshCaptcha()
   }, [captchaEnabled, refreshCaptcha])
 
+  // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单
+  React.useEffect(() => {
+    if (!enableCredentialPersistence) return
+    if (!autoLogin) return
+    if (!remembered?.account || !remembered?.password) return
+    // 标记自动登录提交,onsubmit 中绕过 agreement 检查
+    isAutoLoginRef.current = true
+    // 延迟执行让 UI 先渲染,用户看到表单闪过后自动提交
+    const timer = setTimeout(() => {
+      formRef.current?.requestSubmit()
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 仅 mount 时执行一次
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!agreed) {
-      onRequireAgree?.()
-      return
+      if (isAutoLoginRef.current) {
+        // 自动登录:自动同意协议,跳过 agreement 检查
+        isAutoLoginRef.current = false
+      } else {
+        onRequireAgree?.()
+        return
+      }
     }
     if (!account.trim()) {
       setError(t('auth.invalidAccount'))
@@ -188,6 +211,7 @@ export function PasswordLoginForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={onSubmit}
       onKeyDown={(e) => {
         // 兜底:Radix Dialog/Portal 内浏览器 implicit form submission 在某些场景失效
