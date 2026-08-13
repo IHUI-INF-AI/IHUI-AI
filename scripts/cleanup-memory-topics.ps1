@@ -1,3 +1,4 @@
+#requires -Version 7
 # memory topics.md cleanup script
 # Move topics.md / session_memory_*.jsonl older than 30 days to archive subdir
 # These files are managed by Trae CN automatically, only move files, never edit content
