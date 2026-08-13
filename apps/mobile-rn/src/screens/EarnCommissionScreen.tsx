@@ -13,7 +13,7 @@
  * 平台独占:仅 mobile-rn 端。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getOverview, type CommissionOverview } from '@ihui/api-client'
@@ -63,7 +63,7 @@ export default function EarnCommissionScreen() {
   const invitedCount = overview?.invitedCount ?? 0
 
   const onOpenVip = (): void => {
-    Alert.alert('开通VIP', '跳转 VIP 开通页(功能开发中)')
+    navigation.navigate('Vip')
   }
 
   return (
