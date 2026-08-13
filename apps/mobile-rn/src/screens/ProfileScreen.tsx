@@ -33,7 +33,7 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
-import type { ProfileStackParamList } from '../navigation/RootNavigator'
+import type { ProfileStackParamList, RootStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
@@ -52,6 +52,18 @@ import {
 } from './profileContentTypes'
 
 type ProfileStackNav = NativeStackNavigationProp<ProfileStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+/**
+ * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 178+ 路由的 RootStackParamList
+ * 联合类型推断失败(distributive conditional type 限制),需在 helper 内部隔离类型断言。
+ * FIXME(any): react-navigation v6 类型系统限制;移除计划:升级到 v7 后改用原生 navigate
+ */
+function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList): void {
+  if (nav) {
+    nav.navigate(route as never)
+  }
+}
 
 /** Drawer 5 主菜单 → RN Tab 路由映射(square/share 无对应 RN Tab,fallback 到 home) */
 const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
@@ -72,6 +84,7 @@ const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
 export function ProfileScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<ProfileStackNav>()
+  const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
   const [stats, setStats] = useState<UserStatistics | null>(null)
@@ -96,7 +109,7 @@ export function ProfileScreen() {
 
   const navigateToLogin = () => {
     setLoginPromptVisible(false)
-    navigation.getParent()?.navigate('Login' as never)
+    rootNav?.navigate('Login')
   }
 
   useEffect(() => {
@@ -124,9 +137,7 @@ export function ProfileScreen() {
 
   const onNavigate = (item: MenuItem) => {
     if (item.viaParent) {
-      // as string: react-navigation 的 navigate 是 distributive conditional type,
-      // getParent() 返回的跨栈 navigator 无法接受 RootRoute 联合字面量,只能收窄为 string
-      navigation.getParent()?.navigate(item.key as string)
+      navigateRoot(rootNav, item.key)
     } else {
       navigation.navigate(item.key)
     }
@@ -157,11 +168,11 @@ export function ProfileScreen() {
 
   // ── Drawer 回调(对齐 Uniapp user/index.vue DrawerComponentall) ──
   const handleDrawerNavigate = (tab: DrawerTab) => {
-    navigation.getParent()?.navigate(DRAWER_TAB_TO_RN_TAB[tab] as never)
+    rootNav?.navigate('Tabs', { screen: DRAWER_TAB_TO_RN_TAB[tab] })
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
-    navigation.getParent()?.navigate('Distribution' as never)
+    rootNav?.navigate('Distribution')
   }
   const handleDrawerClaimFree = () => {
     setDrawerVisible(false)
@@ -170,11 +181,11 @@ export function ProfileScreen() {
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
-    navigation.getParent()?.navigate('ai' as never)
+    rootNav?.navigate('Tabs', { screen: 'ai' })
   }
   const handleDrawerSelectConversation = (_id: string) => {
     setDrawerVisible(false)
-    navigation.getParent()?.navigate('Chat' as never)
+    rootNav?.navigate('Chat')
   }
   const handleDrawerDeleteConversation = (_id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [
