@@ -59,6 +59,8 @@ export type TabBarItemConfig =
 export interface TabBarProps {
   activeTab: TabBarKey
   onChange: (tab: TabBarKey) => void
+  /** 覆盖默认标签(i18n 注入);未提供则用 TABS 内置默认值 */
+  labels?: Partial<Record<TabBarKey, string>>
 }
 
 const TABS: readonly TabBarItemConfig[] = [
@@ -69,7 +71,7 @@ const TABS: readonly TabBarItemConfig[] = [
   { key: 'mine', label: '我的', iconInactive: MINE_INACTIVE, iconActive: MINE_ACTIVE },
 ] as const
 
-export default function TabBar({ activeTab, onChange }: TabBarProps) {
+export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   const insets = useSafeAreaInsets()
 
   const handlePress = useCallback(
@@ -106,7 +108,7 @@ export default function TabBar({ activeTab, onChange }: TabBarProps) {
               ]}
               numberOfLines={1}
             >
-              {tab.label}
+              {labels?.[tab.key] ?? tab.label}
             </Text>
           </Pressable>
         )
