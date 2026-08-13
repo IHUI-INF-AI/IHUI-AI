@@ -12,13 +12,18 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
+      // 2026-08-13 立:与共享 AgreementCheckbox 视觉统一(全局 Checkbox 默认规范)
+      // - 尺寸 h-4 w-4(16x16),内勾 h-3 w-3 strokeWidth=3
+      // - 未选 border-input + bg-background,选中 border-primary + bg-primary
+      // - hover 描边加深至 foreground/60
+      // - 移除 shadow(项目 UI 规范禁止冗余阴影),focus-visible:ring-2 与项目其它控件一致
+      'peer h-4 w-4 shrink-0 rounded-[4px] border border-input bg-background text-current transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:border-foreground/60',
       className,
     )}
     {...props}
   >
     <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current">
-      <Check className="h-3.5 w-3.5" />
+      <Check className="h-3 w-3" strokeWidth={3} />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))
