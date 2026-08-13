@@ -37,6 +37,7 @@ import TitleSwitchOverlap from '../components/TitleSwitchOverlap'
 import TitleSwitchScrollPicker from '../components/TitleSwitchScrollPicker'
 import TitleSwitchScrollTitle from '../components/TitleSwitchScrollTitle'
 import TitleSwitchTypeBar from '../components/TitleSwitchTypeBar'
+import { SingleTypeBar, type SingleTypeBarItem } from '../components/SingleTypeBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -48,6 +49,13 @@ const API_PATH = '/api/course-planet'
 const COVER_WIDTH = 140
 const COVER_HEIGHT = 90
 const COVER_INNER_WIDTH = COVER_WIDTH - 16
+
+/** 课程类型单选清单(对齐 Uniapp type-bar/single.vue options) */
+const COURSE_TYPE_ITEMS: readonly SingleTypeBarItem[] = [
+  { id: 'all', label: '全部' },
+  { id: 'free', label: '免费' },
+  { id: 'paid', label: '付费' },
+]
 
 interface CoursePlanetCourse {
   id: string | number
@@ -80,6 +88,8 @@ export function CoursePlanetScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  /** 课程类型单选(对齐 Uniapp type-bar/single.vue:全部/免费/付费) */
+  const [selectedType, setSelectedType] = useState('all')
 
   const load = useCallback(async () => {
     setError('')
@@ -191,6 +201,15 @@ export function CoursePlanetScreen() {
             }} />
           </View>
 
+          {/* SingleTypeBar 单选课程类型(对齐 Uniapp type-bar/single.vue) */}
+          <View style={styles.singleTypeBarWrap}>
+            <SingleTypeBar
+              items={COURSE_TYPE_ITEMS}
+              selectedId={selectedType}
+              onSelect={setSelectedType}
+            />
+          </View>
+
           {/* TitleSwitchTypeBar 横向多选分类条(对齐 Uniapp type_bar.vue) */}
           <View style={styles.typeBarWrap}>
             <MoreTitles title="分类筛选" />
@@ -241,6 +260,12 @@ const styles = StyleSheet.create({
     backgroundColor: tk.surface.card,
     borderRadius: 12,
     paddingVertical: 8,
+  } as ViewStyle,
+  singleTypeBarWrap: {
+    marginBottom: 16,
+    backgroundColor: tk.surface.card,
+    borderRadius: 12,
+    paddingVertical: 4,
   } as ViewStyle,
   typeBarWrap: {
     marginBottom: 16,
