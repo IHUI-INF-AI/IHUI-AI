@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -9,6 +9,8 @@ import {
   type RankingRange,
 } from '@ihui/rn-app'
 import FullRankingList, { type FullRankingItem } from '../components/FullRankingList'
+import BottomFigure from '../components/BottomFigure'
+import { BottomPops } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -37,6 +39,9 @@ export function RankingScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // BottomPops 排名详情弹层(对齐 Uniapp bottom-pops 详情展示)
+  const [detailVisible, setDetailVisible] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null)
 
   const load = useCallback(
     async (refresh = false) => {
@@ -76,29 +81,69 @@ export function RankingScreen() {
   const rest = list.slice(3)
   const fullItems = useMemo<FullRankingItem[]>(() => toFullRankingItems(list), [list])
 
+  /** 点击排名项 → 弹出 BottomPops 详情(对齐 Uniapp bottom-pops/index.vue) */
+  const onItemPress = useCallback((id: string) => {
+    const item = list.find((i) => i.id === id)
+    if (item) {
+      setSelectedItem(item)
+      setDetailVisible(true)
+    }
+  }, [list])
+
   return (
     <View style={shellStyles.root}>
-      <View style={shellStyles.rankingWrap}>
-        <FullRankingList items={fullItems} valueLabel="积分" />
-      </View>
-      <SharedRankingScreen
-        t={t}
-        top3={top3}
-        rest={rest}
-        range={range}
-        onSelectRange={onSelectRange}
-        loading={loading}
-        refreshing={refreshing}
-        error={error}
-        onRefresh={() => load(true)}
-        onBack={() => navigation.goBack()}
-        colorScheme={resolvedTheme}
-      />
+      <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
+        <View style={shellStyles.rankingWrap}>
+          <FullRankingList items={fullItems} valueLabel="积分" onPress={onItemPress} />
+        </View>
+        <SharedRankingScreen
+          t={t}
+          top3={top3}
+          rest={rest}
+          range={range}
+          onSelectRange={onSelectRange}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          onRefresh={() => load(true)}
+          onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
+        />
+        {/* BottomFigure 底部装饰图(对齐 Uniapp BottomFigure/index.vue) */}
+        <View style={shellStyles.bottomFigureWrap}>
+          <BottomFigure height={120} />
+        </View>
+      </ScrollView>
+      {/* BottomPops 排名详情弹层(对齐 Uniapp bottom-pops/index.vue) */}
+      <BottomPops
+        visible={detailVisible}
+        title="排名详情"
+        onClose={() => setDetailVisible(false)}
+      >
+        {selectedItem ? (
+          <View style={shellStyles.detailContent}>
+            <Text style={shellStyles.detailText}>
+              排名:第 {selectedItem.rank} 名
+            </Text>
+            <Text style={shellStyles.detailText}>
+              昵称:{selectedItem.nickname}
+            </Text>
+            <Text style={shellStyles.detailText}>
+              积分:{selectedItem.points}
+            </Text>
+          </View>
+        ) : null}
+      </BottomPops>
     </View>
   )
 }
 
 const shellStyles = {
   root: { flex: 1 } as const,
+  scroll: { flex: 1 } as const,
+  scrollContent: { paddingBottom: 16 } as const,
   rankingWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 } as const,
+  bottomFigureWrap: { paddingHorizontal: 16, paddingTop: 16 } as const,
+  detailContent: { gap: 10, paddingVertical: 8 } as const,
+  detailText: { fontSize: 14, color: '#333' } as const,
 }

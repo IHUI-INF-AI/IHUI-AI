@@ -6,7 +6,7 @@
  * - 状态筛选 chips(全部 / 进行中 / 已完成,对齐 .vue Status 组件)
  * - 双列卡片(标题 / 描述 / 作者头像 + 昵称 / 相对时间,对齐 .vue CardContent)
  * - 下拉刷新 + 上拉分页(对齐 .vue scrolltolower)
- * - 空态(Empty)+ 加载态(Loading)+ 错误重试
+ * - 空态(Default)+ 加载态(Loading)+ 错误重试
  * - 悬浮发布按钮(对齐 .vue floating-publish-btn)
  * - 浅色优雅风,rnLightTokens;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
@@ -20,7 +20,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
@@ -32,8 +31,9 @@ import { getPlazaList, type PlazaItem } from '@ihui/api-client'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import { NavBar } from '../components/NavBar'
-import Empty from '../components/common/Empty'
+import Default from '../components/common/Default'
 import Loading from '../components/common/Loading'
+import { SearchInput } from '../components/SearchInput'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -196,14 +196,11 @@ export function PlazaScreen() {
       />
       {showSearch ? (
         <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             value={searchInput}
             onChangeText={setSearchInput}
             placeholder="搜索动态"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
-            onSubmitEditing={onSubmitSearch}
+            onSubmit={onSubmitSearch}
           />
         </View>
       ) : null}
@@ -258,7 +255,7 @@ export function PlazaScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Empty text="暂无动态,快来抢占市场" icon="🌐" />
+              <Default text="暂无动态,快来抢占市场" icon="🌐" />
             )
           }
           ListFooterComponent={loadingMore ? <Loading text="加载更多..." /> : null}
@@ -284,14 +281,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: tk.surface.card,
   } as ViewStyle,
-  searchInput: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: tk.surface.muted,
-    fontSize: 14,
-    color: tk.text.primary,
-  } as TextStyle,
   chipsRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
