@@ -7,13 +7,17 @@
  * 结构:7 层嵌套(根 → 容器 → 输入区 → 定位 → 滚动 → 按钮组 → 按钮内容)
  * - DrawerComponent(side='left',500rpx 宽抽屉 + 历史对话 + 用户信息)
  * - NavBar(variant='ai-home',sticky + 标题"智汇AI社区" + 菜单 + 加入社区群)
- * - top_box(顶部 72vh 区域,share-image 140rpx×140rpx,pulse 动画)
+ * - top_box(消息列表区:share-image 缩为右上角 80rpx 图标 + ScrollView 流式对话渲染)
  * - input_box_content(position: fixed bottom)
  *   - posi_angeetlis(ModelList / MaterialList 切换)
  *   - MaterialCards(已选素材卡片横向滚动)
  *   - ModelTypeButtonGroup(variant='wide',8 个 200rpx×60rpx 横向滚动)
  *   - BottomActionBar(variant='ai-home',ToggleButtonGroup + InputArea + icon-button-group + 语音输入)
  *   - ModelConfigDialog(模型参数配置弹窗)
+ *
+ * 流式对话(2026-08-13):
+ * - handleSend 调用 api.chatStream(SSE 流式),onChunk 渐增 streamingContent,onDone 转为 assistant 消息
+ * - top_box 内嵌 ScrollView 渲染 conversationMessages + 流式光标 + 思考中占位
  *
  * 新增功能(2026-08-12):
  * - MaterialList 素材库(sck 按钮触发,4 Tab:文本/图片/视频/音频)
@@ -51,6 +55,8 @@ import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
 import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
+import * as api from '@/api'
+import type { ChatMessage } from '@/api'
 
 import './index.css'
 
@@ -190,6 +196,11 @@ interface AiHomeState {
   isInputFocused: boolean
   // 公告文本
   announcementText: string
+  // 流式对话状态(对标原项目 conversationMessages)
+  conversationMessages: ChatMessage[]
+  isStreaming: boolean
+  streamingContent: string
+  sessionId: string
   }
 
 /**
@@ -282,6 +293,11 @@ export default function Index() {
     isInputFocused: false,
     // 公告文本
     announcementText: '🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！',
+    // 流式对话状态
+    conversationMessages: [],
+    isStreaming: false,
+    streamingContent: '',
+    sessionId: '',
     }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
@@ -525,14 +541,87 @@ export default function Index() {
     }))
   }
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!state.isLogin) {
       Taro.showToast({ title: tt('index.toast.loginRequired', '请先登录'), icon: 'none' })
       return
     }
-    Taro.navigateTo({ url: `/pages/ai/chat?prompt=${encodeURIComponent(text)}` }).catch(() => {
-      Taro.showToast({ title: tt('index.toast.chatNotConfigured', '对话页未配置'), icon: 'none' })
-    })
+    if (!text.trim() || state.isStreaming) return
+
+    const userMsg: ChatMessage = {
+      role: 'user',
+      content: text,
+      timestamp: Date.now(),
+    }
+
+    const sid = state.sessionId || `sess_${Date.now()}`
+
+    setState((s) => ({
+      ...s,
+      conversationMessages: [...s.conversationMessages, userMsg],
+      isStreaming: true,
+      streamingContent: '',
+      sessionId: sid,
+    }))
+
+    setInputText('')
+
+    setTimeout(() => {
+      Taro.pageScrollTo({ scrollTop: 999999, duration: 300 }).catch(() => {})
+    }, 100)
+
+    try {
+      await api.chatStream(
+        [...state.conversationMessages, userMsg],
+        sid,
+        {
+          model: state.modelName || undefined,
+          modelId: state.selectedModelId ? String(state.selectedModelId) : undefined,
+          agentId: state.agentModeActive ? String(state.selectedModelId ?? '') : undefined,
+        },
+        (delta: string) => {
+          setState((s) => ({
+            ...s,
+            streamingContent: s.streamingContent + delta,
+          }))
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        (info) => {
+          setState((s) => {
+            const assistantMsg: ChatMessage = {
+              role: 'assistant',
+              content: s.streamingContent,
+              timestamp: Date.now(),
+              tokenCount: info?.totalTokens,
+            }
+            return {
+              ...s,
+              conversationMessages: [...s.conversationMessages, assistantMsg],
+              isStreaming: false,
+              streamingContent: '',
+            }
+          })
+        },
+      )
+    } catch {
+      setState((s) => {
+        const errorMsg: ChatMessage = {
+          role: 'assistant',
+          content: s.streamingContent || tt('index.chatError', '发送失败,请重试'),
+          timestamp: Date.now(),
+        }
+        return {
+          ...s,
+          conversationMessages: [...s.conversationMessages, errorMsg],
+          isStreaming: false,
+          streamingContent: '',
+        }
+      })
+      Taro.showToast({ title: tt('index.chatError', '发送失败,请重试'), icon: 'none' })
+    }
   }
 
   // ===== 素材库事件处理(对齐原项目 ai_index.vue) =====
@@ -669,24 +758,25 @@ export default function Index() {
           onJoinClick={handleJoinClick}
         />
 
-        {/* ===== top_box(对齐原项目 padding 0 20rpx,height: calc(72vh)) ===== */}
+        {/* ===== top_box(对齐原项目,改为消息列表区)===== */}
         <View
           className="top_box"
           style={{
             padding: '0 20rpx',
-            height: 'calc(72vh)',
+            height: 'calc(100vh - 120rpx - env(safe-area-inset-bottom))',
             position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <View className="titlebox" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end' }}>
+          {/* 顶部 share-image(缩小为右上角小图标,对齐原项目 titlebox-right)*/}
+          <View className="titlebox" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}>
             <View className="titlebox-right">
               <Image
                 className="share-image"
-                style={{ width: rpx(140), height: rpx(140) }}
+                style={{ width: rpx(80), height: rpx(80) }}
                 src="/static/images/share_zhuanmi.png"
                 mode="widthFix"
                 onClick={() => {
-                  // 对齐原项目 goToMyPage:navigateTo + 延迟触发 showImageSharePopup 事件
                   Taro.switchTab({
                     url: '/pages/user/index',
                     success: () => {
@@ -699,6 +789,85 @@ export default function Index() {
               />
             </View>
           </View>
+
+          {/* 消息列表(对标原项目 conversationMessages 渲染)*/}
+          <ScrollView
+            scrollY
+            className="conversation-list"
+            style={{ flex: 1, height: 'calc(100% - 100rpx)' }}
+            onScrollToLower={() => {}}
+          >
+            {state.conversationMessages.length === 0 && !state.isStreaming ? (
+              <View className="flex flex-col items-center justify-center" style={{ paddingTop: rpx(200) }}>
+                <Text style={{ fontSize: rpx(32), color: 'var(--color-muted-foreground)', marginBottom: rpx(16) }}>
+                  {tt('index.welcome', '欢迎使用智汇AI社区')}
+                </Text>
+                <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date, #888)' }}>
+                  {tt('index.welcomeHint', '输入消息开始对话')}
+                </Text>
+              </View>
+            ) : null}
+            {state.conversationMessages.map((msg, idx) => (
+              <View
+                key={idx}
+                className={`conversation-msg ${msg.role === 'user' ? 'msg-user' : 'msg-assistant'}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  marginBottom: rpx(16),
+                }}
+              >
+                <View
+                  style={{
+                    maxWidth: '80%',
+                    padding: `${rpx(16)} ${rpx(20)}`,
+                    borderRadius: rpx(16),
+                    background: msg.role === 'user' ? 'var(--color-brand-cyan, #93d2f3)' : 'var(--color-card)',
+                    color: msg.role === 'user' ? '#000' : 'var(--color-foreground)',
+                    fontSize: rpx(28),
+                    lineHeight: 1.6,
+                    boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
+                  }}
+                >
+                  <Text>{msg.content}</Text>
+                </View>
+              </View>
+            ))}
+            {/* 流式接收中的消息 */}
+            {state.isStreaming && state.streamingContent ? (
+              <View
+                className="conversation-msg msg-assistant"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-start',
+                  marginBottom: rpx(16),
+                }}
+              >
+                <View
+                  style={{
+                    maxWidth: '80%',
+                    padding: `${rpx(16)} ${rpx(20)}`,
+                    borderRadius: rpx(16),
+                    background: 'var(--color-card)',
+                    color: 'var(--color-foreground)',
+                    fontSize: rpx(28),
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <Text>{state.streamingContent}</Text>
+                  <Text style={{ display: 'inline-block', width: rpx(8), height: rpx(28), background: 'var(--color-brand-cyan, #93d2f3)', marginLeft: rpx(4), animation: 'blink 1s infinite' }}>|</Text>
+                </View>
+              </View>
+            ) : null}
+            {/* loading 占位(流式刚开始,onChunk 还未到)*/}
+            {state.isStreaming && !state.streamingContent ? (
+              <View style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: rpx(16) }}>
+                <View style={{ padding: `${rpx(16)} ${rpx(20)}`, borderRadius: rpx(16), background: 'var(--color-card)' }}>
+                  <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>{tt('index.thinking', '思考中...')}</Text>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
         </View>
 
         {/* ===== input_box_content(底部输入区,fixed 贴底,对齐原项目) ===== */}
