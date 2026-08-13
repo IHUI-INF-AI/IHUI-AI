@@ -1,4 +1,4 @@
-import { View, Text, Image, Slider, Video } from '@tarojs/components'
+import { View, Text, Image, Slider } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
@@ -10,8 +10,9 @@ import DrawerComponent, { type DrawerModelGroup, type DrawerChatItem } from '@/c
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
 import StudyBar from '@/components/StudyBar'
-import { FloatBox } from '@/components'
+import { FloatBox, VideoPlayer } from '@/components'
 import { rpx } from '@/utils/rpx'
+import UserCard from './components/UserCard'
 // 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
@@ -20,7 +21,6 @@ import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
 import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
 import gonggaoIcon from '@/assets/remote/images/gonggao.png'
-import xianLabelIcon from '@/assets/remote/images/xian_label.png'
 import playIcon from '@/assets/remote/images/play.svg'
 import pauseIcon from '@/assets/remote/images/pause.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
@@ -61,14 +61,12 @@ const menus = [
   { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
-// 会员权益项:i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
+// 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)
+// i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
 const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
-  { icon: aiIconLocal, key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
-  { icon: icon('zuan'), key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
-  { icon: icon('addKf'), key: 'user.benefits.prioritySupport', fallback: '优先客服' },
-  { icon: vipActIconLocal, key: 'user.benefits.vipZone', fallback: '会员专区' },
-  { icon: xianLabelIcon, key: 'user.benefits.discount', fallback: '折扣优惠' },
-  { icon: icon('act'), key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
+  { icon: aiIconLocal, key: 'user.benefits.aiAssistant', fallback: 'AI助手免费使用次数增加' },
+  { icon: courseIconLocal, key: 'user.benefits.freeCourses', fallback: '部分课程免费学习' },
+  { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: '建立专属知识库' },
 ]
 
 // 格式化音频时间（秒 → mm:ss）
@@ -76,46 +74,6 @@ function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = Math.floor(seconds % 60)
   return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
-}
-
-/** UserCard 组件 — 对齐原项目 user_cards.vue（订单/公司/智汇值/钱包卡片） */
-function UserCard({ onGoPage }: { onGoPage: (path: string) => void }) {
-  const items = [
-    { key: 'order', icon: dingdanIcon, title: '我的订单', desc: '查看相关订单', path: '/pages/user_order_list/index' },
-    { key: 'distribution', icon: gerenIcon, title: '我的公司', desc: '查看员工与业绩', path: '/pagesA/distribution/index' },
-    { key: 'token', icon: xianLabelIcon, title: '我的智汇值', desc: '智汇消耗信息', path: '/pages/tools/token_value' },
-    { key: 'money', icon: shezhiIcon, title: '我的钱包', desc: '查看余额与充值', path: '/pagesA/top-up/index' },
-  ]
-  return (
-    <View className="flex flex-wrap justify-between w-full mt-[20rpx] mb-[14rpx]">
-      {items.map((item, idx) => {
-        const isFullWidth = idx === 3 // 钱包占整行
-        return (
-          <View
-            key={item.key}
-            className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
-            style={{ background: 'rgba(0,4,255,0.03)', boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)' }}
-            onClick={() => {
-              const userInfodata = Taro.getStorageSync('data')
-              if (!userInfodata) {
-                Taro.showToast({ title: '请先登录', icon: 'none' })
-                return
-              }
-              onGoPage(item.path)
-            }}
-          >
-            <View className="w-[90rpx] h-[90rpx] mr-[15rpx] flex-shrink-0">
-              <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
-            </View>
-            <View>
-              <Text className="text-[32rpx] text-foreground">{item.title}</Text>
-              <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
-            </View>
-          </View>
-        )
-      })}
-    </View>
-  )
 }
 
 export default function UserIndex() {
@@ -132,10 +90,11 @@ export default function UserIndex() {
     }
   })
   const [activeTab, setActiveTab] = useState<number>(1)
-  const [textContentList] = useState<Array<{title: string; time: string; content: string}>>([])
-  const [imageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
-  const [videoContentList] = useState<Array<{title: string; time: string; videoUrl: string}>>([])
-  const [audioContentList] = useState<Array<{title: string; time: string; audioUrl: string}>>([])
+  const [textContentList, setTextContentList] = useState<Array<{title: string; time: string; content: string}>>([])
+  const [imageContentList, setImageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
+  const [videoContentList, setVideoContentList] = useState<Array<{title: string; time: string; videoUrl: string}>>([])
+  const [audioContentList, setAudioContentList] = useState<Array<{title: string; time: string; audioUrl: string}>>([])
+  const [contentLoading, setContentLoading] = useState<boolean>(false)
   // 音频播放状态
   const [audioPlayStates, setAudioPlayStates] = useState<Record<number, boolean>>({})
   const [audioProgress, setAudioProgress] = useState<Record<number, number>>({})
@@ -149,7 +108,7 @@ export default function UserIndex() {
   // 侧边栏抽屉
   const [showDrawer, setShowDrawer] = useState<boolean>(false)
   // 历史对话分组数据（对齐原项目 groupedData，实际由 API 填充）
-  const [groupedData] = useState<DrawerModelGroup[]>([])
+  const [groupedData, setGroupedData] = useState<DrawerModelGroup[]>([])
   // 分享弹窗
   const [showSharePopup, setShowSharePopup] = useState<boolean>(false)
 
@@ -158,6 +117,65 @@ export default function UserIndex() {
   const refresh = useCallback(() => {
     setUserInfo(isLoggedIn() ? getUserInfo() : null)
   }, [])
+
+  // 按日期分组(对齐原项目 groupDataByDate)
+  const groupDataByDate = useCallback(
+    (
+      chats: Array<{ id: string; title: string; time: string; modelName?: string }>,
+    ): DrawerModelGroup[] => {
+      const modelMap = new Map<string, Array<{ id: string; title: string; time: string; modelName?: string }>>()
+      for (const chat of chats) {
+        const modelName = chat.modelName || '默认模型'
+        if (!modelMap.has(modelName)) modelMap.set(modelName, [])
+        modelMap.get(modelName)!.push(chat)
+      }
+      return Array.from(modelMap.entries()).map(([modelName, modelChats]) => {
+        const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
+        for (const chat of modelChats) {
+          const dateKey = chat.time ? chat.time.slice(0, 7) : '最近' // YYYY-MM 分组
+          if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+          dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+        }
+        return {
+          modelName,
+          dateGroups: Array.from(dateMap.entries()).map(([date, items]) => ({ date, chats: items })),
+        }
+      })
+    },
+    [],
+  )
+
+  // 加载历史对话(对齐原项目 loadHistoryChat)
+  const loadHistoryChat = useCallback(async () => {
+    try {
+      // TODO: 接入 api.getModelChat({ user_uuid: userInfo?.uuid }) 真实接口
+      // const res = await api.getModelChat({ user_uuid: userInfo?.uuid })
+      // setGroupedData(groupDataByDate(res.list))
+      setGroupedData(groupDataByDate([])) // 暂用空数组,等 API 接入后替换
+    } catch {
+      // 静默
+    }
+  }, [groupDataByDate])
+
+  // 加载内容数据(对齐原项目 loadContentByTab)
+  const loadContentByTab = useCallback(async (tabId: number) => {
+    void tabId // TODO: 接入 api.getMyCreation({ type: tabId, page: 1, pageSize: 10 }) 真实接口
+    setContentLoading(true)
+    try {
+      // 切换 tab 时清空当前列表(对齐原项目 loadContentByTab 的加载前重置)
+      setTextContentList([])
+      setImageContentList([])
+      setVideoContentList([])
+      setAudioContentList([])
+      // TODO: const res = await getMyCreation({ type: tabId, page: 1, pageSize: 10 })
+      // 按 tabId 填充对应列表(textContentList/imageContentList/...)
+      await new Promise((r) => setTimeout(r, 300)) // 模拟加载
+    } catch {
+      // 静默
+    } finally {
+      setContentLoading(false)
+    }
+  }, [setTextContentList, setImageContentList, setVideoContentList, setAudioContentList])
 
   const maskPhone = useCallback((phone: string) => {
     return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
@@ -359,7 +377,11 @@ export default function UserIndex() {
 
   // 处理反馈按钮点击（对齐原项目 @feedback-click → handleFeedbackClick）
   function handleFeedbackClick() {
-    Taro.navigateTo({ url: '/pages/feedback/index' })
+    // 对齐原项目 /pagesA/fankui/index?pageType=list
+    Taro.navigateTo({
+      url: '/pages/feedback/index?pageType=list',
+      fail: () => Taro.navigateTo({ url: '/pages/feedback/index' }),
+    })
   }
 
   // 处理返回首页（对齐原项目 @pack → onPackClick）
@@ -406,13 +428,26 @@ export default function UserIndex() {
   // 历史对话项点击回调（对齐原项目 onChatItemClick）
   const handleChatItemClick = useCallback((chat: DrawerChatItem) => {
     toggleDrawer()
-    Taro.navigateTo({ url: `/pages/chat/index?id=${chat.id}` })
-  }, [])
+    // 对齐原项目 handleShowFullList:携带 chatId + title 参数
+    Taro.navigateTo({
+      url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+      fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+    })
+  }, [toggleDrawer])
 
   // 会员权益点击跳转
   const goVipDetail = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/vip/index' })
-  }, [])
+    // 对齐原项目 openIntroduce/openIntroduces/openIntroduces2:按 isVip 分流
+    const isVip = userInfo?.isVip ? 1 : 0
+    const routeMap: Record<number, string> = {
+      0: '/pages/vip/index?type=IntroducePopup', // 非会员:开通 VIP
+      1: '/pages/vip/index?type=IntroducePopups', // 会员:成为操盘手
+      2: '/pages/vip/index?type=PrivateAdvisory', // 操盘手:加入私董会
+    }
+    // noUncheckedIndexedAccess 下 routeMap[isVip] 为 string | undefined,用 ?? 兜底
+    const url = routeMap[isVip] ?? '/pages/vip/index'
+    Taro.navigateTo({ url, fail: () => Taro.navigateTo({ url: '/pages/vip/index' }) })
+  }, [userInfo?.isVip])
 
   // 对齐原项目 tabList
   const tabList = useMemo(
@@ -428,6 +463,7 @@ export default function UserIndex() {
   // 对齐原项目 handleTabChange
   function handleTabChange(item: { id: number; name: string }) {
     setActiveTab(item.id)
+    void loadContentByTab(item.id)
   }
 
   // 编辑个人资料
@@ -441,6 +477,8 @@ export default function UserIndex() {
 
   useDidShow(() => {
     refresh()
+    void loadContentByTab(1) // 默认加载文本 tab
+    void loadHistoryChat()
   })
 
   useShareAppMessage(() => ({
@@ -513,7 +551,7 @@ export default function UserIndex() {
 
       {/* ===== 用户信息头部 ===== */}
       <View
-        className="pt-[120rpx] px-[32rpx] pb-[48rpx]"
+        className="pt-[120rpx] px-[20rpx] pb-[48rpx]"
         style={{ background: 'var(--color-primary)' }}
       >
         {userInfo ? (
@@ -583,14 +621,14 @@ export default function UserIndex() {
 
       {/* ===== UserCard 功能卡片（对齐原项目 user_cards.vue，非 iOS 显示） ===== */}
       {!isshow ? (
-        <View className="mx-[32rpx]">
+        <View className="mx-[20rpx]">
           <UserCard onGoPage={goPage} />
         </View>
       ) : null}
 
       {/* ===== 会员权益卡片（对齐原项目 membership-benefits-container：箭头旋转动画 + bounce 动画） ===== */}
       {!isshow ? (
-        <View className="membership-benefits-container mx-[32rpx] mt-[24rpx] mb-0">
+        <View className="membership-benefits-container mx-[20rpx] mt-[24rpx] mb-0">
           {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
           <View
             className="membership-benefits-header"
@@ -631,18 +669,26 @@ export default function UserIndex() {
 
         {/* 内容展示区 */}
         <View className="content-list">
+          {/* 加载状态(对齐原项目 contentLoading) */}
+          {contentLoading ? (
+            <View className="py-[40rpx] flex items-center justify-center">
+              <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                {tf('common.loading', '加载中...')}
+              </Text>
+            </View>
+          ) : null}
           {/* 文本内容 */}
           {activeTab === 1 && (
             <View>
               {textContentList.length === 0 ? (
-                <View className="py-[60rpx] flex items-center justify-center">
+                <View className="py-[120rpx] flex items-center justify-center">
                   <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
                     {tf('user.empty.text', '暂无文本内容')}
                   </Text>
                 </View>
               ) : (
                 textContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -658,14 +704,14 @@ export default function UserIndex() {
           {activeTab === 2 && (
             <View>
               {imageContentList.length === 0 ? (
-                <View className="py-[60rpx] flex items-center justify-center">
+                <View className="py-[120rpx] flex items-center justify-center">
                   <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
                     {tf('user.empty.image', '暂无图片内容')}
                   </Text>
                 </View>
               ) : (
                 imageContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -691,14 +737,14 @@ export default function UserIndex() {
           {activeTab === 3 && (
             <View>
               {videoContentList.length === 0 ? (
-                <View className="py-[60rpx] flex items-center justify-center">
+                <View className="py-[120rpx] flex items-center justify-center">
                   <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
                     {tf('user.empty.video', '暂无视频内容')}
                   </Text>
                 </View>
               ) : (
                 videoContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm">
                     <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -724,14 +770,14 @@ export default function UserIndex() {
           {activeTab === 4 && (
             <View>
               {audioContentList.length === 0 ? (
-                <View className="py-[60rpx] flex items-center justify-center">
+                <View className="py-[120rpx] flex items-center justify-center">
                   <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
                     {tf('user.empty.audio', '暂无音频内容')}
                   </Text>
                 </View>
               ) : (
                 audioContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[24rpx]">
+                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm">
                     <View className="flex-row items-center justify-between mb-[12rpx]">
                       <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
@@ -739,7 +785,7 @@ export default function UserIndex() {
                     <View className="flex-row items-center gap-[12rpx]">
                       {/* 播放/暂停按钮 */}
                       <View
-                        className="w-[72rpx] h-[72rpx] rounded-full flex items-center justify-center"
+                        className="w-[48rpx] h-[48rpx] rounded-full flex items-center justify-center"
                         style={{ background: 'var(--color-primary)', flexShrink: 0 }}
                         onClick={() => toggleAudioPlay(index, item.audioUrl)}
                       >
@@ -784,7 +830,7 @@ export default function UserIndex() {
       </View>
 
       {/* 快捷入口 */}
-      <View className="mx-[32rpx] my-[24rpx] py-[28rpx]">
+      <View className="mx-[20rpx] my-[24rpx] py-[28rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
@@ -800,7 +846,7 @@ export default function UserIndex() {
       </View>
 
       {/* 功能列表 */}
-      <View className="mx-[32rpx] my-[24rpx] overflow-hidden">
+      <View className="mx-[20rpx] my-[24rpx] overflow-hidden">
         {menus.map((item, idx) => (
           <View
             key={item.path}
@@ -819,7 +865,7 @@ export default function UserIndex() {
       {/* 退出登录 */}
       {isLogin ? (
         <View
-          className="mx-[32rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
+          className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
           onClick={handleLogout}
         >
           <Text>{t('user.logout')}</Text>
@@ -836,7 +882,7 @@ export default function UserIndex() {
         />
       </View>
 
-      {/* ===== 视频播放弹窗 ===== */}
+      {/* ===== 视频播放弹窗（对齐原项目 showVideoPlayer，使用 VideoPlayer 组件） ===== */}
       {showVideoPlayer ? (
         <View className="fixed inset-0 z-[2000] flex items-center justify-center">
           <View
@@ -844,15 +890,10 @@ export default function UserIndex() {
             onClick={closeVideoPlayer}
           />
           <View className="relative w-[90%] rounded-lg overflow-hidden">
-            <Video
+            <VideoPlayer
               src={currentVideoUrl}
               controls
-              autoplay={false}
-              objectFit="contain"
-              showCenterPlayBtn
-              showFullscreenBtn
-              enableProgressGesture
-              style={{ width: '100%', height: rpx(500) }}
+              onError={closeVideoPlayer}
             />
             <View
               className="absolute top-0 right-0 w-[60rpx] h-[60rpx] flex items-center justify-center z-10"
