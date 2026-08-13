@@ -25,7 +25,18 @@
     "title": "Profile",
     "myCourses": "My courses",
     "myFavorites": "My favorites",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "userCard": {
+      "order": "My Orders",
+      "orderSubtitle": "View related orders",
+      "company": "My Company",
+      "companySubtitle": "View staff and performance",
+      "token": "My Tokens",
+      "tokenSubtitle": "Token usage details",
+      "wallet": "My Wallet",
+      "walletSubtitle": "View balance and top up",
+      "loginRequired": "Please log in first"
+    }
   },
   "payment": {
     "title": "Payment Orders",

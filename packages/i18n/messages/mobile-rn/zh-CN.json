@@ -25,7 +25,18 @@
     "title": "我的",
     "myCourses": "我的课程",
     "myFavorites": "我的收藏",
-    "feedback": "意见反馈"
+    "feedback": "意见反馈",
+    "userCard": {
+      "order": "我的订单",
+      "orderSubtitle": "查看相关订单",
+      "company": "我的公司",
+      "companySubtitle": "查看员工与业绩",
+      "token": "我的智汇值",
+      "tokenSubtitle": "智汇消耗信息",
+      "wallet": "我的钱包",
+      "walletSubtitle": "查看余额与充值",
+      "loginRequired": "请先登录"
+    }
   },
   "payment": {
     "title": "支付订单",
