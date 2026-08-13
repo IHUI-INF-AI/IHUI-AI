@@ -77,6 +77,10 @@ export function ThirdPartyLoginButtons({ t, config, className }: ThirdPartyLogin
                   // 暗色模式 hover:纯黑底 + 纯白字,高对比高亮突出
                   // (覆盖 outline variant 默认的 hover:bg-accent 灰底,不够醒目)
                   'dark:hover:bg-black dark:hover:text-white',
+                  // w-full:让按钮撑满 grid cell(grid-cols-3 等分列宽,span 已被
+                  // justify-items: stretch 拉伸到列宽,但内层 inline-flex 按钮默认
+                  // 不自动 grow,文本长短不一导致按钮宽度不一致)
+                  'w-full',
                   p.forceDisabled && 'grayscale opacity-50',
                 )}
                 data-testid={`third-party-${p.key}`}
