@@ -1,78 +1,334 @@
 /**
- * Drawer 侧滑抽屉组件 (mobile-rn 端)
+ * Drawer 侧滑抽屉组件 (mobile-rn 端) — 完整版
  *
- * 对齐历史项目 DrawerComponent:
- * - 左侧滑入抽屉,菜单列表 + 半透明黑色遮罩
- * - 250ms ease-out translateX 0 -> -screenWidth 动画
- * - 浅色优雅风,系统字体
+ * 1:1 复刻历史 Uniapp DrawerComponentall.vue:
+ * - 顶部用户区(头像 + 昵称 + 等级标识 VIP/普通)
+ * - 5 主菜单(AI 对话社区 / AI 应用 / 广场 / 动态 / 我的,对齐 Uniapp 5 主入口)
+ * - 一人公司入口 / 领取免费资料 / 创建新对话(对齐 Uniapp label_content)
+ * - 历史对话列表:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑删除
+ * - 底部操作区:设置 / 消息 / 回到主页(对齐 Uniapp bottom_userInfo + back_index_btn)
  *
- * 用 react-native Animated API(不引入新依赖)。
- * 安全区:顶部 StatusBar.currentHeight(Android 24/25/...+ 兼容 iOS 44),
- *       底部 Platform.OS === 'ios' ? 34 : 0(避开 Home Indicator)。
+ * 左侧滑入,半透明遮罩(bg-black/50),80% 屏宽(最大 320dp)。
+ * 左滑删除用 Animated + PanResponder 自定义实现(无 react-native-gesture-handler 依赖)。
+ *
+ * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Dimensions,
   Easing,
-  FlatList,
-  type ListRenderItemInfo,
+  Image,
   Modal,
-  Platform,
+  PanResponder,
+  type PanResponderInstance,
   Pressable,
-  StatusBar,
+  ScrollView,
   StyleSheet,
   Text,
   View,
-  type ViewStyle,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  Bot,
+  Building2,
+  ChevronRight,
+  Gift,
+  Home,
+  LayoutGrid,
+  MessageCircle,
+  Plus,
+  Settings,
+  Share2,
+  Trash2,
+  User,
+} from 'lucide-react-native'
 
-export interface DrawerMenuItem {
-  key: string
-  label: string
+// ── 类型定义(强类型,禁用 any) ──
+
+export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
+export type DrawerUserLevel = 'vip' | 'normal'
+
+export interface DrawerModelConfig {
+  id: string
+  name: string
   icon?: string
+}
+
+export interface DrawerConversationItem {
+  id: string
+  title: string
+  modelConfig?: DrawerModelConfig
+  createdAt: number // timestamp,用于日期分组
 }
 
 export interface DrawerProps {
   visible: boolean
   onClose: () => void
-  menuItems: DrawerMenuItem[]
-  onItemPress: (key: string) => void
+  // 用户信息
+  user: {
+    avatar?: string
+    nickname: string
+    level?: DrawerUserLevel
+  }
+  // 历史对话列表
+  conversations: DrawerConversationItem[]
+  // 回调
+  onNavigate: (tab: DrawerTab) => void
+  onNavigateCompany: () => void // 一人公司
+  onClaimFree: () => void // 领取免费资料
+  onCreateNewChat: () => void // 创建新对话
+  onSelectConversation: (id: string) => void // 选择历史对话
+  onDeleteConversation: (id: string) => void // 删除历史对话
+  onOpenSettings: () => void // 设置
+  onOpenMessages: () => void // 消息
+  onGoHome: () => void // 回到主页
 }
 
-const FIXED_WIDTH = 280
-const NARROW_SCREEN_THRESHOLD = 380
-const NARROW_SCREEN_RATIO = 0.75
+// ── 常量 ──
+
+const MAX_DRAWER_WIDTH = 320
+const DRAWER_WIDTH_RATIO = 0.8
 const ANIM_DURATION_MS = 250
 const OVERLAY_OPACITY = 0.5
-const ITEM_HEIGHT = 48
-const ICON_SIZE = 20
-const CLOSE_ICON_SIZE = 24
-const HORIZONTAL_PADDING = 16
+const DELETE_WIDTH = 72 // 左滑露出的删除按钮宽度
+const SWIPE_THRESHOLD = 28 // 触发展开删除的位移阈值
+const DAY_MS = 24 * 60 * 60 * 1000
 
-function getDrawerWidth(screenWidth: number): number {
-  return screenWidth > NARROW_SCREEN_THRESHOLD
-    ? FIXED_WIDTH
-    : Math.round(screenWidth * NARROW_SCREEN_RATIO)
+// ── 主菜单配置(对齐 Uniapp 5 主入口,RN 端 tab 结构) ──
+
+interface MainMenuConfig {
+  key: DrawerTab
+  label: string
+  Icon: typeof Home
 }
 
-function getTopPadding(): number {
-  return Platform.OS === 'ios' ? 44 : (StatusBar.currentHeight ?? 0)
+const MAIN_MENUS: readonly MainMenuConfig[] = [
+  { key: 'home', label: 'AI 对话社区', Icon: Home },
+  { key: 'ai', label: 'AI 应用', Icon: Bot },
+  { key: 'square', label: '广场', Icon: LayoutGrid },
+  { key: 'share', label: '动态', Icon: Share2 },
+  { key: 'mine', label: '我的', Icon: User },
+] as const
+
+// ── 日期分组逻辑 ──
+
+type DateBucket = 'today' | 'yesterday' | 'earlier'
+
+const DATE_LABELS: Record<DateBucket, string> = {
+  today: '今天',
+  yesterday: '昨天',
+  earlier: '更早',
 }
 
-function getBottomPadding(): number {
-  return Platform.OS === 'ios' ? 34 : 0
+const DATE_ORDER: readonly DateBucket[] = ['today', 'yesterday', 'earlier']
+
+interface DateGroup {
+  bucket: DateBucket
+  label: string
+  list: DrawerConversationItem[]
 }
 
-export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps) {
+interface ModelGroup {
+  modelName: string
+  modelIcon?: string
+  dateGroups: DateGroup[]
+}
+
+function getStartOfToday(now: number): number {
+  const d = new Date(now)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+function getDateBucket(createdAt: number, todayStart: number): DateBucket {
+  if (createdAt >= todayStart) return 'today'
+  if (createdAt >= todayStart - DAY_MS) return 'yesterday'
+  return 'earlier'
+}
+
+/**
+ * 按模型分组 → 每个模型组内按日期分组(今天/昨天/更早)。
+ * 组内按 createdAt 降序(最新在前);"默认模型" 排最后(对齐 Uniapp sortedGroupedData)。
+ */
+function groupByModelAndDate(conversations: DrawerConversationItem[]): ModelGroup[] {
+  const now = Date.now()
+  const todayStart = getStartOfToday(now)
+
+  const modelMap = new Map<string, { name: string; icon?: string; items: DrawerConversationItem[] }>()
+  for (const conv of conversations) {
+    const name = conv.modelConfig?.name ?? '默认模型'
+    const icon = conv.modelConfig?.icon
+    const entry = modelMap.get(name)
+    if (entry) {
+      entry.items.push(conv)
+    } else {
+      modelMap.set(name, { name, icon, items: [conv] })
+    }
+  }
+
+  const groups: ModelGroup[] = []
+  for (const { name, icon, items } of modelMap.values()) {
+    items.sort((a, b) => b.createdAt - a.createdAt)
+    const bucketMap = new Map<DateBucket, DrawerConversationItem[]>()
+    for (const item of items) {
+      const bucket = getDateBucket(item.createdAt, todayStart)
+      const arr = bucketMap.get(bucket)
+      if (arr) {
+        arr.push(item)
+      } else {
+        bucketMap.set(bucket, [item])
+      }
+    }
+    const dateGroups: DateGroup[] = DATE_ORDER.filter((b) => bucketMap.has(b)).map((b) => ({
+      bucket: b,
+      label: DATE_LABELS[b],
+      list: bucketMap.get(b) as DrawerConversationItem[],
+    }))
+    groups.push({ modelName: name, modelIcon: icon, dateGroups })
+  }
+
+  groups.sort((a, b) => {
+    if (a.modelName === '默认模型') return 1
+    if (b.modelName === '默认模型') return -1
+    return a.modelName.localeCompare(b.modelName, 'zh-CN')
+  })
+  return groups
+}
+
+// ── 左滑删除项(Animated + PanResponder 自定义实现) ──
+
+interface SwipeItemProps {
+  item: DrawerConversationItem
+  isOpen: boolean
+  onOpen: (id: string) => void
+  onSelect: (id: string) => void
+  onDelete: (id: string) => void
+}
+
+function SwipeableConversationItem({ item, isOpen, onOpen, onSelect, onDelete }: SwipeItemProps) {
+  const translateX = useRef(new Animated.Value(0)).current
+  // 用 ref 跟踪当前 offset / 最后位移,避免读取 Animated.Value 私有字段(_value)
+  const offsetRef = useRef(0)
+  const lastXRef = useRef(0)
+
+  const panResponder = useMemo<PanResponderInstance>(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) =>
+          Math.abs(g.dx) > 5 && Math.abs(g.dx) > Math.abs(g.dy),
+        onPanResponderGrant: () => {
+          lastXRef.current = offsetRef.current
+        },
+        onPanResponderMove: (_e, g) => {
+          const next = Math.max(-DELETE_WIDTH, Math.min(0, offsetRef.current + g.dx))
+          lastXRef.current = next
+          translateX.setValue(next)
+        },
+        onPanResponderRelease: () => {
+          const shouldOpen = lastXRef.current < -SWIPE_THRESHOLD
+          const target = shouldOpen ? -DELETE_WIDTH : 0
+          offsetRef.current = target
+          Animated.spring(translateX, {
+            toValue: target,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 10,
+          }).start()
+          if (shouldOpen) onOpen(item.id)
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateX, {
+            toValue: offsetRef.current,
+            useNativeDriver: true,
+          }).start()
+        },
+      }),
+    [item.id, onOpen, translateX]
+  )
+
+  // 外部强制关闭(当 openSwipeId 切换到其他 item 时,本 item 收起)
+  useEffect(() => {
+    if (!isOpen && offsetRef.current !== 0) {
+      offsetRef.current = 0
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start()
+    }
+  }, [isOpen, translateX])
+
+  const handleSelect = () => {
+    if (offsetRef.current !== 0) {
+      // 处于打开状态,先收起,不触发选择
+      offsetRef.current = 0
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start()
+      return
+    }
+    onSelect(item.id)
+  }
+
+  const handleDelete = () => {
+    onDelete(item.id)
+  }
+
+  return (
+    <View className="relative overflow-hidden">
+      {/* 删除按钮(底层,右侧露出) */}
+      <View
+        className="absolute top-0 bottom-0 right-0 items-center justify-center"
+        style={{ width: DELETE_WIDTH, backgroundColor: tokens.danger.DEFAULT }}
+      >
+        <Pressable
+          className="items-center justify-center"
+          style={{ width: DELETE_WIDTH, height: '100%' }}
+          onPress={handleDelete}
+          accessibilityLabel={`删除对话 ${item.title}`}
+        >
+          <Trash2 size={20} color={tokens.surface.light} />
+          <Text className="text-[11px] text-white mt-1">删除</Text>
+        </Pressable>
+      </View>
+      {/* 内容(上层,跟随手势平移) */}
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        <Pressable
+          className="flex-row items-center px-4 py-3 bg-white"
+          onPress={handleSelect}
+          android_ripple={{ color: tokens.surface.muted }}
+        >
+          <Text className="flex-1 text-[14px] text-gray-900" numberOfLines={1}>
+            {item.title}
+          </Text>
+        </Pressable>
+      </Animated.View>
+    </View>
+  )
+}
+
+// ── 主组件 ──
+
+export function Drawer(props: DrawerProps) {
+  const {
+    visible,
+    onClose,
+    user,
+    conversations,
+    onNavigate,
+    onNavigateCompany,
+    onClaimFree,
+    onCreateNewChat,
+    onSelectConversation,
+    onDeleteConversation,
+    onOpenSettings,
+    onOpenMessages,
+    onGoHome,
+  } = props
+
+  const insets = useSafeAreaInsets()
   const screenWidth = Dimensions.get('window').width
-  const drawerWidth = getDrawerWidth(screenWidth)
-  const topPadding = getTopPadding()
-  const bottomPadding = getBottomPadding()
+  const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
 
-  // progress: 0 = 隐藏(translateX = -screenWidth),1 = 显示(translateX = 0)
+  // progress: 0 = 隐藏, 1 = 显示
   const progress = useRef(new Animated.Value(0)).current
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null)
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -83,38 +339,40 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
     }).start()
   }, [progress, visible])
 
+  // 关闭抽屉时重置左滑状态
+  useEffect(() => {
+    if (!visible) setOpenSwipeId(null)
+  }, [visible])
+
   const translateX = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [-screenWidth, 0],
+    outputRange: [-drawerWidth - 20, 0],
   })
-
   const overlayOpacity = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, OVERLAY_OPACITY],
   })
 
-  const handleItemPress = (key: string) => {
-    onItemPress(key)
+  const modelGroups = useMemo(() => groupByModelAndDate(conversations), [conversations])
+
+  const handleSwipeOpen = useCallback((id: string) => {
+    setOpenSwipeId((prev) => (prev === id ? prev : id))
+  }, [])
+
+  const handleNavigate = (tab: DrawerTab) => {
+    onNavigate(tab)
     onClose()
   }
 
-  const renderItem = ({ item }: ListRenderItemInfo<DrawerMenuItem>) => (
-    <Pressable
-      style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-      onPress={() => handleItemPress(item.key)}
-      android_ripple={{ color: tokens.surface.muted }}
-    >
-      {item.icon ? (
-        <Text style={styles.itemIcon}>{item.icon}</Text>
-      ) : (
-        <View style={styles.itemIconPlaceholder} />
-      )}
-      <Text style={styles.itemLabel} numberOfLines={1}>
-        {item.label}
-      </Text>
-      <Text style={styles.itemArrow}>›</Text>
-    </Pressable>
-  )
+  const handleSelectConversation = (id: string) => {
+    onSelectConversation(id)
+    onClose()
+  }
+
+  // 头像:有 URL -> Image, 否则用首字母(initials)
+  const nickname = user.nickname || '未登录'
+  const initials = nickname.slice(0, 1).toUpperCase()
+  const isVip = user.level === 'vip'
 
   return (
     <Modal
@@ -124,7 +382,8 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      <View className="flex-1">
+        {/* 半透明遮罩 */}
         <Animated.View
           pointerEvents={visible ? 'auto' : 'none'}
           style={[styles.overlay, { opacity: overlayOpacity }]}
@@ -132,29 +391,195 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
+        {/* 抽屉主体(左侧滑入) */}
         <Animated.View style={[styles.drawer, { width: drawerWidth, transform: [{ translateX }] }]}>
           <View
-            style={[styles.drawerInner, { paddingTop: topPadding, paddingBottom: bottomPadding }]}
+            className="flex-1 bg-white"
+            style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
           >
-            <View style={styles.header}>
-              <View style={styles.headerSpacer} />
-              <Pressable
-                style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
-                onPress={onClose}
-                hitSlop={8}
-                accessibilityLabel="关闭抽屉"
-              >
-                <Text style={styles.closeIcon}>×</Text>
-              </Pressable>
-            </View>
-
-            <FlatList
-              data={menuItems}
-              keyExtractor={(item) => item.key}
-              renderItem={renderItem}
-              ItemSeparatorComponent={null}
+            <ScrollView
+              className="flex-1"
               showsVerticalScrollIndicator={false}
-            />
+              contentContainerStyle={{ paddingBottom: 8 }}
+            >
+              {/* 1. 顶部用户区:头像 + 昵称 + 等级标识 + 关闭按钮 */}
+              <View className="px-4 pt-3 pb-4 flex-row items-center gap-3">
+                <View className="relative">
+                  {user.avatar ? (
+                    <Image source={{ uri: user.avatar }} className="w-11 h-11 rounded-full" />
+                  ) : (
+                    <View className="w-11 h-11 rounded-full items-center justify-center bg-gray-100">
+                      <Text className="text-[16px] font-semibold text-gray-700">{initials}</Text>
+                    </View>
+                  )}
+                  {isVip ? (
+                    <View className="absolute -top-1 -right-1 px-1 py-0.5 rounded-md bg-purple">
+                      <Text className="text-[9px] font-bold text-white leading-tight">VIP</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-semibold text-gray-900" numberOfLines={1}>
+                    {nickname}
+                  </Text>
+                  <View className="mt-1">
+                    {isVip ? (
+                      <View className="self-start px-1.5 py-0.5 rounded-md bg-purple-light">
+                        <Text className="text-[10px] text-purple font-medium">VIP 会员</Text>
+                      </View>
+                    ) : (
+                      <View className="self-start px-1.5 py-0.5 rounded-md bg-gray-100">
+                        <Text className="text-[10px] text-gray-500">普通用户</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <Pressable
+                  className="w-8 h-8 items-center justify-center rounded-lg"
+                  hitSlop={8}
+                  onPress={onClose}
+                  accessibilityLabel="关闭抽屉"
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="text-[22px] text-gray-400 leading-none">×</Text>
+                </Pressable>
+              </View>
+
+              {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu) */}
+              <View className="px-3 py-3 flex-row items-start justify-between">
+                {MAIN_MENUS.map(({ key, label, Icon }) => (
+                  <Pressable
+                    key={key}
+                    className="flex-1 items-center py-1.5 rounded-lg"
+                    onPress={() => handleNavigate(key)}
+                    android_ripple={{ color: tokens.surface.muted, radius: 60 }}
+                  >
+                    <View className="w-11 h-11 rounded-xl items-center justify-center bg-gray-50 mb-1">
+                      <Icon size={22} color={tokens.text.primary} />
+                    </View>
+                    <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* 3-5. 入口列表:一人公司 / 领取免费资料 / 创建新对话(对齐 Uniapp label_content) */}
+              <View className="px-2 py-2 gap-0.5">
+                <Pressable
+                  className="flex-row items-center px-3 py-2.5 rounded-lg"
+                  onPress={onNavigateCompany}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-indigo-50 mr-3">
+                    <Building2 size={18} color="#4f46e5" />
+                  </View>
+                  <Text className="flex-1 text-[14px] text-gray-900">我的一人公司</Text>
+                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2.5 rounded-lg"
+                  onPress={onClaimFree}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-success-lighter mr-3">
+                    <Gift size={18} color={tokens.success.DEFAULT} />
+                  </View>
+                  <Text className="flex-1 text-[14px] text-gray-900">领取免费资料</Text>
+                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2.5 rounded-lg"
+                  onPress={onCreateNewChat}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
+                    <Plus size={18} color={tokens.purple.DEFAULT} />
+                  </View>
+                  <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
+                  <ChevronRight size={16} color={tokens.text.tertiary} />
+                </Pressable>
+              </View>
+
+              {/* 6. 历史对话列表(按模型分组 → 按日期分组 → 左滑删除) */}
+              <View className="px-4 pt-3 pb-2 flex-row items-center justify-between">
+                <Text className="text-[14px] font-bold text-gray-900">历史对话</Text>
+                <Text className="text-[11px] text-gray-400">左滑删除</Text>
+              </View>
+
+              {modelGroups.length === 0 ? (
+                <View className="px-4 py-8 items-center">
+                  <Text className="text-[13px] text-gray-400">暂无历史对话</Text>
+                </View>
+              ) : (
+                <View className="px-2">
+                  {modelGroups.map((mg) => (
+                    <View key={mg.modelName} className="mb-3">
+                      {/* 模型标题(对齐 Uniapp model-title + model-logo) */}
+                      <View className="flex-row items-center px-3 py-1.5">
+                        {mg.modelIcon ? (
+                          <Image
+                            source={{ uri: mg.modelIcon }}
+                            className="w-4 h-4 rounded-sm mr-1.5"
+                          />
+                        ) : (
+                          <View className="w-4 h-4 rounded-sm bg-gray-200 mr-1.5 items-center justify-center">
+                            <Bot size={10} color={tokens.text.secondary} />
+                          </View>
+                        )}
+                        <Text className="text-[12px] font-semibold text-gray-600">
+                          {mg.modelName}
+                        </Text>
+                      </View>
+                      {/* 日期分组(对齐 Uniapp date-group + date-title) */}
+                      {mg.dateGroups.map((dg) => (
+                        <View key={dg.bucket} className="ml-3 mb-1">
+                          <Text className="text-[11px] text-gray-400 px-3 py-1">{dg.label}</Text>
+                          {dg.list.map((item) => (
+                            <SwipeableConversationItem
+                              key={item.id}
+                              item={item}
+                              isOpen={openSwipeId === item.id}
+                              onOpen={handleSwipeOpen}
+                              onSelect={handleSelectConversation}
+                              onDelete={onDeleteConversation}
+                            />
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+
+            {/* 7. 底部操作区:回到主页 + 设置 + 消息(对齐 Uniapp back_index_btn + bottom_userInfo) */}
+            <View className="px-4 py-3 flex-row items-center justify-between bg-white">
+              <Pressable
+                className="flex-row items-center gap-1.5 py-1.5 px-2 rounded-lg"
+                onPress={onGoHome}
+                android_ripple={{ color: tokens.surface.muted }}
+              >
+                <Home size={18} color={tokens.text.secondary} />
+                <Text className="text-[13px] text-gray-700">回到主页</Text>
+              </Pressable>
+              <View className="flex-row items-center gap-1">
+                <Pressable
+                  className="w-9 h-9 items-center justify-center rounded-lg"
+                  onPress={onOpenSettings}
+                  accessibilityLabel="设置"
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Settings size={20} color={tokens.text.secondary} />
+                </Pressable>
+                <Pressable
+                  className="w-9 h-9 items-center justify-center rounded-lg"
+                  onPress={onOpenMessages}
+                  accessibilityLabel="消息"
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <MessageCircle size={20} color={tokens.text.secondary} />
+                </Pressable>
+              </View>
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -163,84 +588,21 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
-  } as ViewStyle,
+  },
   drawer: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: tokens.surface.card,
+    backgroundColor: tokens.surface.light,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 2, height: 0 },
     elevation: 8,
-  },
-  drawerInner: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: HORIZONTAL_PADDING,
-    paddingVertical: 8,
-  },
-  headerSpacer: {
-    flex: 1,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  closeBtnPressed: {
-    backgroundColor: tokens.surface.muted,
-  },
-  closeIcon: {
-    fontSize: CLOSE_ICON_SIZE,
-    lineHeight: CLOSE_ICON_SIZE + 2,
-    color: tokens.text.secondary,
-    fontWeight: '500',
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: ITEM_HEIGHT,
-    paddingHorizontal: HORIZONTAL_PADDING,
-  },
-  itemPressed: {
-    backgroundColor: tokens.surface.muted,
-  },
-  itemIcon: {
-    fontSize: ICON_SIZE,
-    lineHeight: ICON_SIZE + 2,
-    color: tokens.text.primary,
-    width: ICON_SIZE + 8,
-    textAlign: 'center',
-  },
-  itemIconPlaceholder: {
-    width: ICON_SIZE + 8,
-  },
-  itemLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: tokens.text.primary,
-    marginLeft: 12,
-  },
-  itemArrow: {
-    fontSize: 20,
-    lineHeight: 20,
-    color: tokens.text.tertiary,
-    marginLeft: 8,
   },
 })
 
