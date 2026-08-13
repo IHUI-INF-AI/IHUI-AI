@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息列表 ──
   msgListContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },

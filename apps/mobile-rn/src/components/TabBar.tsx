@@ -13,6 +13,9 @@ import { rnLightTokens as tk } from '@ihui/design-tokens'
 
 import { tabBarStyleSheet } from './TabBar.styles'
 
+/** TabBar 高度覆盖(对齐 Uniapp 100rpx = 50dp,取 52dp;原 styles.ts 中 56dp) */
+const TAB_BAR_HEIGHT_OVERRIDE = 52
+
 // ── tabbar 图片资源(对齐 history static/tabbar/ 11 图标) ──
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const HOME_INACTIVE = require('../../assets/images/tabbar/tabbar_2.png')
@@ -83,7 +86,7 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
     <View
       style={[
         tabBarStyleSheet.container,
-        { paddingBottom: insets.bottom },
+        { height: TAB_BAR_HEIGHT_OVERRIDE, paddingBottom: insets.bottom },
       ]}
     >
       {TABS.map((tab) => {
@@ -97,6 +100,7 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
             onPress={handlePress(tab.key)}
             style={({ pressed }) => [
               tabBarStyleSheet.item,
+              { height: TAB_BAR_HEIGHT_OVERRIDE },
               pressed ? { opacity: 0.6 } : null,
             ]}
           >
