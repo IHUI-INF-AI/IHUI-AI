@@ -7,7 +7,7 @@
  * 路由参数:{ reason?: string }
  * 类型零 any;颜色走 rnLightTokens;圆角仅 12/8/6。
  */
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -26,7 +26,7 @@ export default function TopupFailScreen() {
   const reason = route.params?.reason || '充值未完成,请稍后重试'
 
   const retry = () => navigation.goBack()
-  const contactService = () => Alert.alert('联系客服', '客服功能待接入')
+  const contactService = () => navigation.navigate('CustomerService')
 
   return (
     <View style={styles.container}>

@@ -116,7 +116,7 @@ function CoverPicker({ label }: { label: string }): React.JSX.Element {
       <Text style={fieldStyles.label}>{label}</Text>
       <Pressable
         style={({ pressed }) => [coverStyles.box, pressed ? coverStyles.pressed : null]}
-        onPress={() => Alert.alert('上传', '封面/视频上传功能开发中')}
+        onPress={() => Alert.alert('上传', '上传功能即将上线,敬请期待')}
         accessibilityRole="button"
         accessibilityLabel={label}
       >
@@ -219,7 +219,7 @@ function GroupForm(): React.JSX.Element {
       Alert.alert('提示', '请输入合集标题')
       return
     }
-    Alert.alert('发布', '合集发布功能开发中(publishCourse API 待接入)')
+    Alert.alert('发布', '合集发布功能即将上线,敬请期待')
   }
 
   return (
@@ -245,7 +245,7 @@ function VideoForm(): React.JSX.Element {
       Alert.alert('提示', '请输入课程标题')
       return
     }
-    Alert.alert('发布', '视频发布功能开发中(publishVideo API 待接入)')
+    Alert.alert('发布', '视频发布功能即将上线,敬请期待')
   }
 
   return (

@@ -138,9 +138,9 @@ export default function ModelPlazaScreen() {
   const providers = buildProviders(models)
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(models), [models])
 
-  const handleCompare = () => Alert.alert(t('modelPlaza.compare.title'), t('modelPlaza.compare.message'))
+  const handleCompare = () => Alert.alert(t('modelPlaza.compare.title'), '模型对比功能即将上线,敬请期待')
   const handleDetail = (m: ModelPlazaItem) =>
-    Alert.alert(t('modelPlaza.detail.title'), t('modelPlaza.detail.message', { name: m.name }))
+    Alert.alert(t('modelPlaza.detail.title'), `模型「${m.name}」详情功能即将上线,敬请期待`)
 
   return (
     <View style={styles.shell}>
