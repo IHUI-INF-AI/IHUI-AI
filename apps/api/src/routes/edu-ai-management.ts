@@ -1,6 +1,21 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, desc, isNull, between, gte, lte, count, sql, inArray, ne } from 'drizzle-orm'
+import {
+  eq,
+  and,
+  or,
+  desc,
+  isNull,
+  between,
+  gte,
+  lte,
+  count,
+  sql,
+  inArray,
+  ne,
+  type SQL,
+} from 'drizzle-orm'
+import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import {
   eduTerm,
@@ -663,23 +678,23 @@ const paginationSchema = z.object({
 })
 
 async function paginate(
-  queryBuilder: any,
-  where: any,
-  orderBy: any | any[],
+  queryBuilder: AnyPgTable,
+  where: SQL | undefined,
+  orderBy: SQL | AnyPgColumn | Array<SQL | AnyPgColumn>,
   page: number,
   pageSize: number,
 ) {
   const [totalResult] = await db
     .select({ count: count() })
     .from(queryBuilder)
-    .where(where)
+    .where(where ?? sql`true`)
   const total = Number(totalResult?.count ?? 0)
   const totalPages = Math.ceil(total / pageSize)
   const orderByArr = Array.isArray(orderBy) ? orderBy : [orderBy]
   const list = await db
     .select()
     .from(queryBuilder)
-    .where(where)
+    .where(where ?? sql`true`)
     .orderBy(...orderByArr)
     .limit(pageSize)
     .offset((page - 1) * pageSize)
@@ -697,13 +712,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/term', async (request, reply) => {
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const result = await paginate(eduTerm, undefined, [desc(eduTerm.isCurrent), desc(eduTerm.startDate)], page, pageSize)
+    const result = await paginate(
+      eduTerm,
+      undefined,
+      [desc(eduTerm.isCurrent), desc(eduTerm.startDate)],
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
   server.get('/term/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.select().from(eduTerm).where(eq(eduTerm.id, parsed.data.id)).limit(1)
     if (!row) return reply.status(404).send(error(404, '学期不存在'))
     return reply.send(success({ term: row }))
@@ -713,7 +735,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createTermSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     // 如果设为当前学期，先把其他学期设为非当前
     if (parsed.data.isCurrent) {
       await db.update(eduTerm).set({ isCurrent: false })
@@ -726,15 +749,25 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTermSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduTerm).where(eq(eduTerm.id, idParsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTerm)
+      .where(eq(eduTerm.id, idParsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '学期不存在'))
     if (parsed.data.isCurrent) {
       await db.update(eduTerm).set({ isCurrent: false })
     }
-    const [row] = await db.update(eduTerm).set({ ...parsed.data, updatedAt: new Date() }).where(eq(eduTerm.id, idParsed.data.id)).returning()
+    const [row] = await db
+      .update(eduTerm)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduTerm.id, idParsed.data.id))
+      .returning()
     return reply.send(success({ term: row }))
   })
 
@@ -742,8 +775,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduTerm).where(eq(eduTerm.id, parsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTerm)
+      .where(eq(eduTerm.id, parsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '学期不存在'))
     await db.delete(eduTerm).where(eq(eduTerm.id, parsed.data.id))
     return reply.send(success({ deleted: true }))
@@ -755,8 +793,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/class', async (request, reply) => {
     const parsed = classListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = []
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = []
     if (parsed.data.termId) conds.push(eq(eduClass.termId, parsed.data.termId))
     const where = conds.length > 0 ? and(...conds) : undefined
     const list = await db.select().from(eduClass).where(where).orderBy(desc(eduClass.createdAt))
@@ -765,7 +804,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/class/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.select().from(eduClass).where(eq(eduClass.id, parsed.data.id)).limit(1)
     if (!row) return reply.status(404).send(error(404, '班级不存在'))
     return reply.send(success({ class: row }))
@@ -775,7 +815,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createClassSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduClass).values(parsed.data).returning()
     return reply.status(201).send(success({ class: row }))
   })
@@ -784,12 +825,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateClassSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduClass).where(eq(eduClass.id, idParsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduClass)
+      .where(eq(eduClass.id, idParsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '班级不存在'))
-    const [row] = await db.update(eduClass).set({ ...parsed.data, updatedAt: new Date() }).where(eq(eduClass.id, idParsed.data.id)).returning()
+    const [row] = await db
+      .update(eduClass)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduClass.id, idParsed.data.id))
+      .returning()
     return reply.send(success({ class: row }))
   })
 
@@ -797,8 +848,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduClass).where(eq(eduClass.id, parsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduClass)
+      .where(eq(eduClass.id, parsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '班级不存在'))
     await db.delete(eduClass).where(eq(eduClass.id, parsed.data.id))
     return reply.send(success({ deleted: true }))
@@ -810,7 +866,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/schedule', async (request, reply) => {
     const parsed = scheduleListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const conds = [isNull(eduCourseSchedule.deletedAt)]
     if (parsed.data.termId) conds.push(eq(eduCourseSchedule.termId, parsed.data.termId))
     if (parsed.data.classId) conds.push(eq(eduCourseSchedule.classId, parsed.data.classId))
@@ -826,7 +883,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/schedule/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .select()
       .from(eduCourseSchedule)
@@ -840,7 +898,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createScheduleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduCourseSchedule).values(parsed.data).returning()
     return reply.status(201).send(success({ schedule: row }))
   })
@@ -849,9 +908,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateScheduleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduCourseSchedule)
@@ -870,7 +931,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduCourseSchedule)
@@ -892,19 +954,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = copyLastWeekSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { classId, targetWeekStart: _targetWeekStart } = parsed.data
 
     // 查询该班级所有课程条目（课程表按 weekday 存储，不绑定具体日期）
     const lastWeekSchedules = await db
       .select()
       .from(eduCourseSchedule)
-      .where(
-        and(
-          eq(eduCourseSchedule.classId, classId),
-          isNull(eduCourseSchedule.deletedAt),
-        ),
-      )
+      .where(and(eq(eduCourseSchedule.classId, classId), isNull(eduCourseSchedule.deletedAt)))
 
     if (lastWeekSchedules.length === 0) {
       return reply.send(success({ count: 0, message: '上周无课程数据' }))
@@ -929,10 +987,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/schedule/check-teacher-conflict', async (request, reply) => {
     const parsed = checkTeacherConflictSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { teacher, weekday, startTime, endTime, excludeScheduleId } = parsed.data
 
-    const conds: any[] = [
+    const conds: SQL[] = [
       eq(eduCourseSchedule.teacher, teacher),
       eq(eduCourseSchedule.weekday, weekday),
       isNull(eduCourseSchedule.deletedAt),
@@ -960,18 +1019,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/schedule/export', async (request, reply) => {
     const parsed = scheduleExportQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { classId, startDate, endDate } = parsed.data
 
     const list = await db
       .select()
       .from(eduCourseSchedule)
-      .where(
-        and(
-          eq(eduCourseSchedule.classId, classId),
-          isNull(eduCourseSchedule.deletedAt),
-        ),
-      )
+      .where(and(eq(eduCourseSchedule.classId, classId), isNull(eduCourseSchedule.deletedAt)))
       .orderBy(eduCourseSchedule.weekday, eduCourseSchedule.startTime)
 
     // 获取班级信息
@@ -981,13 +1036,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduClass.id, classId))
       .limit(1)
 
-    return reply.send(success({
-      exportDate: new Date().toISOString(),
-      dateRange: { startDate, endDate },
-      class: classInfo ?? null,
-      schedules: list,
-      totalCount: list.length,
-    }))
+    return reply.send(
+      success({
+        exportDate: new Date().toISOString(),
+        dateRange: { startDate, endDate },
+        class: classInfo ?? null,
+        schedules: list,
+        totalCount: list.length,
+      }),
+    )
   })
 
   // ===========================================================================
@@ -996,7 +1053,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/meal', async (request, reply) => {
     const parsed = mealListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
     const conds = [isNull(eduMealRecipe.deletedAt)]
     if (parsed.data.startDate && parsed.data.endDate) {
@@ -1008,13 +1066,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     }
     if (parsed.data.mealType) conds.push(eq(eduMealRecipe.mealType, parsed.data.mealType))
     const where = and(...conds)
-    const result = await paginate(eduMealRecipe, where, [eduMealRecipe.date, eduMealRecipe.mealType], page, pageSize)
+    const result = await paginate(
+      eduMealRecipe,
+      where,
+      [eduMealRecipe.date, eduMealRecipe.mealType],
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
   server.get('/meal/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .select()
       .from(eduMealRecipe)
@@ -1028,7 +1093,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createMealSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduMealRecipe).values(parsed.data).returning()
     return reply.status(201).send(success({ meal: row }))
   })
@@ -1037,9 +1103,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateMealSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduMealRecipe)
@@ -1058,7 +1126,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduMealRecipe)
@@ -1078,19 +1147,31 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/meal/template', async (request, reply) => {
     const parsed = templateListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = []
+    const conds: SQL[] = []
     if (parsed.data.name) conds.push(eq(eduMealWeekTemplate.name, parsed.data.name))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const result = await paginate(eduMealWeekTemplate, where, [eduMealWeekTemplate.name, eduMealWeekTemplate.weekday, eduMealWeekTemplate.mealType], page, pageSize)
+    const result = await paginate(
+      eduMealWeekTemplate,
+      where,
+      [eduMealWeekTemplate.name, eduMealWeekTemplate.weekday, eduMealWeekTemplate.mealType],
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
   server.get('/meal/template/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [row] = await db.select().from(eduMealWeekTemplate).where(eq(eduMealWeekTemplate.id, parsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db
+      .select()
+      .from(eduMealWeekTemplate)
+      .where(eq(eduMealWeekTemplate.id, parsed.data.id))
+      .limit(1)
     if (!row) return reply.status(404).send(error(404, '模板不存在'))
     return reply.send(success({ template: row }))
   })
@@ -1099,7 +1180,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createTemplateSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduMealWeekTemplate).values(parsed.data).returning()
     return reply.status(201).send(success({ template: row }))
   })
@@ -1108,10 +1190,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTemplateSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduMealWeekTemplate).where(eq(eduMealWeekTemplate.id, idParsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduMealWeekTemplate)
+      .where(eq(eduMealWeekTemplate.id, idParsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '模板不存在'))
     const [row] = await db
       .update(eduMealWeekTemplate)
@@ -1125,8 +1213,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduMealWeekTemplate).where(eq(eduMealWeekTemplate.id, parsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduMealWeekTemplate)
+      .where(eq(eduMealWeekTemplate.id, parsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '模板不存在'))
     await db.delete(eduMealWeekTemplate).where(eq(eduMealWeekTemplate.id, parsed.data.id))
     return reply.send(success({ deleted: true }))
@@ -1137,7 +1230,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = applyTemplateSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { templateName, startDate } = parsed.data
     // 查询模板所有条目
     const templates = await db
@@ -1184,7 +1278,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/meal/nutrition-summary', async (request, reply) => {
     const parsed = nutritionSummaryQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate } = parsed.data
 
     try {
@@ -1192,15 +1287,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .select()
         .from(eduMealRecipe)
         .where(
-          and(
-            between(eduMealRecipe.date, startDate, endDate),
-            isNull(eduMealRecipe.deletedAt),
-          ),
+          and(between(eduMealRecipe.date, startDate, endDate), isNull(eduMealRecipe.deletedAt)),
         )
         .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
 
       // 按餐类型汇总营养信息
-      const nutritionByType: Record<string, { count: number; calories: number; protein: number; carbs: number }> = {}
+      const nutritionByType: Record<
+        string,
+        { count: number; calories: number; protein: number; carbs: number }
+      > = {}
       let totalCalories = 0
       let totalProtein = 0
       let totalCarbs = 0
@@ -1232,28 +1327,31 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
-      return reply.send(success({
-        dateRange: { startDate, endDate },
-        totalMeals: meals.length,
-        summary: {
-          totalCalories: Math.round(totalCalories),
-          totalProtein: Math.round(totalProtein),
-          totalCarbs: Math.round(totalCarbs),
-        },
-        byType: Object.entries(nutritionByType).map(([type, data]) => ({
-          mealType: type,
-          ...data,
-          avgCalories: data.count > 0 ? Math.round(data.calories / data.count) : 0,
-        })),
-      }))
-    } catch (err: any) {
+      return reply.send(
+        success({
+          dateRange: { startDate, endDate },
+          totalMeals: meals.length,
+          summary: {
+            totalCalories: Math.round(totalCalories),
+            totalProtein: Math.round(totalProtein),
+            totalCarbs: Math.round(totalCarbs),
+          },
+          byType: Object.entries(nutritionByType).map(([type, data]) => ({
+            mealType: type,
+            ...data,
+            avgCalories: data.count > 0 ? Math.round(data.calories / data.count) : 0,
+          })),
+        }),
+      )
+    } catch (_err) {
       return reply.status(500).send(error(500, '营养分析查询失败'))
     }
   })
 
   server.post('/meal/generate-shopping-list', async (request, reply) => {
     const parsed = generateShoppingListSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate } = parsed.data
 
     try {
@@ -1261,19 +1359,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .select()
         .from(eduMealRecipe)
         .where(
-          and(
-            between(eduMealRecipe.date, startDate, endDate),
-            isNull(eduMealRecipe.deletedAt),
-          ),
+          and(between(eduMealRecipe.date, startDate, endDate), isNull(eduMealRecipe.deletedAt)),
         )
         .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
 
       // 汇总所有食材
-      const ingredientMap = new Map<string, { ingredient: string; count: number; dishes: string[] }>()
+      const ingredientMap = new Map<
+        string,
+        { ingredient: string; count: number; dishes: string[] }
+      >()
       for (const meal of meals) {
         if (meal.ingredients) {
           // 按逗号分割食材
-          const items = meal.ingredients.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+          const items = meal.ingredients
+            .split(/[,，、]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
           for (const item of items) {
             const existing = ingredientMap.get(item) ?? { ingredient: item, count: 0, dishes: [] }
             existing.count++
@@ -1287,12 +1388,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
       const shoppingList = Array.from(ingredientMap.values()).sort((a, b) => b.count - a.count)
 
-      return reply.send(success({
-        dateRange: { startDate, endDate },
-        shoppingList,
-        totalIngredients: shoppingList.length,
-      }))
-    } catch (err: any) {
+      return reply.send(
+        success({
+          dateRange: { startDate, endDate },
+          shoppingList,
+          totalIngredients: shoppingList.length,
+        }),
+      )
+    } catch (_err) {
       return reply.status(500).send(error(500, '采购清单生成失败'))
     }
   })
@@ -1301,7 +1404,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uploadImageSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { id, imageUrl } = parsed.data
 
     const [existing] = await db
@@ -1325,7 +1429,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/study-plan', async (request, reply) => {
     const parsed = planListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
     const conds = [isNull(eduStudyPlan.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduStudyPlan.classId, parsed.data.classId))
@@ -1339,7 +1444,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/study-plan/:id', async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .select()
       .from(eduStudyPlan)
@@ -1353,8 +1459,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createPlanSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [row] = await db.insert(eduStudyPlan).values({ ...parsed.data, creatorId: request.userId! }).returning()
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db
+      .insert(eduStudyPlan)
+      .values({ ...parsed.data, creatorId: request.userId! })
+      .returning()
     return reply.status(201).send(success({ plan: row }))
   })
 
@@ -1362,9 +1472,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updatePlanSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduStudyPlan)
@@ -1383,7 +1495,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduStudyPlan)
@@ -1402,7 +1515,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const [parent] = await db
       .select()
       .from(eduStudyPlan)
@@ -1426,7 +1540,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       status: string
       parentPlanId: string
     }> = []
-    let weekStart = new Date(start)
+    const weekStart = new Date(start)
 
     while (weekStart < end) {
       const weekEnd = new Date(weekStart)
@@ -1467,7 +1581,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/study-plan/:id/items', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const items = await db
       .select()
       .from(eduPlanItem)
@@ -1480,18 +1595,25 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = createPlanItemSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [row] = await db.insert(eduPlanItem).values({ ...parsed.data, planId: idParsed.data.id }).returning()
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db
+      .insert(eduPlanItem)
+      .values({ ...parsed.data, planId: idParsed.data.id })
+      .returning()
     return reply.status(201).send(success({ item: row }))
   })
 
   server.put('/plan-item/:id', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updatePlanItemSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduPlanItem)
@@ -1517,7 +1639,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/plan-item/:id', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduPlanItem)
@@ -1537,7 +1660,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/study-plan/completion-stats', async (request, reply) => {
     const parsed = completionStatsQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { classId, termId } = parsed.data
 
     // 查询该班级学期下的所有计划
@@ -1562,12 +1686,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             completed: sql<number>`count(case when ${eduPlanItem.completed} = true then 1 end)`,
           })
           .from(eduPlanItem)
-          .where(
-            and(
-              eq(eduPlanItem.planId, plan.id),
-              isNull(eduPlanItem.deletedAt),
-            ),
-          )
+          .where(and(eq(eduPlanItem.planId, plan.id), isNull(eduPlanItem.deletedAt)))
           .limit(1)
 
         const total = items[0]?.total ?? 0
@@ -1593,19 +1712,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const totalCompleted = stats.reduce((sum, s) => sum + s.completedItems, 0)
     const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
 
-    return reply.send(success({
-      classId,
-      termId,
-      overallRate,
-      totalItems,
-      totalCompleted,
-      plans: stats,
-    }))
+    return reply.send(
+      success({
+        classId,
+        termId,
+        overallRate,
+        totalItems,
+        totalCompleted,
+        plans: stats,
+      }),
+    )
   })
 
   server.get('/study-plan/progress-timeline', async (request, reply) => {
     const parsed = progressTimelineQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { planId } = parsed.data
 
     // 查询计划信息
@@ -1633,17 +1755,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const [totalResult] = await db
       .select({ count: count() })
       .from(eduPlanItem)
-      .where(
-        and(
-          eq(eduPlanItem.planId, planId),
-          isNull(eduPlanItem.deletedAt),
-        ),
-      )
+      .where(and(eq(eduPlanItem.planId, planId), isNull(eduPlanItem.deletedAt)))
 
     const totalItems = totalResult?.count ?? 0
 
     // 按完成日期分组
-    const timelineMap = new Map<string, { date: string; items: Array<{ id: string; content: string; completedAt: string }> }>()
+    const timelineMap = new Map<
+      string,
+      { date: string; items: Array<{ id: string; content: string; completedAt: string }> }
+    >()
     for (const item of completedItems) {
       if (item.completedAt) {
         const dateStr = new Date(item.completedAt).toISOString().split('T')[0]!
@@ -1651,9 +1771,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         existing.items.push({
           id: item.id,
           content: item.content,
-          completedAt: item.completedAt instanceof Date
-            ? item.completedAt.toISOString()
-            : String(item.completedAt),
+          completedAt:
+            item.completedAt instanceof Date
+              ? item.completedAt.toISOString()
+              : String(item.completedAt),
         })
         timelineMap.set(dateStr, existing)
       }
@@ -1661,28 +1782,32 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
     const timeline = Array.from(timelineMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
-    return reply.send(success({
-      plan: {
-        id: plan.id,
-        title: plan.title,
-        planType: plan.planType,
-        startDate: plan.startDate,
-        endDate: plan.endDate,
-      },
-      totalItems,
-      completedItems: completedItems.length,
-      completionRate: totalItems > 0 ? Math.round((completedItems.length / totalItems) * 100) : 0,
-      timeline,
-    }))
+    return reply.send(
+      success({
+        plan: {
+          id: plan.id,
+          title: plan.title,
+          planType: plan.planType,
+          startDate: plan.startDate,
+          endDate: plan.endDate,
+        },
+        totalItems,
+        completedItems: completedItems.length,
+        completionRate: totalItems > 0 ? Math.round((completedItems.length / totalItems) * 100) : 0,
+        timeline,
+      }),
+    )
   })
 
   server.put('/study-plan-item/:id/review', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = reviewItemSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const [existing] = await db
       .select()
@@ -1720,9 +1845,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = attendanceStatsQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const conds: any[] = [isNull(eduAttendanceRecord.deletedAt)]
+    const conds: SQL[] = [isNull(eduAttendanceRecord.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduAttendanceRecord.classId, parsed.data.classId))
     if (parsed.data.startDate && parsed.data.endDate) {
       conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
@@ -1757,7 +1883,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             ? sql<string>`to_char(${eduAttendanceRecord.date}::timestamp, 'IYYY-IW')`
             : sql<string>`to_char(${eduAttendanceRecord.date}::timestamp, 'YYYY-MM')`
 
-      periodBreakdown = await db
+      periodBreakdown = (await db
         .select({
           period: periodExpr,
           status: eduAttendanceRecord.status,
@@ -1766,7 +1892,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .from(eduAttendanceRecord)
         .where(where)
         .groupBy(periodExpr, eduAttendanceRecord.status)
-        .orderBy(periodExpr) as Array<{ period: string; status: string; count: number }>
+        .orderBy(periodExpr)) as Array<{ period: string; status: string; count: number }>
     }
 
     return reply.send(success({ total, attendanceRate, statusBreakdown, periodBreakdown }))
@@ -1776,21 +1902,29 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = attendanceListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduAttendanceRecord.deletedAt)]
+    const conds: SQL[] = [isNull(eduAttendanceRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduAttendanceRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduAttendanceRecord.classId, parsed.data.classId))
     if (parsed.data.date) conds.push(eq(eduAttendanceRecord.date, parsed.data.date))
     if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
     const where = and(...conds)
-    const result = await paginate(eduAttendanceRecord, where, [desc(eduAttendanceRecord.date), desc(eduAttendanceRecord.createdAt)], page, pageSize)
+    const result = await paginate(
+      eduAttendanceRecord,
+      where,
+      [desc(eduAttendanceRecord.date), desc(eduAttendanceRecord.createdAt)],
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
   server.post('/attendance/check-in', async (request, reply) => {
     const parsed = checkInSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const now = new Date()
     const today = now.toISOString().split('T')[0]!
@@ -1828,15 +1962,17 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           .returning()
       })
       return reply.status(201).send(success({ record: row }))
-    } catch (err: any) {
-      if (err.message === 'DUPLICATE_CHECKIN') return reply.status(409).send(error(409, '该学生今日已签到'))
+    } catch (err: unknown) {
+      if ((err as { message?: string }).message === 'DUPLICATE_CHECKIN')
+        return reply.status(409).send(error(409, '该学生今日已签到'))
       return reply.status(500).send(error(500, '签到失败'))
     }
   })
 
   server.put('/attendance/check-out', async (request, reply) => {
     const parsed = checkOutSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     try {
       const [row] = await db.transaction(async (tx) => {
@@ -1866,9 +2002,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           .returning()
       })
       return reply.send(success({ record: row }))
-    } catch (err: any) {
-      if (err.message === 'NOT_FOUND') return reply.status(404).send(error(404, '未找到签到记录'))
-      if (err.message === 'ALREADY_CHECKED_OUT') return reply.status(409).send(error(409, '该学生今日已签退'))
+    } catch (err: unknown) {
+      if ((err as { message?: string }).message === 'NOT_FOUND')
+        return reply.status(404).send(error(404, '未找到签到记录'))
+      if ((err as { message?: string }).message === 'ALREADY_CHECKED_OUT')
+        return reply.status(409).send(error(409, '该学生今日已签退'))
       return reply.status(500).send(error(500, '签退失败'))
     }
   })
@@ -1877,19 +2015,25 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateAttendanceSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.id, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
+      .where(
+        and(eq(eduAttendanceRecord.id, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)),
+      )
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '签到记录不存在'))
     const updates: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() }
     // 将字符串时间转为 Date 对象
-    if (typeof updates.checkInTime === 'string') updates.checkInTime = new Date(updates.checkInTime as string)
-    if (typeof updates.checkOutTime === 'string') updates.checkOutTime = new Date(updates.checkOutTime as string)
+    if (typeof updates.checkInTime === 'string')
+      updates.checkInTime = new Date(updates.checkInTime as string)
+    if (typeof updates.checkOutTime === 'string')
+      updates.checkOutTime = new Date(updates.checkOutTime as string)
     const [row] = await db
       .update(eduAttendanceRecord)
       .set(updates)
@@ -1902,7 +2046,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduAttendanceRecord)
@@ -1924,26 +2069,32 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = leaveListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduLeaveRequest.deletedAt)]
+    const conds: SQL[] = [isNull(eduLeaveRequest.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduLeaveRequest.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduLeaveRequest.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduLeaveRequest.status, parsed.data.status))
     if (parsed.data.startDate && parsed.data.endDate) {
-      conds.push(
-        and(
-          gte(eduLeaveRequest.endDate, parsed.data.startDate),
-          lte(eduLeaveRequest.startDate, parsed.data.endDate),
-        ),
+      const range = and(
+        gte(eduLeaveRequest.endDate, parsed.data.startDate),
+        lte(eduLeaveRequest.startDate, parsed.data.endDate),
       )
+      if (range) conds.push(range)
     } else if (parsed.data.startDate) {
       conds.push(gte(eduLeaveRequest.startDate, parsed.data.startDate))
     } else if (parsed.data.endDate) {
       conds.push(lte(eduLeaveRequest.endDate, parsed.data.endDate))
     }
     const where = and(...conds)
-    const result = await paginate(eduLeaveRequest, where, desc(eduLeaveRequest.createdAt), page, pageSize)
+    const result = await paginate(
+      eduLeaveRequest,
+      where,
+      desc(eduLeaveRequest.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -1951,7 +2102,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createLeaveSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduLeaveRequest).values(parsed.data).returning()
     return reply.status(201).send(success({ leave: row }))
   })
@@ -1960,9 +2112,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateLeaveSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLeaveRequest)
@@ -1981,16 +2135,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveLeaveSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLeaveRequest)
       .where(and(eq(eduLeaveRequest.id, idParsed.data.id), isNull(eduLeaveRequest.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '请假申请不存在'))
-    if (existing.status !== 'pending') return reply.status(400).send(error(400, '仅待审批的申请可审批'))
+    if (existing.status !== 'pending')
+      return reply.status(400).send(error(400, '仅待审批的申请可审批'))
     const [row] = await db
       .update(eduLeaveRequest)
       .set({
@@ -2009,7 +2166,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLeaveRequest)
@@ -2030,16 +2188,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 获取当前用户的绑定列表（家长视角：查看绑定的孩子；学生视角：查看绑定的家长）
   server.get('/parent/binding', async (request, reply) => {
     const parsed = bindingListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
-    const conds: any[] = [
-      or(eq(eduParentStudentBinding.parentId, userId), eq(eduParentStudentBinding.studentId, userId)),
+    const conds: SQL[] = [
+      or(
+        eq(eduParentStudentBinding.parentId, userId),
+        eq(eduParentStudentBinding.studentId, userId),
+      ) ?? sql`false`,
       isNull(eduParentStudentBinding.deletedAt),
     ]
     if (parsed.data.status) conds.push(eq(eduParentStudentBinding.status, parsed.data.status))
-    const where = and(...conds)
+    const where = and(...conds) ?? sql`true`
     const list = await db
       .select()
       .from(eduParentStudentBinding)
@@ -2051,7 +2213,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 创建绑定（家长发起）
   server.post('/parent/binding', async (request, reply) => {
     const parsed = createBindingSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2083,9 +2246,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 确认/拒绝绑定（学生端确认）
   server.put('/parent/binding/:id', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateBindingSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2100,7 +2265,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       )
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
-    if (existing.studentId !== userId) return reply.status(403).send(error(403, '仅学生本人可确认绑定'))
+    if (existing.studentId !== userId)
+      return reply.status(403).send(error(403, '仅学生本人可确认绑定'))
 
     const updates: Record<string, unknown> = { updatedAt: new Date() }
     if (parsed.data.relationship) updates.relationship = parsed.data.relationship
@@ -2120,7 +2286,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 解除绑定（家长或学生均可发起）
   server.delete('/parent/binding/:id', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2190,16 +2357,18 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
     return reply.send(success({ children }))
   })
-// ===========================================================================
+  // ===========================================================================
   // 11. 孩子数据查看（家长端）
   // ===========================================================================
 
   // 孩子考勤记录（按学生ID）
   server.get('/parent/child/:id/attendance', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2218,7 +2387,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
 
-    const conds: any[] = [
+    const conds: SQL[] = [
       eq(eduAttendanceRecord.studentId, idParsed.data.id),
       isNull(eduAttendanceRecord.deletedAt),
     ]
@@ -2242,7 +2411,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 孩子成绩列表（按学生ID）
   server.get('/parent/child/:id/grades', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2272,7 +2442,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 孩子课程表（按班级ID，从签到记录中查找最近的班级）
   server.get('/parent/child/:id/schedule', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2295,7 +2466,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const [latestAttendance] = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.studentId, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
+      .where(
+        and(
+          eq(eduAttendanceRecord.studentId, idParsed.data.id),
+          isNull(eduAttendanceRecord.deletedAt),
+        ),
+      )
       .orderBy(desc(eduAttendanceRecord.date))
       .limit(1)
 
@@ -2320,7 +2496,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 孩子学习计划（按班级ID，从签到记录中查找最近的班级）
   server.get('/parent/child/:id/study-plans', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2343,7 +2520,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const [latestAttendance] = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.studentId, idParsed.data.id), isNull(eduAttendanceRecord.deletedAt)))
+      .where(
+        and(
+          eq(eduAttendanceRecord.studentId, idParsed.data.id),
+          isNull(eduAttendanceRecord.deletedAt),
+        ),
+      )
       .orderBy(desc(eduAttendanceRecord.date))
       .limit(1)
 
@@ -2356,10 +2538,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .select()
       .from(eduStudyPlan)
       .where(
-        and(
-          eq(eduStudyPlan.classId, latestAttendance.classId),
-          isNull(eduStudyPlan.deletedAt),
-        ),
+        and(eq(eduStudyPlan.classId, latestAttendance.classId), isNull(eduStudyPlan.deletedAt)),
       )
       .orderBy(desc(eduStudyPlan.createdAt))
     return reply.send(success({ list, classId: latestAttendance.classId }))
@@ -2368,7 +2547,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 孩子菜谱（学校通用，无需班级信息）
   server.get('/parent/child/:id/meals', async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -2399,12 +2579,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const list = await db
       .select()
       .from(eduMealRecipe)
-      .where(
-        and(
-          between(eduMealRecipe.date, startStr, endStr),
-          isNull(eduMealRecipe.deletedAt),
-        ),
-      )
+      .where(and(between(eduMealRecipe.date, startStr, endStr), isNull(eduMealRecipe.deletedAt)))
       .orderBy(eduMealRecipe.date, eduMealRecipe.mealType)
     return reply.send(success({ list }))
   })
@@ -2486,12 +2661,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const list = await db
       .select()
       .from(eduMealRecipe)
-      .where(
-        and(
-          eq(eduMealRecipe.date, today),
-          isNull(eduMealRecipe.deletedAt),
-        ),
-      )
+      .where(and(eq(eduMealRecipe.date, today), isNull(eduMealRecipe.deletedAt)))
       .orderBy(eduMealRecipe.mealType)
     return reply.send(success({ list }))
   })
@@ -2532,10 +2702,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .select()
       .from(eduStudyPlan)
       .where(
-        and(
-          eq(eduStudyPlan.classId, latestAttendance.classId),
-          isNull(eduStudyPlan.deletedAt),
-        ),
+        and(eq(eduStudyPlan.classId, latestAttendance.classId), isNull(eduStudyPlan.deletedAt)),
       )
       .orderBy(desc(eduStudyPlan.createdAt))
     return reply.send(success({ list }))
@@ -2565,12 +2732,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const list = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(
-        and(
-          eq(eduAttendanceRecord.studentId, childId),
-          isNull(eduAttendanceRecord.deletedAt),
-        ),
-      )
+      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
       .orderBy(desc(eduAttendanceRecord.date))
     return reply.send(success({ list }))
   })
@@ -2611,8 +2773,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 成绩列表
   server.get('/exam-score', async (request, reply) => {
     const parsed = examScoreListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduExamScore.deletedAt)]
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = [isNull(eduExamScore.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduExamScore.classId, parsed.data.classId))
     if (parsed.data.subject) conds.push(eq(eduExamScore.subject, parsed.data.subject))
     if (parsed.data.examName) conds.push(eq(eduExamScore.examName, parsed.data.examName))
@@ -2630,7 +2793,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createExamScoreSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .insert(eduExamScore)
       .values({ ...parsed.data, recordedBy: request.userId })
@@ -2643,7 +2807,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduExamScore)
@@ -2660,8 +2825,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 成绩统计
   server.get('/exam-score/stats', async (request, reply) => {
     const parsed = examScoreStatsQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduExamScore.deletedAt)]
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = [isNull(eduExamScore.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduExamScore.classId, parsed.data.classId))
     const where = and(...conds)
 
@@ -2685,7 +2851,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .select({ count: count() })
       .from(eduExamScore)
       .where(and(where, sql`${eduExamScore.score} >= ${eduExamScore.totalScore} * 0.6`))
-    const passRate = totalCount > 0 ? Math.round((Number(passCount[0]?.count ?? 0) / totalCount) * 100) : 0
+    const passRate =
+      totalCount > 0 ? Math.round((Number(passCount[0]?.count ?? 0) / totalCount) * 100) : 0
 
     // 分数分布
     const distribution = [
@@ -2714,8 +2881,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 排名（按考试+班级聚合）
   server.get('/exam-score/ranking', async (request, reply) => {
     const parsed = examScoreRankingQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduExamScore.deletedAt)]
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = [isNull(eduExamScore.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduExamScore.classId, parsed.data.classId))
     if (parsed.data.examName) conds.push(eq(eduExamScore.examName, parsed.data.examName))
     const where = and(...conds)
@@ -2747,9 +2915,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createSnapshotSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const conds: any[] = [
+    const conds: SQL[] = [
       eq(eduExamScore.classId, parsed.data.classId),
       eq(eduExamScore.examName, parsed.data.examName),
       isNull(eduExamScore.deletedAt),
@@ -2792,8 +2961,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = teacherScheduleListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = []
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = []
     if (parsed.data.termId) conds.push(eq(eduTeacherSchedule.termId, parsed.data.termId))
     const where = conds.length > 0 ? and(...conds) : undefined
     const list = await db
@@ -2808,7 +2978,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createTeacherScheduleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduTeacherSchedule).values(parsed.data).returning()
     return reply.status(201).send(success({ teacherSchedule: row }))
   })
@@ -2817,10 +2988,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTeacherScheduleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, idParsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTeacherSchedule)
+      .where(eq(eduTeacherSchedule.id, idParsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
     const [row] = await db
       .update(eduTeacherSchedule)
@@ -2834,8 +3011,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db.select().from(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, parsed.data.id)).limit(1)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTeacherSchedule)
+      .where(eq(eduTeacherSchedule.id, parsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
     await db.delete(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, parsed.data.id))
     return reply.send(success({ deleted: true }))
@@ -2849,8 +3031,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = schedulingRuleListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduSchedulingRule.deletedAt)]
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = [isNull(eduSchedulingRule.deletedAt)]
     if (parsed.data.termId) conds.push(eq(eduSchedulingRule.termId, parsed.data.termId))
     if (parsed.data.classId) conds.push(eq(eduSchedulingRule.classId, parsed.data.classId))
     const where = and(...conds)
@@ -2858,7 +3041,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .select()
       .from(eduSchedulingRule)
       .where(where)
-      .orderBy(desc(eduSchedulingRule.priority), eduSchedulingRule.weekday, eduSchedulingRule.startTime)
+      .orderBy(
+        desc(eduSchedulingRule.priority),
+        eduSchedulingRule.weekday,
+        eduSchedulingRule.startTime,
+      )
     return reply.send(success({ list }))
   })
 
@@ -2866,7 +3053,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createSchedulingRuleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduSchedulingRule).values(parsed.data).returning()
     return reply.status(201).send(success({ schedulingRule: row }))
   })
@@ -2875,9 +3063,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateSchedulingRuleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduSchedulingRule)
@@ -2896,7 +3086,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduSchedulingRule)
@@ -2919,14 +3110,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = autoGenerateSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const { termId, classId } = parsed.data
 
     try {
       const result = await db.transaction(async (tx) => {
         // 查询 active 的排课规则
-        const ruleConds: any[] = [
+        const ruleConds: SQL[] = [
           eq(eduSchedulingRule.termId, termId),
           eq(eduSchedulingRule.isActive, true),
           isNull(eduSchedulingRule.deletedAt),
@@ -2943,22 +3135,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           .select()
           .from(eduTeacherSchedule)
           .where(
-            and(
-              eq(eduTeacherSchedule.termId, termId),
-              eq(eduTeacherSchedule.isAvailable, true),
-            ),
+            and(eq(eduTeacherSchedule.termId, termId), eq(eduTeacherSchedule.isAvailable, true)),
           )
 
         // 检查已有课程，避免冲突
         const existingSchedules = await tx
           .select()
           .from(eduCourseSchedule)
-          .where(
-            and(
-              eq(eduCourseSchedule.termId, termId),
-              isNull(eduCourseSchedule.deletedAt),
-            ),
-          )
+          .where(and(eq(eduCourseSchedule.termId, termId), isNull(eduCourseSchedule.deletedAt)))
 
         const toInsert: Array<{
           termId: string
@@ -3013,7 +3197,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         return { count: insertedCount }
       })
       return reply.status(201).send(success(result))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '自动排课失败'))
     }
   })
@@ -3023,12 +3207,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = checkConflictSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     try {
-      const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } = parsed.data
+      const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } =
+        parsed.data
 
-      const conds: any[] = [
+      const conds: SQL[] = [
         eq(eduCourseSchedule.termId, termId),
         eq(eduCourseSchedule.weekday, weekday),
         isNull(eduCourseSchedule.deletedAt),
@@ -3041,10 +3227,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       // 教师冲突
       let teacherConflicts: Array<{ id: string; courseName: string; classroom: string | null }> = []
       if (teacherId) {
-        const teacherConds = [
-          ...conds,
-          eq(eduCourseSchedule.teacher, teacherId),
-        ]
+        const teacherConds = [...conds, eq(eduCourseSchedule.teacher, teacherId)]
         teacherConflicts = await db
           .select({
             id: eduCourseSchedule.id,
@@ -3058,10 +3241,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       // 教室冲突
       let classroomConflicts: Array<{ id: string; courseName: string; teacher: string | null }> = []
       if (classroom) {
-        const roomConds = [
-          ...conds,
-          eq(eduCourseSchedule.classroom, classroom),
-        ]
+        const roomConds = [...conds, eq(eduCourseSchedule.classroom, classroom)]
         classroomConflicts = await db
           .select({
             id: eduCourseSchedule.id,
@@ -3073,7 +3253,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       }
 
       return reply.send(success({ teacherConflicts, classroomConflicts }))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '冲突检测失败'))
     }
   })
@@ -3086,12 +3266,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = scheduleChangeListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = []
+    const conds: SQL[] = []
     if (parsed.data.status) conds.push(eq(eduScheduleChange.status, parsed.data.status))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const result = await paginate(eduScheduleChange, where, desc(eduScheduleChange.createdAt), page, pageSize)
+    const result = await paginate(
+      eduScheduleChange,
+      where,
+      desc(eduScheduleChange.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3099,7 +3286,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createScheduleChangeSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .insert(eduScheduleChange)
       .values({ ...parsed.data, applicantId: request.userId! })
@@ -3112,9 +3300,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveChangeSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     try {
       const row = await db.transaction(async (tx) => {
@@ -3159,9 +3349,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         return updated
       })
       return reply.send(success({ scheduleChange: row }))
-    } catch (err: any) {
-      if (err.message === 'NOT_FOUND') return reply.status(404).send(error(404, '调课申请不存在'))
-      if (err.message === 'NOT_PENDING') return reply.status(400).send(error(400, '仅待审批的申请可审批'))
+    } catch (err: unknown) {
+      if ((err as { message?: string }).message === 'NOT_FOUND')
+        return reply.status(404).send(error(404, '调课申请不存在'))
+      if ((err as { message?: string }).message === 'NOT_PENDING')
+        return reply.status(400).send(error(400, '仅待审批的申请可审批'))
       return reply.status(500).send(error(500, '审批失败'))
     }
   })
@@ -3171,16 +3363,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveChangeSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduScheduleChange)
       .where(eq(eduScheduleChange.id, idParsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '调课申请不存在'))
-    if (existing.status !== 'pending') return reply.status(400).send(error(400, '仅待审批的申请可驳回'))
+    if (existing.status !== 'pending')
+      return reply.status(400).send(error(400, '仅待审批的申请可驳回'))
 
     const [row] = await db
       .update(eduScheduleChange)
@@ -3203,13 +3398,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = homeworkSubmissionListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduHomeworkSubmission.deletedAt)]
-    if (parsed.data.homeworkId) conds.push(eq(eduHomeworkSubmission.homeworkId, parsed.data.homeworkId))
+    const conds: SQL[] = [isNull(eduHomeworkSubmission.deletedAt)]
+    if (parsed.data.homeworkId)
+      conds.push(eq(eduHomeworkSubmission.homeworkId, parsed.data.homeworkId))
     if (parsed.data.classId) conds.push(eq(eduHomeworkSubmission.classId, parsed.data.classId))
     const where = and(...conds)
-    const result = await paginate(eduHomeworkSubmission, where, desc(eduHomeworkSubmission.createdAt), page, pageSize)
+    const result = await paginate(
+      eduHomeworkSubmission,
+      where,
+      desc(eduHomeworkSubmission.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3217,7 +3420,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createHomeworkSubmissionSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduHomeworkSubmission).values(parsed.data).returning()
     return reply.status(201).send(success({ submission: row }))
   })
@@ -3227,13 +3431,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = gradeHomeworkSubmissionSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduHomeworkSubmission)
-      .where(and(eq(eduHomeworkSubmission.id, idParsed.data.id), isNull(eduHomeworkSubmission.deletedAt)))
+      .where(
+        and(
+          eq(eduHomeworkSubmission.id, idParsed.data.id),
+          isNull(eduHomeworkSubmission.deletedAt),
+        ),
+      )
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '作业提交记录不存在'))
     const [row] = await db
@@ -3256,8 +3467,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = homeworkSubmissionStatsQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const conds: any[] = [isNull(eduHomeworkSubmission.deletedAt)]
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const conds: SQL[] = [isNull(eduHomeworkSubmission.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduHomeworkSubmission.classId, parsed.data.classId))
     const where = and(...conds)
 
@@ -3292,9 +3504,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = leadListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduLead.deletedAt)]
+    const conds: SQL[] = [isNull(eduLead.deletedAt)]
     if (parsed.data.status) conds.push(eq(eduLead.status, parsed.data.status))
     if (parsed.data.source) conds.push(eq(eduLead.source, parsed.data.source))
     if (parsed.data.followerId) conds.push(eq(eduLead.followerId, parsed.data.followerId))
@@ -3307,7 +3520,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createLeadSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduLead).values(parsed.data).returning()
     return reply.status(201).send(success({ lead: row }))
   })
@@ -3316,9 +3530,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateLeadSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLead)
@@ -3337,9 +3553,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateLeadStatusSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLead)
@@ -3358,7 +3576,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduLead)
@@ -3380,13 +3599,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = trialBookingListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = []
+    const conds: SQL[] = []
     if (parsed.data.status) conds.push(eq(eduTrialBooking.status, parsed.data.status))
     if (parsed.data.date) conds.push(eq(eduTrialBooking.trialDate, parsed.data.date))
     const where = conds.length > 0 ? and(...conds) : undefined
-    const result = await paginate(eduTrialBooking, where, desc(eduTrialBooking.createdAt), page, pageSize)
+    const result = await paginate(
+      eduTrialBooking,
+      where,
+      desc(eduTrialBooking.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3394,7 +3620,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createTrialBookingSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduTrialBooking).values(parsed.data).returning()
     return reply.status(201).send(success({ trialBooking: row }))
   })
@@ -3403,9 +3630,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTrialBookingSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduTrialBooking)
@@ -3424,9 +3653,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTrialBookingStatusSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduTrialBooking)
@@ -3449,14 +3680,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = enrollmentListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduEnrollment.deletedAt)]
+    const conds: SQL[] = [isNull(eduEnrollment.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduEnrollment.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduEnrollment.termId, parsed.data.termId))
     if (parsed.data.status) conds.push(eq(eduEnrollment.status, parsed.data.status))
     const where = and(...conds)
-    const result = await paginate(eduEnrollment, where, desc(eduEnrollment.createdAt), page, pageSize)
+    const result = await paginate(
+      eduEnrollment,
+      where,
+      desc(eduEnrollment.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3464,7 +3702,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createEnrollmentSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduEnrollment).values(parsed.data).returning()
     return reply.status(201).send(success({ enrollment: row }))
   })
@@ -3473,9 +3712,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateEnrollmentSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduEnrollment)
@@ -3494,7 +3735,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduEnrollment)
@@ -3516,13 +3758,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = tuitionFeeListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduTuitionFee.deletedAt)]
+    const conds: SQL[] = [isNull(eduTuitionFee.deletedAt)]
     if (parsed.data.classId) conds.push(eq(eduTuitionFee.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduTuitionFee.termId, parsed.data.termId))
     const where = and(...conds)
-    const result = await paginate(eduTuitionFee, where, desc(eduTuitionFee.createdAt), page, pageSize)
+    const result = await paginate(
+      eduTuitionFee,
+      where,
+      desc(eduTuitionFee.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3530,7 +3779,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createTuitionFeeSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduTuitionFee).values(parsed.data).returning()
     return reply.status(201).send(success({ tuitionFee: row }))
   })
@@ -3539,9 +3789,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateTuitionFeeSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduTuitionFee)
@@ -3560,7 +3812,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduTuitionFee)
@@ -3582,14 +3835,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = paymentRecordListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduPaymentRecord.deletedAt)]
+    const conds: SQL[] = [isNull(eduPaymentRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduPaymentRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduPaymentRecord.status, parsed.data.status))
     const where = and(...conds)
-    const result = await paginate(eduPaymentRecord, where, desc(eduPaymentRecord.createdAt), page, pageSize)
+    const result = await paginate(
+      eduPaymentRecord,
+      where,
+      desc(eduPaymentRecord.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3597,7 +3857,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createPaymentRecordSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db.insert(eduPaymentRecord).values(parsed.data).returning()
     return reply.status(201).send(success({ paymentRecord: row }))
   })
@@ -3607,11 +3868,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = paymentRecordSummaryQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     try {
       const result = await db.transaction(async (tx) => {
-        const conds: any[] = [isNull(eduPaymentRecord.deletedAt)]
+        const conds: SQL[] = [isNull(eduPaymentRecord.deletedAt)]
         if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
         const where = and(...conds)
 
@@ -3623,35 +3885,33 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const totalIncome = Number(totalResult[0]?.total ?? 0)
 
         // 已缴费人数（去重）
-        const paidResult = await tx
-          .select({ count: count() })
-          .from(
-            tx
-              .select({ studentId: eduPaymentRecord.studentId })
-              .from(eduPaymentRecord)
-              .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-              .groupBy(eduPaymentRecord.studentId)
-              .as('paid_students'),
-          )
+        const paidResult = await tx.select({ count: count() }).from(
+          tx
+            .select({ studentId: eduPaymentRecord.studentId })
+            .from(eduPaymentRecord)
+            .where(and(where, eq(eduPaymentRecord.status, 'paid')))
+            .groupBy(eduPaymentRecord.studentId)
+            .as('paid_students'),
+        )
         const paidStudentCount = Number(paidResult[0]?.count ?? 0)
 
         // 欠费人数和欠费总额（从 enrollment 表计算）
-        const enrollConds: any[] = [isNull(eduEnrollment.deletedAt)]
+        const enrollConds: SQL[] = [isNull(eduEnrollment.deletedAt)]
         if (parsed.data.classId) enrollConds.push(eq(eduEnrollment.classId, parsed.data.classId))
         if (parsed.data.termId) enrollConds.push(eq(eduEnrollment.termId, parsed.data.termId))
         const enrollWhere = and(...enrollConds)
-        const enrollments = await tx
-          .select()
-          .from(eduEnrollment)
-          .where(enrollWhere)
+        const enrollments = await tx.select().from(eduEnrollment).where(enrollWhere)
         const arrearsStudents = enrollments.filter((e) => e.totalFee > e.paidAmount)
         const arrearsCount = arrearsStudents.length
-        const arrearsTotal = arrearsStudents.reduce((sum, e) => sum + (e.totalFee - e.paidAmount), 0)
+        const arrearsTotal = arrearsStudents.reduce(
+          (sum, e) => sum + (e.totalFee - e.paidAmount),
+          0,
+        )
 
         return { totalIncome, paidStudentCount, arrearsCount, arrearsTotal }
       })
       return reply.send(success(result))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '汇总查询失败'))
     }
   })
@@ -3660,7 +3920,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduPaymentRecord)
@@ -3682,14 +3943,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = refundRecordListQuerySchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize } = paginationSchema.parse(request.query)
-    const conds: any[] = [isNull(eduRefundRecord.deletedAt)]
+    const conds: SQL[] = [isNull(eduRefundRecord.deletedAt)]
     if (parsed.data.studentId) conds.push(eq(eduRefundRecord.studentId, parsed.data.studentId))
     if (parsed.data.classId) conds.push(eq(eduRefundRecord.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduRefundRecord.status, parsed.data.status))
     const where = and(...conds)
-    const result = await paginate(eduRefundRecord, where, desc(eduRefundRecord.createdAt), page, pageSize)
+    const result = await paginate(
+      eduRefundRecord,
+      where,
+      desc(eduRefundRecord.createdAt),
+      page,
+      pageSize,
+    )
     return reply.send(success(result))
   })
 
@@ -3697,7 +3965,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = createRefundRecordSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [row] = await db
       .insert(eduRefundRecord)
       .values({ ...parsed.data, operatorId: parsed.data.operatorId || request.userId })
@@ -3710,16 +3979,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveRefundSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduRefundRecord)
       .where(and(eq(eduRefundRecord.id, idParsed.data.id), isNull(eduRefundRecord.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '退费记录不存在'))
-    if (existing.status !== 'pending') return reply.status(400).send(error(400, '仅待审批的退费可审批'))
+    if (existing.status !== 'pending')
+      return reply.status(400).send(error(400, '仅待审批的退费可审批'))
     const [row] = await db
       .update(eduRefundRecord)
       .set({
@@ -3739,16 +4011,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success) return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = approveRefundSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const [existing] = await db
       .select()
       .from(eduRefundRecord)
       .where(and(eq(eduRefundRecord.id, idParsed.data.id), isNull(eduRefundRecord.deletedAt)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '退费记录不存在'))
-    if (existing.status !== 'pending') return reply.status(400).send(error(400, '仅待审批的退费可驳回'))
+    if (existing.status !== 'pending')
+      return reply.status(400).send(error(400, '仅待审批的退费可驳回'))
     const [row] = await db
       .update(eduRefundRecord)
       .set({
@@ -3761,7 +4036,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .returning()
     return reply.send(success({ refundRecord: row }))
   })
-// ===========================================================================
+  // ===========================================================================
   // 批量操作端点
   // ===========================================================================
 
@@ -3770,7 +4045,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = batchDeleteSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
       const result = await db
         .update(eduCourseSchedule)
@@ -3778,7 +4054,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(inArray(eduCourseSchedule.id, parsed.data.ids))
         .returning()
       return reply.send(success({ deleted: result.length }))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '批量删除失败'))
     }
   })
@@ -3788,7 +4064,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = batchToggleSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
       const result = await db
         .update(eduSchedulingRule)
@@ -3796,7 +4073,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(inArray(eduSchedulingRule.id, parsed.data.ids))
         .returning()
       return reply.send(success({ updated: result.length }))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '批量更新失败'))
     }
   })
@@ -3806,7 +4083,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = batchStatusSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
       const result = await db
         .update(eduLead)
@@ -3814,7 +4092,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(and(inArray(eduLead.id, parsed.data.ids), isNull(eduLead.deletedAt)))
         .returning()
       return reply.send(success({ updated: result.length }))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '批量更新状态失败'))
     }
   })
@@ -3824,7 +4102,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = batchStatusSchema.safeParse(request.body)
-    if (!parsed.success) return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
       const result = await db
         .update(eduEnrollment)
@@ -3832,7 +4111,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(and(inArray(eduEnrollment.id, parsed.data.ids), isNull(eduEnrollment.deletedAt)))
         .returning()
       return reply.send(success({ updated: result.length }))
-    } catch (err: any) {
+    } catch (_err) {
       return reply.status(500).send(error(500, '批量更新状态失败'))
     }
   })
