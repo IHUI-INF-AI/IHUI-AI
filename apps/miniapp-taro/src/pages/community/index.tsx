@@ -502,7 +502,7 @@ export default function Community() {
       Taro.navigateTo({ url: '/pages/distribution/index', fail: () => Taro.navigateTo({ url: '/pages/company/index' }) })
     } else if (item.key === 'freebie') {
       // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
-      const feishuUrl = 'https://ihui.feishu.cn/wiki/免费资料'
+      const feishuUrl = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
       Taro.setClipboardData({
         data: feishuUrl,
         success: () => Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
