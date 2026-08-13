@@ -25,7 +25,18 @@
     "title": "我的",
     "myCourses": "我的課程",
     "myFavorites": "我的收藏",
-    "feedback": "意見回饋"
+    "feedback": "意見回饋",
+    "userCard": {
+      "order": "我的訂單",
+      "orderSubtitle": "查看相關訂單",
+      "company": "我的公司",
+      "companySubtitle": "查看員工與業績",
+      "token": "我的智匯值",
+      "tokenSubtitle": "智匯消耗資訊",
+      "wallet": "我的錢包",
+      "walletSubtitle": "查看餘額與儲值",
+      "loginRequired": "請先登入"
+    }
   },
   "payment": {
     "title": "支付訂單",
