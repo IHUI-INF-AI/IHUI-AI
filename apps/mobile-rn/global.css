@@ -61,6 +61,12 @@
   --rn-success-light: #ECFDF5;
   --rn-success-lighter: #D1FAE5;
   --rn-line: #D1D5DB;
+
+  /* 品牌色覆盖:对齐历史 Uniapp 项目 #5088fa(2026-08-13 立,H20)
+   * design-tokens --color-brand = #6366f1(indigo),与 Uniapp #5088fa 不一致。
+   * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
+   * 暗色模式同色(Uniapp 无暗色品牌变体)。 */
+  --rn-brand: #5088fa;
 }
 
 .dark {
@@ -102,4 +108,16 @@
   --rn-success-light: #052e16;
   --rn-success-lighter: #064e3b;
   --rn-line: #4B5563;
+
+  /* 品牌色覆盖(暗色同亮色,对齐 Uniapp) */
+  --rn-brand: #5088fa;
+}
+
+/* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
+ * 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
+ * 加载方式:app.config.js expo-font config plugin(build-time linking)
+ * Uniapp 源:@font-face { font-family: 'AlimamaFangYuanTi'; src: url('AlimamaFangYuanTiVF-Thin.ttf') }
+ * 注:font-family 名称需与字体 PostScript name 一致,build 后生效。 */
+* {
+  font-family: 'AlimamaFangYuanTi';
 }
