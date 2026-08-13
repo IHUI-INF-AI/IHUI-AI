@@ -1,3 +1,4 @@
+#requires -Version 7
 Add-Type -AssemblyName System.Drawing
 $iconSizes = @(16, 32, 48, 64, 128, 256)
 foreach ($s in $iconSizes) {

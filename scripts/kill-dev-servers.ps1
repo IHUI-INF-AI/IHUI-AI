@@ -1,3 +1,4 @@
+#requires -Version 7
 # scripts/kill-dev-servers.ps1
 #
 # 一键清理 dev server 残留进程(端口 3000/3001/8000/8081 + 关联 next-server 进程树)。

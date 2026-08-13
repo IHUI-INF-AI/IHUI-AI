@@ -1,3 +1,4 @@
+#requires -Version 7
 # setup-token-refresh-task.ps1
 # Register a Windows Scheduled Task to refresh CLI apiKey every Monday 03:00.
 # Token validity is 7 days; weekly refresh leaves enough buffer.

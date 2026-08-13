@@ -1,3 +1,4 @@
+#requires -Version 7
 # git-push-retry.ps1 — git push 自动重试,缓解 GitHub TLS handshake 异常
 # 用法: pwsh scripts/git-push-retry.ps1 [-Branch main] [-MaxAttempts 5]
 # 退出码: 0 = 推送成功,1 = 所有重试都失败
