@@ -79,7 +79,7 @@ function UserInfoCardNew({
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
             <Text style={newStyles.name} numberOfLines={1}>
-              AI IHUI丨{userInfo.username || '用户'}
+              {userInfo.username || '用户'}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
           </TouchableOpacity>
