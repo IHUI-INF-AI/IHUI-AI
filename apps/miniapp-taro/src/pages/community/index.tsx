@@ -19,6 +19,10 @@ import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
 import backSvg from '@/assets/remote/images/back.svg'
+// 服务弹窗名片+二维码(对齐原项目 Ai-list_b.vue L213-227 mingpian.png + erweima.png)
+import mingpianImg from '@/assets/remote/images/mingpian.png'
+import erweimaImg from '@/assets/remote/images/erweima.png'
+import { rpx } from '@/utils/rpx'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
@@ -101,6 +105,8 @@ export default function Community() {
   ])
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
+  // 服务弹窗(二维码名片,对齐原项目 isServicePopupVisible)
+  const [showServicePopup, setShowServicePopup] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
   const [fenleiActive, setFenleiActive] = useState<number[]>([0])
   const [drawerGroupedData, setDrawerGroupedData] = useState<DrawerModelGroup[]>([])
@@ -641,6 +647,14 @@ export default function Community() {
             </View>
           </View>
 
+          {/* 客服按钮(对齐原项目服务弹窗入口)*/}
+          <View
+            style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
+            onClick={() => setShowServicePopup(true)}
+          >
+            <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>联系客服</Text>
+          </View>
+
           {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染) */}
           {showSearch ? (
             <View className="community-search-area">
@@ -702,6 +716,56 @@ export default function Community() {
           </View>
         ) : null}
       </View>
+
+      {/* 服务弹窗(二维码名片,对齐原项目 Ai-list_b.vue L213-227 isServicePopupVisible) */}
+      {showServicePopup ? (
+        <View
+          className="fixed inset-0 z-[2000] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setShowServicePopup(false)}
+        >
+          <View
+            className="relative"
+            style={{
+              padding: rpx(20),
+              borderRadius: rpx(30),
+              background: 'var(--color-card)',
+              maxWidth: '85%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 名片图片(对齐原项目 mingpian.png) */}
+            <Image
+              src={mingpianImg}
+              mode="widthFix"
+              style={{ width: '100%', borderRadius: rpx(20), marginBottom: rpx(16) }}
+            />
+            {/* 二维码图片(对齐原项目 erweima.png) */}
+            <Image
+              src={erweimaImg}
+              mode="widthFix"
+              style={{ width: '60%', display: 'block', margin: '0 auto' }}
+              showMenuByLongpress
+            />
+            {/* 关闭按钮 */}
+            <View
+              className="absolute"
+              style={{
+                top: rpx(10),
+                right: rpx(10),
+                width: rpx(60),
+                height: rpx(60),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onClick={() => setShowServicePopup(false)}
+            >
+              <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   )
 }
