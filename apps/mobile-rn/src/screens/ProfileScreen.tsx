@@ -29,13 +29,10 @@ import StudyBar from '../components/StudyBar'
 import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
-import UserInfoCard from '../components/UserInfoCard'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
-import { UserMembershipBenefits, type BenefitItem } from '../components/UserMembershipBenefits'
-import { Bot, Cpu, Gift, MessageCircle } from 'lucide-react-native'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
@@ -64,14 +61,6 @@ const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
   share: 'home',
   mine: 'mine',
 }
-
-/** 默认会员权益清单(占位数据,后续对接 API 获取真实权益) */
-const DEFAULT_MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
-  { id: 'unlimited-chat', icon: MessageCircle, title: '无限对话', desc: '会员期间不限次对话' },
-  { id: 'priority-support', icon: Bot, title: '优先客服', desc: '专属通道优先响应' },
-  { id: 'exclusive-models', icon: Cpu, title: '专属模型', desc: '解锁高端模型使用权' },
-  { id: 'double-points', icon: Gift, title: '积分加倍', desc: '任务积分 2 倍加速' },
-]
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
@@ -157,21 +146,6 @@ export function ProfileScreen() {
     }
   }, [error, showFloat])
 
-  /** UserInfoCard 编辑资料 → ProfileEdit(对齐 Uniapp 修改资料) */
-  const handleEditProfile = useCallback(() => {
-    navigation.navigate('ProfileEdit')
-  }, [navigation])
-
-  /** UserInfoCard 充值 → Recharge(对齐 Uniapp 充值跳转) */
-  const handleRecharge = useCallback(() => {
-    navigation.getParent()?.navigate('Recharge' as never)
-  }, [navigation])
-
-  /** UserMembershipBenefits 升级 → Vip(Vip 在 RootStack,需跨栈导航) */
-  const handleUpgradeMembership = useCallback(() => {
-    navigation.getParent()?.navigate('Vip' as never)
-  }, [navigation])
-
   const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
     title: t(section.titleKey),
     items: section.items.map((m) => ({
@@ -187,20 +161,32 @@ export function ProfileScreen() {
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
-    navigation.navigate('Settings')
+    navigation.getParent()?.navigate('Distribution' as never)
   }
   const handleDrawerClaimFree = () => {
-    Alert.alert('领取免费资料', '功能即将上线,敬请期待')
+    setDrawerVisible(false)
+    Clipboard.setString(FREE_RESOURCE_URL)
+    showFloat('链接已复制', 'success')
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
     navigation.getParent()?.navigate('ai' as never)
   }
   const handleDrawerSelectConversation = (_id: string) => {
-    Alert.alert('历史对话', '对话加载中...')
+    setDrawerVisible(false)
+    navigation.getParent()?.navigate('Chat' as never)
   }
   const handleDrawerDeleteConversation = (_id: string) => {
-    Alert.alert('删除对话', '确认删除此对话?')
+    Alert.alert('删除对话', '确认删除此对话?', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: () => {
+          // TODO: 对接 removeModelChat API 删除对话(需先有对话列表支持)
+        },
+      },
+    ])
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu) => {
     setDrawerVisible(false)
@@ -251,34 +237,6 @@ export function ProfileScreen() {
         contentContainerStyle={styles.screenScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* UserInfoCard:VIP 徽章 + 智汇值 + 充值入口(对齐 Uniapp user/index.vue <UserInfoCard />) */}
-        <UserInfoCard
-          userInfo={
-            user
-              ? {
-                  uuid: user.id,
-                  username: user.nickname || user.username,
-                  avatarUrl: user.avatar,
-                  isVip: user.isVip,
-                  identityType: user.roleId,
-                  tokenQuantity: stats?.points ?? 0,
-                }
-              : {}
-          }
-          variant="new"
-          showRechargeBtn
-          onEdit={handleEditProfile}
-          onRecharge={handleRecharge}
-          onLogin={navigateToLogin}
-        />
-        {/* UserMembershipBenefits:会员等级 + 权益清单(对齐 Uniapp user-membership-benefits) */}
-        <View style={styles.membershipSection}>
-          <UserMembershipBenefits
-            level="normal"
-            benefits={DEFAULT_MEMBERSHIP_BENEFITS}
-            onPressUpgrade={handleUpgradeMembership}
-          />
-        </View>
         {loading ? (
           <View style={styles.loaderWrap}>
             <ColorfulLoader size={48} />
@@ -337,7 +295,7 @@ export function ProfileScreen() {
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         user={drawerUser}
-        conversations={[] as DrawerConversationItem[]}
+        conversations={[] as DrawerConversationItem[]} // TODO: 对接 getModelChat API 加载历史对话列表
         onNavigate={handleDrawerNavigate}
         onNavigateCompany={handleDrawerNavigateCompany}
         onClaimFree={handleDrawerClaimFree}
@@ -833,6 +791,9 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
 /** 官网链接(对齐 Uniapp copyWebsiteLink 行 1316 'https://www.aizhs.top') */
 const WEBSITE_URL = 'https://www.aizhs.top'
 
+/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板) */
+const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/free-resources'
+
 /** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
 function formatAudioTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -857,11 +818,6 @@ const styles = StyleSheet.create({
   },
   screenScrollContent: {
     flexGrow: 1,
-  },
-  membershipSection: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
   },
   loaderWrap: {
     alignItems: 'center',
