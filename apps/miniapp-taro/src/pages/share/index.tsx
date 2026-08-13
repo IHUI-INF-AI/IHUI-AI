@@ -16,6 +16,7 @@ import { useI18n } from '@/i18n'
 import InformationItem from './components/InformationItem'
 import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
+import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
 
 type Tab = 'latest' | 'hot' | 'following'
@@ -124,6 +125,7 @@ export default function ShareIndexPage() {
   const [showToodown, setShowToodown] = useState(false)
   const [hotList, setHotList] = useState<NewTitleItem[]>([])
   const [cardList, setCardList] = useState<CenterItemData[]>([])
+  const [showTrackModal, setShowTrackModal] = useState(false) // 兴趣赛道弹窗(对齐原项目备用组件,首次进入显示)
 
   // 对齐原项目：状态栏高度
   const statusBarHeight = NAV_PADDING_TOP
@@ -307,6 +309,15 @@ export default function ShareIndexPage() {
       void loadModelList()
       void loadHotList()
       void loadCardList()
+    }
+    // 首次进入显示兴趣赛道选择(对齐原项目备用组件)
+    try {
+      const hasSelectedTracks: unknown = Taro.getStorageSync('hasSelectedTracks')
+      if (!hasSelectedTracks) {
+        setShowTrackModal(true)
+      }
+    } catch {
+      // 静默
     }
   })
 
@@ -818,6 +829,29 @@ export default function ShareIndexPage() {
           />
         ) : null}
       </View>
+
+      {/* 兴趣赛道选择弹窗 — 对齐原项目备用组件,首次进入显示 */}
+      <InterestTrackModal
+        visible={showTrackModal}
+        onConfirm={(selectedTracks) => {
+          try {
+            Taro.setStorageSync('selectedTracks', selectedTracks.map((t) => t.id))
+            Taro.setStorageSync('hasSelectedTracks', true)
+          } catch {
+            // 静默
+          }
+          setShowTrackModal(false)
+          Taro.showToast({ title: `已选择 ${selectedTracks.length} 个赛道`, icon: 'success' })
+        }}
+        onClose={() => {
+          setShowTrackModal(false)
+          try {
+            Taro.setStorageSync('hasSelectedTracks', true)
+          } catch {
+            // 静默
+          }
+        }}
+      />
     </View>
   )
 }
