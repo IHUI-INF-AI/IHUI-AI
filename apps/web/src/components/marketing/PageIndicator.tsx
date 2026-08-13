@@ -18,10 +18,15 @@ interface PageIndicatorProps {
  * 2026-07-21 v7 缩窄精致化:用户反馈"容器太宽了 请缩窄 精致点"。
  *   - 容器内边距 px-1 (4px) → px-0.5 (2px),总宽 28px → 20px (-29%)
  *   - button 命中区 h-5 w-5 (20×20) → h-4 w-4 (16×16),点保持原大小
- *   - active 竖向胶囊 h-5 w-2 (20×2) → h-4 w-1.5 (16×1.5),比例缩窄
+ *   - active 竖向胶囊 h-5 w-2 (20×2) → h-4 w-2 (16×8),宽度与非激活态直径统一为 8px
  *   - gap 6px (1.5) → 4px (1),更紧凑
  *   - py-2 (8px) → py-1.5 (6px),上下更贴圆点
  *   - 整体精致度提升,点与点间节奏更紧凑
+ * 2026-08-13 v10 等比例:用户反馈"激活态宽度跟下面未激活态的直径不统一 请等比例调整",
+ *   且"光调宽度不调高度吗" — 明确要求所有态同尺寸 1:1,只通过不透明度区分激活/hover/默认。
+ *   - 取消激活态竖向拉长胶囊(h-4 w-2 → h-2 w-2),激活态 = 非激活态直径(8x8)
+ *   - hover 态保留 h-2.5 w-2.5 (10x10) 作为"可点击"视觉反馈,与激活态概念分离
+ *   - 激活/非激活/hover 三态宽度都基于非激活态直径 8px 的整数倍(8/10/8),比例协调
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
@@ -68,12 +73,12 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
               // 旧实现模板字符串拼接导致 h-4 / h-2、w-1.5 / w-2 同元素冲突,Tailwind 源序后值获胜
-              // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x6 胶囊。
-              // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-1.5,精致比例
+              // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x8 胶囊(等宽)。
+              // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-2,激活态宽度对齐非激活态直径(8px)
               // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
               className={
                 isActive
-                  ? 'block h-4 w-1.5 rounded-full bg-foreground transition-all duration-300'
+                  ? 'block h-2 w-2 rounded-full bg-foreground transition-all duration-300'
                   : 'block h-2 w-2 rounded-full bg-foreground/30 transition-all duration-300 group-hover:h-2.5 group-hover:w-2.5 group-hover:bg-foreground/60'
               }
             />
