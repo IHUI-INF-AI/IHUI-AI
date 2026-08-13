@@ -1,3 +1,4 @@
+#requires -Version 7
 # 重启 web dev server:停 3000 端口进程 + 清 .next 缓存
 $conns = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
 if ($conns) {
