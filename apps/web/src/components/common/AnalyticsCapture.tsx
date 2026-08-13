@@ -168,8 +168,6 @@ export function AnalyticsCapture() {
     document.addEventListener('click', onClick, true)
     document.addEventListener('submit', onSubmit, true)
 
-    const onUnload = () => void flush()
-    window.addEventListener('beforeunload', onUnload)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') void flush()
     })
@@ -177,7 +175,6 @@ export function AnalyticsCapture() {
     return () => {
       document.removeEventListener('click', onClick, true)
       document.removeEventListener('submit', onSubmit, true)
-      window.removeEventListener('beforeunload', onUnload)
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
     }
   }, [pathname, userId, queue, flush])
