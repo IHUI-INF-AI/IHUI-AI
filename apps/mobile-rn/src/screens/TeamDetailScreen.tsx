@@ -11,7 +11,7 @@
  * 平台独占:仅 mobile-rn 端。
  */
 import { useMemo, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -75,7 +75,14 @@ export default function TeamDetailScreen() {
   )
 
   const onContact = (): void => {
-    Alert.alert('联系成员', '拨号功能开发中,手机号:' + member.phone)
+    if (!member.phone) {
+      Alert.alert('提示', '该成员未提供手机号')
+      return
+    }
+    const phone = String(member.phone).replace(/[^\d+]/g, '')
+    void Linking.openURL(`tel:${phone}`).catch(() => {
+      Alert.alert('提示', '无法拨号,请检查设备')
+    })
   }
   const onViewOrders = (): void => {
     navigation.navigate('DistributionOrderList')
