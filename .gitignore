@@ -116,7 +116,9 @@ local_uploads/
 # ============================================================================
 node_modules/
 .venv/
+.venv.bak*/
 venv/
+venv.bak*/
 .pnpm-store/
 .pnpm-cache/
 .turbo/
