@@ -8,9 +8,9 @@ import { test, expect } from '@playwright/test'
  * 修复:拆两套完整 className 分支互斥。
  *
  * 此测试用 getBoundingClientRect() 验证实际渲染尺寸与设计意图一致:
- *   - 激活态(span[aria-current=true]):16x6 竖向胶囊 (h-4=16px w-1.5=6px)
+ *   - 激活态(span[aria-current=true]):8x8 圆点 (h-2=8px w-2=8px,与非激活态等比例,仅不透明度区分)
  *   - 非激活态(span):8x8 圆点 (h-2=8px w-2=8px)
- *   - hover 态:10x10 圆点 (h-2.5=10px w-2.5=10px)
+ *   - hover 态:10x10 圆点 (h-2.5=10px w-2.5=10px,作为可点击视觉反馈)
  *   - 所有态 rounded-full(borderRadius ≥ 9999px 即 50%)
  *   - 激活态不透明度 1,非激活态 opacity ≈ 0.3(由 bg-foreground/30 控制)
  *
@@ -58,17 +58,20 @@ test.describe('PageIndicator 几何守门', () => {
     await page.waitForLoadState('networkidle')
   })
 
-  test('激活态:16x6 竖向胶囊', async ({ page }) => {
+  test('激活态:8x8 圆点(与非激活态等比例,仅不透明度区分)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     const active = dots.find((d) => d.active)
     if (!active) throw new Error('No active dot found')
-    // h-4 = 16px, w-1.5 = 6px
-    expect(active.h).toBeGreaterThanOrEqual(15.5)
-    expect(active.h).toBeLessThanOrEqual(16.5)
-    expect(active.w).toBeGreaterThanOrEqual(5.5)
-    expect(active.w).toBeLessThanOrEqual(6.5)
+    // h-2 = 8px, w-2 = 8px(与非激活态直径完全一致)
+    expect(active.h).toBeGreaterThanOrEqual(7.5)
+    expect(active.h).toBeLessThanOrEqual(8.5)
+    expect(active.w).toBeGreaterThanOrEqual(7.5)
+    expect(active.w).toBeLessThanOrEqual(8.5)
     expect(active.opacity).toBe('1')
+    // 回归检测:激活态不应该被拉成胶囊(高>12 或 宽>12)
+    expect(active.h).toBeLessThan(12)
+    expect(active.w).toBeLessThan(12)
   })
 
   test('非激活态:8x8 圆点', async ({ page }) => {
