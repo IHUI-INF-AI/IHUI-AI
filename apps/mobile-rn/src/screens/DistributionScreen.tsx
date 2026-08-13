@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, ScrollView, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -12,6 +13,7 @@ import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
+import { BottomPops } from '../components/BottomPops'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -29,6 +31,8 @@ export function DistributionScreen() {
   const [withdrawing, setWithdrawing] = useState(false)
   // HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue)
   const [withdrawDetailVisible, setWithdrawDetailVisible] = useState(false)
+  // BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层)
+  const [shareQrVisible, setShareQrVisible] = useState<boolean>(false)
 
   /** FunctionBlockColumn 分销工具入口(对齐 Uniapp 分销功能块) */
   const functionBlocks: FunctionBlock[] = [
@@ -125,6 +129,17 @@ export function DistributionScreen() {
         <View style={shellStyles.functionBlocksWrap}>
           <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onBlockPress} />
         </View>
+        {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口) */}
+        <View style={shellStyles.shareBtnWrap}>
+          <Pressable
+            style={({ pressed }) => [shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}
+            onPress={() => setShareQrVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="分享二维码"
+          >
+            <Text style={shellStyles.shareBtnText}>分享二维码邀请好友</Text>
+          </Pressable>
+        </View>
         <SharedDistributionScreen
           t={t}
           info={info}
@@ -160,6 +175,22 @@ export function DistributionScreen() {
           </Text>
         </View>
       </HandPlatePops>
+      {/* BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层) */}
+      <BottomPops
+        visible={shareQrVisible}
+        onClose={() => setShareQrVisible(false)}
+        title="分享二维码"
+      >
+        <View style={shellStyles.qrContent}>
+          <View style={shellStyles.qrCodeBox}>
+            {/* 二维码占位:后续接入真实二维码生成 */}
+            <Text style={shellStyles.qrPlaceholder}>二维码</Text>
+            <Text style={shellStyles.qrPlaceholderSub}>QR Code</Text>
+          </View>
+          <Text style={shellStyles.qrTip}>扫描上方二维码,注册成为会员</Text>
+          <Text style={shellStyles.qrTipSub}>您将获得会员费 20% 的佣金收益</Text>
+        </View>
+      </BottomPops>
     </View>
   )
 }
@@ -173,4 +204,53 @@ const shellStyles = {
   functionBlocksWrap: { paddingHorizontal: 16, paddingVertical: 8 } as const,
   withdrawDetailContent: { gap: 10, paddingVertical: 8 } as const,
   withdrawDetailText: { fontSize: 14, color: '#333' } as const,
+  shareBtnWrap: { paddingHorizontal: 16, paddingBottom: 4 } as const,
+  shareBtn: {
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  shareBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  } as const,
+  qrContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 12,
+  } as const,
+  qrCodeBox: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  qrPlaceholder: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as const,
+  qrPlaceholderSub: {
+    fontSize: 12,
+    color: tokens.text.tertiary,
+    marginTop: 4,
+  } as const,
+  qrTip: {
+    fontSize: 14,
+    color: tokens.text.primary,
+    textAlign: 'center',
+  } as const,
+  qrTipSub: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  } as const,
+  pressed: { opacity: 0.85 } as const,
 }
