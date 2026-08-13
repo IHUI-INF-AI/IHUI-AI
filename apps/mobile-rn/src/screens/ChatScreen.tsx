@@ -15,9 +15,10 @@
  * - 二维码弹窗 + 分享领智汇值弹窗(Modal)
  * - Drawer 集成(H3 重建版,管理 visible 状态)
  *
- * BottomActionBar 30+ 事件回调:10 个核心实现(send-message/toggle-voice-input/
- * toggle-super-agent/toggle-mcp/toggle-knowledge-base/toggle-permanent-memory/
- * showModelConfig/show-model-list/remove-image/update:prompt),其余 stub(H22 补全)。
+ * BottomActionBar 30+ 事件回调:15 个已实现(send-message/toggle-voice-input/
+ * toggle-super-agent/toggle-super-agentfu/toggle-mcp/toggle-knowledge-base/
+ * toggle-permanent-memory/showModelConfig/show-model-list/remove-image/update:prompt/
+ * function-handle/source-handle/icon-click/fangda),其余 stub(H22 补全)。
  *
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
@@ -41,8 +42,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
-  BookOpen,
-  Brain,
   Clapperboard,
   Cpu,
   Image as ImageIcon,
@@ -53,7 +52,6 @@ import {
   Mic,
   Music,
   QrCode,
-  Server,
   Share2,
   Sparkles,
   Video,
@@ -68,6 +66,7 @@ import {
 } from '@ihui/api-client'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
+import type { ModelConfigType } from '@ihui/ui-native'
 import { NavBar } from '../components/NavBar'
 import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
 import MaterialList, {
@@ -79,6 +78,20 @@ import {
   type DrawerConversationItem,
   type DrawerTab,
 } from '../components/Drawer'
+import {
+  ModelConfigDialog,
+  type ModelConfig,
+} from '../components/ModelConfigDialog'
+import ModelList, {
+  type ModelListGroup,
+} from '../components/ModelList'
+import AgentList, {
+  type AgentListItem,
+} from '../components/AgentList'
+import {
+  ToggleButtonGroup,
+  type ToggleButtonItem,
+} from '../components/ToggleButtonGroup'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -109,15 +122,6 @@ interface ModelTypeConfig {
   key: ModelType
   label: string
   Icon: LucideIcon
-}
-
-/** 功能开关 chip 配置 */
-interface ToggleChipConfig {
-  key: string
-  label: string
-  Icon: LucideIcon
-  active: boolean
-  onPress: () => void
 }
 
 // ── 常量 ──
@@ -177,6 +181,17 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const [shareValueVisible, setShareValueVisible] = useState(false)
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [materialTab, setMaterialTab] = useState<string>('text')
+  // 接入 ModelConfigDialog / ModelList / AgentList(对齐 Uniapp ai_index.vue 行 32/34/104)
+  const [modelConfigVisible, setModelConfigVisible] = useState(false)
+  const [modelListVisible, setModelListVisible] = useState(false)
+  const [agentListVisible, setAgentListVisible] = useState(false)
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({
+    temperature: 0.7,
+    maxTokens: 2048,
+    topP: 0.9,
+    systemPrompt: '',
+    streamEnabled: true,
+  })
 
   // ── 模型/对话状态 ──
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
@@ -192,6 +207,8 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const [mcpEnabled, setMcpEnabled] = useState(false)
   const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false)
   const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
+  const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
+  const [fangdaVisible, setFangdaVisible] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
@@ -318,15 +335,39 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setPermanentMemoryEnabled((prev) => !prev)
   }
 
-  /** showModelConfig:显示模型配置(stub,后续 H22 补全) */
-  const showModelConfig = (): void => {
-    Alert.alert('模型配置', '功能开发中')
+  /** toggle-super-agentfu:切换智能体辅(对齐 Uniapp ToggleChip '智能体辅') */
+  const toggleSuperAgentfu = (): void => {
+    setSuperAgentfuEnabled(!superAgentfuEnabled)
   }
 
-  /** show-model-list:显示模型列表(stub,后续对接 ModelList 弹窗) */
+  /** showModelConfig:显示模型配置(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */
+  const showModelConfig = (): void => {
+    setModelConfigVisible(true)
+  }
+
+  /** show-model-list:显示模型列表(对齐 Uniapp ai_index.vue 行 32 ModelList) */
   const showModelList = (): void => {
-    const names = models.map((m) => m.name).join('\n')
-    Alert.alert('模型列表', names || '暂无可用模型')
+    setModelListVisible(true)
+  }
+
+  /** show-agent-list:显示 Agent 列表(对齐 Uniapp ai_index.vue 行 34 AgentList) */
+  const showAgentList = (): void => {
+    setAgentListVisible(true)
+  }
+
+  /** ChatScreen ModelType → ModelConfigType(ModelConfigDialog 内部用) */
+  const getModelConfigType = (): ModelConfigType => {
+    switch (currentModelType) {
+      case 'image':
+        return 'image'
+      case 'video':
+      case 'videoa':
+        return 'video'
+      case 'audio':
+        return 'audio'
+      default:
+        return 'text'
+    }
   }
 
   /** remove-image:删除图片(复用 useChatInput onInputRemoveFile) */
@@ -344,9 +385,40 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const handleInputFocus = (): void => {}
   const handleInputBlur = (): void => {}
   const textareaHeightChange = (): void => {}
-  // 以下事件无对应 UI 触发点(ModelList 弹窗/相机相册/键盘监听等未实现),待 H22 补全:
+
+  /** function-handle:打开功能面板(占位,真实功能面板是后续任务) */
+  const handleFunctionHandle = (): void => {
+    Alert.alert('功能面板', '开发中')
+  }
+
+  /** source-handle:打开来源面板(占位) */
+  const handleSourceHandle = (): void => {
+    Alert.alert('来源面板', '开发中')
+  }
+
+  /**
+   * icon-click:图标按钮点击(相机/相册/文件)。
+   * 注:BottomActionBar onIconClick 签名为 () => void,组件未传 type 参数;
+   * 三个图标按钮(相机/相册/文件)共用同一回调,无法区分具体点击的图标。
+   * TODO: 待 BottomActionBar 支持 type 参数后,按 type 分发:
+   *   type='camera' → expo-image-picker launchCameraAsync(依赖已安装)
+   *   type='album' → expo-image-picker launchImageLibraryAsync(依赖已安装)
+   *   type='file' → expo-document-picker getDocumentAsync(依赖未安装)
+   */
+  const handleIconClick = (): void => {
+    Alert.alert('图标点击', '相机/相册/文件选择(开发中)')
+  }
+
+  /** fangda:放大输入区(切换展开状态,占位提示) */
+  const handleFangda = (): void => {
+    const next = !fangdaVisible
+    setFangdaVisible(next)
+    Alert.alert('放大', next ? '展开输入区' : '收起输入区')
+  }
+
+  // 以下事件无对应 UI 触发点(ModelList 弹窗/键盘监听等未实现),待 H22 补全:
   // start-long-press / end-long-press / input-click / start-voice-animation / stop-voice-animation /
-  // function-handle / source-handle / icon-click / modelConfigChange / fangda / keyboard-show / keyboard-hide
+  // modelConfigChange / keyboard-show / keyboard-hide
 
   // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
   const showQrCode = (): void => setQrCodeVisible(true)
@@ -458,13 +530,56 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     })
   }
 
-  // ── 功能开关 chip 配置(对齐 Uniapp ToggleButtonGroup) ──
-  const toggleChips: ToggleChipConfig[] = [
-    { key: 'super-agent', label: '智能体', Icon: Bot, active: superAgentEnabled, onPress: toggleSuperAgent },
-    { key: 'mcp', label: 'MCP', Icon: Server, active: mcpEnabled, onPress: toggleMCP },
-    { key: 'knowledge-base', label: '知识库', Icon: BookOpen, active: knowledgeBaseEnabled, onPress: toggleKnowledgeBase },
-    { key: 'permanent-memory', label: '记忆', Icon: Brain, active: permanentMemoryEnabled, onPress: togglePermanentMemory },
+  // ── ToggleButtonGroup items(对齐 Uniapp ToggleButtonGroup 多开关按钮组) ──
+  const toggleItems: ToggleButtonItem[] = [
+    { key: 'super-agent', label: '智能体', icon: '🤖', enabled: superAgentEnabled },
+    { key: 'mcp', label: 'MCP', icon: '🔌', enabled: mcpEnabled },
+    { key: 'knowledge-base', label: '知识库', icon: '📚', enabled: knowledgeBaseEnabled },
+    { key: 'permanent-memory', label: '记忆', icon: '🧠', enabled: permanentMemoryEnabled },
   ]
+  const handleToggle = (key: string): void => {
+    switch (key) {
+      case 'super-agent':
+        toggleSuperAgent()
+        break
+      case 'mcp':
+        toggleMCP()
+        break
+      case 'knowledge-base':
+        toggleKnowledgeBase()
+        break
+      case 'permanent-memory':
+        togglePermanentMemory()
+        break
+      default:
+        break
+    }
+  }
+
+  // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
+  const modelListGroups: ModelListGroup[] = models.length > 0
+    ? [
+        {
+          vendor: '可用模型',
+          models: models.map((m) => ({
+            id: m.id,
+            name: m.name,
+            description: m.provider ?? '',
+            icon: '🤖',
+            isFree: !m.input_price,
+          })),
+        },
+      ]
+    : []
+
+  // ── AgentList items(占位 mock,后续对接 getAgents API) ──
+  const agentListItems: AgentListItem[] = []
+
+  // ── AgentList 选中回调 ──
+  const handleAgentSelect = (_id: string): void => {
+    setAgentListVisible(false)
+    Alert.alert('Agent 选择', '功能开发中(后续对接 API)')
+  }
 
   // ── BottomActionBar actions(模型列表 + 模型配置 + 发送,对齐 Uniapp show-model-list / showModelConfig / send-message) ──
   const bottomActions: ReadonlyArray<BottomActionBarAction> = [
@@ -501,6 +616,14 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
               accessibilityLabel="打开菜单"
             >
               <Menu size={22} color={tokens.text.primary} />
+            </Pressable>
+            {/* Agent 按钮:打开 Agent 列表(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
+            <Pressable
+              hitSlop={8}
+              onPress={showAgentList}
+              accessibilityLabel="选择 Agent"
+            >
+              <Bot size={22} color={tokens.text.primary} />
             </Pressable>
             {/* 分享按钮:显示分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) */}
             <Pressable
@@ -641,32 +764,10 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
           })}
         </ScrollView>
 
-        {/* 功能开关 chip 行(对齐 Uniapp ToggleButtonGroup) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.toggleScroll}
-          contentContainerStyle={styles.toggleContent}
-        >
-          {toggleChips.map(({ key, label, Icon, active, onPress }) => (
-            <Pressable
-              key={key}
-              onPress={onPress}
-              style={[styles.toggleChip, active ? styles.toggleChipActive : null]}
-              accessibilityLabel={label}
-            >
-              <Icon size={14} color={active ? tokens.surface.light : tokens.text.secondary} />
-              <Text
-                style={[
-                  styles.toggleChipText,
-                  active ? styles.toggleChipTextActive : null,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        {/* 功能开关组(对齐 Uniapp ToggleButtonGroup,使用 ToggleButtonGroup 组件) */}
+        <View style={styles.toggleGroupWrap}>
+          <ToggleButtonGroup items={toggleItems} onToggle={handleToggle} />
+        </View>
 
         {/* 输入框区域(对齐 Uniapp InputArea:update:prompt / toggle-voice-input / remove-image) */}
         <View style={styles.inputRow}>
@@ -701,7 +802,14 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         </View>
 
         {/* BottomActionBar(发送 + 模型,承载 send-message / show-model-list) */}
-        <BottomActionBar actions={bottomActions} />
+        <BottomActionBar
+          actions={bottomActions}
+          onToggleSuperAgentfu={toggleSuperAgentfu}
+          onFunctionHandle={handleFunctionHandle}
+          onSourceHandle={handleSourceHandle}
+          onIconClick={handleIconClick}
+          onFangda={handleFangda}
+        />
       </KeyboardAvoidingView>
 
       {/* 二维码弹窗(对齐 Uniapp qr-code-modal) */}
@@ -737,6 +845,55 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
             <Pressable onPress={handleShareClick} style={styles.shareBtn}>
               <Text style={styles.shareBtnText}>立即分享</Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ModelConfigDialog 模型配置弹窗(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */}
+      <ModelConfigDialog
+        visible={modelConfigVisible}
+        modelType={getModelConfigType()}
+        config={modelConfig}
+        onChange={setModelConfig}
+        onClose={() => setModelConfigVisible(false)}
+      />
+
+      {/* ModelList 模型列表弹窗(对齐 Uniapp ai_index.vue 行 32 ModelList) */}
+      <Modal visible={modelListVisible} transparent animationType="fade" onRequestClose={() => setModelListVisible(false)}>
+        <Pressable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle}>选择模型</Text>
+              <Pressable hitSlop={8} onPress={() => setModelListVisible(false)} style={styles.listDialogClose}>
+                <X size={20} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+            <ModelList
+              groups={modelListGroups}
+              selectedIds={[model]}
+              onSelectChange={(ids) => {
+                const next = ids[0]
+                if (next) {
+                  setModel(next)
+                  setModelListVisible(false)
+                }
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* AgentList 弹窗(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
+      <Modal visible={agentListVisible} transparent animationType="fade" onRequestClose={() => setAgentListVisible(false)}>
+        <Pressable style={styles.modalMask} onPress={() => setAgentListVisible(false)}>
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle}>选择 Agent</Text>
+              <Pressable hitSlop={8} onPress={() => setAgentListVisible(false)} style={styles.listDialogClose}>
+                <X size={20} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+            <AgentList items={agentListItems} onItemClick={handleAgentSelect} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -781,7 +938,7 @@ const styles = StyleSheet.create({
   // ── 消息列表 ──
   msgListContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 4,
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },
   msgRow: {
@@ -932,35 +1089,10 @@ const styles = StyleSheet.create({
     color: tokens.brand.DEFAULT,
     fontWeight: '500',
   },
-  // ── 功能开关 chip 行 ──
-  toggleScroll: {
-    maxHeight: 36,
-  },
-  toggleContent: {
+  // ── 功能开关组(ToggleButtonGroup 容器) ──
+  toggleGroupWrap: {
     paddingHorizontal: 12,
-    gap: 8,
-    alignItems: 'center',
-  },
-  toggleChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: tokens.surface.card,
-    height: 28,
-  },
-  toggleChipActive: {
-    backgroundColor: tokens.brand.DEFAULT,
-  },
-  toggleChipText: {
-    fontSize: 11,
-    color: tokens.text.secondary,
-  },
-  toggleChipTextActive: {
-    color: tokens.surface.light,
-    fontWeight: '500',
+    paddingVertical: 2,
   },
   // ── 输入框区域 ──
   inputRow: {
@@ -1081,6 +1213,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: tokens.surface.light,
     fontWeight: '500',
+  },
+  // ── 列表弹窗(ModelList / AgentList 共用容器) ──
+  listDialogContent: {
+    width: '88%',
+    maxHeight: '70%',
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  listDialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: tokens.surface.light,
+  },
+  listDialogTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  listDialogClose: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })
 

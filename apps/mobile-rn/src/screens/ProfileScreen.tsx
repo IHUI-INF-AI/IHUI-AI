@@ -27,6 +27,8 @@ import StudyBar from '../components/StudyBar'
 import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
+import UserInfoCard from '../components/UserInfoCard'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
@@ -65,6 +67,10 @@ export function ProfileScreen() {
   const [error, setError] = useState('')
   const [loginPromptVisible, setLoginPromptVisible] = useState(false)
   const [agreeChecked, setAgreeChecked] = useState(false)
+  // FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />)
+  const [floatVisible, setFloatVisible] = useState(false)
+  const [floatMessage, setFloatMessage] = useState('')
+  const [floatType, setFloatType] = useState<FloatBoxType>('info')
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -111,6 +117,30 @@ export function ProfileScreen() {
     }
   }
 
+  /** FloatBox 悬浮提示触发器(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */
+  const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
+    setFloatMessage(message)
+    setFloatType(type)
+    setFloatVisible(true)
+  }, [])
+
+  // 加载失败时弹出 FloatBox 提示(对齐 Uniapp 加载失败 toast)
+  useEffect(() => {
+    if (error) {
+      showFloat(error, 'warning')
+    }
+  }, [error, showFloat])
+
+  /** UserInfoCard 编辑资料 → ProfileEdit(对齐 Uniapp 修改资料) */
+  const handleEditProfile = useCallback(() => {
+    navigation.navigate('ProfileEdit')
+  }, [navigation])
+
+  /** UserInfoCard 充值 → Recharge(对齐 Uniapp 充值跳转) */
+  const handleRecharge = useCallback(() => {
+    navigation.getParent()?.navigate('Recharge' as never)
+  }, [navigation])
+
   const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
     title: t(section.titleKey),
     items: section.items.map((m) => ({
@@ -127,6 +157,26 @@ export function ProfileScreen() {
         contentContainerStyle={styles.screenScrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* UserInfoCard:VIP 徽章 + 智汇值 + 充值入口(对齐 Uniapp user/index.vue <UserInfoCard />) */}
+        <UserInfoCard
+          userInfo={
+            user
+              ? {
+                  uuid: user.id,
+                  username: user.nickname || user.username,
+                  avatarUrl: user.avatar,
+                  isVip: user.isVip,
+                  identityType: user.roleId,
+                  tokenQuantity: stats?.points ?? 0,
+                }
+              : {}
+          }
+          variant="new"
+          showRechargeBtn
+          onEdit={handleEditProfile}
+          onRecharge={handleRecharge}
+          onLogin={navigateToLogin}
+        />
         <SharedProfileScreen
           t={t}
           user={
@@ -166,6 +216,13 @@ export function ProfileScreen() {
         onClose={() => setLoginPromptVisible(false)}
         agreeChecked={agreeChecked}
         onAgreeChange={setAgreeChecked}
+      />
+      {/* FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */}
+      <FloatBox
+        visible={floatVisible}
+        type={floatType}
+        message={floatMessage}
+        onHide={() => setFloatVisible(false)}
       />
     </>
   )
@@ -632,7 +689,7 @@ const styles = StyleSheet.create({
   },
   contentSection: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   tabBarWrap: {
     marginBottom: 8,
