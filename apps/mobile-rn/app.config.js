@@ -27,6 +27,15 @@ module.exports = ({ config }) => {
       ...(config.plugins || []),
       ['./plugins/withWechat', { appId, universalLink, androidPackage }],
       './plugins/withExpoImportFix',
+      // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
+      // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
+      // build-time linking,font-family 名称取字体内部 PostScript name
+      [
+        'expo-font',
+        {
+          fonts: ['./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf'],
+        },
+      ],
     ],
   }
 }
