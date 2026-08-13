@@ -427,6 +427,11 @@
   color: var(--color-foreground, #FFFFFF);
 }
 
+.community-agent-list-more {
+  font-size: 24rpx;
+  color: var(--color-primary, #00F2FF);
+}
+
 /* ===== 加载 / 空 / 没有更多 ===== */
 
 .community-loading {

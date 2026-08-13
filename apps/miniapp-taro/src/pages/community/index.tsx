@@ -4,6 +4,8 @@ import Taro, {
   usePullDownRefresh,
   useReachBottom,
   usePageScroll,
+  useShareAppMessage,
+  useShareTimeline,
 } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import NavBar from '@/components/NavBar'
@@ -12,7 +14,7 @@ import DrawerComponent from '@/components/DrawerComponent'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
-import { FloatBox } from '@/components'
+import { FloatBox, EmptyState } from '@/components'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
@@ -72,6 +74,13 @@ function extractList(res: unknown): unknown[] {
     if (Array.isArray(list)) return list
   }
   return []
+}
+
+/** 数字格式化(对齐原项目 Ai-list_b.vue numResult:>=1w 显示 x.xw,>=1k 显示 x.xk) */
+function formatNumber(num: number): string {
+  if (num >= 10000) return (num / 10000).toFixed(1) + 'w'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'k'
+  return String(num)
 }
 
 /* ============ 页面主组件 ============ */
@@ -304,6 +313,17 @@ export default function Community() {
     setShowBackTop(e.scrollTop > 200)
   })
 
+  // 对齐原项目 tools/index.vue onShareAppMessage / onShareTimeline
+  useShareAppMessage(() => ({
+    title: 'AI 应用商店 - 智汇AI社区',
+    path: '/pages/community/index',
+    imageUrl: '/static/images/share_zhz.png',
+  }))
+
+  useShareTimeline(() => ({
+    title: 'AI 应用商店 - 智汇AI社区',
+  }))
+
   /* ============ 事件处理 ============ */
 
   function onBannerClick(item: CarouselItem) {
@@ -498,6 +518,8 @@ export default function Community() {
   // 此处 void 引用防止 TS6133 未使用警告,接入后移除
   void handleAgentCollect
   void handleAgentLike
+  // formatNumber 暂未接入 AgentListPanel 显示(等扩展 useCount 格式化回调),此处 void 引用防止未使用警告
+  void formatNumber
 
   /** 映射 AgentItem[] 到 AgentInfo[] */
   const agentInfoList: AgentInfo[] = agentList.map((a) => ({
@@ -642,6 +664,17 @@ export default function Community() {
           <View className="community-ailist-content">
             <View className="community-agent-list-header">
               <Text className="community-agent-list-title">智能体推荐</Text>
+              <Text
+                className="community-agent-list-more"
+                onClick={() =>
+                  Taro.navigateTo({
+                    url: '/pages/category-detail/index',
+                    fail: () => Taro.showToast({ title: '分类详情页未配置', icon: 'none' }),
+                  })
+                }
+              >
+                查看更多 {'>'}
+              </Text>
             </View>
             <AgentListPanel
               visible
@@ -649,6 +682,9 @@ export default function Community() {
               loading={loading}
               onSelect={onAgentListSelect}
             />
+            {!loading && agentList.length === 0 ? (
+              <EmptyState text="暂无智能体" />
+            ) : null}
             {!loading && !hasMore && agentList.length > 0 ? (
               <View className="community-no-more">
                 <Text className="community-no-more-text">没有更多了</Text>
