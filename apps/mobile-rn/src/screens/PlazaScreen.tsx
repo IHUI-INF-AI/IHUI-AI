@@ -12,7 +12,6 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -132,11 +131,11 @@ export function PlazaScreen() {
   }
 
   const onPublish = () => {
-    Alert.alert('发布需求', '功能开发中,敬请期待', [{ text: t('common.ok') }])
+    navigation.navigate('PostCreate', {})
   }
 
   const showDetail = (item: PlazaItem) => {
-    Alert.alert(item.title, item.description || '暂无详情', [{ text: t('common.ok') }])
+    navigation.navigate('PostDetail', { id: String(item.id) })
   }
 
   const initialLoading = loading && items.length === 0 && !refreshing
