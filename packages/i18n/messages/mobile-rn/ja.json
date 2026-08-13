@@ -25,7 +25,18 @@
     "title": "マイページ",
     "myCourses": "マイコース",
     "myFavorites": "お気に入り",
-    "feedback": "フィードバック"
+    "feedback": "フィードバック",
+    "userCard": {
+      "order": "私の注文",
+      "orderSubtitle": "関連注文を表示",
+      "company": "私の会社",
+      "companySubtitle": "社員と業績を表示",
+      "token": "私のトークン",
+      "tokenSubtitle": "トークン消費情報",
+      "wallet": "私の財布",
+      "walletSubtitle": "残高とチャージを表示",
+      "loginRequired": "先にログインしてください"
+    }
   },
   "payment": {
     "title": "支払い注文",
