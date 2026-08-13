@@ -120,7 +120,8 @@
     "about": "关于",
     "feedback": "意见反馈",
     "privacy": "隐私协议",
-    "agreement": "用户协议"
+    "agreement": "用户协议",
+    "changePwd": "修改密码"
   },
   "error": {
     "network": "网络错误,请稍后重试"
