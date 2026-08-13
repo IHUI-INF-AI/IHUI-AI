@@ -49,6 +49,14 @@ interface ModelItem {
   name?: string
 }
 
+/** 分类选择持久化状态(对齐原项目 title-switch 7天缓存) */
+interface ShareCategoryState {
+  categoryId: string | number
+  categoryName: string
+  timestamp: number
+  expire: number
+}
+
 /** 导航栏组件(对应原项目 navigationBars,功能已迁移至共享 NavBar 组件) */
 const PAGE_SIZE = 10
 
@@ -84,7 +92,26 @@ export default function ShareIndexPage() {
   const [pageScrollLocked, setPageScrollLocked] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('latest')
   const [keyword, setKeyword] = useState('')
-  const [activeCategory, setActiveCategory] = useState<string | number>('')
+  const [activeCategory, setActiveCategory] = useState<string | number>(() => {
+    // 对齐原项目 handleItemClicks:启动时恢复分类选择(7天缓存)
+    try {
+      const saved: unknown = Taro.getStorageSync('shareCategoryState')
+      if (
+        saved &&
+        typeof saved === 'object' &&
+        'categoryId' in saved &&
+        'timestamp' in saved &&
+        'expire' in saved
+      ) {
+        const s = saved as ShareCategoryState
+        if (Date.now() - s.timestamp < s.expire) return s.categoryId
+        Taro.removeStorageSync('shareCategoryState')
+      }
+    } catch {
+      // 静默
+    }
+    return ''
+  })
   const [infoList, setInfoList] = useState<InfoItem[]>([])
   const [page, setPage] = useState(1)
   const [noMore, setNoMore] = useState(false)
@@ -306,12 +333,15 @@ export default function ShareIndexPage() {
     if (tagWrapShow && res.scrollTop > 5) {
       setTagWrapShow(false)
       unlockPageScroll()
+      // 对齐原项目 uni.$emit('trigger-nav-click')：通知 navbar 关闭分类按钮 active 态
+      Taro.eventCenter.trigger('trigger-nav-click')
     }
   })
 
   useShareAppMessage(() => ({
     title: tt('share.index.title', 'AI资讯'),
-    path: '/pages/share/index',
+    path: '/pages/share/index?source=share',
+    imageUrl: '/static/images/share_zhz.png',
   }))
 
   useShareTimeline(() => ({
@@ -348,6 +378,17 @@ export default function ShareIndexPage() {
       setPage(1)
       setNoMore(false)
       setInfoList([])
+      // 对齐原项目 handleItemClicks:分类选择状态持久化(7天缓存)
+      try {
+        Taro.setStorageSync('shareCategoryState', {
+          categoryId: cat.id,
+          categoryName: cat.name,
+          timestamp: Date.now(),
+          expire: 7 * 24 * 60 * 60 * 1000,
+        } as ShareCategoryState)
+      } catch {
+        // 静默
+      }
       setTimeout(() => void loadRef.current(true), 0)
     },
     [unlockPageScroll],
@@ -396,10 +437,12 @@ export default function ShareIndexPage() {
     unlockPageScroll()
   }, [unlockPageScroll])
 
-  /** 关闭分类弹层 — 对齐原项目 closeTitleSwitch */
+  /** 关闭分类弹层 — 对齐原项目 closeTitleSwitch(通知 navbar 同步 active 态) */
   const closeTitleSwitch = useCallback(() => {
     setTagWrapShow(false)
     unlockPageScroll()
+    // 对齐原项目 this.$refs.navbar.handleNavClick()：通知 navbar 关闭分类按钮 active 态
+    Taro.eventCenter.trigger('trigger-nav-click')
   }, [unlockPageScroll])
 
   /** 分类按钮点击 — 对齐原项目 handleNavClick：只控制分类弹层，锁定/解锁页面滚动 */
