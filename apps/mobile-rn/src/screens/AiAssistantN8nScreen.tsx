@@ -94,11 +94,11 @@ export default function AiAssistantN8nScreen() {
         reply = '已提交 n8n 工作流执行(执行ID:' + res.data.executionId + '),结果将通过通知推送。'
       } else {
         reply = 'n8n 工作流调用失败:' + (res.error || '请稍后重试')
-        Alert.alert('n8n 工作流待接入', '工作流执行失败,已返回模拟结果')
+        Alert.alert('提示', 'n8n 工作流执行失败,请稍后重试')
       }
     } else {
       reply = 'n8n 工作流待接入。您的输入已记录:「' + text + '」,配置 agentId 后可对接真实工作流。'
-      Alert.alert('n8n 工作流待接入', '未传入 agentId,当前为模拟响应')
+      Alert.alert('提示', '当前为模拟响应,配置 agentId 后可对接真实工作流')
     }
 
     const aiMsg: N8nMessage = { id: nextId(), role: 'assistant', content: reply }
