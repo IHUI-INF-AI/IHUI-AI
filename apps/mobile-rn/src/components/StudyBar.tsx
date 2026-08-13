@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
   },
   tab: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 10,
     borderRadius: 6,
   },

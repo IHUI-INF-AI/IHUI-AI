@@ -164,6 +164,20 @@ import { IcpRecordScreen } from '../screens/IcpRecordScreen'
 import { ModelRecordScreen } from '../screens/ModelRecordScreen'
 import { UsageRulesScreen } from '../screens/UsageRulesScreen'
 import { AppPermissionScreen } from '../screens/AppPermissionScreen'
+import TokenValueScreen from '../screens/TokenValueScreen'
+import AiGroupScreen from '../screens/AiGroupScreen'
+import AiAssistantScreen from '../screens/AiAssistantScreen'
+import AigcListScreen from '../screens/AigcListScreen'
+import ModelPlazaScreen from '../screens/ModelPlazaScreen'
+import DeveloperScreen from '../screens/DeveloperScreen'
+import BusinessCardScreen from '../screens/BusinessCardScreen'
+import RecruitmentScreen from '../screens/RecruitmentScreen'
+import VipTraderScreen from '../screens/VipTraderScreen'
+import DevEnterScreen from '../screens/DevEnterScreen'
+import N8nModelScreen from '../screens/N8nModelScreen'
+import ModelIncomeScreen from '../screens/ModelIncomeScreen'
+import AiCareerScreen from '../screens/AiCareerScreen'
+import AssistantScreen from '../screens/AssistantScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -317,6 +331,20 @@ export type RootStackParamList = {
   ModelRecord: undefined
   UsageRules: undefined
   AppPermission: undefined
+  TokenValue: undefined
+  AiGroup: undefined
+  AiAssistant: undefined
+  AigcList: undefined
+  ModelPlaza: undefined
+  Developer: { id: string }
+  BusinessCard: { userId?: string }
+  Recruitment: undefined
+  VipTrader: undefined
+  DevEnter: undefined
+  N8nModel: undefined
+  ModelIncome: { agentId?: string }
+  AiCareer: undefined
+  Assistant: undefined
 }
 
 export type HomeStackParamList = {
@@ -663,6 +691,20 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ModelRecord" component={ModelRecordScreen} />
             <RootStack.Screen name="UsageRules" component={UsageRulesScreen} />
             <RootStack.Screen name="AppPermission" component={AppPermissionScreen} />
+            <RootStack.Screen name="TokenValue" component={TokenValueScreen} />
+            <RootStack.Screen name="AiGroup" component={AiGroupScreen} />
+            <RootStack.Screen name="AiAssistant" component={AiAssistantScreen} />
+            <RootStack.Screen name="AigcList" component={AigcListScreen} />
+            <RootStack.Screen name="ModelPlaza" component={ModelPlazaScreen} />
+            <RootStack.Screen name="Developer" component={DeveloperScreen} />
+            <RootStack.Screen name="BusinessCard" component={BusinessCardScreen} />
+            <RootStack.Screen name="Recruitment" component={RecruitmentScreen} />
+            <RootStack.Screen name="VipTrader" component={VipTraderScreen} />
+            <RootStack.Screen name="DevEnter" component={DevEnterScreen} />
+            <RootStack.Screen name="N8nModel" component={N8nModelScreen} />
+            <RootStack.Screen name="ModelIncome" component={ModelIncomeScreen} />
+            <RootStack.Screen name="AiCareer" component={AiCareerScreen} />
+            <RootStack.Screen name="Assistant" component={AssistantScreen} />
           </>
         ) : (
           <>

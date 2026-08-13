@@ -166,7 +166,7 @@ function createStyles(tk: RnThemeTokens) {
       padding: 24,
     } as ViewStyle,
     listContent: {
-      padding: 16,
+      padding: 8,
     } as ViewStyle,
     itemGap: {
       height: 12,
