@@ -111,15 +111,18 @@ export function PaymentScreen() {
       const paid = await openWeChatPayment(res.data.prepayData)
       if (paid) {
         setToast(t('payment.paySuccess'))
+        navigation.navigate('TopupSuccess', { amount: order.amount ?? 0, orderId: order.orderNo })
         void load(true)
       } else {
         setToast(t('payment.payCancelled'))
+        navigation.navigate('TopupFail', { reason: t('payment.payCancelled') })
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg === 'WECHAT_NOT_INSTALLED') setToast(t('payment.wechatNotInstalled'))
       else if (msg === 'WECHAT_NATIVE_UNAVAILABLE') setToast(t('payment.nativeUnavailable'))
       else setToast(`${t('payment.payFailed')}: ${msg}`)
+      navigation.navigate('TopupFail', { reason: msg })
     } finally {
       setActioningId(null)
       setPurchaseLoading(false)
