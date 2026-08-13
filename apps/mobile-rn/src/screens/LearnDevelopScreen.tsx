@@ -11,7 +11,6 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -113,7 +112,7 @@ export function LearnDevelopScreen() {
   }
 
   const onPublish = () => {
-    Alert.alert('发布学习心得', '功能开发中,敬请期待', [{ text: t('common.ok') }])
+    navigation.navigate('StudyPublish')
   }
 
   const onItemClick = (item: LearnDevItem) => {

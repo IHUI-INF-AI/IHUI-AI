@@ -11,7 +11,6 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -137,7 +136,7 @@ export function StudyIndexScreen() {
   }
 
   const onPublish = () => {
-    Alert.alert('发布视频', '功能开发中,敬请期待', [{ text: t('common.ok') }])
+    navigation.navigate('StudyPublish')
   }
 
   const onVideoClick = (item: StudyVideoItem) => {
