@@ -211,6 +211,9 @@ export function HomeScreen() {
       case 'ranking':
         rootNav?.navigate('Ranking')
         break
+      default:
+        // 未识别的入口 id,静默忽略(防御性:防止 FUNCTION_BLOCKS 配置漂移)
+        break
     }
   }
 
@@ -329,6 +332,9 @@ export function HomeScreen() {
                 break
               case 'CourseQAList':
                 rootNav?.navigate('CourseQAList')
+                break
+              default:
+                // 未识别的菜单 key,静默忽略(防御性:防止菜单配置漂移)
                 break
             }
           }}
