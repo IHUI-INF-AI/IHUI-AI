@@ -197,10 +197,10 @@ LITELLM_MODEL=qwen-local/qwen2.5:7b
 # 编译 llama.cpp(略)
 # 下载 GGUF 模型:https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF
 
-# 启动 llama-server(OpenAI 兼容端点,默认 8080)
+# 启动 llama-server(OpenAI 兼容端点,默认 8803)
 ./llama-server \
   -m Qwen2.5-7B-Instruct-Q5_K_M.gguf \
-  --port 8080 \
+  --port 8803 \
   -c 32768 \
   -ngl 99
 ```
@@ -209,7 +209,7 @@ LITELLM_MODEL=qwen-local/qwen2.5:7b
 
 ```bash
 LITELLM_MODEL=llamacpp/qwen2.5-7b
-LLAMACPP_API_BASE=http://localhost:8080  # 豁免:llama.cpp 第三方服务默认端口,不改动
+LLAMACPP_API_BASE=http://localhost:8803
 ```
 
 > 注:llama.cpp 走 OpenAI 兼容协议,无 ChatML stop 注入优化;若需 Qwen 专有优化,仍推荐方式 A。
@@ -220,9 +220,9 @@ LLAMACPP_API_BASE=http://localhost:8080  # 豁免:llama.cpp 第三方服务默�
 # 安装 vLLM(需 CUDA 12+)
 pip install vllm
 
-# 启动 vLLM OpenAI 兼容服务(默认 8000)
+# 启动 vLLM OpenAI 兼容服务(默认 8803)
 vllm serve Qwen/Qwen2.5-7B-Instruct \
-  --port 8000 \
+  --port 8803 \
   --max-model-len 32768 \
   --gpu-memory-utilization 0.9
 ```
@@ -231,7 +231,7 @@ vllm serve Qwen/Qwen2.5-7B-Instruct \
 
 ```bash
 LITELLM_MODEL=openai/qwen2.5-7b-instruct
-OPENAI_API_BASE=http://localhost:8000/v1  # 豁免:vLLM 第三方服务默认端口,不改动
+OPENAI_API_BASE=http://localhost:8803/v1
 OPENAI_API_KEY=vllm-dummy
 ```
 

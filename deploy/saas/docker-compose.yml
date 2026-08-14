@@ -14,7 +14,7 @@ services:
     container_name: ihui-saas-traefik
     restart: unless-stopped
     command:
-      # 启用 API + Dashboard(8080)
+      # 启用 API + Dashboard(8808)
       - --api.dashboard=true
       - --api.insecure=false
       - --providers.docker=true
@@ -118,7 +118,8 @@ services:
     command:
       - --docker_only=true
       - --housekeeping_interval=15s
-      - --max_container_age=0s  # 保留所有历史,7d 由 Prometheus 侧控制
+      - --max_container_age=0s # 保留所有历史,7d 由 Prometheus 侧控制
+      - --port=8808
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -164,6 +165,7 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_SERVER_ROOT_URL=http://127.0.0.1:8816
+      - GF_SERVER_HTTP_PORT=8816
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -172,9 +174,9 @@ services:
       - ihui-saas-net
     ports:
       # 同源 iframe 嵌入(localhost 浏览器直访)
-      - '127.0.0.1:8816:3000'
+      - '127.0.0.1:8816:8816'
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/api/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8816/api/health']
       interval: 30s
       timeout: 5s
       retries: 3

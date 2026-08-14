@@ -45,13 +45,13 @@
             ┌──────────────┴──────────────┐
             ▼                             ▼
    ┌─────────────────┐           ┌─────────────────┐
-   │ blue_web:3000   │           │ green_web:3001  │  ← Blue-Green 切换
+   │ blue_web:8801   │           │ green_web:8802  │  ← Blue-Green 切换
    └────────┬────────┘           └────────┬────────┘
             │                             │
             └──────────────┬──────────────┘
                            ▼
    ┌─────────────────┐           ┌─────────────────┐
-   │ blue_api:8080   │           │ green_api:8081  │  ← Blue-Green 切换
+   │ blue_api:8802   │           │ green_api:8803  │  ← Blue-Green 切换
    └────────┬────────┘           └────────┬────────┘
             │                             │
             └──────────────┬──────────────┘
@@ -60,7 +60,7 @@
        ▼           ▼               ▼            ▼             ▼
   ┌─────────┐ ┌─────────┐  ┌─────────────┐ ┌─────────┐ ┌───────────┐
   │PostgreSQL│ │  Redis  │  │  ai-service │ │监控栈   │ │ 日志栈    │
-  │ (5432)  │ │ (6379)  │  │   (8000)    │ │         │ │           │
+  │ (5432)  │ │ (6379)  │  │   (8803)    │ │         │ │           │
   └─────────┘ └─────────┘  └──────┬──────┘ └─────────┘ └───────────┘
                                    │
                                    ▼
@@ -71,7 +71,7 @@
 
   监控栈:
     Prometheus (9090) ← node-exporter (9100) / api / postgres / redis
-    Grafana (3001) ← Prometheus + Loki
+    Grafana (8816) ← Prometheus + Loki
     Alertmanager (9093) → 飞书 / 邮件
 
   日志栈:
@@ -88,11 +88,11 @@
 | 服务 | 端口 | 镜像 / 版本 | 健康检查 | 备注 |
 |------|------|-------------|----------|------|
 | nginx | 80 / 443 | nginx:1.25 | `/nginx-health` | 反向代理 + SSL |
-| web (blue) | 3000 | ihui/web:latest | `/api/health` | Next.js SSR |
-| web (green) | 3001 | ihui/web:latest | `/api/health` | Next.js SSR (蓝绿备用) |
-| api (blue) | 8080 | ihui/api:latest | `/api/health` | Fastify REST |
-| api (green) | 8081 | ihui/api:latest | `/api/health` | Fastify REST (蓝绿备用) |
-| ai-service | 8000 | ihui/ai-service:latest | `/health` | FastAPI Python |
+| web (blue) | 8801 | ihui/web:latest | `/api/health` | Next.js SSR |
+| web (green) | 8803 | ihui/web:latest | `/api/health` | Next.js SSR (蓝绿备用) |
+| api (blue) | 8802 | ihui/api:latest | `/api/health` | Fastify REST |
+| api (green) | 8804 | ihui/api:latest | `/api/health` | Fastify REST (蓝绿备用) |
+| ai-service | 8803 | ihui/ai-service:latest | `/health` | FastAPI Python |
 | postgres | 5432 | postgres:16-alpine | `pg_isready` | 主数据库 |
 | redis | 6379 | redis:7-alpine | `redis-cli ping` | 缓存 + 队列 |
 | prometheus | 9090 | prom/prometheus:v2.50.0 | `/-/healthy` | 指标采集 |
@@ -132,8 +132,8 @@
 │  所有服务通过服务名互访:                       │
 │  - api → postgres:5432                       │
 │  - api → redis:6379                          │
-│  - api → ai-service:8000                     │
-│  - prometheus → api:8080 / postgres / redis  │
+│  - api → ai-service:8803                     │
+│  - prometheus → api:8802 / postgres / redis  │
 │  - promtail → 各容器 /var/log/*              │
 │  - grafana → prometheus:9090 / loki:3100     │
 └──────────────────────────────────────────────┘
@@ -148,7 +148,7 @@
 | 内部 | 8810 (PostgreSQL) | 127.0.0.1:8810 | 仅本机访问(宿主映射,容器内 5432) |
 | 内部 | 8811 (Redis) | 127.0.0.1:8811 | 仅本机访问(宿主映射,容器内 6379) |
 | 内部 | 8815 (Prometheus) | 127.0.0.1:8815 | 仅本机访问(宿主映射,容器内 9090) |
-| 内部 | 8816 (Grafana) | 127.0.0.1:8816 | 通过 Nginx 反代(宿主映射,容器内 3000) |
+| 内部 | 8816 (Grafana) | 127.0.0.1:8816 | 通过 Nginx 反代(宿主映射,容器内 8816) |
 | 内部 | 8818 (Loki) | 127.0.0.1:8818 | 仅本机访问(宿主映射,容器内 3100) |
 | 内部 | 8814 (Jaeger) | 127.0.0.1:8814 | 通过 Nginx 反代(宿主映射,容器内 16686) |
 

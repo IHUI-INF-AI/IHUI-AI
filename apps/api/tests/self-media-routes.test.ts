@@ -23,7 +23,7 @@ vi.mock('../src/config/index.js', () => ({
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
-    AI_SERVICE_URL: 'http://ai-service.test:8000',
+    AI_SERVICE_URL: 'http://ai-service.test:8803',
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
   },
 }))
@@ -62,7 +62,7 @@ global.fetch = fetchMock as unknown as typeof fetch
 
 import { selfMediaRoutes } from '../src/routes/self-media-routes.js'
 
-const AI_SERVICE_URL = 'http://ai-service.test:8000'
+const AI_SERVICE_URL = 'http://ai-service.test:8803'
 const USER_TOKEN = 'Bearer user-token'
 const ADMIN_TOKEN = 'Bearer admin-token'
 
