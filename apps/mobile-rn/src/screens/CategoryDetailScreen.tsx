@@ -15,7 +15,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,6 +27,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import AgentList, { type AgentListItem } from '../components/AgentList'
 import Empty from '../components/common/Empty'
 import { NavBar } from '../components/NavBar'
+import { SingleTypeBar } from '../components/SingleTypeBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type CategoryDetailParams = {
@@ -108,26 +108,13 @@ export default function CategoryDetailScreen() {
   return (
     <View style={styles.container}>
       <NavBar title={title} onBack={() => navigation.goBack()} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabs}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {categories.map((c) => {
-          const active = String(c.id) === activeId
-          return (
-            <TouchableOpacity
-              key={String(c.id)}
-              style={[styles.tab, active && styles.tabActive]}
-              activeOpacity={0.7}
-              onPress={() => onSelectCategory(String(c.id))}
-            >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{c.name}</Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+      <View style={styles.tabsBar}>
+        <SingleTypeBar
+          items={categories.map((c) => ({ id: String(c.id), label: c.name }))}
+          selectedId={activeId}
+          onSelect={onSelectCategory}
+        />
+      </View>
       <View style={styles.listFlex}>
         {loading ? (
           <ActivityIndicator style={styles.center} color={tokens.text.secondary} />
@@ -160,17 +147,7 @@ export default function CategoryDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  tabs: { maxHeight: 48 },
-  tabsContent: { paddingHorizontal: 12, gap: 8, paddingVertical: 8 },
-  tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: tokens.surface.card,
-  },
-  tabActive: { backgroundColor: tokens.brand.DEFAULT },
-  tabText: { fontSize: 13, color: tokens.text.primary },
-  tabTextActive: { color: tokens.surface.light, fontWeight: '600' },
+  tabsBar: { paddingHorizontal: 8 },
   listFlex: { flex: 1, padding: 12 },
   center: { marginTop: 40 },
   footer: { paddingVertical: 12, alignItems: 'center' },
