@@ -14,7 +14,6 @@ import {
   GitCompare,
   Bot,
   Plug,
-  Settings,
   Sparkles,
   X,
   Square,
@@ -49,7 +48,6 @@ type PlusMenuAction = {
     | 'codeChanges'
     | 'agent'
     | 'mcp'
-    | 'settings'
     | 'skill'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
@@ -102,8 +100,9 @@ const PLUS_MENU_GROUPS: Array<{
     titleKey: 'groupSettings',
     items: [
       { key: 'skill', icon: Sparkles, href: '/ai-skills' },
-      // 2026-07-30 Ctrl+, 直接打开设置(VS Code 标准,已在 useGlobalShortcuts 注册全局快捷键)
-      { key: 'settings', icon: Settings, href: '/settings', shortcut: 'Ctrl+,' },
+      // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
+      // 设置项已提取到左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions),
+      // 不再放在本菜单内。Ctrl+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
     ],
   },
 ]
@@ -122,8 +121,9 @@ const PLUS_MENU_GROUPS: Array<{
  * 布局:
  *   <div h-9 px-4 select-none cursor-default>          ← 外层容器(单层 h-9 = 36px,水平 16px 与 main p-4 对齐)
  *     <TagsView flex-1 />                                ← 标签栏
- *     <Plus 弹窗按钮>                                    ← 9 项菜单(文档/浏览器/终端/编辑/代码变更/Agent/MCP/Skill/设置)
+ *     <Plus 弹窗按钮>                                    ← 8 项菜单(文档/浏览器/终端/编辑/代码变更/Agent/MCP/Skill)
  *     <WindowControls>                                   ← 仅桌面端:Min/Max/Close
+ *     注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions)。
  *   </div>
  *
  * 与 MainShell 的分工:
@@ -527,7 +527,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full w-9
               后跟顶栏 36px 严格一致 36x36 正方形,消除"双重高度设定/冲突设定"问题(用户原话))
             - hover 显示加号图标 + 向下箭头
-            - 点击展开 9 项菜单(分 3 组:视图/工具/设置)
+            - 点击展开 8 项菜单(分 3 组:视图/工具/设置;设置项 2026-08-14 已提取为顶栏独立按钮)
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
             - 走 workPanel toggle / IDE setActiveTopTab / router.push 三类动作 */}
           <div ref={plusRef} className="relative h-full shrink-0">

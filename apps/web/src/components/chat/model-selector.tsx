@@ -24,7 +24,7 @@ import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
-import { providerToTemplateCode } from '@/lib/llm-templates'
+import { providerToTemplateCode, PRESET_TEMPLATE_CODES } from '@/lib/llm-templates'
 
 export interface ModelOption {
   value: string
@@ -459,7 +459,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     const set = new Set<string>()
     const list = cfgData?.list ?? []
     for (const c of list) {
-      if (c.enabled) set.add(c.providerCode)
+      if (c.enabled || c.isBuiltin) set.add(c.providerCode)
+    }
+    // 系统预置模板也视为已配置(无需用户手动创建配置即可使用)
+    for (const code of PRESET_TEMPLATE_CODES) {
+      set.add(code)
     }
     return set
   }, [cfgData])
