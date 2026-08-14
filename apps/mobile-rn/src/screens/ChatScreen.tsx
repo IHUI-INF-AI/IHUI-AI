@@ -35,6 +35,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
   type ListRenderItem,
 } from 'react-native'
@@ -47,6 +48,7 @@ import {
   Bot,
   BookOpen,
   Clapperboard,
+  Copy,
   Cpu,
   Download,
   Image as ImageIcon,
@@ -932,22 +934,56 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // ── 消息列表渲染 ──
   const renderMessage: ListRenderItem<ChatMessage> = ({ item }) => {
     const isUser = item.role === 'user'
+    // 操作按钮行:仅 assistant 消息且有内容,且非当前流式输出中的最后一条
+    const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
+    const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
-        <View
-          style={[
-            styles.msgBubble,
-            isUser ? styles.msgBubbleUser : styles.msgBubbleAi,
-          ]}
-        >
-          <Text
+        <View style={styles.msgContent}>
+          <View
             style={[
-              styles.msgText,
-              isUser ? styles.msgTextUser : styles.msgTextAi,
+              styles.msgBubble,
+              isUser ? styles.msgBubbleUser : styles.msgBubbleAi,
             ]}
           >
-            {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
-          </Text>
+            <Text
+              style={[
+                styles.msgText,
+                isUser ? styles.msgTextUser : styles.msgTextAi,
+              ]}
+            >
+              {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
+            </Text>
+          </View>
+          {showActions ? (
+            <View style={styles.msgActions}>
+              <TouchableOpacity
+                style={styles.msgActionBtn}
+                hitSlop={8}
+                onPress={() => {
+                  Clipboard.setString(item.content)
+                  showToast('success', '已复制')
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="复制"
+              >
+                <Copy size={16} color={tokens.text.secondary} />
+                <Text style={styles.msgActionText}>复制</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.msgActionBtn}
+                hitSlop={8}
+                onPress={() => {
+                  void Share.share({ message: item.content })
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="分享"
+              >
+                <Share2 size={16} color={tokens.text.secondary} />
+                <Text style={styles.msgActionText}>分享</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </View>
     )
@@ -1602,12 +1638,12 @@ const styles = StyleSheet.create({
   },
   // ── 消息列表 ──
   msgListContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },
   msgRow: {
-    marginVertical: 4,
+    marginVertical: 10,
     flexDirection: 'row',
   },
   msgRowUser: {
@@ -1615,6 +1651,24 @@ const styles = StyleSheet.create({
   },
   msgRowAi: {
     justifyContent: 'flex-start',
+  },
+  msgContent: {
+    flexDirection: 'column',
+  },
+  msgActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    paddingLeft: 12,
+  },
+  msgActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  msgActionText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
   },
   msgBubble: {
     maxWidth: '78%',
@@ -1643,7 +1697,7 @@ const styles = StyleSheet.create({
     width: '88%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.light,
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   materialPopupHeader: {

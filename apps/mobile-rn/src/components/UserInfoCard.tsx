@@ -38,6 +38,11 @@ export interface UserInfoCardProps {
   onUnsubscribe?: () => void
   /** 邀请码复制回调(不传则内部 Alert 提示) */
   onCopyInviteCode?: (code: string) => void
+  /**
+   * 成长值进度条点击回调(对齐 Uniapp level-intro 入口)。
+   * 未传入时点击成长值条无响应;传入则由调用方决定打开等级介绍弹窗等行为。
+   */
+  onLevelIntro?: () => void
   /** 变体选择,默认 'new' */
   variant?: UserInfoCardVariant
 }
@@ -58,6 +63,7 @@ function UserInfoCardNew({
   onLogin,
   onUnsubscribe,
   onCopyInviteCode,
+  onLevelIntro,
 }: UserInfoCardProps) {
   const [levelModalVisible, setLevelModalVisible] = useState(false)
 
@@ -133,9 +139,16 @@ function UserInfoCardNew({
         </View>
       </View>
 
-      {/* 成长值进度条(对齐 Uniapp growthValue/growthMax) */}
+      {/* 成长值进度条(对齐 Uniapp growthValue/growthMax);点击触发等级介绍 onLevelIntro */}
       {hasGrowth ? (
-        <View style={newStyles.growthRow}>
+        <TouchableOpacity
+          style={newStyles.growthRow}
+          activeOpacity={0.7}
+          onPress={onLevelIntro}
+          disabled={!onLevelIntro}
+          accessibilityLabel="成长值进度条,点击查看等级介绍"
+          accessibilityRole="button"
+        >
           <View style={newStyles.growthLabelWrap}>
             <Text style={newStyles.growthLabel}>成长值</Text>
             <Text style={newStyles.growthValue}>
@@ -145,7 +158,7 @@ function UserInfoCardNew({
           <View style={newStyles.growthBarBg}>
             <View style={[newStyles.growthBarFill, { width: `${growthPercent}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
       ) : null}
 
       {/* 邀请码(对齐 Uniapp inviteCode,带复制提示) */}

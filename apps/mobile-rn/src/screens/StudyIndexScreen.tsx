@@ -42,6 +42,7 @@ import {
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import { NavBar } from '../components/NavBar'
+import FloatingActionButton from '../components/FloatingActionButton'
 import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
 import Drawer, {
@@ -504,14 +505,7 @@ export function StudyIndexScreen() {
           <ModelList groups={modelListGroups} selectionMode="single" />
         </View>
       )}
-      <Pressable
-        style={styles.fab}
-        onPress={onPublish}
-        accessibilityRole="button"
-        accessibilityLabel="发布视频"
-      >
-        <Text style={styles.fabIcon}>＋</Text>
-      </Pressable>
+      <FloatingActionButton onPress={onPublish} accessibilityLabel="发布视频" />
 
       {/* Drawer 侧边栏(对齐 Uniapp DrawerComponent) */}
       <Drawer
@@ -665,27 +659,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: tk.surface.light,
-  } as TextStyle,
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: tk.brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: tk.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  } as ViewStyle,
-  fabIcon: {
-    fontSize: 24,
-    color: tk.surface.light,
-    fontWeight: '600',
   } as TextStyle,
 })
 
