@@ -930,7 +930,7 @@ cd IHUI-AI && docker compose up -d
 | -------------- | ------------------------------------------------------------------------------ | ----------------------------------- |
 | Monorepo       | pnpm workspace + Turborepo                                                     | pnpm 9.15 / turbo 2.3               |
 | 后端 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL         | Fastify 5.1 / Drizzle 0.38 / PG 15  |
-| 缓存与队列     | Redis 7 + BullMQ                                                               | 独立 worker 进程(:8081)             |
+| 缓存与队列     | Redis 7 + BullMQ                                                               | 独立 worker 进程(:8804)             |
 | 前端 Web       | Next.js + React + Tailwind CSS + shadcn/ui                                     | Next 15.1 / React 19 / Tailwind 4   |
 | 前端状态       | @tanstack/react-query 5 + Zustand                                              | 服务端 + 客户端状态分离             |
 | 国际化         | next-intl                                                                      | zh-CN / zh-TW / en / ko / ja 5 语言 |
@@ -1100,16 +1100,16 @@ cd IHUI-AI && docker compose up -d
 
 **下载状态矩阵**:
 
-| 端              | 下载形态                       | 版本     | 大小           | 状态         |
-| --------------- | ------------------------------ | -------- | -------------- | ------------ |
-| **Desktop**     | Windows NSIS `.exe` + MSI      | 0.1.13   | 71.6 / 77.7 MB | 🟢 已接入    |
-| **CLI**         | `npm install -g @ihui/cli`     | 1.0.0    | -              | 🟢 已接入    |
-| **Extension**   | Chrome MV3 `.zip`              | 1.0.0    | 1.29 MB        | 🟢 已接入    |
-| **Mobile RN**   | 源码构建(GitHub)              | -        | -              | 🟢 已接入    |
-| **Web**         | PWA / 浏览器访问               | -        | -              | 🟢 已接入    |
-| **iOS**         | App Store                      | -        | -              | 🟡 即将上线  |
-| **Android APK** | 直接下载 `.apk`                | -        | -              | 🟡 即将上线  |
-| **微信小程序**  | 扫码二维码                     | -        | -              | 🟡 即将上线  |
+| 端              | 下载形态                   | 版本   | 大小           | 状态        |
+| --------------- | -------------------------- | ------ | -------------- | ----------- |
+| **Desktop**     | Windows NSIS `.exe` + MSI  | 0.1.13 | 71.6 / 77.7 MB | 🟢 已接入   |
+| **CLI**         | `npm install -g @ihui/cli` | 1.0.0  | -              | 🟢 已接入   |
+| **Extension**   | Chrome MV3 `.zip`          | 1.0.0  | 1.29 MB        | 🟢 已接入   |
+| **Mobile RN**   | 源码构建(GitHub)           | -      | -              | 🟢 已接入   |
+| **Web**         | PWA / 浏览器访问           | -      | -              | 🟢 已接入   |
+| **iOS**         | App Store                  | -      | -              | 🟡 即将上线 |
+| **Android APK** | 直接下载 `.apk`            | -      | -              | 🟡 即将上线 |
+| **微信小程序**  | 扫码二维码                 | -      | -              | 🟡 即将上线 |
 
 **核心能力**:
 
@@ -1121,11 +1121,11 @@ cd IHUI-AI && docker compose up -d
 
 **npm scripts**(根 `package.json`):
 
-| 命令                          | 用途                                                       |
-| ----------------------------- | ---------------------------------------------------------- |
-| `pnpm sync:downloads`         | 全量构建 8 端 + 同步下载包 + 生成 manifest                |
-| `pnpm sync:downloads:check`   | 校验 `manifest.json` 与实际下载包一致(版本/大小/sha256)   |
-| `pnpm sync:downloads:dry-run` | 预览同步计划,不执行写操作                                  |
+| 命令                          | 用途                                                    |
+| ----------------------------- | ------------------------------------------------------- |
+| `pnpm sync:downloads`         | 全量构建 8 端 + 同步下载包 + 生成 manifest              |
+| `pnpm sync:downloads:check`   | 校验 `manifest.json` 与实际下载包一致(版本/大小/sha256) |
+| `pnpm sync:downloads:dry-run` | 预览同步计划,不执行写操作                               |
 
 **详情页路径**:`/download/desktop` / `/download/cli` / `/download/extension` / `/download/mobile` / `/download/web` / `/download/ios` / `/download/android-apk` / `/download/wechat-miniapp`
 

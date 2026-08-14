@@ -445,14 +445,14 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
     icon: '🔴',
     inboundFieldType: 'nested',
     signatureEncoding: 'none',
-    outboundApiPattern: 'http://localhost:8080/v2/send',
+    outboundApiPattern: 'http://localhost:8808/v2/send',
     fields: [
       {
         name: 'callbackUrl',
         label: 'signal-cli-rest-api 地址',
         type: 'url',
         required: true,
-        placeholder: 'http://localhost:8080',
+        placeholder: 'http://localhost:8808',
         helpText: '本地 signal-cli-rest-api 服务地址',
       },
     ],
@@ -967,7 +967,7 @@ async function sendSignal(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
 ): Promise<{ sent: boolean; error?: string }> {
-  const baseUrl = adapter.callbackUrl ?? 'http://localhost:8080'
+  const baseUrl = adapter.callbackUrl ?? 'http://localhost:8808'
   return doFetch(`${baseUrl}/v2/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
