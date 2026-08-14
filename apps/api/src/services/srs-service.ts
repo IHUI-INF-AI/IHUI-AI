@@ -66,7 +66,7 @@ export async function createStream(params: {
       name: 'default',
       host: process.env.SRS_HOST ?? '127.0.0.1',
       rtmpPort: 1935,
-      httpPort: 8080,
+      httpPort: 8802,
       webrtcPort: 1985,
       apiPort: 1985,
       apiSecret: null,

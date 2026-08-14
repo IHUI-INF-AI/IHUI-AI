@@ -182,30 +182,30 @@ acf64232bd feat(web): AgentTaskProgressPane v11 键盘导航 + ARIA 无障碍
 | 端口 | 服务 | 状态 | 验证方式 |
 |---|---|---|---|
 | **8801** | apps/web(Next.js 15) | 🟢 LISTENING | `netstat -ano \| findstr :8801` → LISTENING,node PID 23076 |
-| **3001** | apps/api(Fastify 5) | 🟢 LISTENING | `netstat -ano \| findstr :3001` → LISTENING,node PID 4432 |
-| 8802 | apps/ai-service(FastAPI) | 🟡 由 orchestrator 启动 | — |
+| **8802** | apps/api(Fastify 5) | 🟢 LISTENING | `netstat -ano \| findstr :8802` → LISTENING,node PID 4432 |
+| 8803 | apps/ai-service(FastAPI) | 🟡 由 orchestrator 启动 | — |
 
 ### 5.2 验证命令
 
 ```powershell
 # Dev server 状态
-netstat -ano | Select-String ":8801|:3001|:8802" | Select-Object -First 5
+netstat -ano | Select-String ":8801|:8802|:8803" | Select-Object -First 5
 
 # Web 可用性
 Invoke-WebRequest -Uri "http://localhost:8801" -UseBasicParsing -TimeoutSec 5
 
 # API 健康检查(任一)
-Invoke-WebRequest -Uri "http://localhost:3001/api/health" -UseBasicParsing -TimeoutSec 5
-Invoke-WebRequest -Uri "http://localhost:3001/health" -UseBasicParsing -TimeoutSec 5
+Invoke-WebRequest -Uri "http://localhost:8816/api/health" -UseBasicParsing -TimeoutSec 5
+Invoke-WebRequest -Uri "http://localhost:8816/health" -UseBasicParsing -TimeoutSec 5
 
 # Swagger UI(P0-4a 验证)
 Invoke-WebRequest -Uri "http://localhost:8801/docs" -UseBasicParsing -TimeoutSec 5
 Invoke-WebRequest -Uri "http://localhost:8801/docs/json" -UseBasicParsing -TimeoutSec 5
 
 # AI 成本治理(P0-3c 验证,需登录态)
-Invoke-WebRequest -Uri "http://localhost:3001/api/admin/ai/cost/top-users" -UseBasicParsing -TimeoutSec 5
-Invoke-WebRequest -Uri "http://localhost:3001/api/admin/ai/cost/budget-alerts" -UseBasicParsing -TimeoutSec 5
-Invoke-WebRequest -Uri "http://localhost:3001/api/admin/ai/cost/vip-quotas" -UseBasicParsing -TimeoutSec 5
+Invoke-WebRequest -Uri "http://localhost:8816/api/admin/ai/cost/top-users" -UseBasicParsing -TimeoutSec 5
+Invoke-WebRequest -Uri "http://localhost:8816/api/admin/ai/cost/budget-alerts" -UseBasicParsing -TimeoutSec 5
+Invoke-WebRequest -Uri "http://localhost:8816/api/admin/ai/cost/vip-quotas" -UseBasicParsing -TimeoutSec 5
 ```
 
 ### 5.3 启动 dev server(如需重启)

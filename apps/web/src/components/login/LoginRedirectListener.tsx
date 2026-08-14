@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { isPublicPath, openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * 监听 middleware / SSR 设置的 `login_redirect` cookie 或 `?reauth=1&next=...` 查询参数,
@@ -29,8 +30,12 @@ export function LoginRedirectListener() {
     const nextParam = searchParams.get('next')
     if (reauth === '1' && nextParam) {
       const cleaned = nextParam
-      if (!isPublicPath(cleaned)) {
-        openLoginDialogOnce(cleaned)
+      const { isAuthenticated, token } = useAuthStore.getState()
+      // bootstrap 幽灵态不弹窗(避免刷新后并发请求/重定向 cookie 打断自动登录)
+      if (!(isAuthenticated && !token)) {
+        if (!isPublicPath(cleaned)) {
+          openLoginDialogOnce(cleaned)
+        }
       }
       // 始终清理 URL 上的 reauth/next 参数,避免刷新重复触发弹窗
       const url = new URL(window.location.href)
@@ -58,6 +63,9 @@ export function LoginRedirectListener() {
     //     不需要"跳到受保护页面",弹窗纯属打扰)
     //   - 当前路径是受保护页面(用户确实想访问需要登录的内容)→ 才弹窗
     const currentPath = window.location.pathname
+    const { isAuthenticated, token } = useAuthStore.getState()
+    // bootstrap 幽灵态不弹窗(避免刷新后重定向 cookie 打断自动登录)
+    if (isAuthenticated && !token) return
     if (target && !isPublicPath(target) && !isPublicPath(currentPath)) {
       openLoginDialogOnce(target)
     }

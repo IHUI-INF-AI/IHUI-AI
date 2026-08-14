@@ -10,7 +10,7 @@
 |------|----------|-----------------|
 | 技术栈 | Fastify 5 + Drizzle ORM + @ihui/auth | FastAPI 0.115 + LangGraph + LiteLLM + MCP |
 | 职责 | 业务 CRUD + 多厂商代理 + 认证 + WebSocket + 计费 | LLM 网关 + Agent 执行 + MCP 工具 + A2A + Voice |
-| 默认端口 | 8080 | 8000 |
+| 默认端口 | 8802 | 8803 |
 | 路由文件 | `apps/api/src/routes/`(80+ 文件) | `apps/ai-service/app/routers/` |
 | 协议 | REST + WebSocket(12 端点)+ SSE 流式 | REST + SSE 流式 + Socket.IO |
 | 鉴权 | JWT Bearer / Cookie / API Key / WS query token | 共享 JWT_SECRET,JWTAuthMiddleware |
