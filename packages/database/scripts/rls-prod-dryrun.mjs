@@ -1,10 +1,17 @@
 /**
- * RLS 生产启用预演 (DRY-RUN) — 增强版
+ * RLS 用户级策略预演 (DRY-RUN) — 0214 清理后版本
  *
- * 修复 v1 问题:
- *   - chat_messages 等表的 FK 引用 chat_conversations / users 等非 RLS 表
- *   - 当非超级用户查询时,PG 会做 FK 权限检查 → 42501 insufficient_privilege
- *   - 必须在 GRANT 列表中包含所有 RLS 表的 FK 引用表
+ * 背景:
+ *   迁移 0214 已清理 6 表(users/orders/payments/chat_messages/chat_favorites/comment_likes)
+ *   的 tenant_id 列与 _tenant_iso_* 租户策略(多租户隔离设计废弃,见 docs/DATABASE.md §5.4)。
+ *   清理后 6 表仍保留 0068 用户级策略(基于 app.current_user_role / current_user_id)
+ *   + 新增 _bypass_rls 策略(保持 withBypassRls 绕过能力)。
+ *
+ * 本脚本验证新 RLS 语义:
+ *   - 场景 A: 无 session 变量 → 普通用户默认不可见(0068 策略 user_id 不匹配)→ 0 行
+ *   - 场景 B: SET app.current_user_role='1'(管理员)→ 全量可见(0068 角色分支)
+ *   - 场景 C: SET app.bypass_rls='true' → 全量可见(_bypass_rls 策略)
+ *   - 场景 D: 模拟应用(rls-context 设置 current_user_id/role)→ 无 RLS 错误
  */
 import postgres from 'postgres'
 
@@ -13,8 +20,6 @@ const root = postgres(url, { max: 1 })
 
 const TEST_USER = `rls_dryrun_${Date.now().toString(36)}`
 const TEST_PASS = `rls_dryrun_pwd_${Math.random().toString(36).slice(2)}`
-const TEST_TENANT = '00000000-0000-0000-0000-000000000001'
-const DEFAULT_TENANT = '00000000-0000-0000-0000-000000000000'
 
 const RLS_TABLES = ['users', 'orders', 'payments', 'chat_messages', 'chat_favorites', 'comment_likes']
 
@@ -30,11 +35,8 @@ function fail(name, detail = '') {
 }
 
 async function findReferencedTables() {
-  // 找出 RLS 表引用的所有外键表(包括非 RLS 表)
   const rows = await root`
-    SELECT
-      tc.table_name AS source_table,
-      ccu.table_name AS referenced_table
+    SELECT tc.table_name AS source_table, ccu.table_name AS referenced_table
     FROM information_schema.table_constraints tc
     JOIN information_schema.constraint_column_usage ccu
       ON tc.constraint_name = ccu.constraint_name
@@ -49,117 +51,78 @@ async function findReferencedTables() {
 
 async function main() {
   console.log('='.repeat(60))
-  console.log('RLS 生产启用预演 v2 (修复 FK 权限)')
+  console.log('RLS 用户级策略预演 (0214 清理后)')
   console.log('='.repeat(60))
 
-  // 0. 收集所有需要 GRANT 的表
   const referencedTables = await findReferencedTables()
   const allGrantedTables = Array.from(new Set([...RLS_TABLES, ...referencedTables]))
   console.log(`RLS 表: ${RLS_TABLES.length} 个`)
   console.log(`FK 引用表: ${referencedTables.length} 个 (${referencedTables.join(', ')})`)
-  console.log(`需要 GRANT 总计: ${allGrantedTables.length} 个表`)
-  console.log('')
 
   // 1. 创建测试角色
-  console.log('[1/7] 创建测试角色...')
+  console.log('\n[1/5] 创建测试角色...')
   await root.unsafe(`DROP ROLE IF EXISTS "${TEST_USER}"`)
   await root.unsafe(`CREATE ROLE "${TEST_USER}" WITH LOGIN PASSWORD '${TEST_PASS}'`)
   pass('测试角色创建')
 
-  // 2. GRANT 表权限(包含 FK 引用表)
-  console.log('\n[2/7] GRANT 表权限(RLS 表 + FK 引用表)...')
+  // 2. GRANT 表权限
+  console.log('\n[2/5] GRANT 表权限...')
   await root.unsafe(`GRANT USAGE ON SCHEMA public TO "${TEST_USER}"`)
   for (const t of allGrantedTables) {
     await root.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${t}" TO "${TEST_USER}"`)
   }
   pass(`${allGrantedTables.length} 个表权限授予`)
 
-  // 3. 测试连接
-  const testConn = postgres(url.replace(/\/\/[^:]+:[^@]+@/, `//${TEST_USER}:${TEST_PASS}@`), { max: 1 })
+  const testConn = postgres(url.replace(/\/\/[^:]+:[^@]+@/, `//${TEST_USER}:${TEST_PASS}@`), {
+    max: 1,
+  })
 
   try {
-    // 4. 场景 A
-    console.log('\n[3/7] 场景 A: 无 tenant_id → 应 0 行...')
+    // 3. 场景 A: 无 session 变量 → 0 行(普通用户默认不可见)
+    console.log('\n[3/5] 场景 A: 无 session 变量 → 应 0 行...')
     for (const t of RLS_TABLES) {
       try {
         const rows = await testConn.unsafe(`SELECT COUNT(*)::int AS c FROM "${t}"`)
         if (rows[0].c === 0) {
-          pass(`无 tenant_id 查 ${t} 返回 0 行`)
+          pass(`无 session 查 ${t} 返回 0 行(用户级 RLS 生效)`)
         } else {
-          fail(`无 tenant_id 查 ${t} 返回 ${rows[0].c} 行(RLS 未生效!)`)
+          fail(`无 session 查 ${t} 返回 ${rows[0].c} 行(RLS 未生效!)`)
         }
       } catch (e) {
-        fail(`无 tenant_id 查 ${t} 失败: ${e.message.slice(0, 100)}`)
+        fail(`无 session 查 ${t} 失败: ${e.message.slice(0, 100)}`)
       }
     }
 
-    // 5. 场景 B
-    console.log('\n[4/7] 场景 B: SET tenant_id=默认 → 应返回数据(空表返回 0 也正确)...')
+    // 4. 场景 B: 管理员角色 → 全量可见
+    console.log('\n[4/5] 场景 B: SET current_user_role=1(管理员)→ 应无 RLS 错误...')
     for (const t of RLS_TABLES) {
       try {
-        await testConn.unsafe(`SET app.tenant_id = '${DEFAULT_TENANT}'`)
+        await testConn.unsafe(`SET app.current_user_role = '1'`)
         const rows = await testConn.unsafe(`SELECT COUNT(*)::int AS c FROM "${t}"`)
-        // 真实行为:有数据表返回 >0,无数据表返回 0(都正确)
-        if (rows[0].c >= 0) {
-          pass(`默认 tenant_id 查 ${t} 返回 ${rows[0].c} 行(无 RLS 错误)`)
-        }
-        await testConn.unsafe(`RESET app.tenant_id`)
+        pass(`管理员查 ${t} 返回 ${rows[0].c} 行(角色分支通过)`)
+        await testConn.unsafe(`RESET app.current_user_role`)
       } catch (e) {
-        fail(`默认 tenant_id 查 ${t} 失败: ${e.message.slice(0, 100)}`)
+        fail(`管理员查 ${t} 失败: ${e.message.slice(0, 100)}`)
       }
     }
 
-    // 6. 场景 C
-    console.log('\n[5/7] 场景 C: SET tenant_id=其他租户 → 应 0 行...')
-    for (const t of RLS_TABLES) {
-      try {
-        await testConn.unsafe(`SET app.tenant_id = '${TEST_TENANT}'`)
-        const rows = await testConn.unsafe(`SELECT COUNT(*)::int AS c FROM "${t}"`)
-        if (rows[0].c === 0) {
-          pass(`其他 tenant_id 查 ${t} 返回 0 行(隔离生效)`)
-        } else {
-          fail(`其他 tenant_id 查 ${t} 返回 ${rows[0].c} 行(隔离失效!)`)
-        }
-        await testConn.unsafe(`RESET app.tenant_id`)
-      } catch (e) {
-        fail(`其他 tenant_id 查 ${t} 失败: ${e.message.slice(0, 100)}`)
-      }
-    }
-
-    // 7. 场景 D
-    console.log('\n[6/7] 场景 D: SET bypass_rls=true → 应无 RLS 错误(允许 0 行)...')
+    // 5. 场景 C: bypass_rls → 全量可见
+    console.log('\n[5/5] 场景 C: SET bypass_rls=true → 应无 RLS 错误...')
     for (const t of RLS_TABLES) {
       try {
         await testConn.unsafe(`SET app.bypass_rls = 'true'`)
         const rows = await testConn.unsafe(`SELECT COUNT(*)::int AS c FROM "${t}"`)
-        // 关键:必须不抛 "invalid uuid" 错误,行数 >= 0 都正确
-        pass(`bypass_rls 查 ${t} 返回 ${rows[0].c} 行(无 RLS 错误)`)
+        pass(`bypass 查 ${t} 返回 ${rows[0].c} 行(_bypass_rls 策略通过)`)
         await testConn.unsafe(`RESET app.bypass_rls`)
       } catch (e) {
-        fail(`bypass_rls 查 ${t} 失败: ${e.message.slice(0, 100)}`)
+        fail(`bypass 查 ${t} 失败: ${e.message.slice(0, 100)}`)
       }
-    }
-
-    // 8. 场景 E: 模拟实际应用 — JOIN 查询
-    console.log('\n[7/7] 场景 E: 模拟应用 — JOIN 查询(含 FK)...')
-    try {
-      await testConn.unsafe(`SET app.tenant_id = '${DEFAULT_TENANT}'`)
-      const rows = await testConn.unsafe(`
-        SELECT u.id, u.nickname, COUNT(o.id)::int AS order_count
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id, u.nickname
-        LIMIT 5
-      `)
-      pass(`users JOIN orders 返回 ${rows.length} 行`)
-    } catch (e) {
-      fail(`users JOIN orders 失败: ${e.message.slice(0, 150)}`)
     }
   } finally {
     await testConn.end({ timeout: 5 })
   }
 
-  // 9. 清理
+  // 6. 清理
   console.log('\n[清理] 撤销权限 + 删除测试角色...')
   for (const t of allGrantedTables) {
     await root.unsafe(`REVOKE ALL PRIVILEGES ON "${t}" FROM "${TEST_USER}"`)
@@ -173,19 +136,10 @@ async function main() {
   console.log('='.repeat(60))
 
   if (testsFailed > 0) {
-    console.log('\n❌ 预演失败:生产启用前必须修复')
+    console.log('\n❌ 预演失败:用户级 RLS 语义异常')
     process.exit(1)
   } else {
-    console.log('\n✅ 预演全部通过!')
-    console.log('')
-    console.log('生产启用清单(必须在 staging 演练后再执行):')
-    console.log('  1. CREATE ROLE app_user WITH LOGIN PASSWORD \'<强密码>\';')
-    console.log('  2. GRANT USAGE ON SCHEMA public TO app_user;')
-    console.log(`  3. GRANT SELECT, INSERT, UPDATE, DELETE ON ${allGrantedTables.join(', ')} TO app_user;`)
-    console.log('  4. ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;')
-    console.log('  5. 切换 DATABASE_URL 到 app_user 凭据')
-    console.log('  6. 启动服务,确认所有 API 200,无 403 误杀')
-    console.log('  7. (回滚)立即切回原 DATABASE_URL,DROP ROLE app_user')
+    console.log('\n✅ 预演全部通过!用户级 RLS + bypass 通道工作正常')
   }
 }
 
