@@ -77,7 +77,7 @@ export async function sendWechatAuth(
   state?: string,
 ): Promise<string> {
   if (Platform.OS === 'web') throw new Error('微信原生 SDK 不支持 web 平台')
-  if (typeof wechatLib.sendAuthRequest !== 'function') throw new Error('微信 SDK 未初始化')
+  if (!wechatLib || typeof wechatLib.sendAuthRequest !== 'function') throw new Error('微信 SDK 未初始化')
 
   const res: AuthResponse = await wechatLib.sendAuthRequest(scope, state)
   if (res.errCode !== undefined && res.errCode !== WECHAT_ERRCODE.SUCCESS) {
