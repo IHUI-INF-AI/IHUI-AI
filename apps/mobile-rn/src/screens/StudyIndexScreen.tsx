@@ -22,7 +22,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
@@ -31,6 +30,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Search, X } from 'lucide-react-native'
 import {
   deleteConversation,
   fetchApi,
@@ -50,6 +50,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
+import { SearchInput } from '../components/SearchInput'
 import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -410,20 +411,21 @@ export function StudyIndexScreen() {
             accessibilityRole="button"
             accessibilityLabel="搜索"
           >
-            <Text style={styles.searchIcon}>{showSearch ? '✕' : '🔍'}</Text>
+            {showSearch ? (
+              <X size={20} color={tk.text.primary} />
+            ) : (
+              <Search size={20} color={tk.text.primary} />
+            )}
           </Pressable>
         }
       />
       {showSearch ? (
         <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             value={searchInput}
             onChangeText={setSearchInput}
             placeholder="搜索视频"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
-            onSubmitEditing={onSubmitSearch}
+            onSubmit={onSubmitSearch}
           />
         </View>
       ) : null}
@@ -534,20 +536,11 @@ export function StudyIndexScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
-  searchIcon: { fontSize: 18, color: tk.text.primary } as TextStyle,
   searchBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: tk.surface.card,
   } as ViewStyle,
-  searchInput: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: tk.surface.muted,
-    fontSize: 14,
-    color: tk.text.primary,
-  } as TextStyle,
   // 赛道分类容器(复用 SingleTypeBar 共享组件)
   scrollTitleWrap: {
     backgroundColor: tk.surface.card,
