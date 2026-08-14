@@ -288,7 +288,7 @@ async function registerPlugins(server: FastifyInstance) {
   // 2026-08-14 P0 修复:@fastify/cookie 必须在主作用域注册,否则子作用域注册
   // (csrfPlugin) 的装饰器不会冒泡,主路由读取 request.cookies 永远是 undefined
   // → /auth/refresh 永远读不到 refresh_token cookie → 永远 400 → 自动登录失效
-  // csrfPlugin 内的 register(cookie) 检测到已注册会跳过,无副作用
+  // csrfPlugin 用 fp 包装,运行在主作用域,自动继承 cookie 装饰器,故不在子插件内重复 register
   await server.register(cookie)
   await server.register(helmet, {
     contentSecurityPolicy: false,
