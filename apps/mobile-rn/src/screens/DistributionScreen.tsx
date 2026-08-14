@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import QRCode from 'react-native-qrcode-svg'
+import { captureRef } from 'react-native-view-shot'
+import { Asset, requestPermissionsAsync } from 'expo-media-library'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -20,6 +24,9 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** 邀请链接域名(对齐 ProfileScreen WEBSITE_URL 'https://www.aizhs.top') */
+const INVITE_BASE_URL = 'https://www.aizhs.top'
+
 export function DistributionScreen() {
   const { t } = useI18n()
   const { user } = useAuth()
@@ -33,6 +40,56 @@ export function DistributionScreen() {
   const [withdrawDetailVisible, setWithdrawDetailVisible] = useState(false)
   // BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层)
   const [shareQrVisible, setShareQrVisible] = useState<boolean>(false)
+  // 二维码 View 引用(react-native-view-shot captureRef 截图保存到相册)
+  const qrRef = useRef<View>(null)
+  // 保存到相册进行中(禁用按钮防重复点击)
+  const [savingQr, setSavingQr] = useState(false)
+  // 邀请链接 = 域名/register?inviteCode=user.inviteCode(对齐 Uniapp 分销页分享链接)
+  const inviteCode = user?.inviteCode
+  const inviteLink = inviteCode
+    ? `${INVITE_BASE_URL}/register?inviteCode=${inviteCode}`
+    : ''
+
+  /** 复制邀请链接到剪贴板(对齐 Uniapp 分销页 copyInviteLink) */
+  const handleCopyInviteLink = useCallback(() => {
+    if (!inviteLink) {
+      Alert.alert('提示', '暂无邀请码')
+      return
+    }
+    Clipboard.setString(inviteLink)
+    Alert.alert('提示', '已复制邀请链接')
+  }, [inviteLink])
+
+  /** 保存二维码到相册(view-shot 截图 → expo-media-library 保存) */
+  const handleSaveQrToAlbum = useCallback(async () => {
+    if (!inviteLink) {
+      Alert.alert('提示', '暂无邀请码')
+      return
+    }
+    if (!qrRef.current) {
+      Alert.alert('提示', '二维码未就绪,请稍后重试')
+      return
+    }
+    setSavingQr(true)
+    try {
+      const localUri = await captureRef(qrRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      })
+      const { status } = await requestPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('提示', '未获得相册权限,无法保存')
+        return
+      }
+      await Asset.create(localUri)
+      Alert.alert('提示', '已保存到相册')
+    } catch (err) {
+      Alert.alert('保存失败', err instanceof Error ? err.message : '请稍后重试')
+    } finally {
+      setSavingQr(false)
+    }
+  }, [inviteLink])
 
   /** FunctionBlockColumn 分销工具入口(对齐 Uniapp 分销功能块) */
   const functionBlocks: FunctionBlock[] = [
@@ -182,13 +239,68 @@ export function DistributionScreen() {
         title="分享二维码"
       >
         <View style={shellStyles.qrContent}>
-          <View style={shellStyles.qrCodeBox}>
-            {/* 二维码占位:后续接入真实二维码生成 */}
-            <Text style={shellStyles.qrPlaceholder}>二维码</Text>
-            <Text style={shellStyles.qrPlaceholderSub}>QR Code</Text>
-          </View>
-          <Text style={shellStyles.qrTip}>扫描上方二维码,注册成为会员</Text>
-          <Text style={shellStyles.qrTipSub}>您将获得会员费 20% 的佣金收益</Text>
+          {inviteLink ? (
+            <>
+              <View
+                ref={qrRef}
+                collapsable={false}
+                style={shellStyles.qrCodeBox}
+              >
+                <QRCode
+                  value={inviteLink}
+                  size={176}
+                  color={tokens.gray.black}
+                  backgroundColor={tokens.surface.light}
+                  ecl="M"
+                />
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  shellStyles.qrLinkBtn,
+                  pressed ? shellStyles.pressed : null,
+                ]}
+                onPress={handleCopyInviteLink}
+                accessibilityRole="button"
+                accessibilityLabel="复制邀请链接"
+              >
+                <Text style={shellStyles.qrLinkText} numberOfLines={1}>
+                  {inviteLink}
+                </Text>
+              </Pressable>
+              <Text style={shellStyles.qrTip}>扫描上方二维码,注册成为会员</Text>
+              <Text style={shellStyles.qrTipSub}>您将获得会员费 20% 的佣金收益</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  shellStyles.saveBtn,
+                  pressed ? shellStyles.pressed : null,
+                  savingQr ? shellStyles.saveBtnDisabled : null,
+                ]}
+                onPress={handleSaveQrToAlbum}
+                disabled={savingQr}
+                accessibilityRole="button"
+                accessibilityLabel="保存到相册"
+              >
+                <Text style={shellStyles.saveBtnText}>
+                  {savingQr ? '保存中...' : '保存到相册'}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  shellStyles.copyBtn,
+                  pressed ? shellStyles.pressed : null,
+                ]}
+                onPress={handleCopyInviteLink}
+                accessibilityRole="button"
+                accessibilityLabel="复制邀请链接"
+              >
+                <Text style={shellStyles.copyBtnText}>复制邀请链接</Text>
+              </Pressable>
+            </>
+          ) : (
+            <View style={shellStyles.qrCodeBox}>
+              <Text style={shellStyles.qrPlaceholder}>暂无邀请码</Text>
+            </View>
+          )}
         </View>
       </BottomPops>
     </View>
@@ -228,19 +340,54 @@ const shellStyles = {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.muted,
+    backgroundColor: tokens.surface.light,
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
   qrPlaceholder: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
-  } as const,
-  qrPlaceholderSub: {
-    fontSize: 12,
     color: tokens.text.tertiary,
-    marginTop: 4,
+  } as const,
+  qrLinkBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    maxWidth: 260,
+  } as const,
+  qrLinkText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  } as const,
+  saveBtn: {
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  } as const,
+  saveBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  } as const,
+  saveBtnDisabled: {
+    opacity: 0.5,
+  } as const,
+  copyBtn: {
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  } as const,
+  copyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.brand.DEFAULT,
   } as const,
   qrTip: {
     fontSize: 14,
