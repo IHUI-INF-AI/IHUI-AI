@@ -62,7 +62,8 @@ const PAGE_SIZE = 10
 const API_PATH = '/api/study/videos'
 const COVER_HEIGHT = 120
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
-const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/free-resources'
+/** 免费资料飞书链接(对齐 Uniapp user/index.vue 行 682 lingqu,与 ProfileScreen 保持一致) */
+const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 /** Tab 页类型(对齐 Uniapp pageType:index=视频 / model=模型) */
 type PageType = 'video' | 'model'

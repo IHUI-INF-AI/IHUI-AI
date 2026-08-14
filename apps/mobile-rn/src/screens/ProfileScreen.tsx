@@ -202,6 +202,9 @@ export function ProfileScreen() {
       case 'token':
         navigateRoot(rootNav, 'TokenValue')
         break
+      default:
+        // 未识别的宫格 key,静默忽略(防御性:防止 UserCardKey 类型漂移)
+        break
     }
   }
 
@@ -248,8 +251,12 @@ export function ProfileScreen() {
   }
   const handleDrawerClaimFree = () => {
     setDrawerVisible(false)
-    Clipboard.setString(FREE_RESOURCE_URL)
-    showFloat('链接已复制', 'success')
+    try {
+      Clipboard.setString(FREE_RESOURCE_URL)
+      showFloat('链接已复制', 'success')
+    } catch {
+      showFloat('复制失败,请重试', 'warning')
+    }
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
@@ -287,13 +294,13 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     switch (menu) {
       case 'aigc':
-        navigation.getParent()?.navigate('AigcList' as never)
+        navigateRoot(rootNav, 'AigcList')
         break
       case 'learn':
-        navigation.getParent()?.navigate('Learn' as never)
+        navigateRoot(rootNav, 'Learn')
         break
       case 'modelPlaza':
-        navigation.getParent()?.navigate('ModelPlaza' as never)
+        navigateRoot(rootNav, 'ModelPlaza')
         break
       case 'company':
       case 'tools':
@@ -311,7 +318,7 @@ export function ProfileScreen() {
   }
   const handleDrawerGoHome = () => {
     setDrawerVisible(false)
-    navigation.getParent()?.navigate('home' as never)
+    rootNav?.navigate('Tabs', { screen: 'home' })
   }
 
   /** Drawer user 映射(AuthUser → Drawer user) */
@@ -1026,8 +1033,8 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
   }
 }
 
-/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板) */
-const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/free-resources'
+/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板,对齐 Uniapp user/index.vue 行 682 lingqu) */
+const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 /** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
 function formatAudioTime(seconds: number): string {
