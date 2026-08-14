@@ -1223,6 +1223,7 @@
   "modelPlaza": {
     "title": "Model Plaza",
     "compareBtn": "Compare",
+    "selectProviderLabel": "Select Provider",
     "providerTotal": "{count} models",
     "loadFailed": "Load failed, pull to refresh",
     "emptyType": "No models of this type",

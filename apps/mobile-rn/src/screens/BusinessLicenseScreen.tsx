@@ -4,10 +4,24 @@
  * 对齐历史项目 pagesA/settings/business-license.vue:
  * - 顶部 NavBar(标题「营业执照」+ 返回)
  * - 内容区:卡片内展示营业执照图片,点击全屏预览(对齐 uni.previewImage)
+ * - 图片 mode="widthFix" 对齐:onLoad 读取 natural width/height → aspectRatio,
+ *   无固定高度 letterbox,完整复刻 Uniapp widthFix 自适应高度行为
+ * - 间距逐项对齐(rpx→dp,750rpx 制):
+ *   content padding 24rpx/24rpx/48rpx → 12/12/24;paddingBottom 之前 32→24
+ *   license-wrap border-radius 16rpx → 8;padding 24rpx → 12
+ *   license-image border-radius 8rpx → 4
  * - 浅色优雅风,rnLightTokens;圆角守门;无分割线
  */
 import { useState } from 'react'
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  type ImageLoadEventData,
+  type NativeSyntheticEvent,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
@@ -29,6 +43,15 @@ export function BusinessLicenseScreen() {
   const tTitle = t(TITLE_KEY)
   const title = tTitle === TITLE_KEY ? '营业执照' : tTitle
   const [previewVisible, setPreviewVisible] = useState(false)
+  // 营业执照 natural aspectRatio(widthFix 自适应高度)
+  const [aspect, setAspect] = useState<number | undefined>(undefined)
+
+  const handleImageLoad = (e: NativeSyntheticEvent<ImageLoadEventData>) => {
+    const { width, height } = e.nativeEvent.source
+    if (width > 0 && height > 0) {
+      setAspect(width / height)
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -36,7 +59,12 @@ export function BusinessLicenseScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <TouchableOpacity activeOpacity={0.9} onPress={() => setPreviewVisible(true)}>
-            <Image source={LICENSE_IMAGE} style={styles.image} resizeMode="contain" />
+            <Image
+              source={LICENSE_IMAGE}
+              style={[styles.imageBase, aspect ? { aspectRatio: aspect } : styles.imageFallback]}
+              resizeMode="contain"
+              onLoad={handleImageLoad}
+            />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -55,20 +83,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tk.surface.muted,
   },
+  // 24rpx 24rpx 48rpx → 12/12/24(48rpx = 24dp,之前误用 32)
   content: {
     padding: 12,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
+  // 16rpx → 8dp,24rpx padding → 12dp
   card: {
     backgroundColor: tk.surface.light,
     borderRadius: 8,
     overflow: 'hidden',
     padding: 12,
   },
-  image: {
+  // widthFix 基础样式:width 100% + 8rpx → 4dp 圆角
+  imageBase: {
     width: '100%',
-    height: 260,
     borderRadius: 4,
+  },
+  // onLoad 触发前的占位高度(避免首次渲染高度 0 闪烁;加载后切换 aspectRatio)
+  imageFallback: {
+    height: 260,
   },
 })
 

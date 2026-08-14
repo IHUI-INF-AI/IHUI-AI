@@ -1223,6 +1223,7 @@
   "modelPlaza": {
     "title": "模型广场",
     "compareBtn": "对比",
+    "selectProviderLabel": "选择厂商",
     "providerTotal": "共 {count} 个模型",
     "loadFailed": "加载失败,下拉刷新重试",
     "emptyType": "暂无该类型模型",
