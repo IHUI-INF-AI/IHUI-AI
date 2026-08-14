@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'
@@ -35,6 +35,11 @@ const CATEGORIES: AigcCategoryOptionWithIcon[] = [
   { key: 'audio', label: '音频', fileType: 3, icon: '🎵' },
   { key: 'text', label: '文案', fileType: 4, icon: '📝' },
 ]
+
+/** 按分类 key 解析对应的 fileType(供 API 查询用,'all' 不传 fileType) */
+function fileTypeForCategory(key: AigcCategoryOption['key']): AigcFileType | undefined {
+  return CATEGORIES.find((c) => c.key === key)?.fileType
+}
 
 const MATERIAL_CATEGORIES: MaterialCategory[] = [
   { key: 'all', label: '全部' },
@@ -129,10 +134,17 @@ export default function AigcListScreen() {
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
 
+  /** 当前分类对应的 fileType(供 load / loadMore 查询 API);'all' 为 undefined */
+  const fileTypeRef = useRef<AigcFileType | undefined>(fileTypeForCategory('all'))
+
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await getAigcTasks({ page: 1, pageSize: PAGE_SIZE })
+      const res = await getAigcTasks({
+        page: 1,
+        pageSize: PAGE_SIZE,
+        ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
+      })
       if (res.success) {
         setItems(res.data.list.map(toAigcWork))
         setPage(1)
@@ -154,7 +166,11 @@ export default function AigcListScreen() {
     setLoadingMore(true)
     try {
       const nextPage = page + 1
-      const res = await getAigcTasks({ page: nextPage, pageSize: PAGE_SIZE })
+      const res = await getAigcTasks({
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
+      })
       if (res.success) {
         const nextItems = res.data.list.map(toAigcWork)
         if (nextItems.length < PAGE_SIZE) setHasMore(false)
@@ -176,6 +192,20 @@ export default function AigcListScreen() {
     setRefreshing(true)
     void load()
   }
+
+  /** 分类切换:清空列表 + 重置分页 + 以新 fileType 重新请求 API(对齐 Uniapp onCategoryChange → resetData + fetchData) */
+  const handleSelectCategory = useCallback(
+    (key: AigcCategoryOption['key']) => {
+      setCategory(key)
+      fileTypeRef.current = fileTypeForCategory(key)
+      setItems([])
+      setPage(1)
+      setHasMore(true)
+      setLoading(true)
+      void load()
+    },
+    [load],
+  )
 
   const openWork = (work: AigcListItem) => {
     navigation.navigate('AigcCover', { id: work.id, title: work.title })
@@ -222,8 +252,8 @@ export default function AigcListScreen() {
     [items],
   )
 
-  /** SharedAigcListScreen 注入 props;onLoadMore 为上拉分页前置就绪(共享屏尚未消费,见下方 TODO) */
-  const sharedListProps: AigcListScreenProps & { onLoadMore?: () => void } = {
+  /** SharedAigcListScreen 注入 props;onLoadMore 已由共享屏 FlatList 的 onEndReached 消费触发上拉分页 */
+  const sharedListProps: AigcListScreenProps = {
     t,
     items,
     categories: CATEGORIES,
@@ -231,7 +261,7 @@ export default function AigcListScreen() {
     loading,
     refreshing,
     error,
-    onSelectCategory: setCategory,
+    onSelectCategory: handleSelectCategory,
     onRefresh,
     onPressItem: openWork,
     onPublish: goPublish,
@@ -270,7 +300,6 @@ export default function AigcListScreen() {
               onPress={handleCarouselPress}
             />
             <View style={styles.sharedFill}>
-              {/* TODO: SharedAigcListScreen(AigcListScreenProps)的 FlatList 未挂 onEndReached;onLoadMore 已注入但共享屏尚未消费,待共享屏支持上拉分页触发后即生效 */}
               <SharedAigcListScreen {...sharedListProps} />
             </View>
           </View>
