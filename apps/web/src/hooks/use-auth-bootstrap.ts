@@ -5,7 +5,7 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { fetchApi } from '@/lib/api'
-import { refreshAccessToken } from '@ihui/api-client'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -19,20 +19,19 @@ export interface UseAuthBootstrapReturn {
  * P2-18 修复(2026-08-06):refresh_token 已 httpOnly,前端 JS 读不到 cookie,
  * 不再从 document.cookie 读取,改为无参调用刷新接口(不带 refreshToken body),
  * 由浏览器自动附带 httpOnly cookie。
+ *
+ * 2026-08-14 修复:复用 api-client 导出的 refreshAccessTokenOnce 全局单例,
+ * 与 401 自动续期拦截器共享同一 in-flight 请求。此前这里用独立单例,
+ * React 19 StrictMode 双 mount 与 401 拦截器并发各发一次 /auth/refresh:
+ * 后端 refresh token 单次轮转,后到的旧 token 401 → RFC 6749 §10.4 重用检测
+ * → 吊销整个 family → 刷新后自动登录丢失。
  */
 async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: string } | null> {
-  try {
-    const r = await refreshAccessToken()
-    if (!r.success || !r.data?.accessToken) {
-      return null
-    }
-    return {
-      accessToken: r.data.accessToken,
-      refreshToken: r.data.refreshToken,
-    }
-  } catch {
-    return null
-  }
+  const accessToken = await refreshAccessTokenOnce()
+  if (!accessToken) return null
+  // tokenProvider(api.ts)内部 refresh 成功时已 setToken 最新 pair,
+  // 这里从 store 取回最新 refreshToken(内存),避免覆盖成 null。
+  return { accessToken, refreshToken: useAuthStore.getState().refreshToken ?? undefined }
 }
 
 /**
