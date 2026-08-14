@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 import { hashPassword } from '../src/utils/password-crypto.js'
 
 vi.hoisted(() => {
@@ -184,6 +185,8 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
     app.decorate('riskEngine', {
       evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: 0 }),
     } as never)

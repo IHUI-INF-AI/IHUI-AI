@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -111,6 +112,8 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
     await app.register(authExtendedRoutes, { prefix: '/api' })
     await app.ready()
   })

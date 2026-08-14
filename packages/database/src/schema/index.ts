@@ -79,6 +79,7 @@ export * from './canary.js'
 export * from './tool.js'
 export * from './developer-api-keys.js'
 export * from './app-version.js'
+export * from './skill-categories.js'
 export * from './monitor.js'
 export * from './webhooks.js'
 export * from './trader.js'
@@ -232,3 +233,9 @@ export * from './crash-reports.js'
 export * from './service-inquiries.js'
 // AI 教育管理新增表(2026-08-11 立,学期/班级/课程表/菜谱/学习计划 7 表)
 export * from './edu-ai-management.js'
+
+// F5 dead-migration 处置(2026-08-15):补 TS schema 定义,消除 drift 告警
+// 这些表由 apps/ai-service(Python)或 apps/api(TS)以 raw SQL 读写,属项目自有表
+export * from './ab-tests.js'
+export * from './agent-state.js'
+export * from './test-verify-code-bypass.js'
