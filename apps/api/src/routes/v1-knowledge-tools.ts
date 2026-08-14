@@ -141,7 +141,7 @@ import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 // =============================================================================
 
 /** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
-const INTERNAL_BASE = `http://localhost:${process.env.PORT || 3001}`
+const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 
 /** /knowledge/documents/upload 单文件大小上限 10MB(Excel 大文件应走数据导入) */
 const UPLOAD_MAX_SIZE = 10 * 1024 * 1024

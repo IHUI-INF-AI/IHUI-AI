@@ -151,7 +151,7 @@ test('通过: staged apps/web/foo.css + commit message 含 trailer → exit 0', 
   const dir = createTempRepo()
   const msg = `feat(web): 改样式
 
-Verified-DOM: http://localhost:3000/ (offsetHeight=58)
+Verified-DOM: http://localhost:8801/ (offsetHeight=58)
 `
   const msgPath = writeMsgFile(dir, msg)
   try {
@@ -188,7 +188,7 @@ test('多文件通过: staged 多个 apps/web/*.css + 有 trailer → exit 0', (
   const dir = createTempRepo()
   const msg = `feat(web): 批量改样式
 
-Verified-DOM: http://localhost:3000/ai-world (offsetHeight=58 scrollHeight=58)
+Verified-DOM: http://localhost:8801/ai-world (offsetHeight=58 scrollHeight=58)
 `
   const msgPath = writeMsgFile(dir, msg)
   try {
@@ -208,7 +208,7 @@ test('示例格式: trailer 含完整 URL + DOM 数值摘要(脚本 error 示例
   // 使用脚本 stderr 示例中的精确格式
   const msg = `fix(web): 修复 textarea 自适应高度
 
-Verified-DOM: http://localhost:3000/ai-world (textarea offsetHeight=58 scrollHeight=58 overflowY=hidden)
+Verified-DOM: http://localhost:8801/ai-world (textarea offsetHeight=58 scrollHeight=58 overflowY=hidden)
 `
   const msgPath = writeMsgFile(dir, msg)
   try {
@@ -226,7 +226,7 @@ test('缩进不匹配: trailer 行首有空格 → exit 1(正则 ^ 要求行首)
   const dir = createTempRepo()
   const msg = `feat(web): 改样式
 
-  Verified-DOM: http://localhost:3000/ (offsetHeight=58)
+  Verified-DOM: http://localhost:8801/ (offsetHeight=58)
 `
   const msgPath = writeMsgFile(dir, msg)
   try {
@@ -248,7 +248,7 @@ test('大小写敏感: 小写 verified-dom: → exit 1(正则大小写敏感)', 
   const dir = createTempRepo()
   const msg = `feat(web): 改样式
 
-verified-dom: http://localhost:3000/ (offsetHeight=58)
+verified-dom: http://localhost:8801/ (offsetHeight=58)
 `
   const msgPath = writeMsgFile(dir, msg)
   try {
