@@ -11,7 +11,7 @@ name: e2e
 #   1. 安装 pnpm 依赖
 #   2. 安装 Playwright 浏览器 (chromium)
 #   3. 构建 Next.js 前端 (production build)
-#   4. 启动 Next.js 预览服务器 (localhost:3000)
+#   4. 启动 Next.js 预览服务器 (localhost:8801)
 #   5. 运行 Playwright E2E 测试 (apps/web/e2e/*.spec.ts)
 # =============================================================================
 
@@ -106,7 +106,7 @@ jobs:
         working-directory: apps/api
         env:
           NODE_ENV: test
-          PORT: '8080'
+          PORT: '8802'
           HOST: '0.0.0.0'
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
           REDIS_URL: redis://localhost:6379/0
@@ -115,21 +115,21 @@ jobs:
         run: |
           node dist/index.js &
           sleep 5
-          curl -sf http://localhost:8080/health || exit 1
+          curl -sf http://localhost:8802/health || exit 1
 
       - name: Start web server (background)
         working-directory: apps/web
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_API_URL: http://localhost:8802
         run: |
           pnpm start &
           sleep 5
-          curl -sf http://localhost:3000 || exit 1
+          curl -sf http://localhost:8801 || exit 1
 
       - name: Run Playwright E2E tests
         working-directory: apps/web
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_BASE_URL: http://localhost:8801
           # CI 已在上方 "Seed E2E 测试用户" step 显式 seed,跳过 globalSetup 的重复 seed
           E2E_SKIP_SEED: '1'
           # CI 数据库为临时容器,跑完即销毁,无需 globalTeardown cleanup 节省时间
