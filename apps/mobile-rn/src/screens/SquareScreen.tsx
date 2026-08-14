@@ -10,7 +10,6 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -26,6 +25,7 @@ import { fetchApi, type Knowledge } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import Empty from '../components/common/Empty'
+import Loading from '../components/common/Loading'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -152,7 +152,7 @@ export function SquareScreen() {
       <NavBar title="广场" onBack={() => navigation.goBack()} />
       {loading ? (
         <View style={styles.centerWrap}>
-          <ActivityIndicator size="small" color={tk.text.secondary} />
+          <Loading text="加载中..." />
         </View>
       ) : error && items.length === 0 ? (
         <View style={styles.centerWrap}>
