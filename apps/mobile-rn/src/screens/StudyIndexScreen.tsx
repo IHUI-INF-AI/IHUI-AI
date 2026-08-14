@@ -3,10 +3,11 @@
  *
  * 对齐历史项目 pagesA/studyindex/index.vue(AI 视频 / 学习视频列表):
  * - 顶部 NavBar(标题「AI 视频」+ 返回)+ 右侧搜索开关 + 菜单入口(打开 Drawer)
- * - ScrollTitle 赛道分类切换(横向 ScrollView + Pressable,对齐 Uniapp ScrollTitle)
- * - Tab 视频/模型双标签页切换(对齐 Uniapp pageType:index/model/study)
- * - 视频页:单列视频卡片(封面 / 标题 / 时长徽章 / 讲师 / 相对时间)
- * - 模型页:ModelList 模型列表(复用 ChatScreen 的 ModelList 组件,对齐 Uniapp ModelList)
+ * - ScrollTitle 赛道分类切换(复用 SingleTypeBar 共享组件,对齐 Uniapp ScrollTitle)
+ * - pageType 三态切换(对齐 Uniapp pageType:index 预览 / model 模型全屏 / study 课程全屏)
+ * - index 预览态:ModelList 前 3 条 + StudyList 前 3 条 + 各自「查看更多」切全屏
+ * - study 全屏态:双列视频卡片(封面 / 标题 / 时长徽章 / 讲师 / 相对时间)
+ * - model 全屏态:ModelList 模型列表(复用 ChatScreen 的 ModelList 组件,对齐 Uniapp ModelList)
  * - Drawer 侧边栏(复用现有 Drawer 组件,对齐 Uniapp DrawerComponent)
  * - 数据加载:fetchApi 拉取 /api/study/videos(分页 + 搜索)+ fetchModels 加载模型
  * - 下拉刷新 + 上拉分页 + 空态(Empty)+ 加载态(Loading)+ 错误重试
@@ -22,6 +23,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -70,8 +72,8 @@ const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 /** 免费资料飞书链接(对齐 Uniapp user/index.vue 行 682 lingqu,与 ProfileScreen 保持一致) */
 const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
-/** Tab 页类型(对齐 Uniapp pageType:index=视频 / model=模型) */
-type PageType = 'video' | 'model'
+/** 页面三态(对齐 Uniapp pageType:index=首页预览 / model=模型全屏 / study=课程全屏) */
+type PageType = 'index' | 'model' | 'study'
 
 /** 赛道分类(对齐 Uniapp categoryDictionary 静态占位) */
 interface TrackCategory {
@@ -189,8 +191,8 @@ export function StudyIndexScreen() {
   const [searchInput, setSearchInput] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
-  // Tab 视频/模型切换(对齐 Uniapp pageType)
-  const [pageType, setPageType] = useState<PageType>('video')
+  // 页面三态(对齐 Uniapp pageType:index/model/study);index 为首页预览态默认值
+  const [pageType, setPageType] = useState<PageType>('index')
   // 赛道分类(对齐 Uniapp ScrollTitle categoryDictionary)
   const [activeCategory, setActiveCategory] = useState('all')
 
@@ -297,6 +299,15 @@ export function StudyIndexScreen() {
   // 我的合集(对齐 Uniapp toMyModel → /pagesA/study/my_study;RN 端最接近的路由为 StudyRecord)
   const onMyModel = () => {
     navigation.navigate('StudyRecord')
+  }
+
+  // 返回逻辑(对齐 Uniapp backPage:model/study → index,index → 上一页)
+  const handleBack = () => {
+    if (pageType === 'model' || pageType === 'study') {
+      setPageType('index')
+    } else {
+      navigation.goBack()
+    }
   }
 
   const onVideoClick = (item: StudyVideoItem) => {
@@ -416,6 +427,10 @@ export function StudyIndexScreen() {
 
   const initialLoading = loading && items.length === 0 && !refreshing
 
+  // index 预览态:模型 / 课程各取前 3 条(对齐 Uniapp index 预览 + 查看更多)
+  const previewModels = models.slice(0, 3)
+  const previewItems = items.slice(0, 3)
+
   const renderItem = ({ item }: { item: StudyVideoItem }) => {
     const time = item.createdAt ? formatRelativeTime(item.createdAt) : ''
     const author = item.teacherName || '智汇社区-官方'
@@ -469,7 +484,7 @@ export function StudyIndexScreen() {
     <View style={styles.container}>
       <NavBar
         title="AI 视频"
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         rightActions={[{ icon: '☰', onPress: () => setDrawerVisible(true), label: '菜单' }]}
         rightAction={
           <Pressable
@@ -497,7 +512,7 @@ export function StudyIndexScreen() {
         </View>
       ) : null}
 
-      {/* 赛道分类切换(对齐 Uniapp type-bar/tab + scroll_title,复用 SingleTypeBar 共享组件) */}
+      {/* 赛道分类切换(对齐 Uniapp scroll_title,复用 SingleTypeBar 共享组件) */}
       <View style={styles.scrollTitleWrap}>
         <SingleTypeBar
           items={TRACK_CATEGORIES.map((c) => ({ id: c.id, label: c.name }))}
@@ -506,32 +521,105 @@ export function StudyIndexScreen() {
         />
       </View>
 
-      {/* Tab 视频/模型双标签页(对齐 Uniapp pageType 切换) */}
-      <View style={styles.tabBar}>
-        <Pressable
-          style={[styles.tabItem, pageType === 'video' ? styles.tabItemActive : null]}
-          onPress={() => setPageType('video')}
-          accessibilityRole="button"
-          accessibilityLabel="视频"
+      {/* 内容区(对齐 Uniapp pageType 三态:index 预览 / model 全屏 / study 全屏) */}
+      {pageType === 'index' ? (
+        <ScrollView
+          style={styles.indexScroll}
+          contentContainerStyle={styles.indexContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.tabText, pageType === 'video' ? styles.tabTextActive : null]}>
-            视频
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tabItem, pageType === 'model' ? styles.tabItemActive : null]}
-          onPress={() => setPageType('model')}
-          accessibilityRole="button"
-          accessibilityLabel="模型"
-        >
-          <Text style={[styles.tabText, pageType === 'model' ? styles.tabTextActive : null]}>
-            模型
-          </Text>
-        </Pressable>
-      </View>
+          <TipBanner onPressMyModel={onMyModel} />
 
-      {/* 内容区:视频列表 / 模型列表 */}
-      {pageType === 'video' ? (
+          {/* ModelList 预览(对齐 Uniapp model_list index 态:推荐课程合集 + 查看更多) */}
+          <View style={styles.previewSection}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewTitleRow}>
+                <Text style={styles.previewIcon}>🔥</Text>
+                <Text style={styles.previewTitle}>推荐课程合集</Text>
+              </View>
+              <Pressable
+                style={styles.previewMoreRow}
+                onPress={() => setPageType('model')}
+                accessibilityRole="button"
+                accessibilityLabel="查看更多模型"
+              >
+                <Text style={styles.previewMoreText}>查看更多</Text>
+                <Text style={styles.previewMoreArrow}>›</Text>
+              </Pressable>
+            </View>
+            {previewModels.length > 0 ? (
+              previewModels.map((m) => (
+                <View key={m.id} style={styles.previewModelRow}>
+                  <View style={styles.previewModelIcon}>
+                    <Text style={styles.previewModelEmoji}>🤖</Text>
+                  </View>
+                  <View style={styles.previewModelBody}>
+                    <Text style={styles.previewModelName} numberOfLines={1}>
+                      {m.name}
+                    </Text>
+                    <Text style={styles.previewModelDesc} numberOfLines={1}>
+                      {m.provider}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.previewBadge,
+                      m.input_price ? styles.previewBadgePaid : styles.previewBadgeFree,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.previewBadgeText,
+                        m.input_price ? styles.previewBadgePaidText : styles.previewBadgeFreeText,
+                      ]}
+                    >
+                      {m.input_price ? '付费' : '免费'}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.previewEmpty}>暂无模型</Text>
+            )}
+          </View>
+
+          {/* StudyList 预览(对齐 Uniapp study_list index 态:最新课程 + 查看更多) */}
+          <View style={styles.previewSection}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewTitleRow}>
+                <Text style={styles.previewIcon}>🎬</Text>
+                <Text style={styles.previewTitle}>最新课程</Text>
+              </View>
+              <Pressable
+                style={styles.previewMoreRow}
+                onPress={() => setPageType('study')}
+                accessibilityRole="button"
+                accessibilityLabel="查看更多课程"
+              >
+                <Text style={styles.previewMoreText}>查看更多</Text>
+                <Text style={styles.previewMoreArrow}>›</Text>
+              </Pressable>
+            </View>
+            {initialLoading ? (
+              <Loading text="加载中..." />
+            ) : previewItems.length > 0 ? (
+              <View style={styles.previewGrid}>
+                {previewItems.map((item) => (
+                  <View key={String(item.id)} style={styles.previewGridItem}>
+                    {renderItem({ item })}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Empty text="暂无学习视频" icon="🎬" />
+            )}
+          </View>
+        </ScrollView>
+      ) : pageType === 'model' ? (
+        <View style={styles.modelListWrap}>
+          <ModelList groups={modelListGroups} selectionMode="single" />
+        </View>
+      ) : (
         initialLoading ? (
           <View style={styles.centerWrap}>
             <Loading text="加载中..." />
@@ -579,10 +667,6 @@ export function StudyIndexScreen() {
             }
           />
         )
-      ) : (
-        <View style={styles.modelListWrap}>
-          <ModelList groups={modelListGroups} selectionMode="single" />
-        </View>
       )}
       <FloatingActionButton onPress={onPublish} accessibilityLabel="发布视频" />
 
@@ -619,32 +703,121 @@ const styles = StyleSheet.create({
     backgroundColor: tk.surface.card,
     paddingVertical: 8,
   } as ViewStyle,
-  // Tab 视频/模型(对齐 Uniapp pageType 切换)
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: tk.surface.card,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-  } as ViewStyle,
-  tabItem: {
+  // index 预览态容器(对齐 Uniapp content scroll)
+  indexScroll: {
     flex: 1,
-    paddingVertical: 8,
+  } as ViewStyle,
+  indexContent: {
+    padding: 16,
+    paddingBottom: 96,
+  } as ViewStyle,
+  // 预览区块(对齐 Uniapp model_list/study_list index 态 header + 查看更多)
+  previewSection: {
+    marginTop: 12,
+  } as ViewStyle,
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  } as ViewStyle,
+  previewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  } as ViewStyle,
+  previewIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  } as TextStyle,
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: tk.text.primary,
+  } as TextStyle,
+  previewMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  } as ViewStyle,
+  previewMoreText: {
+    fontSize: 13,
+    color: tk.text.secondary,
+  } as TextStyle,
+  previewMoreArrow: {
+    fontSize: 18,
+    color: tk.text.secondary,
+    marginLeft: 2,
+    lineHeight: 18,
+  } as TextStyle,
+  // 模型预览行(对齐 ModelList row 简化版)
+  previewModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 12,
+    backgroundColor: tk.surface.card,
+    borderRadius: 8,
+    marginBottom: 6,
+  } as ViewStyle,
+  previewModelIcon: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
+    justifyContent: 'center',
   } as ViewStyle,
-  tabItemActive: {
-    backgroundColor: tk.brand.DEFAULT,
+  previewModelEmoji: {
+    fontSize: 18,
+  } as TextStyle,
+  previewModelBody: {
+    flex: 1,
   } as ViewStyle,
-  tabText: {
+  previewModelName: {
     fontSize: 14,
-    color: tk.text.secondary,
-  } as TextStyle,
-  tabTextActive: {
-    color: tk.surface.light,
     fontWeight: '600',
+    color: tk.text.primary,
   } as TextStyle,
+  previewModelDesc: {
+    fontSize: 12,
+    color: tk.text.secondary,
+    marginTop: 2,
+  } as TextStyle,
+  previewBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  } as ViewStyle,
+  previewBadgeFree: {
+    backgroundColor: tk.success.lighter,
+  } as ViewStyle,
+  previewBadgePaid: {
+    backgroundColor: tk.warning.amberLight,
+  } as ViewStyle,
+  previewBadgeText: {
+    fontSize: 11,
+  } as TextStyle,
+  previewBadgeFreeText: {
+    color: tk.success.DEFAULT,
+  } as TextStyle,
+  previewBadgePaidText: {
+    color: tk.warning.amberText,
+  } as TextStyle,
+  previewEmpty: {
+    fontSize: 13,
+    color: tk.text.tertiary,
+    textAlign: 'center',
+    paddingVertical: 16,
+  } as TextStyle,
+  // 课程预览网格(对齐 Uniapp study_list scroll_height flex-wrap)
+  previewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  } as ViewStyle,
+  previewGridItem: {
+    width: '48%',
+  } as ViewStyle,
   // 视频列表(双列网格,对齐 Uniapp study_list scroll_height flex-wrap)
   listContent: {
     padding: 16,
