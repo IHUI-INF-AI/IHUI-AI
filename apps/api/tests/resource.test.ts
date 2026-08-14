@@ -5,7 +5,7 @@ import Fastify from 'fastify'
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',

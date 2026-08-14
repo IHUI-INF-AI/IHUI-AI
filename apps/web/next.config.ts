@@ -233,6 +233,14 @@ const nextConfig: NextConfig = {
           source: '/api/agent/:path*',
           destination: 'http://localhost:8803/api/agent/:path*',
         },
+        // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
+        // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
+        // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
+        // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
+        {
+          source: '/api/a2a/:path*',
+          destination: 'http://localhost:8803/api/a2a/:path*',
+        },
         // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
         // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。

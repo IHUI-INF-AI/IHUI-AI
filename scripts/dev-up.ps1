@@ -75,7 +75,7 @@ if (-not $WebOnly) {
 
 # --- 3. 并行启动 API + Web ---
 if (-not $WebOnly) {
-  Write-Step '启动 API 服务 (Fastify :8801)...'
+  Write-Step '启动 API 服务 (Fastify :8802)...'
   $apiProc = Start-Process -FilePath 'pnpm' -ArgumentList '--filter', '@ihui/api', 'dev' `
     -PassThru -NoNewWindow
   $jobs += $apiProc
@@ -83,7 +83,7 @@ if (-not $WebOnly) {
 }
 
 if (-not $ApiOnly) {
-  Write-Step '启动 Web 服务 (Next.js :3000)...'
+  Write-Step '启动 Web 服务 (Next.js :8801)...'
   $webProc = Start-Process -FilePath 'pnpm' -ArgumentList '--filter', '@ihui/web', 'dev' `
     -PassThru -NoNewWindow
   $jobs += $webProc
@@ -92,8 +92,8 @@ if (-not $ApiOnly) {
 
 Write-Step '开发环境已启动:'
 Write-Host '  Web:  http://localhost:8801' -ForegroundColor White
-Write-Host '  API:  http://localhost:8801' -ForegroundColor White
-Write-Host '  Docs: http://localhost:8801/docs' -ForegroundColor White
+Write-Host '  API:  http://localhost:8802' -ForegroundColor White
+Write-Host '  Docs: http://localhost:8802/docs' -ForegroundColor White
 Write-Host "`n按 Ctrl+C 停止所有服务" -ForegroundColor Yellow
 
 # 等待退出
