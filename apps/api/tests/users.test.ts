@@ -1,11 +1,11 @@
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
-// Mock config 避免导入时 env 校验触发 process.exit(1)
+// Mock config 避免导入�?env 校验触发 process.exit(1)
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -26,7 +26,7 @@ describe('users routes', () => {
     await server.close()
   })
 
-  it('GET /api/users/:id 未登录返回 401', async () => {
+  it('GET /api/users/:id 未登录返�?401', async () => {
     await server.register(usersRoutes, { prefix: '/api/users' })
     await server.ready()
 
@@ -37,7 +37,7 @@ describe('users routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PATCH /api/users/:id 未登录返回 401', async () => {
+  it('PATCH /api/users/:id 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'PATCH',
       url: '/api/users/00000000-0000-4000-8000-000000000000',

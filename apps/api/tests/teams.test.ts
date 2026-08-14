@@ -1,11 +1,11 @@
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
-// Mock config 避免导入时 env 校验触发 process.exit(1)
+// Mock config 避免导入�?env 校验触发 process.exit(1)
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -26,7 +26,7 @@ describe('team routes', () => {
     await server.close()
   })
 
-  it('GET /api/teams 未登录返回 401', async () => {
+  it('GET /api/teams 未登录返�?401', async () => {
     await server.register(teamRoutes, { prefix: '/api/teams' })
     await server.ready()
 
@@ -34,7 +34,7 @@ describe('team routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/teams 未登录返回 401', async () => {
+  it('POST /api/teams 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/teams',
@@ -43,12 +43,12 @@ describe('team routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/teams/invitations 未登录返回 401', async () => {
+  it('GET /api/teams/invitations 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/teams/invitations' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/teams/invitations/:token/accept 未登录返回 401', async () => {
+  it('POST /api/teams/invitations/:token/accept 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/teams/invitations/some-token/accept',
