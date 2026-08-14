@@ -262,9 +262,9 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     rootNav?.navigate('Tabs', { screen: 'ai' })
   }
-  const handleDrawerSelectConversation = (_id: string) => {
+  const handleDrawerSelectConversation = (id: string) => {
     setDrawerVisible(false)
-    rootNav?.navigate('Chat')
+    rootNav?.navigate('Chat', { conversationId: id })
   }
   const handleDrawerDeleteConversation = (id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [

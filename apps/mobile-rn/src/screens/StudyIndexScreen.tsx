@@ -275,11 +275,11 @@ export function StudyIndexScreen() {
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
-    navigation.navigate('Chat')
+    navigation.navigate('Chat', {})
   }
-  const handleDrawerSelectConversation = (_id: string) => {
+  const handleDrawerSelectConversation = (id: string) => {
     setDrawerVisible(false)
-    navigation.navigate('Chat')
+    navigation.navigate('Chat', { conversationId: id })
   }
   const handleDrawerDeleteConversation = (id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [
