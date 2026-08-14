@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -6,6 +6,9 @@ import { getAgents, getAiModels, type Agent, type AiModel } from '@ihui/api-clie
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
+import Carousel from '../components/Carousel'
+import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
+import type { CarouselItem } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -76,6 +79,10 @@ export function AgentScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
+  // 顶部轮播图(对齐 Uniapp banner_carousel,空数组占位待 API 接入)
+  const [banners] = useState<CarouselItem[]>([])
+  // 最近使用智能体(对齐 Uniapp RecentAgents,空数组占位待 API 接入)
+  const [recentAgents] = useState<RecentAgentItem[]>([])
 
   const loadAgents = useCallback(async () => {
     const res = await getAgents({ status: 'published', pageSize: 50 })
@@ -108,6 +115,17 @@ export function AgentScreen() {
 
   return (
     <View style={styles.shell}>
+      {banners.length > 0 ? (
+        <View style={styles.carouselWrap}>
+          <Carousel banner={banners} onItemPress={(item) => { void item }} />
+        </View>
+      ) : null}
+      {recentAgents.length > 0 ? (
+        <RecentAgents
+          items={recentAgents}
+          onItemClick={(item) => navigation.navigate('AgentDetail', { id: item.id })}
+        />
+      ) : null}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
@@ -160,6 +178,12 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
+  },
+  carouselWrap: {
+    marginTop: 48,
+    marginHorizontal: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   tabBar: {
     flexDirection: 'row',
