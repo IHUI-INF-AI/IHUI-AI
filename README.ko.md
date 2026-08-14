@@ -575,7 +575,7 @@ cd IHUI-AI && docker compose up -d
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
    │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
-   │ :3000    │  │ + Rust   │  │          │  │ iOS/Android │  │ 위챗미니앱 │  │ ACP+Skl │
+   │ :8801    │  │ + Rust   │  │          │  │ iOS/Android │  │ 위챗미니앱 │  │ ACP+Skl │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
         └─────────────┴─────────────┴───────┬───────┴─────────────┴─────────────┘
@@ -1055,9 +1055,9 @@ pnpm --filter @ihui/database seed          # 7단계 멱등 seed
 # 4. 모든 apps 원클릭 시작(turbo 병렬)
 pnpm dev
 # 또는 개별 시작:
-# pnpm --filter @ihui/api run dev          # 백엔드 :8080
-# pnpm --filter @ihui/web run dev          # 프론트엔드 :3000
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8000
+# pnpm --filter @ihui/api run dev          # 백엔드 :8802
+# pnpm --filter @ihui/web run dev          # 프론트엔드 :8801
+# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
 
 # 5. 전체 검증(typecheck + lint + test)
 pnpm turbo build typecheck lint test
@@ -1159,7 +1159,7 @@ pnpm turbo build typecheck lint test
 ### 지표(Prometheus + Grafana 20 대시보드)
 
 - **Prometheus**(:9091):api `/metrics` + ai-service `/metrics` + node-exporter 호스트 지표 + alerts.yml 알림 규칙 수집
-- **Grafana**(:3001):**20개 대시보드 JSON 자동 provision**, 포함:
+- **Grafana**(:8816):**20개 대시보드 JSON 자동 provision**, 포함:
 
 | #   | 대시보드         | 용도            |
 | --- | ---------------- | --------------- |

@@ -59,8 +59,8 @@ pnpm dev
 
 # 或单独启动某一端
 pnpm --filter @ihui/web dev        # 前端:  http://localhost:8801
-pnpm --filter @ihui/api dev        # 后端:  http://localhost:8800
-pnpm --filter @ihui/ai-service dev # AI 服务: http://localhost:8802
+pnpm --filter @ihui/api dev        # 后端:  http://localhost:8802
+pnpm --filter @ihui/ai-service dev # AI 服务: http://localhost:8803
 ```
 
 端口注册表见 [`docs/port-management.md`](docs/port-management.md)。首次启动若数据库未初始化,参考 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) 的 "Database Setup" 段。
