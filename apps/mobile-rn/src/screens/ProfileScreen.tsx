@@ -22,6 +22,7 @@ import * as MediaLibrary from 'expo-media-library'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
+import type { UserInfo } from '@ihui/types'
 import {
   deleteConversation,
   getOrders,
@@ -40,6 +41,7 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { UserCard, type UserCardKey } from '../components/UserCard'
+import UserInfoCard from '../components/UserInfoCard'
 import { UserMembershipBenefits, type BenefitItem, type MembershipLevel } from '../components/UserMembershipBenefits'
 import { Bot, BookOpen, Database } from 'lucide-react-native'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
@@ -330,6 +332,24 @@ export function ProfileScreen() {
     level: (user?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
+  /**
+   * AuthUser → UserInfo 映射(UserInfoCard 所需)。
+   * AuthUser 无 tokenQuantity/growthValue/growthMax/vipExpireAt 字段,这些项省略
+   * (UserInfo 全字段可选,UserInfoCard 内部 formatTokenValue(undefined)='0' 兜底)。
+   * identityType API 未返回,默认 0(普通用户)。vipLevel 由 isVip 派生。
+   */
+  const userInfoForCard: UserInfo | null = user
+    ? {
+        uuid: user.id,
+        username: user.nickname || user.username,
+        avatarUrl: user.avatar,
+        isVip: user.isVip ?? 0,
+        identityType: 0,
+        inviteCode: user.inviteCode,
+        vipLevel: user.isVip === 1 ? 'VIP' : undefined,
+      }
+    : null
+
   return (
     <>
       <NavBar
@@ -350,6 +370,23 @@ export function ProfileScreen() {
           </View>
         ) : (
           <>
+            {userInfoForCard ? (
+              <View style={styles.userInfoCardWrap}>
+                <UserInfoCard
+                  userInfo={userInfoForCard}
+                  showRechargeBtn
+                  onEdit={() => navigation.navigate('ProfileEdit')}
+                  onRecharge={() => navigation.navigate('Wallet')}
+                  onLogin={() => rootNav?.navigate('Login')}
+                  onUnsubscribe={() => {
+                    Alert.alert('确认退订', '您确定要退订会员吗?退订后将无法享受会员权益。', [
+                      { text: '取消', style: 'cancel' },
+                      { text: '确认退订', style: 'destructive', onPress: () => showFloat('退订功能开发中', 'info') },
+                    ])
+                  }}
+                />
+              </View>
+            ) : null}
             <UserCard
               t={t}
               isLoggedIn={!!user}
@@ -1102,6 +1139,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
+  },
+  userInfoCardWrap: {
+    marginTop: 8,
+    paddingHorizontal: 12,
   },
   contentSection: {
     // 对齐 Uniapp 20rpx(≈10px)水平 padding
