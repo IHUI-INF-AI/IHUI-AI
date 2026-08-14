@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
   useWindowDimensions,
 } from 'react-native'
@@ -46,7 +47,7 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import { UserMembershipBenefits, type BenefitItem, type MembershipLevel } from '../components/UserMembershipBenefits'
-import { Bot, BookOpen, Database } from 'lucide-react-native'
+import { Bot, BookOpen, ChevronDown, Database } from 'lucide-react-native'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
@@ -133,6 +134,8 @@ export function ProfileScreen() {
   const [editProfileVisible, setEditProfileVisible] = useState(false)
   const [levelIntroVisible, setLevelIntroVisible] = useState(false)
   const [unsubscribeVisible, setUnsubscribeVisible] = useState(false)
+  // 会员权益折叠(对齐 Uniapp toggleMembershipBenefits,默认展开)
+  const [showMembershipBenefits, setShowMembershipBenefits] = useState(true)
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -412,11 +415,30 @@ export function ProfileScreen() {
               onPress={handleUserCardPress}
             />
             {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
-            <UserMembershipBenefits
-              level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-              benefits={MEMBERSHIP_BENEFITS}
-              onPressUpgrade={() => rootNav?.navigate('Vip', { type: 'upgrade' } as never)}
-            />
+            {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
+            <TouchableOpacity
+              style={styles.membershipHeader}
+              onPress={() => setShowMembershipBenefits((v) => !v)}
+              activeOpacity={0.7}
+              accessibilityLabel="切换会员权益显示"
+            >
+              <Text style={styles.membershipHeaderText}>会员权益</Text>
+              <View
+                style={[
+                  styles.membershipArrow,
+                  showMembershipBenefits ? styles.membershipArrowExpanded : null,
+                ]}
+              >
+                <ChevronDown size={16} color={tokens.text.secondary} />
+              </View>
+            </TouchableOpacity>
+            {showMembershipBenefits ? (
+              <UserMembershipBenefits
+                level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+                benefits={MEMBERSHIP_BENEFITS}
+                onPressUpgrade={() => setLevelIntroVisible(true)}
+              />
+            ) : null}
             <SharedProfileScreen
               t={t}
               user={
@@ -918,6 +940,12 @@ function ProfileContentSection(): React.JSX.Element {
     setVideoModal({ url: '', visible: false })
   }, [])
 
+  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334 + yejiao.png 行 192-197 页面级页脚) */
+  const onCopyLink = useCallback(() => {
+    Clipboard.setString(WEBSITE_URL)
+    Alert.alert('提示', '已复制官网链接')
+  }, [])
+
   return (
     <View style={styles.contentSection}>
       <View style={styles.tabBarWrap}>
@@ -960,6 +988,15 @@ function ProfileContentSection(): React.JSX.Element {
           </>
         )}
       </View>
+      {/* 官网链接(页面级页脚,对齐 Uniapp yejiao.png 行 192-197,在所有 Tab 内容之外跨 Tab 可见) */}
+      <TouchableOpacity
+        onPress={onCopyLink}
+        style={styles.copyLinkBtn}
+        activeOpacity={0.7}
+        accessibilityLabel="复制官网链接"
+      >
+        <Text style={styles.copyLinkText}>复制官网链接</Text>
+      </TouchableOpacity>
       <ImagePreviewModal
         images={preview.images}
         index={preview.index}
@@ -979,12 +1016,6 @@ interface TextTabProps {
 }
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
-  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334) */
-  const onCopyLink = useCallback(() => {
-    Clipboard.setString(WEBSITE_URL)
-    Alert.alert('提示', '已复制官网链接')
-  }, [])
-
   if (list.length === 0) {
     return <Empty text="暂无文本内容" icon="📝" />
   }
@@ -1010,15 +1041,6 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
           </View>
         )}
       />
-      {/* 复制官网链接(对齐 Uniapp yejiao.png 行 192-197) */}
-      <TouchableOpacity
-        onPress={onCopyLink}
-        style={styles.copyLinkBtn}
-        activeOpacity={0.7}
-        accessibilityLabel="复制官网链接"
-      >
-        <Text style={styles.copyLinkText}>复制官网链接</Text>
-      </TouchableOpacity>
     </View>
   )
 }
@@ -1240,6 +1262,9 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
           >
             <Text style={styles.audioPlayIcon}>{status.playing ? '⏸' : '▶'}</Text>
           </TouchableOpacity>
+          {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
+              当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
+              后改为可拖动 Slider 组件 + onSlidingComplete 回调(不引入新依赖,保持现状) */}
           <Pressable
             onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
             onPress={onProgressBarTap}
@@ -1363,16 +1388,21 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.videoModalOverlay}>
-        <View style={styles.videoModalContent}>
-          <View style={{ width: videoWidth, height: videoHeight, borderRadius: 8, overflow: 'hidden' }}>
-            {url ? <VideoPlayer url={url} /> : null}
-          </View>
-          <TouchableOpacity onPress={onClose} style={styles.videoModalClose} activeOpacity={0.7}>
-            <Text style={styles.videoModalCloseText}>×</Text>
-          </TouchableOpacity>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.videoModalOverlay}>
+          {/* 内容区阻止冒泡,避免点击视频/按钮触发遮罩关闭(对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
+          <TouchableWithoutFeedback onPress={() => undefined}>
+            <View style={styles.videoModalContent}>
+              <View style={{ width: videoWidth, height: videoHeight, borderRadius: 8, overflow: 'hidden' }}>
+                {url ? <VideoPlayer url={url} /> : null}
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.videoModalClose} activeOpacity={0.7}>
+                <Text style={styles.videoModalCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   )
 }
@@ -1445,15 +1475,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 12,
   },
+  // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
+  membershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: tokens.surface.card,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  membershipHeaderText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  membershipArrow: {
+    transform: [{ rotate: '0deg' }],
+  },
+  membershipArrowExpanded: {
+    transform: [{ rotate: '180deg' }],
+  },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
     marginBottom: 10,
   },
   contentDisplayArea: {
-    // 对齐 Uniapp 30rpx(≈15px)大容器圆角
-    borderRadius: 15,
-    backgroundColor: tokens.surface.card,
-    padding: 12,
+    // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
+    minHeight: 100,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
   },
   listContent: {
     gap: 0,
@@ -1462,9 +1515,12 @@ const styles = StyleSheet.create({
     height: 12,
   },
   contentItem: {
-    borderRadius: 8,
+    // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
+    borderRadius: 10,
     backgroundColor: tokens.surface.light,
-    padding: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
   },
   copyLinkBtn: {
     alignSelf: 'center',
@@ -1487,7 +1543,8 @@ const styles = StyleSheet.create({
   },
   contentTitle: {
     flex: 1,
-    fontSize: 14,
+    // 对齐 Uniapp font-size:32rpx(≈16px)
+    fontSize: 16,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -1499,8 +1556,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   textContent: {
-    fontSize: 13,
-    lineHeight: 20,
+    // 对齐 Uniapp font-size:28rpx(≈14px) line-height:1.8(≈25)
+    fontSize: 14,
+    lineHeight: 25,
     color: tokens.text.secondary,
   },
   imageColumn: {
@@ -1525,15 +1583,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   videoPlayIcon: {
+    // 对齐 Uniapp 圆形 border-radius:50%(60/2=30 圆形,头像类豁免)
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginTop: -28,
-    marginLeft: -28,
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    marginTop: -30,
+    marginLeft: -30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
