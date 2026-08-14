@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native'
 import QRCode from 'react-native-qrcode-svg'
 import { captureRef } from 'react-native-view-shot'
 import { Asset, requestPermissionsAsync } from 'expo-media-library'
@@ -18,6 +18,7 @@ import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionB
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
 import { BottomPops } from '../components/BottomPops'
+import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -44,30 +45,62 @@ export function DistributionScreen() {
   const qrRef = useRef<View>(null)
   // 保存到相册进行中(禁用按钮防重复点击)
   const [savingQr, setSavingQr] = useState(false)
+  // FloatBox 悬浮提示(对齐 Uniapp uni.showToast 非阻断式反馈)
+  const [floatVisible, setFloatVisible] = useState(false)
+  const [floatMessage, setFloatMessage] = useState('')
+  const [floatType, setFloatType] = useState<FloatBoxType>('info')
+  const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
+    setFloatMessage(message)
+    setFloatType(type)
+    setFloatVisible(true)
+  }, [])
   // 邀请链接 = 域名/register?inviteCode=user.inviteCode(对齐 Uniapp 分销页分享链接)
   const inviteCode = user?.inviteCode
   const inviteLink = inviteCode
     ? `${INVITE_BASE_URL}/register?inviteCode=${inviteCode}`
     : ''
 
-  /** 复制邀请链接到剪贴板(对齐 Uniapp 分销页 copyInviteLink) */
+  /** 复制邀请链接到剪贴板(对齐 Uniapp 分销页 copyInviteLink,非阻断 Toast 反馈) */
   const handleCopyInviteLink = useCallback(() => {
     if (!inviteLink) {
-      Alert.alert('提示', '暂无邀请码')
+      showFloat('暂无邀请码', 'warning')
       return
     }
-    Clipboard.setString(inviteLink)
-    Alert.alert('提示', '已复制邀请链接')
-  }, [inviteLink])
+    try {
+      Clipboard.setString(inviteLink)
+      showFloat('已复制邀请链接', 'success')
+    } catch {
+      showFloat('复制失败,请重试', 'warning')
+    }
+  }, [inviteLink, showFloat])
+
+  /** 分享给好友(对齐 Uniapp <button open-type="share">,RN 用 Share API 跨平台分享) */
+  const handleShareToFriend = useCallback(async () => {
+    if (!inviteLink) {
+      showFloat('暂无邀请码', 'warning')
+      return
+    }
+    try {
+      const result = await Share.share({
+        title: '邀请你加入 AI 智汇社',
+        message: inviteLink,
+      })
+      if (result.action === Share.sharedAction) {
+        showFloat('已分享', 'success')
+      }
+    } catch {
+      showFloat('分享失败,请重试', 'warning')
+    }
+  }, [inviteLink, showFloat])
 
   /** 保存二维码到相册(view-shot 截图 → expo-media-library 保存) */
   const handleSaveQrToAlbum = useCallback(async () => {
     if (!inviteLink) {
-      Alert.alert('提示', '暂无邀请码')
+      showFloat('暂无邀请码', 'warning')
       return
     }
     if (!qrRef.current) {
-      Alert.alert('提示', '二维码未就绪,请稍后重试')
+      showFloat('二维码未就绪,请稍后重试', 'warning')
       return
     }
     setSavingQr(true)
@@ -83,13 +116,13 @@ export function DistributionScreen() {
         return
       }
       await Asset.create(localUri)
-      Alert.alert('提示', '已保存到相册')
+      showFloat('已保存到相册', 'success')
     } catch (err) {
-      Alert.alert('保存失败', err instanceof Error ? err.message : '请稍后重试')
+      showFloat(err instanceof Error ? err.message : '保存失败,请稍后重试', 'warning')
     } finally {
       setSavingQr(false)
     }
-  }, [inviteLink])
+  }, [inviteLink, showFloat])
 
   /** FunctionBlockColumn 分销工具入口(对齐 Uniapp 分销功能块) */
   const functionBlocks: FunctionBlock[] = [
@@ -140,6 +173,7 @@ export function DistributionScreen() {
   const handleWithdraw = async () => {
     if (!info) return
     if (info.pending < info.withdrawMin) {
+      // 金额不足带详情,保留 Alert 展示具体金额
       Alert.alert(
         t('distribution.withdrawFailed'),
         t('distribution.withdrawMin', { amount: info.withdrawMin }),
@@ -153,10 +187,10 @@ export function DistributionScreen() {
     })
     setWithdrawing(false)
     if (res.success) {
-      Alert.alert(t('distribution.withdrawSuccess'))
+      showFloat(t('distribution.withdrawSuccess'), 'success')
       void load(true)
     } else {
-      Alert.alert(t('distribution.withdrawFailed'))
+      showFloat(t('distribution.withdrawFailed'), 'warning')
     }
   }
 
@@ -289,6 +323,17 @@ export function DistributionScreen() {
                   shellStyles.copyBtn,
                   pressed ? shellStyles.pressed : null,
                 ]}
+                onPress={handleShareToFriend}
+                accessibilityRole="button"
+                accessibilityLabel="分享给好友"
+              >
+                <Text style={shellStyles.copyBtnText}>分享给好友</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  shellStyles.copyBtn,
+                  pressed ? shellStyles.pressed : null,
+                ]}
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
                 accessibilityLabel="复制邀请链接"
@@ -303,6 +348,13 @@ export function DistributionScreen() {
           )}
         </View>
       </BottomPops>
+      {/* FloatBox 非阻断悬浮提示(对齐 Uniapp uni.showToast) */}
+      <FloatBox
+        visible={floatVisible}
+        type={floatType}
+        message={floatMessage}
+        onHide={() => setFloatVisible(false)}
+      />
     </View>
   )
 }
