@@ -3,6 +3,10 @@
 # ============================================================================
 logs/
 tmp/
+# 浏览器自动化测试临时产物(截图 + ad-hoc 验证脚本,防回潮)
+browser_test_output/
+# curl 导出的 Netscape cookie 文件(临时)
+cookies.txt
 apps/web/out/
 # Monaco Editor self-host 静态资源(postinstall 从 node_modules/monaco-editor/min/vs 复制)
 apps/web/public/vs/
