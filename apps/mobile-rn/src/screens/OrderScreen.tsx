@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, type Order } from '@ihui/api-client'
+import { getOrders, type OrderStatus } from '@ihui/api-client'
 import { OrderScreen as SharedOrderScreen, type OrderItem, type OrderTab } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/**
+ * 将前端 tab 映射为后端 OrderStatus 查询参数。
+ * - 'all' → 不过滤(返回全部)
+ * - 'shipped' → 后端无 'shipped' 状态,降级为 'paid'(已支付/待收货属于已支付生命周期)
+ * - 其他 → 直接作为 OrderStatus 传递
+ */
+function tabToStatus(tab: OrderTab): OrderStatus | undefined {
+  if (tab === 'all') return undefined
+  if (tab === 'shipped') return 'paid'
+  return tab as OrderStatus
+}
 
 export function OrderScreen() {
   const { t } = useI18n()
@@ -23,10 +35,11 @@ export function OrderScreen() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<Order[]>(`/api/orders?status=${activeTab}`)
+      const status = tabToStatus(activeTab)
+      const res = await getOrders({ status, page: 1, pageSize: 20 })
       if (!res.success) throw new Error()
       setItems(
-        (res.data ?? []).map((o) => ({
+        (res.data?.list ?? []).map((o) => ({
           id: o.id,
           orderNo: o.orderNo,
           title: o.targetTitle,
