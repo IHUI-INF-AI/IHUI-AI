@@ -28,7 +28,7 @@ vi.mock('../src/i18n', () => ({
 }))
 
 vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ goBack: vi.fn() }),
+  useNavigation: () => ({ navigate: vi.fn(), goBack: vi.fn() }),
 }))
 
 vi.mock('../src/context/AuthContext', () => ({
