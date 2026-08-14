@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url'
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-messages-dev-restart.mjs')
-const WEB_PORT = 3000
+const WEB_PORT = 8801
 
-// ─── 端口 3000 可用性检测(决定 dev server 分支测试是否可跑) ───
-// 脚本通过 netstat/lsof 检测 3000 端口是否有 LISTENING 进程;
-// 若测试机 3000 端口已被占用(如真实 dev server 在跑),依赖"未在跑"分支的测试需跳过。
+// ─── 端口 8801 可用性检测(决定 dev server 分支测试是否可跑) ───
+// 脚本通过 netstat/lsof 检测 8801 端口是否有 LISTENING 进程;
+// 若测试机 8801 端口已被占用(如真实 dev server 在跑),依赖"未在跑"分支的测试需跳过。
 function checkPortFree(port) {
   return new Promise((resolve) => {
     const srv = createServer()
@@ -37,9 +37,9 @@ function closeServer(srv) {
   return new Promise((resolve) => srv.close(() => resolve()))
 }
 
-let port3000Free = false
+let port8801Free = false
 before(async () => {
-  port3000Free = await checkPortFree(WEB_PORT)
+  port8801Free = await checkPortFree(WEB_PORT)
 })
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
@@ -214,7 +214,7 @@ test('边界: staged apps/web/messages-other/foo.json(前缀不匹配)→ exit 0
 // ─── 9. 边界: staged apps/web/messages/sub/foo.json(子目录,startsWith 匹配)→ 触发检测 ──
 // startsWith('apps/web/messages/') 匹配子目录路径(脚本实际行为)
 test('边界: staged apps/web/messages/sub/foo.json(子目录,startsWith 匹配)→ 触发检测', {
-  skip: !port3000Free ? 'port 3000 被占用,跳过(dev server 可能正在跑)' : false,
+  skip: !port8801Free ? 'port 8801 被占用,跳过(dev server 可能正在跑)' : false,
 }, () => {
   const dir = createTempRepo()
   try {
@@ -237,7 +237,7 @@ test('边界: staged apps/web/messages/sub/foo.json(子目录,startsWith 匹配)
 
 // ─── 10. git: staged 1 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 1 个 + 无需重启 ──
 test('git: staged 1 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 1 个 + 无需重启', {
-  skip: !port3000Free ? 'port 3000 被占用,跳过(dev server 可能正在跑)' : false,
+  skip: !port8801Free ? 'port 8801 被占用,跳过(dev server 可能正在跑)' : false,
 }, () => {
   const dir = createTempRepo()
   try {
@@ -257,7 +257,7 @@ test('git: staged 1 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 1
 
 // ─── 11. git: staged 3 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 3 个 + 列出文件 ──
 test('git: staged 3 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 3 个 + 列出文件', {
-  skip: !port3000Free ? 'port 3000 被占用,跳过(dev server 可能正在跑)' : false,
+  skip: !port8801Free ? 'port 8801 被占用,跳过(dev server 可能正在跑)' : false,
 }, () => {
   const dir = createTempRepo()
   try {
@@ -283,11 +283,11 @@ test('git: staged 3 个 messages JSON(dev server 未跑)→ exit 0 + 检测到 3
 // dev server 在跑分支(warn-only,不阻塞 commit)
 // ═══════════════════════════════════════════════════════════
 
-// ─── 12. dev server 在跑: 绑定 3000 + staged messages JSON → exit 0 + 重启警告 ──
-test('dev server 在跑: 绑定 3000 + staged messages JSON → exit 0 + 重启警告', async () => {
+// ─── 12. dev server 在跑: 绑定 8801 + staged messages JSON → exit 0 + 重启警告 ──
+test('dev server 在跑: 绑定 8801 + staged messages JSON → exit 0 + 重启警告', async () => {
   const srv = await bindPort(WEB_PORT)
   if (!srv) {
-    // port 3000 已被占用且无法绑定,跳过(不依赖外部占用者的状态)
+    // port 8801 已被占用且无法绑定,跳过(不依赖外部占用者的状态)
     return
   }
   const dir = createTempRepo()
@@ -305,8 +305,8 @@ test('dev server 在跑: 绑定 3000 + staged messages JSON → exit 0 + 重启�
   }
 })
 
-// ─── 13. dev server 警告内容: 绑定 3000 + staged messages JSON → 验证警告关键词 ──
-test('dev server 警告内容: 绑定 3000 + staged messages JSON → 验证警告关键词', async () => {
+// ─── 13. dev server 警告内容: 绑定 8801 + staged messages JSON → 验证警告关键词 ──
+test('dev server 警告内容: 绑定 8801 + staged messages JSON → 验证警告关键词', async () => {
   const srv = await bindPort(WEB_PORT)
   if (!srv) {
     return

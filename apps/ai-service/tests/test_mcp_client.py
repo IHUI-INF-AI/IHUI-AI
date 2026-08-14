@@ -119,13 +119,13 @@ def test_mcp_client_config_sse():
     c = MCPClientConfig(
         name="test_sse",
         transport=TRANSPORT_SSE,
-        url="http://localhost:3000/sse",
+        url="http://localhost:8801/sse",
         timeout=10.0,
         reconnect=False,
     )
     assert c.name == "test_sse"
     assert c.transport == TRANSPORT_SSE
-    assert c.url == "http://localhost:3000/sse"
+    assert c.url == "http://localhost:8801/sse"
     assert c.timeout == 10.0
     assert c.reconnect is False
 
@@ -371,7 +371,7 @@ async def test_sse_connect_success():
     """SSE 连接成功。"""
     config = MCPClientConfig(
         name="test_sse", transport=TRANSPORT_SSE,
-        url="http://localhost:8800/sse", timeout=5.0,
+        url="http://localhost:8803/sse", timeout=5.0,
     )
     client = MCPClient(config)
 

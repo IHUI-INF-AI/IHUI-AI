@@ -10,7 +10,7 @@
  * 配置(env):
  * - PASSKEY_RP_ID:    RP ID(默认 localhost,生产应改为实际域名,如 ihui.ai)
  * - PASSKEY_RP_NAME:  RP 显示名(默认 IHUI-AI)
- * - PASSKEY_ORIGINS:  允许的 Origin 列表(逗号分隔,默认 http://localhost:3000)
+ * - PASSKEY_ORIGINS:  允许的 Origin 列表(逗号分隔,默认 http://localhost:8801)
  *
  * ⚠️ @simplewebauthn/server ^13.3.2 已在 package.json 声明(待主 agent 执行 pnpm install)。
  *   本 provider 用 createRequire 动态加载,使包未安装时 typecheck 仍可通过。
@@ -96,7 +96,7 @@ export function getPasskeyConfig(): PasskeyConfig {
   return {
     rpID: process.env.PASSKEY_RP_ID ?? 'localhost',
     rpName: process.env.PASSKEY_RP_NAME ?? 'IHUI-AI',
-    origins: (process.env.PASSKEY_ORIGINS ?? 'http://localhost:3000')
+    origins: (process.env.PASSKEY_ORIGINS ?? 'http://localhost:8801')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
