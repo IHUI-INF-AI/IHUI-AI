@@ -36,12 +36,16 @@ export interface UseMessageSendResult {
   isDragOver: boolean
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void
   handleDragLeave: (e: React.DragEvent<HTMLDivElement>) => void
-  handleDrop: (e: React.DropEvent<HTMLDivElement>) => void
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   submit: () => Promise<void>
   /** 流式期间输入的预备消息(流式结束后自动发送) */
   pendingMessage: { text: string; refs: ReferenceItem[] } | null
+  /** 清空预备消息(流式期「取消」悬浮条时调用,把文本退回主输入框编辑) */
+  setPendingMessage: React.Dispatch<
+    React.SetStateAction<{ text: string; refs: ReferenceItem[] } | null>
+  >
   /** 立即发送预备消息(流式结束后调用) */
   sendPendingMessage: () => Promise<void>
 }
@@ -288,6 +292,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     handleFileInputChange,
     submit,
     pendingMessage,
+    setPendingMessage,
     sendPendingMessage,
   }
 }

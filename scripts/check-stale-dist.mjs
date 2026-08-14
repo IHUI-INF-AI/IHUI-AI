@@ -133,6 +133,37 @@ function extractDistExports(distPath) {
   return names
 }
 
+/**
+ * 判断包是否"从源码直接消费"(消费方直接读 ./src/* 或 .ts 源码,不依赖 dist 构建产物)。
+ *
+ * 命中条件: 运行时入口(main / module / exports['.'].import|require|default)
+ * 指向 ./src/ 下文件或以 .ts/.tsx 结尾。此时 dist/index.js 是否存在/同步与产物
+ * 无关,陈旧 dist 校验无意义 → 跳过,避免误报(见缺陷报告 F6: @ihui/ui-react 的
+ * exports.import 为 "./src/index.ts",从不生成 dist,却被判定为"陈旧 dist")。
+ * 注意: 仅看运行时入口,不纳入 types/typings —— 即便类型指向源码、入口指向 dist
+ * 的包仍依赖 dist,不应被跳过(不误伤真正需要 dist 的包)。
+ */
+function isConsumedFromSource(pkg) {
+  const entries = []
+  if (typeof pkg.exports === 'string') {
+    entries.push(pkg.exports)
+  } else if (pkg.exports && typeof pkg.exports === 'object') {
+    const root = pkg.exports['.']
+    if (typeof root === 'string') entries.push(root)
+    else if (root && typeof root === 'object') {
+      for (const k of ['import', 'require', 'default', 'node']) {
+        if (typeof root[k] === 'string') entries.push(root[k])
+      }
+    }
+  }
+  if (typeof pkg.main === 'string') entries.push(pkg.main)
+  if (typeof pkg.module === 'string') entries.push(pkg.module)
+
+  return entries.some(
+    (v) => v.startsWith('./src/') || v.endsWith('.ts') || v.endsWith('.tsx'),
+  )
+}
+
 function findPackagesWithBuild() {
   const packages = []
   if (!existsSync(PACKAGES_DIR)) return packages
@@ -147,6 +178,7 @@ function findPackagesWithBuild() {
         dir: join(PACKAGES_DIR, entry),
         srcIndex: join(PACKAGES_DIR, entry, 'src', 'index.ts'),
         distIndex: join(PACKAGES_DIR, entry, 'dist', 'index.js'),
+        raw: pkg,
       })
     }
   }
@@ -165,6 +197,13 @@ function main() {
 
   for (const pkg of packages) {
     const srcExports = extractSourceExports(pkg.srcIndex)
+
+    // 从源码直接消费的包(exports/main 指向 ./src/ 或 .ts)不依赖 dist 构建产物,
+    // 跳过陈旧 dist 校验,避免误报(见缺陷报告 F6: @ihui/ui-react)
+    if (isConsumedFromSource(pkg.raw)) {
+      ok.push(`${pkg.name} (skip: 从源码消费,不校验 dist)`)
+      continue
+    }
 
     // 跳过 wildcard (export * from) - 无法静态校验,且可能无 dist(源码直接消费)
     if (srcExports.has('__wildcard__')) {
