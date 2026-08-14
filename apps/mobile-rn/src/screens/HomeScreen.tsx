@@ -284,7 +284,7 @@ export function HomeScreen() {
         <View style={shellStyles.aiModelWrap}>
           <AiModelCard
             data={aiModelData}
-            onPress={() => rootNav?.navigate('Chat')}
+            onPress={() => rootNav?.navigate('Chat', {})}
           />
         </View>
         <SharedHomeScreen
