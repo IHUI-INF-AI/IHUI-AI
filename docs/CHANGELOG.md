@@ -87,7 +87,7 @@
 - **共享包**:`packages/auth`、`packages/database`、`packages/types`、`packages/ui`、
   `packages/config`、`packages/eslint-config`、`packages/tsconfig`
 - **认证体系**:`@fastify/jwt` + 自研 RBAC + SSO 登录
-- **监控栈**:Prometheus(端口 9091)+ Grafana(端口 3001)+ Node Exporter(端口 9100)
+- **监控栈**:Prometheus(端口 9091)+ Grafana(端口 8816)+ Node Exporter(端口 9100)
 - **OpenTelemetry**:OTLP Collector + Jaeger 分布式追踪
 - **CI/CD**:GitHub Actions(build / ci / e2e / i18n-check / knip / style-spec)
 - **Husky 钩子**:pre-commit、pre-push 自动化校验

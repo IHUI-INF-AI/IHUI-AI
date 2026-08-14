@@ -200,9 +200,9 @@ node scripts/dev-web.mjs --port 8802      # 指定端口
 
 | 服务 | 开发端口 | Docker 内部端口 | 启动命令 | 热重载 |
 |---|---|---|---|---|
-| api(Fastify 5) | 8802 | 8080 | `pnpm --filter @ihui/api dev` | `tsx watch` 文件变更自动重启 |
-| web(Next.js 15) | 8801 | 3000 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
-| ai-service(FastAPI) | 8803 | 8000 | `cd apps/ai-service && uvicorn app.main:app --reload --port 8803` | `uvicorn --reload` 文件变更自动重启 |
+| api(Fastify 5) | 8802 | 8802 | `pnpm --filter @ihui/api dev` | `tsx watch` 文件变更自动重启 |
+| web(Next.js 15) | 8801 | 8801 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
+| ai-service(FastAPI) | 8803 | 8803 | `cd apps/ai-service && uvicorn app.main:app --reload --port 8803` | `uvicorn --reload` 文件变更自动重启 |
 
 ### 4.1 后端 API
 
@@ -223,7 +223,7 @@ pnpm --filter @ihui/api dev
 ```bash
 pnpm --filter @ihui/web dev
 # 等价于:next dev --turbopack -p 8801
-# 注意:package.json 默认端口是 8801,如需 3000 用 node scripts/dev-web.mjs 或传 -p 3000
+# 注意:package.json 默认端口是 8801,如需 8801 用 node scripts/dev-web.mjs 或传 -p 8801
 ```
 
 - 热重载:Next.js 15 Turbopack,HMR 毫秒级,保留组件状态。
@@ -235,7 +235,7 @@ pnpm --filter @ihui/web dev
 ```bash
 cd apps/ai-service
 uv sync                                          # 安装依赖(首次)
-uvicorn app.main:app --reload --port 8000        # 启动 + 热重载
+uvicorn app.main:app --reload --port 8803        # 启动 + 热重载
 # 健康检查:http://localhost:8803/health
 # API 文档:http://localhost:8803/docs
 ```
@@ -323,7 +323,7 @@ pnpm --filter @ihui/database seed
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
-      "args": ["app.main:app", "--reload", "--port", "8000"],
+      "args": ["app.main:app", "--reload", "--port", "8803"],
       "cwd": "${workspaceFolder}/apps/ai-service",
       "justMyCode": true
     }
@@ -397,7 +397,7 @@ uvicorn app.main:app --reload --port 8803 --log-level debug
 | `node scripts/pre-deploy.mjs --env production` | 生产模式严格 env 检查 |
 | `node scripts/git-push-guard.mjs` | 检测本地 ahead → 自动 push → 验证 local == remote |
 | `pnpm push:safe` | git-push-retry.ps1,推送失败自动重试 |
-| `powershell -File scripts\kill-dev-servers.ps1` | 清理 8801/8802/8803/8081 端口 + 僵尸 next-server |
+| `powershell -File scripts\kill-dev-servers.ps1` | 清理 8801/8802/8803/8804 端口 + 僵尸 next-server |
 | `powershell -File scripts\kill-dev-servers.ps1 -DryRun` | 只显示不杀 |
 | `powershell -File scripts\restart-dev-server.ps1` | 重启 dev server |
 | `pnpm --filter @ihui/api test` | 后端单元测试(mock 模式) |
