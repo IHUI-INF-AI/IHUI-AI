@@ -17,6 +17,8 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
+import * as FileSystem from 'expo-file-system'
+import * as MediaLibrary from 'expo-media-library'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
@@ -829,6 +831,16 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
   const player = useAudioPlayer(item.audioUrl)
   const status = useAudioPlayerStatus(player)
   const [barWidth, setBarWidth] = useState(0)
+  // FloatBox 浮层提示(替代 Alert.alert 非阻塞反馈)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+  const [downloading, setDownloading] = useState(false)
 
   const togglePlay = useCallback(() => {
     if (status.playing) {
@@ -848,14 +860,32 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
     [barWidth, player, status.duration],
   )
 
-  const onDownload = useCallback(() => {
+  const onDownload = useCallback(async () => {
     if (!item.audioUrl) {
-      Alert.alert('提示', '音频地址无效')
+      showToast('warning', '音频地址无效')
       return
     }
-    // RN 端下载需 expo-file-system + Sharing(后续任务接入),此处占位提示
-    Alert.alert('提示', '音频下载功能即将上线')
-  }, [item.audioUrl])
+    if (downloading) return
+    setDownloading(true)
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', '需要媒体库权限才能保存音频')
+        return
+      }
+      const filename = `audio_${Date.now()}.mp3`
+      const destFile = new FileSystem.File(FileSystem.Paths.cache, filename)
+      const downloaded = await FileSystem.File.downloadFileAsync(item.audioUrl, destFile, {
+        idempotent: true,
+      })
+      await MediaLibrary.saveToLibraryAsync(downloaded.uri)
+      showToast('success', '音频已保存到媒体库')
+    } catch {
+      showToast('error', '下载失败,请重试')
+    } finally {
+      setDownloading(false)
+    }
+  }, [item.audioUrl, downloading, showToast])
 
   const progressRatio = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0
 
@@ -893,11 +923,18 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             style={styles.audioDownloadBtn}
             activeOpacity={0.7}
             accessibilityLabel="下载音频"
+            disabled={downloading}
           >
-            <Text style={styles.audioDownloadIcon}>⬇</Text>
+            <Text style={styles.audioDownloadIcon}>{downloading ? '⋯' : '⬇'}</Text>
           </TouchableOpacity>
         </View>
       </View>
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   )
 }
