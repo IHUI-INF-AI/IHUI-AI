@@ -28,6 +28,7 @@ export function AigcListScreen({
   onPressItem,
   onPublish,
   onBack,
+  onLoadMore,
   colorScheme = 'light',
 }: AigcListScreenProps) {
   const tk = getTokens(colorScheme)
@@ -154,6 +155,8 @@ export function AigcListScreen({
         numColumns={2}
         columnWrapperStyle={styles.row}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
@@ -214,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
     textCard: {
       flex: 2,
       padding: 14,
-      borderRadius: 8,
+      borderRadius: 10,
       backgroundColor: tk.surface.muted,
       marginBottom: 12,
     },

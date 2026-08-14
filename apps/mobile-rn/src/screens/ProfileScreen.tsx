@@ -280,12 +280,18 @@ export function ProfileScreen() {
     rootNav?.navigate('Tabs', { screen: 'ai' })
   }
   // Uniapp 原项目跳 chat 传 12 参数(conversationId/title/modelName/agentId/type/source/系统消息/上下文/prompt/欢迎语/是否新会话/时间戳);
-  // mobile-rn Chat 路由类型当前仅支持 { conversationId?: string },这里补全 title 对齐 Uniapp 关键字段,
-  // 其余参数待 RootNavigator 路由类型扩展后补全(用 as never 断言绕过类型检查,与行内 Vip/Feedback 先例一致)。
+  // mobile-rn Chat 路由类型已扩展为 { conversationId, title, modelName, modelId, remark },
+  // 这里补全 conversationId/title/modelName/modelId 对齐 Uniapp 关键字段;
+  // remark 暂无 ConversationDetail 来源(后端未返回),留 undefined,后续接口扩展后补全。
   const handleDrawerSelectConversation = (id: string) => {
     setDrawerVisible(false)
     const conv = drawerConversations.find((c) => c.id === id)
-    rootNav?.navigate('Chat', { conversationId: id, title: conv?.title } as never)
+    rootNav?.navigate('Chat', {
+      conversationId: id,
+      title: conv?.title,
+      modelName: conv?.modelConfig?.name,
+      modelId: conv?.modelConfig?.id,
+    })
   }
   const handleDrawerDeleteConversation = (id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [
@@ -396,6 +402,7 @@ export function ProfileScreen() {
                   onRecharge={() => navigation.navigate('Wallet')}
                   onLogin={() => rootNav?.navigate('Login')}
                   onUnsubscribe={() => setUnsubscribeVisible(true)}
+                  onLevelIntro={() => setLevelIntroVisible(true)}
                 />
                 {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
                     此处为完整 3 级体系介绍入口) */}
@@ -429,15 +436,17 @@ export function ProfileScreen() {
                   showMembershipBenefits ? styles.membershipArrowExpanded : null,
                 ]}
               >
-                <ChevronDown size={16} color={tokens.text.secondary} />
+                <ChevronDown size={24} color={tokens.text.secondary} />
               </View>
             </TouchableOpacity>
             {showMembershipBenefits ? (
-              <UserMembershipBenefits
-                level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-                benefits={MEMBERSHIP_BENEFITS}
-                onPressUpgrade={() => setLevelIntroVisible(true)}
-              />
+              <View style={styles.membershipBenefitsWrap}>
+                <UserMembershipBenefits
+                  level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+                  benefits={MEMBERSHIP_BENEFITS}
+                  onPressUpgrade={() => setLevelIntroVisible(true)}
+                />
+              </View>
             ) : null}
             <SharedProfileScreen
               t={t}
@@ -1497,6 +1506,10 @@ const styles = StyleSheet.create({
   membershipArrowExpanded: {
     transform: [{ rotate: '180deg' }],
   },
+  // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
+  membershipBenefitsWrap: {
+    marginTop: 5,
+  },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
     marginBottom: 10,
@@ -1779,7 +1792,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   editProfileTitle: {
-    fontSize: 18,
+    // 对齐 Uniapp 32rpx(≈16px)标题字号
+    fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -1825,7 +1839,8 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   editProfileField: {
-    marginBottom: 12,
+    // 对齐 Uniapp 30rpx(≈15px)字段间距
+    marginBottom: 15,
     gap: 6,
   },
   editProfileLabel: {
@@ -1906,7 +1921,8 @@ const styles = StyleSheet.create({
   levelIntroItem: {
     backgroundColor: tokens.surface.light,
     borderRadius: 8,
-    padding: 12,
+    // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
+    padding: 4,
     marginBottom: 10,
   },
   levelIntroItemHeader: {
@@ -1926,7 +1942,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   levelIntroBenefitItem: {
-    fontSize: 13,
+    // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
+    fontSize: 14,
     color: tokens.text.secondary,
     lineHeight: 20,
   },
