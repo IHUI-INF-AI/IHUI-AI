@@ -16,7 +16,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -31,6 +30,7 @@ import {
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { SearchInput } from '../components/SearchInput'
+import { SingleTypeBar } from '../components/SingleTypeBar'
 import Empty from '../components/common/Empty'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -169,23 +169,12 @@ export default function DistributionOrderListScreen() {
           onSubmit={onSearch}
         />
       </View>
-      <View style={styles.tabsRow}>
-        {TABS.map((tab) => {
-          const active = activeTab === tab.value
-          return (
-            <Pressable
-              key={tab.value}
-              onPress={() => setActiveTab(tab.value)}
-              style={[styles.tabItem, active ? styles.tabItemActive : null]}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-            >
-              <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          )
-        })}
+      <View style={styles.tabsBar}>
+        <SingleTypeBar
+          items={TABS.map((tab) => ({ id: tab.value, label: tab.label }))}
+          selectedId={activeTab}
+          onSelect={(id) => setActiveTab(id as TabValue)}
+        />
       </View>
       <FlatList
         data={filtered}
@@ -212,23 +201,10 @@ export default function DistributionOrderListScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
   searchWrap: { padding: 16, paddingBottom: 8 },
-  tabsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
+  tabsBar: {
+    paddingHorizontal: 12,
     paddingBottom: 12,
-    gap: 8,
   },
-  tabItem: {
-    flex: 1,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.surface.card,
-  },
-  tabItemActive: { backgroundColor: tokens.brand.DEFAULT },
-  tabText: { fontSize: 13, color: tokens.text.secondary },
-  tabTextActive: { fontSize: 13, fontWeight: '600', color: tokens.surface.light },
   listContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   orderCard: {
     backgroundColor: tokens.surface.card,

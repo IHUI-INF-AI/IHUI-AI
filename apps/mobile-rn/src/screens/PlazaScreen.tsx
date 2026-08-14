@@ -16,7 +16,6 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -26,6 +25,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Search, X } from 'lucide-react-native'
 import { getPlazaList, type PlazaItem } from '@ihui/api-client'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { formatRelativeTime } from '@ihui/shared'
@@ -33,6 +33,7 @@ import { NavBar } from '../components/NavBar'
 import Default from '../components/common/Default'
 import Loading from '../components/common/Loading'
 import { SearchInput } from '../components/SearchInput'
+import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -189,7 +190,11 @@ export function PlazaScreen() {
             accessibilityRole="button"
             accessibilityLabel="搜索"
           >
-            <Text style={styles.searchIcon}>{showSearch ? '✕' : '🔍'}</Text>
+            {showSearch ? (
+              <X size={20} color={tk.text.primary} />
+            ) : (
+              <Search size={20} color={tk.text.primary} />
+            )}
           </Pressable>
         }
       />
@@ -203,27 +208,16 @@ export function PlazaScreen() {
           />
         </View>
       ) : null}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-      >
-        {STATUS_CHIPS.map((chip) => {
-          const active = chip.value === status
-          return (
-            <Pressable
-              key={chip.value || 'all'}
-              style={[styles.chip, active ? styles.chipActive : null]}
-              onPress={() => setStatus(chip.value)}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
-                {chip.label}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
+      <View style={styles.chipsBar}>
+        <SingleTypeBar
+          items={STATUS_CHIPS.map((chip) => ({
+            id: chip.value || 'all',
+            label: chip.label,
+          }))}
+          selectedId={status || 'all'}
+          onSelect={(id) => setStatus(id === 'all' ? '' : id)}
+        />
+      </View>
       {initialLoading ? (
         <View style={styles.centerWrap}>
           <Loading text="加载中..." />
@@ -274,34 +268,15 @@ export function PlazaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
-  searchIcon: { fontSize: 18, color: tk.text.primary } as TextStyle,
   searchBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: tk.surface.card,
   } as ViewStyle,
-  chipsRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+  chipsBar: {
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   } as ViewStyle,
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: tk.surface.muted,
-  } as ViewStyle,
-  chipActive: {
-    backgroundColor: tk.brand.DEFAULT,
-  } as ViewStyle,
-  chipText: {
-    fontSize: 13,
-    color: tk.text.secondary,
-  } as TextStyle,
-  chipTextActive: {
-    color: tk.surface.light,
-    fontWeight: '600',
-  } as TextStyle,
   listContent: {
     paddingHorizontal: 12,
     paddingBottom: 96,
