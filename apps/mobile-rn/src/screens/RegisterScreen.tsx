@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Alert, useColorScheme } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { register, sendSmsCode } from '@ihui/api-client'
+import { register, sendSmsCode, verifyAuthCode } from '@ihui/api-client'
 import { useRegisterForm } from '@ihui/shared/hooks'
 import { RegisterScreen as SharedRegisterScreen } from '@ihui/rn-app'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -157,9 +157,19 @@ export function RegisterScreen() {
             await sendSmsCode(verifyPhone, 'register')
           }
         }}
-        onSubmit={(_code) => {
-          // TODO: 真实项目应调 verifySmsCode API 校验验证码
-          setVerifyVisible(false)
+        onSubmit={async (code) => {
+          if (!verifyPhone) {
+            showToast('warning', '请先绑定手机号后再验证')
+            setVerifyVisible(false)
+            return
+          }
+          const res = await verifyAuthCode({ mobile: verifyPhone, code })
+          if (res.success && res.data.valid) {
+            showToast('success', '手机号验证成功')
+            setVerifyVisible(false)
+          } else {
+            showToast('error', res.error ?? '验证码错误,请重试')
+          }
         }}
       />
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
