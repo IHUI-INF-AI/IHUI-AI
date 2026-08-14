@@ -183,7 +183,7 @@ const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
 
 // ── ChatScreen 组件 ──
 
-export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
+export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const { user: authUser, logout } = useAuth()
   const {
     inputFiles,
@@ -725,27 +725,35 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setPrompt('')
     setMaterialCards([])
   }
+  /** 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList) */
+  const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
+    const res = await getMessages(id, { page: 1, pageSize: 100 })
+    if (res.success) {
+      const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
+        id: `${m.id}-${idx}`,
+        role: m.role,
+        content: m.content,
+      }))
+      setMessages(loaded)
+      setPrompt('')
+      setMaterialCards([])
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true })
+      })
+    } else {
+      Alert.alert('提示', '加载历史对话失败,请重试')
+    }
+  }, [])
+
+  // 从 ProfileScreen Drawer 跳转时携带 conversationId,自动加载对应对话
+  useEffect(() => {
+    const conversationId = route.params?.conversationId
+    if (conversationId) void loadConversationMessages(conversationId)
+  }, [route.params?.conversationId, loadConversationMessages])
+
   const handleDrawerSelectConversation = (id: string): void => {
-    // 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList)
     setDrawerVisible(false)
-    void (async () => {
-      const res = await getMessages(id, { page: 1, pageSize: 100 })
-      if (res.success) {
-        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
-          id: `${m.id}-${idx}`,
-          role: m.role,
-          content: m.content,
-        }))
-        setMessages(loaded)
-        setPrompt('')
-        setMaterialCards([])
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: true })
-        })
-      } else {
-        Alert.alert('提示', '加载历史对话失败,请重试')
-      }
-    })()
+    void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
     Alert.alert('删除对话', '确认删除此对话?', [
