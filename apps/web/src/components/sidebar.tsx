@@ -1141,6 +1141,7 @@ const NavLink = React.memo(function NavLink({
           href={item.href}
           ref={refCb}
           onClick={handleClick}
+          prefetch={false}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           className={className}
@@ -1157,6 +1158,7 @@ const NavLink = React.memo(function NavLink({
       href={item.href}
       ref={refCb}
       onClick={handleClick}
+      prefetch={false}
       aria-current={active ? 'page' : undefined}
       className={className}
     >
