@@ -37,14 +37,26 @@ setTokenProvider({
 
 // A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api
 // - Tauri 环境:直连 http://127.0.0.1:8802(本地 API server)
-// - 浏览器环境:用 NEXT_PUBLIC_API_BASE_URL 环境变量(开发时设 http://localhost:8802)
-// - 未设置时 baseUrl 为空,依赖同源反代(如 Nginx)
+// - 浏览器 dev 环境(localhost:8801):走同源 /api/*(Next.js dev rewrites 代理到 8802),
+//   避免跨端口 POST 触发 SameSite=Lax cookie 不附带 → /auth/refresh 等鉴权 POST 接口 400
+// - 浏览器生产/其他:用 NEXT_PUBLIC_API_BASE_URL 环境变量;未设置时空字符串依赖同源反代
 // 只在客户端执行(build/SSR 时跳过,避免循环依赖导致模块导出未初始化)
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
     if ('__TAURI_INTERNALS__' in window) {
       return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
+    }
+    // 2026-08-14 P0 修复:浏览器 dev 环境强制走同源 /api/* —— Next.js dev rewrites
+    // (next.config.ts:188-300)已配齐全部 /api/* → 8802/8803 代理。同源 POST 自动带 cookie,
+    // 解决"自动登录 /auth/refresh 永远 400"问题(跨端口 8801→8802 时 SameSite=Lax 不带 cookie)。
+    // 显式设置 NEXT_PUBLIC_API_BASE_URL 时仍优先(支持需要直连 8802 的特殊场景,如 cookie 调试)。
+    if (
+      window.location.hostname === 'localhost' &&
+      window.location.port === '8801' &&
+      !process.env.NEXT_PUBLIC_API_BASE_URL
+    ) {
+      return ''
     }
   }
   return process.env.NEXT_PUBLIC_API_BASE_URL || ''
