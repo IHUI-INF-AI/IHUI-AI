@@ -13,9 +13,11 @@
  * - 悬浮发布按钮(对齐 .vue floating-publish-btn → /pagesA/study/publish)
  * - 浅色优雅风,rnLightTokens;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
+  Animated,
+  Easing,
   FlatList,
   Image,
   Pressable,
@@ -62,7 +64,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
 const API_PATH = '/api/study/videos'
-const COVER_HEIGHT = 120
+/** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
+const GRID_COVER_HEIGHT = 89
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 /** 免费资料飞书链接(对齐 Uniapp user/index.vue 行 682 lingqu,与 ProfileScreen 保持一致) */
 const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
@@ -88,25 +91,19 @@ interface StudyVideoItem {
   id: string | number
   courseId?: string | number
   title: string
+  /** 下方标题(对齐 Uniapp study_list item.name,封面图下方的课程名) */
+  name?: string
   cover?: string
-  duration?: number | string
+  /** 作者昵称(对齐 Uniapp study_list item.nickname,缺省'智汇社区-官方') */
   teacherName?: string
+  /** 作者头像(对齐 Uniapp study_list item.avatar) */
+  avatar?: string
   createdAt?: string
 }
 
 interface StudyVideoResponse {
   list: StudyVideoItem[]
   total: number
-}
-
-function formatDuration(duration: number | string | undefined): string {
-  if (duration === undefined || duration === null || duration === '') return ''
-  if (typeof duration === 'number') {
-    const minutes = Math.floor(duration / 60)
-    const seconds = duration % 60
-    return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : `${seconds}s`
-  }
-  return String(duration)
 }
 
 /**
@@ -123,6 +120,57 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
   }
+}
+
+/**
+ * Tip 提示横幅(对齐 Uniapp pagesA/studyindex/components/tip.vue):
+ * - 蓝色描边容器(#d9e6fd)+ 灰色内层(#eee)+ 圆角 15rpx≈7dp
+ * - 左侧 tip 图标(对齐 study_icon_tip.png 48rpx≈24dp)
+ * - 中间滚动文字"智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享"(对齐 8s linear 无限滚动)
+ * - 右侧"我的合集"按钮(对齐 144rpx 宽 + #518dfd 描边 + #d9e6fd 背景 + 12rpx 圆角)
+ */
+const TIP_TEXT = '智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享'
+
+function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
+  const translateX = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(translateX, {
+        toValue: 1,
+        duration: 8000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [translateX])
+  // 滚动范围:从 0 到 -50%(对齐 Uniapp @keyframes scroll-left translateX 0 → -50%)
+  const animTranslateX = translateX.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -300],
+  })
+  return (
+    <View style={styles.tipOuter}>
+      <View style={styles.tipInner}>
+        <Text style={styles.tipIcon}>💡</Text>
+        <View style={styles.tipScrollContainer}>
+          <Animated.View style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}>
+            <Text style={styles.tipText}>{TIP_TEXT}</Text>
+            <Text style={styles.tipText}>{TIP_TEXT}</Text>
+          </Animated.View>
+        </View>
+        <Pressable
+          style={styles.tipMyModel}
+          onPress={onPressMyModel}
+          accessibilityRole="button"
+          accessibilityLabel="我的合集"
+        >
+          <Text style={styles.tipMyModelText}>我的合集</Text>
+        </Pressable>
+      </View>
+    </View>
+  )
 }
 
 export function StudyIndexScreen() {
@@ -168,6 +216,9 @@ export function StudyIndexScreen() {
             page: targetPage,
             pageSize: PAGE_SIZE,
             search: search.trim() || undefined,
+            // 分类筛选(对齐 Uniapp study_list getVideoList categorys 参数);
+            // activeCategory 变化 → load 重建 → useEffect 自动触发刷新
+            category: activeCategory !== 'all' ? activeCategory : undefined,
           },
         })
         if (!res.success) throw new Error(res.error)
@@ -183,7 +234,7 @@ export function StudyIndexScreen() {
         setLoadingMore(false)
       }
     },
-    [search],
+    [search, activeCategory],
   )
 
   // 模型列表加载(对齐 Uniapp getCozeApiList,复用 fetchModels)
@@ -241,6 +292,11 @@ export function StudyIndexScreen() {
 
   const onPublish = () => {
     navigation.navigate('StudyPublish')
+  }
+
+  // 我的合集(对齐 Uniapp toMyModel → /pagesA/study/my_study;RN 端最接近的路由为 StudyRecord)
+  const onMyModel = () => {
+    navigation.navigate('StudyRecord')
   }
 
   const onVideoClick = (item: StudyVideoItem) => {
@@ -361,39 +417,49 @@ export function StudyIndexScreen() {
   const initialLoading = loading && items.length === 0 && !refreshing
 
   const renderItem = ({ item }: { item: StudyVideoItem }) => {
-    const duration = formatDuration(item.duration)
     const time = item.createdAt ? formatRelativeTime(item.createdAt) : ''
+    const author = item.teacherName || '智汇社区-官方'
     return (
       <Pressable
-        style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
+        style={({ pressed }) => [styles.gridCard, pressed ? styles.gridCardPressed : null]}
         onPress={() => onVideoClick(item)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.coverWrap}>
+        <View style={styles.gridCoverWrap}>
           {item.cover ? (
-            <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
+            <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
           ) : (
-            <View style={styles.coverPlaceholder}>
-              <Text style={styles.coverPlaceholderText}>▶</Text>
+            <View style={styles.gridCoverPlaceholder}>
+              <Text style={styles.gridCoverPlaceholderText}>▶</Text>
             </View>
           )}
-          {duration ? (
-            <View style={styles.durationBadge}>
-              <Text style={styles.durationText}>{duration}</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.content}>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.teacherName ? (
-            <Text style={styles.teacher} numberOfLines={1}>
-              讲师:{item.teacherName}
+          {/* 标题 + 日期覆盖在封面上(对齐 Uniapp study_list .video_info absolute) */}
+          <View style={styles.gridCoverInfo}>
+            <Text style={styles.gridCoverTitle} numberOfLines={1}>
+              {item.title}
             </Text>
+            {time ? (
+              <Text style={styles.gridCoverDate} numberOfLines={1}>
+                {time}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        {/* 下方课程名(对齐 Uniapp study_list .title {{ item.name }}) */}
+        {item.name ? (
+          <Text style={styles.gridTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+        ) : null}
+        {/* 作者行(对齐 Uniapp study_list icon_logo + name) */}
+        <View style={styles.gridAuthorRow}>
+          {item.avatar ? (
+            <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
           ) : null}
-          {time ? <Text style={styles.time}>{time}</Text> : null}
+          <Text style={styles.gridAuthor} numberOfLines={1}>
+            {author}
+          </Text>
         </View>
       </Pressable>
     )
@@ -475,7 +541,10 @@ export function StudyIndexScreen() {
             data={items}
             keyExtractor={(item) => String(item.id)}
             renderItem={renderItem}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
             contentContainerStyle={styles.listContent}
+            ListHeaderComponent={<TipBanner onPressMyModel={onMyModel} />}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -497,7 +566,17 @@ export function StudyIndexScreen() {
                 <Empty text="暂无学习视频" icon="🎬" />
               )
             }
-            ListFooterComponent={loadingMore ? <Loading text="加载更多..." /> : null}
+            ListFooterComponent={
+              loadingMore ? (
+                <Loading text="加载更多..." />
+              ) : items.length > 0 && items.length >= total ? (
+                <View style={styles.noMoreWrap}>
+                  <View style={styles.noMoreLine} />
+                  <Text style={styles.noMoreText}>没有更多了</Text>
+                  <View style={styles.noMoreLine} />
+                </View>
+              ) : null
+            }
           />
         )
       ) : (
@@ -566,72 +645,156 @@ const styles = StyleSheet.create({
     color: tk.surface.light,
     fontWeight: '600',
   } as TextStyle,
-  // 视频列表
+  // 视频列表(双列网格,对齐 Uniapp study_list scroll_height flex-wrap)
   listContent: {
     padding: 16,
     paddingBottom: 96,
-    gap: 12,
   } as ViewStyle,
-  card: {
-    backgroundColor: tk.surface.card,
-    borderRadius: 12,
-    padding: 12,
-    gap: 12,
+  gridRow: {
+    justifyContent: 'space-between',
   } as ViewStyle,
-  cardPressed: {
-    backgroundColor: tk.surface.muted,
+  gridCard: {
+    flex: 1,
+    marginHorizontal: 2,
+    marginBottom: 8,
   } as ViewStyle,
-  coverWrap: {
+  gridCardPressed: {
+    opacity: 0.8,
+  } as ViewStyle,
+  gridCoverWrap: {
     position: 'relative',
-    height: COVER_HEIGHT,
+    height: GRID_COVER_HEIGHT,
   } as ViewStyle,
-  cover: {
+  gridCover: {
     width: '100%',
-    height: COVER_HEIGHT,
-    borderRadius: 8,
+    height: GRID_COVER_HEIGHT,
+    borderRadius: 7,
+    backgroundColor: '#000',
   } as ImageStyle,
-  coverPlaceholder: {
+  gridCoverPlaceholder: {
     width: '100%',
-    height: COVER_HEIGHT,
-    borderRadius: 8,
+    height: GRID_COVER_HEIGHT,
+    borderRadius: 7,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
-  coverPlaceholderText: {
-    fontSize: 28,
+  gridCoverPlaceholderText: {
+    fontSize: 24,
     color: tk.text.tertiary,
   } as TextStyle,
-  durationBadge: {
+  // 标题+日期覆盖层(对齐 Uniapp .video_info absolute,top:148rpx≈74dp)
+  gridCoverInfo: {
     position: 'absolute',
-    right: 8,
-    bottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    bottom: 4,
+    left: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   } as ViewStyle,
-  durationText: {
-    fontSize: 11,
-    color: tk.surface.light,
-    fontWeight: '500',
+  gridCoverTitle: {
+    flex: 1,
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
   } as TextStyle,
-  content: {
-    gap: 6,
-  } as ViewStyle,
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tk.text.primary,
-    lineHeight: 20,
+  gridCoverDate: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 4,
   } as TextStyle,
-  teacher: {
+  // 下方课程名(对齐 Uniapp .title {{ item.name }}:24rpx≈12dp,#3D3D3D)
+  gridTitle: {
     fontSize: 12,
-    color: tk.text.secondary,
+    color: '#3D3D3D',
+    marginTop: 4,
+    marginBottom: 4,
   } as TextStyle,
-  time: {
-    fontSize: 11,
-    color: tk.text.tertiary,
+  gridAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  } as ViewStyle,
+  gridAvatar: {
+    width: 12,
+    height: 12,
+    borderRadius: 4,
+    marginRight: 2,
+  } as ImageStyle,
+  gridAuthor: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(0,0,0,0.6)',
+    flex: 1,
+  } as TextStyle,
+  // Tip 提示横幅(对齐 Uniapp tip.vue)
+  tipOuter: {
+    backgroundColor: '#d9e6fd',
+    padding: 1,
+    borderRadius: 7,
+    marginBottom: 9,
+  } as ViewStyle,
+  tipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eee',
+    borderRadius: 7,
+    paddingVertical: 2,
+    paddingHorizontal: 3,
+  } as ViewStyle,
+  tipIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  } as TextStyle,
+  tipScrollContainer: {
+    flex: 1,
+    height: 20,
+    overflow: 'hidden',
+  } as ViewStyle,
+  tipTextWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  } as ViewStyle,
+  tipText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#666666',
+    paddingRight: 10,
+  } as TextStyle,
+  tipMyModel: {
+    width: 72,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#518dfd',
+    backgroundColor: '#d9e6fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  } as ViewStyle,
+  tipMyModelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000',
+  } as TextStyle,
+  // 没有更多了(对齐 Uniapp study_list .line + .no-more-text)
+  noMoreWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 20,
+    marginTop: 10,
+  } as ViewStyle,
+  noMoreLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  } as ViewStyle,
+  noMoreText: {
+    marginHorizontal: 10,
+    color: '#767676',
+    fontSize: 12,
   } as TextStyle,
   // 模型列表容器
   modelListWrap: {
