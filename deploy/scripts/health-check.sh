@@ -32,9 +32,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # 服务地址(可通过环境变量覆盖)
-API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8080}"
-WEB_BASE_URL="${WEB_BASE_URL:-http://127.0.0.1:3000}"
-AI_BASE_URL="${AI_BASE_URL:-http://127.0.0.1:8000}"
+API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8802}"
+WEB_BASE_URL="${WEB_BASE_URL:-http://127.0.0.1:8801}"
+AI_BASE_URL="${AI_BASE_URL:-http://127.0.0.1:8803}"
 
 # 数据库连接
 PG_HOST="${PG_HOST:-127.0.0.1}"
@@ -330,9 +330,9 @@ usage() {
   -h, --help       显示本帮助
 
 环境变量:
-  API_BASE_URL     API 基础地址(默认 http://127.0.0.1:8080)
-  WEB_BASE_URL     Web 基础地址(默认 http://127.0.0.1:3000)
-  AI_BASE_URL      AI 服务基础地址(默认 http://127.0.0.1:8000)
+  API_BASE_URL     API 基础地址(默认 http://127.0.0.1:8802)
+  WEB_BASE_URL     Web 基础地址(默认 http://127.0.0.1:8801)
+  AI_BASE_URL      AI 服务基础地址(默认 http://127.0.0.1:8803)
   PG_HOST/PG_PORT/PG_USER/PG_DB    PostgreSQL 连接(默认 127.0.0.1:5432/ihui/ihui)
   REDIS_HOST/REDIS_PORT            Redis 连接(默认 127.0.0.1:6379)
   COMPOSE_FILE     docker-compose 文件路径(默认自动探测)

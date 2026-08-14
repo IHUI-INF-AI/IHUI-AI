@@ -1,4 +1,4 @@
-# IHUI-AI 端口管理规则(强制,2026-07-22 立)
+# IHUI-AI 端口管理规则(强制,2026-08-15 更新)
 
 > 本文件是 IHUI-AI 项目**唯一端口注册表**。所有端口的分配、变更、新增必须以此文件为准。
 > 守门脚本:`scripts/check-port-registry.mjs`(pre-commit 第 24 项)。
@@ -10,7 +10,7 @@
 1. **统一前缀 88**:所有 dev/宿主映射端口以 `88` 开头,便于辨识和管理。
 2. **千位段映射**:按服务类别分段,端口号即服务类别标识。8840-8849 段位语义:CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849)。
 3. **strictPort 防漂移**:应用端 dev server 必须配置 `strictPort: true`,端口被占时**报错退出**而非自动漂移。
-4. **容器内部端口不动**:Docker 容器内部端口(8080/3000/8000/5432/6379 等)保持原状,仅改宿主映射。
+4. **全项目 88xx**:所有服务(含容器内部端口)统一使用 88xx 体系,无豁免。
 5. **单一注册表**:端口分配唯一权威来源是本文件,代码中不得自行定义新端口。
 
 ---
@@ -35,15 +35,15 @@
 
 | 端口 | 服务 | 容器内端口 | 配置文件 |
 |------|------|-----------|----------|
-| 8810 | PostgreSQL | 5432 | `docker-compose.yml` `${DB_PORT:-8810}:5432` |
-| 8811 | Redis | 6379 | `docker-compose.yml` `${REDIS_PORT:-8811}:6379` |
-| 8812 | OTel Collector gRPC | 4317 | `deploy/observability/docker-compose.observability.yml` `8812:4317` |
-| 8813 | OTel Collector HTTP | 4318 | `docker-compose.yml` `${OTEL_COLLECTOR_PORT:-8813}:4318` |
-| 8814 | Jaeger UI | 16686 | `docker-compose.yml` `${JAEGER_UI_PORT:-8814}:16686` |
-| 8815 | Prometheus | 9090 | `docker-compose.yml` `${PROMETHEUS_PORT:-8815}:9090` |
-| 8816 | Grafana | 3000 | `docker-compose.yml` `${GRAFANA_PORT:-8816}:3000` |
-| 8817 | Node Exporter | 9100 | `docker-compose.yml` `${NODE_EXPORTER_PORT:-8817}:9100` |
-| 8818 | Loki | 3100 | `docker-compose.yml` `${LOKI_PORT:-8818}:3100` |
+| 8810 | PostgreSQL | 8810 | `docker-compose.yml` `${DB_PORT:-8810}:8810` |
+| 8811 | Redis | 8811 | `docker-compose.yml` `${REDIS_PORT:-8811}:8811` |
+| 8812 | OTel Collector gRPC | 8812 | `deploy/observability/docker-compose.observability.yml` `8812:8812` |
+| 8813 | OTel Collector HTTP | 8813 | `docker-compose.yml` `${OTEL_COLLECTOR_PORT:-8813}:8813` |
+| 8814 | Jaeger UI | 8814 | `docker-compose.yml` `${JAEGER_UI_PORT:-8814}:8814` |
+| 8815 | Prometheus | 8815 | `docker-compose.yml` `${PROMETHEUS_PORT:-8815}:8815` |
+| 8816 | Grafana | 8816 | `docker-compose.yml` `${GRAFANA_PORT:-8816}:8816` |
+| 8817 | Node Exporter | 8817 | `docker-compose.yml` `${NODE_EXPORTER_PORT:-8817}:8817` |
+| 8818 | Loki | 8818 | `docker-compose.yml` `${LOKI_PORT:-8818}:8818` |
 | 8819 | (预留扩展) | — | — |
 
 ### 2.3 辅助工具(8820-8829)
@@ -61,24 +61,7 @@
 | 8830 | Admin API | `deploy/saas/admin-api/src/config.ts` `PORT: 8830` |
 | 8831-8839 | (预留扩展) | — |
 
-### 2.5 生产容器内部端口(不变)
-
-以下端口是 Docker 容器内部通信端口,**不修改**,仅通过 docker network 内部解析:
-
-| 容器内端口 | 服务 | 说明 |
-|-----------|------|------|
-| 8080 | api | 生产 API 容器内部 |
-| 3000 | web / grafana | Next.js standalone / Grafana 容器内部 |
-| 8000 | ai-service | FastAPI 容器内部 |
-| 5432 | postgres | PostgreSQL 容器内部 |
-| 6379 | redis | Redis 容器内部 |
-| 4317/4318 | otel-collector | OTLP 接收端口 |
-| 16686 | jaeger | Jaeger UI 容器内部 |
-| 9090 | prometheus | Prometheus 容器内部 |
-| 9100 | node-exporter | Node Exporter 容器内部 |
-| 3100 | loki | Loki 容器内部 |
-
-### 2.6 CLI Agent(8840-8849)
+### 2.5 CLI Agent(8840-8849)
 
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
@@ -100,24 +83,13 @@
 
 ### 3.2 禁止行为
 
-- ❌ **禁止**使用 88xx 范围以外的端口(dev/宿主映射)。
+- ❌ **禁止**使用 88xx 范围以外的端口(dev/宿主映射/容器内部)。
 - ❌ **禁止**自行定义新端口不更新本文件。
 - ❌ **禁止**修改已分配的端口(需团队评审 + 全项目 grep 替换)。
 - ❌ **禁止**关闭 `strictPort`(应用端 dev server)。
 - ❌ **禁止**在生产 docker-compose 中暴露非 88xx 端口到宿主。
 
-### 3.3 豁免场景
-
-以下场景**允许**使用非 88xx 端口:
-
-1. **CI 环境**(`.github/workflows/*.yml`):GitHub Actions service container 默认端口(5432/6379 等)。
-2. **测试默认值**(`apps/api/tests/*.ts` 中的 `postgres://localhost:5432/test`):CI 环境 DB 端口。
-3. **Docker 容器内部端口**:容器内通信端口(8080/3000/8000 等)。
-4. **容器内部 healthcheck**:docker-compose 中 `localhost:9090/-/healthy` 等容器内检查。
-5. **第三方服务外部端口**:SMTP(587/465)、OAuth provider 等外部服务端口。
-6. **Storybook 默认端口 6006**(apps/web 仅本机开发工具,不参与 88xx 注册)。
-
-### 3.4 端口分配段位规则
+### 3.3 端口分配段位规则
 
 ```
 8800-8809  → 应用服务(8 端)
@@ -153,7 +125,7 @@ extension/desktop/mobile-rn/miniapp-taro
 
 - 扫描 staged 文件中的 `localhost:PORT` 引用。
 - 校验 PORT 是否在注册表 §2 中。
-- 检测到非 88xx 端口(且非豁免场景)→ **warn** 提醒确认是否注册。
+- 检测到非 88xx 端口→ **warn** 提醒确认是否注册。
 
 ### 5.2 strictPort 守门
 
@@ -170,5 +142,6 @@ extension/desktop/mobile-rn/miniapp-taro
 | 日期 | 变更 | 负责人 |
 |------|------|--------|
 | 2026-07-22 | 立规:全项目端口统一 88xx,8 端 + 基础设施 + 辅助 | AI Agent |
-| 2026-07-22 | 补充:蓝绿部署段位 8840-8849 + 8081 容器内部端口 | AI Agent |
+| 2026-07-22 | 补充:蓝绿部署段位 8840-8849 | AI Agent |
 | 2026-07-25 | 修复:Storybook 端口不一致(改 docs 承认 6006 豁免)+ 注册 CLI 8841 + 预留空槽说明 | AI Agent |
+| 2026-08-15 | 全项目无豁免:所有服务(含容器内部)统一 88xx,删除豁免场景 | AI Agent |

@@ -32,7 +32,7 @@ import { error } from '../utils/response.js'
 // 常量
 // =============================================================================
 
-/** 上游 midjourney-proxy base url,如 http://localhost:8080(与 v1-midjourney.ts 共享 env)。 */
+/** 上游 midjourney-proxy base url,如 http://localhost:8808(与 v1-midjourney.ts 共享 env)。 */
 const MJ_BASE = process.env.MIDJOURNEY_PROXY_BASE
 const MJ_API_KEY = process.env.MIDJOURNEY_PROXY_API_KEY
 /** MJ 上游未配置错误码(沿用 v1-midjourney.ts 5016)。 */
