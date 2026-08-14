@@ -42,18 +42,27 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
+  BookOpen,
   Clapperboard,
   Cpu,
+  Download,
   Image as ImageIcon,
   Library,
+  Link,
   type LucideIcon,
   Menu,
   MessageCircle,
+  MessageSquare,
   Music,
+  Paperclip,
   QrCode,
+  RefreshCw,
   Share2,
   Sparkles,
+  Star,
+  Trash2,
   Video,
+  Volume2,
   X,
 } from 'lucide-react-native'
 import {
@@ -124,6 +133,18 @@ interface ModelTypeConfig {
   key: ModelType
   label: string
   Icon: LucideIcon
+}
+
+/**
+ * 底部上滑面板列表项配置(对齐 Uniapp function-handle / source-handle 子组件)。
+ * function-handle 提供 6 项 AI 功能(切换模型/清空/导出/分享/转语音/收藏);
+ * source-handle 提供 4 项知识来源(素材库/网页链接/文件上传/历史对话)。
+ */
+interface PanelItem {
+  key: string
+  label: string
+  Icon: LucideIcon
+  onPress: () => void
 }
 
 // ── 常量 ──
@@ -444,15 +465,177 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const handleInputBlur = (): void => {}
   const textareaHeightChange = (): void => {}
 
-  /** function-handle:打开功能面板(占位,真实功能面板是后续任务) */
+  /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能) */
   const handleFunctionHandle = (): void => {
     setFunctionPanelVisible(true)
   }
 
-  /** source-handle:打开来源面板(占位) */
+  /** source-handle:打开来源面板(对齐 Uniapp source-handle 子组件,4 项知识来源) */
   const handleSourceHandle = (): void => {
     setSourcePanelVisible(true)
   }
+
+  /** 关闭功能/来源面板 */
+  const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
+  const closeSourcePanel = (): void => setSourcePanelVisible(false)
+
+  /** 清空对话(对齐 Uniapp ai_index.vue clearMessages,二次确认 + 重置 messages/materialCards/prompt) */
+  const confirmClearMessages = (): void => {
+    setFunctionPanelVisible(false)
+    if (messages.length === 0) {
+      Alert.alert('提示', '当前对话为空')
+      return
+    }
+    Alert.alert('清空对话', '确认清空当前对话的所有消息?', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '清空',
+        style: 'destructive',
+        onPress: () => {
+          setMessages([])
+          setMaterialCards([])
+          setPrompt('')
+          abortRef.current?.abort()
+          abortRef.current = null
+          setIsStreaming(false)
+        },
+      },
+    ])
+  }
+
+  /** 把当前消息列表格式化为可分享文本(对齐 Uniapp 导出对话格式) */
+  const formatMessagesText = useCallback((): string => {
+    if (messages.length === 0) return '智汇AI 对话(空)'
+    const lines: string[] = ['智汇AI 对话记录', '================']
+    messages.forEach((m) => {
+      const speaker = m.role === 'user' ? '我' : m.role === 'assistant' ? 'AI' : m.role
+      lines.push(`【${speaker}】${m.content}`)
+    })
+    return lines.join('\n')
+  }, [messages])
+
+  /** 导出对话(对齐 Uniapp handleExport,调 Share.share 分享对话文本) */
+  const handleExportMessages = async (): Promise<void> => {
+    setFunctionPanelVisible(false)
+    try {
+      await Share.share({ message: formatMessagesText() })
+    } catch {
+      // 用户取消分享,静默处理
+    }
+  }
+
+  /** 分享对话(对齐 Uniapp handleShareChat,与导出共用 Share.share,语义独立) */
+  const handleShareChat = async (): Promise<void> => {
+    setFunctionPanelVisible(false)
+    try {
+      await Share.share({ message: formatMessagesText() })
+    } catch {
+      // 用户取消分享,静默处理
+    }
+  }
+
+  /**
+   * function-handle 面板 6 项列表(对齐 Uniapp function-handle 子组件)。
+   * 1. 切换模型 → 复用 ModelList 弹窗(setModelListVisible)
+   * 2. 清空对话 → Alert 二次确认
+   * 3. 导出对话 → Share.share 分享对话文本
+   * 4. 分享对话 → Share.share(语义独立,UI 入口分离)
+   * 5. 转语音 → 占位提示(TODO: 后续接 TTS)
+   * 6. 收藏 → 占位提示(TODO: 后续接收藏 API)
+   */
+  const functionPanelItems: readonly PanelItem[] = [
+    {
+      key: 'switch-model',
+      label: '切换模型',
+      Icon: RefreshCw,
+      onPress: () => {
+        setFunctionPanelVisible(false)
+        setModelListVisible(true)
+      },
+    },
+    {
+      key: 'clear-messages',
+      label: '清空对话',
+      Icon: Trash2,
+      onPress: confirmClearMessages,
+    },
+    {
+      key: 'export',
+      label: '导出对话',
+      Icon: Download,
+      onPress: () => { void handleExportMessages() },
+    },
+    {
+      key: 'share',
+      label: '分享对话',
+      Icon: Share2,
+      onPress: () => { void handleShareChat() },
+    },
+    {
+      key: 'tts',
+      label: '转语音',
+      Icon: Volume2,
+      onPress: () => {
+        setFunctionPanelVisible(false)
+        Alert.alert('提示', '转语音功能即将上线')
+      },
+    },
+    {
+      key: 'favorite',
+      label: '收藏',
+      Icon: Star,
+      onPress: () => {
+        setFunctionPanelVisible(false)
+        Alert.alert('提示', '收藏功能即将上线')
+      },
+    },
+  ]
+
+  /**
+   * source-handle 面板 4 项列表(对齐 Uniapp source-handle 子组件)。
+   * 1. 素材库 → 占位提示(TODO: 后续接 MaterialList 列表)
+   * 2. 网页链接 → 占位提示(TODO: 后续接输入弹窗)
+   * 3. 文件上传 → 占位提示(TODO: 后续接 DocumentPicker)
+   * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
+   */
+  const sourcePanelItems: readonly PanelItem[] = [
+    {
+      key: 'material',
+      label: '素材库',
+      Icon: BookOpen,
+      onPress: () => {
+        setSourcePanelVisible(false)
+        Alert.alert('提示', '素材库功能即将上线')
+      },
+    },
+    {
+      key: 'web-link',
+      label: '网页链接',
+      Icon: Link,
+      onPress: () => {
+        setSourcePanelVisible(false)
+        Alert.alert('提示', '输入网页链接功能即将上线')
+      },
+    },
+    {
+      key: 'file-upload',
+      label: '文件上传',
+      Icon: Paperclip,
+      onPress: () => {
+        setSourcePanelVisible(false)
+        Alert.alert('提示', '文件上传功能即将上线')
+      },
+    },
+    {
+      key: 'history',
+      label: '历史对话',
+      Icon: MessageSquare,
+      onPress: () => {
+        setSourcePanelVisible(false)
+        setDrawerVisible(true)
+      },
+    },
+  ]
 
   /**
    * icon-click:图标按钮点击(相机/相册/文件)。
@@ -974,26 +1157,74 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         </Pressable>
       </Modal>
 
-      {/* 功能面板弹窗(占位,后续任务对接真实功能面板) */}
-      <Modal visible={functionPanelVisible} transparent animationType="fade" onRequestClose={() => setFunctionPanelVisible(false)}>
-        <Pressable style={styles.modalMask} onPress={() => setFunctionPanelVisible(false)}>
-          <Pressable style={styles.simplePanelContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={() => setFunctionPanelVisible(false)} style={styles.simplePanelClose}>
-              <X size={20} color={tokens.text.primary} />
+      {/* 功能面板(对齐 Uniapp function-handle 子组件,底部上滑 6 项 AI 功能) */}
+      <Modal visible={functionPanelVisible} transparent animationType="slide" onRequestClose={closeFunctionPanel}>
+        <Pressable style={styles.panelSheetMask} onPress={closeFunctionPanel}>
+          <Pressable style={styles.panelSheetContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.panelSheetHeader}>
+              <Text style={styles.panelSheetTitle}>功能</Text>
+              <Pressable hitSlop={8} onPress={closeFunctionPanel} style={styles.panelSheetClose} accessibilityLabel="关闭">
+                <X size={20} color={tokens.text.secondary} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {functionPanelItems.map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={item.onPress}
+                  style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                >
+                  <item.Icon size={22} color={tokens.text.primary} />
+                  <Text style={styles.panelItemText}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              onPress={closeFunctionPanel}
+              style={({ pressed }) => [styles.panelCancelBtn, pressed && styles.panelItemPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="取消"
+            >
+              <Text style={styles.panelCancelText}>取消</Text>
             </Pressable>
-            <Text style={styles.simplePanelText}>功能面板(开发中)</Text>
           </Pressable>
         </Pressable>
       </Modal>
 
-      {/* 来源面板弹窗(占位,后续任务对接真实来源面板) */}
-      <Modal visible={sourcePanelVisible} transparent animationType="fade" onRequestClose={() => setSourcePanelVisible(false)}>
-        <Pressable style={styles.modalMask} onPress={() => setSourcePanelVisible(false)}>
-          <Pressable style={styles.simplePanelContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={() => setSourcePanelVisible(false)} style={styles.simplePanelClose}>
-              <X size={20} color={tokens.text.primary} />
+      {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
+      <Modal visible={sourcePanelVisible} transparent animationType="slide" onRequestClose={closeSourcePanel}>
+        <Pressable style={styles.panelSheetMask} onPress={closeSourcePanel}>
+          <Pressable style={styles.panelSheetContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.panelSheetHeader}>
+              <Text style={styles.panelSheetTitle}>知识来源</Text>
+              <Pressable hitSlop={8} onPress={closeSourcePanel} style={styles.panelSheetClose} accessibilityLabel="关闭">
+                <X size={20} color={tokens.text.secondary} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {sourcePanelItems.map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={item.onPress}
+                  style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                >
+                  <item.Icon size={22} color={tokens.text.primary} />
+                  <Text style={styles.panelItemText}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              onPress={closeSourcePanel}
+              style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="取消"
+            >
+              <Text style={styles.panelCancelText}>取消</Text>
             </Pressable>
-            <Text style={styles.simplePanelText}>来源面板(开发中)</Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1361,26 +1592,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // ── 功能面板/来源面板占位弹窗 ──
-  simplePanelContent: {
-    width: 260,
-    backgroundColor: tokens.surface.light,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
+  // ── 功能面板/来源面板(底部上滑 sheet,对齐 Uniapp function-handle / source-handle) ──
+  panelSheetMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    justifyContent: 'flex-end',
   },
-  simplePanelClose: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+  panelSheetContent: {
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingBottom: 24,
+    maxHeight: '80%',
+  },
+  panelSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  panelSheetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  panelSheetClose: {
     width: 28,
     height: 28,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  simplePanelText: {
-    fontSize: 14,
-    color: tokens.text.secondary,
+  panelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 14,
+  },
+  panelItemPressed: {
+    opacity: 0.85,
+  },
+  panelItemText: {
+    flex: 1,
+    fontSize: 16,
+    color: tokens.text.primary,
+  },
+  panelCancelBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  panelCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: tokens.text.primary,
   },
 })
 
