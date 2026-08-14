@@ -108,6 +108,7 @@ import AgentList, {
 } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import NotificationPanel from '../components/NotificationPanel'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -762,8 +763,14 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   }
 
   // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) ──
-  const showSharePoints = (): void => setShareValueVisible(true)
+  // showSharePoints 已移除:Share2 按钮改为跳个人中心(goToMyPage),
+  // 弹窗触发改为进页面自动检查(见下方 useEffect,待 checkFirstShareStatus API 接入)。
   const hideSharePoints = (): void => setShareValueVisible(false)
+
+  // ── 跳转个人中心(对齐 Uniapp goToMyPage,Share2 按钮承载 share-image 跳转) ──
+  const goToMyPage = (): void => {
+    navigation.navigate('Tabs', { screen: 'mine' } as never)
+  }
   const handleShareClick = async (): Promise<void> => {
     try {
       await Share.share({ message: '智汇AI社区 — 邀请你加入,一起探索 AI 对话!' })
@@ -846,6 +853,18 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     const conversationId = route.params?.conversationId
     if (conversationId) void loadConversationMessages(conversationId)
   }, [route.params?.conversationId, loadConversationMessages])
+
+  // ── 分享智汇值弹窗自动触发(对齐 Uniapp checkFirstShareStatus API 自动检查) ──
+  // Uniapp:用户进页面时若未领过智汇值则由 API 自动弹出 share-points 弹窗。
+  // mobile-rn:Share2 按钮改为跳个人中心(对齐 goToMyPage),弹窗改由本 effect 自动触发。
+  // TODO: 待 API 实现 checkFirstShareStatus 后接入真实检查;
+  //   当前用注释占位,不自动弹出(避免每次进页面都弹,影响 UX)。
+  // useEffect(() => {
+  //   void (async () => {
+  //     const shouldShow = await checkFirstShareStatus()
+  //     if (shouldShow) setShareValueVisible(true)
+  //   })()
+  // }, [])
 
   const handleDrawerSelectConversation = (id: string): void => {
     setDrawerVisible(false)
@@ -980,6 +999,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
 
   return (
     <View style={styles.root}>
+      {/* 推送通知弹窗(对齐 Uniapp 顶层 PushNotification,组件自管 visible) */}
+      <NotificationPanel />
+
       {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
       <NavBar
         title="智汇AI"
@@ -1001,11 +1023,12 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             >
               <Bot size={22} color={tokens.text.primary} />
             </Pressable>
-            {/* 分享按钮:显示分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) */}
+            {/* 分享按钮:跳个人中心(对齐 Uniapp share-image + goToMyPage);
+                share-points 弹窗改为进页面自动触发,见上方 useEffect) */}
             <Pressable
               hitSlop={8}
-              onPress={showSharePoints}
-              accessibilityLabel="分享领智汇值"
+              onPress={goToMyPage}
+              accessibilityLabel="个人中心"
             >
               <Share2 size={22} color={tokens.text.primary} />
             </Pressable>
@@ -1144,7 +1167,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
                 style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
                 accessibilityLabel={label}
               >
-                <Icon size={16} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
+                <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
                 <Text
                   style={[
                     styles.modelTypeLabel,
@@ -1716,7 +1739,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: tokens.surface.card,
-    height: 32,
+    height: 30,
+    minWidth: 100,
   },
   modelTypeBtnActive: {
     backgroundColor: tokens.surface.light,
@@ -1785,17 +1809,19 @@ const styles = StyleSheet.create({
   },
   qrCodeClose: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
   },
   qrCodePlaceholder: {
-    width: 256,
-    height: 256,
+    width: 280,
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
@@ -1804,9 +1830,9 @@ const styles = StyleSheet.create({
   },
   qrCodeTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   qrCodeHint: {
     padding: 4,
