@@ -57,7 +57,7 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // VS Code 标准命令面板快捷键:Ctrl+Shift+P 打开 Plus 命令面板(视图/工具/设置切换)
   // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
-  // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 9 项菜单访问
+  // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 8 项菜单访问(2026-08-14 设置项已提取为顶栏独立按钮)
   { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus' },
   // VS Code 标准设置快捷键:Ctrl+, 直接打开设置页(高频入口,免命令面板搜索)
   { key: 'Ctrl+,', description: '打开设置', event: 'global-shortcut:open-settings' },

@@ -140,6 +140,8 @@ export function MessageInput({
     handlePaste,
     handleFileInputChange,
     submit,
+    pendingMessage,
+    sendPendingMessage,
   } = useMessageSend({
     value,
     setValue,
@@ -166,6 +168,17 @@ export function MessageInput({
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
   const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
+  // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
+  const wasStreamingRef = React.useRef(isStreaming)
+  React.useEffect(() => {
+    // isStreaming 从 true 变为 false:流式结束,发送预备消息
+    if (wasStreamingRef.current && !isStreaming && pendingMessage) {
+      wasStreamingRef.current = false
+      void sendPendingMessage()
+    }
+    wasStreamingRef.current = isStreaming
+  }, [isStreaming, pendingMessage, sendPendingMessage])
+
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
@@ -173,7 +186,8 @@ export function MessageInput({
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
-  const canSend = !isStreaming && value.trim().length > 0
+  // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
+  const canSend = value.trim().length > 0
   // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
   const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
   const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(null)
@@ -325,6 +339,25 @@ export function MessageInput({
         )}
         {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
         <MentionChips />
+        {/* 流式期间预备消息悬浮(2026-08-14 立,对标 Cursor/ChatGPT):流式中输入的消息
+            暂存为 pending,显示在输入框上方,流式结束后自动发送 */}
+        {pendingMessage && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
+            <span className="flex-1 truncate text-amber-700 dark:text-amber-300">{pendingMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setPendingMessage(null)
+                setValue(pendingMessage.text)
+                resetReferences()
+                requestAnimationFrame(() => inputCoreRef.current?.resize())
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t('cancel') ?? '取消'}
+            </button>
+          </div>
+        )}
         <div className="relative">
           <FileMentionPopover
             files={mentionFiles}
