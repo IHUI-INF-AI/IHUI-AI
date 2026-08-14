@@ -5,7 +5,7 @@
  * 响应格式 OpenAI 兼容(不套 { code, message, data } 壳,camelCase 字段)。
  * 鉴权由 plugins/api-key-auth.ts 提供,契约类型由 @ihui/types 提供。
  *
- * 转发策略:fetch 转发到内部 /api/* 路由(base url http://localhost:${PORT||3001})。
+ * 转发策略:fetch 转发到内部 /api/* 路由(base url http://localhost:${PORT||8802})。
  * 内部 /api/* 路由使用 JWT 鉴权(plugins/auth.ts authenticate),本文件用 signAccessToken
  * 从 request.apiKey.userId 签发短期内部 JWT,作为 Bearer 透传,保持 API Key 鉴权隔离不混用用户 JWT。
  * 内部成功响应 { code:0, message:'success', data } 自动拆壳返回 data;错误响应透传 HTTP 状态码。
@@ -61,7 +61,7 @@ import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 // =============================================================================
 
 /** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
-const INTERNAL_BASE = `http://localhost:${process.env.PORT || 3001}`
+const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
 

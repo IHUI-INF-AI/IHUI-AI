@@ -46,7 +46,7 @@ const { mockConfig } = vi.hoisted(() => ({
     TENCENT_LIVE_API_KEY: '',
     CORS_ORIGIN: 'http://localhost:8801',
     HOST: '0.0.0.0',
-    PORT: 8080,
+    PORT: 8802,
     LOG_LEVEL: 'info',
     API_LOG_SAMPLE_RATE: 0.1,
     API_LOG_ENABLED: true,
