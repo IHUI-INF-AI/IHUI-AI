@@ -182,6 +182,12 @@ const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
   { key: 'audio', label: '音频' },
 ] as const
 
+/** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 待 API 接入) */
+const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
+
+/** 文件上传支持类型徽章(P1.5,expo-document-picker 未安装,Modal 占位) */
+const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as const
+
 // DrawerTab 中 home/ai/mine 是 Tab 路由(走 Tabs navigator);
 // square/share 是 RootStack 路由(直接 navigate,见 handleDrawerNavigate)。
 
@@ -235,6 +241,16 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
+  // P1.1 转语音 Modal(占位 TODO 替换:语音类型选项 + 模拟 TTS loading)
+  const [ttsVisible, setTtsVisible] = useState(false)
+  const [ttsLoading, setTtsLoading] = useState(false)
+  // P1.2 收藏 UI 状态(不调 API,用 Set 跟踪已收藏消息 id)
+  const [favoritedMessageIds, setFavoritedMessageIds] = useState<Set<string>>(new Set())
+  // P1.4 网页链接输入 Modal
+  const [urlInputVisible, setUrlInputVisible] = useState(false)
+  const [urlInputValue, setUrlInputValue] = useState('')
+  // P1.5 文件上传 Modal(expo-document-picker 未安装,Modal 占位)
+  const [fileUploadVisible, setFileUploadVisible] = useState(false)
   // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
@@ -314,7 +330,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   }, [drawerVisible, drawerConversationsLoaded, authUser, loadDrawerConversations])
 
   // ── 发送消息(send-message 事件) ──
-  const send = async (): Promise<void> => {
+  const send = async (overrideText?: string): Promise<void> => {
     // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
     if (!authUser) {
       Alert.alert('提示', '请先登录后再发送消息', [
@@ -334,7 +350,8 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       ])
       return
     }
-    const text = prompt.trim()
+    // overrideText 用于 P1.4 网页链接发送等场景;onSend 已 wrap 为 () => send() 防止 PressableEvent 传入
+    const text = (typeof overrideText === 'string' ? overrideText : prompt).trim()
     if (!text || isStreaming) return
     setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
@@ -496,6 +513,57 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
   const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
+  /**
+   * P1.1 转语音:打开语音类型选项 Modal(占位 TODO 替换)。
+   * 选中类型后模拟 3s TTS 转换,真实 TTS 待 API 接入。
+   */
+  const openTtsPanel = (): void => {
+    setFunctionPanelVisible(false)
+    setTtsVisible(true)
+  }
+  const handleTtsSelect = (voiceType: string): void => {
+    setTtsLoading(true)
+    // 模拟 TTS 转换 3s(真实 API 接入后替换为流式回调)
+    setTimeout(() => {
+      setTtsLoading(false)
+      setTtsVisible(false)
+      showToast('success', `语音生成成功(${voiceType})`)
+    }, 3000)
+  }
+
+  /**
+   * P1.2 收藏:切换最近一条 assistant 消息的收藏状态(占位 TODO 替换)。
+   * 不调 API,仅用 Set 跟踪 UI 状态 + toast 反馈。
+   */
+  const toggleFavorite = (): void => {
+    setFunctionPanelVisible(false)
+    const lastAi = [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())
+    if (!lastAi) {
+      showToast('info', '暂无消息可收藏')
+      return
+    }
+    const isFavorited = favoritedMessageIds.has(lastAi.id)
+    setFavoritedMessageIds((prev) => {
+      const next = new Set(prev)
+      if (isFavorited) next.delete(lastAi.id)
+      else next.add(lastAi.id)
+      return next
+    })
+    showToast('success', isFavorited ? '已取消收藏' : '已收藏')
+  }
+
+  /**
+   * P1.4 网页链接确认:将输入的 URL 作为消息发送(占位 TODO 替换)。
+   * 复用 send(overrideText) 走完整的登录/VIP/流式校验链路。
+   */
+  const handleUrlConfirm = async (): Promise<void> => {
+    const url = urlInputValue.trim()
+    setUrlInputVisible(false)
+    setUrlInputValue('')
+    if (!url) return
+    await send(url)
+  }
+
   /** 清空对话(对齐 Uniapp ai_index.vue clearMessages,二次确认 + 重置 messages/materialCards/prompt) */
   const confirmClearMessages = (): void => {
     setFunctionPanelVisible(false)
@@ -592,19 +660,13 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       key: 'tts',
       label: '转语音',
       Icon: Volume2,
-      onPress: () => {
-        setFunctionPanelVisible(false)
-        showToast('info', '转语音功能即将上线')
-      },
+      onPress: openTtsPanel,
     },
     {
       key: 'favorite',
       label: '收藏',
       Icon: Star,
-      onPress: () => {
-        setFunctionPanelVisible(false)
-        showToast('info', '收藏功能即将上线')
-      },
+      onPress: toggleFavorite,
     },
   ]
 
@@ -621,8 +683,10 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       label: '素材库',
       Icon: BookOpen,
       onPress: () => {
+        // P1.3:复用 sck 模型类型 + MaterialList 弹窗(占位 TODO 替换)
         setSourcePanelVisible(false)
-        showToast('info', '素材库功能即将上线')
+        setCurrentModelType('sck')
+        setShowMaterialList(true)
       },
     },
     {
@@ -630,8 +694,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       label: '网页链接',
       Icon: Link,
       onPress: () => {
+        // P1.4:打开 URL 输入 Modal(占位 TODO 替换)
         setSourcePanelVisible(false)
-        showToast('info', '输入网页链接功能即将上线')
+        setUrlInputVisible(true)
       },
     },
     {
@@ -639,8 +704,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       label: '文件上传',
       Icon: Paperclip,
       onPress: () => {
+        // P1.5:expo-document-picker 未安装,弹 Modal 占位(占位 TODO 替换)
         setSourcePanelVisible(false)
-        showToast('info', '文件上传功能即将上线')
+        setFileUploadVisible(true)
       },
     },
     {
@@ -904,9 +970,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // ── AgentList 选中回调 ──
   const handleAgentSelect = (id: string): void => {
     setAgentListVisible(false)
-    // 跳 Agent 详情页(AgentDetail 路由接受 { id: string },已在 RootNavigator 注册)
-    // 注:AiAssistant 路由 params 为 undefined 无法传 code,故用 AgentDetail 承载 agent.id
-    navigation.navigate('AgentDetail', { id })
+    // 对齐 Uniapp:Agent 选中后跳 AiAssistant 传 agentId 参数
+    // (AiAssistant 路由 params 已更新为 { agentId?: string; title?: string })
+    navigation.navigate('AiAssistant', { agentId: id })
   }
 
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
@@ -1099,7 +1165,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         <BottomActionBar
           prompt={prompt}
           onPromptChange={updatePrompt}
-          onSend={isStreaming ? stop : send}
+          onSend={isStreaming ? stop : () => send()}
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
@@ -1166,6 +1232,152 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             <Pressable onPress={handleShareClick} style={styles.shareBtn}>
               <Text style={styles.shareBtnText}>立即分享</Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* P1.1 转语音 Modal(语音类型选项 + 模拟 TTS loading) */}
+      <Modal
+        visible={ttsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { if (!ttsLoading) setTtsVisible(false) }}
+      >
+        <Pressable
+          style={styles.modalMask}
+          onPress={() => { if (!ttsLoading) setTtsVisible(false) }}
+        >
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle}>转语音</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => { if (!ttsLoading) setTtsVisible(false) }}
+                style={styles.listDialogClose}
+              >
+                <X size={20} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+            {ttsLoading ? (
+              <View style={styles.ttsLoadingWrap}>
+                <Text style={styles.ttsLoadingText}>TTS 转换中...</Text>
+              </View>
+            ) : (
+              <View style={styles.ttsOptions}>
+                {TTS_VOICE_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt}
+                    onPress={() => handleTtsSelect(opt)}
+                    style={({ pressed }) => [styles.ttsOptionBtn, pressed && styles.panelItemPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={opt}
+                  >
+                    <Text style={styles.ttsOptionText}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {!ttsLoading ? (
+              <Pressable
+                onPress={() => setTtsVisible(false)}
+                style={[styles.panelCancelBtn, styles.ttsCancelBtn]}
+                accessibilityRole="button"
+                accessibilityLabel="取消"
+              >
+                <Text style={styles.panelCancelText}>取消</Text>
+              </Pressable>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* P1.4 网页链接输入 Modal */}
+      <Modal
+        visible={urlInputVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUrlInputVisible(false)}
+      >
+        <Pressable style={styles.modalMask} onPress={() => setUrlInputVisible(false)}>
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle}>网页链接</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setUrlInputVisible(false)}
+                style={styles.listDialogClose}
+              >
+                <X size={20} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+            <View style={styles.urlInputBody}>
+              <TextInput
+                style={styles.urlInputField}
+                value={urlInputValue}
+                onChangeText={setUrlInputValue}
+                placeholder="请输入网页链接(https://...)"
+                placeholderTextColor={tokens.text.tertiary}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                autoFocus
+              />
+              <Pressable
+                onPress={() => { void handleUrlConfirm() }}
+                style={styles.urlInputConfirmBtn}
+                accessibilityRole="button"
+                accessibilityLabel="发送链接"
+              >
+                <Text style={styles.urlInputConfirmText}>发送</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* P1.5 文件上传 Modal(expo-document-picker 未安装,Modal 占位) */}
+      <Modal
+        visible={fileUploadVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFileUploadVisible(false)}
+      >
+        <Pressable style={styles.modalMask} onPress={() => setFileUploadVisible(false)}>
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle}>文件上传</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setFileUploadVisible(false)}
+                style={styles.listDialogClose}
+              >
+                <X size={20} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+            <View style={styles.fileUploadBody}>
+              <Text style={styles.fileUploadDesc}>支持文件类型:</Text>
+              <View style={styles.fileUploadTypeList}>
+                {FILE_TYPE_BADGES.map((t) => (
+                  <View key={t} style={styles.fileUploadTypeBadge}>
+                    <Text style={styles.fileUploadTypeText}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.fileUploadHint}>
+                文件选择功能待接入(expo-document-picker 未安装)
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setFileUploadVisible(false)
+                  showToast('info', '文件选择功能待接入')
+                }}
+                style={styles.fileUploadConfirmBtn}
+                accessibilityRole="button"
+                accessibilityLabel="知道了"
+              >
+                <Text style={styles.fileUploadConfirmText}>知道了</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1746,6 +1958,101 @@ const styles = StyleSheet.create({
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
+    color: tokens.surface.light,
+  },
+  // ── P1.1 转语音 Modal ──
+  ttsLoadingWrap: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ttsLoadingText: {
+    fontSize: 14,
+    color: tokens.text.secondary,
+  },
+  ttsOptions: {
+    paddingVertical: 8,
+    gap: 4,
+  },
+  ttsOptionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: tokens.surface.muted,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  ttsOptionText: {
+    fontSize: 15,
+    color: tokens.text.primary,
+  },
+  ttsCancelBtn: {
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  // ── P1.4 网页链接输入 Modal ──
+  urlInputBody: {
+    padding: 16,
+    gap: 12,
+  },
+  urlInputField: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+    fontSize: 14,
+    color: tokens.text.primary,
+  },
+  urlInputConfirmBtn: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  urlInputConfirmText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: tokens.surface.light,
+  },
+  // ── P1.5 文件上传 Modal ──
+  fileUploadBody: {
+    padding: 16,
+    gap: 12,
+  },
+  fileUploadDesc: {
+    fontSize: 14,
+    color: tokens.text.primary,
+    fontWeight: '500',
+  },
+  fileUploadTypeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fileUploadTypeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.muted,
+  },
+  fileUploadTypeText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  fileUploadHint: {
+    fontSize: 12,
+    color: tokens.text.tertiary,
+  },
+  fileUploadConfirmBtn: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  fileUploadConfirmText: {
+    fontSize: 15,
+    fontWeight: '500',
     color: tokens.surface.light,
   },
 })
