@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAgents, getAiModels, type Agent, type AiModel } from '@ihui/api-client'
@@ -9,6 +9,7 @@ import ModelList, { type ModelListGroup, type ModelListItem } from '../component
 import Carousel from '../components/Carousel'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import type { CarouselItem } from '@ihui/ui-native'
+import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -71,6 +72,7 @@ function buildModelGroups(models: AiModel[]): ModelListGroup[] {
 
 export function AgentScreen() {
   const { t } = useI18n()
+  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [items, setItems] = useState<AgentScreenItem[]>([])
@@ -113,6 +115,24 @@ export function AgentScreen() {
 
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(aiModels), [aiModels])
 
+  // Agent 卡片点击 → 登录校验 → AiAssistant(对齐 Uniapp ai_assistant?agentId=xxx)
+  const handleItemClick = useCallback(
+    (id: string) => {
+      if (!token) {
+        Alert.alert(t('common.hint'), '请先登录', [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('common.login'), onPress: () => navigation.navigate('Login') },
+        ])
+        return
+      }
+      // TODO: 付费判断(需要 getAgentPermission API + item.isVipExclusive)
+      // TODO: n8n 分流(需要 item.type 和 item.source 字段)
+      const agent = items.find((a) => a.id === id)
+      navigation.navigate('AiAssistant', { agentId: id, title: agent?.name })
+    },
+    [token, t, navigation, items],
+  )
+
   return (
     <View style={styles.shell}>
       {banners.length > 0 ? (
@@ -123,7 +143,7 @@ export function AgentScreen() {
       {recentAgents.length > 0 ? (
         <RecentAgents
           items={recentAgents}
-          onItemClick={(item) => navigation.navigate('AgentDetail', { id: item.id })}
+          onItemClick={(item) => handleItemClick(item.id)}
         />
       ) : null}
       <View style={styles.tabBar}>
@@ -158,7 +178,7 @@ export function AgentScreen() {
               setRefreshing(true)
               void load()
             }}
-            onPressItem={(id) => navigation.navigate('AgentDetail', { id })}
+            onPressItem={(id) => handleItemClick(id)}
             onBack={() => navigation.goBack()}
           />
         ) : (
