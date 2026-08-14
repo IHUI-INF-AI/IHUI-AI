@@ -8,8 +8,8 @@ This directory contains the Nginx configuration for IHUI-AI blue-green deploymen
 
 | Environment | Web Port | API Port |
 | ----------- | -------- | -------- |
-| Blue        | 3000     | 8080     |
-| Green       | 3001     | 8081     |
+| Blue        | 8801     | 8802     |
+| Green       | 8803     | 8804     |
 
 ## Files
 
@@ -45,15 +45,15 @@ The workflow (`.github/workflows/blue-green-deploy.yml`) switches environments b
 Create `upstream-blue.conf`:
 
 ```nginx
-upstream active_web { server 127.0.0.1:3000 max_fails=3 fail_timeout=30s; }
-upstream active_api { server 127.0.0.1:8080 max_fails=3 fail_timeout=30s; }
+upstream active_web { server 127.0.0.1:8801 max_fails=3 fail_timeout=30s; }
+upstream active_api { server 127.0.0.1:8802 max_fails=3 fail_timeout=30s; }
 ```
 
 Create `upstream-green.conf`:
 
 ```nginx
-upstream active_web { server 127.0.0.1:8843 max_fails=3 fail_timeout=30s; }
-upstream active_api { server 127.0.0.1:8844 max_fails=3 fail_timeout=30s; }
+upstream active_web { server 127.0.0.1:8803 max_fails=3 fail_timeout=30s; }
+upstream active_api { server 127.0.0.1:8804 max_fails=3 fail_timeout=30s; }
 ```
 
 ### 2. Update main config to use include

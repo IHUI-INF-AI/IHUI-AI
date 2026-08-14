@@ -132,7 +132,7 @@ sudo certbot --nginx -d api.your-domain.com -d your-domain.com
 
 ```bash
 pnpm install
-pnpm dev   # 同时启动 web(3000)+ api(3001)+ ai-service(8000)
+pnpm dev   # 同时启动 web(8801)+ api(8802)+ ai-service(8803)
 ```
 
 完整启动语义见根 AGENTS.md §18。详见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
@@ -140,7 +140,7 @@ pnpm dev   # 同时启动 web(3000)+ api(3001)+ ai-service(8000)
 ### Q23:如何调试?
 
 - web / api:VSCode launch.json 已配置,Attach to port 9229
-- ai-service:`uvicorn app.main:app --reload --port 8000`
+- ai-service:`uvicorn app.main:app --reload --port 8803`
 - CLI:`pnpm --filter @ihui/cli dev`(tsx 直跑源码,支持断点)
 
 ### Q24:如何加新 API?

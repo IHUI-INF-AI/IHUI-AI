@@ -26,11 +26,7 @@ const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
  * 构造模拟的 ai-service 上游 Response。
  * proxyDebug 调用 upstream.text() + upstream.headers.get('content-type') + upstream.status。
  */
-function makeUpstream(
-  status: number,
-  body: unknown,
-  contentType = 'application/json',
-): Response {
+function makeUpstream(status: number, body: unknown, contentType = 'application/json'): Response {
   const text = typeof body === 'string' ? body : JSON.stringify(body)
   return {
     status,
@@ -110,7 +106,7 @@ describe('Debug API (/api/debug/*) — 代理到 ai-service', () => {
         method: 'POST',
         url: '/api/debug/launch',
         headers: AUTH_HEADERS,
-        payload: { language: 'node', program: 'app.js', args: ['--port', '3000'] },
+        payload: { language: 'node', program: 'app.js', args: ['--port', '8802'] },
       })
       const init = vi.mocked(aiServiceFetch).mock.calls[0]![2] as { body?: string }
       expect(init.body).toBeDefined()

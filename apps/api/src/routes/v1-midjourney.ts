@@ -30,7 +30,7 @@ import { recordCall } from '../services/relay-billing-service.js'
 // 常量
 // =============================================================================
 
-/** 上游 midjourney-proxy base url,如 http://localhost:8080 */
+/** 上游 midjourney-proxy base url,如 http://localhost:8808 */
 const MJ_BASE = process.env.MIDJOURNEY_PROXY_BASE
 /** 上游 midjourney-proxy api key */
 const MJ_API_KEY = process.env.MIDJOURNEY_PROXY_API_KEY

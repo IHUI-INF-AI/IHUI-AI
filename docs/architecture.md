@@ -75,7 +75,7 @@
 - **i18n**: next-intl(zh-CN + en 双语)
 - **图标**: lucide-react
 - **通知**: sonner toast
-- **端口**: 3000
+- **端口**: 8801
 
 ### AI 服务(`apps/ai-service/`)
 > ✅ AI 服务已**完整实现**。`apps/ai-service/` 含完整 `app/` 目录(Python 源码:routers/services/core)+ `tests/`(13 文件,400 用例)+ `pyproject.toml` + `Dockerfile` + `.env.example` + `.gitignore`。

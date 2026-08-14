@@ -243,8 +243,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_HTTP_PORT: 8816
     ports:
-      - "8816:3000"
+      - "8816:8816"
     networks: [demo]
 
 volumes:

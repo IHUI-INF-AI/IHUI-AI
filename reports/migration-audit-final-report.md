@@ -15,30 +15,30 @@
 
 ### 5 阶段对照总览
 
-| 阶段 | 维度 | D 盘总数 | 当前仓库总数 | 已迁移 | 部分迁移 | 缺失 | 真实缺失 | 无需迁移 |
-|------|------|---------|------------|-------|---------|------|---------|---------|
-| 1 | 文件清单 | 31491 | 4435 | 1512 | 827 | 29152 | — | — |
-| 2 | API 端点 | 1226 | 2415 | 14 (1.1%) | 242 (19.7%) | 970 (79.1%) | 806 | 2079 (86.1%) |
-| 3 | 数据库表 | 217 | 153 | 80 (36.9%) | 91 (41.9%) | 46 (21.2%) | 45 | 92 |
-| 4 | 前端路由 | 333 | 595 | 22 (6.6%) | 63 (18.9%) | 248 (74.5%) | 236 | 510 (85.7%) |
-| 5 | i18n key | 2976 | 20427 | 183 (6.1%) | 1309 (44.0%) | 1484 (49.9%) | 977 | 14331 (70.2%) |
+| 阶段 | 维度     | D 盘总数 | 当前仓库总数 | 已迁移     | 部分迁移     | 缺失         | 真实缺失 | 无需迁移      |
+| ---- | -------- | -------- | ------------ | ---------- | ------------ | ------------ | -------- | ------------- |
+| 1    | 文件清单 | 31491    | 4435         | 1512       | 827          | 29152        | —        | —             |
+| 2    | API 端点 | 1226     | 2415         | 14 (1.1%)  | 242 (19.7%)  | 970 (79.1%)  | 806      | 2079 (86.1%)  |
+| 3    | 数据库表 | 217      | 153          | 80 (36.9%) | 91 (41.9%)   | 46 (21.2%)   | 45       | 92            |
+| 4    | 前端路由 | 333      | 595          | 22 (6.6%)  | 63 (18.9%)   | 248 (74.5%)  | 236      | 510 (85.7%)   |
+| 5    | i18n key | 2976     | 20427        | 183 (6.1%) | 1309 (44.0%) | 1484 (49.9%) | 977      | 14331 (70.2%) |
 
 ### 核心业务模块迁移完整性矩阵
 
-| 业务模块 | 数据库覆盖率 | API 端点 | 前端页面 | i18n 关键 key | 综合判定 |
-|---------|------------|---------|---------|-------------|---------|
-| user/auth | 100% (8/8) | ✓ | ✓ (login/register) | ✓ (login/logout/password) | **100% 迁移** |
-| order/pay | 100% (9/9) | ✓ | ✓ | ✓ | **100% 迁移** |
-| member | 100% (14/14) | ✓ | ✓ | ✓ | **100% 迁移** |
-| message/notification | 100% (6/6) | ✓ | ✓ | ✓ | **100% 迁移** |
-| point | 100% (6/6) | ✓ | ✓ | ✓ | **100% 迁移** |
-| ai/chat/model/agent | 100% (新增) | ✓ | ✓ (ai 模块) | ✓ | **100% 迁移**(新项目扩展) |
-| course/learn | 85% (17/20) | 部分 | 部分 | 部分 | **85% 迁移** |
-| exam | 95.7% (22/23) | 部分 | 部分 | 部分 | **95% 迁移** |
-| circle/social | 88.9% (8/9) | 部分 | 部分 | 部分 | **89% 迁移** |
-| **live(直播)** | **50% (4/8)** | 部分 | 部分 | 部分 | **50% 迁移** ⚠️ |
-| **content(内容)** | **50% (2/4)** | 部分 | 部分 | 部分 | **50% 迁移** ⚠️ |
-| **resource(资源)** | **66.7% (8/12)** | 部分 | 部分 | 部分 | **67% 迁移** ⚠️ |
+| 业务模块             | 数据库覆盖率     | API 端点 | 前端页面           | i18n 关键 key             | 综合判定                  |
+| -------------------- | ---------------- | -------- | ------------------ | ------------------------- | ------------------------- |
+| user/auth            | 100% (8/8)       | ✓        | ✓ (login/register) | ✓ (login/logout/password) | **100% 迁移**             |
+| order/pay            | 100% (9/9)       | ✓        | ✓                  | ✓                         | **100% 迁移**             |
+| member               | 100% (14/14)     | ✓        | ✓                  | ✓                         | **100% 迁移**             |
+| message/notification | 100% (6/6)       | ✓        | ✓                  | ✓                         | **100% 迁移**             |
+| point                | 100% (6/6)       | ✓        | ✓                  | ✓                         | **100% 迁移**             |
+| ai/chat/model/agent  | 100% (新增)      | ✓        | ✓ (ai 模块)        | ✓                         | **100% 迁移**(新项目扩展) |
+| course/learn         | 85% (17/20)      | 部分     | 部分               | 部分                      | **85% 迁移**              |
+| exam                 | 95.7% (22/23)    | 部分     | 部分               | 部分                      | **95% 迁移**              |
+| circle/social        | 88.9% (8/9)      | 部分     | 部分               | 部分                      | **89% 迁移**              |
+| **live(直播)**       | **50% (4/8)**    | 部分     | 部分               | 部分                      | **50% 迁移** ⚠️           |
+| **content(内容)**    | **50% (2/4)**    | 部分     | 部分               | 部分                      | **50% 迁移** ⚠️           |
+| **resource(资源)**   | **66.7% (8/12)** | 部分     | 部分               | 部分                      | **67% 迁移** ⚠️           |
 
 ---
 
@@ -80,10 +80,10 @@
 
 ### 2.2 缺失端点分析(970 个)
 
-| 缺失类型 | 数量 | 占比 |
-|---------|-----|------|
-| 语言迁移预期(同模块有 Fastify 路由) | 164 | 16.9% |
-| 真实缺失(同模块无 Fastify 路由) | 806 | 83.1% |
+| 缺失类型                            | 数量 | 占比  |
+| ----------------------------------- | ---- | ----- |
+| 语言迁移预期(同模块有 Fastify 路由) | 164  | 16.9% |
+| 真实缺失(同模块无 Fastify 路由)     | 806  | 83.1% |
 
 ### 2.3 真实缺失模式分析(806 个)
 
@@ -122,31 +122,31 @@
 
 ### 3.2 4 类分布
 
-| 类别 | 数量 | 占比 |
-|------|-----|------|
-| migrated (精确匹配) | 80 | 36.9% |
-| partial (前缀/业务关键词) | 91 | 41.9% |
-| missing (旧项目独有) | 46 | 21.2% |
-| new (新项目新增) | 92 | — |
+| 类别                      | 数量 | 占比  |
+| ------------------------- | ---- | ----- |
+| migrated (精确匹配)       | 80   | 36.9% |
+| partial (前缀/业务关键词) | 91   | 41.9% |
+| missing (旧项目独有)      | 46   | 21.2% |
+| new (新项目新增)          | 92   | —     |
 
 ### 3.3 关键业务表完整性
 
-| 业务模块 | 旧表数 | 新表数 | 覆盖率 |
-|---------|-------|-------|-------|
-| user | 8 | 8 | **100%** |
-| order | 7 | 2 | **100%** |
-| payment/pay | 4 | 3 | **100%** |
-| ai | 1 | 2 | **100%** |
-| member | 14 | 9 | **100%** |
-| message/notification | 6 | 5 | **100%** |
-| point | 6 | 2 | **100%** |
-| course(新增) | 0 | 5 | **100%** |
-| exam | 23 | 12 | 95.7% |
-| learn | 20 | 5 | 85% |
-| circle | 9 | 3 | 88.9% |
-| **live(直播)** | **8** | **3** | **50% ⚠️** |
-| **content(内容)** | **4** | **1** | **50% ⚠️** |
-| **resource(资源)** | **12** | **6** | **66.7% ⚠️** |
+| 业务模块             | 旧表数 | 新表数 | 覆盖率       |
+| -------------------- | ------ | ------ | ------------ |
+| user                 | 8      | 8      | **100%**     |
+| order                | 7      | 2      | **100%**     |
+| payment/pay          | 4      | 3      | **100%**     |
+| ai                   | 1      | 2      | **100%**     |
+| member               | 14     | 9      | **100%**     |
+| message/notification | 6      | 5      | **100%**     |
+| point                | 6      | 2      | **100%**     |
+| course(新增)         | 0      | 5      | **100%**     |
+| exam                 | 23     | 12     | 95.7%        |
+| learn                | 20     | 5      | 85%          |
+| circle               | 9      | 3      | 88.9%        |
+| **live(直播)**       | **8**  | **3**  | **50% ⚠️**   |
+| **content(内容)**    | **4**  | **1**  | **50% ⚠️**   |
+| **resource(资源)**   | **12** | **6**  | **66.7% ⚠️** |
 
 ### 3.4 真实缺失表清单(45 张)
 
@@ -183,10 +183,10 @@
 
 ### 4.2 缺失页面分析(248 个)
 
-| 缺失类型 | 数量 | 占比 |
-|---------|-----|------|
-| 语言迁移预期(uni-app 移动端 + SSO/错误页) | 12 | 4.8% |
-| 真实缺失 | 236 | 95.2% |
+| 缺失类型                                  | 数量 | 占比  |
+| ----------------------------------------- | ---- | ----- |
+| 语言迁移预期(uni-app 移动端 + SSO/错误页) | 12   | 4.8%  |
+| 真实缺失                                  | 236  | 95.2% |
 
 ### 4.3 真实缺失页面分类(236 个)
 
@@ -199,18 +199,18 @@
 
 ### 4.4 关键页面迁移检查
 
-| 关键词 | Vue 有 | Next.js 有 | 状态 |
-|-------|-------|----------|------|
-| login | ✓ | ✓ | both |
-| user | ✓ | ✓ | both |
-| member | ✓ | ✓ | both |
-| role | ✓ | ✓ | both |
-| order | ✓ | ✓ | both |
-| article | ✓ | ✓ | both |
-| dashboard | ✗ | ✓ | next_only(Vue 用 /index) |
-| index | ✓ | ✗ | vue_only(Next.js 用 / 根路径) |
-| course | ✗ | ✓ | next_only(Vue 用 /learn/lesson) |
-| ai | ✗ | ✓ | next_only(Vue 无独立 ai 模块) |
+| 关键词    | Vue 有 | Next.js 有 | 状态                            |
+| --------- | ------ | ---------- | ------------------------------- |
+| login     | ✓      | ✓          | both                            |
+| user      | ✓      | ✓          | both                            |
+| member    | ✓      | ✓          | both                            |
+| role      | ✓      | ✓          | both                            |
+| order     | ✓      | ✓          | both                            |
+| article   | ✓      | ✓          | both                            |
+| dashboard | ✗      | ✓          | next_only(Vue 用 /index)        |
+| index     | ✓      | ✗          | vue_only(Next.js 用 / 根路径)   |
+| course    | ✗      | ✓          | next_only(Vue 用 /learn/lesson) |
+| ai        | ✗      | ✓          | next_only(Vue 无独立 ai 模块)   |
 
 ### 4.5 交付物
 
@@ -235,10 +235,10 @@
 
 ### 5.2 缺失 key 分析(1,484 个)
 
-| 缺失类型 | 数量 | 占比 |
-|---------|-----|------|
-| 语言迁移预期(模块存在,leaf key 不同) | 507 | 34.2% |
-| 真实缺失(模块级别缺失) | 977 | 65.8% |
+| 缺失类型                             | 数量 | 占比  |
+| ------------------------------------ | ---- | ----- |
+| 语言迁移预期(模块存在,leaf key 不同) | 507  | 34.2% |
+| 真实缺失(模块级别缺失)               | 977  | 65.8% |
 
 ### 5.3 真实缺失 top 模块
 
@@ -248,15 +248,15 @@
 
 ### 5.4 关键 key 迁移完整性(17/17 全部迁移)
 
-| 关键 key | 当前仓库 | D 盘 | 状态 |
-|---------|---------|-----|------|
-| login | 88 | 30 | ✓ |
-| save / cancel / confirm / delete / edit / add | 各 1 | 各 3-4 | ✓ |
-| error | 124 | 9 | ✓ |
-| success / warning / loading / search / submit / logout | 各 1-16 | 各 1-6 | ✓ |
-| register | 50 | 0 | ✓(当前仓库扩展) |
-| password | 8 | 2 | ✓ |
-| username | 10 | 2 | ✓ |
+| 关键 key                                               | 当前仓库 | D 盘   | 状态            |
+| ------------------------------------------------------ | -------- | ------ | --------------- |
+| login                                                  | 88       | 30     | ✓               |
+| save / cancel / confirm / delete / edit / add          | 各 1     | 各 3-4 | ✓               |
+| error                                                  | 124      | 9      | ✓               |
+| success / warning / loading / search / submit / logout | 各 1-16  | 各 1-6 | ✓               |
+| register                                               | 50       | 0      | ✓(当前仓库扩展) |
+| password                                               | 8        | 2      | ✓               |
+| username                                               | 10       | 2      | ✓               |
 
 ### 5.5 交付物
 
@@ -270,15 +270,15 @@
 
 ### 6.1 数据库 45 张真实缺失表
 
-| 模块 | 缺失表数 | 业务影响 | 处置建议 |
-|------|---------|---------|---------|
-| 直播模块 | 4 | 直播频道讲师 / 订阅 / 腾讯云直播流,功能可能未迁移 | **P0 补迁移**(若直播业务仍需) |
-| 作业/签到 | 6 | 课程作业 / 学员签到,功能未迁移 | **P1 补迁移**(若教育业务仍需) |
-| 资源下载/搜索 | 4 | 资源下载记录 / 搜索记录,功能未迁移 | **P1 补迁移**(若资源管理仍需) |
-| 社交行为 | 7 | 圈子动态 / 收藏 / 关注 / 点赞 / 私信 | **P0 补迁移**(核心社交功能) |
-| 管理后台 | 6 | 证书 / 部门 / 讲师 / 管理员 / 敏感词 | **P1 补迁移**(若后台仍需) |
-| ZHS AI 业务 | 6 | 知识星球 / 汇率 / 轮播图 / Token 流水 / 产品 / 提现 | **P2 评估**(可能是已废弃 AI 业务) |
-| RuoYi 框架 | 2 | group_capacity / his_config_info | **无需迁移**(框架表) |
+| 模块          | 缺失表数 | 业务影响                                            | 处置建议                          |
+| ------------- | -------- | --------------------------------------------------- | --------------------------------- |
+| 直播模块      | 4        | 直播频道讲师 / 订阅 / 腾讯云直播流,功能可能未迁移   | **P0 补迁移**(若直播业务仍需)     |
+| 作业/签到     | 6        | 课程作业 / 学员签到,功能未迁移                      | **P1 补迁移**(若教育业务仍需)     |
+| 资源下载/搜索 | 4        | 资源下载记录 / 搜索记录,功能未迁移                  | **P1 补迁移**(若资源管理仍需)     |
+| 社交行为      | 7        | 圈子动态 / 收藏 / 关注 / 点赞 / 私信                | **P0 补迁移**(核心社交功能)       |
+| 管理后台      | 6        | 证书 / 部门 / 讲师 / 管理员 / 敏感词                | **P1 补迁移**(若后台仍需)         |
+| ZHS AI 业务   | 6        | 知识星球 / 汇率 / 轮播图 / Token 流水 / 产品 / 提现 | **P2 评估**(可能是已废弃 AI 业务) |
+| RuoYi 框架    | 2        | group_capacity / his_config_info                    | **无需迁移**(框架表)              |
 
 ### 6.2 API 端点 806 个真实缺失
 
@@ -289,6 +289,7 @@
 - `sso/*` → 已合并到 `auth-sso.ts` / `auth-extended.ts`
 
 **真正需要业务影响评估的端点**(估计 100-200 个):
+
 - `/public-api/watch` 系列(观看行为)
 - `/sso/admin/create` / `/sso/member/create`(SSO 创建账号)
 - `/auth-api/question`(问答)
@@ -297,11 +298,11 @@
 
 ### 6.3 前端 236 个真实缺失页面
 
-| 类别 | 数量 | 业务影响 | 处置建议 |
-|------|-----|---------|---------|
-| RuoYi 框架页 | ~30 | 已被 `/admin/*` 重新实现 | **无需迁移** |
-| edu 业务编辑子页 | ~130 | 部分功能在 `/admin/*` 以不同路径重组 | **P1 评估** — 抽样核对关键编辑流程 |
-| edu 用户端页面 | ~76 | 部分功能已迁移(路径名不同) | **P1 评估** — 核对 `/member/*` 等用户中心功能 |
+| 类别             | 数量 | 业务影响                             | 处置建议                                      |
+| ---------------- | ---- | ------------------------------------ | --------------------------------------------- |
+| RuoYi 框架页     | ~30  | 已被 `/admin/*` 重新实现             | **无需迁移**                                  |
+| edu 业务编辑子页 | ~130 | 部分功能在 `/admin/*` 以不同路径重组 | **P1 评估** — 抽样核对关键编辑流程            |
+| edu 用户端页面   | ~76  | 部分功能已迁移(路径名不同)           | **P1 评估** — 核对 `/member/*` 等用户中心功能 |
 
 ### 6.4 i18n 977 个真实缺失 key
 
@@ -425,36 +426,36 @@
 
 ### 10.1 审计脚本(5 个)
 
-| 脚本 | 用途 |
-|------|------|
-| `scripts/audit-migration-file-list.mjs` | 阶段 1:文件清单级比对 |
-| `scripts/audit-migration-api-routes.mjs` | 阶段 2:API 端点 content-level 比对 |
-| `scripts/audit-migration-db-schema.mjs` | 阶段 3:数据库 schema 比对 |
-| `scripts/audit-migration-frontend-routes.mjs` | 阶段 4:前端路由比对 |
-| `scripts/audit-migration-i18n.mjs` | 阶段 5:i18n key 比对 |
+| 脚本                                          | 用途                               |
+| --------------------------------------------- | ---------------------------------- |
+| `scripts/audit-migration-file-list.mjs`       | 阶段 1:文件清单级比对              |
+| `scripts/audit-migration-api-routes.mjs`      | 阶段 2:API 端点 content-level 比对 |
+| `scripts/audit-migration-db-schema.mjs`       | 阶段 3:数据库 schema 比对          |
+| `scripts/audit-migration-frontend-routes.mjs` | 阶段 4:前端路由比对                |
+| `scripts/audit-migration-i18n.mjs`            | 阶段 5:i18n key 比对               |
 
 ### 10.2 审计报告(5 个 CSV + 5 个 summary.json + 1 个最终报告)
 
-| 报告 | 阶段 |
-|------|------|
-| `reports/migration-audit-2026-07-19T11-24-09.csv` | 阶段 1 |
-| `reports/migration-audit-summary.json` | 阶段 1 |
-| `reports/migration-audit-api-routes-2026-07-19T12-05-10.csv` | 阶段 2 |
-| `reports/migration-audit-api-routes-summary.json` | 阶段 2 |
-| `reports/migration-audit-db-schema-2026-07-19T12-48-44.csv` | 阶段 3 |
-| `reports/migration-audit-db-schema-summary.json` | 阶段 3 |
-| `reports/migration-audit-frontend-routes-2026-07-19T12-14-57.csv` | 阶段 4 |
-| `reports/migration-audit-frontend-routes-summary.json` | 阶段 4 |
-| `reports/migration-audit-i18n-2026-07-19T12-24-24.csv` | 阶段 5 |
-| `reports/migration-audit-i18n-summary.json` | 阶段 5 |
-| `reports/migration-audit-final-report.md` | **本最终报告** |
+| 报告                                                              | 阶段           |
+| ----------------------------------------------------------------- | -------------- |
+| `reports/migration-audit-2026-07-19T11-24-09.csv`                 | 阶段 1         |
+| `reports/migration-audit-summary.json`                            | 阶段 1         |
+| `reports/migration-audit-api-routes-2026-07-19T12-05-10.csv`      | 阶段 2         |
+| `reports/migration-audit-api-routes-summary.json`                 | 阶段 2         |
+| `reports/migration-audit-db-schema-2026-07-19T12-48-44.csv`       | 阶段 3         |
+| `reports/migration-audit-db-schema-summary.json`                  | 阶段 3         |
+| `reports/migration-audit-frontend-routes-2026-07-19T12-14-57.csv` | 阶段 4         |
+| `reports/migration-audit-frontend-routes-summary.json`            | 阶段 4         |
+| `reports/migration-audit-i18n-2026-07-19T12-24-24.csv`            | 阶段 5         |
+| `reports/migration-audit-i18n-summary.json`                       | 阶段 5         |
+| `reports/migration-audit-final-report.md`                         | **本最终报告** |
 
 ### 10.3 goal-runtime 文件
 
-| 文件 | 说明 |
-|------|------|
-| `.trae-cn/goal-runtime/STATE.md` | 目标状态机(achieved) |
-| `.trae-cn/goal-runtime/loop-run-log.md` | 逐轮执行日志 |
+| 文件                                    | 说明                 |
+| --------------------------------------- | -------------------- |
+| `.trae-cn/goal-runtime/STATE.md`        | 目标状态机(achieved) |
+| `.trae-cn/goal-runtime/loop-run-log.md` | 逐轮执行日志         |
 
 ---
 
@@ -479,19 +480,20 @@
 
 ### 12.3 v1 vs v2 对比
 
-| 指标 | v1 | v2 | 变化 |
-|------|-----|-----|------|
-| 总缺失 | 970 | 165 | -805 (-83.0%) |
-| 真实缺失 | 806 | **49** | -757 (**-93.9%**) |
-| 语言迁移预期 | 164 | 116 | -48 |
-| 已迁移(精确匹配) | 14 | 130 | +116 |
-| 部分迁移 | 242 | 924 | +682 |
+| 指标             | v1  | v2     | 变化              |
+| ---------------- | --- | ------ | ----------------- |
+| 总缺失           | 970 | 165    | -805 (-83.0%)     |
+| 真实缺失         | 806 | **49** | -757 (**-93.9%**) |
+| 语言迁移预期     | 164 | 116    | -48               |
+| 已迁移(精确匹配) | 14  | 130    | +116              |
+| 部分迁移         | 242 | 924    | +682              |
 
 **规则化压缩率:93.9%**,远超 < 200 目标。
 
 ### 12.4 v2 真实缺失端点(49 个,需人工评估)
 
 主要模块:
+
 - `private-letter/*`(7 个)— 私信,IHUI-AI 无对应
 - `wrong-question/*`(3 个)— 错题本,IHUI-AI 无对应
 - `auth-code` / `auth-code/check`(2 个)— 验证码接口
@@ -525,16 +527,16 @@
 
 ### 13.3 字段级覆盖率
 
-| 指标 | 数值 | 说明 |
-|------|-----|------|
-| 字段级覆盖率 | **41.2%** | 75 / 182(D 盘旧字段为基准) |
-| 类型一致率 | **65.3%** | 75 匹配字段中 49 类型一致 |
-| PK 一致率 | **97.3%** | 几乎所有表主键迁移正确(仅 1 例不匹配) |
-| NOT NULL 一致率 | 70.7% | |
-| DEFAULT 一致率 | 50.7% | |
-| UNIQUE 一致率 | 100% | |
-| 字段缺失(D 盘有,当前无) | 107 个 | |
-| 字段新增(当前有,D 盘无) | 101 个 | |
+| 指标                    | 数值      | 说明                                  |
+| ----------------------- | --------- | ------------------------------------- |
+| 字段级覆盖率            | **41.2%** | 75 / 182(D 盘旧字段为基准)            |
+| 类型一致率              | **65.3%** | 75 匹配字段中 49 类型一致             |
+| PK 一致率               | **97.3%** | 几乎所有表主键迁移正确(仅 1 例不匹配) |
+| NOT NULL 一致率         | 70.7%     |                                       |
+| DEFAULT 一致率          | 50.7%     |                                       |
+| UNIQUE 一致率           | 100%      |                                       |
+| 字段缺失(D 盘有,当前无) | 107 个    |                                       |
+| 字段新增(当前有,D 盘无) | 101 个    |                                       |
 
 ### 13.4 关键发现
 
@@ -564,13 +566,13 @@
 
 ### 14.1 修订后真实缺失项
 
-| 维度 | 原真实缺失 | 修订后真实缺失 | 压缩率 |
-|------|-----------|--------------|-------|
-| API 端点 | 806 | **49** | 93.9% |
-| 数据库表 | 45 | 45(未变) | — |
-| 数据库字段(抽样 20 表) | — | 107 字段缺失(多数为命名重命名) | — |
-| 前端页面 | 236 | 236(未变) | — |
-| i18n key | 977 | 977(未变) | — |
+| 维度                   | 原真实缺失 | 修订后真实缺失                 | 压缩率 |
+| ---------------------- | ---------- | ------------------------------ | ------ |
+| API 端点               | 806        | **49**                         | 93.9%  |
+| 数据库表               | 45         | 45(未变)                       | —      |
+| 数据库字段(抽样 20 表) | —          | 107 字段缺失(多数为命名重命名) | —      |
+| 前端页面               | 236        | 236(未变)                      | —      |
+| i18n key               | 977        | 977(未变)                      | —      |
 
 ### 14.2 修订后整体迁移完整性
 
@@ -586,20 +588,24 @@
 ### 14.3 修订后 P0-P3 任务
 
 #### P0(必须补迁移,核心业务)
+
 - 数据库 7 张社交行为表(circle_dynamic / t_favorite / t_follow / t_like / t_private_letter 等)
 - 数据库 4 张直播表(若直播业务仍需)
 - API 端点 private-letter(7 个)— 私信功能
 
 #### P1(应补迁移,重要业务)
+
 - 数据库 6 张作业/签到表 + 4 张资源下载/搜索表 + 6 张管理后台表
 - API 端点 wrong-question(3)+ check-in(2)+ mail(2)+ auth-code(2)+ mark/paper(1)
 - 前端 edu 业务编辑子页(约 130 个)抽样核对
 
 #### P2(评估是否补迁移)
+
 - API 端点 reply-comment/reply/recommend/by-mobile/by-id 等(约 30 个,设计风格差异居多)
 - 数据库 6 张 ZHS AI 业务表(可能已废弃)
 
 #### P3(可不迁移)
+
 - 数据库 2 张 RuoYi 框架表 + 前端 RuoYi 框架页(约 30 个)
 - i18n 977 个真实缺失 key(逐模块评估)
 - 字段级"假阴性"(create_time→created_at 等命名重命名,无需补)
@@ -622,22 +628,22 @@
 
 ### 15.2 实际新建表(17 张)
 
-| 文件 | 表数 | 表清单 |
-|------|------|-------|
-| `packages/database/src/schema/social-supplement.ts` | 6 | t_dynamic / t_favorite / t_follow / t_like / t_private_letter / t_content |
-| `packages/database/src/schema/live-supplement.ts` | 1 | t_tencent_cloud_live_stream |
-| `packages/database/src/schema/learn-homework.ts` | 2 | t_homework / t_check_in_record |
-| `packages/database/src/schema/resource-download.ts` | 2 | t_resource_download / search_content |
-| `packages/database/src/schema/admin-extended.ts` | 6 | t_certificate / t_certificate_template / t_department / t_lecturer / t_manager / t_sensitive_word |
+| 文件                                                | 表数 | 表清单                                                                                            |
+| --------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------- |
+| `packages/database/src/schema/social-supplement.ts` | 6    | t_dynamic / t_favorite / t_follow / t_like / t_private_letter / t_content                         |
+| `packages/database/src/schema/live-supplement.ts`   | 1    | t_tencent_cloud_live_stream                                                                       |
+| `packages/database/src/schema/learn-homework.ts`    | 2    | t_homework / t_check_in_record                                                                    |
+| `packages/database/src/schema/resource-download.ts` | 2    | t_resource_download / search_content                                                              |
+| `packages/database/src/schema/admin-extended.ts`    | 6    | t_certificate / t_certificate_template / t_department / t_lecturer / t_manager / t_sensitive_word |
 
 ### 15.3 已迁移表(10 张,文档化但不重复定义)
 
-| 文件 | 表数 | 表清单 |
-|------|------|-------|
-| `live-extended.ts` | 3 | live_channel_lecturer / live_subscribe / live_tencent_cloud_live_stream |
-| `learn-extended.ts` | 1 | learn_homework(UUID 版) |
-| `learn-extra-extended.ts` | 1 | learn_homework_record(UUID 版) |
-| `relation-tables.ts` | 5 | circle_dynamic / exam_sign_up / learn_sign_up / resource_resource_download / resource_resource_search_record |
+| 文件                      | 表数 | 表清单                                                                                                       |
+| ------------------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
+| `live-extended.ts`        | 3    | live_channel_lecturer / live_subscribe / live_tencent_cloud_live_stream                                      |
+| `learn-extended.ts`       | 1    | learn_homework(UUID 版)                                                                                      |
+| `learn-extra-extended.ts` | 1    | learn_homework_record(UUID 版)                                                                               |
+| `relation-tables.ts`      | 5    | circle_dynamic / exam_sign_up / learn_sign_up / resource_resource_download / resource_resource_search_record |
 
 ### 15.4 验证
 
@@ -665,14 +671,14 @@
 
 ### 16.2 端点清单
 
-| 路由文件 | 端点数 | 路由前缀 | 端点清单 |
-|---------|-------|---------|---------|
-| `private-letters.ts` | 7 | `/api/private-letters` | 发私信 / 列表 / 详情 / 标记已读 / 删除 / 未读数 / 会话列表 |
-| `wrong-questions.ts` | 3 | `/api/wrong-questions` | 创建/更新错题 / 按用户查询 / 详情 |
-| `check-in.ts` | 4 | `/api/check-in` | 签到 / 查询今日 / 连续天数 / 奖励计算 |
-| `mail.ts` | 2 | `/api/mail` | 发送纯文本邮件 / 发送 HTML 邮件 |
-| `auth-codes.ts` | 2 | `/api/auth-codes` | 发送验证码 / 校验验证码 |
-| `exam-marking.ts` | 1 | `/api/exam-marking` | 阅卷(提交评分) |
+| 路由文件             | 端点数 | 路由前缀               | 端点清单                                                   |
+| -------------------- | ------ | ---------------------- | ---------------------------------------------------------- |
+| `private-letters.ts` | 7      | `/api/private-letters` | 发私信 / 列表 / 详情 / 标记已读 / 删除 / 未读数 / 会话列表 |
+| `wrong-questions.ts` | 3      | `/api/wrong-questions` | 创建/更新错题 / 按用户查询 / 详情                          |
+| `check-in.ts`        | 4      | `/api/check-in`        | 签到 / 查询今日 / 连续天数 / 奖励计算                      |
+| `mail.ts`            | 2      | `/api/mail`            | 发送纯文本邮件 / 发送 HTML 邮件                            |
+| `auth-codes.ts`      | 2      | `/api/auth-codes`      | 发送验证码 / 校验验证码                                    |
+| `exam-marking.ts`    | 1      | `/api/exam-marking`    | 阅卷(提交评分)                                             |
 
 ### 16.3 关键设计决策
 
@@ -709,13 +715,13 @@
 
 ### 17.1 补迁移后真实缺失项
 
-| 维度 | 原真实缺失 | 补迁移后 | 状态 |
-|------|-----------|---------|------|
-| 数据库表 | 45 | **0**(17 新建 + 10 已存在 + 18 框架/废弃) | ✅ 全部补迁移 |
-| API 端点 | 49 | **39**(10 个关键端点已补) | ⚠️ 剩余 39 个为设计风格差异 |
-| 数据库字段 | 107 | ~30(命名重命名假阴性无需补) | ✅ 实质良好 |
-| 前端页面 | 236 | 236(未补,需前端单独开发) | ⚠️ 待前端补开发 |
-| i18n key | 977 | 977(未补,逐模块评估) | ⚠️ 待逐模块评估 |
+| 维度       | 原真实缺失 | 补迁移后                                  | 状态                        |
+| ---------- | ---------- | ----------------------------------------- | --------------------------- |
+| 数据库表   | 45         | **0**(17 新建 + 10 已存在 + 18 框架/废弃) | ✅ 全部补迁移               |
+| API 端点   | 49         | **39**(10 个关键端点已补)                 | ⚠️ 剩余 39 个为设计风格差异 |
+| 数据库字段 | 107        | ~30(命名重命名假阴性无需补)               | ✅ 实质良好                 |
+| 前端页面   | 236        | 236(未补,需前端单独开发)                  | ⚠️ 待前端补开发             |
+| i18n key   | 977        | 977(未补,逐模块评估)                      | ⚠️ 待逐模块评估             |
 
 ### 17.2 补迁移后整体迁移完整性
 
@@ -734,10 +740,12 @@
 ### 17.3 剩余 P2-P3 任务
 
 #### P2(评估是否补迁移)
+
 - 前端 edu 业务编辑子页(约 130 个):抽样核对关键编辑流程是否在 `/admin/*` 重新实现
 - API 端点 39 个剩余:多为设计风格差异(by-mobile / by-id / by-ids / recommend 等)
 
 #### P3(可不迁移)
+
 - 数据库 2 张 RuoYi 框架表(group_capacity / his_config_info)
 - 前端 RuoYi 框架页(约 30 个,已被 `/admin/*` 重新实现)
 - i18n 977 个真实缺失 key(逐模块评估)
@@ -746,14 +754,17 @@
 ### 17.4 数据库 migration 生成建议
 
 **用户应运行**:
+
 ```bash
 pnpm --filter @ihui/database db:generate
 ```
+
 生成 migration SQL 文件,然后在开发环境应用前用 `db:check` 校验 schema 一致性。
 
 ### 17.5 前端 API 客户端对接建议
 
 新注册的路由前缀与前端可能调用路径:
+
 - `/api/private-letters` — 私信功能(前端无对应页面,需新开发)
 - `/api/wrong-questions` — 错题本(前端无对应页面,需新开发)
 - `/api/check-in` — 签到(注意:与现有 `/api/checkin` 共存,前端需用连字符版)
@@ -777,21 +788,21 @@ pnpm --filter @ihui/database db:generate
 
 对阶段 5 真实缺失 key(1050 个,基于当前仓库 zh-CN.json 实际 key 集判定)做三分类:
 
-| 决策 | 数量 | 占比 | 处理方式 |
-|------|-----|------|---------|
-| 补齐(补迁移) | 4 | 0.4% | 5 语言同步补齐 common 命名空间 |
-| 重写已迁移(无需补) | 17 | 1.6% | 功能已在当前仓库其他模块下用新 key 实现 |
-| 废弃(不迁移) | 1029 | 98.0% | 模块/功能已废弃,新项目无对应实现 |
-| **总计** | **1050** | **100%** | |
+| 决策               | 数量     | 占比     | 处理方式                                |
+| ------------------ | -------- | -------- | --------------------------------------- |
+| 补齐(补迁移)       | 4        | 0.4%     | 5 语言同步补齐 common 命名空间          |
+| 重写已迁移(无需补) | 17       | 1.6%     | 功能已在当前仓库其他模块下用新 key 实现 |
+| 废弃(不迁移)       | 1029     | 98.0%    | 模块/功能已废弃,新项目无对应实现        |
+| **总计**           | **1050** | **100%** |                                         |
 
 ### 18.2 补齐的 4 个 common key
 
-| key | zh-CN | zh-TW | en | ja | ko |
-| --- | --- | --- | --- | --- | --- |
-| `common.systemTip` | 系统提示 | 系統提示 | System Tip | システムヒント | 시스템 팁 |
-| `common.serialNumber` | 序号 | 序號 | Serial Number | シリアル番号 | 일련 번호 |
-| `common.dataItem` | 数据项 | 資料項 | Data Item | データ項目 | 데이터 항목 |
-| `common.modifySuccess` | 修改成功 | 修改成功 | Modified Successfully | 変更成功 | 수정 성공 |
+| key                    | zh-CN    | zh-TW    | en                    | ja             | ko          |
+| ---------------------- | -------- | -------- | --------------------- | -------------- | ----------- |
+| `common.systemTip`     | 系统提示 | 系統提示 | System Tip            | システムヒント | 시스템 팁   |
+| `common.serialNumber`  | 序号     | 序號     | Serial Number         | シリアル番号   | 일련 번호   |
+| `common.dataItem`      | 数据项   | 資料項   | Data Item             | データ項目     | 데이터 항목 |
+| `common.modifySuccess` | 修改成功 | 修改成功 | Modified Successfully | 変更成功       | 수정 성공   |
 
 ### 18.3 重写已迁移示例(17 个)
 
@@ -830,10 +841,10 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 19.1 端点路径映射
 
-| # | Java 原路径 | 方法 | IHUI-AI 新路径 | 方法 | 路由前缀 |
-|---|------------|------|---------------|------|---------|
-| 1 | `/ali/get/digital/{type}` | GET | `/api/ai/alibaba/digital/get` | POST | `/api/ai` |
-| 2 | `/ali/video/to/digital` | POST | `/api/ai/alibaba/digital/video-to-digital` | POST | `/api/ai` |
+| #   | Java 原路径               | 方法 | IHUI-AI 新路径                             | 方法 | 路由前缀  |
+| --- | ------------------------- | ---- | ------------------------------------------ | ---- | --------- |
+| 1   | `/ali/get/digital/{type}` | GET  | `/api/ai/alibaba/digital/get`              | POST | `/api/ai` |
+| 2   | `/ali/video/to/digital`   | POST | `/api/ai/alibaba/digital/video-to-digital` | POST | `/api/ai` |
 
 **说明**:Java 原端点 1 用 path 参数 `{type}`;IHUI-AI 改 POST + body `param`(支持 type 数字字符串或 digitalId),便于统一鉴权与请求体校验。路由通过 `aiVendorRoutes` 聚合,经 `server.ts` 第 648 行 `register(aiVendorRoutes, { prefix: '/api/ai' })` 注册,**无需修改 server.ts**。
 
@@ -841,13 +852,13 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 按 `progress` (Java) / `type` (IHUI-AI) 分支处理:
 
-| type | 含义 | Java 行为 | IHUI-AI TS 实现 |
-|------|------|----------|----------------|
-| 0 | 提交音频 | `videoToAudio` 提取音频 + `saveAudioImage` | 写入 `digitalHumanStore`,标记 `audioUrl` 占位;配置 AK/SK 则调用阿里云 Avatar `SubmitAvatarTask` 异步处理 |
-| 1 | 提交图像 | `extractAndUploadFirstFrame` 提取首帧 | 写入 `digitalHumanStore`,标记 `imageUrl` 占位;同上调用 Avatar |
-| 2 | 提交视频 | 直接保存 videoUrl | 写入 `digitalHumanStore`,仅记录 `videoUrl` |
-| 3 | 提交全部 | 0+1+2 三者都做 | 写入 `digitalHumanStore`,同时标记 `audioUrl` + `imageUrl` |
-| 4 | 图片路径 | 直接将 videoUrl 当图片路径 | 写入 `digitalHumanStore`,仅记录 `imageUrl` |
+| type | 含义     | Java 行为                                  | IHUI-AI TS 实现                                                                                          |
+| ---- | -------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| 0    | 提交音频 | `videoToAudio` 提取音频 + `saveAudioImage` | 写入 `digitalHumanStore`,标记 `audioUrl` 占位;配置 AK/SK 则调用阿里云 Avatar `SubmitAvatarTask` 异步处理 |
+| 1    | 提交图像 | `extractAndUploadFirstFrame` 提取首帧      | 写入 `digitalHumanStore`,标记 `imageUrl` 占位;同上调用 Avatar                                            |
+| 2    | 提交视频 | 直接保存 videoUrl                          | 写入 `digitalHumanStore`,仅记录 `videoUrl`                                                               |
+| 3    | 提交全部 | 0+1+2 三者都做                             | 写入 `digitalHumanStore`,同时标记 `audioUrl` + `imageUrl`                                                |
+| 4    | 图片路径 | 直接将 videoUrl 当图片路径                 | 写入 `digitalHumanStore`,仅记录 `imageUrl`                                                               |
 
 **鉴权前置**:Java 在 `progress != 3 && progress != 4` 时调用 `checkPay` 校验付费;IHUI-AI 改为统一 `requireAuth`(authenticate),付费校验延后到上层业务。
 
@@ -856,6 +867,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 **实现位置**:`apps/api/src/routes/ai-vendors/_shared.ts` 第 285-355 行 `buildAlibabaCloudHeaders()` 函数。
 
 **签名算法**(ACS3-HMAC-SHA256):
+
 1. CanonicalRequest:`POST\n/\n<CanonicalQuerystring>\n<CanonicalHeaders>\n<SignedHeaders>\n<HashedPayload>`
 2. StringToSign:`ACS3-HMAC-SHA256\n<HashedCanonicalRequest>`
 3. CredentialScope:`<date>/<region>/<service>/aliyun_v3_request`
@@ -863,6 +875,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 5. Authorization header:`ACS3-HMAC-SHA256 Credential=<AK>/<scope>, SignedHeaders=<headers>, Signature=<sig>`
 
 **调用端点**:
+
 - `QueryAvatar` — 拉取远端数字人形象列表(`/alibaba/digital/get`)
 - `SubmitAvatarTask` — 提交视频转数字人异步任务(`/alibaba/digital/video-to-digital`)
 
@@ -891,20 +904,20 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 20.2 抽样结果三分类
 
-| 决策 | 数量 | 占比 |
-|------|-----|------|
-| 已迁移(精确匹配 admin 路由) | 18 | 60.0% |
-| 部分迁移(模块路由存在,具体子路径需评估) | 11 | 36.7% |
-| 真实缺失(IHUI-AI 无对应实现) | 1 | 3.3% |
-| **总计** | **30** | **100%** |
+| 决策                                    | 数量   | 占比     |
+| --------------------------------------- | ------ | -------- |
+| 已迁移(精确匹配 admin 路由)             | 18     | 60.0%    |
+| 部分迁移(模块路由存在,具体子路径需评估) | 11     | 36.7%    |
+| 真实缺失(IHUI-AI 无对应实现)            | 1      | 3.3%     |
+| **总计**                                | **30** | **100%** |
 
 **整体迁移率 96.7%**(已迁移 + 部分迁移)
 
 ### 20.3 真实缺失项(1 个,P2)
 
-| 路径 | 模块 | D 盘源 | IHUI-AI 现状 | 建议 |
-|------|------|--------|-------------|------|
-| `/learn/topic/category` | learn | `edu client/src/views/learn/topic/category.vue` | 无对应实现 | P2 补开发(~4 小时),若学习业务仍需专题分类管理 |
+| 路径                    | 模块  | D 盘源                                          | IHUI-AI 现状 | 建议                                          |
+| ----------------------- | ----- | ----------------------------------------------- | ------------ | --------------------------------------------- |
+| `/learn/topic/category` | learn | `edu client/src/views/learn/topic/category.vue` | 无对应实现   | P2 补开发(~4 小时),若学习业务仍需专题分类管理 |
 
 ### 20.4 部分迁移示例(11 个)
 
@@ -935,14 +948,14 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 21.2 6 个新 API 端点 × 8 端 = 48 检查点
 
-| 端点 \ 端 | web | api | ai-service | desktop | extension | mobile-rn | miniapp-taro | cli |
-|-----------|-----|-----|------------|---------|-----------|-----------|--------------|-----|
-| `/api/private-letters` | 0(旧路径 2) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/wrong-questions` | 0(旧路径 3) | 1✅ | 0 | 0 | 0 | 0 | 0(旧路径 1) | 0 |
-| `/api/check-in`        | 0(旧路径 2) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/mail`            | 0          | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/auth-codes`      | 0          | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/exam-marking`    | 0(走 exam/records) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
+| 端点 \ 端              | web                | api | ai-service | desktop | extension | mobile-rn | miniapp-taro | cli |
+| ---------------------- | ------------------ | --- | ---------- | ------- | --------- | --------- | ------------ | --- |
+| `/api/private-letters` | 0(旧路径 2)        | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/wrong-questions` | 0(旧路径 3)        | 1✅ | 0          | 0       | 0         | 0         | 0(旧路径 1)  | 0   |
+| `/api/check-in`        | 0(旧路径 2)        | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/mail`            | 0                  | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/auth-codes`      | 0                  | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/exam-marking`    | 0(走 exam/records) | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
 
 **统计**:无需同步 35 / 需评估 13(web 6 / mobile-rn 6 / miniapp-taro 1)。
 
@@ -952,25 +965,25 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 21.4 共享层 packages/api-client 关键缺口
 
-| 端点 | api-client 函数 | 调用方 | 建议 |
-|------|-----------------|--------|------|
-| `/api/private-letters` | ❌ 缺失 | — | 建议补开发 |
-| `/api/wrong-questions` | ❌ 缺失 | — | 建议补开发 |
-| `/api/check-in` | ✅ 9 个 CRUD 函数 | ❌ 无调用方 | 建议接入 web/mobile-rn 调用方 |
-| `/api/mail` | ❌ 缺失 | — | 建议补开发 |
-| `/api/auth-codes` | ❌ 缺失 | — | 建议补开发 |
-| `/api/exam-marking` | ❌ 缺失 | — | 建议补开发 |
+| 端点                   | api-client 函数   | 调用方      | 建议                          |
+| ---------------------- | ----------------- | ----------- | ----------------------------- |
+| `/api/private-letters` | ❌ 缺失           | —           | 建议补开发                    |
+| `/api/wrong-questions` | ❌ 缺失           | —           | 建议补开发                    |
+| `/api/check-in`        | ✅ 9 个 CRUD 函数 | ❌ 无调用方 | 建议接入 web/mobile-rn 调用方 |
+| `/api/mail`            | ❌ 缺失           | —           | 建议补开发                    |
+| `/api/auth-codes`      | ❌ 缺失           | —           | 建议补开发                    |
+| `/api/exam-marking`    | ❌ 缺失           | —           | 建议补开发                    |
 
 **建议**:补开发 5 个新端点的 api-client 共享函数,作为多端同步对接统一入口(避免 web/mobile-rn/miniapp-taro 各端重复实现 fetch 逻辑)。
 
 ### 21.5 平台独占豁免项
 
-| 端 | 豁免范围 |
-|----|----------|
+| 端           | 豁免范围                 |
+| ------------ | ------------------------ |
 | desktop      | 系统托盘(Tauri 原生集成) |
-| extension    | 浏览器上下文菜单(WXT) |
-| miniapp-taro | 微信支付(小程序原生) |
-| cli          | 终端集成(ACP/REPL) |
+| extension    | 浏览器上下文菜单(WXT)    |
+| miniapp-taro | 微信支付(小程序原生)     |
+| cli          | 终端集成(ACP/REPL)       |
 
 > 6 个新 API 端点均为业务功能(私信/错题/签到/邮件/验证码/阅卷),非平台独占。4 端命中豁免是因当前无业务需求调用,而非因端点属平台独占。
 
@@ -987,26 +1000,26 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 22.1 8 个 subagent 产出汇总
 
-| # | 任务 | 状态 | 关键产出 |
-|---|------|------|---------|
-| A | 数据库 schema 补迁移(27 表) | ✅ | 17 新建 + 10 已存在,typecheck + build 全绿 |
-| B | 数据库 migration 生成 | ✅ | `0108_r83_supplement_27_tables.sql`(404 行 17 表 CREATE),journal 不同步需用户决策 |
-| C | API 端点补开发(10 关键 + 7 辅助) | ✅ | 6 个新路由文件,server.ts 注册 6 个路由,typecheck 全绿 |
-| D | 前端 API 路径切换 | ✅ | 10 处 `/api/checkin` → `/api/check-in` |
-| E | i18n 4 key 补齐 + 5 语言同步 | ✅ | common 命名空间 4 key,5 语言 parity 一致,守门全绿 |
-| F | 2 个数字人 API 端点补开发 | ✅ | alibaba vendor + ACS3-HMAC-SHA256 签名 + 2 端点 |
-| G | edu 业务编辑子页抽样核对 | ✅ | 30/117 抽样,96.7% 迁移率,1 真实缺失(P2) |
-| H | 多端同步检查 | ✅ | 48 检查点,13 需评估,5 端无需同步 |
+| #   | 任务                             | 状态 | 关键产出                                                                          |
+| --- | -------------------------------- | ---- | --------------------------------------------------------------------------------- |
+| A   | 数据库 schema 补迁移(27 表)      | ✅   | 17 新建 + 10 已存在,typecheck + build 全绿                                        |
+| B   | 数据库 migration 生成            | ✅   | `0108_r83_supplement_27_tables.sql`(404 行 17 表 CREATE),journal 不同步需用户决策 |
+| C   | API 端点补开发(10 关键 + 7 辅助) | ✅   | 6 个新路由文件,server.ts 注册 6 个路由,typecheck 全绿                             |
+| D   | 前端 API 路径切换                | ✅   | 10 处 `/api/checkin` → `/api/check-in`                                            |
+| E   | i18n 4 key 补齐 + 5 语言同步     | ✅   | common 命名空间 4 key,5 语言 parity 一致,守门全绿                                 |
+| F   | 2 个数字人 API 端点补开发        | ✅   | alibaba vendor + ACS3-HMAC-SHA256 签名 + 2 端点                                   |
+| G   | edu 业务编辑子页抽样核对         | ✅   | 30/117 抽样,96.7% 迁移率,1 真实缺失(P2)                                           |
+| H   | 多端同步检查                     | ✅   | 48 检查点,13 需评估,5 端无需同步                                                  |
 
 ### 22.2 补迁移后真实缺失项(全任务闭环)
 
-| 维度 | 原真实缺失 | 补迁移后 | 状态 |
-|------|-----------|---------|------|
-| 数据库表 | 45 | **0** | ✅ 全部补迁移(17 新建 + 10 已存在 + 18 框架/废弃) |
-| 数据库字段 | 107 | ~30 | ✅ 实质良好(命名重命名假阴性无需补) |
-| API 端点 | 49 | **37**(10 关键已补 + 2 数字人已补) | ⚠️ 剩余 37 个为设计风格差异 |
-| 前端页面 | 236 | **235**(1 个 `/learn/topic/category` 真实缺失) | ⚠️ 235 个为 RuoYi 框架页(30)+ edu 子页(130 已抽样 96.7%)+ edu 用户端(76 部分迁移) |
-| i18n key | 977 | **973**(4 common key 已补齐) | ⚠️ 17 重写已迁移 + 1029 废弃(98% 无需补) |
+| 维度       | 原真实缺失 | 补迁移后                                       | 状态                                                                              |
+| ---------- | ---------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| 数据库表   | 45         | **0**                                          | ✅ 全部补迁移(17 新建 + 10 已存在 + 18 框架/废弃)                                 |
+| 数据库字段 | 107        | ~30                                            | ✅ 实质良好(命名重命名假阴性无需补)                                               |
+| API 端点   | 49         | **37**(10 关键已补 + 2 数字人已补)             | ⚠️ 剩余 37 个为设计风格差异                                                       |
+| 前端页面   | 236        | **235**(1 个 `/learn/topic/category` 真实缺失) | ⚠️ 235 个为 RuoYi 框架页(30)+ edu 子页(130 已抽样 96.7%)+ edu 用户端(76 部分迁移) |
+| i18n key   | 977        | **973**(4 common key 已补齐)                   | ⚠️ 17 重写已迁移 + 1029 废弃(98% 无需补)                                          |
 
 ### 22.3 补迁移后整体迁移完整性
 
@@ -1027,12 +1040,12 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 22.4 需用户决策的 4 个阻塞项
 
-| # | 决策点 | 选项 A | 选项 B | 建议 |
-|---|--------|--------|--------|------|
-| 1 | 数据库 journal 修复方案 | 抽取 17 表 SQL 手工 psql 执行(快) | 补建 8 个 snapshot 修复 journal(根治) | **B 根治** |
-| 2 | 10 个 checkin CRUD 函数去留 | 删除(零冗余原则) | 补开发对应子路由(`/list` `/:cid` `/record/*`) | **A 删除** |
-| 3 | 5 个新端点 api-client 封装 | P1 立即补开发 | 等待业务需求触发再补 | **A P1 补** |
-| 4 | 1 个 edu 页面 `/learn/topic/category` | P2 立即补开发 | 若学习业务不再需要,跳过 | 视业务 |
+| #   | 决策点                                | 选项 A                            | 选项 B                                        | 建议        |
+| --- | ------------------------------------- | --------------------------------- | --------------------------------------------- | ----------- |
+| 1   | 数据库 journal 修复方案               | 抽取 17 表 SQL 手工 psql 执行(快) | 补建 8 个 snapshot 修复 journal(根治)         | **B 根治**  |
+| 2   | 10 个 checkin CRUD 函数去留           | 删除(零冗余原则)                  | 补开发对应子路由(`/list` `/:cid` `/record/*`) | **A 删除**  |
+| 3   | 5 个新端点 api-client 封装            | P1 立即补开发                     | 等待业务需求触发再补                          | **A P1 补** |
+| 4   | 1 个 edu 页面 `/learn/topic/category` | P2 立即补开发                     | 若学习业务不再需要,跳过                       | 视业务      |
 
 ### 22.5 本任务(goal 模式)最终交付
 
@@ -1062,6 +1075,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 ## 23. 第三批 4 个 subagent 并行执行:用户决策点落地(2026-07-19)
 
 用户回复 4 个决策点:
+
 1. 数据库 journal 修复:方案 B 根治
 2. checkin CRUD 去留:**保证原有功能接口不丢失的情况下去做**(即补开发子路由)
 3. api-client 5 个封装:P1 立即补
@@ -1072,31 +1086,35 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 ### 23.1 任务 J:数据库 journal 根治(✅)
 
 **产出**:
+
 - 8 个新 snapshot JSON 文件(0107/0109/0110/0111/0112/0113/0114/0115_snapshot.json)
 - 每个 snapshot 含 516 张表(复制自 0106_snapshot.json 简化策略)
 - _journal.json 更新:109 → 116 entries,idx 0-115
 - 0108_r83_supplement_27_tables 重编号到 idx 115(作为最后一项)
 
 **snapshot 链 id 关系**:
-| snapshot | id | prev_id |
-|----------|----|---------| 
-| 0106 | a7b3c91d... | — |
-| 0107(新) | 2a9bd43b-2711-46fe-99e2-0bb061285937 | 0106 |
-| 0109(新) | 70724544-4c11-40ff-a869-427e1b97faa7 | 0107 |
-| 0110(新) | d911c45d-9b6a-4872-8fbc-3e6e356a2164 | 0109 |
-| 0111(新) | 8b969136-ab58-4787-ad91-53a0e6950560 | 0110 |
-| 0112(新) | 244fb5c2-6246-4cf3-8b88-25849ecad795 | 0111 |
-| 0113(新) | b1ab6501-55b6-4605-b89f-5b28b0525ff2 | 0112 |
-| 0114(新) | cf332c45-774a-43b2-b6ff-b357b0ae415a | 0113 |
-| 0115(新) | f7f3aaca-1047-467f-b7aa-5a00550a9f45 | 0114 |
-| 0108(保留) | (未修改) | (prevId 仍指向 0106,链断点但不影响 db:generate) |
+
+| snapshot   | id                                   | prev_id                                         |
+| ---------- | ------------------------------------ | ----------------------------------------------- |
+| 0106       | a7b3c91d...                          | —                                               |
+| 0107(新)   | 2a9bd43b-2711-46fe-99e2-0bb061285937 | 0106                                            |
+| 0109(新)   | 70724544-4c11-40ff-a869-427e1b97faa7 | 0107                                            |
+| 0110(新)   | d911c45d-9b6a-4872-8fbc-3e6e356a2164 | 0109                                            |
+| 0111(新)   | 8b969136-ab58-4787-ad91-53a0e6950560 | 0110                                            |
+| 0112(新)   | 244fb5c2-6246-4cf3-8b88-25849ecad795 | 0111                                            |
+| 0113(新)   | b1ab6501-55b6-4605-b89f-5b28b0525ff2 | 0112                                            |
+| 0114(新)   | cf332c45-774a-43b2-b6ff-b357b0ae415a | 0113                                            |
+| 0115(新)   | f7f3aaca-1047-467f-b7aa-5a00550a9f45 | 0114                                            |
+| 0108(保留) | (未修改)                             | (prevId 仍指向 0106,链断点但不影响 db:generate) |
 
 **验证**:
+
 - `pnpm --filter @ihui/database typecheck` 退出码 0 ✅
 - `pnpm --filter @ihui/database build` 退出码 0 ✅
 - `node scripts/check-db-schema-drift.mjs` 退出码 0 ✅(仅 3 条 pre-existing 信息级 dead migration)
 
 **关键说明**:
+
 - 未触碰 `packages/database/src/schema/*.ts`(已稳定)
 - 0107_sensitive_words_category_neutral 实际已在 journal(idx 107),仅补建对应 snapshot 文件
 - 0108_snapshot.json 未修改(不在受影响文件清单)
@@ -1108,22 +1126,23 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 **新增端点清单**:
 
-| # | 路径 | HTTP 方法 | 用途 | 对齐 api-client 函数 |
-|---|------|-----------|------|---------------------|
-| 1 | `/list` | GET | 签到规则列表(分页 + memberId 过滤) | `getCheckinList` |
-| 2 | `/:cid` | GET | 签到规则详情 | `getCheckinDetail` |
-| 3 | `/:cid` | PUT | 修改签到规则 | `updateCheckin` |
-| 4 | `/:cid` | DELETE | 删除签到规则 | `deleteCheckin` |
-| 5 | `/record/list` | GET | 签到记录列表 | `getCheckinRecords` |
-| 6 | `/record` | GET | 同上(兼容路径) | 兼容 |
-| 7 | `/record` | POST | 创建签到记录 | `createCheckinRecord` |
-| 8 | `/record/:rid` | GET | 签到记录详情 | `getCheckinRecordDetail` |
-| 9 | `/record/:rid` | PUT | 修改签到记录 | `updateCheckinRecord` |
-| 10 | `/record/:rid` | DELETE | 删除签到记录 | `deleteCheckinRecord` |
+| #   | 路径           | HTTP 方法 | 用途                               | 对齐 api-client 函数     |
+| --- | -------------- | --------- | ---------------------------------- | ------------------------ |
+| 1   | `/list`        | GET       | 签到规则列表(分页 + memberId 过滤) | `getCheckinList`         |
+| 2   | `/:cid`        | GET       | 签到规则详情                       | `getCheckinDetail`       |
+| 3   | `/:cid`        | PUT       | 修改签到规则                       | `updateCheckin`          |
+| 4   | `/:cid`        | DELETE    | 删除签到规则                       | `deleteCheckin`          |
+| 5   | `/record/list` | GET       | 签到记录列表                       | `getCheckinRecords`      |
+| 6   | `/record`      | GET       | 同上(兼容路径)                     | 兼容                     |
+| 7   | `/record`      | POST      | 创建签到记录                       | `createCheckinRecord`    |
+| 8   | `/record/:rid` | GET       | 签到记录详情                       | `getCheckinRecordDetail` |
+| 9   | `/record/:rid` | PUT       | 修改签到记录                       | `updateCheckinRecord`    |
+| 10  | `/record/:rid` | DELETE    | 删除签到记录                       | `deleteCheckinRecord`    |
 
 **复用数据库表**:`tCheckInRecord`(`packages/database/src/schema/learn-homework.ts`)
 
 **关键设计**:
+
 - Fastify radix tree 自动优先静态路由,`/list` / `/record` / `/record/list` 不与 `/:cid` / `/record/:rid` 冲突
 - 9 个新端点统一 `authenticate` 鉴权
 - 响应格式统一 `{ code: 0, message: 'success', data: ... }`
@@ -1131,6 +1150,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 **验证**:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅
 
 **已知语义缺口**(非本任务范围):
+
 - `createCheckin({ continuousNum, memberId })` POST 到 `/api/check-in` 会被现有"每日签到" handler 接管(忽略 body),如需真正支持"创建签到规则",建议补 POST `/rule` 端点
 - `tCheckInRecord.memberId`(bigint)与 `users.id`(UUID)不同源,POST /record 默认 `memberId=0` 占位,后续需打通两套会员体系
 
@@ -1140,15 +1160,16 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 **新文件清单**:
 
-| 文件 | 函数数 | 函数清单 |
-|------|-------|---------|
-| `packages/api-client/src/endpoints/private-letters.ts` | 7 | sendPrivateLetter / deletePrivateLetter / getPrivateLetterDetail / getPrivateLetterMembers / getPrivateLetterLatest / getPrivateLetterList / getPrivateLetterNewList |
-| `packages/api-client/src/endpoints/wrong-questions.ts` | 3 | createOrUpdateWrongQuestion / deleteWrongQuestion / getWrongQuestions |
-| `packages/api-client/src/endpoints/mail.ts` | 2 | sendMail / sendHtmlMail |
-| `packages/api-client/src/endpoints/auth-codes.ts` | 2 | sendAuthCode / verifyAuthCode |
-| `packages/api-client/src/endpoints/exam-marking.ts` | 1 | submitExamMarking |
+| 文件                                                   | 函数数 | 函数清单                                                                                                                                                             |
+| ------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/api-client/src/endpoints/private-letters.ts` | 7      | sendPrivateLetter / deletePrivateLetter / getPrivateLetterDetail / getPrivateLetterMembers / getPrivateLetterLatest / getPrivateLetterList / getPrivateLetterNewList |
+| `packages/api-client/src/endpoints/wrong-questions.ts` | 3      | createOrUpdateWrongQuestion / deleteWrongQuestion / getWrongQuestions                                                                                                |
+| `packages/api-client/src/endpoints/mail.ts`            | 2      | sendMail / sendHtmlMail                                                                                                                                              |
+| `packages/api-client/src/endpoints/auth-codes.ts`      | 2      | sendAuthCode / verifyAuthCode                                                                                                                                        |
+| `packages/api-client/src/endpoints/exam-marking.ts`    | 1      | submitExamMarking                                                                                                                                                    |
 
 **关键决策**(严格以实际后端路由为准):
+
 - `sendAuthCode` 实际是 GET(非任务描述的 POST)
 - `verifyAuthCode` 实际路径是 `/api/auth-codes/check`(非 `/verify`)
 - private-letters 端点路径以 `apps/api/src/routes/private-letters.ts` 实际注册为准(7 个端点,与任务描述的理想化路径不完全一致)
@@ -1157,6 +1178,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 **类型避让**:`WrongQuestionRecord`(避让 exam.ts 已有的 `WrongQuestion` 接口)
 
 **验证**:
+
 - `pnpm --filter @ihui/api-client typecheck` 退出码 0 ✅
 - `pnpm --filter @ihui/api-client build` 退出码 0 ✅(5 个新 .js 已落地到 dist/endpoints/)
 
@@ -1166,22 +1188,23 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 **实现功能清单**:
 
-| 功能 | 实现方式 |
-|------|---------|
-| 列表 | `GET /api/learn/topics/categories`,react-query useQuery |
-| 创建 | `POST /api/learn/topics/categories`,useMutation + Dialog 表单 |
-| 修改 | `PUT /api/learn/topics/categories/:id`,复用同一 Dialog |
-| 删除 | `DELETE /api/learn/topics/categories/:id`,window.confirm 二次确认 |
-| 分页 | 上一页/下一页 Button + "共 X 条 / 第 X / Y 页"(PAGE_SIZE=20) |
-| 搜索 | 防抖 300ms,keyword 参数 |
-| 状态筛选 | Select(全部/启用/禁用) |
-| 状态展示 | 启用绿/禁用灰徽章(§4 状态色规范) |
-| 边界态 | loading spinner / error 文案 / 空态 FolderTree 图标 |
-| 时间 | `Intl.DateTimeFormat('zh-CN', ...)` |
+| 功能     | 实现方式                                                          |
+| -------- | ----------------------------------------------------------------- |
+| 列表     | `GET /api/learn/topics/categories`,react-query useQuery           |
+| 创建     | `POST /api/learn/topics/categories`,useMutation + Dialog 表单     |
+| 修改     | `PUT /api/learn/topics/categories/:id`,复用同一 Dialog            |
+| 删除     | `DELETE /api/learn/topics/categories/:id`,window.confirm 二次确认 |
+| 分页     | 上一页/下一页 Button + "共 X 条 / 第 X / Y 页"(PAGE_SIZE=20)      |
+| 搜索     | 防抖 300ms,keyword 参数                                           |
+| 状态筛选 | Select(全部/启用/禁用)                                            |
+| 状态展示 | 启用绿/禁用灰徽章(§4 状态色规范)                                  |
+| 边界态   | loading spinner / error 文案 / 空态 FolderTree 图标               |
+| 时间     | `Intl.DateTimeFormat('zh-CN', ...)`                               |
 
 **复用 packages/ui 组件**:Button / Dialog / DialogContent / DialogHeader / DialogTitle / DialogFooter / Input / Label / Select / SelectTrigger / SelectContent / SelectItem / SelectValue / Switch / Table / TableHeader / TableBody / TableHead / TableRow / TableCell
 
 **样式合规**:
+
 - 无 `rounded-full` 容器(仅 `h-1.5 w-1.5` 装饰点,§4 豁免)
 - 无 `<hr>`/`divide-y`
 - 无 `mask-image`
@@ -1191,6 +1214,7 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 **验证**:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅
 
 **已知缺口**(非本任务范围):
+
 - D 盘 Vue 源码 `d:\历史项目存档\edu client\src\views\learn\topic\category.vue` 不存在(D 盘 edu client 只有 `web/src/api/learn/topic.js`),按任务说明的 API 路径 + 字段清单 + IHUI-AI 现有 categories/signups 模块项目模式实现
 - 后端 `/api/learn/topics/categories` 路由尚未实现,实际访问会 404
 - i18n `admin.learn.topic.category` 命名空间不存在,直接使用中文文案
@@ -1198,15 +1222,15 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 23.5 第三批 subagent 验证汇总
 
-| 任务 | 验证命令 | 退出码 |
-|------|---------|-------|
-| J | `pnpm --filter @ihui/database typecheck` | 0 ✅ |
-| J | `pnpm --filter @ihui/database build` | 0 ✅ |
-| J | `node scripts/check-db-schema-drift.mjs` | 0 ✅ |
-| K | `pnpm --filter @ihui/api typecheck` | 0 ✅ |
-| L | `pnpm --filter @ihui/api-client typecheck` | 0 ✅ |
-| L | `pnpm --filter @ihui/api-client build` | 0 ✅ |
-| M | `pnpm --filter @ihui/web typecheck` | 0 ✅ |
+| 任务 | 验证命令                                   | 退出码 |
+| ---- | ------------------------------------------ | ------ |
+| J    | `pnpm --filter @ihui/database typecheck`   | 0 ✅   |
+| J    | `pnpm --filter @ihui/database build`       | 0 ✅   |
+| J    | `node scripts/check-db-schema-drift.mjs`   | 0 ✅   |
+| K    | `pnpm --filter @ihui/api typecheck`        | 0 ✅   |
+| L    | `pnpm --filter @ihui/api-client typecheck` | 0 ✅   |
+| L    | `pnpm --filter @ihui/api-client build`     | 0 ✅   |
+| M    | `pnpm --filter @ihui/web typecheck`        | 0 ✅   |
 
 ### 23.6 第三批 subagent 交付物清单
 
@@ -1234,31 +1258,31 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 24.1 三批 subagent 总览(12 个 subagent)
 
-| 批次 | subagent | 任务 | 状态 |
-|------|---------|------|------|
-| 第一批 | A | 数据库 schema 补迁移(27 表) | ✅ |
-| 第一批 | B | 数据库 migration 生成 | ✅ |
-| 第一批 | C | API 端点补开发(10 关键 + 7 辅助) | ✅ |
-| 第一批 | D | 前端 API 路径切换(10 处) | ✅ |
-| 第二批 | E | i18n 4 key 补齐 + 5 语言同步 | ✅ |
-| 第二批 | F | 2 个数字人 API 端点补开发 | ✅ |
-| 第二批 | G | edu 业务编辑子页抽样核对 | ✅ |
-| 第二批 | H | 多端同步检查 | ✅ |
-| 第三批 | J | 数据库 journal 根治(8 snapshot) | ✅ |
-| 第三批 | K | check-in 子路由补开发(9 端点) | ✅ |
-| 第三批 | L | api-client 补 5 个共享函数(15 函数) | ✅ |
-| 第三批 | M | edu `/learn/topic/category` 页面补开发 | ✅ |
+| 批次   | subagent | 任务                                   | 状态 |
+| ------ | -------- | -------------------------------------- | ---- |
+| 第一批 | A        | 数据库 schema 补迁移(27 表)            | ✅   |
+| 第一批 | B        | 数据库 migration 生成                  | ✅   |
+| 第一批 | C        | API 端点补开发(10 关键 + 7 辅助)       | ✅   |
+| 第一批 | D        | 前端 API 路径切换(10 处)               | ✅   |
+| 第二批 | E        | i18n 4 key 补齐 + 5 语言同步           | ✅   |
+| 第二批 | F        | 2 个数字人 API 端点补开发              | ✅   |
+| 第二批 | G        | edu 业务编辑子页抽样核对               | ✅   |
+| 第二批 | H        | 多端同步检查                           | ✅   |
+| 第三批 | J        | 数据库 journal 根治(8 snapshot)        | ✅   |
+| 第三批 | K        | check-in 子路由补开发(9 端点)          | ✅   |
+| 第三批 | L        | api-client 补 5 个共享函数(15 函数)    | ✅   |
+| 第三批 | M        | edu `/learn/topic/category` 页面补开发 | ✅   |
 
 ### 24.2 全任务最终真实缺失项
 
-| 维度 | 原真实缺失 | 全任务闭环后 | 状态 |
-|------|-----------|------------|------|
-| 数据库表 | 45 | **0** | ✅ 全部补迁移 |
-| 数据库 migration | 8 个未注册 | **0** | ✅ journal 根治(8 snapshot 补建) |
-| API 端点 | 49 | **28**(10 关键 + 2 数字人 + 9 checkin 子路由 已补) | ⚠️ 28 个为设计风格差异 |
-| 前端页面 | 236 | **234**(1 个 `/learn/topic/category` + 1 个签到管理 已补) | ⚠️ 234 个为 RuoYi 框架页 + edu 子页 |
-| i18n key | 977 | **973**(4 common key 已补齐) | ⚠️ 17 重写 + 1029 废弃(98% 无需补) |
-| api-client 共享函数 | 5 端点缺封装 | **0**(5 文件 15 函数已补) | ✅ 全部补开发 |
+| 维度                | 原真实缺失   | 全任务闭环后                                              | 状态                                |
+| ------------------- | ------------ | --------------------------------------------------------- | ----------------------------------- |
+| 数据库表            | 45           | **0**                                                     | ✅ 全部补迁移                       |
+| 数据库 migration    | 8 个未注册   | **0**                                                     | ✅ journal 根治(8 snapshot 补建)    |
+| API 端点            | 49           | **28**(10 关键 + 2 数字人 + 9 checkin 子路由 已补)        | ⚠️ 28 个为设计风格差异              |
+| 前端页面            | 236          | **234**(1 个 `/learn/topic/category` + 1 个签到管理 已补) | ⚠️ 234 个为 RuoYi 框架页 + edu 子页 |
+| i18n key            | 977          | **973**(4 common key 已补齐)                              | ⚠️ 17 重写 + 1029 废弃(98% 无需补)  |
+| api-client 共享函数 | 5 端点缺封装 | **0**(5 文件 15 函数已补)                                 | ✅ 全部补开发                       |
 
 ### 24.3 全任务最终整体迁移完整性
 
@@ -1311,36 +1335,36 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 
 ### 25.1 browser_use 4 状态自验证据(AGENTS.md §19 强制)
 
-**验证目标**: `http://localhost:3000/admin/learn/topic/category`(本轮补开发的 edu 页面)
+**验证目标**: `http://localhost:8801/admin/learn/topic/category`(本轮补开发的 edu 页面)
 
 **前置处理**: 因其他 agent 引入 `@/components/marketing/BrandMarquee` import 但未提交组件文件,导致 web 全站 500 阻塞自验。临时创建 stub 组件 `apps/web/src/components/marketing/BrandMarquee.tsx`(20 行空占位,不进入 commit)让 web dev server 可渲染。
 
 **4 状态自验结果**:
 
-| 状态 | 结果 | DOM 数值证据 |
-|------|------|-------------|
-| 默认态(default) | ✅ PASS | h1 文本="学习专题分类";描述文案="管理学习专题下的分类,支持排序与状态切换";"新建分类"按钮存在;table 容器存在 |
-| hover 态 | ✅ PASS | "新建分类"按钮 className 含 `hover:bg-primary/90`;getComputedStyle borderColor 非蓝色发光(非 rgb(59,130,246) 类蓝色) |
+| 状态                  | 结果    | DOM 数值证据                                                                                                                                                                                                                                                          |
+| --------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 默认态(default)       | ✅ PASS | h1 文本="学习专题分类";描述文案="管理学习专题下的分类,支持排序与状态切换";"新建分类"按钮存在;table 容器存在                                                                                                                                                           |
+| hover 态              | ✅ PASS | "新建分类"按钮 className 含 `hover:bg-primary/90`;getComputedStyle borderColor 非蓝色发光(非 rgb(59,130,246) 类蓝色)                                                                                                                                                  |
 | active/选中态(Dialog) | ✅ PASS | JS click() 绕过 overlay 拦截后 dialog 打开;`data-state="open"`;offsetHeight=271,offsetWidth=512;inputCount=3(分类名称/排序/状态)、buttonCount=4(取消/保存/Close 等)、labelCount=3、switchCount=1;dialogBg=rgb(36,36,36)、dialogBorder=rgb(56,56,56)、dialogRadius=8px |
-| dark mode 态 | ✅ PASS | htmlClass 切换为 dark;body/table/card 三层容器的 backgroundColor + color 全部读出 dark 模式数值;切回 light 后恢复正常 |
+| dark mode 态          | ✅ PASS | htmlClass 切换为 dark;body/table/card 三层容器的 backgroundColor + color 全部读出 dark 模式数值;切回 light 后恢复正常                                                                                                                                                 |
 
 **CSS 合规检查**(AGENTS.md §4 强制):
 
-| 检查项 | 结果 | 证据 |
-|--------|------|------|
-| 无 `rounded-full` 容器 | ✅ PASS | page.tsx 仅一处 `rounded-full` 在状态徽标小圆点装饰,属可豁免场景 |
-| 无 `hr` / `divide-y` 分割线 | ✅ PASS | page.tsx 未检出 `hr` 或 `divide-y` 类 |
-| 无 `mask-image` 渐变遮罩 | ✅ PASS | page.tsx 未检出 `mask-image` 相关样式 |
+| 检查项                      | 结果    | 证据                                                             |
+| --------------------------- | ------- | ---------------------------------------------------------------- |
+| 无 `rounded-full` 容器      | ✅ PASS | page.tsx 仅一处 `rounded-full` 在状态徽标小圆点装饰,属可豁免场景 |
+| 无 `hr` / `divide-y` 分割线 | ✅ PASS | page.tsx 未检出 `hr` 或 `divide-y` 类                            |
+| 无 `mask-image` 渐变遮罩    | ✅ PASS | page.tsx 未检出 `mask-image` 相关样式                            |
 
 **整体结论**: ✅ PASS(4 状态全验证 + CSS 合规全通过)
 
 ### 25.2 新端点 API 验证证据
 
-| 端点 | 方法 | HTTP 状态 | 结论 |
-|------|------|-----------|------|
-| `/api/learn/topics/categories` | GET | 401 | ✅ 已注册,需鉴权(未登录正确返回 401) |
-| `/admin/learn/topic/category`(前端页面) | GET | 307 → /landing | ✅ 已注册,未登录正确重定向到 landing |
-| `/landing`(BrandMarquee stub) | GET | 200 | ✅ web 编译成功,stub 生效 |
+| 端点                                    | 方法 | HTTP 状态      | 结论                                 |
+| --------------------------------------- | ---- | -------------- | ------------------------------------ |
+| `/api/learn/topics/categories`          | GET  | 401            | ✅ 已注册,需鉴权(未登录正确返回 401) |
+| `/admin/learn/topic/category`(前端页面) | GET  | 307 → /landing | ✅ 已注册,未登录正确重定向到 landing |
+| `/landing`(BrandMarquee stub)           | GET  | 200            | ✅ web 编译成功,stub 生效            |
 
 ### 25.3 commit + push 落地证据
 
@@ -1352,35 +1376,43 @@ Top 模块:examine(79) / agent_withdrawal_detail(68) / job(62) / gen_info(44) / 
 - **push 结果**: ✅ local HEAD === origin/main HEAD === fa5544c(已落地)
 
 **Verified-DOM trailer**(AGENTS.md §17 强制):
+
 ```
-Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题分类, dialog.offsetHeight=271, dialog.offsetWidth=512, dialog.data-state=open, inputCount=3, buttonCount=4, labelCount=3, switchCount=1)
+Verified-DOM: http://localhost:8801/admin/learn/topic/category (h1=学习专题分类, dialog.offsetHeight=271, dialog.offsetWidth=512, dialog.data-state=open, inputCount=3, buttonCount=4, labelCount=3, switchCount=1)
 ```
 
 ### 25.4 本任务文件 commit 清单(96 文件,精确 git add,未用 git add . / -A)
 
 **数据库 schema**(7 文件):
+
 - packages/database/src/schema/{topic,index,admin-extended,learn-homework,live-supplement,resource-download,social-supplement}.ts
 
 **数据库 migration**(13 文件):
+
 - packages/database/drizzle/0108_r83_supplement_27_tables.sql
 - packages/database/drizzle/0116_topic_categories.sql
 - packages/database/drizzle/meta/_journal.json
 - packages/database/drizzle/meta/0107-0116_snapshot.json(10 个)
 
 **API 路由**(7 文件):
+
 - apps/api/src/routes/{learn,auth-codes,check-in,exam-marking,mail,private-letters,wrong-questions}.ts
 
 **api-client 共享层**(6 文件):
+
 - packages/api-client/src/endpoints/{auth-codes,exam-marking,mail,private-letters,wrong-questions}.ts
 - packages/api-client/src/index.ts
 
 **前端页面**(1 文件):
+
 - apps/web/app/(main)/admin/learn/topic/category/page.tsx(199 行)
 
 **审计脚本**(11 文件):
+
 - scripts/audit-{edu-pages-sample-check,i18n-missing-evaluate,migration-api-routes-v2,migration-api-routes,migration-db-fields,migration-db-schema,migration-file-list,migration-frontend-routes,migration-i18n,multi-platform-sync,remaining-evaluate}.mjs
 
 **审计报告**(51 文件):
+
 - reports/ 目录全部 CSV/JSON/MD 文件(含本最终报告)
 
 ### 25.5 未进入 commit 的文件(按 AGENTS.md §12)
@@ -1416,6 +1448,7 @@ Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题�
 ### 26.1 调研方法
 
 派 4 个 search subagent 并行精确调研,基于:
+
 - 审计报告(`reports/migration-audit-*.json/csv/md`)
 - 5 语言 i18n 文件实测(`apps/web/messages/*.json`)
 - D 盘历史项目核查(`D:\历史项目存档\`)
@@ -1423,25 +1456,26 @@ Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题�
 
 ### 26.2 4 项剩余项调研结论
 
-| # | 剩余项 | 原估计 | 实际工作量 | 结论 |
-|---|--------|--------|-----------|------|
-| 1 | BrandMarquee 模块缺失 | 单文件 | 1 文件 + en/ja 翻译修复 | ✅ 已实现(并行 subagent)+ 4 状态自验通过 |
-| 2 | i18n parity 问题 | 537+250+1166 | ~33 处翻译质量修复 | ✅ key parity 已完成 + 翻译质量修复完成(并行 subagent) |
-| 3 | 234 前端非真实缺失 | 234 页 | 0(全部已等价实现) | ✅ 已核实关闭 |
-| 4 | 28 API 设计风格差异 | 28 端点重构 | 0(全部功能等价) | ✅ 已核实关闭 |
+| #   | 剩余项                | 原估计       | 实际工作量              | 结论                                                   |
+| --- | --------------------- | ------------ | ----------------------- | ------------------------------------------------------ |
+| 1   | BrandMarquee 模块缺失 | 单文件       | 1 文件 + en/ja 翻译修复 | ✅ 已实现(并行 subagent)+ 4 状态自验通过               |
+| 2   | i18n parity 问题      | 537+250+1166 | ~33 处翻译质量修复      | ✅ key parity 已完成 + 翻译质量修复完成(并行 subagent) |
+| 3   | 234 前端非真实缺失    | 234 页       | 0(全部已等价实现)       | ✅ 已核实关闭                                          |
+| 4   | 28 API 设计风格差异   | 28 端点重构  | 0(全部功能等价)         | ✅ 已核实关闭                                          |
 
 ### 26.3 234 前端非真实缺失详细结论
 
 **4 类非真实缺失理由**(去重后实际 ~163 条唯一):
 
-| 类别 | 数量 | 占比 | 理由 |
-|------|------|------|------|
-| A. 路径重命名/重组 | ~90 | 38% | Vue `/member/list` → Next.js `/admin/members` 等 |
-| B. Dialog 弹窗模式 | ~50 | 21% | Vue 独立 edit 页 → Next.js 列表 + `*Dialog.tsx` |
-| C. 动态路由收敛 | ~10 | 4% | Vue 5 题型独立路由 → Next.js 1 个动态路由 |
-| D. 重复计数 | ~85 | 36% | `edu client` 与 `code/edu` 同项目两副本 |
+| 类别               | 数量 | 占比 | 理由                                             |
+| ------------------ | ---- | ---- | ------------------------------------------------ |
+| A. 路径重命名/重组 | ~90  | 38%  | Vue `/member/list` → Next.js `/admin/members` 等 |
+| B. Dialog 弹窗模式 | ~50  | 21%  | Vue 独立 edit 页 → Next.js 列表 + `*Dialog.tsx`  |
+| C. 动态路由收敛    | ~10  | 4%   | Vue 5 题型独立路由 → Next.js 1 个动态路由        |
+| D. 重复计数        | ~85  | 36%  | `edu client` 与 `code/edu` 同项目两副本          |
 
 **审计报告数字校正**:
+
 - "30 个 RuoYi 框架页" → 实际 1 条(`/tool/gen-edit` 已废弃)
 - "130 edu 子页" → 去重后 94 条(96.7% 已迁移)
 - "76 edu 用户端" → 去重后 58 条(全部已等价实现)
@@ -1450,12 +1484,14 @@ Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题�
 ### 26.4 28 API 设计风格差异详细结论
 
 **实际清单**:
+
 - 86 设计风格差异(功能等价,路径风格不同)
 - 26 废弃项(ZHS AI 旧业务下线 / RuoYi 框架已弃用 / TBox 硬件特定等)
 - 2 已补开发(阿里数字人,2026-07-19 完成)
 - 合计 114 unique paths
 
 **86 个设计风格差异分类**:
+
 - by-X 类(5 个):by-mobile / by-id / by-ids → IHUI-AI `/members?mobile=` / `/members?ids=` 更 RESTful
 - reply-comment 类(3 个):D 盘拆分 reply → IHUI-AI 统一 `/comments/:id/replies`
 - ai-vendors 类(7 个):D 盘统一前缀 → IHUI-AI 按 vendor 拆分更清晰
@@ -1469,16 +1505,19 @@ Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题�
 ### 26.5 i18n parity 详细结论
 
 **key parity 状态**:
+
 - 5 语言 key 集合完全一致(各 21883 个),无缺失
 - 历史"537 admin 键 + 250 admin 页面键"已修复(5 个文件 admin namespace 行号 1488-7257 完全对应)
 
 **翻译质量问题**(由并行 subagent 修复):
+
 - zh-TW 7 处简体字残留(品牌名规范化):Volcengine / Baidu ERNIE / Weibo / Douyin
 - en 6 处机翻错误:`huawei: Why` → `Huawei Cloud`,`zhipu: Zhipu` → `Zhipu AI` 等
 - ja 5 处机翻错误:`huawei: です` → `Huawei Cloud`,`智譜: Zhipu AI` 等
 - ko mcp namespace 15+ 处破碎机翻:`복생각` → `복사`,`합계Calls` → `총 호출 수` 等
 
 **1147 处英文 fallback 处理**:
+
 - ~95% 是有意保留的品牌名(iOS / Android / Google / Apple / GitHub / OpenAI 等),不翻译
 - ~5% 是真实需要修复的破碎机翻,已由并行 subagent 修复
 
@@ -1500,6 +1539,7 @@ Verified-DOM: http://localhost:3000/admin/learn/topic/category (h1=学习专题�
 ### 26.7 本批调研最终结论
 
 ✅ **任务范围外 4 项剩余项全部关闭**:
+
 - 2 项需实施(BrandMarquee + i18n 翻译质量)由并行 subagent 完成
 - 2 项调研关闭(234 前端非真实缺失 + 28 API 设计风格差异)经核查无需任何工作
 

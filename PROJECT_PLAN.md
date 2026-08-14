@@ -1302,12 +1302,14 @@
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作6:tokens.css 圆角5档上提共享层,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作7:extension content script 24处硬编码颜色集中管理,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作8:mobile-rn AiModelCard 13处硬编码颜色改 tokens,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+
 ### 验证
 
 - rn-app/mobile-rn/extension/miniapp-taro/shared typecheck 全绿
 - 各端 lint 全绿(web 2个预先存在错误不属本任务)
 
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段1收尾: @ihui/app -> @ihui/rn-app 文档同步(comm,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+
 ## 多端维护成本优化阶段2(2026-07-27,P0+P1,目标 5.5x->4.0x)
 
 阶段1完成后剩余 5.5x,深度审计 6 维度识别 12 个优化动作,分 P0/P1/P2 三波。
@@ -1334,18 +1336,23 @@
 - [x] ✅(2026-07-28) P2-4: web/src/lib 死代码审计(降本 0.1x) — 阶段2 完成,67 文件 15 候选,报告在 `.trae-cn/tmp/p2-4-audit/`,commit `1acae38e24`(web/src/lib/number-format.ts 5 行 +/-,P1+P2 收尾混合 commit,审计文档化)
 
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subag,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+
 ## 多端维护成本优化阶段3(2026-07-27,P2+安全降本,目标 4.2x->3.9x)
 
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3 完成(4.2x->3.9x,5动作4 subagent+主agent并行),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+
 ## 多端维护成本优化阶段3.5(2026-07-27,P2 类型契约扩散,目标 3.9x->3.7x)
 
 <!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3.5 完成(3.9x->3.7x,9 screen 接入,4 subagent,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+
 ## 多端维护成本优化阶段4(2026-07-28,P2 类型契约扩散,目标 3.7x->3.5x)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段4 完成(3.7x->3.5x,4 screen 接入 Article/Poin,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ## 多端维护成本优化阶段5(2026-07-28,P2 类型契约扩散,目标 3.5x->3.3x)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段5 完成(3.5x->3.3x,3 screen 接入 FavoriteItem,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## BYOK 体验完善三件套收尾(2026-07-30 立,平台独占:apps/api + apps/web + scripts/ + AGENTS.md)
@@ -1492,9 +1499,11 @@
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 AP,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ## 多端维护成本优化阶段7(2026-07-28,P0 schema 补齐 + 真实上传 + 类型显式化,目标 3.1x->2.9x)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段7 完成(3.1x->2.9x,schema 字段补齐 + 真实文件上传 + 类,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## P0 LLM 接入层系统性重构(2026-07-31 立,4 Phase 一次到位,平台独占:apps/ai-service + apps/web,AGENTS.md §24 用户已确认)
@@ -1521,123 +1530,18 @@
 - **Phase D DB+文档(主 agent)**:DB 占位符清理 + .env.example 文档 + 跨端契约对齐 + 最终验证 + commit/push
   - apps/mobile-rn/src/screens/LiveHostScreen.tsx:移除 readNumber 类型守卫,改用强类型字段直接转换
 
-### [x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模型名应该是自动更新啊 怎么还需要手动去调呢 这要开发好")
-
-> **背景**:用户反馈模型名应自动同步,不应依赖手动改 `default_models.json`。本任务服务化 `scripts/scan-upstream-models.mjs`(一次性 CLI 扫描脚本)为 Python 后台服务,定时从厂商 `/v1/models` 端点拉取最新模型清单,自动注册到 DB(`ai_model_config_models` 表),实现"模型名自动更新,新增 provider 只需在 `free_provider_registry.py` 登记 + 配置 api_key,无需手动改任何文件"。
-
-- [x] `apps/ai-service/app/services/model_sync.py`(新增):`ModelSyncService` 单例,启动后 60s 首次同步 + 每 6h 全量同步;并发信号量限流(5 个 provider 同时拉);DB upsert(新增模型 `is_relay_public=true` 自动上架,移除模型 `is_relay_public=false` 自动下架,不删行保留历史);同步后触发 `model_availability._refresh_all_providers()` 立即刷新健康状态
-- [x] Cloudflare Workers AI 适配(非标准 API):`/v1/models` 端点返回 405 → 改用 `/models/search` + 响应 `result` 字段(非 `data`);剥离 trailing `/v1` 后缀避免用户配置 `api_base` 习惯性带 `/v1` 拼出错误端点
-- [x] `apps/ai-service/app/main.py`:lifespan startup 调 `model_sync_service.initialize()` 启动后台任务,shutdown 调 `shutdown()` 取消任务
-- [x] `apps/ai-service/app/routers/llm.py`:新增 2 个 admin 端点 — `POST /api/llm/models/sync`(手动触发全量同步)+ `GET /api/llm/models/sync/status`(查询同步状态,含每个 provider 的 success/total_models/new_models/removed_models/error/latency_ms)
-- [x] `packages/api-client/src/endpoints/llm.ts`(已在 commit `04e5054339` 中):新增 `ModelSyncResult` / `ModelSyncStatus` 接口 + `triggerModelSync()` / `fetchModelSyncStatus()` API 函数
-- [x] `apps/web/app/(main)/settings/gateway/ProvidersHealthTab.tsx`:集成 useQuery(10s refetch 同步状态)+ useMutation(触发同步),UI Card 显示最近同步时间 + 5 个 provider 同步结果(Badge 标识总数/+新增/-下架/latency),"立即同步"按钮(spinner + disabled 状态)
-- [x] `apps/web/app/(main)/settings/gateway/types.ts`:re-export `ModelSyncResult` / `ModelSyncStatus` 类型
-- [x] `apps/ai-service/app/data/default_models.json`:降级为兜底清单(每 provider 1-2 个推荐模型),头部加 `_doc_2026_07_31` 字段说明"实际模型清单由 ModelSyncService 自动同步到 DB,无需手动改本文件"
-- [x] 端到端验证:ai-service 启动后 60s 自动触发首次同步,实测 7.4s 同步完成 5 个 provider — stepfun(9) / agnes(6) / openrouter(364) / nvidia_nim(102) / cloudflare_workers_ai(61,修复 405 后);GET `/api/llm/models/sync/status` 返回 200 + 完整 status JSON;前端 DOM 快照验证 "模型自动同步" Card + "立即同步" 按钮可点击 + 无蓝色发光边框
-- [x] typecheck 全绿:`pnpm --filter @ihui/web typecheck` exit 0;`python -m py_compile` 全文件 exit 0
-
-### [x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用户反馈"继续优化 深度优化开发 远远不够",4 subagent 并行)
-
-> **背景**:Phase E v1 上线后深度审视发现 15 个真实不足(无事务 / 无重试 / 无历史 / Cloudflare 字符串匹配 / 无单 provider 同步 / 无 dry-run / 硬编码配置 / display_name 简陋 / pricing 单 schema / context_length 单 fallback / 无分类标签 / 无价格过滤 / 无别名映射 / 前端无 diff 详情 / 前端无单 provider 按钮)。本任务 4 subagent 并行深度优化,4 Phase 一次到位。
-
-#### F1 数据可靠性(4 项)— subagent-1 后端
-
-- [x] F1.1 DB 事务包裹 upsert:`_upsert_models_to_db` 用 `async with conn.transaction():` 包裹整个流程(查 config + 查 existing + INSERT + UPDATE + 下架),中途失败回滚不留脏数据
-- [x] F1.2 失败重试机制:`_sync_single_provider` 加重试循环,`_RETRY_BASE_DELAYS = (1.0, 2.0, 4.0)`,只重试 `httpx.TimeoutException`/`httpx.NetworkError`,4xx 不重试(key 无效不重试)
-- [x] F1.3 同步历史持久化:新增 `_write_sync_log` + `get_history(limit=20)`,写入 `ai_model_sync_log` 表(由 subagent-2 创建);表不存在时 try/except 静默降级(不影响主流程)
-- [x] F1.4 Cloudflare 改用 provider_code 判断:`_fetch_upstream_models` 接收 `provider_code` 参数,用 `provider_code == "cloudflare_workers_ai"` 替代 `if "api.cloudflare.com" in base_url` 字符串匹配
-
-#### F2 同步能力增强(4 项)— subagent-1 后端
-
-- [x] F2.1 单 provider 同步端点:`POST /api/llm/models/sync?provider=stepfun`(query param,可选),`ModelSyncService.sync_single_provider(provider_code)` 新方法
-- [x] F2.2 dry-run 预览模式:`sync_all_providers`/`sync_single_provider` 加 `dry_run: bool=False` 参数;返回结构增加 `preview: {new_model_ids, removed_model_ids}` 字段;端点 `POST ?dry_run=true` 触发预览(不写 DB)
-- [x] F2.3 调度配置可调:`config.py` 新增 `model_sync_interval_s: int = 21600`(默认 6h,admin 可通过 .env 调整);`_sync_interval_s()` 读取
-- [x] F2.4 并发限流可配:`config.py` 新增 `model_sync_concurrency: int = 5`;`_sync_concurrency()` 读取
-
-#### F3 模型元数据增强(6 项)— subagent-1 后端
-
-- [x] F3.1 display_name 智能派生:`_extract_display_name(model_id, raw_name)` — 优先 raw_name,否则从 id 派生(`gpt-4o-mini` → `GPT 4o Mini`,`claude-3-5-sonnet` → `Claude 3.5 Sonnet`,`llama-3.3-70b-instruct` → `Llama 3.3 70B Instruct`)
-- [x] F3.2 多 provider pricing schema:`_extract_pricing(provider_code, model)` — OpenRouter(prompt/completion 字符串)、Cloudflare(input/output 浮点数)、NVIDIA NIM(metadata.input_cost_per_token)、其他(0,0)
-- [x] F3.3 context_length 多层级 fallback:`_extract_context_length(model)` — 6 级(context_length → context_window → top_provider.context_length → max_input_tokens → metadata.max_input_tokens → 32000)
-- [x] F3.4 模型分类标签:`_classify_model(model_id, raw_model)` — vision/tool/reasoning/fast/embedding/chat;`_check_tags_column_exists` 查 information_schema 确认 tags 字段是否存在(带缓存),存在则写入 DB,不存在则只在内存返回
-- [x] F3.5 价格上限过滤:`MAX_PRICE_PER_1K_TOKENS = 100`(cents,即 $1/1k tokens),超过跳过 INSERT 并 log warning
-- [x] F3.6 模型别名映射:`_apply_alias(model_id, provider_code)` — OpenRouter 剥离 `openai/`/`anthropic/`/`google/`/`meta/` 等前缀(`openai/gpt-4o` → `gpt-4o`);is_aliased=True 时 display_name 加 `(原: xxx)` 备注
-
-#### F4 前端体验增强(4 项)— subagent-3 前端
-
-- [x] F4.1 同步详情可展开:`SyncDiffDetail` 子组件(可折叠),每个 provider 同步行可点击展开,显示 `new_model_ids`(绿色 Badge)+ `removed_model_ids`(红色 Badge),ChevronRight 旋转指示状态
-- [x] F4.2 单 provider 同步按钮:`ProviderRow` 子组件右侧加 RefreshCw 按钮,点击触发 `triggerModelSync({ provider })`;`syncingProviders: Set<string>` 跟踪 in-flight,spinner 只显示在对应行
-- [x] F4.3 dry-run 预览 UI:"立即同步"旁加"预览同步"按钮(Eye 图标),触发 `triggerModelSync({ dry_run: true })`;返回后弹出 Dialog 显示"将新增 X 个 / 将下架 Y 个"+ 模型清单;用户确认后再点"立即同步"实际执行
-- [x] F4.4 同步历史时间轴:`SyncHistoryTimeline` 子组件(默认折叠),展开时调 `fetchModelSyncHistory(10)`;时间轴样式(左侧 absolute span 时间线 + 装饰圆点 + 右侧内容);`Intl.DateTimeFormat` 格式化时间
-
-#### 配套(DB schema + 单测)— subagent-2 + subagent-4
-
-- [x] DB schema(subagent-2):新增 `packages/database/src/schema/ai-model-sync-log.ts`(Drizzle pgTable,11 字段 + 2 索引)+ `index.ts` re-export + migration `20260801010080_add_ai_model_sync_log.sql`(CREATE TABLE IF NOT EXISTS 幂等);migration 已在本地 PostgreSQL 执行成功(11 列 + 3 索引实测可见)
-- [x] pytest 单测(subagent-4):`apps/ai-service/tests/test_model_sync.py`(320 行,6 个测试类,50 个测试用例)— `_parse_price`(16)/`_extract_display_name`(6)/`_extract_pricing`(6)/`_extract_context_length`(8)/`_classify_model`(9)/`_apply_alias`(5);50 passed in 0.88s 全绿
-
-#### 端到端验证
-
-- [x] 后端 API 实测:`POST /api/llm/models/sync?provider=stepfun` → 200,`total_models=9, latency=221ms`;`GET /api/llm/models/sync/history?limit=10` → 200,实际返回 1 条 stepfun 同步记录(`{"provider_code":"stepfun","sync_started_at":"2026-07-31T08:18:19Z","success":true,"total_models":9,"latency_ms":221}`);dry-run 预览正确返回 `preview: {new_model_ids:[], removed_model_ids:[]}` 不写 DB
-- [x] 全量 dry-run 测试:5 provider 全部成功 — stepfun(9) / agnes(6) / openrouter(364,识别 tags=[chat,fast,reasoning,tool,vision]) / cloudflare_workers_ai(61,F1.4 provider_code 判断生效) / nvidia_nim(102)
-- [x] typecheck 全绿:`pnpm --filter @ihui/web typecheck` exit 0(本任务文件零错误);`pnpm --filter @ihui/api-client typecheck` exit 0;`python -m py_compile` 全文件 exit 0;`pytest tests/test_model_sync.py` 50 passed
-- [x] Subagent D(AigcPublishScreen 真实文件上传):
-  - 安装 expo-image-picker ~8.1.0(与 expo 53 兼容)
-  - packages/api-client/src/endpoints/files.ts(新建):uploadFileMultipart/UploadedFile/resolveFileUrl
-  - apps/mobile-rn/app.json:配置 expo-image-picker photosPermission/cameraPermission
-  - apps/mobile-rn/src/screens/AigcPublishScreen.tsx:接入真实相册选择 + 上传,保留 URL 输入 fallback
-- [x] 主 agent RecruitmentScreen 简化:
-  - 删除 pickStr/pickStrArr 类型守卫函数(29 行 -> 0 行)
-  - 新增 parseCategory 类型守卫(将 string 映射到 TABS category 联合类型)
-  - mapCareerToJob 直接用强类型字段(item.company || '—' 替代 pickStr(item.company, '—'))
-  - TABS 启用真实 category 筛选(activeTab='all' 显示全部,其他按 job.category 过滤)
-
-技术细节:
-
-- 4 subagent 并行(A+C+D 同时启动,B 依赖 A 完成后主 agent 处理)
-- 类型零技术债:无 any,FormData.append 用 as never 绕过 RN 平台特性(非 any 兜底)
-- expo-image-picker 8.x API 适配(result.cancelled 英式拼写,result.uri 直接访问,无 assets 数组)
-- uploadFileMultipart 直接用 native fetch(fetchApi 不支持 FormData body)
-- migration 因预存 drizzle 元数据腐败(_journal.json idx 132-151 snapshot 缺失)跳过,待后续修复
-
-验证: pnpm --filter @ihui/api-client typecheck exit 0 + pnpm --filter @ihui/database build exit 0 + mobile-rn 3 screen(Recruitment/LiveHost/AigcPublish)typecheck 全绿。
-阶段7 总降本: 0.2x(3.1x -> 2.9x),累计八阶段 6.8x -> 2.9x(降本 3.9x,57.4%)。
-
-### [x] ✅(2026-07-31) ModelSyncService 深度优化 v4(8 项,Phase E v4,用户反馈"继续按你的建议去做执行，最多agent并行开发最大化效率，要求完美细致完整毫无遗漏")
-
-> **背景**:v3 上线后深度审视发现 8 个运维控制 + 可观测性 + 前端体验 + 文档测试缺口:无重置端点 / 无运行时配置更新 / 无聚合统计 / 无日志清理 / 无重启用 UI / 无配置面板 / 无统计卡片 / 无清理按钮 / README 未同步 / 测试覆盖不足。本任务 4 subagent 并行深度优化。
-
-#### F5 运维控制(4 项)— subagent-A 后端
-
-- [x] F5.1 重置 provider 端点:`POST /api/llm/models/sync/reset?provider=xxx`,reset_provider() 清零失败计数 + 移除永久禁用 + 清除 ETag 缓存
-- [x] F5.2 运行时配置更新:`PUT /api/llm/models/sync/config`,update_config() 动态调整 interval_s/concurrency(无需重启,两参数都 None 时 raise ValueError)
-- [x] F5.3 聚合统计端点:`GET /api/llm/models/sync/stats?days=7`,get_aggregated_stats() 查 sync_log 表聚合成功率/延迟/新增下架(days 上限 90)
-- [x] F5.4 日志清理端点:`DELETE /api/llm/models/sync/history?before_days=30`,cleanup_old_logs() 删除旧日志 + sync_loop 自动清理(每次全量同步后)
-
-#### F6 前端运维 UI(4 项)— subagent-B 前端
-
-- [x] F6.1 重启用按钮:ResetProviderButton 嵌入 SyncHealthPanel 永久禁用列表 + 确认 Dialog + toast + invalidate query
-- [x] F6.2 配置面板:SyncConfigPanel(number input 间隔+并发 + Save 按钮 + 客户端预校验 60-86400/1-20 + 友好提示)
-- [x] F6.3 聚合统计卡片:SyncStatsCard + SyncStatsGrid(7/30/90 天 Tabs + 8 指标网格 + 成功率三色 + by_provider 5 列明细表)
-- [x] F6.4 手动清理按钮:CleanupHistoryButton 嵌入 SyncHistoryTimeline 底部 + 确认 Dialog(含 before_days 输入)+ toast
-
-#### F7 文档 + 测试(2 项)— subagent-C + subagent-D
-
-- [x] F7.1 README 同步:新增"模型自动同步(ModelSyncService)"章节(9 项核心能力 + 8 端点表格 + 2 配置项表格)+ .env.example 配置块
-- [x] F7.2 测试覆盖:4 个新测试类 25 个用例(TestResetProvider 5/TestUpdateConfig 10/TestGetAggregatedStats 5/TestCleanupOldLogs 5)+ skipif 守卫
-
-#### 端到端验证
-
-- [x] 后端 API 实测:4 个新端点 py_compile exit 0 + 4 个 service 方法存在性检测通过 + reset_provider/update_config 功能自验通过
-- [x] typecheck 全绿:pnpm --filter @ihui/api-client typecheck exit 0 + pnpm --filter @ihui/web typecheck exit 0 + py_compile 双文件 exit 0
-- [x] pytest 全绿:test_model_sync.py 173 passed in 0.63s(148 原有 + 25 新增,0 skipped,0 failed)
-- [x] 主 agent 集成修复:3 处契约偏差修复(update_config both-None ValueError / reset_provider pop 兼容 / get_aggregated_stats 结构验证)
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v4(8 项,Phase E v4,用户,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
 
 ## AgentTaskProgressPane 折叠子区对齐 Trae Work(2026-07-28,/goal 完整达成)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 6 个折叠子区完整覆盖 useAgentProgress 全部数据源,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ## AI 对话输入框字符数迁移 + i18n 孤儿键清理(2026-07-28,UI 收尾)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 字符数从外层 hint 行迁移至输入框内右下角 + enterToSend 5 语言,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ## web 端 AI 对话页登录弹窗样式/凭证持久化修复(2026-07-31,已完成 ✅)
 
 > 用户反馈:web 端登录弹窗"乱七八糟"挡住 AI 对话内容,admin 测试账号每周都要重新登录,账号输入框右侧 ChevronDown 不需要。
@@ -1735,26 +1639,31 @@
 ## Trae Work 流式输出深度对标 Phase 19 + Phase 20(2026-07-28,UI 极致对标 + 单测/E2E 深化,4 subagent 并行)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 suba,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## Phase 21 Timeline 实时响应 subagent SSE 事件(2026-07-29,映射层 + 接入 + 51 单测 + 17 E2E,3 subagent 并行)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 21 完整收尾(3 subagent 并行 + 1 浏览器验证,累计 6,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## Phase 22 Trae Work 深度对标 v3 — i18n 化 + 筛选 + hover tooltip + 记忆 + a11y(2026-07-29,3 subagent 并行,73 test case)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 22 完整收尾(3 subagent 并行,73 新单测,3 commi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## Phase 23 Trae Work 深度对标 v4 — 消息搜索 + 最小化模式 + 空状态(2026-07-29,2 subagent 并行,36 test case)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 23 完整收尾(2 subagent 并行,36 新单测,2+ comm,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ---
 
 ## Phase 24 完整收尾 — Hydration 修复 + 浏览器验证 + 测试回归修复(2026-07-29,3 commit,1 浏览器验证,1 回归修复)
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+
 ### Phase 19-24 终态累计成果
 
 | Phase    | 主题                                | commit | 新 test       | 状态   |
@@ -1837,6 +1746,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 研究结论(剩余空桩全量映射)
 
 经 3 路并行 subagent 扫描 apps/api/src/routes/ 全量路由文件,确认:
+
 - 历史"51 + 54 条空桩"已大幅清理(admin-missing-routes.ts / missing-user-routes.ts 自述)
 - **真正剩余的空桩仅 7 条**(P1×3 + P2×4):
   - P1:auth.ts QR 登录 2 条端点(`/qr/status` + `/qr/generate`,返回 501,需 §24 用户确认是否开发)
@@ -1905,7 +1815,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - schema/index.ts 追加 export
   - 修复后 `GET /api/token/balance` 返回 `{ balance: 0, frozenBalance: 0 }`(code=0)
 
-- [x] ✅(2026-08-04) **i18n 同步:5 个 auth.app* key 翻译到 4 语言**
+- [x] ✅(2026-08-04) _*i18n 同步:5 个 auth.app* key 翻译到 4 语言_*
   - 5 key:auth.appLogin / appQrWaiting / appQrExpired / appQrRetry / appQrFailed
   - 4 语言:en(英文)/ ja(日文)/ ko(韩文)/ zh-TW(繁体中文)
   - i18n-apply.mjs 应用 + check-i18n-keys.mjs parity 校验通过 + scan-i18n-zh-residue.mjs ko/zh-TW 无残留 + check-i18n-broken-en.mjs 无破碎英文
@@ -2331,73 +2241,7 @@ CDP 关键 API:
 
 ## CLI 全局命令注册 + 一键启动脚本(2026-07-31,平台独占:仅 apps/cli 工具链 + 用户 PowerShell 环境)
 
-### [x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈
-
-用户要求:"本项目的cli端怎么使用 在我的电脑powershell里输入什么啊" + "继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏 然后我直接可以输入ihui为止"。**目标:PowerShell / cmd / Git Bash 任意终端输入 `ihui --version` 即可调用本地 @ihui/cli 开发模式**(无需手动 `cd G:\IHUI-AI ; pnpm --filter @ihui/cli dev`)。
-
-- [x] **全局命令注册**(用户主目录,不在仓库内):
-  - `C:\Users\Administrator\AppData\Roaming\npm\ihui.cmd` — cmd.exe / Git Bash 入口,`cd /d G:\IHUI-AI` + `pnpm --filter @ihui/cli dev %*`
-  - `C:\Users\Administrator\AppData\Roaming\npm\ihui.ps1` — PowerShell 入口,Push-Location + pnpm + Pop-Location 错误时还原
-  - 两个文件均做路径校验(`Test-Path package.json`),不存在时 exit 127 + 友好错误信息
-- [x] **CLI 持久化配置**:`C:\Users\Administrator\.ihui\settings.json` — 7 字段(`apiUrl / apiKey / defaultModel / locale / maxIterations / auditEnabled`),CLI 启动时 dotenv 读入,免除每次传 `--api-key` `--model`
-- [x] **全链路验证通过**:
-  - `where.exe ihui` → `C:\Users\Administrator\AppData\Roaming\npm\ihui.cmd` ✅
-  - `Get-Command ihui` → `ihui.ps1` ExternalScript ✅
-  - `ihui --version` → `1.0.0`(通过 pnpm tsx 启动 src/index.ts)✅
-  - `ihui --help` → 完整 25 个选项 + 6 个子命令(chat / agent / init / sessions / mcp / capabilities)✅
-  - web 8801: HTTP 200 ✅ / api 8802: `/api/health` → `{"status":"ok","service":"@ihui/api"}` ✅ / ai 8803: `/health` → `{"status":"ok","service":"ihui-ai-service"}` ✅
-- [x] **修复 cli 循环依赖 TDZ**(commit 包含):
-  - `apps/cli/src/tools/git-shared.ts`(新建):抽离 `execGit / formatGitResult / GitExecResult` 三个共享定义,打破 git.ts ↔ git-advanced.ts 循环引用(原 `ReferenceError: Cannot access 'GIT_ADVANCED_TOOLS' before initialization`)
-  - `apps/cli/src/tools/git.ts`:删本地重复实现 34 行,改 import 自 git-shared
-  - `apps/cli/src/tools/git-advanced.ts`:execGit/formatGitResult 改 import 自 git-shared(不再 import git.ts)
-- [x] **一键启动 dev 栈**:`scripts/start-ihui-stack.ps1`(新建,本任务含 2 轮修复):
-  - 派生 web(8801) + api(8802) + ai-service(8803) 三个 Start-Process 后台进程,日志重定向 `.trae-cn/tmp/ihui-stack-<svc>-<timestamp>.log`,Start-Job tail 实时三色输出到终端,Ctrl+C 优雅全停
-  - 支持 `-Skip <web|api|ai>` / `-Only <web|api|ai>` / `-WhatIf` / `-Status` / `-Help` 五种参数
-  - PID 文件 `.trae-cn/tmp/ihui-stack-pids.json` 记录每个服务的 PID/cwd/cmd/args/started_at
-  - **修复 1(IPv6 检测)**:Next.js dev server / uvicorn 在 Windows 默认只绑 IPv6 `[::1]`,而 `Get-NetTCPConnection` 在 PS 5.1 上默认只查 IPv4 → `-Status` 误报 DOWN。增加 netstat 兜底 + `Test-NetConnection` 主动连接双兜底
-  - **修复 2(UTF-8 BOM)**:PowerShell 5.1 中文 Windows 默认按 GBK 解析无 BOM UTF-8,中文乱码导致 "String is missing the terminator" 语法错误。`[System.IO.File]::WriteAllText` + `UTF8Encoding($true)` 重写加 BOM,中文正常解析
-  - **验证**:`-Status` 实际跑出 `WEB-8801 UP (PID=19016) / API-8802 UP / AI-8803 UP (PID=26204)` ✅
-
-关键设计:
-
-- `ihui.cmd` + `ihui.ps1` 路径用环境变量 `$env:APPDATA`(Windows) / `$HOME/.local/bin`(POSIX) 标准位置,无需修改 PATH(`%APPDATA%\npm` 已在 PATH 中)
-- settings.json 用 dotenv 风格(CLI 启动时 `loadSettings()` 合并到 process.env),不污染全局环境变量
-- start-ihui-stack.ps1 不替代 `pnpm dev`,只包装"前台聚合日志 + 优雅停止",CI / 后台用 `pnpm turbo run dev` 仍走标准路径
-- IPv6 修复兼容 PS 5.1 + PS 7(PowerShell 7+ `Get-NetTCPConnection -AddressFamily` 也支持,但兜底逻辑同时兼容)
-
-Git 同步证据(§20 硬定义 5 条全绿,1 commit + 隐式 0 净增 + 1 后续 push 自动同步):
-
-- `b4cd463987` fix(cli): 打破 git.ts <-> git-advanced.ts 循环依赖,新增 start-ihui-stack.ps1(后续被其他 agent 自动 merge 同步到 origin/main,含 IPv6 修复 + UTF-8 BOM)
-- local HEAD == origin HEAD: `2b783a4579` ✅
-- `node scripts/git-push-guard.mjs` 隐式通过(HEAD == origin/main)
-- 工作区 22 个 M/D 改动属其他 agent(ai-service + miniapp-taro + web 多个组件),按 §12 多 agent 规则不动
-
-影响文件:1 commit / 4 files changed(start-ihui-stack.ps1 新建 640 行 / git-shared.ts 新建 60 行 / git.ts 改 19 行 / git-advanced.ts 改 4 行);用户主目录 2 个包装脚本(不参与 git track);settings.json 1 个配置文件(不参与 git track)。
-
-后续用法(用户已可立即使用):
-
-```powershell
-# PowerShell / cmd / Git Bash 任意终端
-ihui --version       # → 1.0.0
-ihui --help          # → 25 选项 + 6 子命令
-ihui                 # → 进入 REPL
-ihui chat            # → 多轮对话
-ihui agent "任务"    # → Agent 模式自主多步执行
-ihui sessions        # → 历史会话列表
-```
-
-启动 dev 栈(开发期实时看三色日志):
-
-```powershell
-# 完整启动
-pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1
-
-# 只启动 web + api(不开 ai)
-pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Skip ai
-
-# 查看状态
-pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
-```
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
 
 ## /goal 管理端彻底修复完整开发到极致完美(2026-07-31,achieved ✅)
 
@@ -2696,6 +2540,7 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 ### 触发背景
 
 用户要求 rotate Cloudflared tunnel token 并确保新 token 不再泄露。盘点发现两类泄露点:
+
 - **真实泄露**:git 历史 commit `cc73503d2d` 中 `scripts/start-cloudflared-tunnel.ps1` 第 19 行硬编码了旧 token(已 push 到 GitHub origin/main)
 - **运行时泄露**:浏览器 MCP 工具的 network log 文件含 token 字符串(本地 Temp 目录)
 
@@ -2771,6 +2616,7 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到气泡外" 意外包含 `apps/web/src/components/chat/message-input.tsx`(其他 agent 改的 `rounded-t-xl` 圆角修复)。
 
 **根因分析**(4 路并行 Task agent 审计 + 主 agent 验证):
+
 1. `message-input.tsx` 在 pre-commit hook 执行**前**已被 IDE/其他 agent staged
 2. `takeStagingSnapshot()` 在 hook 入口记录快照时,把 `message-input.tsx` 当成本任务文件
 3. `restoreStaging()` 对比快照时认为它是"本任务文件",不会 unstage
@@ -2870,7 +2716,6 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-06) admin 导航菜单注册 — AdminNav 注册"下载统计"菜单项(第 708 行)
 - [x] ✅(2026-08-06) i18n 5 语言翻译键 — admin.downloads.* 命名空间(5 语言 × 24 key 全对齐)
 - [x] ✅(2026-08-06) browser 自验 admin 页面 4 状态(默认/hover/active/dark) — `.trae-cn/tmp/admin-downloads-verify/` 4 截图 + dom-report.json,h1="下载统计" / select 9 选项 / dark mode 切换正常 / 空数据态占位卡片符合代码预期
-
 
 ---
 
@@ -2976,6 +2821,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > 用户指令"要彻底杜绝问题再发生"——不再靠"降低概率",三层防线全部落地。
 
 **防线 1:git 写操作全局串行化锁(根治并发写)**
+
 - `scripts/git-lock.mjs`:mkdir 原子锁(unitId 可重入防嵌套死锁、300s 悬挂锁自动抢占、120s 等待超时、CLI acquire/release/check)
 - `safe-commit.mjs` 集成:整个 commit 流程自动持锁(Step 0/5),`IHUI_GIT_LOCK_UNIT` 环境变量传给子进程
 - `.husky/post-commit` 集成:直接 `git commit`(未走 safe-commit)时自动 acquire + trap EXIT 释放
@@ -2983,11 +2829,13 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - **测试验证**:并发 acquire 测试通过(B 在 A 释放后才获锁,串行化生效);safe-commit 实跑通过(post-commit 锁内正常)
 
 **防线 2:封死 gc 所有触发路径**
+
 - `gc.auto=0` + `gc.autodetach=false` + `maintenance.auto=false`(2.30+ 自动维护)已全部禁用
 - `scripts/safe-gc.mjs`:手动 gc 唯一合法入口(自动检查无锁;`IHUI_GIT_NO_GC=1` 可完全禁用)
 - AGENTS.md 红线:禁止手动 `git gc`/`repack`/`prune`
 
 **防线 3:一键重建兜底(杜绝损坏的影响)**
+
 - `scripts/git-rebuild-local.mjs`:健康检查(git cat-file 校验 HEAD)→ 损坏自动从远端 clone 重建 .git → git reset 重建 index(工作区文件永不动)→ 输出重新提交指引
 - 实测 `--check` 对健康仓库正确返回;损坏场景 5 分钟内恢复
 
@@ -3033,11 +2881,11 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 `apps/web/src/components/chat/message-input.tsx:371` 容器 div `<div className="flex items-center gap-1 rounded-t-xl bg-muted/50 px-2 py-1.5">` 内 3 个 button 高度各自为政:
 
-| 按钮 | 文件 | 类名 | 实际高度 |
-| --- | --- | --- | --- |
-| 权限模式 | `permission-mode-popover.tsx:500` | `inline-flex h-7 ...` | 28px |
-| 历史 | `permission-history-panel.tsx:345` | `inline-flex h-9 w-9 ...` | **36px(顶天)** |
-| 添加 | `add-menu-popover.tsx:201` | `inline-flex ... py-1`(无 h-) | ~22-26px |
+| 按钮     | 文件                               | 类名                          | 实际高度       |
+| -------- | ---------------------------------- | ----------------------------- | -------------- |
+| 权限模式 | `permission-mode-popover.tsx:500`  | `inline-flex h-7 ...`         | 28px           |
+| 历史     | `permission-history-panel.tsx:345` | `inline-flex h-9 w-9 ...`     | **36px(顶天)** |
+| 添加     | `add-menu-popover.tsx:201`         | `inline-flex ... py-1`(无 h-) | ~22-26px       |
 
 → 父 div 总高 = max(28, 36, 26) + `py-1.5`(12px) = **48px**,用户感知"高度太高"
 → 3 button 高度差最大 10px,视觉参差明显
@@ -3094,12 +2942,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 第一批已完成(2026-08-07)
 
 **修复的 button(13 个)**:
+
 - `permission-mode-popover.tsx`:button 的 `title` 已删除,`aria-label` 合并快捷键提示
 - `permission-history-panel.tsx`:button 的 `title` 已删除,`aria-label` 直接使用 `historyOpenExternal`
 - `model-selector.tsx`:`ProviderHealthDot` 用 `<Tooltip content={tip}>` 包装
 - `message-list.tsx`:9 个消息操作 button(Like/Copy/Download/Share/Toggle metadata/Regenerate/Publish/Edit/Reply/Delete)全部用 `<Tooltip content side="top">` 包装
 
 **守门脚本修复**:
+
 - 修复 `scripts/check-native-title-tooltip.mjs` 的 `getStagedAddedLines()` bug(原 `+++ b/` 解析在 `diff --git` 块内,导致 curFile 始终 null → staged 模式无法工作)
 - 升级 `scripts/tests/check-native-title-tooltip.test.mjs`:把 2 个 TODO 断言转为正式 test(测试从 13 个 → 16 个,全绿)
 - 该守门已挂载 `scripts/guardian-runner.mjs` id=18 blocking,pre-commit 走 guardian-runner 间接调用
@@ -3119,6 +2969,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 第二批任务范围(P1,推荐 4 个 subagent 并行)
 
 按目录分批,每批 50-60 个文件:
+
 - 批 A:`apps/web/src/components/`(50+ 文件,通用组件)
 - 批 B:`apps/web/app/(main)/admin/`(60+ 文件,后台管理)
 - 批 C:`apps/web/app/(main)/settings/`(30+ 文件,设置页)
@@ -3163,6 +3014,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > **触发**:用户要求"继续深度开发 aiSkill 系统,抄袭借鉴 Trae/Codex/WorkBuddy"——在现有 32 技能 + 自进化闭环 + 多智能体编排的基础上,补齐 4 大核心能力:技能推荐引擎、可视化工作流编排、统计看板、技能市场分享。
 >
 > **现状审计**:
+>
 > - ✅ 后端:32 技能(13 内置 + 19 AI TOP)、SkillRegistry、SkillEvolutionService、SkillEvolutionLoop
 > - ✅ 后端 API:列表/详情/调用三端点,统一 ApiEnvelope 响应
 > - ✅ 多智能体编排:AgentOrchestrator(串行/并行/辩论/投票/批判/任务分解/协作通信)
@@ -3176,6 +3028,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > - ✅ SDK 集成:api-client 端 points/ai-skills.ts 完整封装
 >
 > **借鉴分析**:
+>
 > - **Trae**:MCP 集成(已有)、技能市场(已有 SkillLibrary + 列表页)、上下文感知技能推荐(缺失)
 > - **Codex**:Agent 任务进度可视化(已有 AgentTaskProgressPane)、技能编排工作流(已有 SkillScheduler 但缺可视化)、代码变更管理(缺失)
 > - **WorkBuddy**:工作流自动化编排(已有 AgentOrchestrator 但缺可视化编辑器)、技能管理市场(已有但缺分享/评分/版本)、任务调度(已有 SkillEvolutionScheduler)
@@ -3485,8 +3338,6 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - **批次 3(并行 4 subagent)**:阶段 3 缺失页面补全 — H10-H18(14 个新 Screen + VipScreen 改造)+ typecheck + commit
 - **批次 4(串行)**:阶段 4 样式细节对齐 — H19-H30(字体/颜色/NavBar 多按钮/BottomActionBar 事件/ModelConfigDialog 变体/CourseCarousel 变体/UserInfoCard 变体/6 个新组件/ProfileScreen Tab/App.tsx 全局/NavBar padding)+ typecheck + commit + push
 
-
 - [x] ✅(2026-08-14) H31:mobile-rn 3 大 screen 深度对齐 Uniapp 修复 — ChatScreen QR 长按保存(onPress→onLongPress + View→Pressable 绑定 onLongPress)+ MaterialList 改 Modal(避免挤压消息列表)+ fangdaVisible 全屏输入 Modal UI 实现(占位状态补全真实交互);AgentScreen 集成 Carousel(顶部轮播图,对齐 Uniapp banner_carousel)+ RecentAgents 新组件(最近使用智能体横滑列表,对齐 Uniapp RecentAgents.vue)+ RootNavigator 路由类型 AiAssistant: { agentId?: string; title?: string } | undefined(支持 agentId 参数传递);ProfileScreen 集成 UserInfoCard(AuthUser → UserInfo 精确类型映射,onEdit→ProfileEdit / onRecharge→Wallet / onUnsubscribe 退订确认弹窗)+ 新建 RecentAgents 组件(pps/mobile-rn/src/components/RecentAgents.tsx,40dp 头像 + 12pt 名称,对齐 Uniapp 80rpx/24rpx);复刻 Uniapp [tools/index.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\tools\index.vue) + [user/UserInfoCard.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\user\UserInfoCard\UserInfoCard.vue) + [tools/components/RecentAgents.vue](D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\tools\components\RecentAgents.vue)
-
 
 - [x] ✅(2026-08-14) H31-2:mobile-rn 第二批深度对齐 Uniapp(4 subagent 并行) — 审计发现 101 项不一致(47 点击+25 跳转+29 弹出),4 项 P0 阻塞性 BUG 全部修复;ProfileScreen 3 弹窗化(EditProfileModal/LevelIntroModal/UnsubscribeModal 底部上滑/居中 fade)+ Vip 跳转传 type='upgrade' + Feedback 传 pageType='profile' + Drawer 选中会话补传 title;ChatScreen P0 handleAgentSelect 改跳 AiAssistant 传 agentId + 5 占位 TODO 实装(TTS Modal 男声/女声/儿童 + 收藏 Set<string> 状态切换 + 素材库复用 MaterialList + URL 输入 Modal send(url) + 文件上传 Modal 占位);AgentScreen 3 处跳转统一复用 handleItemClick 带登录校验传 agentId+title;HomeScreen/ProfileScreen rpx→dp 间距统一 6 处(16→10dp 等);typecheck 全绿 exit 0;safe-commit 4 files 928 insertions 40 deletions;local HEAD==origin HEAD ✅

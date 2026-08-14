@@ -104,11 +104,11 @@ jobs:
             # 使用 docker compose project 隔离 blue/green
             export COMPOSE_PROJECT_NAME=ihui-${TARGET}
 
-            # 设置端口: blue=3000/8080, green=3001/8081
+            # 设置端口: blue=8801/8802, green=8803/8804
             if [ "${TARGET}" = "blue" ]; then
-              export WEB_PORT=3000 API_PORT=8080
+              export WEB_PORT=8801 API_PORT=8802
             else
-              export WEB_PORT=3001 API_PORT=8081
+              export WEB_PORT=8803 API_PORT=8804
             fi
 
             # 启动目标环境(仅 api + web + ai-service, 复用 db/redis)
@@ -122,9 +122,9 @@ jobs:
         run: |
           TARGET=${{ steps.target-env.outputs.target }}
           if [ "$TARGET" = "blue" ]; then
-            WEB_PORT=3000; API_PORT=8080
+            WEB_PORT=8801; API_PORT=8802
           else
-            WEB_PORT=3001; API_PORT=8081
+            WEB_PORT=8803; API_PORT=8804
           fi
 
           echo "=== 健康检查 $TARGET 环境 (web:$WEB_PORT, api:$API_PORT) ==="

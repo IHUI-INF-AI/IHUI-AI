@@ -161,7 +161,7 @@ done
 
 log_info "等待 API 服务就绪..."
 RETRIES=30
-until docker exec "customer-${SLUG}-api" wget --spider -q http://127.0.0.1:8080/api/health >/dev/null 2>&1; do
+until docker exec "customer-${SLUG}-api" wget --spider -q http://127.0.0.1:8802/api/health >/dev/null 2>&1; do
     RETRIES=$((RETRIES - 1))
     if [ $RETRIES -le 0 ]; then
         log_error "API 服务启动超时"

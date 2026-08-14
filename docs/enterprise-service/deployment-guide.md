@@ -22,16 +22,16 @@ IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,8 端清单:
 
 | 组件 | 端 | 技术栈 | 容器内端口 | 宿主端口(88xx) |
 |------|------|--------|-----------|------------------|
-| Web | apps/web | Next.js 15 + React 19 + Tailwind 4 | 3000 | 8801 |
-| API | apps/api | Fastify 5 + Drizzle ORM 0.38 | 8080 | 8802 |
-| AI Service | apps/ai-service | FastAPI + LangGraph + LiteLLM | 8000 | 8803 |
-| 小程序 H5 | apps/miniapp-taro | Taro 4 + React | 3001 | 8804 |
-| Mobile | apps/mobile-rn | React Native + Metro | 8081 | 8805 |
+| Web | apps/web | Next.js 15 + React 19 + Tailwind 4 | 8801 | 8801 |
+| API | apps/api | Fastify 5 + Drizzle ORM 0.38 | 8802 | 8802 |
+| AI Service | apps/ai-service | FastAPI + LangGraph + LiteLLM | 8803 | 8803 |
+| 小程序 H5 | apps/miniapp-taro | Taro 4 + React | 8804 | 8804 |
+| Mobile | apps/mobile-rn | React Native + Metro | 8805 | 8805 |
 | PostgreSQL | — | 16+ | 5432 | 8810 |
 | Redis | — | 7+ | 6379 | 8811 |
 | OTel Collector | — | gRPC 4317 / HTTP 4318 | 4317/4318 | 8812/8813 |
 | Prometheus | — | 2.x | 9090 | 8815 |
-| Grafana | — | 10.x | 3000 | 8816 |
+| Grafana | — | 10.x | 8816 | 8816 |
 
 **最小生产资源清单(单节点)**:
 
@@ -353,9 +353,9 @@ graph TB
 # docker-compose.yml(项目根目录已提供,此处为说明)
 # 完整文件见仓库根目录 docker-compose.yml
 # 关键服务:
-#   web:        镜像 ihui/web,        映射 8801:3000,  依赖 api
-#   api:        镜像 ihui/api,        映射 8802:8080,  依赖 postgres redis
-#   ai-service: 镜像 ihui/ai-service, 映射 8803:8000,  依赖 redis
+#   web:        镜像 ihui/web,        映射 8801:8801,  依赖 api
+#   api:        镜像 ihui/api,        映射 8802:8802,  依赖 postgres redis
+#   ai-service: 镜像 ihui/ai-service, 映射 8803:8803,  依赖 redis
 #   postgres:   镜像 pgvector/pgvector:pg16, 映射 8810:5432, 数据卷持久化
 #   redis:      镜像 redis:7-alpine,  映射 8811:6379,  AOF 持久化
 ```
@@ -423,7 +423,7 @@ helm install ihui ihui/ihui -n ihui-app --create-namespace \
 
 ### 2.7 端口规划(公有云)
 
-容器内端口不变(3000/8080/8000/5432/6379),对外仅 SLB 443(HTTPS);开发/调试场景用 88xx 段宿主映射(参见架构组件表),生产环境**禁止**直接暴露 88xx 端口到公网。
+容器内端口不变(8801/8802/8803/5432/6379),对外仅 SLB 443(HTTPS);开发/调试场景用 88xx 段宿主映射(参见架构组件表),生产环境**禁止**直接暴露 88xx 端口到公网。
 
 ### 2.8 升级流程(公有云)
 

@@ -10,7 +10,7 @@
 |------|------|
 | 技术栈 | FastAPI 0.115 + Uvicorn + LangGraph 0.2 + LiteLLM + MCP SDK + Socket.IO 5 + Pydantic Settings |
 | 端点数 | ~55(6 核心 Router + 业务扩展 Router) |
-| 默认端口 | `3003`(`core/config.py` 默认),Docker Compose 生产编排映射 `8000` |
+| 默认端口 | `8803`(`core/config.py` 默认),Docker Compose 生产编排映射 `8803` |
 | ASGI 拓扑 | 根 app = `socketio.ASGIApp(sio, other_asgi_app=fastapi_app)`,`/socket.io/*` → Socket.IO,其余 → FastAPI |
 | 启动入口 | `app/main.py:create_app()` 创建 FastAPI 实例 + 注册 6 核心 Router + 中间件栈 |
 | 存储依赖 | PostgreSQL(`DATABASE_URL`)+ Redis(`REDIS_URL`,可选,失败降级内存) |
@@ -628,7 +628,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `NODE_ENV` | `development` | 运行环境 |
-| `PORT` | `3003` | 服务端口(docker-compose 映射 8000) |
+| `PORT` | `8803` | 服务端口(docker-compose 映射 8803) |
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `LOG_LEVEL` | `info` | 日志级别 |
 | `CORS_ORIGIN` | `http://localhost:8802` | CORS 允许源(逗号分隔) |

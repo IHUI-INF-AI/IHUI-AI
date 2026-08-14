@@ -38,9 +38,9 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 | 端 | 代码路径 | 技术栈 | 端口 | 主要功能 |
 |----|----------|--------|------|----------|
-| Web | `apps/web/` | Next.js 15 + React 19 + Tailwind 4 + shadcn/ui | 8801(开发)/ 3000 | 200+ 页面,主站 + 管理后台 |
+| Web | `apps/web/` | Next.js 15 + React 19 + Tailwind 4 + shadcn/ui | 8801 | 200+ 页面,主站 + 管理后台 |
 | API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | ~1080 端点,业务管理 + 多厂商代理 + 认证 + WebSocket |
-| AI Service | `apps/ai-service/` | FastAPI + LangGraph + LiteLLM + MCP | 8803 / 8000 | ~55 端点,LLM 网关 + Agent 执行 + MCP 工具 + A2A |
+| AI Service | `apps/ai-service/` | FastAPI + LangGraph + LiteLLM + MCP | 8803 | ~55 端点,LLM 网关 + Agent 执行 + MCP 工具 + A2A |
 | CLI | `apps/cli/` | TS(commander + inquirer + ws) | 终端 | 24 源配置导入 + subagent 并行 + ACP 协议 + TUI |
 | Desktop | `apps/desktop/` | Tauri 2.1 + React 18 + Vite | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统 |
 | Extension | `apps/extension/` | WXT 0.19 + React 19 | 浏览器 | 浏览器上下文菜单 + token 注入 + 页面增强 |
@@ -57,7 +57,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **i18n**:next-intl,5 语言(详见 [I18N.md](./I18N.md))
 - **路由**:`app/` 目录,`(auth)/` 认证区 + `(main)/` 主区(81 页面)+ `admin/` 管理端
 - **API 调用**:统一封装 `src/lib/api.ts`(`fetchApi<T>`),自动携带 JWT,解析 `{ code, message, data }`
-- **端口**:开发 8801,Lighthouse CI 用 3000
+- **端口**:8801
 
 ### 2.2 apps/api(Fastify 5)
 
@@ -79,7 +79,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **MCP**:MCP SDK(11 工具 + 3 资源 + 3 提示词)
 - **A2A**:Agent-to-Agent 协议(Redis 持久化 + 内存降级)
 - **向量记忆**:嵌入 + 余弦相似度语义搜索
-- **端口**:8803(docker-compose)/ 8000(直接 uvicorn)
+- **端口**:8803(docker-compose)/ 8803(直接 uvicorn)
 
 > 详见 [architecture.md §5 AI 服务架构](./architecture.md) 与 [AI_SERVICE.md](./AI_SERVICE.md)。
 

@@ -46,7 +46,7 @@ const createServerSchema = z.object({
   name: z.string().min(1).max(100),
   host: z.string().min(1).max(255),
   rtmpPort: z.number().int().min(1).max(65535).default(1935),
-  httpPort: z.number().int().min(1).max(65535).default(8080),
+  httpPort: z.number().int().min(1).max(65535).default(8802),
   webrtcPort: z.number().int().min(1).max(65535).default(1985),
   apiPort: z.number().int().min(1).max(65535).default(1985),
   apiSecret: z.string().max(256).optional(),

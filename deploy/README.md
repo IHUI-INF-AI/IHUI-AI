@@ -29,8 +29,8 @@
                                          │ proxy_pass
                   ┌──────────────────────┴──────────────────────┐
                   │                                              │
-        active → blue_web (3000)             OR        green_web (3001)
-                 blue_api  (8080)                       green_api  (8081)
+        active → blue_web (8801)             OR        green_web (8803)
+                 blue_api  (8802)                       green_api  (8804)
                   │                                              │
         (当前 inactive: green 或 blue 反向)
 
@@ -46,8 +46,8 @@
 
 | 环境  | web 端口 | api 端口 | upstream 名               |
 | ----- | -------- | -------- | ------------------------- |
-| Blue  | 3000     | 8080     | `blue_web` / `blue_api`   |
-| Green | 3001     | 8081     | `green_web` / `green_api` |
+| Blue  | 8801     | 8802     | `blue_web` / `blue_api`   |
+| Green | 8803     | 8804     | `green_web` / `green_api` |
 
 ---
 
@@ -57,10 +57,10 @@
 # 首次使用需要执行权限
 chmod +x deploy/scripts/deploy.sh
 
-# 切换到 Blue 环境 (web=3000, api=8080)
+# 切换到 Blue 环境 (web=8801, api=8802)
 sudo ./deploy/scripts/deploy.sh blue
 
-# 切换到 Green 环境 (web=3001, api=8081)
+# 切换到 Green 环境 (web=8803, api=8804)
 sudo ./deploy/scripts/deploy.sh green
 
 # 查看当前激活环境
