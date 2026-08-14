@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Alert, useColorScheme } from 'react-native'
+import { useColorScheme } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { register, sendSmsCode, verifyAuthCode } from '@ihui/api-client'
@@ -118,13 +118,13 @@ export function RegisterScreen() {
   // 协议未勾选错误(form.error === 'auth.agreeRequired' 时显示协议错误红字)
   const showAgreeErr = form.error === 'auth.agreeRequired'
 
-  // 服务条款 / 隐私政策点击:暂用 Alert 占位(未来可跳 webview 或路由)
+  // 服务条款 / 隐私政策点击:跳转协议页面(对齐 LoginScreen 处理方式)
   const onOpenTerms = useCallback(() => {
-    Alert.alert(t('auth.termsOfService'))
-  }, [t])
+    navigation.navigate('Agreement')
+  }, [navigation])
   const onOpenPrivacy = useCallback(() => {
-    Alert.alert(t('auth.privacyPolicy'))
-  }, [t])
+    navigation.navigate('Privacy')
+  }, [navigation])
 
   return (
     <>

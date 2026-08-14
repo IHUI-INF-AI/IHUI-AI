@@ -19,6 +19,7 @@ const { apiMocks } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
+  getOrders: (...args: unknown[]) => apiMocks.fetchApi(...args),
 }))
 
 vi.mock('../src/i18n', () => {
@@ -27,7 +28,7 @@ vi.mock('../src/i18n', () => {
 })
 
 vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ goBack: vi.fn() }),
+  useNavigation: () => ({ navigate: vi.fn(), goBack: vi.fn() }),
 }))
 
 vi.mock('react-native', async () => {
@@ -107,7 +108,7 @@ describe('OrderScreen 订单状态流转', () => {
     it(`状态 ${status} 渲染正确状态标签`, async () => {
       apiMocks.fetchApi.mockResolvedValue({
         success: true,
-        data: [mockOrder({ status })],
+        data: { list: [mockOrder({ status })] },
       })
       const { getByText } = render(<OrderScreen />)
 
@@ -119,11 +120,13 @@ describe('OrderScreen 订单状态流转', () => {
   it('多订单列表渲染', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [
-        mockOrder({ id: 'o1', orderNo: 'ORD-1', targetTitle: '课程A' }),
-        mockOrder({ id: 'o2', orderNo: 'ORD-2', targetTitle: '课程B' }),
-        mockOrder({ id: 'o3', orderNo: 'ORD-3', targetTitle: '课程C' }),
-      ],
+      data: {
+        list: [
+          mockOrder({ id: 'o1', orderNo: 'ORD-1', targetTitle: '课程A' }),
+          mockOrder({ id: 'o2', orderNo: 'ORD-2', targetTitle: '课程B' }),
+          mockOrder({ id: 'o3', orderNo: 'ORD-3', targetTitle: '课程C' }),
+        ],
+      },
     })
     const { getByText } = render(<OrderScreen />)
 
@@ -138,7 +141,7 @@ describe('OrderScreen 订单状态流转', () => {
   it('金额格式化:两位小数', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [mockOrder({ payAmount: 1234.5 })],
+      data: { list: [mockOrder({ payAmount: 1234.5 })] },
     })
     const { getByText } = render(<OrderScreen />)
 
@@ -148,7 +151,7 @@ describe('OrderScreen 订单状态流转', () => {
   it('金额为 null 时显示 — 占位符', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [mockOrder({ payAmount: null })],
+      data: { list: [mockOrder({ payAmount: null })] },
     })
     const { getByText } = render(<OrderScreen />)
 
@@ -177,7 +180,7 @@ describe('OrderScreen 订单状态流转', () => {
   it('空列表:显示空状态', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [],
+      data: { list: [] },
     })
     const { getByText } = render(<OrderScreen />)
 
@@ -187,7 +190,7 @@ describe('OrderScreen 订单状态流转', () => {
   it('refunded 状态金额显示正确', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [mockOrder({ status: 'refunded', payAmount: 100 })],
+      data: { list: [mockOrder({ status: 'refunded', payAmount: 100 })] },
     })
     const { getByText } = render(<OrderScreen />)
 
@@ -198,7 +201,7 @@ describe('OrderScreen 订单状态流转', () => {
   it('非 refunded 状态金额显示正确', async () => {
     apiMocks.fetchApi.mockResolvedValue({
       success: true,
-      data: [mockOrder({ status: 'pending', payAmount: 100 })],
+      data: { list: [mockOrder({ status: 'pending', payAmount: 100 })] },
     })
     const { getByText } = render(<OrderScreen />)
 
