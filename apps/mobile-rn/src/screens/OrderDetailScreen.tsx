@@ -67,8 +67,11 @@ export function OrderDetailScreen() {
           method: 'POST',
         })
         if (res.success) {
-          // 触发详情重新加载以反映最新状态
-          setOrder((prev) => (prev ? { ...prev, status: action === 'cancel' ? 'cancelled' : prev.status } : prev))
+          // 重新拉取详情以反映真实状态(替代乐观更新,避免字段不同步)
+          const detailRes = await fetchApi<OrderDetailItem>(`/api/orders/${encodeURIComponent(id)}`)
+          if (detailRes.success) {
+            setOrder(detailRes.data)
+          }
         }
       } finally {
         setActionLoading(null)
