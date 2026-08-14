@@ -575,7 +575,7 @@ cd IHUI-AI && docker compose up -d
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
    │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
-   │ :3000    │  │ + Rust   │  │          │  │ iOS/Android │  │ WeChat MP │  │ ACP+Skl │
+   │ :8801    │  │ + Rust   │  │          │  │ iOS/Android │  │ WeChat MP │  │ ACP+Skl │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
         └─────────────┴─────────────┴───────┬───────┴─────────────┴─────────────┘
@@ -1055,9 +1055,9 @@ pnpm --filter @ihui/database seed          # 7 ステップ冪等 seed
 # 4. ワンクリックで全 apps 起動(turbo 並列)
 pnpm dev
 # または個別起動:
-# pnpm --filter @ihui/api run dev          # バックエンド :8080
-# pnpm --filter @ihui/web run dev          # フロントエンド :3000
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8000
+# pnpm --filter @ihui/api run dev          # バックエンド :8802
+# pnpm --filter @ihui/web run dev          # フロントエンド :8801
+# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
 
 # 5. 全量検証(typecheck + lint + test)
 pnpm turbo build typecheck lint test
@@ -1159,7 +1159,7 @@ pnpm turbo build typecheck lint test
 ### 指標(Prometheus + Grafana 20 ダッシュボード)
 
 - **Prometheus**(:9091):api `/metrics` + ai-service `/metrics` + node-exporter ホスト指標 + alerts.yml アラートルールをスクレイプ
-- **Grafana**(:3001):**20 個のダッシュボード JSON を自動 provision**、内容:
+- **Grafana**(:8816):**20 個のダッシュボード JSON を自動 provision**、内容:
 
 | #   | ダッシュボード   | 用途                |
 | --- | ---------------- | ------------------- |

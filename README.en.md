@@ -388,9 +388,9 @@ pnpm --filter @ihui/database seed          # 7-step idempotent seed
 # 4. Start all apps (turbo parallel)
 pnpm dev
 # Or start individually:
-# pnpm --filter @ihui/api run dev          # backend :3002
-# pnpm --filter @ihui/web run dev          # frontend :3001
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 3003
+# pnpm --filter @ihui/api run dev          # backend :8802
+# pnpm --filter @ihui/web run dev          # frontend :8801
+# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
 
 # 5. Full validation (typecheck + lint + test)
 pnpm turbo build typecheck lint test

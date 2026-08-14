@@ -708,7 +708,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 ### 15.1 调用 /api/llm/complete
 
 ```bash
-curl -X POST http://localhost:3003/api/llm/complete \
+curl -X POST http://localhost:8803/api/llm/complete \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -d '{
@@ -736,7 +736,7 @@ curl -X POST http://localhost:3003/api/llm/complete \
 ### 15.2 调用 /api/agents/execute
 
 ```bash
-curl -X POST http://localhost:3003/api/agents/execute \
+curl -X POST http://localhost:8803/api/agents/execute \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -d '{
@@ -750,7 +750,7 @@ curl -X POST http://localhost:3003/api/agents/execute \
 ### 15.3 调用 /api/mcp/tools(列出工具)
 
 ```bash
-curl http://localhost:3003/api/mcp/tools \
+curl http://localhost:8803/api/mcp/tools \
   -H "Authorization: Bearer <JWT_TOKEN>"
 
 # 响应
@@ -767,7 +767,7 @@ curl http://localhost:3003/api/mcp/tools \
 ### 15.4 调用 MCP 工具
 
 ```bash
-curl -X POST http://localhost:3003/api/mcp/tools/call \
+curl -X POST http://localhost:8803/api/mcp/tools/call \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -d '{
@@ -783,7 +783,7 @@ curl -X POST http://localhost:3003/api/mcp/tools/call \
 ### 15.5 流式 LLM 调用
 
 ```bash
-curl -N -X POST http://localhost:3003/api/llm/complete/stream \
+curl -N -X POST http://localhost:8803/api/llm/complete/stream \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -d '{

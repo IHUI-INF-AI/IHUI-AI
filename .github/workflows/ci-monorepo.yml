@@ -86,6 +86,13 @@ jobs:
           fi
           echo "OK: No .js/.jsx/.vue files found in apps/*/src/"
 
+  port-registry-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check port registry
+        run: node scripts/check-port-registry.mjs --all
+
   test:
     needs: setup
     runs-on: ubuntu-latest

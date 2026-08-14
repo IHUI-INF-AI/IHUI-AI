@@ -41,10 +41,10 @@ jobs:
       - name: Start web preview
         run: pnpm -F @ihui/web start &
         env:
-          PORT: 3000
+          PORT: 8801
 
       - name: Wait for web ready
-        run: npx wait-on http://localhost:3000 -t 60000
+        run: npx wait-on http://localhost:8801 -t 60000
 
       - name: Run Lighthouse CI
         run: |
