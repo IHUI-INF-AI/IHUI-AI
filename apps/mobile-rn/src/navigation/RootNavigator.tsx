@@ -349,7 +349,7 @@ export type RootStackParamList = {
   AppPermission: undefined
   TokenValue: undefined
   AiGroup: undefined
-  AiAssistant: undefined
+  AiAssistant: { agentId?: string; title?: string } | undefined
   AigcList: undefined
   ModelPlaza: undefined
   Developer: { id: string }
