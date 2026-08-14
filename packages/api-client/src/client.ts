@@ -113,19 +113,20 @@ export function getToken(): string | null {
  * 401 自动续期核心(2026-08-06 立)。
  * 并发去重:多个请求同时 401 时共享同一个刷新 promise,只调用一次 refreshAccessToken。
  * 刷新失败返回 null,由调用方决定是否走登出/错误流程。
+ *
+ * 2026-08-14 导出:useAuthBootstrap(web)复用本单例做启动期静默刷新,
+ * 使 bootstrap 与 401 拦截器共享同一 in-flight 请求 —— 后端 refresh token 单次轮转,
+ * 若两者并发各发一次,后者必 401 且触发 RFC 6749 §10.4 family 吊销,自动登录在刷新后丢失。
  */
-async function refreshAccessTokenOnce(): Promise<string | null> {
+export async function refreshAccessTokenOnce(): Promise<string | null> {
   if (!tokenProvider.refreshAccessToken) return null
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = Promise.resolve()
     .then(() => tokenProvider.refreshAccessToken!())
-    .then((t) => {
+    .then((t) => t ?? null)
+    .catch(() => null)
+    .finally(() => {
       refreshInFlight = null
-      return t
-    })
-    .catch(() => {
-      refreshInFlight = null
-      return null
     })
   return refreshInFlight
 }

@@ -18,6 +18,7 @@ import {
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
@@ -416,6 +417,12 @@ function MemberDiscountSection({
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
+  // 2026-08-14:未登录/无 token 不拉取鉴权接口,消除 dev overlay 401 噪音(models/providers-health/configs 均为 auth-gated)。
+  // 依赖 token 而非仅 isAuthenticated:刷新后 store hydrate 先恢复 isAuthenticated=true,但 accessToken 需 bootstrap
+  // refresh 完成后才写入——此时发请求必 401。短路后等 bootstrap setToken → token 变化 → effect 重跑 → 200。
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const token = useAuthStore((s) => s.token)
+  const authedWithToken = isAuthenticated && !!token
   const [options, setOptions] = React.useState<ModelOption[]>(() => {
     // 合并 FALLBACK + DEMO:确保 5 档积分 + 徽章 + 锁定演示数据全部可见
     // (2026-08-06 立,对齐 workbuddy 风格;详见 packages/shared/src/constants/fallback-models.ts)
@@ -446,6 +453,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     retry: false,
     throwOnError: false,
     staleTime: 60_000,
+    enabled: authedWithToken,
   })
   const configuredTemplateCodes = React.useMemo(() => {
     const set = new Set<string>()
@@ -457,6 +465,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   }, [cfgData])
 
   React.useEffect(() => {
+    if (!authedWithToken) return
     let cancelled = false
     setLoading(true)
     fetchSelectorModels()
@@ -505,10 +514,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authedWithToken])
 
   // mount 时拉取 provider 健康状态
   React.useEffect(() => {
+    if (!authedWithToken) return
     let cancelled = false
     fetchProvidersHealth()
       .then((list) => {
@@ -523,7 +533,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authedWithToken])
 
   const isAuto = value === AUTO_OPTION.value
   const current = React.useMemo(
