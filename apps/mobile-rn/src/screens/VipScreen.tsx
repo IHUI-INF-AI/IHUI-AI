@@ -214,17 +214,22 @@ export function VipScreen() {
   const onPurchase = async (level: VipLevelItem2) => {
     setPurchasingId(level.id)
     setToast('')
-    const res = await createOrder({ type: 'vip', targetId: level.id })
-    setPurchasingId(null)
-    if (res.success) {
-      setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
-      // 订单创建成功后弹出购买须知,引导用户完成支付
-      if (!introShown) {
-        setIntroVisible(true)
-        setIntroShown(true)
+    try {
+      const res = await createOrder({ type: 'vip', targetId: level.id })
+      if (res.success) {
+        setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
+        // 订单创建成功后弹出购买须知,引导用户完成支付
+        if (!introShown) {
+          setIntroVisible(true)
+          setIntroShown(true)
+        }
+      } else {
+        setToast(res.error || t('vip.purchaseFailed'))
       }
-    } else {
-      setToast(res.error || t('vip.purchaseFailed'))
+    } catch {
+      setToast(t('vip.purchaseFailed'))
+    } finally {
+      setPurchasingId(null)
     }
   }
 
@@ -251,11 +256,15 @@ export function VipScreen() {
     async (levelId: string) => {
       setBottomPopupVisible(false)
       setToast('')
-      const res = await createOrder({ type: 'vip', targetId: levelId })
-      if (res.success) {
-        setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
-      } else {
-        setToast(res.error || t('vip.purchaseFailed'))
+      try {
+        const res = await createOrder({ type: 'vip', targetId: levelId })
+        if (res.success) {
+          setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
+        } else {
+          setToast(res.error || t('vip.purchaseFailed'))
+        }
+      } catch {
+        setToast(t('vip.purchaseFailed'))
       }
     },
     [t],
@@ -300,6 +309,9 @@ export function VipScreen() {
 
                 // 3. mock 模式(DEV 环境无微信支付配置):直接标记成功
                 if (payRes.data.mock) {
+                  if (__DEV__) {
+                    console.warn('[VipScreen] mock 支付模式:跳过微信SDK,直接标记成功')
+                  }
                   setToast(t('vipScreen.pay.success'))
                   setPurchasingId(null)
                   void load(true)
@@ -320,22 +332,18 @@ export function VipScreen() {
                   return
                 }
 
-                // 5. 支付成功,查询支付状态确认
+                // 5. 支付成功,查询支付状态确认(乐观提示:SDK 成功即展示,后端状态延迟同步)
                 const orderNo = payRes.data.outTradeNo
                 if (orderNo) {
                   const statusRes = await checkPaymentStatus(orderNo)
-                  if (statusRes.success && statusRes.data?.paid) {
-                    setToast(t('vipScreen.pay.success'))
-                    void load(true)
-                  } else {
-                    // SDK 返回成功但后端状态未同步,给乐观提示
-                    setToast(t('vipScreen.pay.success'))
-                    void load(true)
+                  if (!statusRes.success || !statusRes.data?.paid) {
+                    if (__DEV__) {
+                      console.warn('[VipScreen] 支付SDK返回成功但后端状态未同步,乐观提示', { orderNo })
+                    }
                   }
-                } else {
-                  setToast(t('vipScreen.pay.success'))
-                  void load(true)
                 }
+                setToast(t('vipScreen.pay.success'))
+                void load(true)
               } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)
                 if (errMsg === 'WECHAT_NOT_INSTALLED') {
