@@ -41,6 +41,7 @@ import {
   createExamRecord,
 } from '../db/exam-queries.js'
 import { getLessonProgress, getProgressOverview } from '../db/learn-record-queries.js'
+import { createOrder, cancelOrder } from '../db/order-queries.js'
 
 // =============================================================================
 // Zod schemas
@@ -842,22 +843,17 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
       const finalTitle = course?.title ?? targetTitle
       const payAmount = course ? (course.isFree ? '0.00' : Number(course.price).toFixed(2)) : '0.00'
-      const orderNo = `EDU${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`
-      const [order] = await db
-        .insert(eduOrders)
-        .values({
-          orderNo,
-          userId: request.userId!,
-          orderType,
-          targetId,
-          targetTitle: finalTitle,
-          quantity,
-          originalPrice: payAmount,
-          discountAmount: '0.00',
-          payAmount,
-          status: 'pending',
-        })
-        .returning()
+      // Phase 3: 使用 createOrder 双写 eduOrders + orders
+      const order = await createOrder({
+        userId: request.userId!,
+        orderType,
+        targetId,
+        targetTitle: finalTitle,
+        quantity,
+        originalPrice: payAmount,
+        discountAmount: '0.00',
+        payAmount,
+      })
       return reply.status(201).send(success({ order }))
     },
   )
@@ -912,11 +908,9 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       if (existing.status !== 'pending') {
         return reply.status(400).send(error(400, '订单状态不允许取消'))
       }
-      const [order] = await db
-        .update(eduOrders)
-        .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
-        .where(eq(eduOrders.id, parsed.data.id))
-        .returning()
+      // Phase 3: 使用 cancelOrder 双写同步 eduOrders + orders
+      const order = await cancelOrder(parsed.data.id)
+      if (!order) return reply.status(400).send(error(400, '订单状态不允许取消'))
       return reply.send(success({ order }))
     },
   )
