@@ -3,7 +3,6 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +11,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { QrCode, X } from 'lucide-react-native'
+import { QrCode } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   checkPaymentStatus,
@@ -30,6 +29,7 @@ import {
 } from '@ihui/rn-app'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
+import { BottomPops } from '../components/BottomPops'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
@@ -551,43 +551,22 @@ export function VipScreen() {
         onConfirm={onBottomPopupConfirm}
       />
       {/* 私董会名片二维码服务弹窗(对齐 Uniapp privateAdvisory.vue 行 100-114) */}
-      <Modal
+      <BottomPops
         visible={servicePopupVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setServicePopupVisible(false)}
+        onClose={() => setServicePopupVisible(false)}
       >
-        <Pressable
-          style={styles.serviceMask}
-          onPress={() => setServicePopupVisible(false)}
-        >
-          <Pressable
-            style={styles.serviceSheet}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Pressable
-              hitSlop={8}
-              onPress={() => setServicePopupVisible(false)}
-              style={styles.serviceClose}
-              accessibilityRole="button"
-              accessibilityLabel={t('vipScreen.qr.close')}
-            >
-              <X size={20} color={tokens.text.primary} />
-            </Pressable>
-            {/* 名片区(对齐 Uniapp mingpian.png) */}
-            <View style={styles.serviceCard}>
-              <Text style={styles.serviceCardTitle}>{t('vipScreen.qr.card')}</Text>
-              <Text style={styles.serviceCardDesc}>{t('vipScreen.banner.privateAdvisory')}</Text>
-            </View>
-            {/* 二维码区(对齐 Uniapp erweima.png,长按可保存) */}
-            <View style={styles.qrCodeBox}>
-              <QrCode size={200} color={tokens.text.primary} />
-            </View>
-            <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
-            <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        {/* 名片区(对齐 Uniapp mingpian.png) */}
+        <View style={styles.serviceCard}>
+          <Text style={styles.serviceCardTitle}>{t('vipScreen.qr.card')}</Text>
+          <Text style={styles.serviceCardDesc}>{t('vipScreen.banner.privateAdvisory')}</Text>
+        </View>
+        {/* 二维码区(对齐 Uniapp erweima.png,长按可保存) */}
+        <View style={styles.qrCodeBox}>
+          <QrCode size={200} color={tokens.text.primary} />
+        </View>
+        <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
+        <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
+      </BottomPops>
     </View>
   )
 }
@@ -624,7 +603,6 @@ const DIAMOND_FONT_SIZE = 24
 const LEVEL_BANNER_TITLE_FONT_SIZE = 13
 const LEVEL_BANNER_HINT_FONT_SIZE = 11
 
-const SERVICE_SHEET_RADIUS = 12
 const SERVICE_CARD_RADIUS = 8
 const QR_BOX_RADIUS = 8
 const SERVICE_TITLE_FONT_SIZE = 15
@@ -840,31 +818,7 @@ const styles = StyleSheet.create({
     color: tokens.danger.DEFAULT,
     marginTop: 2,
   } as TextStyle,
-  // ── 私董会服务弹窗 ──
-  serviceMask: {
-    flex: 1,
-    backgroundColor: tokens.overlay.modal,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  serviceSheet: {
-    width: '80%',
-    backgroundColor: tokens.surface.light,
-    borderRadius: SERVICE_SHEET_RADIUS,
-    paddingTop: 28,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  } as ViewStyle,
-  serviceClose: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
+  // ── 私董会服务弹窗(BottomPops 子内容样式) ──
   serviceCard: {
     width: '100%',
     backgroundColor: tokens.surface.muted,
@@ -892,6 +846,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
   } as ViewStyle,
   qrCodeTitle: {
     marginTop: 12,
@@ -899,11 +854,13 @@ const styles = StyleSheet.create({
     lineHeight: SERVICE_TITLE_FONT_SIZE + 4,
     fontWeight: '600',
     color: tokens.text.primary,
+    textAlign: 'center',
   } as TextStyle,
   qrCodeHint: {
     marginTop: 6,
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,
+    textAlign: 'center',
   } as TextStyle,
 })

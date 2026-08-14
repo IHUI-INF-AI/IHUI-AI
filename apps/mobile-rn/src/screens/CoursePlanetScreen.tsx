@@ -15,15 +15,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
-  FlatList,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -31,6 +28,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import { NavBar } from '../components/NavBar'
 import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
@@ -44,10 +42,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const API_PATH = '/api/course-planet'
-
-const COVER_WIDTH = 140
-const COVER_HEIGHT = 90
-const COVER_INNER_WIDTH = COVER_WIDTH - 16
 
 /** 课程类型单选清单(对齐 Uniapp type-bar/single.vue options) */
 const COURSE_TYPE_ITEMS: readonly SingleTypeBarItem[] = [
@@ -71,12 +65,19 @@ interface CoursePlanetData {
   hot_courses?: CoursePlanetCourse[]
 }
 
-function priceLabel(course: CoursePlanetCourse): string {
-  if (course.isFree) return '免费'
-  if (course.price !== undefined && course.price !== null && course.price !== '') {
-    return `¥${course.price}`
-  }
-  return '查看'
+/** 课程数据 → CourseCarouselItem(cover→img,price 转数字,isFree/type 透传) */
+function toCarouselItems(courses: CoursePlanetCourse[]): CourseCarouselItem[] {
+  return courses.map((c) => {
+    const rawPrice = typeof c.price === 'number' ? c.price : Number(c.price)
+    return {
+      id: String(c.id),
+      title: c.title,
+      price: Number.isFinite(rawPrice) ? rawPrice : 0,
+      isFree: c.isFree,
+      img: c.cover,
+      type: c.type === 1 || c.type === 2 ? c.type : undefined,
+    }
+  })
 }
 
 export function CoursePlanetScreen() {
@@ -113,8 +114,8 @@ export function CoursePlanetScreen() {
     void load()
   }
 
-  const onCourseClick = (course: CoursePlanetCourse) => {
-    navigation.navigate('CourseDetail', { id: String(course.id) })
+  const onCourseClick = (id: string) => {
+    navigation.navigate('CourseDetail', { id })
   }
 
   /** 按 selectedType 过滤课程:all=全部 / free=免费 / paid=付费 */
@@ -133,40 +134,12 @@ export function CoursePlanetScreen() {
   const beginnerCourses = useMemo(() => filterByType(data?.beginner_courses), [data, filterByType])
   const selectedCourses = useMemo(() => filterByType(data?.selected_courses), [data, filterByType])
 
-  const renderCourse = ({ item }: { item: CoursePlanetCourse }) => (
-    <Pressable
-      style={({ pressed }) => [styles.courseCard, pressed ? styles.courseCardPressed : null]}
-      onPress={() => onCourseClick(item)}
-      accessibilityRole="button"
-      accessibilityLabel={item.title}
-    >
-      {item.cover ? (
-        <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
-      ) : (
-        <View style={styles.coverPlaceholder}>
-          <Text style={styles.coverPlaceholderText}>课程</Text>
-        </View>
-      )}
-      <Text style={styles.courseTitle} numberOfLines={2}>
-        {item.title}
-      </Text>
-      <Text style={styles.coursePrice}>{priceLabel(item)}</Text>
-    </Pressable>
-  )
-
   const renderSection = (title: string, courses: CoursePlanetCourse[]) => {
     if (courses.length === 0) return null
     return (
       <View style={styles.section}>
         <MoreTitles title={title} onMore={() => navigation.navigate('CourseFilter')} />
-        <FlatList
-          data={courses}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderCourse}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sectionList}
-        />
+        <CourseCarousel courses={toCarouselItems(courses)} onPress={onCourseClick} />
       </View>
     )
   }
@@ -261,48 +234,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
   } as ViewStyle,
-  sectionList: {
-    gap: 12,
-    paddingRight: 4,
-  } as ViewStyle,
-  courseCard: {
-    width: COVER_WIDTH,
-    backgroundColor: tk.surface.card,
-    borderRadius: 12,
-    padding: 8,
-    gap: 6,
-  } as ViewStyle,
-  courseCardPressed: {
-    backgroundColor: tk.surface.muted,
-  } as ViewStyle,
-  cover: {
-    width: COVER_INNER_WIDTH,
-    height: COVER_HEIGHT,
-    borderRadius: 8,
-  } as ImageStyle,
-  coverPlaceholder: {
-    width: COVER_INNER_WIDTH,
-    height: COVER_HEIGHT,
-    borderRadius: 8,
-    backgroundColor: tk.surface.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  coverPlaceholderText: {
-    fontSize: 13,
-    color: tk.text.tertiary,
-  } as TextStyle,
-  courseTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: tk.text.primary,
-    lineHeight: 18,
-  } as TextStyle,
-  coursePrice: {
-    fontSize: 12,
-    color: tk.warning.amberText,
-    fontWeight: '600',
-  } as TextStyle,
   centerWrap: {
     flex: 1,
     alignItems: 'center',
