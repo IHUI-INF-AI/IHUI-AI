@@ -37,11 +37,9 @@ export interface AuditStats {
   skippedTables: number
 }
 
-/** 默认带 tenant_id 的表 (业务表). */
+/** 默认带 tenant_id 的表 (业务表). 注: orders/users 等 6 表的租户隔离已于迁移 0214 清理,从清单移除. */
 export const DEFAULT_TENANT_TABLES = new Set<string>([
-  'orders',
   'zhs_order',
-  'users',
   'user_info',
   'agents',
   'agent_buy',
