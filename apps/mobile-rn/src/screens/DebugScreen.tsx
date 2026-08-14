@@ -1,9 +1,10 @@
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { Alert, Clipboard, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Clipboard, Platform, StyleSheet, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
+import { NavBar } from '../components/NavBar'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -64,12 +65,7 @@ export function DebugScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('debug.title')}</Text>
-      </View>
+      <NavBar title={t('debug.title')} onBack={() => navigation.goBack()} />
       <View style={styles.body}>
         <View style={styles.warningBar}>
           <Text style={styles.warningText}>{t('debug.warning')}</Text>
@@ -107,15 +103,6 @@ export function DebugScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   warningBar: {
     padding: 10,

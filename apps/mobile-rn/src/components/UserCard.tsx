@@ -96,7 +96,8 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 45,
     height: 45,
-    marginRight: 8,
+    // 对齐 Uniapp 15rpx(≈7.5px→7px)图标右间距
+    marginRight: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },

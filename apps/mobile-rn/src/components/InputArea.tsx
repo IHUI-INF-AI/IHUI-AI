@@ -36,6 +36,10 @@ export interface InputAreaProps {
   disabled?: boolean
   /** 发送中:按钮显示 ActivityIndicator 替代 ➤ 图标 */
   loading?: boolean
+  /** 停止回调:提供后,loading 时发送按钮切换为停止按钮(danger 色)。用于流式对话中断 */
+  onStop?: () => void
+  /** 停止按钮文字,缺省"停止" */
+  stopLabel?: string
 }
 
 const DEFAULT_MAX_LENGTH = 500
@@ -49,6 +53,8 @@ export function InputArea({
   onSubmit,
   disabled = false,
   loading = false,
+  onStop,
+  stopLabel,
 }: InputAreaProps) {
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
@@ -85,23 +91,32 @@ export function InputArea({
         </Text>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.sendButton,
-          isSendBlocked ? styles.sendButtonDisabled : null,
-        ]}
-        onPress={handleSubmit}
-        activeOpacity={0.7}
-        disabled={!canSend}
-        accessibilityRole="button"
-        accessibilityLabel="send"
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={tokens.surface.light} />
-        ) : (
-          <Text style={styles.sendIcon}>➤</Text>
-        )}
-      </TouchableOpacity>
+      {loading && onStop ? (
+        <TouchableOpacity
+          style={[styles.sendButton, styles.stopButton]}
+          onPress={onStop}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={stopLabel ?? 'stop'}
+        >
+          <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.sendButton, isSendBlocked ? styles.sendButtonDisabled : null]}
+          onPress={handleSubmit}
+          activeOpacity={0.7}
+          disabled={!canSend}
+          accessibilityRole="button"
+          accessibilityLabel="send"
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={tokens.surface.light} />
+          ) : (
+            <Text style={styles.sendIcon}>➤</Text>
+          )}
+        </TouchableOpacity>
+      )}
     </View>
   )
 }
@@ -153,6 +168,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stopButton: {
+    backgroundColor: tokens.danger.DEFAULT,
   },
   sendButtonDisabled: {
     backgroundColor: tokens.surface.muted,
