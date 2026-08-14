@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Text, TouchableOpacity, View } from 'react-native'
+import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
 import type { MessageCenterItem, MessageTab } from '@ihui/rn-app'
-import { getRnTokens } from '@ihui/design-tokens'
-import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar } from '../components/NavBar'
+import NotificationPanel from '../components/NotificationPanel'
+import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -23,13 +23,12 @@ export function MessageCenterScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const tokens = getRnTokens(resolvedTheme)
+  const { setVisible: setNotificationVisible } = useNotificationStore()
   const [items, setItems] = useState<MessageCenterItem[]>([])
   const [activeTab, setActiveTab] = useState<MessageTab>('system')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [drawerVisible, setDrawerVisible] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -54,16 +53,9 @@ export function MessageCenterScreen() {
     if (tab !== activeTab) setActiveTab(tab)
   }
 
-  const drawerMenuItems: SideMenuItem[] = [
-    { key: 'system', label: '系统消息', icon: '🔔' },
-    { key: 'direct', label: '私信', icon: '✉' },
-    { key: 'group', label: '群聊', icon: '👥' },
-  ]
-
-  const onDrawerItemPress = (key: string) => {
-    if (key === 'system' || key === 'direct' || key === 'group') {
-      onSelectTab(key as MessageTab)
-    }
+  // 点击消息卡片 → 消息详情(MessageDetail 路由在 RootStack,React Navigation 自动向上搜索)
+  const onPressItem = (item: MessageCenterItem) => {
+    navigation.navigate('MessageDetail', { id: item.id })
   }
 
   return (
@@ -71,15 +63,9 @@ export function MessageCenterScreen() {
       <NavBar
         title={t('messageCenter.title')}
         onBack={() => navigation.goBack()}
-        rightAction={
-          <TouchableOpacity
-            onPress={() => setDrawerVisible(true)}
-            hitSlop={8}
-            accessibilityLabel="消息菜单"
-          >
-            <Text style={{ fontSize: 22, lineHeight: 24, color: tokens.text.primary }}>{'☰'}</Text>
-          </TouchableOpacity>
-        }
+        rightActions={[
+          { icon: '🔔', label: '通知', onPress: () => setNotificationVisible(true) },
+        ]}
       />
       <SharedMessageCenterScreen
         t={t}
@@ -93,16 +79,12 @@ export function MessageCenterScreen() {
           setRefreshing(true)
           void load()
         }}
+        onPressItem={onPressItem}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
       />
-      <SideMenu
-        visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        items={drawerMenuItems}
-        onSelect={onDrawerItemPress}
-        activeKey={activeTab}
-      />
+      {/* NotificationPanel 推送通知面板(对齐 Uniapp 顶层 PushNotification,组件自管 visible) */}
+      <NotificationPanel />
     </View>
   )
 }
