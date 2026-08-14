@@ -16,7 +16,7 @@
 | Schema 文件 | `packages/database/src/schema/`(160+ 文件,339 表) |
 | 迁移文件 | `packages/database/drizzle/`(144+ SQL 文件) |
 | 种子数据 | `packages/database/seed/`(9 步幂等 seed 流程) |
-| 多租户隔离 | RLS 行级安全 + `tenant_id` 列 + `app.tenant_id` 会话变量 |
+| 多租户隔离 | RLS 行级安全(用户级策略,6 表租户隔离已于 0214 清理)+ 真实多租户表(`tenant_members`/`tenant_quotas`/`ai_cost_records` 等 `tenant_id` 业务列) |
 | 默认租户 UUID | `00000000-0000-0000-0000-000000000000` |
 | 向量扩展 | pgvector(`0123_pgvector_embedding.sql` + `0129_codebase_embedding.sql`) |
 
@@ -280,9 +280,9 @@ export type Database = ReturnType<typeof createDb>
 | `two_factor_enabled_at` | timestamptz | | 2FA 启用时间 |
 | `created_at` / `updated_at` | timestamptz | default now() | 时间戳 |
 
-**索引**:`users_invite_code_unique`(unique on invite_code)、`users_tenant_id_idx`(RLS 迁移 0066)、`users_search_vector_idx`(GIN 全文索引,迁移 0010)、`idx_users_two_factor_enabled`(部分索引,迁移 0130)。
+**索引**:`users_invite_code_unique`(unique on invite_code)、`users_search_vector_idx`(GIN 全文索引,迁移 0010)、`idx_users_two_factor_enabled`(部分索引,迁移 0130)。
 
-**RLS**:迁移 0066 启用 `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`,策略 `USING (tenant_id = current_setting('app.tenant_id', true)::uuid)`。
+**RLS**:迁移 0068 启用用户级策略(`users_select_own_or_admin` 等,基于 `app.current_user_role`/`user_id`);0066 的租户隔离(tenant_id)已于迁移 0214 清理。
 
 ### 3.2 refresh_tokens(refresh token family)
 
@@ -341,7 +341,7 @@ export type Database = ReturnType<typeof createDb>
 | `created_by` / `updated_by` | uuid | FK → users, ON DELETE SET NULL | 审计(G10/G13) |
 | `created_at` / `updated_at` | timestamptz | NOT NULL, default now() | |
 
-**RLS**:迁移 0066 启用,`tenant_id` 列 + `orders_tenant_id_idx`。
+**RLS**:迁移 0068 启用用户级策略(`orders_select_own_or_admin` 等);0066 的租户隔离(tenant_id)已于迁移 0214 清理。
 
 ### 3.5 chat_conversations / chat_messages(对话)
 
@@ -367,7 +367,7 @@ export type Database = ReturnType<typeof createDb>
 - 业务模块批量:`00XX_<module>_module.sql`,如 `0014_community_module.sql`、`0017_member_module.sql`。
 - 描述性后缀:`00XX_<description>.sql`,如 `0010_fulltext_search_indexes.sql`、`0066_rls_tenant_isolation.sql`、`0130_two_factor.sql`。
 - 日期前缀(2026-07 起):`YYYYMMDDHHMMSS_<description>.sql`,如 `20260722190000_model_leaderboard.sql`,便于按时间排序与归档。
-- RLS 专题:`0066_rls_tenant_isolation.sql` / `0068_rls_policies.sql` / `0072_drop_0066_rls_policies.sql` / `0074_reapply_tenant_rls.sql`(RLS 启用 / 策略 / 撤销 / 重新应用历史)。
+- RLS 专题:`0066_rls_tenant_isolation.sql` / `0068_rls_policies.sql` / `0072_drop_0066_rls_policies.sql` / `0074_reapply_tenant_rls.sql`(RLS 启用 / 策略 / 撤销 / 重新应用历史)/ `0214_cleanup_legacy_tenant_rls.sql`(清理 6 表租户隔离)。
 
 ### 4.2 Journal 与 snapshot
 
@@ -428,6 +428,7 @@ export default defineConfig({
 | 0072 | `drop_0066_rls_policies.sql` | 撤销 0066 策略(回滚) |
 | 0073 | `refresh_tokens_cascade.sql` | refresh_tokens ON DELETE CASCADE |
 | 0074 | `reapply_tenant_rls.sql` | 重新应用租户 RLS |
+| 0214 | `cleanup_legacy_tenant_rls.sql` | 清理 6 表 tenant_id + _tenant_iso 策略(租户隔离废弃) |
 | 0095-0097 | P1 schema batch | P1 深度层表 |
 | 0100 | `light_sleeper.sql` | 索引优化 |
 | 0108 | `r83_supplement_27_tables.sql` | R83 补建 27 表 |
@@ -503,6 +504,7 @@ export async function withBypassRls<T>(
 | 0070 `rls_safe_tenant_id.sql` | 安全的 tenant_id 默认值 |
 | 0072 `drop_0066_rls_policies.sql` | 撤销 0066 策略(回滚 0066 风险) |
 | 0074 `reapply_tenant_rls.sql` | 重新应用租户 RLS(修复 0072 误撤销) |
+| 0214 `cleanup_legacy_tenant_rls.sql` | 清理 6 表 tenant_id + 24 个 `_tenant_iso_*` 策略 + `safe_tenant_id()` 函数;新增 `_bypass_rls` 策略(FOR ALL)保持 `withBypassRls` 绕过能力;0068 用户级策略不受影响 |
 
 ### 5.5 多租户分库路由
 
