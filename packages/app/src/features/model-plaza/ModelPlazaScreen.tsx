@@ -28,6 +28,30 @@ const TYPE_TABS: { id: ModelPlazaTypeFilter; labelKey: string }[] = [
   { id: 'av', labelKey: 'modelPlaza.typeAv' },
 ]
 
+/**
+ * 厂商图标映射(首字母色块占位,对齐 Uniapp provider-tab 36×36rpx 厂商图标)。
+ * lucide-react-native 未在 packages/app 引入(共享包不引入新依赖),
+ * 改用「首字母 + 厂商品牌色背景圆」作为视觉占位。
+ * 缺省回退: provider.id 首字母大写 + 中性灰背景。
+ */
+const PROVIDER_ICONS: Record<string, { letter: string; bg: string }> = {
+  openai: { letter: 'O', bg: '#10A37F' },
+  anthropic: { letter: 'A', bg: '#D97757' },
+  google: { letter: 'G', bg: '#4285F4' },
+  cloudflare: { letter: 'C', bg: '#F38020' },
+  stepfun: { letter: 'S', bg: '#E94560' },
+  nvidia: { letter: 'N', bg: '#76B900' },
+}
+
+function providerIcon(providerId: string): { letter: string; bg: string } {
+  return (
+    PROVIDER_ICONS[providerId] ?? {
+      letter: providerId.charAt(0).toUpperCase() || '?',
+      bg: '#9CA3AF',
+    }
+  )
+}
+
 /** 类型徽章配色(对齐 mobile-rn 原实现:图像紫 / 音视频绿 / 文本蓝) */
 function typeBadge(
   type: ModelPlazaModelType,
@@ -89,28 +113,35 @@ export function ModelPlazaScreen({
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.providerScroll}
-        contentContainerStyle={styles.providerScrollContent}
-      >
-        {providers.map((p) => {
-          const active = providerId === p.id
-          return (
-            <TouchableOpacity
-              key={p.id}
-              style={[styles.providerTab, active && styles.providerTabActive]}
-              onPress={() => onSelectProvider(p.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.providerText, active && styles.providerTextActive]}>
-                {p.name}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+      <View style={styles.providerSection}>
+        <Text style={styles.sectionLabel}>{t('modelPlaza.selectProviderLabel')}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.providerScroll}
+          contentContainerStyle={styles.providerScrollContent}
+        >
+          {providers.map((p) => {
+            const active = providerId === p.id
+            const ic = providerIcon(p.id)
+            return (
+              <TouchableOpacity
+                key={p.id}
+                style={[styles.providerTab, active && styles.providerTabActive]}
+                onPress={() => onSelectProvider(p.id)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.providerTabIcon, { backgroundColor: ic.bg }]}>
+                  <Text style={styles.providerTabIconText}>{ic.letter}</Text>
+                </View>
+                <Text style={[styles.providerText, active && styles.providerTextActive]}>
+                  {p.name}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+      </View>
 
       {currentProvider ? (
         <View style={styles.providerHeader}>
@@ -247,19 +278,49 @@ function createStyles(tk: AppThemeTokens) {
     compareText: { fontSize: 12, fontWeight: '600', color: tk.purple.DEFAULT },
     providerScroll: { maxHeight: 44, backgroundColor: tk.surface.bg },
     providerScrollContent: { paddingHorizontal: 16, gap: 8, paddingVertical: 6 },
+    providerSection: {
+      backgroundColor: tk.surface.bg,
+      paddingTop: 10,
+      paddingBottom: 6,
+    },
+    sectionLabel: {
+      fontSize: 13,
+      color: tk.text.tertiary,
+      marginBottom: 8,
+      marginHorizontal: 16,
+    },
     providerTab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       paddingHorizontal: 14,
       height: 32,
-      borderRadius: 8,
+      borderRadius: 16,
+      borderWidth: 0,
       backgroundColor: tk.surface.card,
+      justifyContent: 'center',
+    },
+    providerTabActive: {
+      backgroundColor: tk.indigo.light,
+      borderWidth: 1,
+      borderColor: tk.brand.DEFAULT,
+    },
+    providerTabIcon: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    providerTabActive: { backgroundColor: tk.indigo.light },
+    providerTabIconText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF', lineHeight: 13 },
     providerText: { fontSize: 13, color: tk.text.secondary },
     providerTextActive: { color: tk.indigo.deep, fontWeight: '600' },
-    providerHeader: { padding: 16, backgroundColor: tk.surface.bg },
-    providerName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    providerHeader: {
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      backgroundColor: tk.surface.bg,
+    },
+    providerName: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     providerMeta: { marginTop: 4, fontSize: 11, color: tk.text.tertiary },
     providerDesc: { marginTop: 6, fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     errorBar: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: tk.surface.bg },
@@ -274,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
     typeTab: {
       paddingHorizontal: 12,
       height: 30,
-      borderRadius: 8,
+      borderRadius: 16,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',
@@ -286,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
-    modelCard: { padding: 16, borderRadius: 12, backgroundColor: tk.surface.bg },
+    modelCard: { padding: 12, borderRadius: 12, backgroundColor: tk.surface.bg },
     cardTop: {
       flexDirection: 'row',
       alignItems: 'center',

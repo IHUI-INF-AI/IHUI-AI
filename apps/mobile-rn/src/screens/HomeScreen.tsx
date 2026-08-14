@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, View } from 'react-native'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
@@ -32,6 +33,16 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
+// 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
+import { NavBar, type NavBarAction } from '../components/NavBar'
+import {
+  Drawer,
+  type DrawerExtraMenu,
+  type DrawerTab,
+} from '../components/Drawer'
+import { InputArea } from '../components/InputArea'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
@@ -151,6 +162,136 @@ export function HomeScreen() {
   /** 父级 Tabs 导航(用于跳转 'course' / 'live' 等 Tab 路由) */
   const tabNav = navigation.getParent<TabNav>()
 
+  // ── 对齐 Uniapp ai_index:NavBar 菜单按钮触发 Drawer ──
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  // ── InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分) ──
+  const [inputValue, setInputValue] = useState('')
+
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+  const hideToast = useCallback((): void => setToastVisible(false), [])
+
+  /** Drawer 用户信息(对齐 Uniapp DrawerComponent userinfo prop) */
+  const drawerUser = {
+    avatar: user?.avatar,
+    nickname: user?.nickname || user?.phone || '未登录',
+    level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
+  }
+
+  /** RecentAgents 最近使用智能体(对齐 Uniapp AgentList,空数组占位待 API 接入) */
+  const recentAgents: RecentAgentItem[] = []
+
+  // ── Drawer 回调(对齐 Uniapp gopage / gotocompany / lingqu / addNewChat) ──
+  const closeDrawer = (): void => setDrawerVisible(false)
+  const handleDrawerNavigate = (tab: DrawerTab): void => {
+    // square/share 是 RootStack 路由(Uniapp: 广场/动态)
+    if (tab === 'square') {
+      rootNav?.navigate('Square')
+      return
+    }
+    if (tab === 'share') {
+      rootNav?.navigate('Share')
+      return
+    }
+    // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
+    const rnTab: 'home' | 'ai' | 'mine' = tab
+    rootNav?.navigate('Tabs', { screen: rnTab } as never)
+  }
+  const handleDrawerNavigateCompany = (): void => {
+    // 一人公司:跳 Distribution(对齐 Uniapp gotocompany → /pagesA/distribution/index)
+    rootNav?.navigate('Distribution')
+  }
+  const handleDrawerClaimFree = (): void => {
+    // 领取免费资料:复制飞书链接 + FloatBox 提示(对齐 Uniapp lingqu → setClipboardData)
+    Clipboard.setString('https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh')
+    showToast('success', '链接已复制,请在浏览器中打开')
+  }
+  const handleDrawerCreateNewChat = (): void => {
+    // 创建新对话:跳 Chat(对齐 Uniapp addNewChat → 跳 ai_index2)
+    rootNav?.navigate('Chat', {})
+  }
+  const handleDrawerSelectConversation = (id: string): void => {
+    // 选择历史对话:跳 Chat 并携带 conversationId(对齐 Uniapp handleShowFullList)
+    rootNav?.navigate('Chat', { conversationId: id })
+  }
+  const handleDrawerDeleteConversation = (_id: string): void => {
+    // HomeScreen 不持有历史对话列表,删除由 ChatScreen 负责;此处仅提示
+    showToast('info', '请在对话页管理历史记录')
+  }
+  const handleDrawerOpenSettings = (): void => {
+    rootNav?.navigate('Settings')
+  }
+  const handleDrawerOpenMessages = (): void => {
+    rootNav?.navigate('MessageCenter')
+  }
+  const handleDrawerGoHome = (): void => {
+    rootNav?.navigate('Tabs', { screen: 'home' } as never)
+  }
+  const handleNavigateExtra = (menu: DrawerExtraMenu): void => {
+    // 扩展菜单(对齐 Uniapp 隐藏菜单 + label_content 入口)
+    switch (menu) {
+      case 'aigc':
+        rootNav?.navigate('AigcList')
+        break
+      case 'learn':
+        rootNav?.navigate('Learn')
+        break
+      case 'modelPlaza':
+        rootNav?.navigate('ModelPlaza')
+        break
+      case 'company':
+        rootNav?.navigate('Distribution')
+        break
+      case 'tools':
+        rootNav?.navigate('AiAssistant')
+        break
+      default:
+        // 未识别的扩展菜单,静默忽略(防御性:防止 EXTRA_MENUS 配置漂移)
+        break
+    }
+  }
+
+  // ── NavBar 按钮回调(对齐 Uniapp navigation-bars 事件) ──
+  /** 菜单按钮:打开 Drawer(对齐 Uniapp handleNavClick → tagWrapShow = true) */
+  const handleMenuPress = (): void => setDrawerVisible(true)
+  /** 加入社区群:显示二维码提示(对齐 Uniapp join-click → showQrCode → showQrCodeModal = true)
+   *  RN 端无二维码图片资源,用 FloatBox 提示替代弹窗 */
+  const handleJoinPress = (): void => {
+    showToast('info', '请扫描社群二维码加入(二维码图片待接入)')
+  }
+  /** 分享图:跳我的页面(对齐 Uniapp share-image → goToMyPage → /pages/table/user/index) */
+  const handleGoToMyPage = (): void => {
+    rootNav?.navigate('Tabs', { screen: 'mine' } as never)
+  }
+
+  /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 加入社区群 + 分享)
+   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal:12) */
+  const navLeftActions: ReadonlyArray<NavBarAction> = [
+    { icon: '☰', label: '菜单', onPress: handleMenuPress },
+  ]
+  const navRightActions: ReadonlyArray<NavBarAction> = [
+    { icon: '🤝', label: '加入群', onPress: handleJoinPress },
+    { icon: '🎁', label: '分享', onPress: handleGoToMyPage },
+  ]
+
+  // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
+  const handleInputSubmit = (text: string): void => {
+    setInputValue('')
+    rootNav?.navigate('Chat', { title: text })
+  }
+
+  // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) ──
+  const handleRecentAgentPress = (item: RecentAgentItem): void => {
+    rootNav?.navigate('AiAssistant', { agentId: item.id, title: item.name })
+  }
+
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
     () =>
@@ -250,6 +391,14 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
       <OfflineBanner isOnline={connected} />
+      {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
+       *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
+       *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
+      <NavBar
+        title="智汇AI社区"
+        leftActions={navLeftActions}
+        rightActions={navRightActions}
+      />
       <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
         {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
         {bannerItems.length > 0 ? (
@@ -287,6 +436,14 @@ export function HomeScreen() {
             onPress={() => rootNav?.navigate('Chat', {})}
           />
         </View>
+        {/* RecentAgents 最近使用智能体(对齐 Uniapp ai_index AgentList 横向列表)
+         *  空数组占位待 API 接入(对齐 AgentScreen 同款占位策略);
+         *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
+        {recentAgents.length > 0 ? (
+          <View style={shellStyles.sectionWrap}>
+            <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
+          </View>
+        ) : null}
         <SharedHomeScreen
           t={t}
           userNickname={user?.nickname || user?.phone || ''}
@@ -372,12 +529,39 @@ export function HomeScreen() {
           <BottomFigure />
         </View>
       </ScrollView>
+      {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
+       *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
+      <InputArea
+        value={inputValue}
+        onChangeText={setInputValue}
+        placeholder="请输入您的问题,或选择模型开始对话"
+        onSubmit={handleInputSubmit}
+      />
       {/* GlobalFloatBox 全局浮窗按钮(对齐 Uniapp App.vue 全局浮窗) */}
       <GlobalFloatBox
         onPromote={() => rootNav?.navigate('Promote')}
         onConsult={() => rootNav?.navigate('CustomerService')}
         onMore={() => rootNav?.navigate('Settings')}
       />
+      {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={closeDrawer}
+        user={drawerUser}
+        conversations={[]}
+        onNavigate={handleDrawerNavigate}
+        onNavigateExtra={handleNavigateExtra}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
+      />
+      {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
   )
 }
