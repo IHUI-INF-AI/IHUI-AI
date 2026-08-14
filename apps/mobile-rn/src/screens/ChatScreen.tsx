@@ -34,6 +34,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type ListRenderItem,
 } from 'react-native'
@@ -971,24 +972,42 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
           showsVerticalScrollIndicator={false}
         />
 
-        {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件) */}
+        {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件,Modal 形式避免挤压消息列表) */}
         {showMaterialList ? (
-          <View style={styles.materialPopup}>
-            <View style={styles.materialPopupHeader}>
-              <Text style={styles.materialPopupTitle}>我的创作</Text>
-              <Pressable hitSlop={8} onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}>
-                <X size={20} color={tokens.text.secondary} />
+          <Modal
+            visible={showMaterialList}
+            transparent
+            animationType="slide"
+            onRequestClose={() => { setShowMaterialList(false); setCurrentModelType('') }}
+          >
+            <Pressable
+              style={styles.modalMask}
+              onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}
+            >
+              <Pressable
+                style={styles.materialPopup}
+                onPress={(e) => e.stopPropagation()}
+              >
+                <View style={styles.materialPopupHeader}>
+                  <Text style={styles.materialPopupTitle}>我的创作</Text>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}
+                  >
+                    <X size={20} color={tokens.text.secondary} />
+                  </Pressable>
+                </View>
+                <MaterialList
+                  categories={[...MATERIAL_CATEGORIES]}
+                  activeCategory={materialTab}
+                  onCategoryChange={setMaterialTab}
+                  items={materialItems}
+                  onPress={handleMaterialItemClick}
+                  loading={materialLoading}
+                />
               </Pressable>
-            </View>
-            <MaterialList
-              categories={[...MATERIAL_CATEGORIES]}
-              activeCategory={materialTab}
-              onCategoryChange={setMaterialTab}
-              items={materialItems}
-              onPress={handleMaterialItemClick}
-              loading={materialLoading}
-            />
-          </View>
+            </Pressable>
+          </Modal>
         ) : null}
 
         {/* Material 卡片区(当前对话引入的素材,横向 + 删除,对齐 Uniapp materialCards) */}
@@ -1116,11 +1135,16 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             <Pressable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
-            <View ref={qrCodeViewRef} style={styles.qrCodePlaceholder} collapsable={false}>
+            <Pressable
+              ref={qrCodeViewRef}
+              style={styles.qrCodePlaceholder}
+              collapsable={false}
+              onLongPress={handleLongPressQrCode}
+            >
               <QrCode size={240} color={tokens.text.primary} />
-            </View>
+            </Pressable>
             <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
-            <Pressable onPress={handleLongPressQrCode} style={styles.qrCodeHint}>
+            <Pressable onLongPress={handleLongPressQrCode} style={styles.qrCodeHint}>
               <Text style={styles.qrCodeHintText}>长按二维码可保存</Text>
             </Pressable>
           </Pressable>
@@ -1261,6 +1285,47 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         onNavigateExtra={handleNavigateExtra}
       />
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
+
+      {/* 放大输入区弹窗(对齐 Uniapp fangdaVisible 放大输入) */}
+      <Modal
+        visible={fangdaVisible}
+        animationType="slide"
+        onRequestClose={() => setFangdaVisible(false)}
+      >
+        <View style={styles.fangdaContainer}>
+          <View style={styles.fangdaHeader}>
+            <Text style={styles.fangdaTitle}>放大输入</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setFangdaVisible(false)}
+              style={styles.fangdaCloseBtn}
+            >
+              <X size={24} color={tokens.text.primary} />
+            </Pressable>
+          </View>
+          <TextInput
+            style={styles.fangdaInput}
+            value={prompt}
+            onChangeText={setPrompt}
+            placeholder="请输入内容..."
+            placeholderTextColor={tokens.text.tertiary}
+            multiline
+            autoFocus
+            textAlignVertical="top"
+          />
+          <View style={styles.fangdaFooter}>
+            <Pressable
+              style={styles.fangdaSendBtn}
+              onPress={() => {
+                setFangdaVisible(false)
+                void send()
+              }}
+            >
+              <Text style={styles.fangdaSendBtnText}>发送</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -1338,12 +1403,12 @@ const styles = StyleSheet.create({
   msgTextAi: {
     color: tokens.text.primary,
   },
-  // ── 素材库弹窗 ──
+  // ── 素材库弹窗(Modal 内部对话框样式,参考 listDialogContent) ──
   materialPopup: {
-    marginHorizontal: 12,
-    marginBottom: 8,
+    width: '88%',
+    maxHeight: '70%',
     backgroundColor: tokens.surface.light,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   materialPopupHeader: {
@@ -1636,6 +1701,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: tokens.text.primary,
+  },
+  // ── 放大输入区弹窗(对齐 Uniapp fangdaVisible) ──
+  fangdaContainer: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  },
+  fangdaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: tokens.surface.card,
+  },
+  fangdaTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  fangdaCloseBtn: {
+    padding: 4,
+  },
+  fangdaInput: {
+    flex: 1,
+    fontSize: 16,
+    color: tokens.text.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    textAlignVertical: 'top',
+  },
+  fangdaFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: tokens.surface.card,
+  },
+  fangdaSendBtn: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  fangdaSendBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.surface.light,
   },
 })
 
