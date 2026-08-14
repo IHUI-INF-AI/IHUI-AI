@@ -7,11 +7,12 @@
  * - 浅色优雅风,rnLightTokens;圆角守门;无分割线
  */
 import { useState } from 'react'
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
+import ImagePreviewModal from '../components/ImagePreviewModal'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -54,26 +55,11 @@ export function ModelRecordScreen() {
         </View>
       </ScrollView>
 
-      <Modal
+      <ImagePreviewModal
         visible={previewIndex >= 0}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPreviewIndex(-1)}
-      >
-        <View style={styles.previewOverlay}>
-          <TouchableOpacity
-            style={styles.previewClose}
-            hitSlop={8}
-            accessibilityLabel={t('a11y.close')}
-            onPress={() => setPreviewIndex(-1)}
-          >
-            <Text style={styles.previewCloseText}>{t('a11y.close')}</Text>
-          </TouchableOpacity>
-          {previewIndex >= 0 ? (
-            <Image source={RECORD_IMAGES[previewIndex]} style={styles.previewImage} resizeMode="contain" />
-          ) : null}
-        </View>
-      </Modal>
+        source={previewIndex >= 0 ? (RECORD_IMAGES[previewIndex] ?? null) : null}
+        onClose={() => setPreviewIndex(-1)}
+      />
     </View>
   )
 }
@@ -103,29 +89,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: 4,
-  },
-  previewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewClose: {
-    position: 'absolute',
-    top: 48,
-    right: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-  previewCloseText: {
-    color: tk.surface.light,
-    fontSize: 14,
-  },
-  previewImage: {
-    width: '92%',
-    height: '72%',
   },
 })
 
