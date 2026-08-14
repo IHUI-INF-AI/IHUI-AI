@@ -4,7 +4,7 @@ import Fastify from 'fastify'
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -25,7 +25,7 @@ describe('behavior extended routes (M-63)', () => {
     await server.close()
   })
 
-  it('POST /api/behavior/favorite 未登录返回 401', async () => {
+  it('POST /api/behavior/favorite 未登录返�?401', async () => {
     await server.register(behaviorRoutes, { prefix: '/api' })
     await server.ready()
 
@@ -37,7 +37,7 @@ describe('behavior extended routes (M-63)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/behavior/favorite 未登录返回 401', async () => {
+  it('DELETE /api/behavior/favorite 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/behavior/favorite',
@@ -46,7 +46,7 @@ describe('behavior extended routes (M-63)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/behavior/favorite/check 未登录返回 401', async () => {
+  it('GET /api/behavior/favorite/check 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'GET',
       url: '/api/behavior/favorite/check?topicId=00000000-0000-4000-8000-000000000000&topicType=article',
@@ -54,7 +54,7 @@ describe('behavior extended routes (M-63)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/behavior/favorite/list 未登录返回 401', async () => {
+  it('GET /api/behavior/favorite/list 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/behavior/favorite/list' })
     expect(res.statusCode).toBe(401)
   })

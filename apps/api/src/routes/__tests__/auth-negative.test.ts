@@ -26,6 +26,8 @@ describe('Auth Negative Tests (无 Bearer token → 401)', () => {
   // 不在此处断言 401。
   // 注:GET /api/commission/overview 路由未在 missingUserRoutes barrel 中注册
   // (由独立插件挂载),返回 404 而非 401。已移至单独测试验证 404。
+  // 注:POST /api/analytics/track 是公开埋点上报端点(匿名访客可上报,见 analytics.ts
+  // 注释与 csrf.ts PUBLIC_PREFIXES 白名单),本就不要求鉴权,不在此处断言 401。
   const endpoints: Array<{ method: 'GET' | 'POST'; url: string }> = [
     { method: 'GET', url: '/api/article/list' },
     { method: 'GET', url: '/api/course/my' },
@@ -34,7 +36,6 @@ describe('Auth Negative Tests (无 Bearer token → 401)', () => {
     { method: 'GET', url: '/api/fund' },
     { method: 'GET', url: '/api/ai/index' },
     { method: 'GET', url: '/api/developer/info' },
-    { method: 'POST', url: '/api/analytics/track' },
   ]
 
   for (const { method, url } of endpoints) {
