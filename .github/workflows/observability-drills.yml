@@ -18,10 +18,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check metrics endpoint
-        run: curl -f http://localhost:3000/api/health/metrics
+        run: curl -f http://localhost:8801/api/health/metrics
 
       - name: Check Prometheus targets
         run: curl -f http://localhost:9090/api/v1/targets
 
       - name: Check Grafana health
-        run: curl -f http://localhost:3000/api/health
+        run: curl -f http://localhost:8801/api/health
