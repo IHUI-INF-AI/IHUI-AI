@@ -17,6 +17,9 @@ export {
   formatSSEError,
   mergeAbortSignals,
   postToolResult,
+  // 2026-08-14 补充 re-export:401 自动续期全局单例,web useAuthBootstrap 复用
+  // (并行改动 use-auth-bootstrap.ts 依赖它;client.ts 已实现,入口遗漏导致编译失败)
+  refreshAccessTokenOnce,
 } from './client'
 export type {
   TokenProvider,
