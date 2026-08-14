@@ -199,7 +199,15 @@ export type RootStackParamList = {
   Login: undefined
   Tabs: NavigatorScreenParams<MainTabParamList>
   Home: undefined
-  Chat: { conversationId?: string }
+  // 对齐 Uniapp 跳 chat 传参(conversationId/title/modelName/modelId/remark),其余 12 参数中关键项已覆盖;
+  // modelName/modelId/remark 可选,ChatScreen 仅消费 conversationId,其余字段预留给后续接入。
+  Chat: {
+    conversationId?: string
+    title?: string
+    modelName?: string
+    modelId?: string
+    remark?: string
+  }
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }
   LiveDetail: { id: string }
