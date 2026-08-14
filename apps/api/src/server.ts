@@ -5,6 +5,7 @@ import Fastify, {
   type FastifyRequest,
 } from 'fastify'
 import cors from '@fastify/cors'
+import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
@@ -284,6 +285,11 @@ async function registerPlugins(server: FastifyInstance) {
   )
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
   await server.register(otelPlugin)
+  // 2026-08-14 P0 修复:@fastify/cookie 必须在主作用域注册,否则子作用域注册
+  // (csrfPlugin) 的装饰器不会冒泡,主路由读取 request.cookies 永远是 undefined
+  // → /auth/refresh 永远读不到 refresh_token cookie → 永远 400 → 自动登录失效
+  // csrfPlugin 内的 register(cookie) 检测到已注册会跳过,无副作用
+  await server.register(cookie)
   await server.register(helmet, {
     contentSecurityPolicy: false,
     // 2026-08-04: 允许跨域资源共享(mobile-rn web 8805 / miniapp-taro 8804 需跨域调用 API 8802)
