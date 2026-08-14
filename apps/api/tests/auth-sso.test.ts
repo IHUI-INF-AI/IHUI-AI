@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 
 const { mockVerifyAccessToken, mockVerifyRefreshToken, mockUser, mockPermissions, mockTokenPair } =
   vi.hoisted(() => ({
@@ -116,6 +117,8 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
     app.decorate('redis', mockRedis)
     // 注册真实 response-sanitizer,用于验证 skipResponseSanitization 实际生效
     await app.register(responseSanitizerPlugin)
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
     await app.register(authSsoRoutes, { prefix: '/api/auth' })
     await app.ready()
   })

@@ -1,4 +1,5 @@
 import { describe, it, expect, afterAll, beforeAll, vi, beforeEach } from 'vitest'
+import cookie from '@fastify/cookie'
 import Fastify from 'fastify'
 
 // =============================================================================
@@ -291,6 +292,8 @@ describe('success paths', () => {
     server.decorate('riskEngine', {
       evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], score: 0 }),
     })
+    // auth 路由依赖 reply.setCookie（setAuthCookies），测试 app 须注册 @fastify/cookie
+    await server.register(cookie)
     server.register(authRoutes, { prefix: '/api/auth' })
     server.register(billingRoutes, { prefix: '/api' })
     server.register(contentRoutes, { prefix: '/api' })

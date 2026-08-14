@@ -4,7 +4,7 @@ import Fastify from 'fastify'
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -25,7 +25,7 @@ describe('Remote device routes (M-87)', () => {
     await server.close()
   })
 
-  it('GET /api/remote-devices 未登录返回 401', async () => {
+  it('GET /api/remote-devices 未登录返�?401', async () => {
     await server.register(remoteDeviceRoutes, { prefix: '/api' })
     await server.ready()
 
@@ -33,7 +33,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/remote-devices/:id 未登录返回 401', async () => {
+  it('GET /api/remote-devices/:id 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'GET',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
@@ -41,7 +41,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/remote-devices 未登录返回 401', async () => {
+  it('POST /api/remote-devices 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/remote-devices',
@@ -50,7 +50,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PUT /api/remote-devices/:id 未登录返回 401', async () => {
+  it('PUT /api/remote-devices/:id 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'PUT',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
@@ -59,7 +59,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/remote-devices/:id 未登录返回 401', async () => {
+  it('DELETE /api/remote-devices/:id 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
@@ -67,7 +67,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/remote-devices/:id/heartbeat 未登录返回 401', async () => {
+  it('POST /api/remote-devices/:id/heartbeat 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/heartbeat',
@@ -76,7 +76,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/remote-devices/:id/tasks 未登录返回 401', async () => {
+  it('GET /api/remote-devices/:id/tasks 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'GET',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/tasks',
@@ -84,7 +84,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/remote-devices/:id/tasks 未登录返回 401', async () => {
+  it('POST /api/remote-devices/:id/tasks 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/tasks',
@@ -93,7 +93,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/remote-device-tasks/:taskId 未登录返回 401', async () => {
+  it('GET /api/remote-device-tasks/:taskId 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'GET',
       url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000',
@@ -101,7 +101,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PUT /api/remote-device-tasks/:taskId/status 未登录返回 401', async () => {
+  it('PUT /api/remote-device-tasks/:taskId/status 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'PUT',
       url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000/status',
@@ -110,7 +110,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/remote-device-tasks/:taskId 未登录返回 401', async () => {
+  it('DELETE /api/remote-device-tasks/:taskId 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000',
@@ -118,7 +118,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/remote-device-tasks/:taskId/retry 未登录返回 401', async () => {
+  it('POST /api/remote-device-tasks/:taskId/retry 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000/retry',
@@ -126,7 +126,7 @@ describe('Remote device routes (M-87)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/remote-device-tasks/pending 未登录返回 401', async () => {
+  it('GET /api/remote-device-tasks/pending 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/remote-device-tasks/pending' })
     expect(res.statusCode).toBe(401)
   })

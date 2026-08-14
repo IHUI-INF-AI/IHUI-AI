@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 
 /**
  * OAuth2 Server 路由测试(2026-08-01 立)
@@ -31,7 +32,7 @@ const mockOAuthApp = {
   clientSecret: 'test-secret-abc',
   name: 'Test OAuth App',
   description: 'Test app for OAuth2 server routes',
-  redirectUris: ['https://app.example.com/callback', 'http://localhost:3000/cb'],
+  redirectUris: ['https://app.example.com/callback', 'http://localhost:8801/cb'],
   scopes: ['read', 'write'],
   icon: null,
   ownerUuid: 'user-001',
@@ -275,6 +276,8 @@ describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', (
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
     app.decorate('redis', {
       get: vi.fn(),
       set: vi.fn(),
