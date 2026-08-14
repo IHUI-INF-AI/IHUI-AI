@@ -191,12 +191,12 @@ export function HomePage3Magazine() {
     publishedLast24h: number
   }>({
     queryKey: ['marketing', 'magazine', 'status'],
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap<{
         lastGeneratedAt: string | null
         draftLast24h: number
         publishedLast24h: number
-      }>(await fetchApi('/api/admin/news/status')),
+      }>(await fetchApi('/api/admin/news/status', { signal })),
     retry: 1,
     staleTime: 3 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -204,10 +204,10 @@ export function HomePage3Magazine() {
 
   const { data: allItems = [], isLoading } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'magazine'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       // pageSize=100 拉满(articlesQuerySchema 上限 100):前端按 TAB_CATEGORY_MAP 分类过滤,
       // 若只拉 50 条,排序靠后的小分类(AI 学术前沿 / AI 安全与治理)会被截断,tab 过滤后永远为空
-      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=100'))
+      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=100', { signal }))
       return d.list ?? []
     },
     // 2026-08-12 改(用户反馈"div 没内容显示"根因):
