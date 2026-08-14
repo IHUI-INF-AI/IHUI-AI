@@ -1,7 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
-import cookie from '@fastify/cookie'
 import { config } from '../config/index.js'
 import { parsePath, matchesAnyPrefix } from '../utils/http-normalize.js'
 
@@ -135,8 +134,11 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
   server: FastifyInstance,
   opts: CsrfPluginOptions,
 ) => {
-  // 注册 @fastify/cookie（若已注册则跳过）
-  await server.register(cookie)
+  // 2026-08-14 P0 修复:server.ts 主作用域已注册 @fastify/cookie(line 292),
+  // csrfPlugin 用 fp 包装,运行在主作用域,自动继承 cookie 装饰器,无需重复注册。
+  // 之前 "await server.register(cookie)" 看似有 try/catch 跳过逻辑,实则 avvio 在
+  // 插件加载时把 FST_ERR_DEC_ALREADY_PRESENT 升级为 unhandled rejection,try/catch
+  // 捕不到 → API 启动失败 → 自动登录修复无效。直接删除冗余 register。
 
   const publicPrefixes = [...PUBLIC_PREFIXES, ...(opts.publicPrefixes ?? [])]
 

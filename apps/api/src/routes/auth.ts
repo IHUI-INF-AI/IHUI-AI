@@ -1103,13 +1103,17 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: {
         summary: '刷新访问令牌',
-        description: '使用 refreshToken 轮换签发新的 accessToken / refreshToken',
+        description: '使用 refreshToken 轮换签发新的 accessToken / refreshToken(支持 body 或 httpOnly cookie)',
         tags: ['auth'],
         body: {
           type: 'object',
-          required: ['refreshToken'],
+          // 2026-08-14 修复:refreshToken 不再 required —— httpOnly cookie 化后,前端 JS
+          // 读不到 refresh_token,body 可缺省(handler 兼容 cookie 读取)。
+          // 之前 required: ['refreshToken'] 让 schema 校验拒绝没 body 的请求 → 400
+          // "required property" → 中文化兜底 "操作失败,请稍后重试" → 自动登录失效
+          required: [],
           properties: {
-            refreshToken: { type: 'string', description: '刷新令牌' },
+            refreshToken: { type: 'string', description: '刷新令牌(body 模式,cookie 模式可缺省)' },
           },
         },
         response: buildResponseSchema(400, 401),
