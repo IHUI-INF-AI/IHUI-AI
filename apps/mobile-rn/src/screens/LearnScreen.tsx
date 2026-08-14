@@ -11,7 +11,6 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -32,6 +31,7 @@ import {
 } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import Empty from '../components/common/Empty'
+import Loading from '../components/common/Loading'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -153,7 +153,7 @@ export function LearnScreen() {
       <NavBar title="学习" onBack={() => navigation.goBack()} />
       {loading ? (
         <View style={styles.centerWrap}>
-          <ActivityIndicator size="small" color={tk.text.secondary} />
+          <Loading text="加载中..." />
         </View>
       ) : error && !progress ? (
         <View style={styles.centerWrap}>
