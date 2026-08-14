@@ -1364,7 +1364,8 @@
     "errorTimeout15s": "AI response timeout (no content received within 15 seconds), please retry later",
     "errorTimeout60s": "AI thinking timeout (no answer produced within 60 seconds, reasoning model may be thinking too long), please retry later or switch to a regular model",
     "reconnecting": "Reconnecting",
-    "reconnectAttempt": "Attempt {n}, retrying in {ms}ms"
+    "reconnectAttempt": "Attempt {n}, retrying in {ms}ms",
+    "cancel": "Cancel"
   },
   "learn": {
     "title": "Learning Center",
@@ -3906,7 +3907,12 @@
         "memory": "Memory",
         "cpu": "CPU",
         "stateChangedAt": "Changed At",
-        "actions": "Actions"
+        "actions": "Actions",
+        "timestamp": "Time",
+        "size": "Size",
+        "files": "Files",
+        "createdAt": "Created at",
+        "age": "Retention"
       },
       "action": {
         "detail": "Detail",
@@ -3985,7 +3991,10 @@
           "age": "Age",
           "actions": "Actions"
         },
-        "download": "Download"
+        "download": "Download",
+        "detail": {
+          "back": "Back to backups"
+        }
       },
       "certificates": {
         "title": "Certificates",
@@ -4011,7 +4020,34 @@
         "source": {
           "letsencrypt": "Let's Encrypt",
           "selfSigned": "Self-signed",
-          "custom": "Custom"
+          "custom": "Custom",
+          "status": {
+            "healthy": "Healthy",
+            "warning": "Warning",
+            "critical": "Critical",
+            "expired": "Expired"
+          },
+          "title": "Certificate Source",
+          "subtitle": "Issuance source and status of certificates",
+          "refresh": "Refresh",
+          "stats": {
+            "total": "Total",
+            "healthy": "Healthy",
+            "warning": "Warning",
+            "critical": "Critical",
+            "expired": "Expired"
+          },
+          "acmeMissing": "ACME configuration missing",
+          "empty": "No certificate sources",
+          "generatedAt": "Generated at",
+          "sans": "Subject Alternative Names",
+          "issuer": "Issuer",
+          "subject": "Subject",
+          "notBefore": "Not Before",
+          "notAfter": "Not After",
+          "daysUntilExpiry": "Days until expiry",
+          "fingerprint": "Fingerprint",
+          "back": "Back"
         },
         "issuer": "Issuer",
         "subject": "Subject",
@@ -4024,7 +4060,10 @@
           "remaining": "{days} days",
           "today": "Expires today",
           "expired": "Expired {days} days ago"
-        }
+        },
+        "letsencrypt": "Let’s Encrypt",
+        "selfSigned": "Self-signed",
+        "custom": "Custom"
       },
       "metrics": {
         "pageTitle": "Resource Monitoring",
@@ -4054,7 +4093,27 @@
         "networkRx": "RX",
         "networkTx": "TX",
         "unitCores": "cores"
-      }
+      },
+      "createTitle": "Create Backup",
+      "createHint": "Create a full data backup of the current tenant",
+      "restoreTitle": "Restore Backup",
+      "restoreHint": "Restore tenant data to this backup point",
+      "restoreInputHint": "Type \"restore\" to confirm",
+      "deleteTitle": "Delete Backup",
+      "deleteHint": "This backup cannot be recovered after deletion",
+      "deleteInputHint": "Type \"delete\" to confirm",
+      "createNow": "Create Now",
+      "stats": {
+        "total": "Total backups",
+        "totalSize": "Total size",
+        "avg": "Average size",
+        "latest": "Latest backup",
+        "empty": "No backups yet"
+      },
+      "listTitle": "Backup List",
+      "restore": "Restore",
+      "delete": "Delete",
+      "download": "Download"
     },
     "users": {
       "title": "User Management",
@@ -12262,12 +12321,29 @@
       "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints · Industrial-Grade",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
-      "miniappBtn": "WeChat Mini Program"
+      "miniappBtn": "WeChat Mini Program",
+      "title": "Title",
+      "qrAlt": "Mini-program QR code",
+      "scanTip": "Scan to experience the mini-program",
+      "typewriter": {
+        "ctaPrimary": "Get Consultation",
+        "ctaSecondary": "Learn More",
+        "miniappBtn": "Open Mini-program"
+      }
     },
     "miniappModal": {
       "title": "WeChat Mini Program",
       "qrAlt": "Mini Program QR Code",
-      "scanTip": "Open WeChat and scan to enter the mini program"
+      "scanTip": "Open WeChat and scan to enter the mini program",
+      "content": "Content",
+      "explore": "Explore",
+      "brand": "Brand",
+      "connect": "Contact Us",
+      "typewriter": {
+        "ctaPrimary": "Get Consultation",
+        "ctaSecondary": "Learn More",
+        "miniappBtn": "Open Mini-program"
+      }
     },
     "marquee": {
       "label": "Announcement",
@@ -12587,7 +12663,14 @@
       "join": "Join Now",
       "sectionLabel": "Bottom Call-to-Action",
       "dashboard": "Go to Workspace"
-    }
+    },
+    "content": "Content",
+    "explore": "Explore",
+    "brand": "Brand",
+    "connect": "Contact Us",
+    "title": "Title",
+    "qrAlt": "Mini-program QR code",
+    "scanTip": "Scan to experience the mini-program"
   },
   "aiNews": {
     "metaTitle": "AI News · Real-time Aggregation",
@@ -15303,8 +15386,18 @@
         "Auto-grading implementation",
         "Learning dashboard construction",
         "Personalized learning path recommendation"
-      ]
-    }
+      ],
+      "metaTitle": "AI Education Courses | IHUI AI",
+      "metaDescription": "Discover IHUI AI’s AI education courses with structured learning paths from beginner to advanced."
+    },
+    "about": "About",
+    "name": "Course Name",
+    "description": "Description",
+    "provider": "Provider",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "courseWorkload": "Workload",
+    "teaches": "Teaches"
   },
   "specPanel": {
     "historyVersion": "History version",

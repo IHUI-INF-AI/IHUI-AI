@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 import { createHash } from 'node:crypto'
 
 vi.hoisted(() => {
@@ -57,6 +58,8 @@ describe('Auth Extended API', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
     await app.register(authExtendedRoutes, { prefix: '/api' })
     await app.ready()
   })

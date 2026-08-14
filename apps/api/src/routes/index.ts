@@ -147,6 +147,9 @@ import aiFeedRoutes from './ai-feed.js'
 import leaderboardRoutes from './leaderboard.js'
 import aiEducationRoutes from './ai-education.js'
 import eduAiManagementRoutes from './edu-ai-management.js'
+// F3 真实缺口补齐(2026-08-15):技能分类管理 + 元学习闭环路由
+import skillCategoriesRoutes from './skill-categories.js'
+import metaLearnerRoutes from './meta-learner.js'
 import { fileVersionRoutes } from './file-version.js'
 import { callbackLogRoutes } from './callback-log.js'
 
@@ -1095,4 +1098,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(channelQuotaAdminRoutes, { prefix: '/api/admin' })
   // 移动端运营统计(GET /api/admin/mobile-stats,真实聚合,requireAdmin)
   server.register(mobileStatsRoutes, { prefix: '/api/admin' })
+
+  // F3 真实缺口补齐(2026-08-15):技能分类管理路由(GET/POST/PUT/DELETE /api/skill-categories)
+  server.register(skillCategoriesRoutes, { prefix: '/api' })
+  // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
+  server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
 }
