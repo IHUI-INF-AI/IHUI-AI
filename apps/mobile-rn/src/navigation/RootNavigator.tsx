@@ -199,7 +199,7 @@ export type RootStackParamList = {
   Login: undefined
   Tabs: NavigatorScreenParams<MainTabParamList>
   Home: undefined
-  Chat: undefined
+  Chat: { conversationId?: string }
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }
   LiveDetail: { id: string }
