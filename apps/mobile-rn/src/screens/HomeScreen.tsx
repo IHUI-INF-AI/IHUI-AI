@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
@@ -41,6 +50,7 @@ import {
   type DrawerTab,
 } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import ModelList, { type ModelListGroup } from '../components/ModelList'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import { useAuth } from '../context/AuthContext'
@@ -145,6 +155,105 @@ const FUNCTION_BLOCKS: FunctionBlock[] = [
   { id: 'ranking', title: '排行榜', icon: '🏆', description: '查看学习排名' },
 ]
 
+// ── 对齐 Uniapp ai_index BottomActionBar 8 种 model-type-btn(行 44-97) ──
+/** AI 模型类型(skills 技能 / talk 对话 / image 图片 / video 视频 / audio 音频 / videoa 视频音频 / other 其他 / sck 知识库) */
+type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+
+/** 模型类型按钮配置(对应 Uniapp model-type-btn:icon + label + active 态) */
+interface ModelTypeOption {
+  type: ModelType
+  label: string
+  icon: string
+}
+
+/** 当前选中的模型(对齐 Uniapp modelName/modelNameEN/modelId 三元组,简化为 type+id+name) */
+interface SelectedModel {
+  type: ModelType
+  id: string
+  name: string
+}
+
+/** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
+const MODEL_TYPES: ModelTypeOption[] = [
+  { type: 'skills', label: '技能', icon: '🧠' },
+  { type: 'talk', label: '对话', icon: '💬' },
+  { type: 'image', label: '图片', icon: '🖼️' },
+  { type: 'video', label: '视频', icon: '🎬' },
+  { type: 'audio', label: '音频', icon: '🎵' },
+  { type: 'videoa', label: '视音', icon: '📹' },
+  { type: 'other', label: '其他', icon: '⚙️' },
+  { type: 'sck', label: '知识库', icon: '📚' },
+]
+
+/** 各类型占位模型列表(对齐 Uniapp modelList.imageList/videoList/audioList/... 分类,
+ *  空数据占位待 API 接入,沿用 recentAgents 同款占位策略;每类 1 条样例保证 Modal 非空可演示) */
+const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
+  skills: [
+    {
+      vendor: '智能体',
+      models: [
+        { id: 'agent-default', name: '通用智能体', description: '通用问答 Agent', icon: '🤖', isFree: true },
+      ],
+    },
+  ],
+  talk: [
+    {
+      vendor: '文本模型',
+      models: [
+        { id: 'talk-gpt', name: 'GPT 对话', description: '通用文本对话', icon: '💬', isFree: true },
+      ],
+    },
+  ],
+  image: [
+    {
+      vendor: '图像生成',
+      models: [
+        { id: 'img-sdxl', name: 'SDXL 图像', description: '高质量图像生成', icon: '🎨', isFree: false },
+      ],
+    },
+  ],
+  video: [
+    {
+      vendor: '视频生成',
+      models: [
+        { id: 'vid-sora', name: 'Sora 视频', description: '文生视频', icon: '🎞️', isFree: false },
+      ],
+    },
+  ],
+  audio: [
+    {
+      vendor: '语音模型',
+      models: [
+        { id: 'aud-tts', name: 'TTS 语音', description: '文本转语音', icon: '🔊', isFree: true },
+      ],
+    },
+  ],
+  videoa: [
+    {
+      vendor: '视频音频',
+      models: [
+        { id: 'va-default', name: '视音合成', description: '视频音频一体化', icon: '🎤', isFree: false },
+      ],
+    },
+  ],
+  other: [
+    {
+      vendor: '其他',
+      models: [
+        { id: 'other-default', name: '通用模型', description: '其他类型模型', icon: '⚙️', isFree: true },
+      ],
+    },
+  ],
+  sck: [
+    {
+      vendor: '知识库',
+      models: [
+        { id: 'sck-default', name: '默认知识库', description: '通用知识库检索', icon: '📚', isFree: true },
+      ],
+    },
+  ],
+}
+
 export function HomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -170,6 +279,10 @@ export function HomeScreen() {
   const [toastMessage, setToastMessage] = useState('')
   // ── InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分) ──
   const [inputValue, setInputValue] = useState('')
+  // ── 模型选择(对齐 Uniapp ai_index currentModelType + modelName/modelId) ──
+  // activeModelType:当前展开的类型弹窗(null 表示关闭);selectedModel:已选模型(显示在输入区小标签)
+  const [activeModelType, setActiveModelType] = useState<ModelType | null>(null)
+  const [selectedModel, setSelectedModel] = useState<SelectedModel | null>(null)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -282,10 +395,35 @@ export function HomeScreen() {
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
+  // 携带选中模型信息(对齐 Uniapp modelType/modelName/modelId 跳参),未选模型时仅传 title
   const handleInputSubmit = (text: string): void => {
     setInputValue('')
-    rootNav?.navigate('Chat', { title: text })
+    rootNav?.navigate('Chat', {
+      title: text,
+      modelName: selectedModel?.name,
+      modelId: selectedModel?.id,
+    })
   }
+
+  // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
+  /** 点击类型按钮:同类型再点收起(对齐 Uniapp 第二次点击收起),不同类型切换 activeModelType 弹 Modal */
+  const handleModelTypePress = (type: ModelType): void => {
+    setActiveModelType((prev) => (prev === type ? null : type))
+  }
+  /** 关闭 Modal(对齐 Uniapp 互斥关闭其他弹窗) */
+  const closeModelModal = (): void => setActiveModelType(null)
+  /** 选择模型(对齐 Uniapp modelList selectModel → 设置 modelName/modelNameEN/modelId 后关闭弹窗) */
+  const handleModelSelect = (ids: string[]): void => {
+    if (!activeModelType || ids.length === 0) return
+    const found = PLACEHOLDER_MODELS[activeModelType]
+      .flatMap((g) => g.models)
+      .find((m) => m.id === ids[0])
+    if (!found) return
+    setSelectedModel({ type: activeModelType, id: found.id, name: found.name })
+    setActiveModelType(null)
+  }
+  /** 清除已选模型(对齐 Uniapp 切换类型时清空 modelName) */
+  const handleClearModel = (): void => setSelectedModel(null)
 
   // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) ──
   const handleRecentAgentPress = (item: RecentAgentItem): void => {
@@ -529,6 +667,54 @@ export function HomeScreen() {
           <BottomFigure />
         </View>
       </ScrollView>
+      {/* ModelTypeBar 模型类型选择栏(对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
+       *  横向 ScrollView 8 个图标按钮;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
+       *  selectedModel 显示为输入区小标签(对齐 Uniapp modelName 显示) */}
+      <View style={shellStyles.modelTypeBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {MODEL_TYPES.map((opt) => {
+            const active = activeModelType === opt.type
+            return (
+              <TouchableOpacity
+                key={opt.type}
+                style={[
+                  shellStyles.modelTypeBtn,
+                  active ? shellStyles.modelTypeBtnActive : null,
+                ]}
+                onPress={() => handleModelTypePress(opt.type)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={opt.label}
+              >
+                <Text style={shellStyles.modelTypeIcon}>{opt.icon}</Text>
+                <Text
+                  style={[
+                    shellStyles.modelTypeLabel,
+                    active ? shellStyles.modelTypeLabelActive : null,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+        {selectedModel ? (
+          <View style={shellStyles.selectedChip}>
+            <Text style={shellStyles.selectedChipText} numberOfLines={1}>
+              {selectedModel.name}
+            </Text>
+            <Pressable
+              onPress={handleClearModel}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="清除模型"
+            >
+              <Text style={shellStyles.selectedChipClose}>×</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
@@ -562,6 +748,51 @@ export function HomeScreen() {
       />
       {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
+      {/* ModelList Modal(对齐 Uniapp showModelList → ModelList 弹窗,选模型后填充输入区)
+       *  共享组件:RN 内置 Modal + ModelList;底部 sheet 风格(对齐 BottomPopup 同款) */}
+      <Modal
+        visible={activeModelType !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModelModal}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.modelModalBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeModelModal}
+            accessibilityLabel="关闭模型列表"
+          />
+          <View style={shellStyles.modelModalSheet}>
+            <View style={shellStyles.modelModalHeader}>
+              <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
+                {activeModelType
+                  ? MODEL_TYPES.find((m) => m.type === activeModelType)?.label ?? ''
+                  : ''}
+                {' 模型选择'}
+              </Text>
+              <Pressable
+                onPress={closeModelModal}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
+                <Text style={shellStyles.modelModalClose}>×</Text>
+              </Pressable>
+            </View>
+            {activeModelType ? (
+              <ModelList
+                groups={PLACEHOLDER_MODELS[activeModelType]}
+                selectionMode="single"
+                selectedIds={
+                  selectedModel?.type === activeModelType ? [selectedModel.id] : []
+                }
+                onSelectChange={handleModelSelect}
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -576,4 +807,95 @@ const shellStyles = {
   aiModelWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
   sectionWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
   bottomFigureWrap: { paddingHorizontal: 10, paddingTop: 8, marginBottom: 10 } as const,
+  // ── ModelTypeBar 模型类型选择栏(对齐 Uniapp model-type-btn 8 个) ──
+  modelTypeBar: {
+    backgroundColor: tokens.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: tokens.border.light,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  } as const,
+  modelTypeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 6,
+    borderRadius: 16,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  modelTypeBtnActive: {
+    backgroundColor: tokens.brand.DEFAULT,
+  } as const,
+  modelTypeIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  } as const,
+  modelTypeLabel: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  } as const,
+  modelTypeLabelActive: {
+    color: tokens.surface.light,
+    fontWeight: '600',
+  } as const,
+  // ── selectedChip 已选模型小标签(对齐 Uniapp modelName 显示) ──
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: tokens.purple.light,
+  } as const,
+  selectedChipText: {
+    fontSize: 11,
+    color: tokens.purple.DEFAULT,
+    fontWeight: '600',
+    maxWidth: 200,
+  } as const,
+  selectedChipClose: {
+    fontSize: 14,
+    lineHeight: 16,
+    color: tokens.purple.DEFAULT,
+    marginLeft: 6,
+    fontWeight: '700',
+  } as const,
+  // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
+  modelModalBackdrop: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    justifyContent: 'flex-end',
+  } as const,
+  modelModalSheet: {
+    width: '100%',
+    maxHeight: '70%',
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  } as const,
+  modelModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  } as const,
+  modelModalTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: tokens.text.primary,
+  } as const,
+  modelModalClose: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+    paddingHorizontal: 4,
+  } as const,
 }
