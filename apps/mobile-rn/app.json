@@ -36,6 +36,14 @@
           "photosPermission": "允许访问相册以选择素材",
           "cameraPermission": "允许访问相机以拍摄素材"
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许 App 保存二维码到您的相册",
+          "savePhotosPermission": "允许 App 保存二维码到您的相册",
+          "isAccessMediaLocationEnabled": false
+        }
       ]
     ],
     "extra": {

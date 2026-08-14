@@ -20,7 +20,6 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -51,6 +50,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
+import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -427,32 +427,13 @@ export function StudyIndexScreen() {
         </View>
       ) : null}
 
-      {/* ScrollTitle 赛道分类切换(对齐 Uniapp ScrollTitle) */}
+      {/* 赛道分类切换(对齐 Uniapp type-bar/tab + scroll_title,复用 SingleTypeBar 共享组件) */}
       <View style={styles.scrollTitleWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollTitleContent}
-        >
-          {TRACK_CATEGORIES.map((cat) => {
-            const active = cat.id === activeCategory
-            return (
-              <Pressable
-                key={cat.id}
-                style={[styles.categoryChip, active ? styles.categoryChipActive : null]}
-                onPress={() => setActiveCategory(cat.id)}
-                accessibilityRole="button"
-                accessibilityLabel={cat.name}
-              >
-                <Text
-                  style={[styles.categoryText, active ? styles.categoryTextActive : null]}
-                >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </ScrollView>
+        <SingleTypeBar
+          items={TRACK_CATEGORIES.map((c) => ({ id: c.id, label: c.name }))}
+          selectedId={activeCategory}
+          onSelect={setActiveCategory}
+        />
       </View>
 
       {/* Tab 视频/模型双标签页(对齐 Uniapp pageType 切换) */}
@@ -566,32 +547,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: tk.text.primary,
   } as TextStyle,
-  // ScrollTitle 赛道分类(对齐 Uniapp ScrollTitle)
+  // 赛道分类容器(复用 SingleTypeBar 共享组件)
   scrollTitleWrap: {
     backgroundColor: tk.surface.card,
     paddingVertical: 8,
   } as ViewStyle,
-  scrollTitleContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  } as ViewStyle,
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: tk.surface.muted,
-  } as ViewStyle,
-  categoryChipActive: {
-    backgroundColor: tk.brand.DEFAULT,
-  } as ViewStyle,
-  categoryText: {
-    fontSize: 13,
-    color: tk.text.secondary,
-  } as TextStyle,
-  categoryTextActive: {
-    color: tk.surface.light,
-    fontWeight: '600',
-  } as TextStyle,
   // Tab 视频/模型(对齐 Uniapp pageType 切换)
   tabBar: {
     flexDirection: 'row',
