@@ -1,6 +1,6 @@
 #requires -Version 7
-# 重启 web dev server:停 3000 端口进程 + 清 .next 缓存
-$conns = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
+# 重启 web dev server:停 8801 端口进程 + 清 .next 缓存
+$conns = Get-NetTCPConnection -LocalPort 8801 -State Listen -ErrorAction SilentlyContinue
 if ($conns) {
     $pids = $conns.OwningProcess | Sort-Object -Unique
     foreach ($p in $pids) {
@@ -14,7 +14,7 @@ if ($conns) {
     }
     Start-Sleep -Seconds 3
 } else {
-    Write-Host "No process listening on 3000"
+    Write-Host "No process listening on 8801"
 }
 
 $nextPath = 'g:\IHUI-AI\apps\web\.next'
