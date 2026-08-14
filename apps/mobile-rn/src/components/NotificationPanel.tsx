@@ -18,7 +18,8 @@ export default function NotificationPanel() {
         onPress={() => setVisible(false)}
       >
         <TouchableOpacity
-          className="bg-white rounded-tl-2xl rounded-tr-2xl max-h-[70%] min-h-[40%]"
+          className="bg-white max-h-[70%] min-h-[40%]"
+          style={{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }}
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >

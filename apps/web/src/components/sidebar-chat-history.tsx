@@ -125,6 +125,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const [renameValue, setRenameValue] = React.useState<string>('')
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const renameInputRef = React.useRef<HTMLInputElement>(null)
+  const isNavigatingRef = React.useRef(false)
 
   React.useEffect(() => {
     if (pendingRenameId) {
@@ -261,9 +262,20 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const total = data?.pages[0]?.total ?? 0
 
   const handleSelect = (item: ConversationItem) => {
+    if (currentConversationId === item.id) {
+      openPanel()
+      return
+    }
+    if (isNavigatingRef.current) return
+
+    isNavigatingRef.current = true
     useChatStore.getState().setConversationId(item.id)
     openPanel()
     router.push(`/chat?conversationId=${encodeURIComponent(item.id)}`)
+
+    setTimeout(() => {
+      isNavigatingRef.current = false
+    }, 400)
   }
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {

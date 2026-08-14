@@ -4,10 +4,24 @@
  * 对齐历史项目 pagesA/settings/model-record.vue:
  * - 顶部 NavBar(标题「模型备案」+ 返回)
  * - 内容区:卡片内展示 4 张模型备案图片,点击全屏预览(对齐 uni.previewImage)
+ * - 图片 mode="widthFix" 对齐:onLoad 读取 natural width/height → aspectRatio,
+ *   无固定高度 letterbox,完整复刻 Uniapp widthFix 自适应高度行为
+ * - 间距逐项对齐(rpx→dp,750rpx 制):
+ *   content padding 24rpx/24rpx/48rpx → 12/12/24;paddingBottom 之前 32→24
+ *   card border-radius 16rpx → 8;padding 24rpx → 12
+ *   image border-radius 8rpx → 4;margin-bottom 24rpx → 12(末项 0)
  * - 浅色优雅风,rnLightTokens;圆角守门;无分割线
  */
 import { useState } from 'react'
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  type ImageLoadEventData,
+  type NativeSyntheticEvent,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
@@ -36,6 +50,16 @@ export function ModelRecordScreen() {
   const tTitle = t(TITLE_KEY)
   const title = tTitle === TITLE_KEY ? '模型备案' : tTitle
   const [previewIndex, setPreviewIndex] = useState<number>(-1)
+  // 各图片 natural aspectRatio(widthFix 自适应高度;key 为图片 index)
+  const [aspects, setAspects] = useState<Record<number, number>>({})
+
+  const handleImageLoad = (index: number) => (e: NativeSyntheticEvent<ImageLoadEventData>) => {
+    const { width, height } = e.nativeEvent.source
+    if (width > 0 && height > 0) {
+      const ratio = width / height
+      setAspects((prev) => (prev[index] === ratio ? prev : { ...prev, [index]: ratio }))
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -49,7 +73,12 @@ export function ModelRecordScreen() {
               style={index === RECORD_IMAGES.length - 1 ? styles.imageWrapLast : styles.imageWrap}
               onPress={() => setPreviewIndex(index)}
             >
-              <Image source={src} style={styles.image} resizeMode="contain" />
+              <Image
+                source={src}
+                style={[styles.imageBase, aspects[index] ? { aspectRatio: aspects[index] } : styles.imageFallback]}
+                resizeMode="contain"
+                onLoad={handleImageLoad(index)}
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -69,26 +98,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tk.surface.muted,
   },
+  // 24rpx 24rpx 48rpx → 12/12/24(48rpx = 24dp,之前误用 32)
   content: {
     padding: 12,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
+  // 16rpx → 8dp,24rpx padding → 12dp
   card: {
     backgroundColor: tk.surface.light,
     borderRadius: 8,
     overflow: 'hidden',
     padding: 12,
   },
+  // 24rpx → 12dp
   imageWrap: {
     marginBottom: 12,
   },
   imageWrapLast: {
     marginBottom: 0,
   },
-  image: {
+  // widthFix 基础样式:width 100% + 8rpx → 4dp 圆角
+  imageBase: {
     width: '100%',
-    height: 240,
     borderRadius: 4,
+  },
+  // onLoad 触发前的占位高度(避免首次渲染高度 0 闪烁;加载后切换 aspectRatio)
+  imageFallback: {
+    height: 220,
   },
 })
 

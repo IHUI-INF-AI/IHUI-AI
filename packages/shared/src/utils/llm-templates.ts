@@ -74,3 +74,31 @@ export function providerToTemplateCode(vendor: string | null | undefined): strin
 export function hasPresetTemplate(vendor: string | null | undefined): boolean {
   return providerToTemplateCode(vendor) !== null
 }
+
+/**
+ * 系统预置模板代码列表(前端 model-selector 用:有预置模板的 provider 视为"已配置",
+ * 无需用户手动创建配置即可使用,不显示三角形警告)。
+ *
+ * 来源:apps/api/src/utils/platform-templates.ts PLATFORM_TEMPLATES + 后端已内置的免费 provider。
+ */
+export const PRESET_TEMPLATE_CODES: string[] = [
+  // 平台模板(用户可基于这些模板创建配置)
+  'openai',
+  'anthropic',
+  'google',
+  'deepseek',
+  'moonshot',
+  'zhipu',
+  'alibaba',
+  'baidu',
+  'bytedance',
+  'stepfun',
+  'groq',
+  'openrouter',
+  'ollama',
+  'lmstudio',
+  'llamacpp',
+  'custom',
+  // 后端已内置的免费 provider(无需用户配置 API Key)
+  'cloudflare_workers_ai',
+]
