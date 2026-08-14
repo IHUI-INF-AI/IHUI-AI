@@ -32,6 +32,7 @@
     "expo-image-picker": "~57.0.0",
     "expo-linking": "~57.0.0",
     "expo-local-authentication": "~57.0.0",
+    "expo-media-library": "~57.0.3",
     "expo-modules-core": "~57.0.0",
     "expo-notifications": "~57.0.0",
     "expo-secure-store": "~57.0.0",

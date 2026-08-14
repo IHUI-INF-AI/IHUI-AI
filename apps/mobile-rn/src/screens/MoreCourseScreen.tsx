@@ -26,6 +26,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getCourses, type Course } from '@ihui/api-client'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
+import { CommissionFloatingIcon } from '../components/CommissionFloatingIcon'
 import Default from '../components/common/Default'
 import Loading from '../components/common/Loading'
 import { useTheme } from '../context/ThemeContext'
@@ -170,6 +171,8 @@ export function MoreCourseScreen() {
           ListFooterComponent={loadingMore ? <Loading text="加载更多..." /> : null}
         />
       )}
+      {/* 佣金悬浮入口(对齐 Uniapp MoreCourse.vue CommissionFloatingIcon 分销引流) */}
+      <CommissionFloatingIcon onPress={() => navigation.navigate('Distribution')} />
     </View>
   )
 }
