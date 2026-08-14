@@ -2339,6 +2339,8 @@ export interface AigcListScreenProps {
   onPublish: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
+  onLoadMore?: () => void
 }
 
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
