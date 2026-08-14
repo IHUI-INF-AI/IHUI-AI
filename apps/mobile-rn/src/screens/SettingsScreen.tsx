@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
@@ -10,9 +10,8 @@ import type {
   SharedNotificationToggles,
 } from '@ihui/rn-app'
 import { updatePassword } from '@ihui/api-client'
-import { getRnTokens } from '@ihui/design-tokens'
 import SideMenu, { type SideMenuItem } from '../components/SideMenu'
-import { NavBar } from '../components/NavBar'
+import { NavBar, type NavBarAction } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n, type Locale } from '../i18n'
@@ -31,13 +30,21 @@ export default function SettingsScreen() {
   const { user, logout } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const { themeMode, setThemeMode, resolvedTheme } = useTheme()
-  const tokens = getRnTokens(resolvedTheme)
   const [notifications, setNotifications] = useState<SharedNotificationToggles>({
     push: true,
     message: true,
     email: false,
   })
   const [drawerVisible, setDrawerVisible] = useState(false)
+
+  // 右侧菜单按钮(对齐 Uniapp settings 使用 ☰ 触发 Drawer 集成)
+  const rightActions: ReadonlyArray<NavBarAction> = [
+    {
+      icon: '☰',
+      label: t('common.menu'),
+      onPress: () => setDrawerVisible(true),
+    },
+  ]
 
   const localeOptions: SharedLocaleOption[] = [
     { value: 'zh-CN', label: t('settings.lang_zhCN') },
@@ -154,15 +161,7 @@ export default function SettingsScreen() {
       <NavBar
         title={t('settings.title')}
         onBack={() => navigation.goBack()}
-        rightAction={
-          <TouchableOpacity
-            onPress={() => setDrawerVisible(true)}
-            hitSlop={8}
-            accessibilityLabel={t('common.menu')}
-          >
-            <Text style={{ fontSize: 22, lineHeight: 24, color: tokens.text.primary }}>{'☰'}</Text>
-          </TouchableOpacity>
-        }
+        rightActions={rightActions}
       />
       <SharedSettingsScreen
         t={t}
