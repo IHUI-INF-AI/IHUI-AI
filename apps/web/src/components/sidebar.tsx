@@ -405,7 +405,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'hotGroupLabel',
     items: [
-      { href: '/publish', labelKey: 'publishPlatform', icon: Send },
+      { href: '/publish/history', labelKey: 'publishPlatform', icon: Send },
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/models', labelKey: 'models', icon: Bot },
       { href: '/settings/import', labelKey: 'hotModelImport', icon: Download },
@@ -515,7 +515,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // 2026-08-07 feature-connect:群组(用户自建群组与成员管理)
       { href: '/groups', labelKey: 'eduAiGroups', icon: UsersRound },
       // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
-      { href: '/publish', labelKey: 'publishPlatform', icon: Send },
+      { href: '/publish/history', labelKey: 'publishPlatform', icon: Send },
       // 技术博客(2026-07-27 新增,docs/blog 10 篇技术文章对外曝光用)
       { href: '/blog', labelKey: 'blog', icon: BookOpen },
     ],
