@@ -528,7 +528,7 @@ export function TagsView() {
                   // - pl-2.5 (10px) + 图标 (14px) + gap-1 (4px) = 28px 文字到左边缘
                   //   pl-8 → pl-2.5:原 pl-8 为与关闭按钮对称的空白,现改为图标填充左侧空间
                   TOPBAR_BTN_BASE,
-                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-2.5 pr-1 text-xs',
+                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-2.5 pr-2.5 text-xs',
                   active
                     ? // active(当前显示页面):2026-08-12 用户反馈"内描边改成外描边,色用纯白/纯黑"
                       //   移除 border(1px 内描边,border-border 灰度低对比度弱),
@@ -592,7 +592,9 @@ export function TagsView() {
                   className={cn(
                     // 2026-08-01 修正:容器 h-9 w-9 (36px) 太大 → h-6 w-6 (24px),
                     // 与 Chrome 标签页关闭按钮一致;X 图标 h-4 w-4 (16px) 不变
-                    'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform',
+                    // 2026-08-14 再次修正:关闭按钮 24px 与图标 14px 视觉不对称 → 统一为 14px(h-3.5 w-3.5),
+                    // X 图标同步缩小到 12px(h-3 w-3),与图标尺寸协调。
+                    'inline-flex h-3.5 w-3.5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform ml-0.5',
                     'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
                     // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                     'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
@@ -601,7 +603,7 @@ export function TagsView() {
                   )}
                   aria-label={tCommon('close')}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </span>
               </Link>
             )
