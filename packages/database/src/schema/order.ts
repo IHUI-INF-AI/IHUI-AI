@@ -11,6 +11,7 @@ import {
   unique,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
+import { orders } from './billing.js'
 
 /**
  * 教育平台订单表（与 billing.orders 区分：本表承载课程/会员卡等教育订单）。
@@ -84,8 +85,10 @@ export const eduPayments = pgTable(
 
 /**
  * 退款记录表。
+ * Phase 2: FK 从 edu_orders 迁移到 orders（统一订单表）。
  * - refundType: original(原路退回) | balance(退到余额)。
  * - status: pending | approved | rejected | processing | completed | failed。
+ * - orderType: integer（与 orders.orderType 一致，7=course 8=card）。
  */
 export const eduRefunds = pgTable(
   'edu_refunds',
@@ -93,8 +96,8 @@ export const eduRefunds = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     orderId: uuid('order_id')
       .notNull()
-      .references(() => eduOrders.id, { onDelete: 'cascade' }),
-    orderType: varchar('order_type', { length: 32 }).notNull(),
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    orderType: integer('order_type').default(0).notNull(),
     orderNo: varchar('order_no', { length: 64 }).notNull(),
     userId: uuid('user_id')
       .notNull()
@@ -145,6 +148,7 @@ export const eduInvoiceTitles = pgTable(
 
 /**
  * 发票申请表。
+ * Phase 2: FK 从 edu_orders 迁移到 orders（统一订单表）。
  * - invoiceType: normal(普票) | special(专票)。
  * - status: pending | approved | rejected | invoicing | invoiced | canceled。
  * - 订单删除时置 NULL（保留申请记录）；抬头删除时置 NULL。
@@ -153,7 +157,7 @@ export const eduInvoiceApplications = pgTable(
   'edu_invoice_applications',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    orderId: uuid('order_id').references(() => eduOrders.id, { onDelete: 'set null' }),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

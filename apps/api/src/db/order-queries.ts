@@ -7,12 +7,31 @@ import {
   eduRefunds,
   eduInvoiceTitles,
   eduInvoiceApplications,
+  orders,
   type EduOrder,
   type EduPayment,
   type EduRefund,
   type EduInvoiceTitle,
   type EduInvoiceApplication,
 } from '@ihui/database'
+
+// =============================================================================
+// Phase 2: 统一订单过渡层 — 双写 + 转换辅助
+// =============================================================================
+
+/** orderType 字符串→整数映射（course→7, card→8, 数字字符串保持原值）。 */
+function mapOrderTypeToInt(orderType: string): number {
+  if (orderType === 'course') return 7
+  if (orderType === 'card') return 8
+  const n = parseInt(orderType, 10)
+  return isNaN(n) ? 0 : n
+}
+
+/** 元字符串→分整数（"99.00" → 9900）。 */
+function yuanToCents(yuan: string | undefined | null): number {
+  if (!yuan) return 0
+  return Math.round(parseFloat(yuan) * 100)
+}
 
 // =============================================================================
 // 辅助：生成订单号 / 支付号
@@ -64,26 +83,47 @@ export interface CreateOrderInput {
 }
 
 export async function createOrder(data: CreateOrderInput): Promise<EduOrder> {
-  const rows = await db
-    .insert(eduOrders)
-    .values({
-      orderNo: genOrderNo(),
-      userId: data.userId,
-      orderType: data.orderType,
-      targetId: data.targetId,
-      targetTitle: data.targetTitle,
-      quantity: data.quantity,
-      originalPrice: data.originalPrice,
-      discountAmount: data.discountAmount,
-      payAmount: data.payAmount,
-      payType: data.payType,
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .insert(eduOrders)
+      .values({
+        orderNo: genOrderNo(),
+        userId: data.userId,
+        orderType: data.orderType,
+        targetId: data.targetId,
+        targetTitle: data.targetTitle,
+        quantity: data.quantity,
+        originalPrice: data.originalPrice,
+        discountAmount: data.discountAmount,
+        payAmount: data.payAmount,
+        payType: data.payType,
+        status: 'pending',
+        remark: data.remark,
+      })
+      .returning()
+    const row = rows[0]
+    if (!row) throw new Error('创建订单失败')
+
+    // Phase 2: 双写 — 同步到统一 orders 表（元→分 / orderType 字符串→整数）
+    await tx.insert(orders).values({
+      id: row.id,
+      orderNo: row.orderNo,
+      userId: row.userId,
+      amount: yuanToCents(row.payAmount),
+      currency: 'CNY',
       status: 'pending',
-      remark: data.remark,
+      paymentMethod: row.payType,
+      orderType: mapOrderTypeToInt(row.orderType),
+      targetId: row.targetId,
+      targetTitle: row.targetTitle,
+      quantity: row.quantity,
+      originalPrice: yuanToCents(row.originalPrice),
+      discountAmount: yuanToCents(row.discountAmount),
+      remark: row.remark,
     })
-    .returning()
-  const row = rows[0]
-  if (!row) throw new Error('创建订单失败')
-  return row
+
+    return row
+  })
 }
 
 export async function findOrderById(id: string): Promise<EduOrder | undefined> {
@@ -103,12 +143,22 @@ export async function findPaymentByOrderId(orderId: string): Promise<EduPayment 
 
 /** 取消订单（仅 pending 可取消）。返回更新后的订单或 undefined。 */
 export async function cancelOrder(id: string): Promise<EduOrder | undefined> {
-  const rows = await db
-    .update(eduOrders)
-    .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
-    .where(and(eq(eduOrders.id, id), eq(eduOrders.status, 'pending')))
-    .returning()
-  return rows[0]
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .update(eduOrders)
+      .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
+      .where(and(eq(eduOrders.id, id), eq(eduOrders.status, 'pending')))
+      .returning()
+    const row = rows[0]
+    if (row) {
+      // Phase 2: 同步取消到统一 orders 表
+      await tx
+        .update(orders)
+        .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
+        .where(and(eq(orders.id, id), eq(orders.status, 'pending')))
+    }
+    return row
+  })
 }
 
 export interface ListOrdersOpts {
@@ -280,7 +330,7 @@ export async function applyRefund(
       .insert(eduRefunds)
       .values({
         orderId: data.orderId,
-        orderType: order.orderType,
+        orderType: mapOrderTypeToInt(order.orderType),
         orderNo: order.orderNo,
         userId: data.userId,
         reason: data.reason,
@@ -350,10 +400,15 @@ export async function handleRefund(
     const refund = rows[0]
     // 完成退款时同步订单状态(同一事务内)
     if (refund && status === 'completed') {
+      // Phase 2: 同步退款状态到 eduOrders + orders 双表
       await tx
         .update(eduOrders)
         .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
         .where(eq(eduOrders.id, refund.orderId))
+      await tx
+        .update(orders)
+        .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
+        .where(eq(orders.id, refund.orderId))
     }
     return refund
   })
