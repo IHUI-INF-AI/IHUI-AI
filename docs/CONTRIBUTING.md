@@ -41,7 +41,7 @@ pnpm --filter @ihui/database seed                     # 7 步模式化 + 容错�
 # 一键启动所有 apps(turbo 并行)
 pnpm dev
 # 单独启动:pnpm --filter @ihui/api run dev   或   pnpm --filter @ihui/web run dev
-# AI 服务:cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8000
+# AI 服务:cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
 ```
 
 ---
