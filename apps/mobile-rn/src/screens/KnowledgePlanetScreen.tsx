@@ -9,12 +9,13 @@
  * - 浅色优雅风,rnLightTokens;圆角守门;无分割线
  */
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
+import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
+import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -94,7 +95,7 @@ export function KnowledgePlanetScreen() {
       <NavBar title="知识星球" onBack={() => navigation.goBack()} />
       {loading ? (
         <View style={styles.centerWrap}>
-          <ActivityIndicator size="small" color={tokens.text.secondary} />
+          <Loading text="加载中..." />
         </View>
       ) : error ? (
         <View style={styles.centerWrap}>
