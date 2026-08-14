@@ -19,10 +19,8 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ListRenderItem,
 } from 'react-native'
@@ -32,6 +30,7 @@ import { streamChat, formatSSEError } from '@ihui/api-client'
 import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
+import { InputArea } from '../components/InputArea'
 import Empty from '../components/common/Empty'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -81,8 +80,7 @@ export default function AiAssistantN8nScreen() {
     })
   }
 
-  const onSend = async (): Promise<void> => {
-    const text = input.trim()
+  const onSend = async (text: string): Promise<void> => {
     if (!text || sending) return
     setInput('')
     const userMsg: N8nMessage = { id: nextId(), role: 'user', content: text }
@@ -177,42 +175,17 @@ export default function AiAssistantN8nScreen() {
             <Empty text={agentId ? t('aiAssistantN8n.empty') : t('aiAssistantN8n.emptyNoAgent')} />
           }
         />
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder={t('aiAssistantN8n.placeholder')}
-            placeholderTextColor={tokens.text.tertiary}
-            multiline
-            maxLength={2000}
-            editable={!sending}
-          />
-          {sending ? (
-            <Pressable
-              onPress={onStop}
-              style={({ pressed }) => [styles.stopBtn, pressed ? styles.pressed : null]}
-              accessibilityRole="button"
-              accessibilityLabel={t('chat.stop')}
-            >
-              <Text style={styles.stopText}>{t('chat.stop')}</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => void onSend()}
-              disabled={input.trim().length === 0}
-              style={({ pressed }) => [
-                styles.sendBtn,
-                input.trim().length === 0 ? styles.sendBtnDisabled : null,
-                pressed ? styles.pressed : null,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={t('aiAssistantN8n.send')}
-            >
-              <Text style={styles.sendText}>{t('aiAssistantN8n.send')}</Text>
-            </Pressable>
-          )}
-        </View>
+        <InputArea
+          value={input}
+          onChangeText={setInput}
+          placeholder={t('aiAssistantN8n.placeholder')}
+          maxLength={2000}
+          onSubmit={(text) => void onSend(text)}
+          disabled={sending}
+          loading={sending}
+          onStop={onStop}
+          stopLabel={t('chat.stop')}
+        />
         {sending ? (
           <View style={styles.streamingBar}>
             <ActivityIndicator color={tokens.brand.DEFAULT} size="small" />
@@ -228,46 +201,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 16 },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-    backgroundColor: tokens.surface.card,
-  },
-  input: {
-    flex: 1,
-    minHeight: 36,
-    maxHeight: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.muted,
-    fontSize: 14,
-    color: tokens.text.primary,
-    textAlignVertical: 'top',
-  },
-  sendBtn: {
-    height: 36,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnDisabled: { opacity: 0.5 },
-  sendText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
-  stopBtn: {
-    height: 36,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: tokens.danger.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
-  pressed: { opacity: 0.85 },
   streamingBar: {
     flexDirection: 'row',
     alignItems: 'center',
