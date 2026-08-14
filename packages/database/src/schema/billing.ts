@@ -34,31 +34,52 @@ export const plans = pgTable('plans', {
 })
 
 /**
- * 订单表。
- * amount 以分为单位。status: pending|paid|cancelled|refunded。
+ * 统一订单表（Phase 1 合并：原 billing.orders + edu_orders 教育订单）。
+ * amount/originalPrice/discountAmount 以分为单位（integer），避免浮点误差。
+ * status: pending|paid|cancelled|refunded。
  * user_id 可空：用户删除时保留订单财务凭证，userId 置 NULL；plan_id 默认 NO ACTION（有订单时禁止删除方案）。
- * orderType: 1=membership 2=token 3=activity 4=identity 6=api_subscription（0=未分类）。
+ * orderType: 1=membership 2=token 3=activity 4=identity 6=api_subscription 7=course 8=card（0=未分类）。
+ * paymentMethod: 统一支付方式（原 edu_orders.payType，varchar(50) 兼容所有支付类型）。
+ * targetId/targetTitle/quantity: 教育订单关联目标（课程/会员卡）。
+ * originalPrice/discountAmount: 原价/优惠金额（分），amount 为实付金额。
+ * cancelTime/refundTime: 取消/退款时间（paidAt 对应原 payTime）。
  * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
  * G13:补 createdBy 字段(创建者审计,与 updatedBy 区分)
  */
-export const orders = pgTable('orders', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  orderNo: varchar('order_no', { length: 64 }).notNull().unique(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-  planId: uuid('plan_id').references(() => plans.id),
-  amount: integer('amount').notNull(),
-  currency: varchar('currency', { length: 8 }).default('CNY').notNull(),
-  status: varchar('status', { length: 16 }).default('pending').notNull(),
-  paymentMethod: varchar('payment_method', { length: 16 }),
-  orderType: integer('order_type').default(0).notNull(),
-  productId: varchar('product_id', { length: 64 }),
-  paidAt: timestamp('paid_at', { withTimezone: true }),
-  expiresAt: timestamp('expires_at', { withTimezone: true }),
-  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const orders = pgTable(
+  'orders',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderNo: varchar('order_no', { length: 64 }).notNull().unique(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    planId: uuid('plan_id').references(() => plans.id),
+    amount: integer('amount').notNull(),
+    currency: varchar('currency', { length: 8 }).default('CNY').notNull(),
+    status: varchar('status', { length: 16 }).default('pending').notNull(),
+    paymentMethod: varchar('payment_method', { length: 50 }),
+    orderType: integer('order_type').default(0).notNull(),
+    productId: varchar('product_id', { length: 64 }),
+    targetId: varchar('target_id', { length: 64 }),
+    targetTitle: varchar('target_title', { length: 200 }),
+    quantity: integer('quantity').default(1).notNull(),
+    originalPrice: integer('original_price').default(0).notNull(),
+    discountAmount: integer('discount_amount').default(0).notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    cancelTime: timestamp('cancel_time', { withTimezone: true }),
+    refundTime: timestamp('refund_time', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    remark: varchar('remark', { length: 500 }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('orders_user_idx').on(t.userId),
+    statusIdx: index('orders_status_idx').on(t.status),
+    typeIdx: index('orders_type_idx').on(t.orderType),
+  }),
+)
 
 /**
  * 支付记录表。

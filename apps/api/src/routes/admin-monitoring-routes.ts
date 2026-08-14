@@ -16,7 +16,7 @@ import {
   monitorAlerts,
   oauthAuditLogs,
   webhookEvents,
-  eduOrders,
+  orders,
 } from '@ihui/database'
 
 async function getPerf() {
@@ -435,33 +435,33 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
 
     const [stats] = await db
       .select({
-        totalRevenue: sql<number>`coalesce(sum(${eduOrders.payAmount}), 0)`,
+        totalRevenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
         totalOrders: count(),
-        paidOrders: sql<number>`count(*) filter (where ${eduOrders.status} = 'paid')`,
-        refundedAmount: sql<number>`coalesce(sum(case when ${eduOrders.status} = 'refunded' then ${eduOrders.payAmount} else 0 end), 0)`,
-        avgOrderAmount: sql<number>`coalesce(avg(${eduOrders.payAmount}), 0)`,
+        paidOrders: sql<number>`count(*) filter (where ${orders.status} = 'paid')`,
+        refundedAmount: sql<number>`coalesce(sum(case when ${orders.status} = 'refunded' then ${orders.amount} else 0 end), 0) / 100.0`,
+        avgOrderAmount: sql<number>`coalesce(avg(${orders.amount}), 0) / 100.0`,
       })
-      .from(eduOrders)
-      .where(gte(eduOrders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
+      .from(orders)
+      .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
 
     const byType = await db
       .select({
-        type: sql<string>`coalesce(${eduOrders.orderType}, 'unknown')`,
+        type: sql<string>`coalesce(${orders.orderType}::text, 'unknown')`,
         count: count(),
-        amount: sql<number>`coalesce(sum(${eduOrders.payAmount}), 0)`,
+        amount: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
       })
-      .from(eduOrders)
-      .where(gte(eduOrders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
+      .from(orders)
+      .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
       .groupBy(sql`1`)
 
     const byMonth = await db
       .select({
-        month: sql<string>`to_char(${eduOrders.createdAt}, 'YYYY-MM')`,
-        revenue: sql<number>`coalesce(sum(${eduOrders.payAmount}), 0)`,
+        month: sql<string>`to_char(${orders.createdAt}, 'YYYY-MM')`,
+        revenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
         orders: count(),
       })
-      .from(eduOrders)
-      .where(gte(eduOrders.createdAt, sql`now() - interval '6 months'`))
+      .from(orders)
+      .where(gte(orders.createdAt, sql`now() - interval '6 months'`))
       .groupBy(sql`1`)
       .orderBy(sql`1`)
 
