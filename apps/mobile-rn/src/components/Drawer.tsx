@@ -107,7 +107,7 @@ const MAX_DRAWER_WIDTH = 256
 const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
 const OVERLAY_OPACITY = 0.5
-const DELETE_WIDTH = 72 // 左滑露出的删除按钮宽度
+const DELETE_WIDTH = 50 // 左滑露出的删除按钮宽度(对齐 Uniapp 101rpx ≈ 50dp)
 const SWIPE_THRESHOLD = 28 // 触发展开删除的位移阈值
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -452,8 +452,8 @@ export function Drawer(props: DrawerProps) {
             style={{
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
-              borderTopRightRadius: 12,
-              borderBottomRightRadius: 12,
+              borderTopRightRadius: 15,
+              borderBottomRightRadius: 15,
             }}
           >
             <ScrollView
@@ -513,7 +513,7 @@ export function Drawer(props: DrawerProps) {
               </View>
 
               {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu;容器 padding 8dp 对齐 Uniapp 15rpx≈7.5dp) */}
-              <View className="px-2 py-2 flex-row items-start justify-between">
+              <View className="py-2 flex-row items-start justify-between" style={{ paddingHorizontal: 14 }}>
                 {MAIN_MENUS.map(({ key, label, Icon }) => (
                   <Pressable
                     key={key}
@@ -521,7 +521,7 @@ export function Drawer(props: DrawerProps) {
                     onPress={() => handleNavigate(key)}
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
-                    <View className="w-11 h-11 rounded-xl items-center justify-center bg-gray-50 mb-1">
+                    <View className="rounded-xl items-center justify-center bg-gray-50 mb-1" style={{ width: 30, height: 30 }}>
                       <Icon size={22} color={tokens.text.primary} />
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
@@ -530,7 +530,7 @@ export function Drawer(props: DrawerProps) {
               </View>
 
               {/* 2b. 5 扩展菜单(横向等分,对齐 Uniapp 隐藏菜单 + label_content 入口;emoji 图标对齐 GlobalFloatBox 风格) */}
-              <View className="px-2 py-2 flex-row items-start justify-between">
+              <View className="py-2 flex-row items-start justify-between" style={{ paddingHorizontal: 14 }}>
                 {EXTRA_MENUS.map(({ key, label, emoji }) => (
                   <Pressable
                     key={key}
@@ -538,7 +538,7 @@ export function Drawer(props: DrawerProps) {
                     onPress={() => handleNavigateExtra(key)}
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
-                    <View className="w-11 h-11 rounded-xl items-center justify-center bg-gray-50 mb-1">
+                    <View className="rounded-xl items-center justify-center bg-gray-50 mb-1" style={{ width: 30, height: 30 }}>
                       <Text className="text-[22px] leading-none">{emoji}</Text>
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
@@ -647,7 +647,7 @@ export function Drawer(props: DrawerProps) {
               </Pressable>
               <View className="flex-row items-center gap-1">
                 <Pressable
-                  className="w-9 h-9 items-center justify-center rounded-lg"
+                  className="w-6 h-6 items-center justify-center rounded-lg"
                   onPress={onOpenSettings}
                   accessibilityLabel="设置"
                   android_ripple={{ color: tokens.surface.muted }}
@@ -655,7 +655,7 @@ export function Drawer(props: DrawerProps) {
                   <Settings size={20} color={tokens.text.secondary} />
                 </Pressable>
                 <Pressable
-                  className="w-9 h-9 items-center justify-center rounded-lg"
+                  className="w-6 h-6 items-center justify-center rounded-lg"
                   onPress={onOpenMessages}
                   accessibilityLabel="消息"
                   android_ripple={{ color: tokens.surface.muted }}
