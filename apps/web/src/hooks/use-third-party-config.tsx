@@ -29,7 +29,7 @@ const PROVIDER_DEFS: ReadonlyArray<{
     icon: '/images/oauth-providers/github.svg',
     mono: true,
   },
-  { key: 'feishu', labelKey: 'feishuLogin', icon: '/images/loginSANFANG/feishu.png' },
+  { key: 'feishu', labelKey: 'feishuLogin', icon: '/images/oauth-providers/feishu.svg' },
   { key: 'dingtalk', labelKey: 'dingtalkLogin', icon: '/images/oauth-providers/dingtalk.svg' },
   {
     key: 'enterpriseWechat',
