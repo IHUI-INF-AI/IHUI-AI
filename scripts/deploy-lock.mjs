@@ -111,6 +111,16 @@ async function acquire({ mode = 'build', timeoutMs = 600_000, staleMs = 600_000 
           `[deploy-lock] 检测到悬挂锁(pid=${holderPid} 已退出,${Math.round((Date.now() - (meta.ts ?? 0)) / 1000)}s 前),强制抢占`,
         )
         removeLock(dir)
+        // 2026-08-14 修复:removeLock 内部 rmSync 失败会被静默吞掉,
+        // 若目录仍在则继续 for(;;) 会无限死循环(build/dev 永远卡住)。
+        // 加一道校验:删除后若锁目录仍存在,直接抛错退出(提示用户手动删除),
+        // 不再 continue 进入下一轮轮询。
+        if (existsSync(dir)) {
+          throw new Error(
+            `[deploy-lock] 无法删除悬挂锁 ${dir}(可能被其他进程占用/权限不足)。` +
+              '请手动删除该项目根 .deploy.lock 目录后重试。',
+          )
+        }
         continue
       }
 

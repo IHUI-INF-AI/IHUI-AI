@@ -1364,7 +1364,8 @@
     "errorTimeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
     "errorTimeout60s": "AI 思考超时(60 秒未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型",
     "reconnecting": "重连中",
-    "reconnectAttempt": "第 {n} 次尝试,{ms}ms 后重试"
+    "reconnectAttempt": "第 {n} 次尝试,{ms}ms 后重试",
+    "cancel": "取消"
   },
   "learn": {
     "title": "学习中心",
@@ -3906,7 +3907,12 @@
         "memory": "内存",
         "cpu": "CPU",
         "stateChangedAt": "状态变更",
-        "actions": "操作"
+        "actions": "操作",
+        "timestamp": "时间",
+        "size": "大小",
+        "files": "文件数",
+        "createdAt": "创建时间",
+        "age": "保留时长"
       },
       "action": {
         "detail": "查看详情",
@@ -3985,7 +3991,10 @@
           "age": "距今",
           "actions": "操作"
         },
-        "download": "下载备份"
+        "download": "下载备份",
+        "detail": {
+          "back": "返回备份列表"
+        }
       },
       "certificates": {
         "title": "证书状态",
@@ -4011,7 +4020,34 @@
         "source": {
           "letsencrypt": "Let's Encrypt",
           "selfSigned": "自签",
-          "custom": "自定义"
+          "custom": "自定义",
+          "status": {
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "严重",
+            "expired": "已过期"
+          },
+          "title": "证书来源",
+          "subtitle": "证书签发来源与状态",
+          "refresh": "刷新",
+          "stats": {
+            "total": "总数",
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "严重",
+            "expired": "已过期"
+          },
+          "acmeMissing": "缺少 ACME 配置",
+          "empty": "暂无证书来源",
+          "generatedAt": "生成时间",
+          "sans": "主题备用名",
+          "issuer": "颁发者",
+          "subject": "主题",
+          "notBefore": "生效时间",
+          "notAfter": "到期时间",
+          "daysUntilExpiry": "距到期天数",
+          "fingerprint": "指纹",
+          "back": "返回"
         },
         "issuer": "颁发者",
         "subject": "主体",
@@ -4024,7 +4060,10 @@
           "remaining": "{days} 天",
           "today": "今天到期",
           "expired": "已过期 {days} 天"
-        }
+        },
+        "letsencrypt": "Let’s Encrypt",
+        "selfSigned": "自签名",
+        "custom": "自定义"
       },
       "metrics": {
         "pageTitle": "资源监控",
@@ -4054,7 +4093,27 @@
         "networkRx": "下行",
         "networkTx": "上行",
         "unitCores": "核"
-      }
+      },
+      "createTitle": "创建备份",
+      "createHint": "创建当前租户的完整数据备份",
+      "restoreTitle": "恢复备份",
+      "restoreHint": "将租户数据恢复到该备份点",
+      "restoreInputHint": "请输入“恢复”以确认",
+      "deleteTitle": "删除备份",
+      "deleteHint": "删除后该备份将无法恢复",
+      "deleteInputHint": "请输入“删除”以确认",
+      "createNow": "立即创建",
+      "stats": {
+        "total": "备份总数",
+        "totalSize": "总大小",
+        "avg": "平均大小",
+        "latest": "最近备份",
+        "empty": "暂无备份"
+      },
+      "listTitle": "备份列表",
+      "restore": "恢复",
+      "delete": "删除",
+      "download": "下载"
     },
     "users": {
       "title": "用户管理",
@@ -12262,12 +12321,29 @@
       "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点 · 工业级严谨",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
-      "miniappBtn": "微信小程序"
+      "miniappBtn": "微信小程序",
+      "title": "标题",
+      "qrAlt": "小程序二维码",
+      "scanTip": "扫码体验小程序",
+      "typewriter": {
+        "ctaPrimary": "立即咨询",
+        "ctaSecondary": "了解更多",
+        "miniappBtn": "打开小程序"
+      }
     },
     "miniappModal": {
       "title": "微信小程序",
       "qrAlt": "小程序二维码",
-      "scanTip": "打开微信扫一扫,进入小程序"
+      "scanTip": "打开微信扫一扫,进入小程序",
+      "content": "内容",
+      "explore": "探索",
+      "brand": "品牌",
+      "connect": "联系我们",
+      "typewriter": {
+        "ctaPrimary": "立即咨询",
+        "ctaSecondary": "了解更多",
+        "miniappBtn": "打开小程序"
+      }
     },
     "marquee": {
       "label": "公告",
@@ -12587,7 +12663,14 @@
       "join": "立即加入",
       "sectionLabel": "底部行动召唤",
       "dashboard": "进入工作台"
-    }
+    },
+    "content": "内容",
+    "explore": "探索",
+    "brand": "品牌",
+    "connect": "联系我们",
+    "title": "标题",
+    "qrAlt": "小程序二维码",
+    "scanTip": "扫码体验小程序"
   },
   "aiNews": {
     "metaTitle": "AI 资讯 · 全网实时聚合流",
@@ -15303,8 +15386,18 @@
         "作业自动批改实现",
         "学习数据看板搭建",
         "个性化学习路径推荐"
-      ]
-    }
+      ],
+      "metaTitle": "AI 教育课程 | 智汇AI",
+      "metaDescription": "探索智汇AI的AI教育课程，涵盖从入门到进阶的系统化学习路径。"
+    },
+    "about": "关于课程",
+    "name": "课程名称",
+    "description": "课程描述",
+    "provider": "提供方",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "courseWorkload": "学习时长",
+    "teaches": "学习目标"
   },
   "specPanel": {
     "historyVersion": "历史版本",

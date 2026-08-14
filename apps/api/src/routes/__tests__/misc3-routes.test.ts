@@ -36,11 +36,8 @@ describe('Misc3 Routes API (站点分类/埋点真实化端点)', () => {
     }> = [
       { method: 'GET', url: '/api/categories' },
       { method: 'GET', url: '/api/categories?type=article' },
-      {
-        method: 'POST',
-        url: '/api/analytics/track',
-        payload: { event: 'page_view', properties: { page: '/home' } },
-      },
+      // 注:POST /api/analytics/track 是公开埋点上报端点(匿名可上报,见 analytics.ts
+      // 注释与 csrf.ts PUBLIC_PREFIXES 白名单),本就不要求鉴权,不在此断言 401。
     ]
 
     for (const { method, url, payload } of endpoints) {

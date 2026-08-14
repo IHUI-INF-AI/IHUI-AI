@@ -1,11 +1,11 @@
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
-// Mock config 避免导入时 env 校验触发 process.exit(1)
+// Mock config 避免导入�?env 校验触发 process.exit(1)
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -40,7 +40,7 @@ describe('chat routes', () => {
     await server.close()
   })
 
-  it('GET /api/chat/conversations 未登录返回 401', async () => {
+  it('GET /api/chat/conversations 未登录返�?401', async () => {
     await server.register(chatRoutes, { prefix: '/api/chat' })
     await server.ready()
 
@@ -48,7 +48,7 @@ describe('chat routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/chat/conversations 未登录返回 401', async () => {
+  it('POST /api/chat/conversations 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/chat/conversations',
@@ -57,12 +57,12 @@ describe('chat routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/chat/favorites 未登录返回 401', async () => {
+  it('GET /api/chat/favorites 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/chat/favorites' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/chat/messages/:id 未登录返回 401', async () => {
+  it('DELETE /api/chat/messages/:id 未登录返�?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/chat/messages/00000000-0000-4000-8000-000000000000',
@@ -84,7 +84,7 @@ describe('coze/stream 越权校验', () => {
     await server.close()
   })
 
-  it('未登录调用 /coze/stream 返回 401', async () => {
+  it('未登录调�?/coze/stream 返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/chat/coze/stream',
@@ -93,7 +93,7 @@ describe('coze/stream 越权校验', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('登录用户 A 传 targetUserId=user-b 时返回 403', async () => {
+  it('登录用户 A �?targetUserId=user-b 时返�?403', async () => {
     mockAuthenticate.mockImplementationOnce(async (request: any) => {
       request.userId = 'user-a'
     })
@@ -106,7 +106,7 @@ describe('coze/stream 越权校验', () => {
     expect(res.json().message).toContain('无权操作')
   })
 
-  it('登录用户 A 传 targetUserId=user-a 时通过越权校验,因 COZE_API_KEY 未配置返回 503', async () => {
+  it('登录用户 A �?targetUserId=user-a 时通过越权校验,�?COZE_API_KEY 未配置返�?503', async () => {
     mockAuthenticate.mockImplementationOnce(async (request: any) => {
       request.userId = 'user-a'
     })

@@ -5,7 +5,7 @@ import { createHmac } from 'node:crypto'
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -57,7 +57,7 @@ describe('TBox agent channel deploy (POST /api/tbox/agent/channel/deploy)', () =
     mockInsert.mockReset()
   })
 
-  it('无签名调用返回 401', async () => {
+  it('无签名调用返�?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/tbox/agent/channel/deploy',
@@ -82,7 +82,7 @@ describe('TBox agent channel deploy (POST /api/tbox/agent/channel/deploy)', () =
     expect(res.statusCode).toBe(400)
   })
 
-  it('正常 deploy 返回 200 且 data.id 非 undefined', async () => {
+  it('正常 deploy 返回 200 �?data.id �?undefined', async () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([{ id: 'agent-ch-001', status: 'pending' }]),
