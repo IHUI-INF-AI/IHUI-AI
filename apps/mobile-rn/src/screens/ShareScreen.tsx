@@ -8,13 +8,29 @@
  *   ② VoiceInput — 语音输入分享描述(expo-audio 录音 + ai-service STT 转文字)
  *   ③ PrivacyPolicyModal — 分享前隐私政策弹窗(用户同意后才执行分享)
  *   ④ FloatBox — 分享结果悬浮提示(success / error / info)
+ * - 分享功能:接 RN Share API(首次需同意隐私政策,同意后直接分享)
+ * - 素材选择:expo-image-picker 选图作为分享素材
  * - NavBar(标题「分享」+ 返回)
  * - 浅色优雅风,getRnTokens 支持暗色模式;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
+import * as ImagePicker from 'expo-image-picker'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
@@ -43,16 +59,67 @@ export function ShareScreen() {
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const [showPrivacy, setShowPrivacy] = useState(false)
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [imageUri, setImageUri] = useState('')
   const [floatBox, setFloatBox] = useState<FloatBoxState>(FLOAT_BOX_DEFAULT)
   const [voiceText, setVoiceText] = useState('')
 
+  const doShare = async (): Promise<void> => {
+    const lines = [voiceText, imageUri].filter(Boolean)
+    const message = lines.length > 0 ? lines.join('\n') : '来看看这个 AI 内容'
+    setSharing(true)
+    try {
+      const result = await Share.share({ title: '分享', message })
+      if (result.action === Share.sharedAction) {
+        setFloatBox({ visible: true, type: 'success', message: '分享成功' })
+      } else {
+        setFloatBox({ visible: true, type: 'info', message: '已取消分享' })
+      }
+    } catch (err) {
+      setFloatBox({
+        visible: true,
+        type: 'error',
+        message: err instanceof Error ? err.message : '分享失败',
+      })
+    } finally {
+      setSharing(false)
+    }
+  }
+
   const handleShare = (): void => {
-    setShowPrivacy(true)
+    if (sharing) return
+    if (!agreedPrivacy) {
+      setShowPrivacy(true)
+      return
+    }
+    void doShare()
   }
 
   const handleAgreePrivacy = (): void => {
+    setAgreedPrivacy(true)
     setShowPrivacy(false)
-    setFloatBox({ visible: true, type: 'success', message: '分享成功' })
+    void doShare()
+  }
+
+  const pickImage = async (): Promise<void> => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相册权限才能选择图片')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    })
+    if (!result.canceled) {
+      const asset = result.assets[0]
+      if (asset?.uri) {
+        setImageUri(asset.uri)
+      }
+    }
   }
 
   const handleVoiceComplete = (text: string): void => {
@@ -91,16 +158,51 @@ export function ShareScreen() {
           ) : null}
         </View>
 
-        {/* 分享按钮 — 点击后弹出隐私政策弹窗 */}
+        {/* 分享素材 — expo-image-picker 选图 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>分享素材</Text>
+          {imageUri ? (
+            <View style={styles.previewWrap}>
+              <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+              <Pressable
+                style={({ pressed }) => [styles.clearBtn, pressed ? styles.clearBtnPressed : null]}
+                onPress={() => setImageUri('')}
+                accessibilityRole="button"
+                accessibilityLabel="删除图片"
+              >
+                <Text style={styles.clearText}>×</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.pickerBox, pressed ? styles.pickerBoxPressed : null]}
+              onPress={pickImage}
+              accessibilityRole="button"
+              accessibilityLabel="选择图片"
+            >
+              <Text style={styles.pickerIcon}>+</Text>
+              <Text style={styles.pickerHint}>点击选择图片</Text>
+            </Pressable>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* 分享按钮 — 底部固定位置 */}
+      <View style={styles.bottomBar}>
         <Pressable
           style={({ pressed }) => [styles.shareBtn, pressed ? styles.shareBtnPressed : null]}
           onPress={handleShare}
+          disabled={sharing}
           accessibilityRole="button"
           accessibilityLabel={t('share.submit')}
         >
-          <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
+          {sharing ? (
+            <ActivityIndicator color={tk.surface.light} />
+          ) : (
+            <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
+          )}
         </Pressable>
-      </ScrollView>
+      </View>
 
       {/* PrivacyPolicyModal — 分享前隐私政策弹窗 */}
       <PrivacyPolicyModal visible={showPrivacy} onAgree={handleAgreePrivacy} />
@@ -128,7 +230,7 @@ function createStyles(tk: RnThemeTokens) {
     scrollContent: {
       padding: 16,
       gap: 16,
-      paddingBottom: 48,
+      paddingBottom: 24,
     } as ViewStyle,
     section: {
       backgroundColor: tk.surface.card,
@@ -147,13 +249,68 @@ function createStyles(tk: RnThemeTokens) {
       lineHeight: 20,
       marginTop: 4,
     } as TextStyle,
+    pickerBox: {
+      height: 100,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: tk.surface.bg,
+    } as ViewStyle,
+    pickerBoxPressed: {
+      opacity: 0.85,
+    } as ViewStyle,
+    pickerIcon: {
+      fontSize: 28,
+      color: tk.text.tertiary,
+    } as TextStyle,
+    pickerHint: {
+      fontSize: 12,
+      color: tk.text.tertiary,
+    } as TextStyle,
+    previewWrap: {
+      position: 'relative',
+      borderRadius: 8,
+      overflow: 'hidden',
+    } as ViewStyle,
+    preview: {
+      width: '100%',
+      height: 160,
+      borderRadius: 8,
+    } as ImageStyle,
+    clearBtn: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 24,
+      height: 24,
+      borderRadius: 8,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+    clearBtnPressed: {
+      opacity: 0.85,
+    } as ViewStyle,
+    clearText: {
+      fontSize: 16,
+      color: tk.surface.light,
+      lineHeight: 18,
+    } as TextStyle,
+    bottomBar: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: tk.surface.bg,
+    } as ViewStyle,
     shareBtn: {
       height: 46,
       borderRadius: 8,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 8,
     } as ViewStyle,
     shareBtnPressed: {
       opacity: 0.85,

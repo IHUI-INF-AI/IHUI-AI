@@ -52,7 +52,7 @@ import {
   EMPTY_VIDEO_LIST,
   PROFILE_TAB_LIST,
   createInitialPagination,
-  loadContentByTab,
+  extractConversationMetadata,
   type AudioContent,
   type ContentPagination,
   type ImageContent,
@@ -82,7 +82,7 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
   }
 }
 
-/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 无对应 RN Tab,fallback 到 home) */
+/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 由 handleDrawerNavigate 特殊跳转到 RootStack 独立页,不走此映射) */
 const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
   home: 'home',
   ai: 'ai',
@@ -230,6 +230,16 @@ export function ProfileScreen() {
 
   // ── Drawer 回调(对齐 Uniapp user/index.vue DrawerComponentall) ──
   const handleDrawerNavigate = (tab: DrawerTab) => {
+    setDrawerVisible(false)
+    // square/share 无对应 RN Tab,跳转独立 RootStack 页(对齐 Uniapp 广场页/资讯页)
+    if (tab === 'square') {
+      rootNav?.navigate('Square')
+      return
+    }
+    if (tab === 'share') {
+      rootNav?.navigate('Share')
+      return
+    }
     rootNav?.navigate('Tabs', { screen: DRAWER_TAB_TO_RN_TAB[tab] })
   }
   const handleDrawerNavigateCompany = () => {
@@ -432,28 +442,119 @@ interface VideoModalState {
 
 /**
  * 4 Tab 内容区 — StudyBar 切换 + 4 个 Tab 内容(文本/图片/视频/音频)+ 媒体预览。
- * 数据为空数组占位(数据加载是后续任务),loadContentByTab 空实现保留签名。
+ * 调 listConversations API 按 metadata.contentType 过滤渲染(后端未返回 contentType 时,
+ * 所有对话 fallback 到 text tab,其他 tab 显示空)。
  */
 function ProfileContentSection(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ProfileTabId>(1)
-  const [textContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
-  const [imageContentList] = useState<readonly ImageContent[]>(EMPTY_IMAGE_LIST)
-  const [videoContentList] = useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
-  const [audioContentList] = useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
+  const [textContentList, setTextContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
+  const [imageContentList, setImageContentList] = useState<readonly ImageContent[]>(EMPTY_IMAGE_LIST)
+  const [videoContentList, setVideoContentList] = useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
+  const [audioContentList, setAudioContentList] = useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
   const [textPagination] = useState<ContentPagination>(createInitialPagination)
   const [imagePagination] = useState<ContentPagination>(createInitialPagination)
   const [videoPagination] = useState<ContentPagination>(createInitialPagination)
   const [audioPagination] = useState<ContentPagination>(createInitialPagination)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [preview, setPreview] = useState<PreviewState>({ images: [], index: 0, visible: false })
   const [videoModal, setVideoModal] = useState<VideoModalState>({ url: '', visible: false })
+
+  /**
+   * 按 Tab 加载内容(对齐 Uniapp loadContentByTab,接 listConversations API)。
+   * 后端 ConversationDetail 没有 contentType 字段,通过 metadata.contentType 安全守卫提取;
+   * 后端未返回时所有对话归入 text tab,image/video/audio tab 显示空。
+   * 每次只更新当前 tab 对应的列表,避免覆盖其他 tab 的缓存。
+   */
+  const loadTabContent = useCallback(async (tab: ProfileTabId): Promise<void> => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await listConversations({ page: 1, pageSize: 20 })
+      if (!res.success) {
+        setError(res.error ?? '加载失败')
+        if (tab === 1) setTextContentList([])
+        else if (tab === 2) setImageContentList([])
+        else if (tab === 3) setVideoContentList([])
+        else setAudioContentList([])
+        return
+      }
+      const all = res.data.conversations
+      const textContents: TextContent[] = []
+      const imageContents: ImageContent[] = []
+      const videoContents: VideoContent[] = []
+      const audioContents: AudioContent[] = []
+      for (const conv of all) {
+        const meta = extractConversationMetadata(conv)
+        const tabType = meta.contentType ?? 'text'
+        const time = conv.updatedAt ?? conv.createdAt
+        const title = conv.title?.trim() || '未命名对话'
+        if (tabType === 'image') {
+          const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
+          imageContents.push({
+            id: conv.id,
+            title,
+            time,
+            imageList: list,
+          })
+        } else if (tabType === 'video') {
+          videoContents.push({
+            id: conv.id,
+            title,
+            time,
+            videoUrl: meta.videoUrl ?? '',
+            posterUrl: meta.posterUrl,
+            width: meta.width,
+            height: meta.height,
+          })
+        } else if (tabType === 'audio') {
+          audioContents.push({
+            id: conv.id,
+            title,
+            time,
+            audioUrl: meta.audioUrl ?? '',
+          })
+        } else {
+          // text tab(含 contentType 缺失 fallback)
+          textContents.push({
+            id: conv.id,
+            title,
+            time,
+            content: meta.lastMessage ?? '',
+          })
+        }
+      }
+      // 只更新当前 tab 的内容,保留其他 tab 缓存(切回时无需重新请求)
+      if (tab === 1) setTextContentList(textContents)
+      else if (tab === 2) setImageContentList(imageContents)
+      else if (tab === 3) setVideoContentList(videoContents)
+      else setAudioContentList(audioContents)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败')
+      if (tab === 1) setTextContentList([])
+      else if (tab === 2) setImageContentList([])
+      else if (tab === 3) setVideoContentList([])
+      else setAudioContentList([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // 切 Tab 触发加载(对齐 Uniapp onTabChange → loadContentByTab)
+  useEffect(() => {
+    void loadTabContent(activeTab)
+  }, [activeTab, loadTabContent])
 
   const onTabChange = useCallback((key: string) => {
     const tabId = Number(key) as ProfileTabId
     if (tabId >= 1 && tabId <= 4) {
       setActiveTab(tabId)
-      loadContentByTab(tabId)
     }
   }, [])
+
+  const onRetry = useCallback(() => {
+    void loadTabContent(activeTab)
+  }, [activeTab, loadTabContent])
 
   const onImagePreview = useCallback((images: readonly string[], index: number) => {
     setPreview({ images, index, visible: true })
@@ -481,26 +582,41 @@ function ProfileContentSection(): React.JSX.Element {
         <StudyBar items={TAB_BAR_ITEMS} activeKey={String(activeTab)} onChange={onTabChange} />
       </View>
       <View style={styles.contentDisplayArea}>
-        {activeTab === 1 ? (
-          <TextTabContent list={textContentList} pagination={textPagination} />
-        ) : null}
-        {activeTab === 2 ? (
-          <ImageTabContent
-            list={imageContentList}
-            pagination={imagePagination}
-            onPreview={onImagePreview}
-          />
-        ) : null}
-        {activeTab === 3 ? (
-          <VideoTabContent
-            list={videoContentList}
-            pagination={videoPagination}
-            onPlay={onVideoPlay}
-          />
-        ) : null}
-        {activeTab === 4 ? (
-          <AudioTabContent list={audioContentList} pagination={audioPagination} />
-        ) : null}
+        {loading ? (
+          <View style={styles.tabLoaderWrap}>
+            <ColorfulLoader size={36} />
+          </View>
+        ) : error ? (
+          <View style={styles.tabErrorWrap}>
+            <Text style={styles.tabErrorText}>{error}</Text>
+            <TouchableOpacity onPress={onRetry} style={styles.tabRetryBtn} activeOpacity={0.7}>
+              <Text style={styles.tabRetryText}>重试</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {activeTab === 1 ? (
+              <TextTabContent list={textContentList} pagination={textPagination} />
+            ) : null}
+            {activeTab === 2 ? (
+              <ImageTabContent
+                list={imageContentList}
+                pagination={imagePagination}
+                onPreview={onImagePreview}
+              />
+            ) : null}
+            {activeTab === 3 ? (
+              <VideoTabContent
+                list={videoContentList}
+                pagination={videoPagination}
+                onPlay={onVideoPlay}
+              />
+            ) : null}
+            {activeTab === 4 ? (
+              <AudioTabContent list={audioContentList} pagination={audioPagination} />
+            ) : null}
+          </>
+        )}
       </View>
       <ImagePreviewModal
         images={preview.images}
@@ -1166,5 +1282,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#ffffff',
     lineHeight: 24,
+  },
+  // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
+  tabLoaderWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  tabErrorWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  tabErrorText: {
+    fontSize: 14,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  },
+  tabRetryBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  tabRetryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.surface.light,
   },
 })
