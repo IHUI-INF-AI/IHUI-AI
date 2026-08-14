@@ -1,12 +1,12 @@
 #requires -Version 7
 # scripts/kill-dev-servers.ps1
 #
-# 一键清理 dev server 残留进程(端口 3000/3001/8000/8081 + 关联 next-server 进程树)。
+# 一键清理 dev server 残留进程(端口 8801/8802/8803/8830 + 关联 next-server 进程树)。
 #
 # 用法:
 #   pwsh scripts/kill-dev-servers.ps1               # 清理 IHUI-AI 标准端口
 #   pwsh scripts/kill-dev-servers.ps1 -DryRun       # 只显示不杀
-#   pwsh scripts/kill-dev-servers.ps1 -Ports 3000   # 自定义端口
+#   pwsh scripts/kill-dev-servers.ps1 -Ports 8801   # 自定义端口
 #
 # 为什么不用 taskkill /F /IM node.exe:会误杀 Trae IDE / aihot / 其他 agent 的 node 进程。
 # 只杀监听特定端口的进程树,精准。
