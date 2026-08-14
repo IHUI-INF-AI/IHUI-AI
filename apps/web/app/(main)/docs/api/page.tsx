@@ -68,7 +68,7 @@ export default function ApiDocsPage() {
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               <code>{`https://api.aizhs.top/v1          # 生产
 https://api-staging.aizhs.top/v1  # 预发
-http://localhost:3001/v1          # 自托管`}</code>
+http://localhost:8802/v1          # 自托管`}</code>
             </pre>
           </div>
           <div>
