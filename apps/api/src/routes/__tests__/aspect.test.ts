@@ -5,7 +5,7 @@ import fp from 'fastify-plugin'
 vi.mock('../../config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -310,3 +310,4 @@ describe('AOP aspects (search / watch / point)', () => {
     expect(mockIncreasePoints).not.toHaveBeenCalled()
   })
 })
+
