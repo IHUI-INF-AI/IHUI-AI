@@ -26,9 +26,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$WebPort = 3000
-$ApiPort = 3001
-$AiServicePort = 8000
+$WebPort = 8801
+$ApiPort = 8802
+$AiServicePort = 8803
 $PgHost = '127.0.0.1'
 $PgPort = 5432
 $RedisHost = '127.0.0.1'

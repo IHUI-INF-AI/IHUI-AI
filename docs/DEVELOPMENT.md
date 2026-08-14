@@ -38,9 +38,9 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 |---|---|---|---|
 | `DOMAIN` | 站点域名 | `localhost` | 是 |
 | `NODE_ENV` | 运行环境 | `development` | 是 |
-| `WEB_PORT` | web 服务端口 | `3000` | 是 |
-| `API_PORT` | api 服务端口 | `3001` | 是 |
-| `AI_SERVICE_PORT` | ai-service 端口 | `8000` | 是 |
+| `WEB_PORT` | web 服务端口 | `8801` | 是 |
+| `API_PORT` | api 服务端口 | `8802` | 是 |
+| `AI_SERVICE_PORT` | ai-service 端口 | `8803` | 是 |
 | `AI_SERVICE_URL` | ai-service 地址(api 回调用) | `http://localhost:8803` | 是 |
 | `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://ihui:***@localhost:5432/ihui_dev` | 是 |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | DB 分项配置 | `localhost` / `5432` / `ihui` / - / `ihui_dev` | 是 |
@@ -65,7 +65,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 
 | 变量名 | 用途 | 默认值 | 必填 |
 |---|---|---|---|
-| `PORT` | api 监听端口 | `3002`(独立测试用,与根 `.env` 的 `API_PORT=3001` 二选一) | 是 |
+| `PORT` | api 监听端口 | `8802`(独立测试用) | 是 |
 | `DATABASE_URL` | DB 连接串 | `postgresql://postgres:postgres@localhost:5432/ihui` | 是 |
 | `REDIS_URL` | Redis 连接串 | `redis://localhost:6379` | 是 |
 | `JWT_SECRET` | JWT 密钥 | `change-in-production-min-32-chars` | 是 |
@@ -107,7 +107,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 
 | 变量名 | 用途 | 默认值 | 必填 |
 |---|---|---|---|
-| `PORT` | ai-service 端口 | `3003`(独立测试用) | 是 |
+| `PORT` | ai-service 端口 | `8803`(独立测试用) | 是 |
 | `HOST` | 监听地址 | `0.0.0.0` | 是 |
 | `LOG_LEVEL` | 日志级别 | `info` | 否 |
 | `CORS_ORIGIN` | CORS 来源 | `http://localhost:8802` | 否 |
@@ -124,7 +124,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `MODAL_API_KEY` / `INFERENCE_NET_API_KEY` / `NLP_CLOUD_API_KEY` / `SCALEWAY_API_KEY` / `ALIBABA_INTL_API_KEY` | 其他免费/试用 provider | 空 | 否 |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | 付费 provider | 空 | 否 |
 | `LITELLM_MODEL` | 默认模型名(前缀决定 provider) | `stepfun/step-3.7-flash` | 是 |
-| `API_SERVICE_URL` | 后端 API 地址(回调用) | `http://localhost:3002` | 是 |
+| `API_SERVICE_URL` | 后端 API 地址(回调用) | `http://localhost:8802` | 是 |
 | `AI_CALLBACK_SECRET` | AI 回调共享密钥 | 空 | 否 |
 | `VOLC_APP_ID` / `VOLC_ACCESS_KEY` / `VOLC_APP_KEY` | 火山引擎实时语音 | 空 | 否 |
 | `CREDENTIALS_ENCRYPTION_KEY` | 凭据加密密钥(与 api 共享) | 空 | 是 |
@@ -143,7 +143,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | turbo 并行 | `pnpm dev` | 日常开发(推荐) | Turborepo 并行启动所有 apps 的 `dev` 脚本,日志汇聚到一个终端 |
 | dev-up.ps1 | `powershell -File scripts\dev-up.ps1` | 首次启动 / 全新环境 | 先 `docker compose up -d db redis` → 等待就绪 → 运行迁移 → 并行启动 api + web,Ctrl+C 自动清理 |
 | dev-all.ps1 | `powershell -File scripts\dev-all.ps1` | RunCommand 工具失联时 | 健康检查 → 每个服务派生独立 PowerShell 窗口运行,互不干扰 |
-| dev-web.mjs | `node scripts/dev-web.mjs` | 单独启动 web | 启动前 `taskkill` 清理端口 3000 残留进程树,杜绝僵尸 next-server |
+| dev-web.mjs | `node scripts/dev-web.mjs` | 单独启动 web | 启动前 `taskkill` 清理端口 8801 残留进程树,杜绝僵尸 next-server |
 
 ### 3.1 各脚本差异详解
 
@@ -167,7 +167,7 @@ powershell -ExecutionPolicy Bypass -File scripts\dev-up.ps1 -WebOnly     # 仅 w
 ```
 
 - 自动拉起 Docker(db + redis)→ 等待 `pg_isready` / `redis-cli ping` → `drizzle-kit migrate` → 启动 api + web。
-- api 端口 3001,web 端口 3000。
+- api 端口 8802,web 端口 8801。
 - Ctrl+C 触发 trap 清理子进程。
 
 **`scripts/dev-all.ps1`(独立窗口 + 健康检查)**
@@ -185,12 +185,12 @@ powershell -ExecutionPolicy Bypass -File scripts\dev-all.ps1 -Stop       # 停�
 **`scripts/dev-web.mjs`(web 专用,防僵尸进程)**
 
 ```bash
-node scripts/dev-web.mjs                  # 启动 web(默认端口 3000)
+node scripts/dev-web.mjs                  # 启动 web(默认端口 8801)
 node scripts/dev-web.mjs --clean          # 启动前清 .next 缓存
-node scripts/dev-web.mjs --port 3001      # 指定端口
+node scripts/dev-web.mjs --port 8802      # 指定端口
 ```
 
-- 启动前 `taskkill /F /T` 杀掉端口 3000 残留进程树(避免 `EADDRINUSE`)。
+- 启动前 `taskkill /F /T` 杀掉端口 8801 残留进程树(避免 `EADDRINUSE`)。
 - 用 `child_process.spawn` 跟踪 pnpm 进程,注册 SIGINT/SIGTERM/exit handler 退出时杀整棵进程树。
 - **禁止**在 dev server 假死时裸用 `Start-Process pnpm dev`,永远用本脚本。
 
@@ -200,16 +200,16 @@ node scripts/dev-web.mjs --port 3001      # 指定端口
 
 | 服务 | 开发端口 | Docker 内部端口 | 启动命令 | 热重载 |
 |---|---|---|---|---|
-| api(Fastify 5) | 3001(根 `.env`) / 3002(独立) | 8080 | `pnpm --filter @ihui/api dev` | `tsx watch` 文件变更自动重启 |
-| web(Next.js 15) | 3000 / 8801(package.json 默认) | 3000 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
-| ai-service(FastAPI) | 8000 / 3003(独立) | 8000 | `cd apps/ai-service && uvicorn app.main:app --reload --port 8000` | `uvicorn --reload` 文件变更自动重启 |
+| api(Fastify 5) | 8802 | 8080 | `pnpm --filter @ihui/api dev` | `tsx watch` 文件变更自动重启 |
+| web(Next.js 15) | 8801 | 3000 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
+| ai-service(FastAPI) | 8803 | 8000 | `cd apps/ai-service && uvicorn app.main:app --reload --port 8803` | `uvicorn --reload` 文件变更自动重启 |
 
 ### 4.1 后端 API
 
 ```bash
 pnpm --filter @ihui/api dev
 # 等价于:tsx watch src/index.ts
-# 监听端口由 PORT 环境变量决定(根 .env API_PORT=3001)
+# 监听端口由 PORT 环境变量决定(根 .env API_PORT=8802)
 # Swagger 文档:http://localhost:8802/docs
 # 健康检查:http://localhost:8802/api/health
 ```
@@ -372,7 +372,7 @@ pnpm --filter @ihui/web build:analyze
 ```bash
 cd apps/ai-service
 # 详细日志 + 热重载
-uvicorn app.main:app --reload --port 8000 --log-level debug
+uvicorn app.main:app --reload --port 8803 --log-level debug
 # structlog 输出 JSON 结构化日志,开发环境可读
 ```
 
@@ -397,7 +397,7 @@ uvicorn app.main:app --reload --port 8000 --log-level debug
 | `node scripts/pre-deploy.mjs --env production` | 生产模式严格 env 检查 |
 | `node scripts/git-push-guard.mjs` | 检测本地 ahead → 自动 push → 验证 local == remote |
 | `pnpm push:safe` | git-push-retry.ps1,推送失败自动重试 |
-| `powershell -File scripts\kill-dev-servers.ps1` | 清理 3000/3001/8000/8081 端口 + 僵尸 next-server |
+| `powershell -File scripts\kill-dev-servers.ps1` | 清理 8801/8802/8803/8081 端口 + 僵尸 next-server |
 | `powershell -File scripts\kill-dev-servers.ps1 -DryRun` | 只显示不杀 |
 | `powershell -File scripts\restart-dev-server.ps1` | 重启 dev server |
 | `pnpm --filter @ihui/api test` | 后端单元测试(mock 模式) |

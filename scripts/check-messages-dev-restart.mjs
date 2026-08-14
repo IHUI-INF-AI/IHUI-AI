@@ -9,7 +9,7 @@
  *
  * 检测:
  *  - staged 文件包含 `apps/web/messages/*.json` → 提醒"如 dev server 在跑,需重启加载新翻译"
- *  - 检测 3000 端口是否有 next-server 进程在跑(只有 dev server 在跑时,提示才相关)
+ *  - 检测 8801 端口是否有 next-server 进程在跑(只有 dev server 在跑时,提示才相关)
  *  - warn-only(不阻塞 commit,只打印提醒)
  *
  * 用法:node scripts/check-messages-dev-restart.mjs [--staged]
@@ -25,7 +25,7 @@ import { join } from 'node:path'
 
 const root = process.cwd()
 const MESSAGES_DIR = join(root, 'apps/web/messages')
-const WEB_PORT = 3000
+const WEB_PORT = 8801
 
 // 1. 检测 staged 中是否有 messages JSON 改动
 function getStagedMessagesFiles() {
@@ -41,7 +41,7 @@ function getStagedMessagesFiles() {
   }
 }
 
-// 2. 检测 dev server 是否在跑(端口 3000)
+// 2. 检测 dev server 是否在跑(端口 8801)
 function isWebDevServerRunning() {
   // 跨平台:Windows 用 netstat,Unix 用 lsof
   try {

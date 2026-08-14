@@ -74,9 +74,14 @@ const EXEMPT_PATH_PATTERNS = [
   /^docs\//, // docs/ 整目录豁免(文档端口是历史示例,非运行时配置)
   /docs\/port-management\.md$/, // 本规则文件自身(已被 ^docs/ 覆盖,保留显式注释)
   /scripts\/check-port-registry\.mjs$/, // 本守门脚本自身
+  /scripts\/tests\/check-port-registry\.test\.mjs$/, // 本守门脚本测试文件
   /\.github\/workflows\//, // CI workflows(豁免)
   /apps\/api\/tests\//, // API 测试默认值(豁免)
+  /apps\/ai-service\/tests\//, // AI-Service 测试默认值(豁免)
   /apps\/api\/scripts\//, // API 运维脚本(豁免)
+  /apps\/cli\/src\/lib\/sso\.ts$/, // CLI SSO loopback 回调(设计端口 1738)
+  /\.env\.example$/, // 环境变量模板(包含第三方工具端口示例)
+  /PROJECT_PLAN\.md$/, // 项目计划文档(历史记录)
   /\.trae-cn\/archive\//, // 归档文档(历史快照,不修改)
 ]
 
