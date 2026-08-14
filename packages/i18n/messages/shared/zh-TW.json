@@ -1223,6 +1223,7 @@
   "modelPlaza": {
     "title": "模型廣場",
     "compareBtn": "對比",
+    "selectProviderLabel": "選擇廠商",
     "providerTotal": "共 {count} 個模型",
     "loadFailed": "載入失敗,下拉重整重試",
     "emptyType": "暫無該類型模型",

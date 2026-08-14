@@ -33,11 +33,15 @@ function buildCookie(
   value: string,
   maxAge: number | undefined,
   secure: boolean,
-): string {
-  const parts = [`${name}=${value}`, 'Path=/', 'SameSite=Lax', 'HttpOnly']
-  if (secure) parts.push('Secure')
-  if (maxAge !== undefined && maxAge >= 0) parts.push(`Max-Age=${maxAge}`)
-  return parts.join('; ')
+): { name: string; value: string; options: Record<string, unknown> } {
+  const options: Record<string, unknown> = {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: true,
+  }
+  if (secure) options.secure = true
+  if (maxAge !== undefined && maxAge >= 0) options.maxAge = maxAge
+  return { name, value, options }
 }
 
 /**
@@ -53,16 +57,33 @@ export function setAuthCookies(
   const maxAge = remember ? REMEMBER_MAX_AGE : undefined
   // auth_token 跟随 refresh 周期（30d / session）：access JWT 本身 15min 过期，
   // cookie 只是会话标识，真正有效性由 JWT + 刷新链路保证（与前端原 30d 策略一致）。
-  reply.header('Set-Cookie', [
+  const cookies = [
     buildCookie(AUTH_TOKEN_COOKIE, payload.accessToken, maxAge, secure),
     buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, REMEMBER_MAX_AGE, secure),
-  ])
+  ]
+  // 使用 reply.setCookie() 设置多个 cookie，避免 reply.header('Set-Cookie', ...)
+  // 覆盖同名 header（Fastify 的 reply.header 对同名 header 会覆盖而非追加）。
+  for (const cookie of cookies) {
+    reply.setCookie(cookie.name, cookie.value, cookie.options)
+  }
 }
 
 /** 登出：清除 httpOnly auth cookie（前端 JS 无法清除，必须服务端下发）。 */
 export function clearAuthCookies(reply: FastifyReply): void {
   const secure = isSecure(reply.request)
-  const expire = (name: string): string =>
-    `${name}=; Path=/; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}; Max-Age=0`
-  reply.header('Set-Cookie', [expire(AUTH_TOKEN_COOKIE), expire(REFRESH_TOKEN_COOKIE)])
+  // 使用 reply.setCookie() 清除 cookie，避免 reply.header('Set-Cookie', ...) 覆盖
+  reply.setCookie(AUTH_TOKEN_COOKIE, '', {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: true,
+    secure,
+    maxAge: 0,
+  })
+  reply.setCookie(REFRESH_TOKEN_COOKIE, '', {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: true,
+    secure,
+    maxAge: 0,
+  })
 }
