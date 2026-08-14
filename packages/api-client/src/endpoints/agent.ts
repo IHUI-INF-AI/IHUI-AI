@@ -39,6 +39,16 @@ export type AgentListQuery = {
   /** 作者用户 ID(后端支持按作者筛选) */
   userId?: string
   status?: AgentStatus
+  /**
+   * 赛道筛选(对齐 Uniapp tools/index.vue agentCategory_active 参数)
+   * 空字符串/不传表示"全公司",buildQs 会自动忽略空值
+   */
+  agentCategory?: string
+  /**
+   * 主分类筛选(对齐 Uniapp tools/index.vue fenlei_active_id 参数)
+   * 空字符串/不传表示"全部",buildQs 会自动忽略空值
+   */
+  agentMainCategory?: string
 }
 
 export async function getAgents(query: AgentListQuery = {}): Promise<ApiResult<PageData<Agent>>> {
@@ -47,6 +57,34 @@ export async function getAgents(query: AgentListQuery = {}): Promise<ApiResult<P
 
 export async function getAgentDetail(id: string): Promise<ApiResult<Agent>> {
   return fetchApi<Agent>(`/agents/${id}`)
+}
+
+// =============================================================================
+// 智能体分类字典(对应后端 /cozeZhsApi/cache/agent-category-dict/categories)
+// 对齐 Uniapp src/service/pay.js categories() 接口,跨端共享
+// =============================================================================
+
+/** 智能体分类项(对齐 Uniapp agentCategory/agentMainCategory 列表项) */
+export interface AgentCategoryItem {
+  id: string
+  name: string
+}
+
+/** categories() 返回结构:赛道 + 主分类两组 */
+export interface AgentCategories {
+  /** 赛道列表(对应"全公司/技术/设计..."等) */
+  agentCategory: AgentCategoryItem[]
+  /** 主分类列表(对应"全部/写作/编程..."等) */
+  agentMainCategory: AgentCategoryItem[]
+}
+
+/**
+ * 获取智能体分类字典(赛道 + 主分类)
+ * 对齐 Uniapp src/service/pay.js categories(),返回两组并列的分类列表。
+ * 失败时调用方应 fallback 到本地静态占位,避免列表为空。
+ */
+export async function getAgentCategories(): Promise<ApiResult<AgentCategories>> {
+  return fetchApi<AgentCategories>('/cozeZhsApi/cache/agent-category-dict/categories')
 }
 
 // =============================================================================
