@@ -12,20 +12,14 @@
  * 类型零 any;颜色走 rnLightTokens;圆角仅 12/8/6;无分割线。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAgents, getCategories, type Agent, type Category } from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import AgentList, { type AgentListItem } from '../components/AgentList'
 import Empty from '../components/common/Empty'
+import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import { SingleTypeBar } from '../components/SingleTypeBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -117,7 +111,9 @@ export default function CategoryDetailScreen() {
       </View>
       <View style={styles.listFlex}>
         {loading ? (
-          <ActivityIndicator style={styles.center} color={tokens.text.secondary} />
+          <View style={styles.centerWrap}>
+            <Loading text="加载中..." />
+          </View>
         ) : items.length === 0 ? (
           <Empty text="该分类下暂无 Agent" />
         ) : (
@@ -149,7 +145,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   tabsBar: { paddingHorizontal: 8 },
   listFlex: { flex: 1, padding: 12 },
-  center: { marginTop: 40 },
+  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingVertical: 12, alignItems: 'center' },
   footerText: { fontSize: 12, color: tokens.text.tertiary },
 })
