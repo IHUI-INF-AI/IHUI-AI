@@ -38,6 +38,8 @@ import {
   type ListRenderItem,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import * as MediaLibrary from 'expo-media-library'
+import { captureRef } from 'react-native-view-shot'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
@@ -104,6 +106,7 @@ import AgentList, {
   type AgentListItem,
 } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -239,8 +242,20 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
   const materialCardIdCounter = useRef(0)
+  const qrCodeViewRef = useRef<View | null>(null)
   const nextId = (): string => `msg-${++idCounter.current}`
   const nextMaterialCardId = (): string => `card-${++materialCardIdCounter.current}`
+
+  // FloatBox 浮层提示状态(替代单按钮 Alert.alert 的非阻塞反馈)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+  const hideToast = useCallback((): void => setToastVisible(false), [])
 
   // ── 模型列表加载(保留原 streamChat 链路) ──
   useEffect(() => {
@@ -354,7 +369,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             { text: '取消', style: 'cancel' },
           ])
         } else {
-          Alert.alert(formatted.title, formatted.message)
+          showToast('error', formatted.message)
         }
       },
       onDone: () => {
@@ -484,7 +499,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   const confirmClearMessages = (): void => {
     setFunctionPanelVisible(false)
     if (messages.length === 0) {
-      Alert.alert('提示', '当前对话为空')
+      showToast('warning', '当前对话为空')
       return
     }
     Alert.alert('清空对话', '确认清空当前对话的所有消息?', [
@@ -578,7 +593,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       Icon: Volume2,
       onPress: () => {
         setFunctionPanelVisible(false)
-        Alert.alert('提示', '转语音功能即将上线')
+        showToast('info', '转语音功能即将上线')
       },
     },
     {
@@ -587,7 +602,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       Icon: Star,
       onPress: () => {
         setFunctionPanelVisible(false)
-        Alert.alert('提示', '收藏功能即将上线')
+        showToast('info', '收藏功能即将上线')
       },
     },
   ]
@@ -606,7 +621,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       Icon: BookOpen,
       onPress: () => {
         setSourcePanelVisible(false)
-        Alert.alert('提示', '素材库功能即将上线')
+        showToast('info', '素材库功能即将上线')
       },
     },
     {
@@ -615,7 +630,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       Icon: Link,
       onPress: () => {
         setSourcePanelVisible(false)
-        Alert.alert('提示', '输入网页链接功能即将上线')
+        showToast('info', '输入网页链接功能即将上线')
       },
     },
     {
@@ -624,7 +639,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       Icon: Paperclip,
       onPress: () => {
         setSourcePanelVisible(false)
-        Alert.alert('提示', '文件上传功能即将上线')
+        showToast('info', '文件上传功能即将上线')
       },
     },
     {
@@ -660,9 +675,23 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
   const showQrCode = (): void => setQrCodeVisible(true)
   const hideQrCode = (): void => setQrCodeVisible(false)
-  const handleLongPressQrCode = (): void => {
-    // TODO: 对接 expo-media-library 保存二维码到相册(需相机相册权限),当前仅提示
-    Alert.alert('提示', '长按二维码图片可保存到相册')
+  const handleLongPressQrCode = async (): Promise<void> => {
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', '需要相册权限才能保存二维码')
+        return
+      }
+      if (!qrCodeViewRef.current) {
+        showToast('error', '二维码未渲染,请稍后重试')
+        return
+      }
+      const uri = await captureRef(qrCodeViewRef, { format: 'png', quality: 1 })
+      await MediaLibrary.saveToLibraryAsync(uri)
+      showToast('success', '二维码已保存到相册')
+    } catch {
+      showToast('error', '保存失败,请重试')
+    }
   }
 
   // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) ──
@@ -715,10 +744,10 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     navigation.navigate('Distribution')
   }
   const handleDrawerClaimFree = (): void => {
-    // 复制飞书免费资料链接到剪贴板 + Alert 提示
+    // 复制飞书免费资料链接到剪贴板 + FloatBox 提示
     const feishuUrl = 'https://ihui.feishu.cn/wiki/'
     Clipboard.setString(feishuUrl)
-    Alert.alert('领取免费资料', '链接已复制到剪贴板,可在浏览器粘贴打开')
+    showToast('success', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
@@ -741,7 +770,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         listRef.current?.scrollToEnd({ animated: true })
       })
     } else {
-      Alert.alert('提示', '加载历史对话失败,请重试')
+      showToast('error', '加载历史对话失败,请重试')
     }
   }, [])
 
@@ -769,7 +798,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             const res = await deleteConversation(id)
             if (!res.success) {
               setDrawerConversations(snapshot)
-              Alert.alert('提示', '删除失败,请重试')
+              showToast('error', '删除失败,请重试')
             }
           })()
         },
@@ -1087,7 +1116,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             <Pressable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
-            <View style={styles.qrCodePlaceholder}>
+            <View ref={qrCodeViewRef} style={styles.qrCodePlaceholder} collapsable={false}>
               <QrCode size={240} color={tokens.text.primary} />
             </View>
             <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
@@ -1231,6 +1260,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
   )
 }
