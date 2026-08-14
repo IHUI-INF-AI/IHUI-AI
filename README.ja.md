@@ -389,7 +389,7 @@ IHUI-AI はいかなる単一プロジェクトを置き換えることが目的
 |                                      | 操作ログ                                   | ログインログ / 操作ログ / コールバックログ / audit + security-logs                                                                                                               |
 |                                      | 監視アラート                               | Prometheus + Grafana(20 ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                 |
 | **エンジニアリング基盤**             | データベース                               | PostgreSQL 15 / **339+ テーブル** / 100 schema ファイル / **128+ マイグレーション** / Drizzle ORM + RLS + テナントルーティング + **pgvector**                                    |
-|                                      | キューキャッシュ                           | Redis 7 + BullMQ / 独立 worker プロセス(:8081)                                                                                                                                   |
+|                                      | キューキャッシュ                           | Redis 7 + BullMQ / 独立 worker プロセス(:8804)                                                                                                                                   |
 |                                      | オブジェクトストレージ                     | OSS マルチベンダードライバ / 認証情報暗号化 / チャンクアップロード / ファイルバージョン / chunked-upload                                                                         |
 |                                      | メール SMS                                 | SMTP / SMS ゲートウェイ / メールテンプレート / 認証コード / mail + message-templates                                                                                             |
 |                                      | 国際化                                     | 5 言語 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n ツールチェーン + 4 ゲートスクリプト                                                                                         |
@@ -540,7 +540,7 @@ cd IHUI-AI && docker compose up -d
 | ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------ |
 | Monorepo           | pnpm workspace + Turborepo                                                                 | pnpm 9.15 / turbo 2.3                |
 | バックエンド API   | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                     | Fastify 5.1 / Drizzle 0.38 / PG 15   |
-| キャッシュとキュー | Redis 7 + BullMQ                                                                           | 独立 worker プロセス(:8081)          |
+| キャッシュとキュー | Redis 7 + BullMQ                                                                           | 独立 worker プロセス(:8804)          |
 | フロントエンド Web | Next.js + React + Tailwind CSS + shadcn/ui                                                 | Next 15.1 / React 19 / Tailwind 4    |
 | フロントエンド状態 | @tanstack/react-query 5 + Zustand                                                          | サーバー側 + クライアント側状態分離  |
 | 国際化             | next-intl                                                                                  | zh-CN / zh-TW / en / ko / ja 5 言語  |
@@ -582,7 +582,7 @@ cd IHUI-AI && docker compose up -d
                                            │  HTTPS / WebSocket / SSE / ACP
                                   ┌────────▼─────────┐
                                   │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8080          │  ~1080 エンドポイント + 12 WS + 95 ルートファイル
+                                  │   :8802          │  ~1080 エンドポイント + 12 WS + 95 ルートファイル
                                   └────┬───────┬─────┘
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐

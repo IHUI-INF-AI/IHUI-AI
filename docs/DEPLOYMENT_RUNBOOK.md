@@ -2,8 +2,8 @@
 
 IHUI-AI 生产环境的部署、运维、监控、回滚与故障排查。适用于 DevOps / 值班 oncall。
 
-服务编排基于根目录 `docker-compose.yml`,含 `api`(Fastify 8080)、`web`(Next.js 3000)、
-`ai-service`(FastAPI 8000)、`db`(PostgreSQL 15)、`redis`(Redis 7)、`migrate`(一次性迁移)、
+服务编排基于根目录 `docker-compose.yml`,含 `api`(Fastify 8802)、`web`(Next.js 8801)、
+`ai-service`(FastAPI 8803)、`db`(PostgreSQL 15)、`redis`(Redis 7)、`migrate`(一次性迁移)、
 `prometheus`、`grafana`、`node-exporter`、`jaeger`、`otel-collector`。
 
 ---
@@ -28,7 +28,7 @@ IHUI-AI 生产环境的部署、运维、监控、回滚与故障排查。适用
 | 端口 | 服务 | 对外 |
 |---|---|---|
 | 80 / 443 | Nginx(HTTPS 终止) | ✅ |
-| 3000 / 8802 / 8803 | web / api / ai-service | ❌(经 Nginx) |
+| 8801 / 8802 / 8803 | web / api / ai-service | ❌(经 Nginx) |
 | 5432 / 6379 | db / redis | ❌(仅内网) |
 | 8815 / 3001 / 9100 | Prometheus / Grafana / Node Exporter | ❌(或 VPN) |
 | 16686 / 4318 | Jaeger UI / OTLP Collector | ❌ |
@@ -67,7 +67,7 @@ grep -E '<your-|<generate-' .env.production  # 应无输出(校验占位符)
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `PROMETHEUS_PORT` / `GRAFANA_PORT` / `NODE_EXPORTER_PORT` | 8815 / 3001 / 9100 | 主机映射 |
+| `PROMETHEUS_PORT` / `GRAFANA_PORT` / `NODE_EXPORTER_PORT` | 8815 / 8816 / 9100 | 主机映射 |
 | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | `admin` / `ihui-admin` | **生产必改强密码** |
 | `ENABLE_WORKER` / `AI_CALLBACK_SECRET` | `true` / _(空)_ | BullMQ Worker / ai-service 回调校验(建议配置) |
 | `OTEL_ENABLED` / `DATABASE_READ_REPLICA_URL` | `false` / _(空)_ | OpenTelemetry / 读副本 |
@@ -129,7 +129,7 @@ docker compose logs --tail=50 api && docker compose logs --tail=50 ai-service
 
 ## 5. 健康检查端点清单
 
-### 5.1 API(Fastify 8080,实现 `apps/api/src/routes/health.ts`)
+### 5.1 API(Fastify 8802,实现 `apps/api/src/routes/health.ts`)
 
 | 端点 | 用途 |
 |---|---|
@@ -150,7 +150,7 @@ docker compose logs --tail=50 api && docker compose logs --tail=50 ai-service
 
 | 服务 | 端点 |
 |---|---|
-| ai-service(FastAPI 8000) | `GET /health`、`GET /metrics` |
+| ai-service(FastAPI 8803) | `GET /health`、`GET /metrics` |
 | Crew(在 API 内,前缀 `/api/crew`) | `GET /api/crew/health`、`/agents`、`/models` |
 | Prometheus / Grafana / Node Exporter / Jaeger | `:8815/-/healthy`、`:3001/api/health`、`:9100/metrics`、`:16686/` |
 
@@ -210,7 +210,7 @@ docker compose up -d api web ai-service
 
 ## 8. 监控与告警
 
-**监控栈**(配置在 `monitoring/`):Prometheus(8815,抓 api / ai-service / node-exporter,配置 `prometheus/prometheus.yml` + `alerts.yml`)、Grafana(3001,默认 `admin` / `ihui-admin`,**生产必改**,配置 `grafana/`)、Node Exporter(9100,主机指标)、Jaeger(16686,分布式追踪)、OTLP Collector(4318,导出 Jaeger + Prometheus)、Alertmanager(9093,告警路由,若启用)。
+**监控栈**(配置在 `monitoring/`):Prometheus(8815,抓 api / ai-service / node-exporter,配置 `prometheus/prometheus.yml` + `alerts.yml`)、Grafana(8816,默认 `admin` / `ihui-admin`,**生产必改**,配置 `grafana/`)、Node Exporter(9100,主机指标)、Jaeger(16686,分布式追踪)、OTLP Collector(4318,导出 Jaeger + Prometheus)、Alertmanager(9093,告警路由,若启用)。
 
 **关键告警**:
 
@@ -276,7 +276,7 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD --bigkeys
 ```bash
 docker compose ps api && docker compose logs --tail=50 api
 curl -s http://localhost:8802/api/health                                # api 直连
-docker compose exec web wget -qO- http://api:8080/api/health            # 容器间网络
+docker compose exec web wget -qO- http://api:8802/api/health            # 容器间网络
 ```
 
 ### 10.4 WebSocket 断连
@@ -295,6 +295,6 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD PSUBSCRIBE '*'  # pub/sub
 
 ```bash
 docker compose ps ai-service && docker compose logs --tail=50 ai-service
-docker compose exec ai-service curl -s http://localhost:8000/health  # 容器内部端口(豁免:宿主映射 8810→5432 / 8811→6379 / 8803→8000)
+docker compose exec ai-service curl -s http://localhost:8803/health  # 容器内部端口
 docker compose exec ai-service printenv | grep -E "STEPFUN|AGNES|OPENAI|ANTHROPIC|LITELLM_MODEL"
 ```

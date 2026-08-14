@@ -121,6 +121,7 @@ docker compose ps  # 确认 traefik 已 Up
 ```
 
 输出示例:
+
 ```
 客户 'demo' 创建成功
 访问地址:    https://demo.saas.example.com
@@ -168,11 +169,11 @@ curl -k https://demo.127.0.0.1.nip.io:443/
 
 通过 `.env` 全局默认值 + 单租户 .env 覆盖:
 
-| 资源 | 默认 | 客户 .env 覆盖 |
-|---|---|---|
-| Memory | 2G | `MEMORY_LIMIT=4G` |
-| CPU | 1.0 | `CPU_LIMIT=2.0` |
-| Storage | 20G | volume 限制在 Docker 层另设 |
+| 资源    | 默认 | 客户 .env 覆盖              |
+| ------- | ---- | --------------------------- |
+| Memory  | 2G   | `MEMORY_LIMIT=4G`           |
+| CPU     | 1.0  | `CPU_LIMIT=2.0`             |
+| Storage | 20G  | volume 限制在 Docker 层另设 |
 
 ## 客户生命周期管理(P1 阶段 2.1)
 
@@ -238,6 +239,7 @@ bash deploy/saas/cron/cert-renew.sh
 ```
 
 行为:
+
 - 证书剩余 ≥ 30 天:健康
 - 证书剩余 < 30 天:警告(无需干预,Traefik 自动续)
 - 证书剩余 < 7 天:重启 Traefik 强制重签
@@ -255,12 +257,12 @@ bash deploy/saas/cron/cert-renew.sh
 
 ### 环境变量
 
-| 变量 | 必填 | 默认值 | 说明 |
-|---|---|---|---|
-| `ADMIN_API_URL` | 否 | `http://127.0.0.1:8830` | admin-api 地址(Web 反向代理) |
-| `ADMIN_SAAS_API_KEY` | 是 | 空 | 与 admin-api 的 `ADMIN_API_KEY` 一致 |
-| `ADMIN_USER_WHITELIST` | 否 | `admin` | 允许调用 admin-api 的 web 用户白名单(逗号分隔) |
-| `ENABLE_AUDIT_LOG` | 否 | `true` | 是否启用操作审计日志 |
+| 变量                   | 必填 | 默认值                  | 说明                                           |
+| ---------------------- | ---- | ----------------------- | ---------------------------------------------- |
+| `ADMIN_API_URL`        | 否   | `http://127.0.0.1:8830` | admin-api 地址(Web 反向代理)                   |
+| `ADMIN_SAAS_API_KEY`   | 是   | 空                      | 与 admin-api 的 `ADMIN_API_KEY` 一致           |
+| `ADMIN_USER_WHITELIST` | 否   | `admin`                 | 允许调用 admin-api 的 web 用户白名单(逗号分隔) |
+| `ENABLE_AUDIT_LOG`     | 否   | `true`                  | 是否启用操作审计日志                           |
 
 ### 首次启动
 
@@ -289,18 +291,18 @@ docker compose up -d admin-api
 
 ### 支持的 Web 操作
 
-| 操作 | 说明 |
-|---|---|
-| 租户列表 | 30s 自动轮询,支持按 slug 搜索 + 按 state 筛选 |
-| 创建租户 | 弹窗填写 slug/memory/cpu/plan,实时校验 regex |
-| 暂停/恢复 | 二次确认弹窗,操作期间显示 loading |
-| 备份 | 立即创建快照,服务不受影响 |
-| 销毁 | 输入 slug 二次确认,操作不可逆 |
-| 租户详情 | `/admin/saas/[slug]`:基本信息 + 容器状态 + 资源配额 + Grafana 实时图表 + 快捷操作 |
-| 备份管理 | `/admin/saas/[slug]/backups`:列表 + 恢复 + 删除(时间戳二次确认) |
-| 证书状态 | `/admin/saas/certificates`:扫描 Traefik `acme.json`,健康/警告/紧急/已过期分级展示 |
-| 资源配额 | 详情页卡片(API 调用 / AI Token / 存储,真实 Prometheus 数据) |
-| 资源监控 | `/admin/saas/metrics`:多租户 CPU/内存/网络对比页 + Grafana 对比图 |
+| 操作      | 说明                                                                              |
+| --------- | --------------------------------------------------------------------------------- |
+| 租户列表  | 30s 自动轮询,支持按 slug 搜索 + 按 state 筛选                                     |
+| 创建租户  | 弹窗填写 slug/memory/cpu/plan,实时校验 regex                                      |
+| 暂停/恢复 | 二次确认弹窗,操作期间显示 loading                                                 |
+| 备份      | 立即创建快照,服务不受影响                                                         |
+| 销毁      | 输入 slug 二次确认,操作不可逆                                                     |
+| 租户详情  | `/admin/saas/[slug]`:基本信息 + 容器状态 + 资源配额 + Grafana 实时图表 + 快捷操作 |
+| 备份管理  | `/admin/saas/[slug]/backups`:列表 + 恢复 + 删除(时间戳二次确认)                   |
+| 证书状态  | `/admin/saas/certificates`:扫描 Traefik `acme.json`,健康/警告/紧急/已过期分级展示 |
+| 资源配额  | 详情页卡片(API 调用 / AI Token / 存储,真实 Prometheus 数据)                       |
+| 资源监控  | `/admin/saas/metrics`:多租户 CPU/内存/网络对比页 + Grafana 对比图                 |
 
 > 全部 P1-2.2a / 2.2b / 2.2c / 2.3 任务已完成。后端 API、前端 UI、i18n 5 语言均已交付。
 
@@ -311,8 +313,8 @@ docker compose up -d admin-api
 ### 架构
 
 ```
-cAdvisor(:8080) ──┐
-                  ├──> Prometheus(:9090) ──> Grafana(:3001)
+cAdvisor(:8808) ──┐
+                  ├──> Prometheus(:9090) ──> Grafana(:8816)
                   │                         公开 dashboard
 admin-api(:8830) ─┘
   └─ /admin/api/customers/:slug/metrics    per-tenant 实时数据
@@ -322,11 +324,11 @@ admin-api(:8830) ─┘
 
 ### 端点
 
-| 端点 | 说明 |
-|---|---|
-| `GET /admin/api/customers/:slug/quota` | 配额(API 调用/AI Token/存储,P1-2.2c 占位已切换为真实数据) |
-| `GET /admin/api/customers/:slug/metrics` | 实时指标(CPU 核数 / 内存字节 / 网络 rx/tx B/s) |
-| `GET /admin/api/metrics/summary` | 多租户横向对比(按 CPU 降序排序) |
+| 端点                                     | 说明                                                      |
+| ---------------------------------------- | --------------------------------------------------------- |
+| `GET /admin/api/customers/:slug/quota`   | 配额(API 调用/AI Token/存储,P1-2.2c 占位已切换为真实数据) |
+| `GET /admin/api/customers/:slug/metrics` | 实时指标(CPU 核数 / 内存字节 / 网络 rx/tx B/s)            |
+| `GET /admin/api/metrics/summary`         | 多租户横向对比(按 CPU 降序排序)                           |
 
 ### Web UI
 
@@ -336,11 +338,11 @@ admin-api(:8830) ─┘
 
 ### 环境变量(可选)
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
+| 变量                       | 默认                    | 说明                                   |
+| -------------------------- | ----------------------- | -------------------------------------- |
 | `NEXT_PUBLIC_GRAFANA_BASE` | `http://127.0.0.1:8816` | Grafana 公开 URL(生产环境可走反向代理) |
-| `GRAFANA_ADMIN_USER` | `admin` | Grafana 管理员账号 |
-| `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana 管理员密码(生产环境必须修改) |
+| `GRAFANA_ADMIN_USER`       | `admin`                 | Grafana 管理员账号                     |
+| `GRAFANA_ADMIN_PASSWORD`   | `admin`                 | Grafana 管理员密码(生产环境必须修改)   |
 
 ### Prometheus 不可达降级策略
 
@@ -364,6 +366,7 @@ docker logs ihui-saas-traefik | grep -i acme
 ```
 
 常见原因:
+
 - DNS provider 凭证错误
 - 域名 NS 记录未指向 DNS provider
 - `LETSENCRYPT_ENV=staging` 配额限制(改 production 或等 7 天)
@@ -443,10 +446,10 @@ docker logs customer-demo-api | grep -i "database"
 
 **本目录是部署层多租户,与应用层可叠加使用**:
 
-| 部署模式 | 适用场景 | 资源成本 | 隔离强度 |
-|---|---|---|---|
-| 应用层多租户(已有) | 中小客户共享一套,降低运维成本 | 低 | 弱(故障会扩散) |
-| 部署层多租户(本次) | VIP 客户独立部署,故障/攻击隔离 | 高 | 强 |
-| **混合(推荐)** | 共享层服务普通客户 + 独立层服务 VIP 客户 | 中 | 中 |
+| 部署模式           | 适用场景                                 | 资源成本 | 隔离强度       |
+| ------------------ | ---------------------------------------- | -------- | -------------- |
+| 应用层多租户(已有) | 中小客户共享一套,降低运维成本            | 低       | 弱(故障会扩散) |
+| 部署层多租户(本次) | VIP 客户独立部署,故障/攻击隔离           | 高       | 强             |
+| **混合(推荐)**     | 共享层服务普通客户 + 独立层服务 VIP 客户 | 中       | 中             |
 
 未来阶段 2 的租户管理后台会同时管理两种部署模式的客户。

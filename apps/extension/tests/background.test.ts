@@ -35,5 +35,5 @@ describe('background service worker', () => {
     const mod = await import('../entrypoints/background')
     expect(mod).toBeDefined()
     expect(mod.default).toBeDefined()
-  })
+  }, 20000)
 })

@@ -4115,6 +4115,515 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '批量更新状态失败'))
     }
   })
+
+  // ===========================================================================
+  // F3 前端路径别名 / 补齐 (bug-audit-2026-08-14.md)。
+  // 以下端点前端 apps/web 通过 fetchApi('/api/edu-ai-management/...') 调用,
+  // 但此前后端仅在"不同路径名"下实现了等价功能(如 /trial-booking ↔ /trial-reservation),
+  // 导致前端 404。此处一律复用上方已定义的 Zod schema 与 edu_* 表,
+  // 不重复造表、不重复定义校验,仅补齐前端实际使用的路径别名 + 3 个新端点。
+  // ===========================================================================
+
+  // --- 试听预约:前端 /trial-reservation ↔ 后端 /trial-booking ---
+  server.post('/trial-reservation', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createTrialBookingSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db.insert(eduTrialBooking).values(parsed.data).returning()
+    return reply.status(201).send(success({ trialBooking: row }))
+  })
+
+  server.put('/trial-reservation/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateTrialBookingSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTrialBooking)
+      .where(eq(eduTrialBooking.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '试听预约不存在'))
+    const [row] = await db
+      .update(eduTrialBooking)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduTrialBooking.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ trialBooking: row }))
+  })
+
+  // --- 学费标准:前端 /tuition-standard ↔ 后端 /tuition-fee ---
+  server.post('/tuition-standard', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createTuitionFeeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db.insert(eduTuitionFee).values(parsed.data).returning()
+    return reply.status(201).send(success({ tuitionFee: row }))
+  })
+
+  server.put('/tuition-standard/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateTuitionFeeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTuitionFee)
+      .where(and(eq(eduTuitionFee.id, idParsed.data.id), isNull(eduTuitionFee.deletedAt)))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '学费标准不存在'))
+    const [row] = await db
+      .update(eduTuitionFee)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduTuitionFee.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ tuitionFee: row }))
+  })
+
+  server.delete('/tuition-standard/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTuitionFee)
+      .where(and(eq(eduTuitionFee.id, parsed.data.id), isNull(eduTuitionFee.deletedAt)))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '学费标准不存在'))
+    await db
+      .update(eduTuitionFee)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(eduTuitionFee.id, parsed.data.id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // --- 退费:前端 /refund ↔ 后端 /refund-record ---
+  server.post('/refund', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createRefundRecordSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db
+      .insert(eduRefundRecord)
+      .values({ ...parsed.data, operatorId: parsed.data.operatorId || request.userId })
+      .returning()
+    return reply.status(201).send(success({ refundRecord: row }))
+  })
+
+  server.put('/refund/:id/approve', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = approveRefundSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduRefundRecord)
+      .where(and(eq(eduRefundRecord.id, idParsed.data.id), isNull(eduRefundRecord.deletedAt)))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '退费记录不存在'))
+    if (existing.status !== 'pending')
+      return reply.status(400).send(error(400, '仅待审批的退费可审批'))
+    const [row] = await db
+      .update(eduRefundRecord)
+      .set({
+        status: 'approved',
+        approverId: request.userId,
+        approveRemark: parsed.data.approveRemark,
+        approveAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(eduRefundRecord.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ refundRecord: row }))
+  })
+
+  // --- 排课规则:前端 /scheduling/rule ↔ 后端 /scheduling-rule ---
+  server.post('/scheduling/rule', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createSchedulingRuleSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db.insert(eduSchedulingRule).values(parsed.data).returning()
+    return reply.status(201).send(success({ schedulingRule: row }))
+  })
+
+  server.put('/scheduling/rule/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateSchedulingRuleSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduSchedulingRule)
+      .where(and(eq(eduSchedulingRule.id, idParsed.data.id), isNull(eduSchedulingRule.deletedAt)))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '排课规则不存在'))
+    const [row] = await db
+      .update(eduSchedulingRule)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduSchedulingRule.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ schedulingRule: row }))
+  })
+
+  server.delete('/scheduling/rule/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduSchedulingRule)
+      .where(and(eq(eduSchedulingRule.id, parsed.data.id), isNull(eduSchedulingRule.deletedAt)))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '排课规则不存在'))
+    await db
+      .update(eduSchedulingRule)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(eduSchedulingRule.id, parsed.data.id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // --- 冲突检测:前端 /scheduling/check-conflicts ↔ 后端 /scheduling/check-conflict ---
+  server.post('/scheduling/check-conflicts', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = checkConflictSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    try {
+      const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } =
+        parsed.data
+
+      const conds: SQL[] = [
+        eq(eduCourseSchedule.termId, termId),
+        eq(eduCourseSchedule.weekday, weekday),
+        isNull(eduCourseSchedule.deletedAt),
+      ]
+      conds.push(sql`${eduCourseSchedule.startTime} < ${endTime}`)
+      conds.push(sql`${eduCourseSchedule.endTime} > ${startTime}`)
+      if (excludeScheduleId) conds.push(sql`${eduCourseSchedule.id} != ${excludeScheduleId}::uuid`)
+
+      let teacherConflicts: Array<{ id: string; courseName: string; classroom: string | null }> = []
+      if (teacherId) {
+        const teacherConds = [...conds, eq(eduCourseSchedule.teacher, teacherId)]
+        teacherConflicts = await db
+          .select({
+            id: eduCourseSchedule.id,
+            courseName: eduCourseSchedule.courseName,
+            classroom: eduCourseSchedule.classroom,
+          })
+          .from(eduCourseSchedule)
+          .where(and(...teacherConds))
+      }
+
+      let classroomConflicts: Array<{ id: string; courseName: string; teacher: string | null }> = []
+      if (classroom) {
+        const roomConds = [...conds, eq(eduCourseSchedule.classroom, classroom)]
+        classroomConflicts = await db
+          .select({
+            id: eduCourseSchedule.id,
+            courseName: eduCourseSchedule.courseName,
+            teacher: eduCourseSchedule.teacher,
+          })
+          .from(eduCourseSchedule)
+          .where(and(...roomConds))
+      }
+
+      return reply.send(success({ teacherConflicts, classroomConflicts }))
+    } catch (_err) {
+      return reply.status(500).send(error(500, '冲突检测失败'))
+    }
+  })
+
+  // --- 教师时间表:前端 /scheduling/teacher-schedule ↔ 后端 /teacher-schedule ---
+  server.post('/scheduling/teacher-schedule', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createTeacherScheduleSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db.insert(eduTeacherSchedule).values(parsed.data).returning()
+    return reply.status(201).send(success({ teacherSchedule: row }))
+  })
+
+  server.put('/scheduling/teacher-schedule/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateTeacherScheduleSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTeacherSchedule)
+      .where(eq(eduTeacherSchedule.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
+    const [row] = await db
+      .update(eduTeacherSchedule)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(eduTeacherSchedule.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ teacherSchedule: row }))
+  })
+
+  server.delete('/scheduling/teacher-schedule/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(eduTeacherSchedule)
+      .where(eq(eduTeacherSchedule.id, parsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
+    await db.delete(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, parsed.data.id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // --- 调课审批:前端 /scheduling/change/:id/approve ↔ 后端 /schedule-change/:id/approve ---
+  server.put('/scheduling/change/:id/approve', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = approveChangeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    try {
+      const row = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(eduScheduleChange)
+          .where(eq(eduScheduleChange.id, idParsed.data.id))
+          .limit(1)
+        if (!existing) throw new Error('NOT_FOUND')
+        if (existing.status !== 'pending') throw new Error('NOT_PENDING')
+
+        const approverId = request.userId!
+        const [updated] = await tx
+          .update(eduScheduleChange)
+          .set({
+            status: 'approved',
+            approverId,
+            approveRemark: parsed.data.approveRemark,
+            approveAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(eduScheduleChange.id, idParsed.data.id))
+          .returning()
+        if (!updated) throw new Error('UPDATE_FAILED')
+
+        const scheduleUpdates: Record<string, unknown> = { updatedAt: new Date() }
+        if (existing.newTeacher) scheduleUpdates.teacher = existing.newTeacher
+        if (existing.newWeekday !== null) scheduleUpdates.weekday = existing.newWeekday
+        if (existing.newStartTime) scheduleUpdates.startTime = existing.newStartTime
+        if (existing.newEndTime) scheduleUpdates.endTime = existing.newEndTime
+
+        if (Object.keys(scheduleUpdates).length > 1) {
+          await tx
+            .update(eduCourseSchedule)
+            .set(scheduleUpdates)
+            .where(eq(eduCourseSchedule.id, existing.scheduleId))
+        }
+        return updated
+      })
+      return reply.send(success({ scheduleChange: row }))
+    } catch (err: unknown) {
+      if ((err as { message?: string }).message === 'NOT_FOUND')
+        return reply.status(404).send(error(404, '调课申请不存在'))
+      if ((err as { message?: string }).message === 'NOT_PENDING')
+        return reply.status(400).send(error(400, '仅待审批的申请可审批'))
+      return reply.status(500).send(error(500, '审批失败'))
+    }
+  })
+
+  // --- 家长绑定:前端 /parent-binding ↔ 后端 /parent/binding ---
+  server.post('/parent-binding', async (request, reply) => {
+    const parsed = createBindingSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, parsed.data.studentId),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (existing) return reply.status(409).send(error(409, '已存在绑定关系'))
+
+    const [row] = await db
+      .insert(eduParentStudentBinding)
+      .values({
+        parentId: userId,
+        studentId: parsed.data.studentId,
+        relationship: parsed.data.relationship,
+      })
+      .returning()
+    return reply.status(201).send(success({ binding: row }))
+  })
+
+  server.delete('/parent-binding/:id', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.id, idParsed.data.id),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
+    if (existing.parentId !== userId && existing.studentId !== userId)
+      return reply.status(403).send(error(403, '仅绑定双方可解除绑定'))
+
+    await db
+      .update(eduParentStudentBinding)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(eduParentStudentBinding.id, idParsed.data.id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // 学生确认绑定(前端 PUT /parent-binding/:id/confirm)
+  server.put('/parent-binding/:id/confirm', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.id, idParsed.data.id),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
+    if (existing.studentId !== userId)
+      return reply.status(403).send(error(403, '仅学生本人可确认绑定'))
+
+    const [row] = await db
+      .update(eduParentStudentBinding)
+      .set({ status: 'confirmed', confirmedAt: new Date(), updatedAt: new Date() })
+      .where(eq(eduParentStudentBinding.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ binding: row }))
+  })
+
+  // 学生拒绝绑定(前端 PUT /parent-binding/:id/reject)
+  server.put('/parent-binding/:id/reject', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [existing] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.id, idParsed.data.id),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '绑定不存在'))
+    if (existing.studentId !== userId)
+      return reply.status(403).send(error(403, '仅学生本人可拒绝绑定'))
+
+    const [row] = await db
+      .update(eduParentStudentBinding)
+      .set({ status: 'rejected', updatedAt: new Date() })
+      .where(eq(eduParentStudentBinding.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ binding: row }))
+  })
+
+  // --- 成绩薄弱点分析(前端 GET /exam-score/weakness/:id,此前无对应端点)---
+  server.get('/exam-score/weakness/:id', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const rows = await db
+      .select()
+      .from(eduExamScore)
+      .where(and(eq(eduExamScore.studentId, idParsed.data.id), isNull(eduExamScore.deletedAt)))
+
+    const bySubject = new Map<string, { sum: number; count: number; total: number }>()
+    for (const r of rows) {
+      const cur = bySubject.get(r.subject) ?? { sum: 0, count: 0, total: r.totalScore }
+      cur.sum += r.score
+      cur.count += 1
+      cur.total = r.totalScore
+      bySubject.set(r.subject, cur)
+    }
+    const weaknesses = [...bySubject.entries()]
+      .map(([subject, v]) => {
+        const avg = v.count ? v.sum / v.count : 0
+        const rate = v.total ? avg / v.total : 0
+        return {
+          subject,
+          avgScore: Math.round(avg * 10) / 10,
+          examCount: v.count,
+          totalScore: v.total,
+          weak: rate < 0.6,
+        }
+      })
+      .filter((w) => w.weak)
+    return reply.send(success({ studentId: idParsed.data.id, weaknesses }))
+  })
 }
 
 export default eduAiManagementRoutes

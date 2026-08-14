@@ -35,7 +35,7 @@ const REGISTERED_PORTS = new Set([
 // 豁免的非 88xx 端口(容器内部 / CI / 第三方)
 const EXEMPT_PORTS = new Set([
   // Docker 容器内部端口
-  8080, 8081, 3000, 8000, 5432, 6379, 4317, 4318, 16686, 9090, 9100, 3100,
+  5432, 6379, 4317, 4318, 16686, 9090, 9100, 3100,
   // CI/测试默认端口(GitHub Actions service containers)
   9091, // Prometheus 旧映射(CI 兼容)
   // 第三方服务端口
