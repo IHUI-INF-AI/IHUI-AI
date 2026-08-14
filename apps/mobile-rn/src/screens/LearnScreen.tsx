@@ -32,6 +32,7 @@ import {
 } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import Empty from '../components/common/Empty'
+import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -75,6 +76,17 @@ function formatCourseDuration(duration: number | undefined): string {
   const hours = Math.floor(duration / 60)
   const mins = duration % 60
   return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`
+}
+
+/** 学习路径数据 → CourseCarouselItem(coverImage→img,学习路径默认免费) */
+function toCarouselItems(courses: LearnCourse[]): CourseCarouselItem[] {
+  return courses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    price: 0,
+    isFree: true,
+    img: c.coverImage ?? undefined,
+  }))
 }
 
 export function LearnScreen() {
@@ -175,39 +187,7 @@ export function LearnScreen() {
             {paths.length === 0 ? (
               <Empty />
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pathScroll}
-              >
-                {paths.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={styles.pathCard}
-                    onPress={() => openCourse(item.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={item.title}
-                  >
-                    {item.coverImage ? (
-                      <Image
-                        source={{ uri: item.coverImage }}
-                        style={styles.pathImage}
-                        resizeMode="cover"
-                      />
-                    ) : null}
-                    <View style={styles.pathInfo}>
-                      <Text style={styles.pathTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      {item.description ? (
-                        <Text style={styles.pathDesc} numberOfLines={1}>
-                          {item.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <CourseCarousel courses={toCarouselItems(paths)} onPress={openCourse} />
             )}
           </View>
 
@@ -352,36 +332,6 @@ function createStyles(tk: RnThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     moreLink: {
-      fontSize: 12,
-      color: tk.text.secondary,
-    } as TextStyle,
-
-    // 学习路径(横向)
-    pathScroll: {
-      paddingVertical: 4,
-      gap: 12,
-    } as ViewStyle,
-    pathCard: {
-      width: 220,
-      borderRadius: 12,
-      overflow: 'hidden',
-      backgroundColor: tk.surface.light,
-    } as ViewStyle,
-    pathImage: {
-      width: '100%',
-      height: 110,
-      backgroundColor: tk.border.light,
-    } as ImageStyle,
-    pathInfo: {
-      padding: 10,
-      gap: 4,
-    } as ViewStyle,
-    pathTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.text.primary,
-    } as TextStyle,
-    pathDesc: {
       fontSize: 12,
       color: tk.text.secondary,
     } as TextStyle,
