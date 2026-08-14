@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import cookie from '@fastify/cookie'
 
 // Mock config: csrf 依赖 config.JWT_SECRET 签名
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
@@ -13,95 +14,6 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-// Mock @fastify/cookie:真实包加载时 require cookie@2.0.1 (ESM) 失败,导致整个测试文件
-// import 阶段崩溃。mock 实现最小可用集(必须用 fastify-plugin 包装,否则 fastify 创建
-// 新 encapsulation 作用域,decorateReply 不作用到父 instance,路由 handler 拿不到 setCookie):
-//  - onRequest hook 解析 Cookie header 到 request.cookies(双提交 Cookie 校验依赖)
-//  - reply.setCookie 同步把 cookie 字符串写入 set-cookie 响应 header(测试断言依赖)
-//  - reply.clearCookie 写入过期 set-cookie
-vi.mock('@fastify/cookie', async () => {
-  const { default: fp } = await import('fastify-plugin')
-
-  type CookieOpts = {
-    path?: string
-    domain?: string
-    httpOnly?: boolean
-    secure?: boolean
-    sameSite?: string | boolean
-    maxAge?: number
-  }
-
-  function parseCookieHeader(cookieHeader: string): Record<string, string> {
-    const cookies: Record<string, string> = {}
-    for (const pair of cookieHeader.split(';')) {
-      const trimmed = pair.trim()
-      if (!trimmed) continue
-      const eq = trimmed.indexOf('=')
-      if (eq === -1) continue
-      const k = trimmed.slice(0, eq)
-      const v = trimmed.slice(eq + 1)
-      try {
-        cookies[k] = decodeURIComponent(v)
-      } catch {
-        cookies[k] = v
-      }
-    }
-    return cookies
-  }
-
-  function buildCookieString(name: string, value: string, opts?: CookieOpts): string {
-    const parts = [`${name}=${value}`]
-    if (opts?.path) parts.push(`Path=${opts.path}`)
-    if (opts?.domain) parts.push(`Domain=${opts.domain}`)
-    if (opts?.httpOnly) parts.push('HttpOnly')
-    if (opts?.secure) parts.push('Secure')
-    if (opts?.sameSite) parts.push(`SameSite=${opts.sameSite}`)
-    if (opts?.maxAge !== null && opts?.maxAge !== undefined) parts.push(`Max-Age=${opts.maxAge}`)
-    return parts.join('; ')
-  }
-
-  const plugin = async (instance: FastifyInstance): Promise<void> => {
-    instance.decorateRequest('cookies', null)
-    instance.addHook(
-      'onRequest',
-      (request: FastifyRequest, _reply: FastifyReply, done: () => void) => {
-        const cookieHeader = request.headers.cookie
-        ;(request as unknown as { cookies: Record<string, string> }).cookies =
-          typeof cookieHeader === 'string' ? parseCookieHeader(cookieHeader) : {}
-        done()
-      },
-    )
-    instance.decorateReply(
-      'setCookie',
-      function (this: FastifyReply, name: string, value: string, opts?: CookieOpts) {
-        const cookieStr = buildCookieString(name, value, opts)
-        const existing = this.getHeader('set-cookie')
-        if (existing === undefined) {
-          this.header('set-cookie', cookieStr)
-        } else if (Array.isArray(existing)) {
-          this.header('set-cookie', [...existing, cookieStr])
-        } else {
-          this.header('set-cookie', [existing as string, cookieStr])
-        }
-        return this
-      },
-    )
-    instance.decorateReply(
-      'clearCookie',
-      function (this: FastifyReply, name: string, opts?: CookieOpts) {
-        const cookieStr = `${name}=; Path=${opts?.path ?? '/'}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
-        this.header('set-cookie', cookieStr)
-        return this
-      },
-    )
-    instance.decorate('signCookie', vi.fn())
-    instance.decorate('unsignCookie', vi.fn())
-    instance.decorate('unsign', vi.fn())
-  }
-
-  return { default: fp(plugin, { name: '@fastify/cookie', fastify: '5.x' }) }
-})
-
 import csrfPlugin from '../src/plugins/csrf.js'
 
 // @vitest-environment node
@@ -109,7 +21,11 @@ describe('csrf — 双提交 Cookie 模式', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    // csrfPlugin 内部已 register @fastify/cookie，无需在此重复注册
+    // csrfPlugin 自 2026-08-14 P0 修复后不再自行 register @fastify/cookie,
+    // 依赖父作用域(生产由 server.ts 注册)。测试 app 须手动注册真实
+    // @fastify/cookie 插件,否则 reply.setCookie 为 undefined → 500。
+    // 此前用 vi.mock('@fastify/cookie') 的过期 workaround 已无引用方,直接移除。
+    await server.register(cookie)
     await server.register(csrfPlugin)
     server.post('/api/protected', async (_req, reply) => reply.send({ ok: true }))
     server.post('/api/auth/login', async (_req, reply) => reply.send({ ok: true }))
