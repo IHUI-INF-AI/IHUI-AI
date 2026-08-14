@@ -13,6 +13,7 @@
  * 兜底:TagsView 走 deriveTitle 把 kebab-case 转 Title Case(单语言英文标题)。
  */
 
+import type { ComponentType } from 'react'
 import { FLAT_NAV_ITEMS } from '@/components/sidebar'
 import { ADMIN_NAV } from '@/components/layout/AdminNav'
 
@@ -251,6 +252,44 @@ export function resolvePathLabelSpec(pathname: string): PathLabelSpec | null {
   // 最长前缀匹配(已按 href 长度降序)
   for (const entry of SORTED_PATH_LABELS) {
     if (normalized.startsWith(`${entry.href}/`)) return entry.spec
+  }
+
+  return null
+}
+
+// ===== Path → Icon 解析器(2026-08-14:TagsView 标签图标)=====
+//
+// 复用 FLAT_NAV_ITEMS + ADMIN_NAV 的 icon 字段,匹配策略与 resolvePathLabelSpec 一致。
+// TagsView 渲染时根据 tag.path 解析对应路由图标,在文字前显示(对标 Chrome 标签页 favicon)。
+
+type IconType = ComponentType<{ className?: string }>
+
+interface PathIconEntry {
+  href: string
+  icon: IconType
+}
+
+const ALL_PATH_ICON_MAP: PathIconEntry[] = [
+  ...FLAT_NAV_ITEMS.map((item) => ({ href: item.href, icon: item.icon })),
+  ...ADMIN_NAV.map((item) => ({ href: item.href, icon: item.icon })),
+]
+
+const SORTED_PATH_ICONS = [...ALL_PATH_ICON_MAP].sort((a, b) => b.href.length - a.href.length)
+
+/**
+ * 解析 pathname → 图标组件,匹配策略与 resolvePathLabelSpec 一致。
+ * 返回 null 时 TagsView 不渲染图标(标签仅显示文字)。
+ */
+export function resolvePathIcon(pathname: string): IconType | null {
+  if (!pathname) return null
+
+  const normalized = stripI18nPrefix(pathname)
+
+  const exact = ALL_PATH_ICON_MAP.find((e) => e.href === normalized)
+  if (exact) return exact.icon
+
+  for (const entry of SORTED_PATH_ICONS) {
+    if (normalized.startsWith(`${entry.href}/`)) return entry.icon
   }
 
   return null
