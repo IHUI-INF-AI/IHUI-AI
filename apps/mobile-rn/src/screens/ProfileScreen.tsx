@@ -30,6 +30,7 @@ import {
   getOrders,
   getUserStatistics,
   listConversations,
+  updateProfile,
   type AuthUser,
   type ConversationDetail,
   type UserStatistics,
@@ -134,8 +135,8 @@ export function ProfileScreen() {
   const [editProfileVisible, setEditProfileVisible] = useState(false)
   const [levelIntroVisible, setLevelIntroVisible] = useState(false)
   const [unsubscribeVisible, setUnsubscribeVisible] = useState(false)
-  // 会员权益折叠(对齐 Uniapp toggleMembershipBenefits,默认展开)
-  const [showMembershipBenefits, setShowMembershipBenefits] = useState(true)
+  // 会员权益折叠(对齐 Uniapp toggleMembershipBenefits,默认折叠)
+  const [showMembershipBenefits, setShowMembershipBenefits] = useState(false)
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -520,9 +521,9 @@ export function ProfileScreen() {
           visible={editProfileVisible}
           user={user}
           onClose={() => setEditProfileVisible(false)}
-          onSave={(nickname) => {
+          onSaved={() => {
             setEditProfileVisible(false)
-            showFloat(nickname ? '资料已保存' : '昵称不能为空', nickname ? 'success' : 'warning')
+            showFloat('资料已保存', 'success')
           }}
         />
       ) : null}
@@ -550,33 +551,55 @@ interface EditProfileModalProps {
   visible: boolean
   user: AuthUser
   onClose: () => void
-  onSave: (nickname: string) => void
+  onSaved: () => void
 }
 
 /**
  * 编辑资料弹窗 — 头像(可点击更换,占位提示)+ 昵称输入框(可编辑)+
  * 邮箱输入框(只读)+ 手机号输入框(只读)+ 保存/取消按钮。
  * 替代 navigation.navigate('ProfileEdit') 跳转页面对齐 Uniapp 弹层交互。
+ * 保存时调用 updateProfile API 持久化(对齐 Uniapp LoginPopUp bindUserNew)。
  */
 function EditProfileModal({
   visible,
   user,
   onClose,
-  onSave,
+  onSaved,
 }: EditProfileModalProps): React.JSX.Element {
   const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
   const [avatarHintVisible, setAvatarHintVisible] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // 每次打开弹窗时重置昵称为当前用户值,防止上次编辑残留
   useEffect(() => {
     if (visible) {
       setNickname(user.nickname ?? user.username ?? '')
       setAvatarHintVisible(false)
+      setSaveError('')
     }
   }, [visible, user.nickname, user.username])
 
-  const handleSave = () => {
-    onSave(nickname.trim())
+  const handleSave = async () => {
+    const trimmed = nickname.trim()
+    if (!trimmed) {
+      setSaveError('昵称不能为空')
+      return
+    }
+    setSaving(true)
+    setSaveError('')
+    try {
+      const res = await updateProfile({ nickname: trimmed })
+      if (!res.success) {
+        setSaveError(res.error || '保存失败,请稍后重试')
+        return
+      }
+      onSaved()
+    } catch {
+      setSaveError('网络错误,请稍后重试')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -615,7 +638,7 @@ function EditProfileModal({
               onChangeText={setNickname}
               placeholder="请输入昵称"
               placeholderTextColor={tokens.text.tertiary}
-              maxLength={20}
+              maxLength={8}
             />
           </View>
 
@@ -642,20 +665,27 @@ function EditProfileModal({
           </View>
 
           {/* 按钮 */}
+          {saveError ? (
+            <Text style={styles.editProfileError}>{saveError}</Text>
+          ) : null}
           <View style={styles.editProfileBtnRow}>
             <TouchableOpacity
               style={styles.editProfileCancelBtn}
               activeOpacity={0.7}
               onPress={onClose}
+              disabled={saving}
             >
               <Text style={styles.editProfileCancelBtnText}>取消</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.editProfileSaveBtn}
+              style={[styles.editProfileSaveBtn, saving ? styles.editProfileSaveBtnDisabled : null]}
               activeOpacity={0.7}
               onPress={handleSave}
+              disabled={saving}
             >
-              <Text style={styles.editProfileSaveBtnText}>保存</Text>
+              <Text style={styles.editProfileSaveBtnText}>
+                {saving ? '保存中...' : '保存'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1893,6 +1923,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: tokens.surface.light,
+  },
+  editProfileSaveBtnDisabled: {
+    opacity: 0.6,
+  },
+  editProfileError: {
+    fontSize: 12,
+    color: tokens.danger.DEFAULT,
+    marginBottom: 8,
   },
   // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
   levelIntroOverlay: {
