@@ -389,7 +389,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 작업 로그                      | 로그인 로그 / 작업 로그 / 콜백 로그 / audit + security-logs                                                                                    |
 |                          | 모니터링 알림                  | Prometheus + Grafana(20 대시보드) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                    |
 | **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 15 / **339+ 테이블** / 100 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
-|                          | 큐 캐시                        | Redis 7 + BullMQ / 독립 worker 프로세스(:8081)                                                                                                 |
+|                          | 큐 캐시                        | Redis 7 + BullMQ / 독립 worker 프로세스(:8804)                                                                                                 |
 |                          | 오브젝트 스토리지              | OSS 멀티 벤더 드라이버 / 자격증명 암호화 / 청크 업로드 / 파일 버전 / chunked-upload                                                            |
 |                          | 이메일 SMS                     | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                                                    |
 |                          | 국제화                         | 5개 언어 parity(zh-CN / zh-TW / en / ko / ja) + 19 i18n 툴체인 + 4 게이트 스크립트                                                             |
@@ -582,7 +582,7 @@ cd IHUI-AI && docker compose up -d
                                            │  HTTPS / WebSocket / SSE / ACP
                                   ┌────────▼─────────┐
                                   │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8080          │  ~1080 엔드포인트 + 12 WS + 95 라우트 파일
+                                  │   :8802          │  ~1080 엔드포인트 + 12 WS + 95 라우트 파일
                                   └────┬───────┬─────┘
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐

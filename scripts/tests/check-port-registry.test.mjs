@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-port-registry.mjs')
 // - 守门规则:dev/宿主映射端口必须以 88 开头(88xx 段)
 // - REGISTERED_PORTS:8801-8809 / 8810-8819 / 8820-8829 / 8830-8839 / 8841-8849
 //   ⚠️ 8840 不在注册表中(88xx 但未注册 → 违规)
-// - EXEMPT_PORTS:8080/8081/3000/8000/5432/6379/443/80/22 等(容器内部/CI/第三方)
+// - EXEMPT_PORTS:5432/6379/443/80/22 等(基础设施/CI/第三方)
 // - EXEMPT_PATH_PATTERNS:docs/ / .github/workflows/ / apps/api/tests/ 等
 // - warn-only:始终 exit 0,不阻塞 commit(通过 stdout 区分 ✅ / ⚠️)
 // - 两种模式:默认(staged) / --all(git ls-files 全量 tracked)
@@ -100,22 +100,10 @@ test('合法: localhost:8849(注册表末位)→ ✅ 无违规', () => {
 })
 
 // ============================================================
-// 检查 2:核心规则 —— 豁免端口(容器内部/CI/第三方)→ ✅ 无违规
+// 检查 2:核心规则 —— 豁免端口(基础设施/CI/第三方)→ ✅ 无违规
 // ============================================================
 
-// ─── 3. 合法: localhost:8080(Docker 容器内部端口)→ ✅ 无违规 ───
-test('合法: localhost:8080(Docker 容器内部豁免)→ ✅ 无违规', () => {
-  const dir = createTempGitRepo()
-  try {
-    stageFile(dir, 'apps/api/docker-internal.ts', `const INTERNAL = 'http://localhost:8080/health'\n`)
-    const r = runScript(dir, ['--all'])
-    assertPass(r)
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-// ─── 4. 合法: localhost:5432(PostgreSQL 容器内部)→ ✅ 无违规 ───
+// ─── 3. 合法: localhost:5432(PostgreSQL 容器内部)→ ✅ 无违规 ───
 test('合法: localhost:5432(PostgreSQL 豁免)→ ✅ 无违规', () => {
   const dir = createTempGitRepo()
   try {

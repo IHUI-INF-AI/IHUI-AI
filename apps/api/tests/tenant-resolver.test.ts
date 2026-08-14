@@ -66,8 +66,8 @@ describe('resolveTenantIdentifier — IP 地址不作为租户 slug（R12 回归
     expect(resolveTenantIdentifier(mockReq({ host: '8.8.8.8' }))).toBeNull()
   })
 
-  it('带端口的 IP 127.0.0.1:3000 → null', () => {
-    expect(resolveTenantIdentifier(mockReq({ host: '127.0.0.1:3000' }))).toBeNull()
+  it('带端口的 IP 127.0.0.1:8801 → null', () => {
+    expect(resolveTenantIdentifier(mockReq({ host: '127.0.0.1:8801' }))).toBeNull()
   })
 })
 
@@ -94,8 +94,8 @@ describe('resolveTenantIdentifier — 子域名解析', () => {
     expect(resolveTenantIdentifier(mockReq({ host: 'acme.aizhs.top' }))).toBe('acme')
   })
 
-  it('带端口的子域名 foo.example.com:8080 → "foo"', () => {
-    expect(resolveTenantIdentifier(mockReq({ host: 'foo.example.com:8080' }))).toBe('foo')
+  it('带端口的子域名 foo.example.com:8802 → "foo"', () => {
+    expect(resolveTenantIdentifier(mockReq({ host: 'foo.example.com:8802' }))).toBe('foo')
   })
 
   it('www.example.com → null（白名单）', () => {
