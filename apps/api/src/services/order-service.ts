@@ -85,6 +85,7 @@ export async function completeOrder(
     }
     // B1: token 充值(幂等:rechargeToken 内部 unique 索引拦截重复回调)
     await rechargeIfTokenOrder(updated)
+    // Phase 4: updateOrderStatus 内部已事务同步 eduOrders，无需额外同步
     return { success: true, order: updated }
   }
   if (order.status === 'paid') {
@@ -254,10 +255,12 @@ export async function completeOrderWithSaga(
           // 另一并发回调已将订单标记为 paid,抛出以中止 saga(第一步,无需补偿)
           throw new Error('ORDER_ALREADY_PAID')
         }
+        // Phase 4: updateOrderStatus 内部已事务同步 eduOrders，无需额外同步
         return { orderNo, previousStatus: order.status }
       },
       compensate: async () => {
         // 仅当当前状态为 paid 时才回滚(条件 UPDATE,防止误改已补偿的状态)
+        // Phase 4: updateOrderStatus 内部已同步回滚 eduOrders(paid→pending)
         await updateOrderStatus(orderNo, 'pending', 'paid')
       },
     },
