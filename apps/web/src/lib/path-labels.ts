@@ -14,6 +14,7 @@
  */
 
 import type { ComponentType } from 'react'
+import { Home } from 'lucide-react'
 import { FLAT_NAV_ITEMS } from '@/components/sidebar'
 import { ADMIN_NAV } from '@/components/layout/AdminNav'
 
@@ -272,6 +273,8 @@ interface PathIconEntry {
 const ALL_PATH_ICON_MAP: PathIconEntry[] = [
   ...FLAT_NAV_ITEMS.map((item) => ({ href: item.href, icon: item.icon })),
   ...ADMIN_NAV.map((item) => ({ href: item.href, icon: item.icon })),
+  // EXTRA_PATH_LABELS 中 /chat 显示为"首页",补充图标映射。
+  { href: '/chat', icon: Home },
 ]
 
 const SORTED_PATH_ICONS = [...ALL_PATH_ICON_MAP].sort((a, b) => b.href.length - a.href.length)
