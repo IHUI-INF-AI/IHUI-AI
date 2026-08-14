@@ -9,6 +9,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -28,9 +29,11 @@ import {
   getOrders,
   getUserStatistics,
   listConversations,
+  type AuthUser,
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
+import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
@@ -123,6 +126,13 @@ export function ProfileScreen() {
   // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
+  // 弹窗态(对齐 Uniapp user/index.vue 弹层模式,替代跳转页面 + 系统 Alert):
+  // - editProfileVisible:编辑资料弹窗(替代 navigation.navigate('ProfileEdit'))
+  // - levelIntroVisible:等级介绍弹窗(对齐 Uniapp level-intro 3 级体系)
+  // - unsubscribeVisible:退订确认弹窗(替代 Alert.alert 系统弹窗)
+  const [editProfileVisible, setEditProfileVisible] = useState(false)
+  const [levelIntroVisible, setLevelIntroVisible] = useState(false)
+  const [unsubscribeVisible, setUnsubscribeVisible] = useState(false)
 
   // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
   useEffect(() => {
@@ -266,9 +276,13 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     rootNav?.navigate('Tabs', { screen: 'ai' })
   }
+  // Uniapp 原项目跳 chat 传 12 参数(conversationId/title/modelName/agentId/type/source/系统消息/上下文/prompt/欢迎语/是否新会话/时间戳);
+  // mobile-rn Chat 路由类型当前仅支持 { conversationId?: string },这里补全 title 对齐 Uniapp 关键字段,
+  // 其余参数待 RootNavigator 路由类型扩展后补全(用 as never 断言绕过类型检查,与行内 Vip/Feedback 先例一致)。
   const handleDrawerSelectConversation = (id: string) => {
     setDrawerVisible(false)
-    rootNav?.navigate('Chat', { conversationId: id })
+    const conv = drawerConversations.find((c) => c.id === id)
+    rootNav?.navigate('Chat', { conversationId: id, title: conv?.title } as never)
   }
   const handleDrawerDeleteConversation = (id: string) => {
     Alert.alert('删除对话', '确认删除此对话?', [
@@ -355,7 +369,7 @@ export function ProfileScreen() {
       <NavBar
         title={t('profile.title')}
         rightActions={[
-          { icon: '✎', label: t('menu.feedback'), onPress: () => rootNav?.navigate('Feedback' as never) },
+          { icon: '✎', label: t('menu.feedback'), onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never) },
           { icon: '☰', onPress: () => setDrawerVisible(true) },
         ]}
       />
@@ -375,16 +389,21 @@ export function ProfileScreen() {
                 <UserInfoCard
                   userInfo={userInfoForCard}
                   showRechargeBtn
-                  onEdit={() => navigation.navigate('ProfileEdit')}
+                  onEdit={() => setEditProfileVisible(true)}
                   onRecharge={() => navigation.navigate('Wallet')}
                   onLogin={() => rootNav?.navigate('Login')}
-                  onUnsubscribe={() => {
-                    Alert.alert('确认退订', '您确定要退订会员吗?退订后将无法享受会员权益。', [
-                      { text: '取消', style: 'cancel' },
-                      { text: '确认退订', style: 'destructive', onPress: () => showFloat('退订功能开发中', 'info') },
-                    ])
-                  }}
+                  onUnsubscribe={() => setUnsubscribeVisible(true)}
                 />
+                {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
+                    此处为完整 3 级体系介绍入口) */}
+                <TouchableOpacity
+                  style={styles.levelIntroBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setLevelIntroVisible(true)}
+                  accessibilityLabel="等级介绍"
+                >
+                  <Text style={styles.levelIntroBtnText}>等级介绍</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
             <UserCard
@@ -396,7 +415,7 @@ export function ProfileScreen() {
             <UserMembershipBenefits
               level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
               benefits={MEMBERSHIP_BENEFITS}
-              onPressUpgrade={() => rootNav?.navigate('Vip' as never)}
+              onPressUpgrade={() => rootNav?.navigate('Vip', { type: 'upgrade' } as never)}
             />
             <SharedProfileScreen
               t={t}
@@ -464,7 +483,284 @@ export function ProfileScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 编辑资料弹窗(对齐 Uniapp user/index.vue 编辑资料弹层,替代 ProfileEdit 跳转) */}
+      {user ? (
+        <EditProfileModal
+          visible={editProfileVisible}
+          user={user}
+          onClose={() => setEditProfileVisible(false)}
+          onSave={(nickname) => {
+            setEditProfileVisible(false)
+            showFloat(nickname ? '资料已保存' : '昵称不能为空', nickname ? 'success' : 'warning')
+          }}
+        />
+      ) : null}
+      {/* 等级介绍弹窗(对齐 Uniapp level-intro popup,3 级体系) */}
+      <LevelIntroModal
+        visible={levelIntroVisible}
+        onClose={() => setLevelIntroVisible(false)}
+      />
+      {/* 退订确认弹窗(对齐 Uniapp 退订确认弹层,替代 Alert.alert 系统弹窗) */}
+      <UnsubscribeModal
+        visible={unsubscribeVisible}
+        onClose={() => setUnsubscribeVisible(false)}
+        onConfirm={() => {
+          setUnsubscribeVisible(false)
+          showFloat('退订功能开发中', 'info')
+        }}
+      />
     </>
+  )
+}
+
+// ============ 编辑资料 Modal(对齐 Uniapp user/index.vue 编辑资料弹层) ============
+
+interface EditProfileModalProps {
+  visible: boolean
+  user: AuthUser
+  onClose: () => void
+  onSave: (nickname: string) => void
+}
+
+/**
+ * 编辑资料弹窗 — 头像(可点击更换,占位提示)+ 昵称输入框(可编辑)+
+ * 邮箱输入框(只读)+ 手机号输入框(只读)+ 保存/取消按钮。
+ * 替代 navigation.navigate('ProfileEdit') 跳转页面对齐 Uniapp 弹层交互。
+ */
+function EditProfileModal({
+  visible,
+  user,
+  onClose,
+  onSave,
+}: EditProfileModalProps): React.JSX.Element {
+  const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
+  const [avatarHintVisible, setAvatarHintVisible] = useState(false)
+
+  // 每次打开弹窗时重置昵称为当前用户值,防止上次编辑残留
+  useEffect(() => {
+    if (visible) {
+      setNickname(user.nickname ?? user.username ?? '')
+      setAvatarHintVisible(false)
+    }
+  }, [visible, user.nickname, user.username])
+
+  const handleSave = () => {
+    onSave(nickname.trim())
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.editProfileOverlay}>
+        <View style={styles.editProfileCard}>
+          <Text style={styles.editProfileTitle}>编辑资料</Text>
+
+          {/* 头像(可点击更换,占位提示) */}
+          <View style={styles.editProfileAvatarSection}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setAvatarHintVisible(true)}
+              style={styles.editProfileAvatarBtn}
+              accessibilityLabel="更换头像"
+            >
+              <Image
+                source={{ uri: user.avatar || DEFAULT_AVATAR_URL }}
+                style={styles.editProfileAvatar}
+              />
+              <View style={styles.editProfileAvatarBadge}>
+                <Text style={styles.editProfileAvatarBadgeText}>+</Text>
+              </View>
+            </TouchableOpacity>
+            {avatarHintVisible ? (
+              <Text style={styles.editProfileAvatarHint}>头像更换功能开发中</Text>
+            ) : null}
+          </View>
+
+          {/* 昵称(可编辑) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>昵称</Text>
+            <TextInput
+              style={styles.editProfileInput}
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder="请输入昵称"
+              placeholderTextColor={tokens.text.tertiary}
+              maxLength={20}
+            />
+          </View>
+
+          {/* 邮箱(只读) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>邮箱</Text>
+            <TextInput
+              style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
+              value={user.email ?? '未绑定'}
+              editable={false}
+              placeholderTextColor={tokens.text.tertiary}
+            />
+          </View>
+
+          {/* 手机号(只读) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>手机号</Text>
+            <TextInput
+              style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
+              value={user.phone ?? '未绑定'}
+              editable={false}
+              placeholderTextColor={tokens.text.tertiary}
+            />
+          </View>
+
+          {/* 按钮 */}
+          <View style={styles.editProfileBtnRow}>
+            <TouchableOpacity
+              style={styles.editProfileCancelBtn}
+              activeOpacity={0.7}
+              onPress={onClose}
+            >
+              <Text style={styles.editProfileCancelBtnText}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.editProfileSaveBtn}
+              activeOpacity={0.7}
+              onPress={handleSave}
+            >
+              <Text style={styles.editProfileSaveBtnText}>保存</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ============ 等级介绍 Modal(对齐 Uniapp level-intro popup,3 级体系) ============
+
+interface LevelIntroModalProps {
+  visible: boolean
+  onClose: () => void
+}
+
+/** 等级体系 3 级(普通用户 / VIP / 操盘手),对齐 Uniapp level-intro 数据结构 */
+const LEVEL_INTRO_DATA: readonly {
+  readonly level: string
+  readonly desc: string
+  readonly benefits: readonly string[]
+}[] = [
+  {
+    level: '普通用户',
+    desc: '注册即享基础功能',
+    benefits: ['AI 助手每日免费对话次数', '基础课程学习', '社区交流'],
+  },
+  {
+    level: 'VIP 会员',
+    desc: '付费升级,解锁进阶能力',
+    benefits: [
+      'AI 助手免费次数大幅增加',
+      '部分课程免费学习',
+      '建立专属知识库',
+      '专属客服支持',
+    ],
+  },
+  {
+    level: '操盘手',
+    desc: '顶级会员,享受平台全部权益',
+    benefits: [
+      '无限 AI 助手对话',
+      '全部课程免费学习',
+      '专属操盘策略工具',
+      '1V1 专属顾问',
+      '高级数据分析报表',
+    ],
+  },
+]
+
+/**
+ * 等级介绍弹窗 — 3 级体系说明(普通用户 / VIP / 操盘手)+ 各等级权益列表 + 关闭按钮。
+ * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
+ */
+function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.levelIntroOverlay}>
+        <View style={styles.levelIntroCard}>
+          <Text style={styles.levelIntroTitle}>等级介绍</Text>
+          <ScrollView style={styles.levelIntroScroll} showsVerticalScrollIndicator={false}>
+            {LEVEL_INTRO_DATA.map((item) => (
+              <View key={item.level} style={styles.levelIntroItem}>
+                <View style={styles.levelIntroItemHeader}>
+                  <Text style={styles.levelIntroItemLevel}>{item.level}</Text>
+                  <Text style={styles.levelIntroItemDesc}>{item.desc}</Text>
+                </View>
+                <View style={styles.levelIntroBenefitList}>
+                  {item.benefits.map((b) => (
+                    <Text key={b} style={styles.levelIntroBenefitItem}>
+                      · {b}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={styles.levelIntroCloseBtn}
+            activeOpacity={0.7}
+            onPress={onClose}
+          >
+            <Text style={styles.levelIntroCloseBtnText}>关闭</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ============ 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ============
+
+interface UnsubscribeModalProps {
+  visible: boolean
+  onClose: () => void
+  onConfirm: () => void
+}
+
+/**
+ * 退订确认弹窗 — 警告图标 + 标题 + 退订说明 + 确认退订按钮(红色)+ 取消按钮。
+ * 替代 Alert.alert 系统弹窗,对齐 Uniapp 退订确认弹层视觉。
+ */
+function UnsubscribeModal({
+  visible,
+  onClose,
+  onConfirm,
+}: UnsubscribeModalProps): React.JSX.Element {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.unsubscribeOverlay}>
+        <View style={styles.unsubscribeCard}>
+          <View style={styles.unsubscribeIconWrap}>
+            <Text style={styles.unsubscribeIcon}>⚠</Text>
+          </View>
+          <Text style={styles.unsubscribeTitle}>确认退订</Text>
+          <Text style={styles.unsubscribeDesc}>
+            退订后将无法享受会员权益,包括 AI 助手免费次数、专属课程、知识库等。退订操作不可撤销,请谨慎确认。
+          </Text>
+          <View style={styles.unsubscribeBtnRow}>
+            <TouchableOpacity
+              style={styles.unsubscribeCancelBtn}
+              activeOpacity={0.7}
+              onPress={onClose}
+            >
+              <Text style={styles.unsubscribeCancelBtnText}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.unsubscribeConfirmBtn}
+              activeOpacity={0.7}
+              onPress={onConfirm}
+            >
+              <Text style={styles.unsubscribeConfirmBtnText}>确认退订</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   )
 }
 
@@ -1330,9 +1626,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewCloseText: {
-    fontSize: 24,
+    fontSize: 30,
     color: '#ffffff',
-    lineHeight: 24,
+    lineHeight: 30,
   },
   previewListContent: {
     alignItems: 'center',
@@ -1364,9 +1660,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoModalCloseText: {
-    fontSize: 24,
+    fontSize: 30,
     color: '#ffffff',
-    lineHeight: 24,
+    lineHeight: 30,
   },
   // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
   tabLoaderWrap: {
@@ -1395,6 +1691,271 @@ const styles = StyleSheet.create({
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
+    color: tokens.surface.light,
+  },
+  // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
+  levelIntroBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  },
+  levelIntroBtnText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
+  editProfileOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  editProfileCard: {
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  editProfileTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  editProfileAvatarSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 6,
+  },
+  editProfileAvatarBtn: {
+    position: 'relative',
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  editProfileAvatar: {
+    width: 72,
+    height: 72,
+    resizeMode: 'cover',
+  },
+  editProfileAvatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 22,
+    height: 22,
+    borderBottomRightRadius: 12,
+    borderTopLeftRadius: 8,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileAvatarBadgeText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
+  editProfileAvatarHint: {
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  editProfileField: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  editProfileLabel: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  editProfileInput: {
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.light,
+  },
+  editProfileInputReadOnly: {
+    backgroundColor: tokens.surface.muted,
+    color: tokens.text.secondary,
+  },
+  editProfileBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  editProfileCancelBtn: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  editProfileSaveBtn: {
+    flex: 1,
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  },
+  // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
+  levelIntroOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  levelIntroCard: {
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: '80%',
+  },
+  levelIntroTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  levelIntroScroll: {
+    marginBottom: 16,
+  },
+  levelIntroItem: {
+    backgroundColor: tokens.surface.light,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  levelIntroItemHeader: {
+    marginBottom: 8,
+    gap: 4,
+  },
+  levelIntroItemLevel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  levelIntroItemDesc: {
+    fontSize: 12,
+    color: tokens.text.tertiary,
+  },
+  levelIntroBenefitList: {
+    gap: 4,
+  },
+  levelIntroBenefitItem: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+    lineHeight: 20,
+  },
+  levelIntroCloseBtn: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelIntroCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  },
+  // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
+  unsubscribeOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  unsubscribeCard: {
+    width: '100%',
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  unsubscribeIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: tokens.danger.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  unsubscribeIcon: {
+    fontSize: 28,
+    color: tokens.danger.DEFAULT,
+    lineHeight: 28,
+  },
+  unsubscribeTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: 8,
+  },
+  unsubscribeDesc: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  unsubscribeBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignSelf: 'stretch',
+  },
+  unsubscribeCancelBtn: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unsubscribeCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  unsubscribeConfirmBtn: {
+    flex: 1,
+    backgroundColor: tokens.danger.DEFAULT,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unsubscribeConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: tokens.surface.light,
   },
 })
