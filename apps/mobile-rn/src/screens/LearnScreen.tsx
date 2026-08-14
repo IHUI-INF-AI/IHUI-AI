@@ -121,6 +121,9 @@ export function LearnScreen() {
 
   const openCourse = (id: string) => navigation.navigate('CourseDetail', { id })
   const openBrowse = () => navigation.navigate('CourseFilter')
+  /** 分类点击 → 分类详情页(对齐 Uniapp learn.vue 行 54 navigateTo(item.path) 带 id) */
+  const openCategory = (cat: LearnCategory) =>
+    navigation.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
 
   const renderSectionHeader = (title: string, onMore?: () => void) => (
     <View style={styles.sectionHeader}>
@@ -216,7 +219,7 @@ export function LearnScreen() {
                 <Pressable
                   key={cat.id}
                   style={styles.categoryItem}
-                  onPress={openBrowse}
+                  onPress={() => openCategory(cat)}
                   accessibilityRole="button"
                   accessibilityLabel={cat.name}
                 >
