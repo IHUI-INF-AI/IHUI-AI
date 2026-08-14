@@ -103,6 +103,7 @@ import ModelList, {
 import AgentList, {
   type AgentListItem,
 } from '../components/AgentList'
+import { BottomPops } from '../components/BottomPops'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -1158,76 +1159,52 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       </Modal>
 
       {/* 功能面板(对齐 Uniapp function-handle 子组件,底部上滑 6 项 AI 功能) */}
-      <Modal visible={functionPanelVisible} transparent animationType="slide" onRequestClose={closeFunctionPanel}>
-        <Pressable style={styles.panelSheetMask} onPress={closeFunctionPanel}>
-          <Pressable style={styles.panelSheetContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.panelSheetHeader}>
-              <Text style={styles.panelSheetTitle}>功能</Text>
-              <Pressable hitSlop={8} onPress={closeFunctionPanel} style={styles.panelSheetClose} accessibilityLabel="关闭">
-                <X size={20} color={tokens.text.secondary} />
-              </Pressable>
-            </View>
-            <ScrollView>
-              {functionPanelItems.map((item) => (
-                <Pressable
-                  key={item.key}
-                  onPress={item.onPress}
-                  style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label}
-                >
-                  <item.Icon size={22} color={tokens.text.primary} />
-                  <Text style={styles.panelItemText}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Pressable
-              onPress={closeFunctionPanel}
-              style={({ pressed }) => [styles.panelCancelBtn, pressed && styles.panelItemPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="取消"
-            >
-              <Text style={styles.panelCancelText}>取消</Text>
-            </Pressable>
+      <BottomPops visible={functionPanelVisible} onClose={closeFunctionPanel} title="功能">
+        {functionPanelItems.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={item.onPress}
+            style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+          >
+            <item.Icon size={22} color={tokens.text.primary} />
+            <Text style={styles.panelItemText}>{item.label}</Text>
           </Pressable>
+        ))}
+        <Pressable
+          onPress={closeFunctionPanel}
+          style={({ pressed }) => [styles.panelCancelBtn, pressed && styles.panelItemPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="取消"
+        >
+          <Text style={styles.panelCancelText}>取消</Text>
         </Pressable>
-      </Modal>
+      </BottomPops>
 
       {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
-      <Modal visible={sourcePanelVisible} transparent animationType="slide" onRequestClose={closeSourcePanel}>
-        <Pressable style={styles.panelSheetMask} onPress={closeSourcePanel}>
-          <Pressable style={styles.panelSheetContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.panelSheetHeader}>
-              <Text style={styles.panelSheetTitle}>知识来源</Text>
-              <Pressable hitSlop={8} onPress={closeSourcePanel} style={styles.panelSheetClose} accessibilityLabel="关闭">
-                <X size={20} color={tokens.text.secondary} />
-              </Pressable>
-            </View>
-            <ScrollView>
-              {sourcePanelItems.map((item) => (
-                <Pressable
-                  key={item.key}
-                  onPress={item.onPress}
-                  style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label}
-                >
-                  <item.Icon size={22} color={tokens.text.primary} />
-                  <Text style={styles.panelItemText}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Pressable
-              onPress={closeSourcePanel}
-              style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="取消"
-            >
-              <Text style={styles.panelCancelText}>取消</Text>
-            </Pressable>
+      <BottomPops visible={sourcePanelVisible} onClose={closeSourcePanel} title="知识来源">
+        {sourcePanelItems.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={item.onPress}
+            style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+          >
+            <item.Icon size={22} color={tokens.text.primary} />
+            <Text style={styles.panelItemText}>{item.label}</Text>
           </Pressable>
+        ))}
+        <Pressable
+          onPress={closeSourcePanel}
+          style={({ pressed }) => [styles.panelItem, pressed && styles.panelItemPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="取消"
+        >
+          <Text style={styles.panelCancelText}>取消</Text>
         </Pressable>
-      </Modal>
+      </BottomPops>
 
       {/* Drawer(H3 重建版,管理 visible 状态) */}
       <Drawer
@@ -1592,38 +1569,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // ── 功能面板/来源面板(底部上滑 sheet,对齐 Uniapp function-handle / source-handle) ──
-  panelSheetMask: {
-    flex: 1,
-    backgroundColor: tokens.overlay.modal,
-    justifyContent: 'flex-end',
-  },
-  panelSheetContent: {
-    backgroundColor: tokens.surface.light,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    paddingBottom: 24,
-    maxHeight: '80%',
-  },
-  panelSheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  panelSheetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-  },
-  panelSheetClose: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // ── 功能面板/来源面板(BottomPops 子内容样式) ──
   panelItem: {
     flexDirection: 'row',
     alignItems: 'center',
