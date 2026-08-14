@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
-import { resolvePathLabelSpec } from '@/lib/path-labels'
+import { resolvePathLabelSpec, resolvePathIcon } from '@/lib/path-labels'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 
 /**
@@ -504,10 +504,9 @@ export function TagsView() {
             const isOver = overIndex === index && dragIndex !== null
             const isDirty = dirtyPaths.has(tag.path)
             return (
-              // 标签宽度契约(2026-08-01 修正:关闭按钮 w-5→w-9,pl-6→pl-11 保持对称):
-              // - 文字到右边缘: gap-1 (4) + X span w-9 (36) + pr-1 (4) = 44px
-              // - 文字到左边缘: pl-11 (44px) — 与右侧 44px 对称,文字几何居中
-              // - 若 X 宽度调整,需同步修改 pl-11 → pl-±N(每 ±4px X 宽度 → ±4px pl)
+              // 标签布局(2026-08-14 修正:加入路由图标,pl-8 → pl-2.5):
+              // - [icon] [text] [X close] 三段式布局,图标在前(对标 Chrome 标签页 favicon)
+              // - pinned 标签:Pin 图标替代路由图标(图钉 = 固定状态指示)
               <Link
                 key={tag.path}
                 href={buildHref(tag)}
@@ -526,11 +525,10 @@ export function TagsView() {
                   //   → 改用 bg-accent text-accent-foreground(与 sidebar/GlobalTopBar 全局选中态一致,
                   //     对比度足够,浅深模式都清晰可辨)+ font-medium
                   // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
-                  // - pl-8 (32px) 对应 X 关闭按钮 w-6 (24px) + gap-1 (4px) + pr-1 (4px) = 32px,
-                  //   左右对称,文字几何居中(2026-08-01 修正:关闭按钮 h-9 w-9 太大 → h-6 w-6,
-                  //   与 Chrome 标签页关闭按钮一致,X 图标 h-4 w-4 不变)
+                  // - pl-2.5 (10px) + 图标 (14px) + gap-1 (4px) = 28px 文字到左边缘
+                  //   pl-8 → pl-2.5:原 pl-8 为与关闭按钮对称的空白,现改为图标填充左侧空间
                   TOPBAR_BTN_BASE,
-                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
+                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-2.5 pr-1 text-xs',
                   active
                     ? // active(当前显示页面):2026-08-12 用户反馈"内描边改成外描边,色用纯白/纯黑"
                       //   移除 border(1px 内描边,border-border 灰度低对比度弱),
@@ -563,12 +561,12 @@ export function TagsView() {
                   draggable && 'cursor-grab active:cursor-grabbing',
                 )}
               >
-                {/* pinned 图钉图标(absolute 左侧,不占文字空间;2026-07-31 Chrome 风格) */}
-                {isPinned && (
-                  <Pin
-                    aria-label={tCommon('pin')}
-                    className="absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 shrink-0 text-primary/70"
-                  />
+                {/* 标签图标(2026-08-14):pinned 时显示 Pin 图钉,否则显示路由对应图标。
+                    TOPBAR_BTN_BASE 的 [&>svg]:!h-3.5 [&>svg]:!w-3.5 自动统一图标尺寸为 14px。 */}
+                {isPinned ? (
+                  <Pin aria-label={tCommon('pin')} className="shrink-0 text-primary/70" />
+                ) : (
+                  <TagIcon path={tag.path} />
                 )}
                 {/* 性能修复:TagLabel 子组件内部根据 path 解析到的 ns 只调用 1 次 useTranslations,
                   而非顶层 22 个 translator 全量初始化。React.memo 浅比较 path 避免无关重渲染。 */}
@@ -691,6 +689,17 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
     return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
   }
   return <span className="min-w-0 flex-1 truncate text-sm leading-none">{t(spec.key)}</span>
+})
+
+/**
+ * 单个标签图标渲染器(2026-08-14)。
+ * 根据 path 解析路由对应的 lucide 图标,未匹配时返回 null(不渲染图标)。
+ * React.memo 浅比较 path,与 TagLabel 一致避免无关重渲染。
+ */
+const TagIcon = React.memo(function TagIcon({ path }: { path: string }) {
+  const Icon = resolvePathIcon(path)
+  if (!Icon) return null
+  return <Icon className="shrink-0" />
 })
 
 export default TagsView
