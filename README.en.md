@@ -430,7 +430,7 @@ pnpm turbo build typecheck lint test
 | ----------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------ |
 | **Monorepo**            | pnpm workspace + Turborepo                                                                    | pnpm 9.15 / turbo 2.3                      |
 | **Backend API**         | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                        | Fastify 5.1 / Drizzle 0.38 / PG 15         |
-| **Cache & queue**       | Redis 7 + BullMQ                                                                              | Independent worker process (`:8081`)       |
+| **Cache & queue**       | Redis 7 + BullMQ                                                                              | Independent worker process (`:8804`)       |
 | **Frontend Web**        | Next.js + React + Tailwind CSS + shadcn/ui                                                    | Next 15.1 / React 19 / Tailwind 4          |
 | **Frontend state**      | @tanstack/react-query 5 + Zustand                                                             | Server + client state separation           |
 | **i18n**                | next-intl                                                                                     | zh-CN / zh-TW / en / ko / ja (5 languages) |

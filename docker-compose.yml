@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - PORT=8080
+      - PORT=8802
       - HOST=0.0.0.0
       - LOG_LEVEL=info
       - CORS_ORIGIN=http://${DOMAIN:-localhost}
@@ -31,7 +31,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - JWT_EXPIRES_IN=7d
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
-      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_URL=http://ai-service:8803
       - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -92,7 +92,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8080/api/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8802/api/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -116,7 +116,7 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
-      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_URL=http://ai-service:8803
       - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -142,7 +142,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8081/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8804/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -158,11 +158,11 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - API_URL=http://api:8080
-      - AI_SERVICE_URL=http://ai-service:8000
+      - API_URL=http://api:8802
+      - AI_SERVICE_URL=http://ai-service:8803
       - NEXT_TELEMETRY_DISABLED=1
     ports:
-      - '${WEB_PORT:-8801}:3000'
+      - '${WEB_PORT:-8801}:8801'
     depends_on:
       api:
         condition: service_healthy
@@ -178,10 +178,10 @@ services:
     container_name: ihui-ai-service
     restart: unless-stopped
     ports:
-      - '${AI_SERVICE_PORT:-8803}:8000'
+      - '${AI_SERVICE_PORT:-8803}:8803'
     environment:
       - NODE_ENV=production
-      - PORT=8000
+      - PORT=8803
       - HOST=0.0.0.0
       - LOG_LEVEL=info
       - CORS_ORIGIN=http://${DOMAIN:-localhost}
@@ -197,7 +197,7 @@ services:
       - STEPFUN_API_KEY=${STEPFUN_API_KEY:-}
       - STEPFUN_API_BASE=${STEPFUN_API_BASE:-https://api.stepfun.com/step_plan/v1}
       - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
-      - API_SERVICE_URL=http://api:8080
+      - API_SERVICE_URL=http://api:8802
       - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - LLM_PROXY_URL=${LLM_PROXY_URL:-}
     depends_on:
@@ -213,7 +213,7 @@ services:
           'CMD',
           'python',
           '-c',
-          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8803/health',timeout=3).status==200 else 1)",
         ]
       interval: 30s
       timeout: 5s
@@ -375,12 +375,13 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER 未配置,请在 .env 设置}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_HTTP_PORT=8816
     ports:
-      - '${GRAFANA_PORT:-8816}:3000'
+      - '${GRAFANA_PORT:-8816}:8816'
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD-SHELL', 'wget --spider -q http://localhost:3000/api/health || exit 1']
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:8816/api/health || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3

@@ -5,8 +5,8 @@ set -euo pipefail
 # IHUI-AI 蓝绿部署切换脚本
 # ------------------------------------------------------------
 # 用法:
-#   ./deploy.sh blue       切换到 Blue 环境 (web=3000, api=8080)
-#   ./deploy.sh green      切换到 Green 环境 (web=3001, api=8081)
+#   ./deploy.sh blue       切换到 Blue 环境 (web=8801, api=8802)
+#   ./deploy.sh green      切换到 Green 环境 (web=8803, api=8804)
 #   ./deploy.sh status     显示当前激活环境
 #   ./deploy.sh rollback   回滚到上一个环境
 #
@@ -243,8 +243,8 @@ usage() {
 用法: $0 <command>
 
 命令:
-  blue       切换到 Blue 环境 (web=3000, api=8080)
-  green      切换到 Green 环境 (web=3001, api=8081)
+  blue       切换到 Blue 环境 (web=8801, api=8802)
+  green      切换到 Green 环境 (web=8803, api=8804)
   status     显示当前激活环境
   rollback   回滚到上一个环境
 

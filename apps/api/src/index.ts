@@ -15,7 +15,7 @@ import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
 import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
 
-const PORT = Number(process.env.PORT ?? 8080)
+const PORT = Number(process.env.PORT ?? 8802)
 const HOST = process.env.HOST ?? '0.0.0.0'
 
 /**

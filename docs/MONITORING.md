@@ -9,7 +9,7 @@
 | 组件 | 版本 | 用途 | 端口 |
 |------|------|------|------|
 | Prometheus | - | 指标采集与存储 | 9090 |
-| Grafana | - | 仪表盘可视化(21 仪表盘) | 3000 |
+| Grafana | - | 仪表盘可视化(21 仪表盘) | 8816 |
 | Loki | 2.9+ | 日志聚合(tsdb schema) | 3100 |
 | Promtail | - | 日志采集(Docker/journal/nginx/app) | 9080 |
 | Jaeger | all-in-one | 分布式追踪(OTLP/gRPC) | 16686 |
@@ -48,7 +48,7 @@
                        ▼                            ▼
                 ┌──────────────┐           ┌──────────────┐
                 │  Grafana     │◄──────────┤ Alertmanager │
-                │  端口 3000   │  查询     │ 端口 9093   │
+                │  端口 8816   │  查询     │ 端口 9093   │
                 │  (21 仪表盘) │           │ (告警通知)  │
                 └──────────────┘           └──────┬───────┘
                                                   │
@@ -93,22 +93,22 @@ rule_files:
   - "alerts.yml"
 
 scrape_configs:
-  - job_name: 'api'              # Fastify 后端(端口 8080)
+  - job_name: 'api'              # Fastify 后端(端口 8802)
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['api:8080']
+      - targets: ['api:8802']
         labels: { service: 'api', layer: 'backend' }
 
-  - job_name: 'ai-service'      # FastAPI AI 服务(端口 8000)
+  - job_name: 'ai-service'      # FastAPI AI 服务(端口 8803)
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['ai-service:8000']
+      - targets: ['ai-service:8803']
         labels: { service: 'ai-service', layer: 'ai' }
 
   - job_name: 'business-metrics' # 业务指标(/business-metrics 端点)
     metrics_path: '/business-metrics'
     static_configs:
-      - targets: ['api:8080']
+      - targets: ['api:8802']
         labels: { service: 'api', layer: 'backend' }
 
   - job_name: 'otel-collector'  # OTel Collector 自身指标(端口 8888)
@@ -131,9 +131,9 @@ scrape_configs:
 
 | Job | 目标 | 路径 | 间隔 | 说明 |
 |-----|------|------|------|------|
-| api | `api:8080` | `/metrics` | 15s | Fastify 后端指标 |
-| ai-service | `ai-service:8000` | `/metrics` | 15s | FastAPI AI 服务指标 |
-| business-metrics | `api:8080` | `/business-metrics` | 15s | 业务漏斗与自定义指标 |
+| api | `api:8802` | `/metrics` | 15s | Fastify 后端指标 |
+| ai-service | `ai-service:8803` | `/metrics` | 15s | FastAPI AI 服务指标 |
+| business-metrics | `api:8802` | `/business-metrics` | 15s | 业务漏斗与自定义指标 |
 | otel-collector | `otel-collector:8888` | `/metrics` | 15s | OTel Collector 自身指标 |
 | prometheus | `localhost:9090` | - | 15s | Prometheus 自监控 |
 | node | `node-exporter:9100` | - | 15s | 主机指标(磁盘/内存/CPU) |
@@ -148,7 +148,7 @@ scrape_configs:
 
 ```ini
 [server]
-http_port = 3000
+http_port = 8816
 
 [security]
 admin_user = admin
@@ -584,8 +584,7 @@ interface BufferedLog {
 services:
   api:
     healthcheck:
-      # 豁免:docker-compose 容器内部健康检查,8080 是 api 容器内部端口(见 port-management.md §2.5)
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8802/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -593,8 +592,7 @@ services:
 
   ai-service:
     healthcheck:
-      # 豁免:docker-compose 容器内部健康检查,8000 是 ai-service 容器内部端口(见 port-management.md §2.5)
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8803/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -703,17 +701,17 @@ docker compose up -d
 
 # 验证各组件健康
 docker compose ps
-curl http://localhost:9090/-/healthy    # Prometheus
-curl http://localhost:3000/api/health    # Grafana(豁免:第三方服务,容器内 3000,宿主映射 8816,见 port-management.md §2.2)
-curl http://localhost:3100/ready        # Loki
-curl http://localhost:16686/             # Jaeger UI
+curl http://localhost:8815/-/healthy    # Prometheus
+curl http://localhost:8816/api/health   # Grafana
+curl http://localhost:8818/ready        # Loki
+curl http://localhost:8814/             # Jaeger UI
 ```
 
 ### Grafana 访问
 
 | 项 | 值 |
 |----|-----|
-| URL | `http://localhost:3000`(豁免:Grafana 容器内端口,宿主映射 8816,见 port-management.md §2.2) |
+| URL | `http://localhost:8816` |
 | 用户名 | `admin` |
 | 密码 | `ihui-admin` |
 | 默认仪表盘 | IHUI-AI Overview |

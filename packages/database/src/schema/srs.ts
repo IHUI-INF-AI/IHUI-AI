@@ -63,7 +63,7 @@ export const srsServers = pgTable(
     name: varchar('name', { length: 100 }).notNull(),
     host: varchar('host', { length: 255 }).notNull(),
     rtmpPort: integer('rtmp_port').default(1935).notNull(),
-    httpPort: integer('http_port').default(8080).notNull(),
+    httpPort: integer('http_port').default(8802).notNull(),
     webrtcPort: integer('webrtc_port').default(1985).notNull(),
     apiPort: integer('api_port').default(1985).notNull(),
     apiSecret: varchar('api_secret', { length: 256 }),

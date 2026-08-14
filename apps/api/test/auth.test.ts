@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
 import { hashPassword } from '../src/utils/password-crypto.js'
 
 vi.hoisted(() => {
@@ -177,6 +178,10 @@ describe('auth routes', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    // (setAuthCookies 写 httpOnly auth cookie),测试 app 此前未注册该插件导致
+    // reply.setCookie is not a function → 500。生产 server.ts 已注册,此处补齐。
+    await app.register(cookie)
     // login 路由依赖 server.riskEngine.evaluateRisk
     app.decorate('riskEngine', {
       evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: 0 }),
