@@ -9,15 +9,17 @@
  * - 充值金额列表(mock 占位,TODO: 对接 selectsGoods API 动态列表)
  * - 自定义金额输入(对齐 .vue activityprice)
  * - 充值方式选择(微信/支付宝 Radio 路径区分,对齐 .vue topUp)
- * - 确认充值按钮 → Alert 占位(原生支付 P1,对齐 .vue plus.payment)
+ * - 确认充值按钮 → 微信 APP 支付链路(useWechatPayment 共享 Hook,orderType=2 充值订单)
  * - 浅色优雅风,rnLightTokens;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,10 +31,12 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { getTokenBalance } from '@ihui/api-client'
 import type { UserInfo } from '@ihui/types'
 import { NavBar } from '../components/NavBar'
 import UserInfoCard from '../components/UserInfoCard'
 import { useAuth } from '../context/AuthContext'
+import { useWechatPayment } from '../hooks/useWechatPayment'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -42,15 +46,14 @@ type PayMethod = 'wechat' | 'alipay'
 interface AmountOption {
   id: number
   amount: number
-  token: number
 }
 
-// TODO(P1): 对接 selectsGoods("1") API 获取动态金额列表(含 denomination 智汇值比例)
+// selectsGoods API 暂未在 api-client 封装,使用静态 4 档兜底,后端配置变更需前端同步
 const AMOUNT_OPTIONS: readonly AmountOption[] = [
-  { id: 1, amount: 10, token: 100 },
-  { id: 2, amount: 50, token: 550 },
-  { id: 3, amount: 100, token: 1100 },
-  { id: 4, amount: 500, token: 6000 },
+  { id: 1, amount: 10 },
+  { id: 2, amount: 50 },
+  { id: 3, amount: 100 },
+  { id: 4, amount: 500 },
 ]
 
 const PAY_METHODS: readonly { id: PayMethod; name: string; icon: string }[] = [
@@ -61,12 +64,53 @@ const PAY_METHODS: readonly { id: PayMethod; name: string; icon: string }[] = [
 const MIN_AMOUNT = 1
 const MAX_AMOUNT = 50000
 
+/**
+ * 智汇值比例:普通=10 / 会员=11 / 操盘手=12。
+ * 操盘手需 identityType===1(对齐 packages/shared/utils/role.ts),AuthUser 暂未暴露该字段,
+ * 降级用 isVip 区分普通(10)/会员(11);TODO: AuthUser 暴露 identityType 后补操盘手(12)分支。
+ */
+function getTokenRatio(isVip?: number): number {
+  return isVip === 1 ? 11 : 10
+}
+
 export function AppTopupScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
   const [selectedId, setSelectedId] = useState<number>(3)
   const [customAmount, setCustomAmount] = useState<string>('')
-  const [payMethod, setPayMethod] = useState<PayMethod>('alipay')
+  const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
+  const [balance, setBalance] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const tokenRatio = getTokenRatio(user?.isVip)
+
+  // 智汇值余额加载(对齐 packages/api-client getTokenBalance API)
+  // NOTE: 加载失败时 balance 保持 null → UserInfoCard 显示 0;formatTokenValue 不支持 '--'(NaN→'0'),
+  //       需改 shared/utils/format.ts 才能在 UserInfoCard 显示 '--',此处不越界修改共享层。
+  const loadBalance = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true)
+    const res = await getTokenBalance()
+    if (res.success && res.data) {
+      setBalance(res.data.balance)
+    }
+    setRefreshing(false)
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    void loadBalance()
+  }, [loadBalance, user?.id])
+
+  // 支付成功后刷新智汇值
+  const handlePaySuccess = useCallback(async () => {
+    await loadBalance()
+  }, [loadBalance])
+
+  // 微信 APP 支付共享 Hook(orderType=2 充值订单)
+  const { paying, pay } = useWechatPayment({
+    orderType: 2,
+    onSuccess: handlePaySuccess,
+  })
 
   const selectedOption = AMOUNT_OPTIONS.find((item) => item.id === selectedId)
   const finalAmount = customAmount ? Number(customAmount) : selectedOption?.amount ?? 0
@@ -95,20 +139,24 @@ export function AppTopupScreen() {
       Alert.alert('提示', err, [{ text: '知道了' }])
       return
     }
-    // TODO(P1): 接入原生支付 SDK(微信/支付宝),对齐 Uniapp plus.payment
-    const methodName = payMethod === 'wechat' ? '微信支付' : '支付宝'
-    Alert.alert('充值确认', `${methodName} · ¥${finalAmount.toFixed(2)}`, [{ text: '知道了' }])
+    if (payMethod === 'alipay') {
+      // TODO: 支付宝原生 SDK 需 @alipay/react-native-alipay 包,暂未集成
+      Alert.alert('提示', '支付宝暂未接入,请使用微信支付', [{ text: '知道了' }])
+      return
+    }
+    // 微信支付:amountCents 单位分(createWechatAppPayment 期望整数分)
+    void pay(finalAmount * 100, `充值 ${finalAmount} 元`)
   }
 
   // AuthUser → UserInfo 映射(UserInfoCard 所需字段)
+  // NOTE: 加载中/失败均显示 0;formatTokenValue 不支持 '--'(NaN → '0'),需改 shared 工具才能显示 '--'
   const userInfo: UserInfo = user
     ? {
         uuid: user.id,
         username: user.nickname || user.username,
         avatarUrl: user.avatar,
         isVip: user.isVip,
-        // TODO(P1): 对接用户余额 API 获取真实智汇值
-        tokenQuantity: 0,
+        tokenQuantity: balance ?? 0,
       }
     : {}
 
@@ -123,6 +171,14 @@ export function AppTopupScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadBalance(true)}
+              colors={[tk.brand.DEFAULT]}
+              tintColor={tk.brand.DEFAULT}
+            />
+          }
         >
           <UserInfoCard userInfo={userInfo} showRechargeBtn={false} />
 
@@ -158,7 +214,7 @@ export function AppTopupScreen() {
                     {item.amount} 元
                   </Text>
                   <Text style={[styles.amountChipSub, active ? styles.amountChipSubActive : null]}>
-                    {item.token} 智汇值
+                    {item.amount * tokenRatio} 智汇值
                   </Text>
                 </Pressable>
               )
@@ -212,12 +268,22 @@ export function AppTopupScreen() {
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.confirmBtn, pressed ? styles.confirmBtnPressed : null]}
+            style={({ pressed }) => [
+              styles.confirmBtn,
+              pressed ? styles.confirmBtnPressed : null,
+              paying ? styles.confirmBtnDisabled : null,
+            ]}
             onPress={onConfirm}
+            disabled={paying}
             accessibilityRole="button"
             accessibilityLabel="确认充值"
+            accessibilityState={{ disabled: paying }}
           >
-            <Text style={styles.confirmBtnText}>确认充值</Text>
+            {paying ? (
+              <ActivityIndicator color={tk.surface.light} size="small" />
+            ) : (
+              <Text style={styles.confirmBtnText}>确认充值</Text>
+            )}
           </Pressable>
 
           <Text style={styles.footerNote}>充值即表示同意《充值服务协议》· 充值金额不支持退款</Text>
@@ -326,6 +392,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   } as ViewStyle,
   confirmBtnPressed: { opacity: 0.85 } as ViewStyle,
+  confirmBtnDisabled: { opacity: 0.6 } as ViewStyle,
   confirmBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light } as TextStyle,
   footerNote: {
     fontSize: 12,

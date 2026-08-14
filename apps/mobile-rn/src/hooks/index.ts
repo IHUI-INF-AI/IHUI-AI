@@ -25,3 +25,11 @@ export { usePaginatedList } from '@ihui/shared/hooks'
 export type { Fetcher, PaginatedListResult } from '@ihui/shared/hooks'
 
 export { useNotificationWebSocket } from '@ihui/shared/notifications'
+
+// 微信 APP 支付共享 Hook(平台独占:依赖 RN react-native-wechat-lib,抽自 VipScreen pay 函数)
+export { useWechatPayment } from './useWechatPayment'
+export type {
+  UseWechatPaymentOptions,
+  UseWechatPaymentReturn,
+  UseWechatPaymentMessages,
+} from './useWechatPayment'
