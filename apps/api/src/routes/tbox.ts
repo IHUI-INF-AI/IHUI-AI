@@ -19,6 +19,13 @@ const commandSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 })
 
+// 设备信息更新(前端 POST /api/tbox/devices/:id)
+const updateDeviceSchema = z.object({
+  deviceName: z.string().max(200).optional(),
+  deviceType: z.string().max(50).optional(),
+  status: z.enum(['online', 'offline', 'sleep']).optional(),
+})
+
 const eventSchema = z.object({
   deviceNo: z.string(),
   eventType: z.string(),
@@ -99,6 +106,39 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       .orderBy(desc(tboxCommand.createdAt))
       .limit(50)
     return reply.send(success(list))
+  })
+
+  // 设备信息更新(前端 POST /api/tbox/devices/:id)
+  server.post('/devices/:id', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
+    if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
+    const body = parseOrThrow(updateDeviceSchema, req.body)
+    const [updated] = await db
+      .update(tboxDevice)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(tboxDevice.id, id))
+      .returning()
+    return reply.send(success(updated))
+  })
+
+  // 指令下发(复数路径,前端 POST /api/tbox/devices/:id/commands,与 /command 等价)
+  server.post('/devices/:id/commands', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const body = commandSchema.parse(req.body)
+    const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
+    if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
+    const [cmd] = await db
+      .insert(tboxCommand)
+      .values({
+        deviceId: id,
+        command: body.command,
+        payload: body.payload,
+        status: 'sent',
+        sentAt: new Date(),
+      })
+      .returning()
+    return reply.status(201).send(success(cmd))
   })
 
   // 事件通知接收（X-Signature HMAC-SHA256 签名验证）

@@ -210,7 +210,7 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
-  server.get<{ Params: { id: string } }>('/policy/:id', async (request, reply) => {
+  server.get('/policy/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -310,7 +310,7 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
-  server.get<{ Params: { id: string } }>('/teacher-certification/:id', async (request, reply) => {
+  server.get('/teacher-certification/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -428,7 +428,7 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
-  server.get<{ Params: { id: string } }>('/aigc-tool/:id', async (request, reply) => {
+  server.get('/aigc-tool/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

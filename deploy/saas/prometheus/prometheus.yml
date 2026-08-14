@@ -1,6 +1,6 @@
 # Prometheus 全局配置(P1-2.3)
 # 抓取目标:
-#   - cadvisor(端口 8080): 所有 Docker 容器运行时指标
+#   - cadvisor(端口 8808): 所有 Docker 容器运行时指标
 #   - admin-api(端口 8830): 业务级指标(预留)
 #   - traefik(端口 8082): HTTP 路由指标(预留)
 
@@ -16,7 +16,7 @@ scrape_configs:
   # CPU/内存/磁盘/网络都来自这里
   - job_name: cadvisor
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['cadvisor:8808']
         labels:
           source: docker
 

@@ -422,7 +422,7 @@ RUN pnpm turbo build --filter=@ihui/web...
 
 FROM base AS runner
 COPY --from=builder /app/apps/web/.next/standalone ./
-EXPOSE 3000
+EXPOSE 8801
 CMD ["node", "server.js"]
 ```
 

@@ -24,8 +24,8 @@
 #   customer-demo-web:
 #     loadBalancer:
 #       servers:
-#         - url: "http://customer-demo-web:3000"
+#         - url: "http://customer-demo-web:8801"
 #   customer-demo-api:
 #     loadBalancer:
 #       servers:
-#         - url: "http://customer-demo-api:8080"
+#         - url: "http://customer-demo-api:8802"

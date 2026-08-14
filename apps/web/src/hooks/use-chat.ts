@@ -31,6 +31,7 @@ import {
   persistQuestion,
 } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { logger } from '@/lib/logger'
 import { isTauri } from '@/lib/tauri-bridge'
 import { loadWorkspaceContext, getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -1172,7 +1173,11 @@ export function useChat(): UseChatReturn {
               description: '请重新登录后继续对话',
             })
             useAuthStore.setState({ isAuthenticated: false, user: null })
-            useLoginDialogStore.getState().open('login')
+            const { isAuthenticated: isAuth, token } = useAuthStore.getState()
+            // bootstrap 幽灵态不弹窗(避免刷新后并发请求的 401 打断自动登录)
+            if (!(isAuth && !token)) {
+              openLoginDialogOnce('/')
+            }
           } else {
             // 2026-07-27 修复"登录后点击发送无反应":createConversation 非 401 失败时
             // (如 500/502/网络错误)只调 store.setError 用户看不到任何反馈,误以为按钮失灵。

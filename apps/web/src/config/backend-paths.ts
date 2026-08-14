@@ -169,7 +169,7 @@ export const USER_SETTINGS_PATHS = {
   agreement: (type: string) => `/user/settings/agreement/${type}`,
 } as const
 
-// ==================== OpenClaw（8080） ====================
+// ==================== OpenClaw（8802） ====================
 const OPENCLAW = '/api/openclaw'
 export const OPENCLAW_PATHS = {
   gateway: {
