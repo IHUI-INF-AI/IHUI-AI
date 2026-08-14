@@ -21,7 +21,6 @@ import { PageSkeleton } from '@/components/common/PageSkeleton'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
-import { refreshAccessToken } from '@ihui/api-client'
 
 /**
  * GlobalShell — 真正的全局外壳(2026-07-19 立)
@@ -121,31 +120,34 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const handleToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
   const handleCloseMobile = React.useCallback(() => setMobileOpen(false), [])
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const token = useAuthStore((s) => s.token)
+  const refreshToken = useAuthStore((s) => s.refreshToken)
+
   /**
-   * 页面刷新后 token 恢复 + bootstrap 静默刷新(2026-08-11 修复)
+   * 页面刷新后自动续期恢复 + bootstrap 静默刷新(2026-08-11 修复,2026-08-14 去并发化)
    *
    * 背景:
    * - isAuthenticated 持久化到 localStorage(页面刷新后恢复为 true)
    * - token / refreshToken 不持久化(安全,防止 XSS 窃取)
    * - httpOnly auth_token cookie 由后端 Set-Cookie 管理,JS 无法读取
    *
+   * 修复(2026-08-14):移除场景 B 的 refreshAccessToken() 并发刷新。
+   * 原因:GlobalShell 与 useAuthBootstrap 同时发 /auth/refresh 会导致后端 refresh token
+   * 单次轮转冲突,触发 RFC 6749 §10.4 family 吊销,自动登录丢失。
+   * 现在完全交给 useAuthBootstrap 统一处理刷新,GlobalShell 只负责在 token 恢复后
+   * 启动自动续期(startAutoRefresh)。
+   *
    * 流程:
-   * 1. 尝试从 cookie 恢复 refreshToken(旧方案,httpOnly 下恒返回 null)
-   * 2. 若 isAuthenticated=true 但 refreshToken=null(页面刷新常态):
-   *    调用 /auth/refresh 静默拿新 token(cookie 自动附带,`credentials: 'include'`)
-   * 3. 刷新成功 → 更新内存 token + 启动自动续期
-   * 4. 刷新失败(refresh cookie 也过期) → isAuthenticated 降级为 false,
-   *    用户下次主动操作时触发登录弹窗
-   * 5. 若 refreshToken 非空(旧非 httpOnly 部署或跨标签页同步):
-   *    直接恢复自动续期
+   * 1. 页面刷新后 isAuthenticated=true 但 token=null(常态)
+   * 2. useAuthBootstrap 统一静默刷新获取新 token
+   * 3. token 恢复后,本 effect 因依赖变化重新执行,启动 startAutoRefresh
+   * 4. 若 refresh cookie 也过期 → useAuthBootstrap 内 logout(),isAuthenticated 降级为 false,
+   *    本 effect 不再启动 startAutoRefresh,用户下次主动操作时触发登录弹窗
    */
   React.useEffect(() => {
     if (!mounted) return
-    const store = useAuthStore.getState()
-    store.hydrateRefreshToken()
-    const { refreshToken, isAuthenticated, token } = useAuthStore.getState()
-
-    // 场景 A:内存已有 token + refreshToken,直接恢复自动续期
+    // 场景:内存已有 token + refreshToken,直接恢复自动续期
     if (isAuthenticated && token && refreshToken) {
       try {
         const raw = localStorage.getItem('ihui-login-prefs')
@@ -154,35 +156,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       } catch {
         startAutoRefresh()
       }
-      return
     }
-
-    // 场景 B:页面刷新后 isAuthenticated=true 但 token/refreshToken=null
-    // 用 httpOnly cookie 静默刷新获取新 token(refreshAccessToken 发送 { refreshToken: '' },
-    // 空字符串通过 Fastify schema 校验,再由 handler 的 zod(min(1)) 判空走到 cookie 兜底分支)
-    if (isAuthenticated && !token) {
-      refreshAccessToken()
-        .then((res) => {
-          if (res.success && res.data?.accessToken) {
-            useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
-            // 拿到新 token 后启动自动续期
-            try {
-              const raw = localStorage.getItem('ihui-login-prefs')
-              const autoRenew = raw ? (JSON.parse(raw).autoRenew ?? true) : true
-              if (autoRenew) startAutoRefresh()
-            } catch {
-              startAutoRefresh()
-            }
-          } else {
-            // refresh cookie 也过期 → 降级登录态
-            useAuthStore.getState().logout()
-          }
-        })
-        .catch(() => {
-          // 网络异常导致刷新失败,不降级(下次请求可能成功)
-        })
-    }
-  }, [mounted])
+  }, [mounted, isAuthenticated, token, refreshToken])
 
   React.useEffect(() => {
     try {

@@ -61,30 +61,82 @@ function TypingIndicator({
   reasoning?: string
   toolCalls?: ChatMessage['toolCalls']
 }) {
-  // 2026-08-06:三个跳动点 → 一行实时状态小字。
-  // 按当前进度动态显示:正在调用工具:xxx / 模型思考中… / 正在等待模型响应…
+  // 2026-08-14:去掉隐藏风险的渐变文字,改为直接可见的状态小字。
+  // 按当前进度动态显示:正在调用工具:xxx / 正在思考:[内容摘要] / 正在等待模型响应…
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
-  let statusText = '正在等待模型响应…'
-  if (runningTool) {
-    statusText = `正在调用工具:${runningTool.toolName}`
-  } else if (reasoning && reasoning.length > 0) {
-    statusText = '模型思考中…'
+  const baseClass = 'bg-clip-text text-xs font-medium text-transparent'
+  const shimmerStyle: React.CSSProperties = {
+    backgroundImage:
+      'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 2.2s linear infinite',
+    WebkitBackgroundClip: 'text',
   }
-  // 光道效果:文字渐变 + shimmer 动画,高光从左到右反复扫过(animations.css @keyframes shimmer)
+  if (runningTool) {
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 text-muted-foreground"
+        >
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+        </svg>
+        <span className={baseClass} style={shimmerStyle}>
+          正在调用工具:{runningTool.toolName}
+        </span>
+      </div>
+    )
+  }
+
+  if (reasoning && reasoning.length > 0) {
+    const preview = reasoning.length > 40 ? `${reasoning.slice(0, 40)}…` : reasoning
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 text-muted-foreground"
+        >
+          <path d="M12 2a5 5 0 0 1 5 5c0 1.68-.72 3.18-1.86 4.18.3.75.46 1.56.46 2.42 0 3.56-2.83 6.4-6.6 6.4S2.4 15.6 2.4 12c0-.86.16-1.67.46-2.42A4.99 4.99 0 0 1 7 7a5 5 0 0 1 5-5z" />
+          <path d="M9 14h.01" />
+          <path d="M15 14h.01" />
+          <path d="M9.5 17.5c.6.4 1.4.5 2.5.5s1.9-.1 2.5-.5" />
+        </svg>
+        <span className={baseClass} style={shimmerStyle}>
+          正在思考: {preview}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70" />
-      <span
-        className="bg-clip-text text-xs font-medium text-transparent"
-        style={{
-          backgroundImage:
-            'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 100%)',
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 2.2s linear infinite',
-          WebkitBackgroundClip: 'text',
-        }}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-3.5 w-3.5 text-muted-foreground"
       >
-        {statusText}
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+      <span className={baseClass} style={shimmerStyle}>
+        正在等待模型响应…
       </span>
     </div>
   )
