@@ -1223,6 +1223,7 @@
   "modelPlaza": {
     "title": "모델 광장",
     "compareBtn": "비교",
+    "selectProviderLabel": "제공자 선택",
     "providerTotal": "총 {count}개 모델",
     "loadFailed": "로드 실패, 새로고침",
     "emptyType": "해당 유형의 모델 없음",

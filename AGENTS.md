@@ -92,6 +92,10 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - 任何容器禁止 `mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出。用显式 UI 元素("查看更多"按钮 / 计数徽章 / 分页)替代。
 
+### 禁用原生提示窗(强制)
+
+- **禁止**使用原生浏览器提示:`title` 属性 / `alert()` / `confirm()` / `prompt()`。必须使用项目自有的 `Tooltip` 组件(`@/components/feedback`)统一提示样式。
+
 ### 圆角容器内 absolute 子元素避让
 
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。

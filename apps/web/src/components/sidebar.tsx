@@ -627,13 +627,15 @@ interface SidebarProps {
 }
 
 /**
- * 侧边栏底部统一工具栏(4 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换。
+ * 侧边栏底部统一工具栏(5 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换 / 设置。
  * 登录按钮独立到下方 SidebarUserRow(与已登录态同位置)。
+ * 2026-08-14 新增"设置"按钮(用户要求放明暗切换右侧,从 Plus 功能菜单提取)。
  * 130px 默认宽度下单行排开;拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
  */
 function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
+  const router = useRouter()
   const { trackClick } = useAnalytics()
   const trackDownload = useDownloadTrack()
   const { locale, setLocale } = useLanguageStore()
@@ -915,6 +917,20 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           aria-label={isDark ? tt('lightMode') : tt('darkMode')}
         >
           {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+      </Tooltip>
+
+      {/* 设置 — 2026-08-14 用户要求"从功能菜单拿出来,放到左侧侧边栏底部明暗切换按钮右侧"
+          (原放顶栏 GlobalTopBar 被用户纠正,改放此处;Plus 菜单内设置项已移除) */}
+      <Tooltip content={t('settings')} side={collapsed ? 'right' : 'top'}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={btnClass}
+          onClick={() => router.push('/settings')}
+          aria-label={t('settings')}
+        >
+          <Settings className="h-5 w-5" />
         </Button>
       </Tooltip>
     </div>

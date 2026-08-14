@@ -36,10 +36,14 @@ export interface UseMessageSendResult {
   isDragOver: boolean
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void
   handleDragLeave: (e: React.DragEvent<HTMLDivElement>) => void
-  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
+  handleDrop: (e: React.DropEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   submit: () => Promise<void>
+  /** 流式期间输入的预备消息(流式结束后自动发送) */
+  pendingMessage: { text: string; refs: ReferenceItem[] } | null
+  /** 立即发送预备消息(流式结束后调用) */
+  sendPendingMessage: () => Promise<void>
 }
 
 /**
@@ -97,6 +101,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   } = params
   const t = useTranslations('chat')
   const [isDragOver, setIsDragOver] = React.useState(false)
+  const [pendingMessage, setPendingMessage] = React.useState<{ text: string; refs: ReferenceItem[] } | null>(null)
 
   const handleFileInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,7 +169,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
 
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
   const doSend = React.useCallback(
-    async (text: string, refs: ReferenceItem[]) => {
+    async (text: string, refs: ReferenceItem[]): Promise<boolean> => {
       // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
       const attachmentMarkdown = refs
         .map((r) => {
@@ -178,24 +183,24 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-      // onSend 返回 false 表示未发送(如未登录/创建会话失败),保留输入内容不清空
       const ok = await onSend(finalContent)
-      if (!ok) return
+      if (!ok) return false
       // 释放所有 objectURL
       refs.forEach((r) => {
         if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
       })
-      setValue('')
       if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
       resetReferences()
+      setValue('')
       requestAnimationFrame(() => inputCoreRef.current?.resize())
+      return true
     },
-    [onSend, setValue, draftKey, resetReferences, inputCoreRef],
+    [onSend, draftKey, resetReferences, setValue, inputCoreRef],
   )
 
   const submit = React.useCallback(async () => {
     const text = value.trim()
-    if (!text || isStreaming) return
+    if (!text) return
     // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
     // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
     // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
@@ -220,7 +225,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
             action: {
               label: t('permission.dangerousCommandProceed'),
               onClick: () => {
-                void doSend(text, references)
+                void submit()
               },
             },
             cancel: {
@@ -244,8 +249,35 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
       }
     }
-    await doSend(text, references)
-  }, [value, isStreaming, isHighRisk, t, doSend, references])
+    if (isStreaming) {
+      // 流式期间:保存为预备消息(悬浮显示在输入框上方,流式结束后自动发送)
+      setPendingMessage({ text, refs: references.map((r) => ({ ...r })) })
+      setValue('')
+      resetReferences()
+      if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+      return
+    }
+    // 非流式:直接发送
+    const ok = await doSend(text, references)
+    if (!ok) {
+      // 发送失败恢复输入内容
+      setValue(text)
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+    }
+  }, [value, isStreaming, isHighRisk, t, doSend, references, setValue, resetReferences, draftKey, inputCoreRef])
+
+  const sendPendingMessage = React.useCallback(async () => {
+    if (!pendingMessage) return
+    const { text, refs } = pendingMessage
+    setPendingMessage(null)
+    const ok = await doSend(text, refs)
+    if (!ok) {
+      // 发送失败恢复输入内容
+      setValue(text)
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+    }
+  }, [pendingMessage, doSend, setValue, inputCoreRef])
 
   return {
     isDragOver,
@@ -255,5 +287,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     handlePaste,
     handleFileInputChange,
     submit,
+    pendingMessage,
+    sendPendingMessage,
   }
 }

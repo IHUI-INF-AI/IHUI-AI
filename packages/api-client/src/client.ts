@@ -211,6 +211,9 @@ async function fetchOnce<T>(
   options: RequestInit,
   headers: Record<string, string>,
 ): Promise<ApiResult<T>> {
+  if (options.signal?.aborted) {
+    return { success: false, error: '请求已取消' }
+  }
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
@@ -1427,6 +1430,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     try {
       // 断点续传:每次尝试携带 Last-Event-ID(SSE 标准 resume 头),服务端支持则跳过已发送事件
       if (lastEventIdRef.current) headers['Last-Event-ID'] = lastEventIdRef.current
+
+      if (opts.signal?.aborted) {
+        opts.onDone?.()
+        return
+      }
 
       const resp = await fetch(url, {
         method: 'POST',

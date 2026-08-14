@@ -1223,6 +1223,7 @@
   "modelPlaza": {
     "title": "モデル広場",
     "compareBtn": "比較",
+    "selectProviderLabel": "プロバイダーを選択",
     "providerTotal": "全 {count} モデル",
     "loadFailed": "読み込み失敗、プルして更新",
     "emptyType": "このタイプのモデルはありません",
