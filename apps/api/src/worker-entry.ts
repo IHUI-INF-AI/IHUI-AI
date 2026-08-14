@@ -15,10 +15,10 @@ import { initOtel } from './plugins/otel.js'
  * - 避免单进程内 HTTP 请求与异步任务互相阻塞
  *
  * 与 src/index.ts 的区别:
- * - 不监听业务 HTTP 端口(8080)
+ * - 不监听业务 HTTP 端口(8801)
  * - 不触发生产环境微信支付配置检查(纯消费者无需支付配置)
  * - 仅启动 BullMQ Worker + Scheduler Worker
- * - 暴露最小 /health 端点(端口 8081)供 docker healthcheck / k8s liveness probe 探活
+ * - 暴露最小 /health 端点(端口 8804)供 docker healthcheck / k8s liveness probe 探活
  *
  * 启动命令:node dist/worker-entry.js
  */
@@ -30,9 +30,9 @@ async function startWorkerProcess(): Promise<void> {
   const workers: Worker[] = startWorkers(server)
   const schedulerWorker: Worker = startSchedulerWorker(server)
 
-  // 最小 HTTP /health 端点(端口 8081)供 docker healthcheck 探活
+  // 最小 HTTP /health 端点(端口 8804)供 docker healthcheck 探活
   // 不引入 fastify,用 node:http 极简实现,避免增加 worker 进程负担
-  const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 8081)
+  const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 8804)
   let workersRunning = true
   const healthServer = http.createServer((req, res) => {
     if (req.url === '/health' && req.method === 'GET') {

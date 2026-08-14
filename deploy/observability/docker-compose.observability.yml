@@ -14,13 +14,13 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.108.0
     container_name: ihui-otel-collector
-    command: ["--config=/etc/otelcol/config.yaml"]
+    command: ['--config=/etc/otelcol/config.yaml']
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "8812:4317"   # OTLP gRPC
-      - "8813:4318"   # OTLP HTTP
-      - "8888:8888"   # Collector 自身 metrics
+      - '8812:4317' # OTLP gRPC
+      - '8813:4318' # OTLP HTTP
+      - '8888:8888' # Collector 自身 metrics
     depends_on:
       - jaeger
       - prometheus
@@ -35,9 +35,9 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
       - JAEGER_DISABLED=false
     ports:
-      - "8814:16686"  # Jaeger UI
-      - "14250:14250"  # gRPC(Collector 内部)
-      - "14268:14268"  # HTTP(Collector 内部)
+      - '8814:16686' # Jaeger UI
+      - '14250:14250' # gRPC(Collector 内部)
+      - '14268:14268' # HTTP(Collector 内部)
     restart: unless-stopped
 
   # ===== Prometheus =====
@@ -53,7 +53,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--web.enable-lifecycle'
     ports:
-      - "8825:9090"
+      - '8825:9090'
     restart: unless-stopped
 
   # ===== Grafana =====
@@ -66,12 +66,13 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SERVER_HTTP_PORT=8816
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "8816:3000"  # Grafana UI(8816 避免与 web 8801 冲突)
+      - '8816:8816' # Grafana UI
     depends_on:
       - prometheus
       - jaeger

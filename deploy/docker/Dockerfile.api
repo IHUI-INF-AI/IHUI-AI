@@ -43,5 +43,5 @@ COPY --from=builder --chown=apijs:nodejs /app/packages ./packages
 # 复制 docs/ 目录(feature-center.ts 运行时直读工程文档,2026-07-22 立)
 COPY --from=builder --chown=apijs:nodejs /app/docs ./docs
 USER apijs
-EXPOSE 8080
+EXPOSE 8802
 CMD ["node", "apps/api/dist/index.js"]

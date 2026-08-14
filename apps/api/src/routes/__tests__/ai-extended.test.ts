@@ -107,7 +107,7 @@ describe('AI Extended — POST /developer/model-test/run', () => {
   })
 
   it('配置 AI_SERVICE_URL 且 fetch 成功时返回 200 与响应内容', async () => {
-    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8000'
+    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8803'
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -127,7 +127,7 @@ describe('AI Extended — POST /developer/model-test/run', () => {
     expect(body.data.response).toBe('LLM 回答内容')
     expect(body.data.latency).toBeGreaterThanOrEqual(0)
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://mock-ai-service:8000/llm/complete',
+      'http://mock-ai-service:8803/llm/complete',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,7 +136,7 @@ describe('AI Extended — POST /developer/model-test/run', () => {
   })
 
   it('配置 AI_SERVICE_URL 但 fetch 返回非 ok 时返回 502', async () => {
-    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8000'
+    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8803'
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -153,7 +153,7 @@ describe('AI Extended — POST /developer/model-test/run', () => {
   })
 
   it('配置 AI_SERVICE_URL 但 fetch 抛出异常时返回 502', async () => {
-    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8000'
+    process.env.AI_SERVICE_URL = 'http://mock-ai-service:8803'
     global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch
 
     const res = await app.inject({

@@ -45,10 +45,10 @@
 
 | 项 | 内容 |
 |---|---|
-| **症状** | `Error: listen EADDRINUSE: address already in use :::3000`(或 3001 / 8000 / 8801) |
+| **症状** | `Error: listen EADDRINUSE: address already in use :::8801`(或 8802 / 8803 / 8804) |
 | **根因** | 上一轮 dev server 未正常退出,端口残留;僵尸 next-server 进程 |
-| **排查命令** | `Get-NetTCPConnection -LocalPort 3000 -State Listen` 找 PID;`Get-CimInstance Win32_Process -Filter "ProcessId=<PID>"` 看命令行 |
-| **修复方案** | `powershell -File scripts\kill-dev-servers.ps1`(清理 3000/3001/8000/8081 端口 + 僵尸 next-server);或单端口 `taskkill /F /T /PID <pid>` |
+| **排查命令** | `Get-NetTCPConnection -LocalPort 8801 -State Listen` 找 PID;`Get-CimInstance Win32_Process -Filter "ProcessId=<PID>"` 看命令行 |
+| **修复方案** | `powershell -File scripts\kill-dev-servers.ps1`(清理 8801/8802/8803/8804 端口 + 僵尸 next-server);或单端口 `taskkill /F /T /PID <pid>` |
 | **预防** | 永远用 `node scripts/dev-web.mjs` 启动 web(启动前自动 `taskkill` 清端口);Ctrl+C 退出而非直接关终端 |
 
 ### 1.4 Next.js 编译卡住
@@ -397,9 +397,9 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 |---|---|
 | **症状** | 浏览器访问返回 `502 Bad Gateway` |
 | **根因** | Nginx 反代后端不可达 / api 容器未启动 / 防火墙阻断内部网络 |
-| **排查命令** | `docker compose ps api`(查 api 是否 running + healthy);`docker compose exec nginx nginx -t`(查 Nginx 配置);`docker compose exec nginx curl http://api:8080/api/health`(从 Nginx 容器内测连通) |
-| **修复方案** | 1. api 容器未启动:`docker compose up -d api`<br>2. api unhealthy:查 api 日志,可能是 DB/Redis 连接失败(见 §1.1 / §1.2)<br>3. Nginx 配置:确认 `proxy_pass http://api:8080` 端口与 api 一致<br>4. 网络:确认 Nginx 与 api 在同一 Docker network(`ihui-net`) |
-| **预防** | api healthcheck `wget --spider http://127.0.0.1:8080/api/health`;Nginx 配置见 `deploy/nginx/nginx.conf` |
+| **排查命令** | `docker compose ps api`(查 api 是否 running + healthy);`docker compose exec nginx nginx -t`(查 Nginx 配置);`docker compose exec nginx curl http://api:8802/api/health`(从 Nginx 容器内测连通) |
+| **修复方案** | 1. api 容器未启动:`docker compose up -d api`<br>2. api unhealthy:查 api 日志,可能是 DB/Redis 连接失败(见 §1.1 / §1.2)<br>3. Nginx 配置:确认 `proxy_pass http://api:8802` 端口与 api 一致<br>4. 网络:确认 Nginx 与 api 在同一 Docker network(`ihui-net`) |
+| **预防** | api healthcheck `wget --spider http://127.0.0.1:8802/api/health`;Nginx 配置见 `deploy/nginx/nginx.conf` |
 
 ### 8.3 证书过期
 
@@ -516,7 +516,7 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | **症状** | TRAE IDE 内 RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}`;dev server 启动无响应 |
 | **根因** | TRAE 终端工具与系统 shell 通信异常(已知问题) |
 | **排查命令** | 在 TRAE 终端面板手动执行 `node -v` 确认终端可用 |
-| **修复方案** | 1. **不再尝试 `Start-Process` 派生独立窗口**(会污染用户桌面)<br>2. 直接告知用户"RunCommand 工具失联,请在 TRAE 终端面板手动执行"<br>3. 提供手动命令清单:<br>`pnpm --filter @ihui/web dev`<br>`pnpm --filter @ihui/api dev`<br>`cd apps/ai-service && uvicorn app.main:app --reload --port 8000`<br>4. 用户确认服务跑起来后再继续验证 |
+| **修复方案** | 1. **不再尝试 `Start-Process` 派生独立窗口**(会污染用户桌面)<br>2. 直接告知用户"RunCommand 工具失联,请在 TRAE 终端面板手动执行"<br>3. 提供手动命令清单:<br>`pnpm --filter @ihui/web dev`<br>`pnpm --filter @ihui/api dev`<br>`cd apps/ai-service && uvicorn app.main:app --reload --port 8803`<br>4. 用户确认服务跑起来后再继续验证 |
 | **预防** | 查 `c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md` 是否已知约束;dev server 永远用 `long_running_process` + `blocking: false` 在 TRAE 内部跑 |
 
 ### 10.4 PowerShell 弹窗污染
