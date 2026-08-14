@@ -1363,7 +1363,8 @@
     "errorTimeout15s": "AI 응답 시간 초과(15초 내에 콘텐츠를 받지 못함), 나중에 다시 시도해 주세요",
     "errorTimeout60s": "AI 생각 시간 초과(60초 내에 답변이 생성되지 않음, 추론 모델이 너무 오래 생각할 수 있음), 나중에 다시 시도하거나 일반 모델로 전환하세요",
     "reconnecting": "재연결 중",
-    "reconnectAttempt": "{n}번째 시도, {ms}ms 후 재시도"
+    "reconnectAttempt": "{n}번째 시도, {ms}ms 후 재시도",
+    "cancel": "취소"
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -3905,7 +3906,12 @@
         "memory": "메모리",
         "cpu": "CPU",
         "stateChangedAt": "상태 변경",
-        "actions": "작업"
+        "actions": "작업",
+        "timestamp": "시간",
+        "size": "크기",
+        "files": "파일 수",
+        "createdAt": "생성일",
+        "age": "보관 기간"
       },
       "action": {
         "detail": "상세",
@@ -3984,7 +3990,10 @@
           "age": "경과",
           "actions": "작업"
         },
-        "download": "백업 다운로드"
+        "download": "백업 다운로드",
+        "detail": {
+          "back": "백업 목록으로"
+        }
       },
       "certificates": {
         "title": "인증서 상태",
@@ -4010,7 +4019,34 @@
         "source": {
           "letsencrypt": "Let's Encrypt",
           "selfSigned": "자체 서명",
-          "custom": "사용자 지정"
+          "custom": "사용자 지정",
+          "status": {
+            "healthy": "정상",
+            "warning": "경고",
+            "critical": "심각",
+            "expired": "만료됨"
+          },
+          "title": "인증서 소스",
+          "subtitle": "인증서 발급 출처 및 상태",
+          "refresh": "새로고침",
+          "stats": {
+            "total": "전체",
+            "healthy": "정상",
+            "warning": "경고",
+            "critical": "심각",
+            "expired": "만료됨"
+          },
+          "acmeMissing": "ACME 설정 없음",
+          "empty": "인증서 소스 없음",
+          "generatedAt": "생성 시간",
+          "sans": "주체 대체 이름",
+          "issuer": "발급자",
+          "subject": "주체",
+          "notBefore": "시작일",
+          "notAfter": "만료일",
+          "daysUntilExpiry": "만료까지 일수",
+          "fingerprint": "지문",
+          "back": "돌아가기"
         },
         "issuer": "발급자",
         "subject": "주체",
@@ -4023,7 +4059,10 @@
           "remaining": "{days} 일",
           "today": "오늘 만료",
           "expired": "{days} 일 전 만료"
-        }
+        },
+        "letsencrypt": "Let’s Encrypt",
+        "selfSigned": "자체 서명",
+        "custom": "사용자 정의"
       },
       "metrics": {
         "pageTitle": "리소스 모니터링",
@@ -4053,7 +4092,27 @@
         "networkRx": "수신",
         "networkTx": "송신",
         "unitCores": "코어"
-      }
+      },
+      "createTitle": "백업 생성",
+      "createHint": "현재 테넌트의 전체 데이터 백업 생성",
+      "restoreTitle": "백업 복원",
+      "restoreHint": "테넌트 데이터를 이 백업 시점으로 복원",
+      "restoreInputHint": "확인하려면 \"복원\" 입력",
+      "deleteTitle": "백업 삭제",
+      "deleteHint": "삭제 후 복구 불가",
+      "deleteInputHint": "확인하려면 \"삭제\" 입력",
+      "createNow": "지금 생성",
+      "stats": {
+        "total": "전체 백업",
+        "totalSize": "전체 크기",
+        "avg": "평균 크기",
+        "latest": "최근 백업",
+        "empty": "백업 없음"
+      },
+      "listTitle": "백업 목록",
+      "restore": "복원",
+      "delete": "삭제",
+      "download": "다운로드"
     },
     "users": {
       "title": "사용자 관리",
@@ -12259,12 +12318,29 @@
       "connect": "LangGraph + MCP + A2A 트리플 스택",
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "더 알아보기",
-      "miniappBtn": "WeChat 미니프로그램"
+      "miniappBtn": "WeChat 미니프로그램",
+      "title": "제목",
+      "qrAlt": "미니프로그램 QR코드",
+      "scanTip": "스캔하여 미니프로그램 체험",
+      "typewriter": {
+        "ctaPrimary": "지금 상담하기",
+        "ctaSecondary": "자세히 보기",
+        "miniappBtn": "미니프로그램 열기"
+      }
     },
     "miniappModal": {
       "title": "WeChat 미니프로그램",
       "qrAlt": "미니프로그램 QR 코드",
-      "scanTip": "WeChat을 열고 스캔하여 미니프로그램 진입"
+      "scanTip": "WeChat을 열고 스캔하여 미니프로그램 진입",
+      "content": "내용",
+      "explore": "둘러보기",
+      "brand": "브랜드",
+      "connect": "문의하기",
+      "typewriter": {
+        "ctaPrimary": "지금 상담하기",
+        "ctaSecondary": "자세히 보기",
+        "miniappBtn": "미니프로그램 열기"
+      }
     },
     "marquee": {
       "label": "공지",
@@ -12584,7 +12660,14 @@
       "join": "지금 참여",
       "sectionLabel": "하단 행동 유도",
       "dashboard": "작업 공간으로"
-    }
+    },
+    "content": "내용",
+    "explore": "둘러보기",
+    "brand": "브랜드",
+    "connect": "문의하기",
+    "title": "제목",
+    "qrAlt": "미니프로그램 QR코드",
+    "scanTip": "스캔하여 미니프로그램 체험"
   },
   "aiNews": {
     "metaTitle": "AI 뉴스 · 전네트워크 실시간 통합 스트림",
@@ -15300,8 +15383,18 @@
         "자동 채점 구현",
         "학습 대시보드 구축",
         "개인화 학습 경로 추천"
-      ]
-    }
+      ],
+      "metaTitle": "AI 교육 과정 | IHUI AI",
+      "metaDescription": "IHUI AI의 AI 교육 과정을 확인하세요. 입문부터 심화까지 체계적인 학습 경로를 제공합니다."
+    },
+    "about": "강좌 정보",
+    "name": "강좌명",
+    "description": "설명",
+    "provider": "제공자",
+    "startDate": "시작일",
+    "endDate": "종료일",
+    "courseWorkload": "학습 분량",
+    "teaches": "학습 목표"
   },
   "specPanel": {
     "historyVersion": "과거 버전",
