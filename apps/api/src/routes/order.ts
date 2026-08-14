@@ -36,6 +36,7 @@ import {
   users,
   vipLevels,
   developerPricing,
+  orders as ordersTable,
 } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
@@ -830,37 +831,37 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
       const [statusRows, revenueRow, refundRow, dailyRows, top5] = await Promise.all([
         dbRead
-          .select({ status: eduOrders.status, count: sql<number>`count(*)::int` })
-          .from(eduOrders)
-          .groupBy(eduOrders.status),
+          .select({ status: ordersTable.status, count: sql<number>`count(*)::int` })
+          .from(ordersTable)
+          .groupBy(ordersTable.status),
         dbRead
-          .select({ total: sql<string>`coalesce(sum(${eduOrders.payAmount}), 0)` })
-          .from(eduOrders)
-          .where(eq(eduOrders.status, 'paid')),
+          .select({ total: sql<string>`coalesce(sum(${ordersTable.amount}), 0)::text` })
+          .from(ordersTable)
+          .where(eq(ordersTable.status, 'paid')),
         dbRead
           .select({ total: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)` })
           .from(eduRefunds)
           .where(eq(eduRefunds.status, 'completed')),
         dbRead
           .select({
-            date: sql<string>`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`,
+            date: sql<string>`to_char(${ordersTable.createdAt}, 'YYYY-MM-DD')`,
             count: sql<number>`count(*)::int`,
-            revenue: sql<string>`coalesce(sum(${eduOrders.payAmount}), 0)`,
+            revenue: sql<string>`coalesce(sum(${ordersTable.amount}), 0)::text`,
           })
-          .from(eduOrders)
-          .where(gte(eduOrders.createdAt, sevenDaysAgo))
-          .groupBy(sql`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`)
-          .orderBy(sql`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`),
+          .from(ordersTable)
+          .where(gte(ordersTable.createdAt, sevenDaysAgo))
+          .groupBy(sql`to_char(${ordersTable.createdAt}, 'YYYY-MM-DD')`)
+          .orderBy(sql`to_char(${ordersTable.createdAt}, 'YYYY-MM-DD')`),
         dbRead
           .select({
-            id: eduOrders.id,
-            orderNo: eduOrders.orderNo,
-            targetTitle: eduOrders.targetTitle,
-            payAmount: eduOrders.payAmount,
-            status: eduOrders.status,
+            id: ordersTable.id,
+            orderNo: ordersTable.orderNo,
+            targetTitle: ordersTable.targetTitle,
+            amount: ordersTable.amount,
+            status: ordersTable.status,
           })
-          .from(eduOrders)
-          .orderBy(desc(eduOrders.payAmount))
+          .from(ordersTable)
+          .orderBy(desc(ordersTable.amount))
           .limit(5),
       ])
 
@@ -930,6 +931,11 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
           .update(eduOrders)
           .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
           .where(inArray(eduOrders.id, cancellableIds))
+        // Phase 3: 同步批量取消到统一 orders 表
+        await db
+          .update(ordersTable)
+          .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
+          .where(inArray(ordersTable.id, cancellableIds))
       }
       await logAction({
         userId: request.userId,
