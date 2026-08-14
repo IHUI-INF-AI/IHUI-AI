@@ -755,6 +755,29 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 44 (2026-08-15 新增,根目录整洁守门,AGENTS.md「根目录整洁铁律」配套) ---
+  // blocking:一级目录只允许白名单内条目(配置 + 标准文档 + 项目强制文档 + 固定目录),
+  //   任何新文件/新目录/新隐藏文件落地根目录都会触发,阻断 commit,逼你清理或显式加白名单。
+  //   背景:根目录曾散落 debug.log / page_*.html / cookies.txt / 过时 start-dev.ps1 /
+  //   browser_test_output 等 10+ 临时产物,2026-08-15 整理后立此守门防回潮。
+  //   白名单维护在 scripts/check-root-dir-clean.mjs 内(4 组 Set),新增合法条目需显式审批。
+  {
+    id: '44',
+    label: '🧹 根目录整洁守门(一级目录白名单)',
+    script: 'check-root-dir-clean.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 一级目录存在白名单外条目,已阻断 commit。',
+      '     处置(二选一):',
+      '       ① 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/',
+      '       ② 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit',
+      '     白名单四组:ALLOWED_FILES / ALLOWED_DIRS / ALLOWED_HIDDEN_FILES / ALLOWED_HIDDEN_DIRS。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
