@@ -238,7 +238,7 @@ export const QR_PLATFORMS: QrPlatformConfig[] = [
     labelKey: 'auth.feishuLogin',
     icon: (
       <Image
-        src="/images/loginSANFANG/feishu.png"
+        src="/images/oauth-providers/feishu.svg"
         alt=""
         width={14}
         height={14}
