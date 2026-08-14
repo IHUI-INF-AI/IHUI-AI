@@ -769,6 +769,36 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 
 ---
 
+## 28. 根目录整洁铁律(强制,2026-08-15 立)
+
+### 触发背景
+
+根目录曾散落 10+ 临时产物:`debug.log` / `aha_electron_2026.0810.log` / `cookies.txt` /
+`page_eval/prompts/response/usage.html` / 过时 `start-dev.ps1`(D 盘旧路径 + 8810 旧端口) /
+`browser_test_output/` 等。2026-08-15 一次性清理后,立此铁律防回潮。
+
+### 强制规则(违反视为交付事故)
+
+1. **一级目录只允许白名单内条目**,白名单封闭维护于 `scripts/check-root-dir-clean.mjs`(4 组 Set):
+   - `ALLOWED_FILES`:配置(`package.json`/`pnpm-*.yaml`/`turbo.json`/`eslint.config.mjs`/`tsconfig.base.json`/`knip.jsonc`/`docker-compose.yml`/`railway.json`/`render.yaml`/`app.json`)+ 标准文档(`README*.md`/`LICENSE`/`SECURITY.md`/`CONTRIBUTING.md`/`CODE_OF_CONDUCT.md`)+ 项目强制(`AGENTS.md`/`PROJECT_PLAN.md`)
+   - `ALLOWED_DIRS`:`apps`/`packages`/`scripts`/`docs`/`deploy`/`monitoring`/`reports`/`sdks`/`cert`/`products`/`logs`/`node_modules`/`tmp`/`test-results`
+   - `ALLOWED_HIDDEN_FILES` / `ALLOWED_HIDDEN_DIRS`:`.env*`/`.gitignore`/`.git`/`.github`/`.husky`/IDE/工具目录等
+2. **禁止在一级目录生成 `.log` / `.html` / `cookies*` / 截图 / ad-hoc 脚本**:临时产物一律进 `tmp/` 或 `logs/`,测试产物进 `test-results/` 或对应子目录。
+3. **新增合法根目录文件/目录必须显式审批**:把条目加进 `scripts/check-root-dir-clean.mjs` 白名单并随 commit 提交,禁止绕过白名单。
+4. **任务收尾必查**:交付前跑 `node scripts/check-root-dir-clean.mjs --staged`,0 违规才算完成。
+
+### 守门(blocking)
+
+- `scripts/check-root-dir-clean.mjs`:扫描一级目录,白名单外条目 `--staged` 模式 exit 1
+- 集成位置:`scripts/guardian-runner.mjs` pre-commit 第 44 项(2026-08-15 立)
+- 逃生舱(应急,默认不推荐):`HUSKY_SKIP_ROOT_DIR_GUARD=1 git commit ...`
+
+### 配套
+
+- `.gitignore` 已补 `browser_test_output/`、`cookies.txt` 防回潮(未跟踪垃圾不污染 `git status`)
+
+---
+
 ## 关键参考文档
 
 | 文档                      | 说明                                                          |
