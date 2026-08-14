@@ -110,6 +110,12 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
     const method = (options.method ?? 'GET').toUpperCase()
     // 仅用户主动操作(非 GET)的 401 才弹窗
     if (method !== 'GET') {
+      // 2026-08-14 修复:页面刷新后 isAuthenticated=true 但 token=null(刷新中)时,
+      // 不触发弹窗。避免 bootstrap 静默刷新期间被其他并发请求的 401 打断。
+      // refresh 成功 → token 恢复 → 后续请求正常;refresh 失败 → logout() 降级 isAuthenticated=false,
+      // 再遇到 401 才弹窗(用户确实需要登录)。
+      const { isAuthenticated, token } = useAuthStore.getState()
+      if (isAuthenticated && !token) return result
       const currentPath = window.location.pathname + window.location.search
       openLoginDialogOnce(currentPath)
     }

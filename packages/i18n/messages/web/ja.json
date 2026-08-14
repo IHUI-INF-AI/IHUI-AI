@@ -1366,7 +1366,8 @@
     "errorTimeout15s": "AI レスポンスタイムアウト(15 秒以内にコンテンツを受信できませんでした)、後でもう一度お試しください",
     "errorTimeout60s": "AI 思考タイムアウト(60 秒以内に回答が生成されませんでした、推論モデルの思考が長すぎる可能性があります)、後でもう一度お試しいただくか、通常モデルに切り替えてください",
     "reconnecting": "再接続中",
-    "reconnectAttempt": "第 {n} 回試行、{ms}ms 後に再試行"
+    "reconnectAttempt": "第 {n} 回試行、{ms}ms 後に再試行",
+    "cancel": "キャンセル"
   },
   "learn": {
     "title": "APIテスト",
@@ -3908,7 +3909,12 @@
         "memory": "メモリ",
         "cpu": "CPU",
         "stateChangedAt": "状態変更",
-        "actions": "操作"
+        "actions": "操作",
+        "timestamp": "日時",
+        "size": "サイズ",
+        "files": "ファイル数",
+        "createdAt": "作成日時",
+        "age": "保持期間"
       },
       "action": {
         "detail": "詳細",
@@ -3987,7 +3993,10 @@
           "age": "経過",
           "actions": "操作"
         },
-        "download": "バックアップをダウンロード"
+        "download": "バックアップをダウンロード",
+        "detail": {
+          "back": "バックアップ一覧へ"
+        }
       },
       "certificates": {
         "title": "証明書ステータス",
@@ -4013,7 +4022,34 @@
         "source": {
           "letsencrypt": "Let's Encrypt",
           "selfSigned": "自己署名",
-          "custom": "カスタム"
+          "custom": "カスタム",
+          "status": {
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "重大",
+            "expired": "期限切れ"
+          },
+          "title": "証明書ソース",
+          "subtitle": "証明書の発行元と状態",
+          "refresh": "更新",
+          "stats": {
+            "total": "合計",
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "重大",
+            "expired": "期限切れ"
+          },
+          "acmeMissing": "ACME 設定なし",
+          "empty": "証明書ソースがありません",
+          "generatedAt": "生成日時",
+          "sans": "サブジェクト代替名",
+          "issuer": "発行者",
+          "subject": "サブジェクト",
+          "notBefore": "有効開始",
+          "notAfter": "有効終了",
+          "daysUntilExpiry": "有効期限までの日数",
+          "fingerprint": "フィンガープリント",
+          "back": "戻る"
         },
         "issuer": "発行者",
         "subject": "主体",
@@ -4026,7 +4062,10 @@
           "remaining": "{days} 日",
           "today": "本日期限切れ",
           "expired": "{days} 日前期限切れ"
-        }
+        },
+        "letsencrypt": "Let’s Encrypt",
+        "selfSigned": "自己署名",
+        "custom": "カスタム"
       },
       "metrics": {
         "pageTitle": "リソース監視",
@@ -4056,7 +4095,27 @@
         "networkRx": "受信",
         "networkTx": "送信",
         "unitCores": "コア"
-      }
+      },
+      "createTitle": "バックアップ作成",
+      "createHint": "現在のテナントの完全なデータバックアップを作成",
+      "restoreTitle": "バックアップ復元",
+      "restoreHint": "テナントデータをこのバックアップに復元",
+      "restoreInputHint": "「復元」と入力して確認",
+      "deleteTitle": "バックアップ削除",
+      "deleteHint": "削除すると復元できません",
+      "deleteInputHint": "「削除」と入力して確認",
+      "createNow": "今すぐ作成",
+      "stats": {
+        "total": "バックアップ総数",
+        "totalSize": "合計サイズ",
+        "avg": "平均サイズ",
+        "latest": "最新のバックアップ",
+        "empty": "バックアップなし"
+      },
+      "listTitle": "バックアップ一覧",
+      "restore": "復元",
+      "delete": "削除",
+      "download": "ダウンロード"
     },
     "users": {
       "title": "ユーザー",
@@ -12286,12 +12345,29 @@
       "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント · 工業級厳格",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
-      "miniappBtn": "WeChatミニプログラム"
+      "miniappBtn": "WeChatミニプログラム",
+      "title": "タイトル",
+      "qrAlt": "ミニプログラムQRコード",
+      "scanTip": "スキャンしてミニプログラムを体験",
+      "typewriter": {
+        "ctaPrimary": "今すぐ相談",
+        "ctaSecondary": "詳しく見る",
+        "miniappBtn": "ミニプログラムを開く"
+      }
     },
     "miniappModal": {
       "title": "WeChatミニプログラム",
       "qrAlt": "ミニプログラムQRコード",
-      "scanTip": "WeChatを開いてスキャンし、ミニプログラムに入る"
+      "scanTip": "WeChatを開いてスキャンし、ミニプログラムに入る",
+      "content": "コンテンツ",
+      "explore": "探索",
+      "brand": "ブランド",
+      "connect": "お問い合わせ",
+      "typewriter": {
+        "ctaPrimary": "今すぐ相談",
+        "ctaSecondary": "詳しく見る",
+        "miniappBtn": "ミニプログラムを開く"
+      }
     },
     "marquee": {
       "label": "お知らせ",
@@ -12611,7 +12687,14 @@
       "join": "今すぐ参加",
       "sectionLabel": "ボトムコールトゥアクション",
       "dashboard": "ワークスペースへ"
-    }
+    },
+    "content": "コンテンツ",
+    "explore": "探索",
+    "brand": "ブランド",
+    "connect": "お問い合わせ",
+    "title": "タイトル",
+    "qrAlt": "ミニプログラムQRコード",
+    "scanTip": "スキャンしてミニプログラムを体験"
   },
   "aiNews": {
     "metaTitle": "AI ニュース · 全網リアルタイム集約ストリーム",
@@ -15327,8 +15410,18 @@
         "添削自動化実装",
         "学習ダッシュボード構築",
         "パーソナライズ学習パス推薦"
-      ]
-    }
+      ],
+      "metaTitle": "AI教育コース | IHUI AI",
+      "metaDescription": "IHUI AIのAI教育コースを探索。入門から発展まで体系的な学習パスを提供。"
+    },
+    "about": "コースについて",
+    "name": "コース名",
+    "description": "説明",
+    "provider": "提供元",
+    "startDate": "開始日",
+    "endDate": "終了日",
+    "courseWorkload": "学習負荷",
+    "teaches": "学習目標"
   },
   "specPanel": {
     "historyVersion": "履歴バージョン",
