@@ -8,6 +8,7 @@ import {
   type AigcCategoryOption,
   type AigcFileType,
   type AigcListItem,
+  type AigcListScreenProps,
 } from '@ihui/rn-app'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
@@ -21,12 +22,18 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
-const CATEGORIES: AigcCategoryOption[] = [
-  { key: 'all', label: '全部' },
-  { key: 'image', label: '图片', fileType: 0 },
-  { key: 'video', label: '视频', fileType: 1 },
-  { key: 'audio', label: '音频', fileType: 3 },
-  { key: 'text', label: '文案', fileType: 4 },
+/** 分页大小(首次与上拉一致,避免后端按 page/pageSize 计算偏移时出现重叠/空洞) */
+const PAGE_SIZE = 20
+
+/** 本地扩展 AigcCategoryOption,补 icon 字段对齐 Uniapp fenlei_icon(不改 @ihui/rn-app 类型) */
+type AigcCategoryOptionWithIcon = AigcCategoryOption & { icon?: string }
+
+const CATEGORIES: AigcCategoryOptionWithIcon[] = [
+  { key: 'all', label: '全部', icon: '🌟' },
+  { key: 'image', label: '图片', fileType: 0, icon: '🖼️' },
+  { key: 'video', label: '视频', fileType: 1, icon: '🎬' },
+  { key: 'audio', label: '音频', fileType: 3, icon: '🎵' },
+  { key: 'text', label: '文案', fileType: 4, icon: '📝' },
 ]
 
 const MATERIAL_CATEGORIES: MaterialCategory[] = [
@@ -118,13 +125,18 @@ export default function AigcListScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await getAigcTasks({ page: 1, pageSize: 50 })
+      const res = await getAigcTasks({ page: 1, pageSize: PAGE_SIZE })
       if (res.success) {
         setItems(res.data.list.map(toAigcWork))
+        setPage(1)
+        setHasMore(res.data.list.length >= PAGE_SIZE)
       } else {
         setError(res.error || '加载失败')
       }
@@ -135,6 +147,26 @@ export default function AigcListScreen() {
       setRefreshing(false)
     }
   }, [])
+
+  /** 上拉加载下一页(对齐 Uniapp scrolltolower + pushData) */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const res = await getAigcTasks({ page: nextPage, pageSize: PAGE_SIZE })
+      if (res.success) {
+        const nextItems = res.data.list.map(toAigcWork)
+        if (nextItems.length < PAGE_SIZE) setHasMore(false)
+        setItems((prev) => [...prev, ...nextItems])
+        setPage(nextPage)
+      }
+    } catch (e) {
+      console.error('loadMore error', e)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMore, page])
 
   useEffect(() => {
     void load()
@@ -190,6 +222,23 @@ export default function AigcListScreen() {
     [items],
   )
 
+  /** SharedAigcListScreen 注入 props;onLoadMore 为上拉分页前置就绪(共享屏尚未消费,见下方 TODO) */
+  const sharedListProps: AigcListScreenProps & { onLoadMore?: () => void } = {
+    t,
+    items,
+    categories: CATEGORIES,
+    category,
+    loading,
+    refreshing,
+    error,
+    onSelectCategory: setCategory,
+    onRefresh,
+    onPressItem: openWork,
+    onPublish: goPublish,
+    onBack: () => navigation.goBack(),
+    onLoadMore: loadMore,
+  }
+
   return (
     <View style={styles.shell}>
       {/* 顶部视图切换 tab(平台/路由 adapter:仅做 props 注入 + 视图切换) */}
@@ -221,20 +270,8 @@ export default function AigcListScreen() {
               onPress={handleCarouselPress}
             />
             <View style={styles.sharedFill}>
-              <SharedAigcListScreen
-                t={t}
-                items={items}
-                categories={CATEGORIES}
-                category={category}
-                loading={loading}
-                refreshing={refreshing}
-                error={error}
-                onSelectCategory={setCategory}
-                onRefresh={onRefresh}
-                onPressItem={openWork}
-                onPublish={goPublish}
-                onBack={() => navigation.goBack()}
-              />
+              {/* TODO: SharedAigcListScreen(AigcListScreenProps)的 FlatList 未挂 onEndReached;onLoadMore 已注入但共享屏尚未消费,待共享屏支持上拉分页触发后即生效 */}
+              <SharedAigcListScreen {...sharedListProps} />
             </View>
           </View>
         ) : (
@@ -259,15 +296,15 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingTop: 48,
+    paddingTop: 12,
     paddingBottom: 8,
-    gap: 8,
+    gap: 3,
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 4,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 4,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {
@@ -280,7 +317,7 @@ const styles = StyleSheet.create({
   tabTextActive: {
     fontSize: 13,
     color: tokens.surface.light,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   viewport: {
     flex: 1,
