@@ -22,6 +22,24 @@ const ROOT = process.cwd()
 const SCHEMA_DIR = join(ROOT, 'packages/database/src/schema')
 const MIGRATIONS_DIR = join(ROOT, 'packages/database/drizzle')
 
+/**
+ * 死 migration 白名单(表名小写)。
+ *
+ * 这些表出现在 migration SQL 中、但 TS schema(packages/database/src/schema)无定义,
+ * 属于"合法不应出现在 Drizzle TS schema 中"的情形,从 dead migration 告警中排除:
+ * - 第三方 / 外部系统表(项目不拥有)
+ * - PostgreSQL 原生管理的对象(如分区表的 DEFAULT 子分区,由父表 PARTITION BY 自动维护,
+ *   Drizzle 只定义父表,不应为子分区单独定义 pgTable)
+ *
+ * 新增白名单项必须附注释说明原因(参照下方条目)。
+ */
+const DEAD_MIGRATION_WHITELIST = new Set([
+  // 0060_r70_audit_logs_partition.sql:`audit_logs` 声明式分区表的 DEFAULT 兜底子分区,
+  // 由 PostgreSQL 按 PARTITION BY RANGE(created_at) 自动创建/维护,Drizzle 只定义父表
+  // `audit_logs`(见 src/schema/audit.ts),故不在此处单独定义。
+  'audit_logs_default',
+])
+
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -146,19 +164,26 @@ function main() {
 
   // 死 migration:migration 最终有但 TS schema 没有
   const deadMigrations = []
+  const whitelistedDeadMigrations = []
   for (const t of migTables) {
     if (!tsTables.has(t)) {
       // 找到最后的 CREATE 文件
       const createdIn = createdTables.get(t) || []
       const droppedIn = droppedTables.get(t) || []
-      deadMigrations.push({
+      const entry = {
         table: t,
         lastCreatedIn: createdIn[createdIn.length - 1] || '(unknown)',
         droppedIn,
-      })
+      }
+      if (DEAD_MIGRATION_WHITELIST.has(t)) {
+        whitelistedDeadMigrations.push(entry)
+      } else {
+        deadMigrations.push(entry)
+      }
     }
   }
   deadMigrations.sort((a, b) => a.table.localeCompare(b.table))
+  whitelistedDeadMigrations.sort((a, b) => a.table.localeCompare(b.table))
 
   // ============ 输出报告 ============
   console.log(`${C.bold}=== schema drift check report ===${C.reset}`)
@@ -174,7 +199,10 @@ function main() {
     }${C.reset}`,
   )
   console.log(
-    `  dead migrations:     ${C.yellow}${deadMigrations.length}${C.reset} (migration 有表但 TS schema 无定义,信息级)`,
+    `  dead migrations:     ${C.yellow}${deadMigrations.length}${C.reset} (migration 有表但 TS schema 无定义,信息级)` +
+      (whitelistedDeadMigrations.length > 0
+        ? ` ${C.dim}(另有 ${whitelistedDeadMigrations.length} 个已加白名单)${C.reset}`
+        : ''),
   )
   console.log()
 
@@ -210,6 +238,18 @@ function main() {
     }
     if (deadMigrations.length > 30) {
       console.log(`  ${C.dim}... 还有 ${deadMigrations.length - 30} 个未显示${C.reset}`)
+    }
+    console.log()
+  }
+
+  if (whitelistedDeadMigrations.length > 0) {
+    console.log(
+      `${C.cyan}${C.bold}ℹ 白名单死 migration(已排除,合法不应出现在 TS schema):${C.reset}`,
+    )
+    for (const { table, lastCreatedIn } of whitelistedDeadMigrations) {
+      console.log(
+        `  ${C.cyan}${table}${C.reset} ${C.dim}← last CREATE: ${lastCreatedIn} (白名单)${C.reset}`,
+      )
     }
     console.log()
   }

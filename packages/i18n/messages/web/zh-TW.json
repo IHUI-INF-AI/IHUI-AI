@@ -1366,7 +1366,8 @@
     "errorTimeout15s": "AI 回應逾時(15 秒內未收到任何內容),請稍後重試",
     "errorTimeout60s": "AI 思考逾時(60 秒未產出回答內容,可能 reasoning 模型思考過長),請稍後重試或改用普通模型",
     "reconnecting": "重連中",
-    "reconnectAttempt": "第 {n} 次嘗試,{ms}ms 後重試"
+    "reconnectAttempt": "第 {n} 次嘗試,{ms}ms 後重試",
+    "cancel": "取消"
   },
   "learn": {
     "title": "學習中心",
@@ -3908,7 +3909,12 @@
         "memory": "記憶體",
         "cpu": "CPU",
         "stateChangedAt": "狀態變更",
-        "actions": "操作"
+        "actions": "操作",
+        "timestamp": "時間",
+        "size": "大小",
+        "files": "檔案數",
+        "createdAt": "建立時間",
+        "age": "保留時長"
       },
       "action": {
         "detail": "檢視詳情",
@@ -3987,7 +3993,10 @@
           "age": "距今",
           "actions": "操作"
         },
-        "download": "下載備份"
+        "download": "下載備份",
+        "detail": {
+          "back": "返回備份清單"
+        }
       },
       "certificates": {
         "title": "憑證狀態",
@@ -4013,7 +4022,34 @@
         "source": {
           "letsencrypt": "Let's Encrypt",
           "selfSigned": "自簽",
-          "custom": "自訂"
+          "custom": "自訂",
+          "status": {
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "嚴重",
+            "expired": "已過期"
+          },
+          "title": "憑證來源",
+          "subtitle": "憑證簽發來源與狀態",
+          "refresh": "重新整理",
+          "stats": {
+            "total": "總數",
+            "healthy": "正常",
+            "warning": "警告",
+            "critical": "嚴重",
+            "expired": "已過期"
+          },
+          "acmeMissing": "缺少 ACME 配置",
+          "empty": "暫無憑證來源",
+          "generatedAt": "生成時間",
+          "sans": "主題備用名",
+          "issuer": "頒發者",
+          "subject": "主題",
+          "notBefore": "生效時間",
+          "notAfter": "到期時間",
+          "daysUntilExpiry": "距到期天數",
+          "fingerprint": "指紋",
+          "back": "返回"
         },
         "issuer": "頒發者",
         "subject": "主體",
@@ -4026,7 +4062,10 @@
           "remaining": "{days} 天",
           "today": "今天到期",
           "expired": "已過期 {days} 天"
-        }
+        },
+        "letsencrypt": "Let’s Encrypt",
+        "selfSigned": "自簽署",
+        "custom": "自定義"
       },
       "metrics": {
         "pageTitle": "資源監控",
@@ -4056,7 +4095,27 @@
         "networkRx": "下行",
         "networkTx": "上行",
         "unitCores": "核"
-      }
+      },
+      "createTitle": "建立備份",
+      "createHint": "建立目前租戶的完整資料備份",
+      "restoreTitle": "還原備份",
+      "restoreHint": "將租戶資料還原到該備份點",
+      "restoreInputHint": "請輸入「還原」以確認",
+      "deleteTitle": "刪除備份",
+      "deleteHint": "刪除後該備份將無法還原",
+      "deleteInputHint": "請輸入「刪除」以確認",
+      "createNow": "立即建立",
+      "stats": {
+        "total": "備份總數",
+        "totalSize": "總大小",
+        "avg": "平均大小",
+        "latest": "最近備份",
+        "empty": "暫無備份"
+      },
+      "listTitle": "備份清單",
+      "restore": "還原",
+      "delete": "刪除",
+      "download": "下載"
     },
     "users": {
       "title": "使用者管理",
@@ -12229,12 +12288,29 @@
       "connect": "LangGraph + MCP + A2A 三棧 · 1029+ API 端點 · 工業級嚴謹",
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "瞭解更多",
-      "miniappBtn": "微信小程式"
+      "miniappBtn": "微信小程式",
+      "title": "標題",
+      "qrAlt": "小程式QR Code",
+      "scanTip": "掃碼體驗小程式",
+      "typewriter": {
+        "ctaPrimary": "立即諮詢",
+        "ctaSecondary": "了解更多",
+        "miniappBtn": "打開小程式"
+      }
     },
     "miniappModal": {
       "title": "微信小程式",
       "qrAlt": "小程式QR Code",
-      "scanTip": "開啟微信掃一掃,進入小程式"
+      "scanTip": "開啟微信掃一掃,進入小程式",
+      "content": "內容",
+      "explore": "探索",
+      "brand": "品牌",
+      "connect": "聯繫我們",
+      "typewriter": {
+        "ctaPrimary": "立即諮詢",
+        "ctaSecondary": "了解更多",
+        "miniappBtn": "打開小程式"
+      }
     },
     "marquee": {
       "label": "公告",
@@ -12554,7 +12630,14 @@
       "join": "立即加入",
       "sectionLabel": "底部行動呼籲",
       "dashboard": "進入工作臺"
-    }
+    },
+    "content": "內容",
+    "explore": "探索",
+    "brand": "品牌",
+    "connect": "聯繫我們",
+    "title": "標題",
+    "qrAlt": "小程式QR Code",
+    "scanTip": "掃碼體驗小程式"
   },
   "aiNews": {
     "metaTitle": "AI 資訊 · 全網即時聚合流",
@@ -15270,8 +15353,18 @@
         "作業自動批改實現",
         "學習資料看板搭建",
         "個性化學習路徑推薦"
-      ]
-    }
+      ],
+      "metaTitle": "AI 教育課程 | 智匯AI",
+      "metaDescription": "探索智匯AI的AI教育課程，涵蓋從入門到進階的系統化學習路徑。"
+    },
+    "about": "關於課程",
+    "name": "課程名稱",
+    "description": "課程描述",
+    "provider": "提供方",
+    "startDate": "開始日期",
+    "endDate": "結束日期",
+    "courseWorkload": "學習時長",
+    "teaches": "學習目標"
   },
   "specPanel": {
     "historyVersion": "歷史版本",

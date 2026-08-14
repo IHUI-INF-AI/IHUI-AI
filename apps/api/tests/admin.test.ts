@@ -1,11 +1,11 @@
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
-// Mock config 避免导入时 env 校验触发 process.exit(1)
+// Mock config 避免导入�?env 校验触发 process.exit(1)
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
-    PORT: 8080,
+    PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
@@ -26,7 +26,7 @@ describe('admin routes', () => {
     await server.close()
   })
 
-  it('GET /api/admin/stats 未登录返回 401', async () => {
+  it('GET /api/admin/stats 未登录返�?401', async () => {
     await server.register(adminRoutes, { prefix: '/api/admin' })
     await server.ready()
 
@@ -34,12 +34,12 @@ describe('admin routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/users 未登录返回 401', async () => {
+  it('GET /api/admin/users 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/users' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/projects 未登录返回 401', async () => {
+  it('GET /api/admin/projects 未登录返�?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/projects' })
     expect(res.statusCode).toBe(401)
   })

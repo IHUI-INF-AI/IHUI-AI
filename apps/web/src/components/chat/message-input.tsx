@@ -141,6 +141,7 @@ export function MessageInput({
     handleFileInputChange,
     submit,
     pendingMessage,
+    setPendingMessage,
     sendPendingMessage,
   } = useMessageSend({
     value,
