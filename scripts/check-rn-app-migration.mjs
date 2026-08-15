@@ -16,6 +16,7 @@
  *   - DebugScreen.tsx        — 开发调试屏(清缓存/清存储/复制日志)
  *   - DevEnterScreen.tsx     — 开发者入驻申请表单(RN 端独占,字段稳定)
  *   - profileMenuData.ts     — 数据文件(非 screen 组件)
+ *   - profileContentTypes.ts — 数据文件(非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义)
  *   - SharedDemoScreen.tsx   — 共享组件集成验证页(本身用于展示 @ihui/rn-app 组件)
  *
  * CLI 用法:
@@ -57,6 +58,7 @@ const WHITELIST = new Set([
   'DevEnterScreen.tsx', // 开发者入驻申请表单:RN 端独占,字段稳定,无跨端需求
   'SharedDemoScreen.tsx', // 共享组件集成验证页:本身用于展示 @ihui/rn-app 组件
   'profileMenuData.ts', // 数据文件:非 screen 组件,导出菜单配置数组
+  'profileContentTypes.ts', // 数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
