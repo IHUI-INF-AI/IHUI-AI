@@ -107,12 +107,12 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 }
 
 /** Drawer 5 主菜单 → RN Tab 路由映射(square/share 跳 RootStack 独立页) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
-  home: 'home',
-  ai: 'ai',
-  square: 'home',
-  share: 'home',
-  mine: 'mine',
+const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
+  home: 'HomeMain',
+  ai: 'AiMain',
+  square: 'HomeMain',
+  share: 'HomeMain',
+  mine: 'ProfileMain',
 }
 
 /** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer) */

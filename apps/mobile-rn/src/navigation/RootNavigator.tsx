@@ -14,22 +14,13 @@ import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { CourseScreen } from '../screens/CourseScreen'
-import { CourseDetailScreen } from '../screens/CourseDetailScreen'
-import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
 import { LiveScreen } from '../screens/LiveScreen'
-import { LiveDetailScreen } from '../screens/LiveDetailScreen'
-import { OrderScreen } from '../screens/OrderScreen'
-import { WalletScreen } from '../screens/WalletScreen'
-import SettingsScreen from '../screens/SettingsScreen'
-import { FavoritesScreen } from '../screens/FavoritesScreen'
-import { FollowingScreen } from '../screens/FollowingScreen'
-import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
+import { OrderRefundScreen } from '../screens/OrderRefundScreen'
 import { AgentScreen } from '../screens/AgentScreen'
 import { RegisterScreen } from '../screens/RegisterScreen'
 import { OrderRefundScreen } from '../screens/OrderRefundScreen'
 import { PaymentScreen } from '../screens/PaymentScreen'
 import { VipScreen } from '../screens/VipScreen'
-import { CertificateScreen } from '../screens/CertificateScreen'
 import { FollowScreen } from '../screens/FollowScreen'
 import { FavoriteScreen } from '../screens/FavoriteScreen'
 import { MessageCenterScreen } from '../screens/MessageCenterScreen'
@@ -396,7 +387,7 @@ export type MainStackParamList = {
 
 export type MainTabKey = keyof MainStackParamList
 
-export function mainScreenForTab(tab: MainTabKey): keyof MainStackParamList {
+export function mainScreenForTab(tab: MainTabKey): MainTabKey {
   return tab
 }
 
@@ -413,13 +404,6 @@ function ChatHomeScreen() {
 
 function MainNavigator() {
   const { t } = useI18n()
-  const tabLabels: Partial<Record<MainTabKey, string>> = {
-    HomeMain: t('nav.home'),
-    CourseMain: t('nav.courses'),
-    AiMain: 'AI', // nav.ai key 待 i18n 补全
-    LiveMain: t('nav.live'),
-    ProfileMain: t('nav.profile'),
-  }
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
