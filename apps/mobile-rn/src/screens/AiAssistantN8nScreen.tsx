@@ -12,6 +12,11 @@
  * - 模型选择器:ModelList(共享组件)底部弹出,单选切换模型(对齐 Uniapp ModelList + pitchHandle);
  *   InputArea 上方 modelBar 展示当前模型名,点击展开选择器;
  *   路由参数 modelId 优先初始化选中模型(对齐 Uniapp onLoad options.modelNamea)
+ * - 模型配置:ModelConfigDialog 弹层(温度/top_p/maxTokens/系统提示词等),
+ *   入口在模型选择旁的"配置"按钮(对齐 Uniapp InputArea showModelaConfig 习惯),
+ *   参数在发送时透传 streamChat(temperature/topP/maxTokens/systemPrompt)
+ * - 快捷操作:无消息时输入区上方横向 suggestedQuestions chip,点击直接发送
+ *   (对齐 Uniapp ai_assistant_n8n quick-actions-container + handleQuickActionClick)
  * - 图片预览:assistant 回复中提取图片 URL(对齐 Uniapp processContent + imgUrlList),
  *   渲染缩略图,点击 ImagePreviewModal 全屏预览(对齐 Uniapp previewImage)
  * - 无 agentId → 模拟响应 + Alert(对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent)
@@ -34,6 +39,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -56,6 +62,7 @@ import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
+import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
 import Drawer, {
@@ -89,6 +96,18 @@ interface N8nMessage {
   /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
   images?: string[]
 }
+
+/**
+ * 快捷问题兜底(对齐 Uniapp ai_assistant_n8n.vue suggestedQuestionsList):
+ * 无消息时输入区上方横向 chip,点击直接发送。RN Agent 契约暂无 suggestedQuestions
+ * 字段,使用与 miniapp-taro ai.suggestions 一致的通用兜底文案。
+ */
+const QUICK_SUGGESTIONS: readonly string[] = [
+  '帮我写一首诗',
+  '解释量子力学',
+  '写一段代码',
+  '翻译这段话',
+]
 
 // ── 图片 URL 提取(对齐 Uniapp processContent + isValidImageUrl)──
 
@@ -198,6 +217,17 @@ export default function AiAssistantN8nScreen() {
     route.params?.modelId ?? FALLBACK_MODELS[0]?.value ?? 'stepfun/step-router-v1',
   )
   const [showModelPicker, setShowModelPicker] = useState(false)
+
+  // 模型配置弹层(对齐 Uniapp ModelConfigDialog:模型选择旁"配置"入口,
+  // 温度/top_p/maxTokens 等参数设置,发送时透传给 streamChat)
+  const [modelConfigVisible, setModelConfigVisible] = useState(false)
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({
+    temperature: 0.7,
+    maxTokens: 2048,
+    topP: 0.9,
+    systemPrompt: '',
+    streamEnabled: true,
+  })
 
   // 图片预览(对齐 Uniapp previewImage)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -319,11 +349,21 @@ export default function AiAssistantN8nScreen() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    // 模型配置参数透传(对齐 Uniapp ModelConfigDialog 调节请求参数)
+    const apiMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []
+    if (modelConfig.systemPrompt.trim()) {
+      apiMessages.push({ role: 'system', content: modelConfig.systemPrompt.trim() })
+    }
+    apiMessages.push({ role: 'user', content: text })
+
     await streamChat({
       model: selectedModelId,
-      messages: [{ role: 'user', content: text }],
+      messages: apiMessages,
       agentId,
       signal: controller.signal,
+      temperature: modelConfig.temperature,
+      topP: modelConfig.topP,
+      maxTokens: modelConfig.maxTokens,
       metadata: currentConversationId ? { conversationId: currentConversationId } : undefined,
       onDelta: (delta) => {
         setMessages((prev) => {
@@ -487,9 +527,7 @@ export default function AiAssistantN8nScreen() {
       <NavBar
         title={navTitle}
         onBack={() => navigation.goBack()}
-        rightActions={[
-          { icon: '≡', label: '', onPress: () => setDrawerVisible(true) },
-        ]}
+        rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
       />
       <KeyboardAvoidingView
         style={styles.body}
@@ -508,7 +546,34 @@ export default function AiAssistantN8nScreen() {
             <Empty text={agentId ? t('aiAssistantN8n.empty') : t('aiAssistantN8n.emptyNoAgent')} />
           }
         />
-        {/* 模型选择条(对齐 Uniapp ModelList + modelName 展示,位于输入区上方) */}
+        {/* 快捷操作区(对齐 Uniapp ai_assistant_n8n quick-actions-container:
+            无消息时输入区上方横向 suggestedQuestions chip,点击直接发送) */}
+        {messages.length === 0 && QUICK_SUGGESTIONS.length > 0 ? (
+          <View style={styles.quickWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickScrollContent}
+            >
+              {QUICK_SUGGESTIONS.map((question) => (
+                <TouchableOpacity
+                  key={question}
+                  style={styles.quickChip}
+                  activeOpacity={0.75}
+                  onPress={() => void onSend(question)}
+                  accessibilityRole="button"
+                  accessibilityLabel={question}
+                >
+                  <Text style={styles.quickChipText} numberOfLines={1}>
+                    {question}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+        {/* 模型选择条(对齐 Uniapp ModelList + modelName 展示,位于输入区上方;
+            配置按钮在模型选择旁打开 ModelConfigDialog,对齐 Uniapp 入口习惯) */}
         <TouchableOpacity
           style={styles.modelBar}
           onPress={() => setShowModelPicker(true)}
@@ -519,6 +584,19 @@ export default function AiAssistantN8nScreen() {
           <Text style={styles.modelBarLabel} numberOfLines={1}>
             {t('chat.modelLabel')}: {selectedModelLabel}
           </Text>
+          <TouchableOpacity
+            style={styles.modelConfigBtn}
+            onPress={() => setModelConfigVisible(true)}
+            activeOpacity={0.7}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('agent.config')}
+          >
+            <Text style={styles.modelConfigBtnText} allowFontScaling={false}>
+              {'⚙'}
+            </Text>
+            <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
+          </TouchableOpacity>
           <Text style={styles.modelBarArrow}>{'›'}</Text>
         </TouchableOpacity>
         <InputArea
@@ -580,6 +658,16 @@ export default function AiAssistantN8nScreen() {
         onClose={() => setPreviewImage(null)}
       />
 
+      {/* 模型配置弹层(对齐 Uniapp ModelConfigDialog:温度/top_p/maxTokens 等
+          参数设置,入口在模型选择旁,与 uniapp InputArea showModelaConfig 一致) */}
+      <ModelConfigDialog
+        visible={modelConfigVisible}
+        modelType="text"
+        config={modelConfig}
+        onChange={setModelConfig}
+        onClose={() => setModelConfigVisible(false)}
+      />
+
       {/* Drawer 历史对话入口(对齐任务要求"Drawer 集成:历史对话入口") */}
       <Drawer
         visible={drawerVisible}
@@ -599,12 +687,7 @@ export default function AiAssistantN8nScreen() {
       />
 
       {/* FloatBox 浮层提示(对齐 Uniapp uni.showToast + 任务要求 #2) */}
-      <FloatBox
-        visible={toastVisible}
-        type={toastType}
-        message={toastMessage}
-        onHide={hideToast}
-      />
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
   )
 }
@@ -629,10 +712,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: tokens.text.secondary,
   },
+  // 模型配置按钮(模型选择旁,对齐 Uniapp InputArea 配置入口)
+  modelConfigBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.muted,
+  },
+  modelConfigBtnText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  modelConfigBtnLabel: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
   modelBarArrow: {
     fontSize: 18,
     color: tokens.text.tertiary,
     marginLeft: 8,
+  },
+  // 快捷操作区(对齐 Uniapp quick-actions-container)
+  quickWrap: {
+    backgroundColor: tokens.surface.bg,
+    borderTopWidth: 1,
+    borderTopColor: tokens.border.light,
+  },
+  quickScrollContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  quickChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: tokens.surface.card,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+  },
+  quickChipText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
   },
   streamingBar: {
     flexDirection: 'row',
