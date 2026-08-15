@@ -42,7 +42,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
-import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
@@ -114,8 +114,11 @@ import NotificationPanel from '../components/NotificationPanel'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 
 // ── 类型定义(强类型,禁用 any) ──
+
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /**
  * 模型类型(对齐 Uniapp ai_index.vue 的 8 种模型类型按钮)。
@@ -191,12 +194,13 @@ const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as c
 /** 文件上传支持类型徽章(P1.5,expo-document-picker 未安装,Modal 占位) */
 const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as const
 
-// DrawerTab 中 home/ai/mine 是 Tab 路由(走 Tabs navigator);
+// DrawerTab 中 home/ai/mine 是 MainStack 路由(走 Main navigator);
 // square/share 是 RootStack 路由(直接 navigate,见 handleDrawerNavigate)。
 
 // ── ChatScreen 组件 ──
 
 export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
+  const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, logout } = useAuth()
   const {
     inputFiles,
@@ -771,7 +775,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
 
   // ── 跳转个人中心(对齐 Uniapp goToMyPage,Share2 按钮承载 share-image 跳转) ──
   const goToMyPage = (): void => {
-    navigation.navigate('Tabs', { screen: 'mine' } as never)
+    rootNav?.navigate('Main', { screen: 'ProfileMain' })
   }
   const handleShareClick = async (): Promise<void> => {
     try {
@@ -802,7 +806,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // ── Drawer 回调 ──
   const closeDrawer = (): void => setDrawerVisible(false)
   const handleDrawerNavigate = (tab: DrawerTab): void => {
-    // square/share 是 RootStack 路由(非 Tab),直接 navigate 到根路由
+    // square/share 是 RootStack 路由(非 Main),直接 navigate 到根路由
     if (tab === 'square') {
       navigation.navigate('Square')
       return
@@ -811,9 +815,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       navigation.navigate('Share')
       return
     }
-    // home/ai/mine 是 Tab 路由,通过 Tabs navigator 跳转
+    // home/ai/mine 是 MainStack 路由,通过 Main navigator 跳转
     const rnTab: 'home' | 'ai' | 'mine' = tab
-    navigation.navigate('Tabs', { screen: rnTab } as never)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {
     // 一人公司:跳 Distribution 路由(已在 RootNavigator 注册,对齐 Uniapp gotocompany)
@@ -900,7 +904,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     navigation.navigate('MessageCenter')
   }
   const handleDrawerGoHome = (): void => {
-    navigation.navigate('Tabs', { screen: 'home' } as never)
+    navigation.navigate('Main', { screen: 'HomeMain' })
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu): void => {
     switch (menu) {
