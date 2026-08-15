@@ -1524,7 +1524,15 @@ export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
 /** 第三方登录平台 key(对齐 web ui-react ThirdPartyPlatform) */
 export type ThirdPartyPlatform =
-  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple' | 'app'
+  | 'wechat'
+  | 'google'
+  | 'github'
+  | 'feishu'
+  | 'dingtalk'
+  | 'enterpriseWechat'
+  | 'alipay'
+  | 'apple'
+  | 'app'
 
 /** 第三方登录配置项(wrapper 注入:平台 key + 文案 + 图标 + 是否启用) */
 export interface ThirdPartyLoginOption {
@@ -1627,6 +1635,9 @@ export interface LoginScreenProps {
   phoneCode?: string
   phoneCodeSending?: boolean
   phoneCountdown?: number
+  /** 手机号输入框前缀节点(区号展示,如 "+86",对齐 uniapp login 的 xiaicc 区号)
+   * 不传则输入框独占一行(向后兼容)。2026-08-15 新增。 */
+  phonePrefixNode?: ReactNode
   onPhoneChange?: (text: string) => void
   onPhoneCodeChange?: (text: string) => void
   onSendPhoneCode?: () => void
