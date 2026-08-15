@@ -52,8 +52,8 @@ import { Bot, BookOpen, ChevronDown, Database } from 'lucide-react-native'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
-import type { ProfileStackParamList, RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab } from '../navigation/RootNavigator'
+import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
@@ -93,12 +93,12 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 }
 
 /** Drawer 5 主菜单 → RN Tab 路由映射(square/share 由 handleDrawerNavigate 特殊跳转到 RootStack 独立页,不走此映射) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
-  home: 'home',
-  ai: 'ai',
-  square: 'home',
-  share: 'home',
-  mine: 'mine',
+const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
+  home: 'HomeMain',
+  ai: 'AiMain',
+  square: 'HomeMain',
+  share: 'HomeMain',
+  mine: 'ProfileMain',
 }
 
 /**
