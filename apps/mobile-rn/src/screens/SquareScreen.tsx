@@ -49,7 +49,7 @@ import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>

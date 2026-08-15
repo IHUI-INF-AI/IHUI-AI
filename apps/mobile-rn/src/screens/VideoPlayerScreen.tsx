@@ -7,14 +7,14 @@ import {
   type VideoPlayerProgress,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
-import type { HomeStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import { VideoPlayer } from '../components/VideoPlayer'
 
-type Route = RouteProp<HomeStackParamList, 'VideoPlayer'>
-type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
+type Route = RouteProp<RootStackParamList, 'VideoPlayer'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VideoPlayer'>
 
 /** 路由 params 扩展:课程播放器在 root 导航里未声明 videoUrl,这里做结构兼容 */
-type VideoPlayerRouteParams = HomeStackParamList['VideoPlayer'] & {
+type VideoPlayerRouteParams = RootStackParamList['VideoPlayer'] & {
   videoUrl?: string
   duration?: number
 }
