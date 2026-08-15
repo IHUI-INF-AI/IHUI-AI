@@ -25,7 +25,8 @@ on:
 
 permissions:
   contents: read
-  administration: write
+  # 注意: GitHub Actions permissions 不支持 `administration`。
+  # 若需更新仓库设置(settings)，需在 GitHub UI 手动开启 Workflow permissions。
 
 jobs:
   update-metadata:
