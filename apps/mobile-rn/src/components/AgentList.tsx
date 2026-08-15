@@ -10,6 +10,9 @@
  * - 类型零 any,精确标注。
  * - onItemAction 可选(收藏等),不传则不渲染按钮。
  * - 可选 RefreshControl(通过 refreshing/onRefresh props 注入)。
+ * - 点赞/收藏回调可选(对齐 Uniapp tools ai-list 的 getAgentLike/getAgentCollect):
+ *   onItemLike/onItemCollect 传入时在卡片底部渲染 👍/⭐ 操作按钮(带计数与选中态)。
+ * - scrollEnabled 可选(默认 true):嵌套外层 ScrollView 时传 false 关闭内部滚动,由内容撑开高度。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
@@ -50,11 +53,17 @@ export interface AgentListProps {
   onItemClick: (id: string) => void
   /** 操作按钮回调;不传则不渲染操作按钮 */
   onItemAction?: (id: string) => void
+  /** 点赞回调(对齐 Uniapp getAgentLike);不传则不渲染点赞按钮 */
+  onItemLike?: (id: string) => void
+  /** 收藏回调(对齐 Uniapp getAgentCollect);不传则不渲染收藏按钮 */
+  onItemCollect?: (id: string) => void
   emptyText?: string
   /** 下拉刷新状态(可选,传入则启用 RefreshControl) */
   refreshing?: boolean
   /** 下拉刷新回调(可选) */
   onRefresh?: () => void
+  /** 内部滚动开关(默认 true);嵌套外层 ScrollView 时传 false */
+  scrollEnabled?: boolean
 }
 
 function keyExtractor(item: AgentListItem): string {
@@ -77,22 +86,20 @@ function AgentRow({
   item,
   onItemClick,
   onItemAction,
+  onItemLike,
+  onItemCollect,
 }: {
   item: AgentListItem
   onItemClick: (id: string) => void
   onItemAction?: (id: string) => void
+  onItemLike?: (id: string) => void
+  onItemCollect?: (id: string) => void
 }): React.JSX.Element {
   const hasMeta =
-    item.usageCount !== undefined ||
-    item.collectCount !== undefined ||
-    item.likeCount !== undefined
+    item.usageCount !== undefined || item.collectCount !== undefined || item.likeCount !== undefined
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.7}
-      onPress={() => onItemClick(item.id)}
-    >
+    <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => onItemClick(item.id)}>
       <View style={styles.cardTop}>
         <Avatar name={item.name} avatar={item.avatar} />
         {onItemAction ? (
@@ -124,6 +131,39 @@ function AgentRow({
           {item.likeCount !== undefined ? `点赞 ${item.likeCount}` : ''}
         </Text>
       ) : null}
+      {/* 点赞/收藏操作行(对齐 Uniapp ai-list 卡片 👍/⭐,回调传入才渲染) */}
+      {onItemLike || onItemCollect ? (
+        <View style={styles.reactionRow}>
+          {onItemLike ? (
+            <TouchableOpacity
+              style={styles.reactionBtn}
+              activeOpacity={0.6}
+              onPress={() => onItemLike(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} 点赞`}
+            >
+              <Text style={[styles.reactionText, item.isThumbs ? styles.reactionTextActive : null]}>
+                {`👍 ${item.likeCount ?? 0}`}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {onItemCollect ? (
+            <TouchableOpacity
+              style={styles.reactionBtn}
+              activeOpacity={0.6}
+              onPress={() => onItemCollect(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} 收藏`}
+            >
+              <Text
+                style={[styles.reactionText, item.isCollect ? styles.reactionTextActive : null]}
+              >
+                {`⭐ ${item.collectCount ?? 0}`}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
     </TouchableOpacity>
   )
 }
@@ -132,25 +172,33 @@ export default function AgentList({
   items,
   onItemClick,
   onItemAction,
+  onItemLike,
+  onItemCollect,
   emptyText = '暂无 Agent',
   refreshing = false,
   onRefresh,
+  scrollEnabled = true,
 }: AgentListProps): React.JSX.Element {
   const renderItem: ListRenderItem<AgentListItem> = ({ item }) => (
-    <AgentRow item={item} onItemClick={onItemClick} onItemAction={onItemAction} />
+    <AgentRow
+      item={item}
+      onItemClick={onItemClick}
+      onItemAction={onItemAction}
+      onItemLike={onItemLike}
+      onItemCollect={onItemCollect}
+    />
   )
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, scrollEnabled ? null : styles.containerNested]}>
       <FlatList<AgentListItem>
         data={items}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={styles.listBody}
+        scrollEnabled={scrollEnabled}
         refreshControl={
-          onRefresh ? (
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          ) : undefined
+          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -166,6 +214,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
+  },
+  // 嵌套外层 ScrollView 时:取消 flex 撑开,由内容决定高度
+  containerNested: {
+    flex: 0,
+    alignSelf: 'stretch',
   },
   listBody: {
     padding: 12,
@@ -232,6 +285,27 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 11,
     color: tokens.text.tertiary,
+  },
+  // ── 点赞/收藏操作行(对齐 Uniapp ai-list 卡片操作按钮) ──
+  reactionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  reactionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: tokens.surface.muted,
+  },
+  reactionText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  reactionTextActive: {
+    color: tokens.brand.DEFAULT,
+    fontWeight: '600',
   },
   empty: {
     paddingVertical: 48,

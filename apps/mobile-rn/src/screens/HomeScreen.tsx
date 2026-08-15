@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Modal,
   Pressable,
@@ -7,15 +7,23 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import { SlidersHorizontal } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  fetchApi,
   getAllStudyProgress,
+  getAgentCategories,
+  getAgents,
   getCourses,
   getLiveList,
+  type Agent,
+  type AgentCategoryItem,
   type Course,
   type Live,
   type StudyProgress,
@@ -28,7 +36,7 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
-import type { AiModelData } from '@ihui/types'
+import type { AiModelData, ApiResult } from '@ihui/types'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
@@ -43,21 +51,18 @@ import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
-import {
-  Drawer,
-  type DrawerExtraMenu,
-  type DrawerTab,
-} from '../components/Drawer'
+import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
+// 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
+import AgentList, { type AgentListItem } from '../components/AgentList'
+import { FenLeiOverlay } from '../components/FenLeiOverlay'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
-import type {
-  RootStackParamList,
-} from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -189,7 +194,13 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '智能体',
       models: [
-        { id: 'agent-default', name: '通用智能体', description: '通用问答 Agent', icon: '🤖', isFree: true },
+        {
+          id: 'agent-default',
+          name: '通用智能体',
+          description: '通用问答 Agent',
+          icon: '🤖',
+          isFree: true,
+        },
       ],
     },
   ],
@@ -205,7 +216,13 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '图像生成',
       models: [
-        { id: 'img-sdxl', name: 'SDXL 图像', description: '高质量图像生成', icon: '🎨', isFree: false },
+        {
+          id: 'img-sdxl',
+          name: 'SDXL 图像',
+          description: '高质量图像生成',
+          icon: '🎨',
+          isFree: false,
+        },
       ],
     },
   ],
@@ -229,7 +246,13 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '视频音频',
       models: [
-        { id: 'va-default', name: '视音合成', description: '视频音频一体化', icon: '🎤', isFree: false },
+        {
+          id: 'va-default',
+          name: '视音合成',
+          description: '视频音频一体化',
+          icon: '🎤',
+          isFree: false,
+        },
       ],
     },
   ],
@@ -237,7 +260,13 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '其他',
       models: [
-        { id: 'other-default', name: '通用模型', description: '其他类型模型', icon: '⚙️', isFree: true },
+        {
+          id: 'other-default',
+          name: '通用模型',
+          description: '其他类型模型',
+          icon: '⚙️',
+          isFree: true,
+        },
       ],
     },
   ],
@@ -245,10 +274,67 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '知识库',
       models: [
-        { id: 'sck-default', name: '默认知识库', description: '通用知识库检索', icon: '📚', isFree: true },
+        {
+          id: 'sck-default',
+          name: '默认知识库',
+          description: '通用知识库检索',
+          icon: '📚',
+          isFree: true,
+        },
       ],
     },
   ],
+}
+
+// ── 对齐 Uniapp tools/index.vue(AI 应用商店)智能体列表相关 ──
+
+/** 赛道分类 fallback(复用 AgentScreen 同款数据源口径:getAgentCategories 失败时兜底,避免弹层为空)
+ *  第一层:agentCategory(赛道,首项"全公司" id='')—— 对应接口参数 agentCategory */
+const AGENT_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
+  { id: '', name: '全公司' },
+  { id: 'tech', name: '技术' },
+  { id: 'design', name: '设计' },
+  { id: 'market', name: '市场' },
+  { id: 'operation', name: '运营' },
+]
+/** 第二层:agentMainCategory(主分类,首项"全部" id='')—— 对应接口参数 agentMainCategory */
+const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
+  { id: '', name: '全部' },
+  { id: 'writing', name: '写作' },
+  { id: 'coding', name: '编程' },
+  { id: 'office', name: '办公' },
+  { id: 'learning', name: '学习' },
+]
+
+/** Agent → AgentListItem 映射(点赞数后端 Agent 无字段,省略由卡片显示 0 占位) */
+function toAgentListItem(a: Agent): AgentListItem {
+  return {
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar ?? undefined,
+    description: a.description,
+    category: a.category,
+    isCollect: a.isFavorited,
+    collectCount: a.favoriteCount,
+    usageCount: a.useCount,
+  }
+}
+
+/** 智能体收藏(对齐 Uniapp pay.js getAgentCollect:POST /cozeZhsApi/agents/collect,body {uuid, botId})
+ *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义 */
+function postAgentCollect(uuid: string, botId: string): Promise<ApiResult<unknown>> {
+  return fetchApi<unknown>('/cozeZhsApi/agents/collect', {
+    method: 'POST',
+    body: JSON.stringify({ uuid, botId }),
+  })
+}
+
+/** 智能体点赞(对齐 Uniapp pay.js getAgentLike:POST /cozeZhsApi/agents/thumbs,body {uuid, botId}) */
+function postAgentLike(uuid: string, botId: string): Promise<ApiResult<unknown>> {
+  return fetchApi<unknown>('/cozeZhsApi/agents/thumbs', {
+    method: 'POST',
+    body: JSON.stringify({ uuid, botId }),
+  })
 }
 
 export function HomeScreen() {
@@ -293,8 +379,25 @@ export function HomeScreen() {
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
-  /** RecentAgents 最近使用智能体(对齐 Uniapp AgentList,空数组占位待 API 接入) */
-  const recentAgents: RecentAgentItem[] = []
+  /** RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
+   *  api-client 暂无 getAgentUseHistory(/agent/use/history)封装,降级取智能体列表前 5 条占位 */
+  const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
+
+  // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 + tagWrapShow 赛道分类弹层 ──
+  const [agentItems, setAgentItems] = useState<AgentListItem[]>([])
+  const [trackCategories, setTrackCategories] =
+    useState<ReadonlyArray<AgentCategoryItem>>(AGENT_CATEGORY_FALLBACK)
+  const [mainCategories, setMainCategories] = useState<ReadonlyArray<AgentCategoryItem>>(
+    AGENT_MAIN_CATEGORY_FALLBACK,
+  )
+  const [fenleiVisible, setFenleiVisible] = useState(false)
+  /** 选中的赛道(agentCategory,''=全公司,对齐 uniapp agentCategory_active) */
+  const [selectedTrackId, setSelectedTrackId] = useState('')
+  /** 选中的主分类(agentMainCategory,''=全部,对齐 uniapp fenlei_active_id) */
+  const [selectedMainId, setSelectedMainId] = useState('')
+  // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
+  const [showBackTop, setShowBackTop] = useState(false)
+  const scrollRef = useRef<ScrollView>(null)
 
   // ── Drawer 回调(对齐 Uniapp gopage / gotocompany / lingqu / addNewChat) ──
   const closeDrawer = (): void => setDrawerVisible(false)
@@ -420,9 +523,9 @@ export function HomeScreen() {
   /** 清除已选模型(对齐 Uniapp 切换类型时清空 modelName) */
   const handleClearModel = (): void => setSelectedModel(null)
 
-  // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) ──
+  // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
   const handleRecentAgentPress = (item: RecentAgentItem): void => {
-    rootNav?.navigate('AiAssistant', { agentId: item.id, title: item.name })
+    rootNav?.navigate('AiAssistantN8n', { agentId: item.id, title: item.name })
   }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
@@ -515,6 +618,123 @@ export function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList:带赛道/主分类筛选) ──
+  const loadAgentList = useCallback(async (trackId: string, mainId: string): Promise<void> => {
+    const res = await getAgents({
+      status: 'published',
+      pageSize: 20,
+      // buildQs 自动忽略空串,''=全公司/全部
+      agentCategory: trackId,
+      agentMainCategory: mainId,
+    })
+    if (res.success) {
+      const list = (res.data.list ?? []).map(toAgentListItem)
+      setAgentItems(list)
+      // RecentAgents 降级数据源:无 getAgentUseHistory 接口,取列表前 5 条(对齐 uniapp slice(0,5))
+      setRecentAgents(list.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
+    }
+  }, [])
+
+  // ── 分类字典加载(对齐 Uniapp onShow categories(),失败 fallback 静态占位) ──
+  const loadAgentCategories = useCallback(async (): Promise<void> => {
+    const res = await getAgentCategories()
+    if (res.success && res.data) {
+      const track = Array.isArray(res.data.agentCategory) ? res.data.agentCategory : []
+      const main = Array.isArray(res.data.agentMainCategory) ? res.data.agentMainCategory : []
+      // 对齐 uniapp:赛道首项补"全公司"(id=''),主分类首项补"全部"
+      setTrackCategories([{ id: '', name: '全公司' }, ...track])
+      setMainCategories([{ id: '', name: '全部' }, ...main])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAgentList(selectedTrackId, selectedMainId)
+    void loadAgentCategories()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── 分类弹层确定(对齐 Uniapp handleItemClicks/fenlei_active_btn:清列表 + page=1 + 重新加载) ──
+  const handleFenLeiConfirm = useCallback(
+    (trackId: string, mainId: string): void => {
+      setSelectedTrackId(trackId)
+      setSelectedMainId(mainId)
+      void loadAgentList(trackId, mainId)
+    },
+    [loadAgentList],
+  )
+
+  // ── 智能体卡片点击(对齐 Uniapp ai-list 点击 → ai_assistant 对话页) ──
+  const handleAgentPress = useCallback(
+    (id: string): void => {
+      const agent = agentItems.find((a) => a.id === id)
+      rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
+    },
+    [agentItems, rootNav],
+  )
+
+  // ── 点赞/收藏(对齐 Uniapp getAgentLike/getAgentCollect:乐观更新,失败回滚提示) ──
+  const toggleAgentReaction = useCallback(
+    async (id: string, kind: 'like' | 'collect'): Promise<void> => {
+      const uuid = user?.id
+      if (!uuid) {
+        showToast('info', '请先登录后再操作')
+        return
+      }
+      const prev = agentItems
+      // 乐观更新(对齐 uniapp 遍历 agentList 翻转 isThumbs/isCollect + 计数 ±1)
+      setAgentItems((items) =>
+        items.map((it) => {
+          if (it.id !== id) return it
+          if (kind === 'like') {
+            const next = !it.isThumbs
+            return {
+              ...it,
+              isThumbs: next,
+              likeCount: Math.max(0, (it.likeCount ?? 0) + (next ? 1 : -1)),
+            }
+          }
+          const nextCollect = !it.isCollect
+          return {
+            ...it,
+            isCollect: nextCollect,
+            collectCount: Math.max(0, (it.collectCount ?? 0) + (nextCollect ? 1 : -1)),
+          }
+        }),
+      )
+      try {
+        const res =
+          kind === 'like' ? await postAgentLike(uuid, id) : await postAgentCollect(uuid, id)
+        if (!res.success) throw new Error(res.error || '操作失败')
+        showToast('success', kind === 'like' ? '点赞成功' : '收藏成功')
+      } catch {
+        // 失败回滚
+        setAgentItems(prev)
+        showToast('error', kind === 'like' ? '点赞失败' : '收藏失败')
+      }
+    },
+    [agentItems, user?.id, showToast],
+  )
+  const handleAgentLike = useCallback(
+    (id: string): void => {
+      void toggleAgentReaction(id, 'like')
+    },
+    [toggleAgentReaction],
+  )
+  const handleAgentCollect = useCallback(
+    (id: string): void => {
+      void toggleAgentReaction(id, 'collect')
+    },
+    [toggleAgentReaction],
+  )
+
+  // ── toodown 返回顶部(对齐 Uniapp handleToodownVisibility/backToTop,RN 端阈值 600) ──
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    setShowBackTop(e.nativeEvent.contentOffset.y > 600)
+  }, [])
+  const backToTop = useCallback((): void => {
+    scrollRef.current?.scrollTo({ y: 0, animated: true })
+  }, [])
+
   const carouselItems = useMemo<CourseCarouselItem[]>(
     () => toCarouselItems(recommends),
     [recommends],
@@ -526,13 +746,31 @@ export function HomeScreen() {
       <OfflineBanner isOnline={connected} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
+       *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
       <NavBar
         title="智汇AI社区"
         leftActions={navLeftActions}
         rightActions={navRightActions}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => setFenleiVisible(true)}
+            hitSlop={8}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="分类"
+          >
+            <SlidersHorizontal size={20} color={tokens.text.primary} />
+          </TouchableOpacity>
+        }
       />
-      <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        style={shellStyles.scroll}
+        contentContainerStyle={shellStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
         {bannerItems.length > 0 ? (
           <View style={shellStyles.carouselWrap}>
@@ -564,13 +802,10 @@ export function HomeScreen() {
         ) : null}
         {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口) */}
         <View style={shellStyles.aiModelWrap}>
-          <AiModelCard
-            data={aiModelData}
-            onPress={() => rootNav?.navigate('Chat', {})}
-          />
+          <AiModelCard data={aiModelData} onPress={() => rootNav?.navigate('Chat', {})} />
         </View>
-        {/* RecentAgents 最近使用智能体(对齐 Uniapp ai_index AgentList 横向列表)
-         *  空数组占位待 API 接入(对齐 AgentScreen 同款占位策略);
+        {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
+         *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
          *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
         {recentAgents.length > 0 ? (
           <View style={shellStyles.sectionWrap}>
@@ -657,11 +892,38 @@ export function HomeScreen() {
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
+        {/* AgentList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 ai-list,核心区块)
+         *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistant;
+         *  scrollEnabled=false 嵌套外层 ScrollView,由页面整体滚动 */}
+        <View style={shellStyles.agentListWrap}>
+          <MoreTitles title="AI 应用商店" />
+          <AgentList
+            items={agentItems}
+            onItemClick={handleAgentPress}
+            onItemLike={handleAgentLike}
+            onItemCollect={handleAgentCollect}
+            emptyText="该分类下暂无智能体"
+            scrollEnabled={false}
+          />
+        </View>
         {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure />
         </View>
       </ScrollView>
+      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen)
+       *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
+      {showBackTop ? (
+        <TouchableOpacity
+          style={shellStyles.backToTop}
+          onPress={backToTop}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="返回顶部"
+        >
+          <Text style={shellStyles.backToTopIcon}>{'↑'}</Text>
+        </TouchableOpacity>
+      ) : null}
       {/* ModelTypeBar 模型类型选择栏(对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
        *  横向 ScrollView 8 个图标按钮;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
        *  selectedModel 显示为输入区小标签(对齐 Uniapp modelName 显示) */}
@@ -672,10 +934,7 @@ export function HomeScreen() {
             return (
               <TouchableOpacity
                 key={opt.type}
-                style={[
-                  shellStyles.modelTypeBtn,
-                  active ? shellStyles.modelTypeBtnActive : null,
-                ]}
+                style={[shellStyles.modelTypeBtn, active ? shellStyles.modelTypeBtnActive : null]}
                 onPress={() => handleModelTypePress(opt.type)}
                 activeOpacity={0.7}
                 accessibilityRole="button"
@@ -743,6 +1002,17 @@ export function HomeScreen() {
       />
       {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
+      {/* FenLeiOverlay 赛道分类弹层(对齐 Uniapp tools/index tagWrapShow:NavBar 分类按钮触发)
+       *  赛道(agentCategory)+ 主分类(agentMainCategory)两层单选,确定后过滤智能体列表 */}
+      <FenLeiOverlay
+        visible={fenleiVisible}
+        onClose={() => setFenleiVisible(false)}
+        trackCategories={trackCategories}
+        mainCategories={mainCategories}
+        selectedTrackId={selectedTrackId}
+        selectedMainId={selectedMainId}
+        onConfirm={handleFenLeiConfirm}
+      />
       {/* ModelList Modal(对齐 Uniapp showModelList → ModelList 弹窗,选模型后填充输入区)
        *  共享组件:RN 内置 Modal + ModelList;底部 sheet 风格(对齐 BottomPopup 同款) */}
       <Modal
@@ -762,7 +1032,7 @@ export function HomeScreen() {
             <View style={shellStyles.modelModalHeader}>
               <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
                 {activeModelType
-                  ? MODEL_TYPES.find((m) => m.type === activeModelType)?.label ?? ''
+                  ? (MODEL_TYPES.find((m) => m.type === activeModelType)?.label ?? '')
                   : ''}
                 {' 模型选择'}
               </Text>
@@ -779,9 +1049,7 @@ export function HomeScreen() {
               <ModelList
                 groups={PLACEHOLDER_MODELS[activeModelType]}
                 selectionMode="single"
-                selectedIds={
-                  selectedModel?.type === activeModelType ? [selectedModel.id] : []
-                }
+                selectedIds={selectedModel?.type === activeModelType ? [selectedModel.id] : []}
                 onSelectChange={handleModelSelect}
               />
             ) : null}
@@ -796,12 +1064,39 @@ const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: 16 } as const,
-  carouselWrap: { marginBottom: 8 } as const,
+  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop:9 + 圆角 30rpx≈15)
+  carouselWrap: { marginTop: 9, marginBottom: 8, borderRadius: 15, overflow: 'hidden' } as const,
   toolbarWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
   cardListWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
   aiModelWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
   sectionWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
+  // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
+  agentListWrap: { paddingVertical: 8 } as const,
   bottomFigureWrap: { paddingHorizontal: 10, paddingTop: 8, marginBottom: 10 } as const,
+  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen) ──
+  backToTop: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -17,
+    bottom: 150,
+    width: 34,
+    height: 34,
+    borderRadius: 4,
+    backgroundColor: 'rgba(147, 210, 243, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: tokens.gray[900],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  } as const,
+  backToTopIcon: {
+    fontSize: 20,
+    color: tokens.text.primary,
+    fontWeight: '600',
+    includeFontPadding: false,
+  } as const,
   // ── ModelTypeBar 模型类型选择栏(对齐 Uniapp model-type-btn 8 个) ──
   modelTypeBar: {
     backgroundColor: tokens.surface.card,
