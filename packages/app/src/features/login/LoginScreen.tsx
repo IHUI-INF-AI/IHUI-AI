@@ -172,6 +172,8 @@ interface PhoneTabContentProps extends TabContentBaseProps {
   phoneCode: string
   sending: boolean
   countdown: number
+  /** 手机号输入框前缀节点(区号展示,如 "+86");不传则输入框独占一行 */
+  phonePrefixNode?: ReactNode
   onPhoneChange?: (text: string) => void
   onPhoneCodeChange?: (text: string) => void
   onSendCode?: () => void
@@ -460,6 +462,7 @@ function PhoneTabContent({
   phoneCode,
   sending,
   countdown,
+  phonePrefixNode,
   onPhoneChange,
   onPhoneCodeChange,
   onSendCode,
@@ -476,16 +479,32 @@ function PhoneTabContent({
     <View style={styles.tabContent}>
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.phone')}</Text>
-        <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
-          placeholder={t('auth.phonePlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-          keyboardType="number-pad"
-          maxLength={11}
-          textContentType="telephoneNumber"
-        />
+        {phonePrefixNode ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {phonePrefixNode}
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={phone}
+              onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+              placeholder={t('auth.phonePlaceholder')}
+              placeholderTextColor={tk.text.tertiary}
+              keyboardType="number-pad"
+              maxLength={11}
+              textContentType="telephoneNumber"
+            />
+          </View>
+        ) : (
+          <TextInput
+            style={styles.input}
+            value={phone}
+            onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+            placeholder={t('auth.phonePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={11}
+            textContentType="telephoneNumber"
+          />
+        )}
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.code')}</Text>
@@ -680,10 +699,7 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
             return (
               <TouchableOpacity
                 key={p.key}
-                style={[
-                  styles.qrPlatformTab,
-                  active && styles.qrPlatformTabActive,
-                ]}
+                style={[styles.qrPlatformTab, active && styles.qrPlatformTabActive]}
                 onPress={() => setActivePlatform(p.key)}
                 activeOpacity={0.7}
                 accessibilityRole="tab"
@@ -703,9 +719,7 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
                       !!p.brandColor && { backgroundColor: p.brandColor },
                     ]}
                   >
-                    <Text style={imageStyles.qrPlatformFallbackText}>
-                      {p.label.charAt(0)}
-                    </Text>
+                    <Text style={imageStyles.qrPlatformFallbackText}>{p.label.charAt(0)}</Text>
                   </View>
                 )}
                 <Text
@@ -832,6 +846,7 @@ export function LoginScreen(props: LoginScreenProps) {
     phoneCode,
     phoneCodeSending,
     phoneCountdown,
+    phonePrefixNode,
     onPhoneChange,
     onPhoneCodeChange,
     onSendPhoneCode,
@@ -986,6 +1001,7 @@ export function LoginScreen(props: LoginScreenProps) {
             phoneCode={phoneCode ?? ''}
             sending={phoneCodeSending ?? false}
             countdown={phoneCountdown ?? 0}
+            phonePrefixNode={phonePrefixNode}
             onPhoneChange={onPhoneChange}
             onPhoneCodeChange={onPhoneCodeChange}
             onSendCode={onSendPhoneCode}

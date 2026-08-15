@@ -35,6 +35,7 @@ import { getTokenBalance } from '@ihui/api-client'
 import type { UserInfo } from '@ihui/types'
 import { NavBar } from '../components/NavBar'
 import UserInfoCard from '../components/UserInfoCard'
+import { IntroducePopup } from '../components/IntroducePopup'
 import { useAuth } from '../context/AuthContext'
 import { useWechatPayment } from '../hooks/useWechatPayment'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -64,6 +65,16 @@ const PAY_METHODS: readonly { id: PayMethod; name: string; icon: string }[] = [
 const MIN_AMOUNT = 1
 const MAX_AMOUNT = 50000
 
+/** 充值说明弹窗文案(对齐 Uniapp top-up 系列页面的充值规则说明) */
+const TOPUP_INTRO_BENEFITS: readonly string[] = [
+  '充值比例:普通用户 1 元 = 10 智汇值,会员 1 元 = 11 智汇值,操盘手 1 元 = 12 智汇值',
+  `单次充值金额最低 ${MIN_AMOUNT} 元,最高 ${MAX_AMOUNT} 元,且必须为整数`,
+  '充值成功后智汇值实时到账,可在「我的智汇值」页查看消耗与充值明细',
+  '支付完成但页面未显示成功时,请先在订单列表确认状态,勿重复充值',
+  '充值金额不支持退款与转让,请按实际需求充值',
+  '如长时间未到账,请保留订单编号并联系客服处理',
+]
+
 /**
  * 智汇值比例:普通=10 / 会员=11 / 操盘手=12。
  * 操盘手需 identityType===1(对齐 packages/shared/utils/role.ts),AuthUser 暂未暴露该字段,
@@ -81,6 +92,7 @@ export function AppTopupScreen() {
   const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
   const [balance, setBalance] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [introVisible, setIntroVisible] = useState(false)
 
   const tokenRatio = getTokenRatio(user?.isVip)
 
@@ -113,7 +125,7 @@ export function AppTopupScreen() {
   })
 
   const selectedOption = AMOUNT_OPTIONS.find((item) => item.id === selectedId)
-  const finalAmount = customAmount ? Number(customAmount) : selectedOption?.amount ?? 0
+  const finalAmount = customAmount ? Number(customAmount) : (selectedOption?.amount ?? 0)
 
   const selectAmount = (id: number): void => {
     setSelectedId(id)
@@ -189,10 +201,23 @@ export function AppTopupScreen() {
             <Text style={styles.activityDesc}>活动期间充值享额外智汇值赠送,多充多送</Text>
           </View>
 
-          {/* 充值比例三档说明(对齐 Uniapp amount-header-right) */}
+          {/* 充值比例三档说明(对齐 Uniapp amount-header-right)+ 充值说明入口(IntroducePopup) */}
           {/* TODO(P1): 对接 selectsGoods() API 获取 denomination 数据 */}
           <View style={styles.ratioCard}>
-            <Text style={styles.ratioTitle}>充值比例</Text>
+            <View style={styles.ratioHeader}>
+              <Text style={styles.ratioTitle}>充值比例</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.introLink,
+                  pressed ? styles.introLinkPressed : null,
+                ]}
+                onPress={() => setIntroVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="充值说明"
+              >
+                <Text style={styles.introLinkText}>充值说明 ?</Text>
+              </Pressable>
+            </View>
             <Text style={styles.ratioLine}>普通用户 1 元 = 10 智汇值</Text>
             <Text style={styles.ratioLine}>会员 1 元 = 11 智汇值</Text>
             <Text style={styles.ratioLine}>操盘手 1 元 = 12 智汇值</Text>
@@ -210,7 +235,9 @@ export function AppTopupScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${item.amount} 元`}
                 >
-                  <Text style={[styles.amountChipText, active ? styles.amountChipTextActive : null]}>
+                  <Text
+                    style={[styles.amountChipText, active ? styles.amountChipTextActive : null]}
+                  >
                     {item.amount} 元
                   </Text>
                   <Text style={[styles.amountChipSub, active ? styles.amountChipSubActive : null]}>
@@ -289,6 +316,19 @@ export function AppTopupScreen() {
           <Text style={styles.footerNote}>充值即表示同意《充值服务协议》· 充值金额不支持退款</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 充值说明弹窗(IntroducePopup,对齐 Uniapp top-up 系列页面说明弹窗) */}
+      <IntroducePopup
+        visible={introVisible}
+        onClose={() => setIntroVisible(false)}
+        variant="index"
+        title="充值说明"
+        content="充值前请了解以下规则"
+        benefits={[...TOPUP_INTRO_BENEFITS]}
+        moreBenefits=""
+        confirmText="我知道了"
+        onConfirm={() => setIntroVisible(false)}
+      />
     </View>
   )
 }
@@ -312,8 +352,26 @@ const styles = StyleSheet.create({
     gap: 4,
   } as ViewStyle,
   ratioTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary } as TextStyle,
+  ratioHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as ViewStyle,
+  introLink: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: tk.surface.muted,
+  } as ViewStyle,
+  introLinkPressed: { opacity: 0.7 } as ViewStyle,
+  introLinkText: { fontSize: 12, color: tk.brand.DEFAULT } as TextStyle,
   ratioLine: { fontSize: 13, color: tk.text.secondary } as TextStyle,
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary, marginTop: 4 } as TextStyle,
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tk.text.primary,
+    marginTop: 4,
+  } as TextStyle,
   amountGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 } as ViewStyle,
   amountChip: {
     width: '47%',
@@ -374,7 +432,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   radioActive: { borderColor: tk.brand.DEFAULT } as ViewStyle,
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: tk.brand.DEFAULT } as ViewStyle,
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: tk.brand.DEFAULT,
+  } as ViewStyle,
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
