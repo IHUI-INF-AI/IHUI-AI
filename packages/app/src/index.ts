@@ -582,3 +582,21 @@ export type {
 /** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
 export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
+/** 批次 31(2026-08-15):静态信息屏(ICP/权限/规范/学习开发,4 屏迁移自 mobile-rn) */
+export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
+export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
+export { UsageRulesScreen } from './features/usage-rules/UsageRulesScreen'
+export { LearnDevelopScreen } from './features/learn-develop/LearnDevelopScreen'
+/** 批次 32(2026-08-15):静态状态/结果屏(充值失败/成功/广场封面/子包入口,4 屏迁移自 mobile-rn) */
+export { TopupFailScreen } from './features/topup-fail/TopupFailScreen'
+export { TopupSuccessScreen } from './features/topup-success/TopupSuccessScreen'
+export { PlazaCoverScreen } from './features/plaza-cover/PlazaCoverScreen'
+export { SubPackageIndexScreen } from './features/sub-package-index/SubPackageIndexScreen'
+/** 批次 33(2026-08-15):图片显示 + 表单屏(营业执照/模型备案/修改密码/分佣计划,4 屏迁移自 mobile-rn) */
+export { BusinessLicenseScreen } from './features/business-license/BusinessLicenseScreen'
+export { ModelRecordScreen } from './features/model-record/ModelRecordScreen'
+export { ChangePwdScreen } from './features/change-pwd/ChangePwdScreen'
+export { EarnCommissionScreen } from './features/earn-commission/EarnCommissionScreen'
+/** 批次 34(2026-08-15):Mock 数据屏(团队成员详情/排行榜详情,2 屏迁移自 mobile-rn) */
+export { TeamDetailScreen } from './features/team-detail/TeamDetailScreen'
+export { RankingDetailScreen } from './features/ranking-detail/RankingDetailScreen'
