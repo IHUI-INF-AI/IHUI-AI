@@ -1,5 +1,14 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubPackageIndexScreenProps, SubPackageEntry } from '../../types'
 
@@ -31,7 +40,7 @@ export function SubPackageIndexScreen({
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
-          {entries.map((entry) => (
+          {entries.map((entry: SubPackageEntry) => (
             <Pressable
               key={entry.title}
               style={({ pressed }) => [styles.entryCard, pressed ? styles.entryCardPressed : null]}

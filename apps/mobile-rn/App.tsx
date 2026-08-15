@@ -27,7 +27,10 @@ import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
   return (
-    <NavigationContainer linking={linking} theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationContainer
+      linking={linking}
+      theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
+    >
       <RootNavigator />
     </NavigationContainer>
   )
@@ -126,7 +129,6 @@ function AppContent() {
       </SafeAreaProvider>
       {/* 全局浮窗:推广/咨询/更多,覆盖在 RootNavigator 之上(右下角悬浮) */}
       <GlobalFloatBox />
-      {/* 隐私政策弹窗:全屏覆盖,未同意时显示,阻止后续 SDK 初始化 */}
       <PrivacyPolicyModal visible={showPrivacy} onAgree={handlePrivacyAgree} />
     </View>
   )

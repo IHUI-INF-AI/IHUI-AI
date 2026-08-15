@@ -5,19 +5,19 @@
  */
 import { useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { mainScreenForTab } from '../navigation/RootNavigator'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
-import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
+import Drawer, {
+  type DrawerConversationItem,
+  type DrawerExtraMenu,
+  type DrawerTab,
+} from '../components/Drawer'
 import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
 
-type RankingDetailParams = {
-  RankingDetail: { id: string }
-}
-type Route = RouteProp<RankingDetailParams, 'RankingDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -47,10 +47,8 @@ const TAB_MAP: Record<DrawerTab, MainTabKey> = {
 }
 
 export default function RankingDetailScreenWrapper() {
-  const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
-  const { id } = route.params
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [history, setHistory] = useState<DrawerConversationItem[]>(MOCK_HISTORY)
 
@@ -115,11 +113,11 @@ export default function RankingDetailScreenWrapper() {
         history={history}
         drawerVisible={drawerVisible}
         onDrawerVisibleChange={setDrawerVisible}
-        onNavigate={onNavigate}
+        onNavigate={onNavigate as (tab: string) => void}
         onNavigateCompany={onNavigateCompany}
         onClaimFree={onClaimFree}
         onCreateNewChat={onCreateNewChat}
-        onNavigateExtra={onNavigateExtra}
+        onNavigateExtra={onNavigateExtra as (menu: string) => void}
         onSelectConversation={onSelectConversation}
         onDeleteConversation={onDeleteConversation}
         onOpenSettings={onOpenSettings}
