@@ -1,19 +1,15 @@
 /**
- * RankingDetailScreen 排行榜详情 (mobile-rn 端)
+ * RankingDetailScreen 排行榜详情(mobile-rn 端 wrapper)
  *
- * 1:1 复刻历史 Uniapp ranking-detail.vue(详情卡片 + 侧边历史抽屉):
- * - NavBar + 详情卡片(Logo + 标题 + 排名 + 机构 + 关注度 + 简介)
- * - 侧边 Drawer(复用现有 Drawer.tsx),显示历史排行榜列表(映射为会话项)
- * - getRankingDetail API 不存在,使用 mock 数据(详情 + 历史榜单)
- * 路由参数:{ id: string }
- * 类型零 any;颜色走 rnLightTokens;圆角仅 12/8/6;无分割线。
+ * 保留 RN 特定逻辑(导航/路由/mock 数据/Drawer),UI 委托给 @ihui/rn-app 共享组件。
  */
 import { useState } from 'react'
-import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { mainScreenForTab } from '../navigation/RootNavigator'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
@@ -50,7 +46,7 @@ const TAB_MAP: Record<DrawerTab, MainTabKey> = {
   mine: 'ProfileMain',
 }
 
-export default function RankingDetailScreen() {
+export default function RankingDetailScreenWrapper() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
@@ -105,35 +101,32 @@ export default function RankingDetailScreen() {
         onBack={() => navigation.goBack()}
         rightActions={[{ icon: '☰', label: '历史榜单', onPress: openDrawer }]}
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.card}>
-          <View style={styles.row1}>
-            {MOCK_DETAIL.avatar ? (
-              <Image source={{ uri: MOCK_DETAIL.avatar }} style={styles.logo} />
-            ) : (
-              <View style={[styles.logo, styles.logoFallback]}>
-                <Text style={styles.logoText}>{MOCK_DETAIL.title.slice(0, 1)}</Text>
-              </View>
-            )}
-            <View style={styles.titleDesc}>
-              <Text style={styles.title} numberOfLines={1}>{MOCK_DETAIL.title}</Text>
-              <Text style={styles.desc}>
-                {`排名:${MOCK_DETAIL.rank} · 机构:${MOCK_DETAIL.organization} · 关注度:${MOCK_DETAIL.attention} (#${id})`}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.row2}>
-            <Metric label="关注度" value={String(MOCK_DETAIL.attention)} />
-            <Metric label="排名" value={`第${MOCK_DETAIL.rank}名`} />
-            <Metric label="机构" value={MOCK_DETAIL.organization} />
-          </View>
-          {MOCK_DETAIL.context ? (
-            <View style={styles.contextBox}>
-              <Text style={styles.contextText}>{MOCK_DETAIL.context}</Text>
-            </View>
-          ) : null}
-        </View>
-      </ScrollView>
+      <RankingDetailScreen
+        t={(key: string) => key}
+        onBack={() => navigation.goBack()}
+        detail={{
+          avatar: MOCK_DETAIL.avatar,
+          title: MOCK_DETAIL.title,
+          rank: MOCK_DETAIL.rank,
+          organization: MOCK_DETAIL.organization,
+          attention: MOCK_DETAIL.attention,
+          context: MOCK_DETAIL.context,
+        }}
+        history={history}
+        drawerVisible={drawerVisible}
+        onDrawerVisibleChange={setDrawerVisible}
+        onNavigate={onNavigate}
+        onNavigateCompany={onNavigateCompany}
+        onClaimFree={onClaimFree}
+        onCreateNewChat={onCreateNewChat}
+        onNavigateExtra={onNavigateExtra}
+        onSelectConversation={onSelectConversation}
+        onDeleteConversation={onDeleteConversation}
+        onOpenSettings={onOpenSettings}
+        onOpenMessages={onOpenMessages}
+        onGoHome={onGoHome}
+        colorScheme="light"
+      />
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}
@@ -154,38 +147,6 @@ export default function RankingDetailScreen() {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue} numberOfLines={1}>{value}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  card: { backgroundColor: tokens.surface.light, borderRadius: 12, padding: 16, gap: 16 },
-  row1: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logo: { width: 64, height: 64, borderRadius: 12, backgroundColor: tokens.surface.muted },
-  logoFallback: { alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontSize: 24, fontWeight: '700', color: tokens.text.primary },
-  titleDesc: { flex: 1, gap: 6 },
-  title: { fontSize: 16, fontWeight: '700', color: tokens.text.primary },
-  desc: { fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
-  row2: { flexDirection: 'row', gap: 8 },
-  metric: {
-    flex: 1,
-    backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    gap: 4,
-  },
-  metricLabel: { fontSize: 11, color: tokens.text.tertiary },
-  metricValue: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-  contextBox: { backgroundColor: tokens.surface.muted, borderRadius: 8, padding: 12 },
-  contextText: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
 })

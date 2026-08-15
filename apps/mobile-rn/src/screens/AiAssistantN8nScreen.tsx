@@ -62,6 +62,7 @@ import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
+import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
@@ -599,6 +600,16 @@ export default function AiAssistantN8nScreen() {
           </TouchableOpacity>
           <Text style={styles.modelBarArrow}>{'›'}</Text>
         </TouchableOpacity>
+        {/* VoiceInput 语音输入(对齐 Uniapp ai_assistant_n8n.vue 行 285/302 BottomActionBar
+            :isVoiceInput + @toggle-voice-input:语音转文字回填输入框,随发送提交) */}
+        <View style={styles.voiceInputWrap}>
+          <VoiceInput
+            placeholder="按住说出你的问题"
+            onComplete={(text) => {
+              if (text) setInput(text)
+            }}
+          />
+        </View>
         <InputArea
           value={input}
           onChangeText={setInput}
@@ -696,6 +707,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 16 },
+  // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
+  voiceInputWrap: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: tokens.surface.card },
   // 模型选择条(对齐 Uniapp ModelList 位置:输入区上方)
   modelBar: {
     flexDirection: 'row',

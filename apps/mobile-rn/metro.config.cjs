@@ -97,6 +97,18 @@ config.projectRoot = __dirname
 // 被解析成 G:\IHUI-AI\index(不存在)→ bundle 404。本项目为纯 native RN(无
 // expo web),覆盖回 apps/mobile-rn 与 projectRoot 一致,相对入口恢复可解析。
 config.server.unstable_serverRoot = __dirname
+// 2026-08-15 修复 app 二进制固化的带前缀 bundle URL 404:
+// 现存模拟器/真机 app 构建时 serverRoot 为 monorepo 根,bundle URL 固化为
+// /apps/mobile-rn/App.bundle。serverRoot 改为 apps/mobile-rn 后该 URL 会被
+// 双重拼接为 apps/mobile-rn/apps/mobile-rn/App → 404 红屏
+// (logcat 实证:UnableToResolveError ./apps/mobile-rn/App)。这里剥掉历史
+// 前缀,让新旧两种 URL(/apps/mobile-rn/App.bundle 与 /App.bundle、
+// /index.bundle)在 serverRoot=apps/mobile-rn 下都正确解析。
+const originalRewriteRequestUrl = config.server.rewriteRequestUrl
+config.server.rewriteRequestUrl = (url) => {
+  const rewritten = originalRewriteRequestUrl ? originalRewriteRequestUrl(url) : url
+  return rewritten.replace(/^\/apps\/mobile-rn\//, '/')
+}
 // resolver.worker = undefined 必要时设置
 
 // pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
@@ -201,7 +213,40 @@ function tryResolveWithExts(basePath, originDir, platform) {
   return null
 }
 
+// 2026-08-15 修复 Expo 虚拟入口双拼(模拟器红屏根因):
+// app 请求 /.expo/.virtual-metro-entry.bundle,Expo withMetroResolvers 生成的
+// 虚拟入口模块内部 require('./apps/mobile-rn/App'),该相对路径是按
+// serverRoot=monorepo 根(G:\IHUI-AI)计算的。本项目 serverRoot 已改为
+// apps/mobile-rn(见上 unstable_serverRoot 注释),相对路径被双重拼接为
+// apps/mobile-rn/apps/mobile-rn/App → UnableToResolveError 红屏
+// (logcat 实证:originModulePath="G:\IHUI-AI\apps\mobile-rn/." +
+//  targetModuleName="./apps/mobile-rn/App")。
+// rewriteRequestUrl 只作用于请求 URL,无法拦截虚拟入口内部 import,
+// 必须在 resolver 层归一化:origin 为 serverRoot 目录本身时,剥掉
+// ./apps/mobile-rn/ 前缀再走默认解析链;归一化失败则回退原 moduleName。
+const APP_DIR_NAME = 'apps/mobile-rn'
+function normalizeDirKey(p) {
+  return String(p).replace(/[\\/]+/g, '/').replace(/\/\.?$/, '').toLowerCase()
+}
+const serverRootKey = normalizeDirKey(__dirname)
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Expo 虚拟入口双拼归一化(详见上方注释)
+  if (
+    (moduleName === `./${APP_DIR_NAME}` ||
+      moduleName.startsWith(`./${APP_DIR_NAME}/`)) &&
+    normalizeDirKey(context.originModulePath) === serverRootKey
+  ) {
+    const normalized = `./${moduleName.slice(`./${APP_DIR_NAME}/`.length)}`
+    try {
+      if (upstreamResolveRequest) {
+        const r = upstreamResolveRequest(context, normalized, platform)
+        if (r) return r
+      }
+      return context.resolveRequest(context, normalized, platform)
+    } catch (_e) {
+      // 归一化路径不可解析时,继续走默认链(下方会抛出原始错误)
+    }
+  }
   // 调试日志
   if (process.env.METRO_DEBUG_RESOLVE) {
     console.error(
