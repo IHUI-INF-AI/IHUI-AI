@@ -11,7 +11,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
   config: {
     screens: {
       // 首页:空路径匹配根路径 /
-      Tabs: '',
+      Main: '',
       // 共享组件 Demo(对齐 web 端 /shared-demo 路由,跨端 deep link 一致)
       SharedDemo: 'shared-demo',
       // 登录/注册

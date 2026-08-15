@@ -53,6 +53,7 @@ import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerT
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { ProfileStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
@@ -261,7 +262,7 @@ export function ProfileScreen() {
       rootNav?.navigate('Share')
       return
     }
-    rootNav?.navigate('Tabs', { screen: DRAWER_TAB_TO_RN_TAB[tab] })
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
@@ -278,7 +279,7 @@ export function ProfileScreen() {
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
-    rootNav?.navigate('Tabs', { screen: 'ai' })
+    rootNav?.navigate('Main', { screen: 'AiMain' })
   }
   // Uniapp 原项目跳 chat 传 12 参数(conversationId/title/modelName/agentId/type/source/系统消息/上下文/prompt/欢迎语/是否新会话/时间戳);
   // mobile-rn Chat 路由类型已扩展为 { conversationId, title, modelName, modelId, remark },
@@ -346,7 +347,7 @@ export function ProfileScreen() {
   }
   const handleDrawerGoHome = () => {
     setDrawerVisible(false)
-    rootNav?.navigate('Tabs', { screen: 'home' })
+    rootNav?.navigate('Main', { screen: 'HomeMain' })
   }
 
   /** Drawer user 映射(AuthUser → Drawer user) */
