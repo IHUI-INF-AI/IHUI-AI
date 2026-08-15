@@ -16,7 +16,7 @@ import { mainScreenForTab } from '../navigation/RootNavigator'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
 
 type RankingDetailParams = {
   RankingDetail: { id: string }
