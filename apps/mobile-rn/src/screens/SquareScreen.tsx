@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
 import {
   SquareScreen as SharedSquareScreen,
   type ArticleItem,
