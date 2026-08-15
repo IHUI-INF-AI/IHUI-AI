@@ -17,9 +17,17 @@ export default tseslint.config(
     rules: {
       '@next/next/no-img-element': 'warn',
       '@next/next/no-sync-scripts': 'error',
-      '@next/next/no-html-link-for-pages': 'error',
       '@next/next/no-unwanted-polyfillio': 'warn',
       'react/no-unescaped-entities': 'off',
+    },
+  },
+  {
+    files: ['**/pages/**/*.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      '@next/next/no-html-link-for-pages': 'error',
     },
   },
 )
