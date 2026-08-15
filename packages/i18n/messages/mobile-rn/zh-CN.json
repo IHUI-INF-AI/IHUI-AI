@@ -11,7 +11,11 @@
     "progressEmpty": "还没有开始学习,去挑一门课吧",
     "livePreview": "直播预告",
     "livePreviewMore": "更多直播",
-    "recommend": "为你推荐"
+    "recommend": "为你推荐",
+    "greetingMorning": "早上好",
+    "greetingNoon": "中午好",
+    "greetingAfternoon": "下午好",
+    "greetingEvening": "晚上好"
   },
   "course": {
     "title": "课程",
