@@ -53,6 +53,7 @@ import { MoreTitles } from '../components/MoreTitles'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
@@ -501,6 +502,12 @@ export function HomeScreen() {
       modelName: selectedModel?.name,
       modelId: selectedModel?.id,
     })
+  }
+
+  // VoiceInput 语音转文字回填(对齐 Uniapp ai_index2.vue 行 436-451/601-618 搜索输入区
+  // :isVoiceInput + @toggle-voice-input:语音结果写入 prompt,随发送跳 Chat)
+  const handleVoiceComplete = (text: string): void => {
+    if (text) setInputValue(text)
   }
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
@@ -969,6 +976,11 @@ export function HomeScreen() {
           </View>
         ) : null}
       </View>
+      {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
+          转文字回填输入框,随提交跳 Chat) */}
+      <View style={shellStyles.voiceInputWrap}>
+        <VoiceInput placeholder="按住说出你的问题" onComplete={handleVoiceComplete} />
+      </View>
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
@@ -1064,6 +1076,8 @@ const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: 16 } as const,
+  // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
+  voiceInputWrap: { paddingHorizontal: 12, paddingVertical: 6 } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop:9 + 圆角 30rpx≈15)
   carouselWrap: { marginTop: 9, marginBottom: 8, borderRadius: 15, overflow: 'hidden' } as const,
   toolbarWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
