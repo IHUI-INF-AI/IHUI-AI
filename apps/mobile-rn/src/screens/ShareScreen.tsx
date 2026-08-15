@@ -134,8 +134,7 @@ export function ShareScreen() {
       {
         text: '删除',
         style: 'destructive',
-        onPress: () =>
-          setFloatBox({ visible: true, type: 'info', message: '删除功能待 API 接入' }),
+        onPress: () => setFloatBox({ visible: true, type: 'info', message: '删除功能待 API 接入' }),
       },
     ])
   }
@@ -247,126 +246,134 @@ export function ShareScreen() {
   }
 
   return (
-    <SharedShareScreen
-      t={t}
-      targetTitle=""
-      remark=""
-      result={null}
-      loading={sharing}
-      error=""
-      onRemarkChange={() => {}}
-      onCreate={() => {}}
-      onShare={handleShare}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-      containerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}
-      renderHeader={() => (
-        <NavBar
-          title={t('share.title')}
-          onBack={() => navigation.goBack()}
-          leftActions={[{ icon: '☰', label: '菜单', onPress: () => setDrawerVisible(true) }]}
-        />
-      )}
-      renderContent={() => (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* AgentRuntimePanel — AI Agent 运行时内容(可分享的 AI 生成结果) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('share.aiContent')}</Text>
-            <AgentRuntimePanel />
-          </View>
+    <>
+      <SharedShareScreen
+        t={t}
+        targetTitle=""
+        remark=""
+        result={null}
+        loading={sharing}
+        error=""
+        onRemarkChange={() => {}}
+        onCreate={() => {}}
+        onShare={handleShare}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+        containerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}
+        renderHeader={() => (
+          <NavBar
+            title={t('share.title')}
+            onBack={() => navigation.goBack()}
+            leftActions={[{ icon: '☰', label: '菜单', onPress: () => setDrawerVisible(true) }]}
+          />
+        )}
+        renderContent={() => (
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            {/* AgentRuntimePanel — AI Agent 运行时内容(可分享的 AI 生成结果) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('share.aiContent')}</Text>
+              <AgentRuntimePanel />
+            </View>
 
-          {/* VoiceInput — 语音输入分享描述 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('share.voiceInput')}</Text>
-            <VoiceInput
-              onComplete={handleVoiceComplete}
-              onChange={setVoiceText}
-              placeholder={t('share.voicePlaceholder')}
-            />
-            {voiceText ? (
-              <Text style={styles.voiceText} numberOfLines={3}>
-                {voiceText}
-              </Text>
-            ) : null}
-          </View>
+            {/* VoiceInput — 语音输入分享描述 */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('share.voiceInput')}</Text>
+              <VoiceInput
+                onComplete={handleVoiceComplete}
+                onChange={setVoiceText}
+                placeholder={t('share.voicePlaceholder')}
+              />
+              {voiceText ? (
+                <Text style={styles.voiceText} numberOfLines={3}>
+                  {voiceText}
+                </Text>
+              ) : null}
+            </View>
 
-          {/* 分享素材 — expo-image-picker 选图 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>分享素材</Text>
-            {imageUri ? (
-              <View style={styles.previewWrap}>
-                <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+            {/* 分享素材 — expo-image-picker 选图 */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>分享素材</Text>
+              {imageUri ? (
+                <View style={styles.previewWrap}>
+                  <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.clearBtn,
+                      pressed ? styles.clearBtnPressed : null,
+                    ]}
+                    onPress={() => setImageUri('')}
+                    accessibilityRole="button"
+                    accessibilityLabel="删除图片"
+                  >
+                    <Text style={styles.clearText}>×</Text>
+                  </Pressable>
+                </View>
+              ) : (
                 <Pressable
-                  style={({ pressed }) => [styles.clearBtn, pressed ? styles.clearBtnPressed : null]}
-                  onPress={() => setImageUri('')}
+                  style={({ pressed }) => [
+                    styles.pickerBox,
+                    pressed ? styles.pickerBoxPressed : null,
+                  ]}
+                  onPress={pickImage}
                   accessibilityRole="button"
-                  accessibilityLabel="删除图片"
+                  accessibilityLabel="选择图片"
                 >
-                  <Text style={styles.clearText}>×</Text>
+                  <Text style={styles.pickerIcon}>+</Text>
+                  <Text style={styles.pickerHint}>点击选择图片</Text>
                 </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                style={({ pressed }) => [styles.pickerBox, pressed ? styles.pickerBoxPressed : null]}
-                onPress={pickImage}
-                accessibilityRole="button"
-                accessibilityLabel="选择图片"
-              >
-                <Text style={styles.pickerIcon}>+</Text>
-                <Text style={styles.pickerHint}>点击选择图片</Text>
-              </Pressable>
-            )}
+              )}
+            </View>
+          </ScrollView>
+        )}
+        renderFooter={() => (
+          <View style={styles.bottomBar}>
+            <Pressable
+              style={({ pressed }) => [styles.shareBtn, pressed ? styles.shareBtnPressed : null]}
+              onPress={handleShare}
+              disabled={sharing}
+              accessibilityRole="button"
+              accessibilityLabel={t('share.submit')}
+            >
+              {sharing ? (
+                <ActivityIndicator color={tk.surface.light} />
+              ) : (
+                <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
+              )}
+            </Pressable>
           </View>
-        </ScrollView>
-      )}
-      renderFooter={() => (
-        <View style={styles.bottomBar}>
-          <Pressable
-            style={({ pressed }) => [styles.shareBtn, pressed ? styles.shareBtnPressed : null]}
-            onPress={handleShare}
-            disabled={sharing}
-            accessibilityRole="button"
-            accessibilityLabel={t('share.submit')}
-          >
-            {sharing ? (
-              <ActivityIndicator color={tk.surface.light} />
-            ) : (
-              <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
-            )}
-          </Pressable>
-        </View>
-      )}
-    />
+        )}
+      />
 
-    {/* PrivacyPolicyModal — 分享前隐私政策弹窗 */}
-    <PrivacyPolicyModal visible={showPrivacy} onAgree={handleAgreePrivacy} />
+      {/* PrivacyPolicyModal — 分享前隐私政策弹窗 */}
+      <PrivacyPolicyModal visible={showPrivacy} onAgree={handleAgreePrivacy} />
 
-    {/* FloatBox — 分享结果悬浮提示 */}
-    <FloatBox
-      visible={floatBox.visible}
-      type={floatBox.type}
-      message={floatBox.message}
-      onHide={handleFloatBoxHide}
-    />
+      {/* FloatBox — 分享结果悬浮提示 */}
+      <FloatBox
+        visible={floatBox.visible}
+        type={floatBox.type}
+        message={floatBox.message}
+        onHide={handleFloatBoxHide}
+      />
 
-    {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:
-        主菜单导航/一人公司/领取资料/创建新对话/历史对话/设置/消息/回主页) */}
-    <Drawer
-      visible={drawerVisible}
-      onClose={closeDrawer}
-      user={drawerUser}
-      conversations={drawerConversations}
-      onNavigate={handleDrawerNavigate}
-      onNavigateExtra={handleNavigateExtra}
-      onNavigateCompany={handleDrawerNavigateCompany}
-      onClaimFree={handleDrawerClaimFree}
-      onCreateNewChat={handleDrawerCreateNewChat}
-      onSelectConversation={handleDrawerSelectConversation}
-      onDeleteConversation={handleDrawerDeleteConversation}
-      onOpenSettings={handleDrawerOpenSettings}
-      onOpenMessages={handleDrawerOpenMessages}
-      onGoHome={handleDrawerGoHome}
-    />
+      {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:
+          主菜单导航/一人公司/领取资料/创建新对话/历史对话/设置/消息/回主页) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={closeDrawer}
+        user={drawerUser}
+        conversations={drawerConversations}
+        onNavigate={handleDrawerNavigate}
+        onNavigateExtra={handleNavigateExtra}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
+      />
+    </>
   )
 }
 

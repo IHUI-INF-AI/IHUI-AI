@@ -1,29 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, View, type ListRenderItem } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import {
-  getCommissionList,
-  type CommissionRecord,
-} from '@ihui/api-client'
+import { getCommissionList, type CommissionRecord } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
-import { SearchInput } from '../components/SearchInput'
-import StudyBar from '../components/StudyBar'
-import Empty from '../components/common/Empty'
 import { DistributionOrderListScreen as SharedDistributionOrderListScreen } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type TabValue = 'all' | '0' | '1' | '2'
-
-const TABS: readonly { value: TabValue; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: '0', label: '待结算' },
-  { value: '1', label: '退单' },
-  { value: '2', label: '已完成' },
-] as const
 
 const PAGE_SIZE = 10
 
@@ -42,10 +28,6 @@ function statusText(status: string): string {
     default:
       return status || '未知'
   }
-}
-
-function formatYuan(cents: number): string {
-  return (cents / 100).toFixed(2)
 }
 
 export default function DistributionOrderListScreen() {
@@ -70,7 +52,7 @@ export default function DistributionOrderListScreen() {
         pageSize: PAGE_SIZE,
         status: statusParam,
       })
-      const list = res.success ? res.data?.list ?? [] : []
+      const list = res.success ? (res.data?.list ?? []) : []
       setOrders((prev) => (reset ? list : [...prev, ...list]))
       setHasMore(list.length >= PAGE_SIZE)
       setPage(nextPage)
@@ -87,14 +69,6 @@ export default function DistributionOrderListScreen() {
   const onSearch = (): void => {
     void loadPage(1, true)
   }
-
-  const filtered = keyword.trim()
-    ? orders.filter(
-        (o) =>
-          o.orderId.toLowerCase().includes(keyword.toLowerCase()) ||
-          o.userNickname.toLowerCase().includes(keyword.toLowerCase()),
-      )
-    : orders
 
   const onEndReached = (): void => {
     if (!loading && !loadingMore && hasMore) {
@@ -122,7 +96,7 @@ export default function DistributionOrderListScreen() {
       hasMore={hasMore}
       onSearch={onSearch}
       onKeywordChange={setKeyword}
-      onTabChange={setActiveTab}
+      onTabChange={(tab) => setActiveTab(tab as TabValue)}
       onEndReached={onEndReached}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

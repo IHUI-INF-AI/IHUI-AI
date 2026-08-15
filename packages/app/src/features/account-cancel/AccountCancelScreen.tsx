@@ -7,30 +7,12 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
-  type TextStyle,
-  type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
+import type { AccountCancelScreenProps } from '../../types'
 
-export interface AccountCancelScreenProps {
-  t: TFunction
-  phone: string
-  confirmText: string
-  smsCode: string
-  countdown: number
-  showConfirmModal: boolean
-  confirmCountdown: number
-  submitting: boolean
-  onPhoneChange: (text: string) => void
-  onConfirmTextChange: (text: string) => void
-  onSmsCodeChange: (text: string) => void
-  onSendSms: () => void
-  onSubmit: () => void
-  onCloseModal: () => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+/** AccountCancelScreen props re-export(单一来源 @ihui/types) */
+export type { AccountCancelScreenProps }
 
 export function AccountCancelScreen({
   t,
@@ -57,7 +39,7 @@ export function AccountCancelScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>注销账号</Text>
       </View>
@@ -125,12 +107,10 @@ export function AccountCancelScreen({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>确认注销</Text>
-            <Text style={styles.modalBody}>
-              注销后数据不可恢复，请再次确认是否继续？
-            </Text>
+            <Text style={styles.modalBody}>注销后数据不可恢复，请再次确认是否继续？</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={onCloseModal}>
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirm, confirmCountdown > 0 && styles.modalConfirmDisabled]}

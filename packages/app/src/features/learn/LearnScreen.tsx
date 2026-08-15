@@ -1,28 +1,18 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, Image, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
+import type { LearnCategory, LearnScreenProps } from '../../types'
 
-export interface LearnCategory {
-  id: string
-  name: string
-  icon: string
-}
-
-export interface LearnScreenProps {
-  t: TFunction
-  progress: { totalCourses: number; completedCourses: number; learningHours: number } | null
-  paths: { id: string; title: string; coverImage?: string }[]
-  recommended: { id: string; title: string; description?: string; coverImage?: string; difficulty?: string; duration?: number }[]
-  loading: boolean
-  error: string
-  onOpenCourse: (id: string) => void
-  onOpenBrowse: () => void
-  onOpenCategory: (cat: LearnCategory) => void
-  categories: LearnCategory[]
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+/** LearnScreen props re-export(单一来源 @ihui/types) */
+export type { LearnCategory, LearnScreenProps }
 
 const CATEGORIES: readonly LearnCategory[] = [
   { id: 'douyin', name: '抖音运营', icon: '📱' },
@@ -78,19 +68,19 @@ export function LearnScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>学习</Text>
       </View>
       {loading ? (
         <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>加载中...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : error && !progress ? (
         <View style={styles.centerWrap}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={onOpenBrowse}>
-            <Text style={styles.retryText}>重试</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (

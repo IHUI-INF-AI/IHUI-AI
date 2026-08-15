@@ -14,7 +14,6 @@ export interface DevEnterCoverScreenProps {
 }
 
 export function DevEnterCoverScreen({
-  t,
   planType,
   loading,
   onSelectPlan,
