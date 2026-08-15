@@ -33,7 +33,7 @@ import { NavBar, type NavBarAction } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
