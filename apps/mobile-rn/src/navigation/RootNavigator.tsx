@@ -4,13 +4,11 @@ import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { useNavigation, useRoute, type RouteProp, type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
 import NotificationPanel from '../components/NotificationPanel'
-import TabBar, { type TabBarKey } from '../components/TabBar'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
@@ -197,7 +195,7 @@ import { AppTopupScreen } from '../screens/AppTopupScreen'
 
 export type RootStackParamList = {
   Login: undefined
-  Tabs: NavigatorScreenParams<MainTabParamList>
+  Main: NavigatorScreenParams<MainStackParamList>
   Home: undefined
   // 对齐 Uniapp 跳 chat 传参(conversationId/title/modelName/modelId/remark),其余 12 参数中关键项已覆盖;
   // modelName/modelId/remark 可选,ChatScreen 仅消费 conversationId,其余字段预留给后续接入。
@@ -388,162 +386,48 @@ export type RootStackParamList = {
   AppTopup: undefined
 }
 
-export type HomeStackParamList = {
+export type MainStackParamList = {
   HomeMain: undefined
-  CourseDetail: { id: string }
-  VideoPlayer: { courseId: string; lessonId: string; title?: string }
-  LiveDetail: { id: string }
-}
-
-export type CourseStackParamList = {
   CourseMain: undefined
-  CourseDetail: { id: string }
-  VideoPlayer: { courseId: string; lessonId: string; title?: string }
-}
-
-export type LiveStackParamList = {
-  LiveMain: undefined
-  LiveDetail: { id: string }
-}
-
-export type ProfileStackParamList = {
-  ProfileMain: undefined
-  Order: undefined
-  Favorites: undefined
-  Following: undefined
-  Subscriptions: undefined
-  Wallet: undefined
-  Settings: undefined
-  Agent: undefined
-  Certificate: undefined
-  Follow: undefined
-  Favorite: undefined
-  MessageCenter: undefined
-  ProfileEdit: undefined
-}
-
-/** 底部 5 Tab 路由表(键与 TabBarKey 对齐) */
-export type MainTabParamList = Record<TabBarKey, undefined>
-
-/** AI Tab Stack:AI 应用入口 + Agent 详情/对话子路由 */
-export type AiStackParamList = {
   AiMain: undefined
-  AgentDetail: { id: string }
-  AgentChat: { agentId: string; name: string }
+  LiveMain: undefined
+  ProfileMain: undefined
+}
+
+export type MainTabKey = keyof MainStackParamList
+
+export function mainScreenForTab(tab: MainTabKey): keyof MainStackParamList {
+  return tab
 }
 
 const RootStack = createNativeStackNavigator<RootStackParamList>()
-const Tabs = createBottomTabNavigator<MainTabParamList>()
-const HomeStack = createNativeStackNavigator<HomeStackParamList>()
-const CourseStack = createNativeStackNavigator<CourseStackParamList>()
-const LiveStack = createNativeStackNavigator<LiveStackParamList>()
-const ProfileStack = createNativeStackNavigator<ProfileStackParamList>()
-const AiStack = createNativeStackNavigator<AiStackParamList>()
+const MainStack = createNativeStackNavigator<MainStackParamList>()
 
 // ChatScreen 期望 RootStackParamList 导航(向 root 搜索 Agent/Wallet/Settings 等路由);
-// 嵌入 HomeStack 后通过 useNavigation/useRoute 桥接 root 类型(H2 升级时改为 HomeStack 专属路由)
+// 嵌入 MainStack 后通过 useNavigation/useRoute 桥接 root 类型(H2 升级时改为 MainStack 专属路由)
 function ChatHomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Chat'>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   return <ChatScreen navigation={navigation} route={route} />
 }
 
-function HomeTabStack() {
-  return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
-      <HomeStack.Screen name="HomeMain" component={ChatHomeScreen} />
-      <HomeStack.Screen name="CourseDetail" component={CourseDetailScreen} />
-      <HomeStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
-      <HomeStack.Screen name="LiveDetail" component={LiveDetailScreen} />
-    </HomeStack.Navigator>
-  )
-}
-
-function AiTabStack() {
-  return (
-    <AiStack.Navigator screenOptions={{ headerShown: false }}>
-      <AiStack.Screen name="AiMain" component={AgentScreen} />
-      <AiStack.Screen name="AgentDetail" component={AgentDetailScreen} />
-      <AiStack.Screen name="AgentChat" component={AgentChatScreen} />
-    </AiStack.Navigator>
-  )
-}
-
-function CourseTabStack() {
-  return (
-    <CourseStack.Navigator screenOptions={{ headerShown: false }}>
-      <CourseStack.Screen name="CourseMain" component={CourseScreen} />
-      <CourseStack.Screen name="CourseDetail" component={CourseDetailScreen} />
-      <CourseStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
-    </CourseStack.Navigator>
-  )
-}
-
-function LiveTabStack() {
-  return (
-    <LiveStack.Navigator screenOptions={{ headerShown: false }}>
-      <LiveStack.Screen name="LiveMain" component={LiveScreen} />
-      <LiveStack.Screen name="LiveDetail" component={LiveDetailScreen} />
-    </LiveStack.Navigator>
-  )
-}
-
-function ProfileTabStack() {
-  return (
-    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
-      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
-      <ProfileStack.Screen name="Order" component={OrderScreen} />
-      <ProfileStack.Screen name="Favorites" component={FavoritesScreen} />
-      <ProfileStack.Screen name="Following" component={FollowingScreen} />
-      <ProfileStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
-      <ProfileStack.Screen name="Wallet" component={WalletScreen} />
-      <ProfileStack.Screen name="Settings" component={SettingsScreen} />
-      <ProfileStack.Screen name="Agent" component={AgentScreen} />
-      <ProfileStack.Screen name="Certificate" component={CertificateScreen} />
-      <ProfileStack.Screen name="Follow" component={FollowScreen} />
-      <ProfileStack.Screen name="Favorite" component={FavoriteScreen} />
-      <ProfileStack.Screen name="MessageCenter" component={MessageCenterScreen} />
-      <ProfileStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
-    </ProfileStack.Navigator>
-  )
-}
-
-const TAB_KEYS = ['home', 'course', 'ai', 'live', 'mine'] as const
-
-function isTabBarKey(value: string): value is TabBarKey {
-  return (TAB_KEYS as readonly string[]).includes(value)
-}
-
-function MainTabs() {
+function MainNavigator() {
   const { t } = useI18n()
-  const tabLabels: Partial<Record<TabBarKey, string>> = {
-    home: t('nav.home'),
-    course: t('nav.courses'),
-    ai: 'AI', // nav.ai key 待 i18n 补全
-    live: t('nav.live'),
-    mine: t('nav.profile'),
+  const tabLabels: Partial<Record<MainTabKey, string>> = {
+    HomeMain: t('nav.home'),
+    CourseMain: t('nav.courses'),
+    AiMain: 'AI', // nav.ai key 待 i18n 补全
+    LiveMain: t('nav.live'),
+    ProfileMain: t('nav.profile'),
   }
   return (
-    <Tabs.Navigator
-      tabBar={({ state, navigation }) => {
-        const routeName = state.routes[state.index]?.name ?? 'home'
-        const activeTab: TabBarKey = isTabBarKey(routeName) ? routeName : 'home'
-        return (
-          <TabBar
-            activeTab={activeTab}
-            onChange={(tab) => navigation.navigate(tab)}
-            labels={tabLabels}
-          />
-        )
-      }}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="home" component={HomeTabStack} />
-      <Tabs.Screen name="course" component={CourseTabStack} />
-      <Tabs.Screen name="ai" component={AiTabStack} />
-      <Tabs.Screen name="live" component={LiveTabStack} />
-      <Tabs.Screen name="mine" component={ProfileTabStack} />
-    </Tabs.Navigator>
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
+      <MainStack.Screen name="CourseMain" component={CourseScreen} />
+      <MainStack.Screen name="AiMain" component={AgentScreen} />
+      <MainStack.Screen name="LiveMain" component={LiveScreen} />
+      <MainStack.Screen name="ProfileMain" component={ProfileScreen} />
+    </MainStack.Navigator>
   )
 }
 
@@ -585,7 +469,7 @@ function RootNavigatorInner() {
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {token ? (
           <>
-            <RootStack.Screen name="Tabs" component={MainTabs} />
+            <RootStack.Screen name="Main" component={MainNavigator} />
             <RootStack.Screen name="Home" component={HomeScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />

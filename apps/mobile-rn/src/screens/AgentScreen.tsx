@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Modal,
@@ -15,6 +15,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import {
   getAgentCategories,
   getAgents,
@@ -42,6 +43,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 type ViewMode = 'shared' | 'local'
 
@@ -133,6 +135,7 @@ export function AgentScreen() {
   const { t } = useI18n()
   const { token, user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [items, setItems] = useState<AgentScreenItem[]>([])
   const [aiModels, setAiModels] = useState<AiModel[]>([])
@@ -293,9 +296,9 @@ export function AgentScreen() {
       if (tab === 'square') { navigation.navigate('Square'); return }
       if (tab === 'share') { navigation.navigate('Share'); return }
       const rnTab = DRAWER_TAB_TO_RN_TAB[tab]
-      navigation.navigate('Tabs', { screen: rnTab } as never)
+      rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
     },
-    [navigation],
+    [navigation, rootNav],
   )
   const handleDrawerNavigateCompany = useCallback((): void => {
     setDrawerVisible(false); navigation.navigate('Distribution')
@@ -326,7 +329,7 @@ export function AgentScreen() {
     setDrawerVisible(false); navigation.navigate('MessageCenter')
   }, [navigation])
   const handleDrawerGoHome = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('Tabs', { screen: 'home' } as never)
+    setDrawerVisible(false); navigation.navigate('Main', { screen: 'HomeMain' })
   }, [navigation])
   const handleNavigateExtra = useCallback((menu: DrawerExtraMenu): void => {
     setDrawerVisible(false)
