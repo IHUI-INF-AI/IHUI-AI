@@ -10,7 +10,7 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
-import type { LiveStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
@@ -20,8 +20,8 @@ import {
   type ChatStatus,
 } from '../lib/ws/chat-client'
 
-type Route = RouteProp<LiveStackParamList, 'LiveDetail'>
-type NavigationProp = NativeStackNavigationProp<LiveStackParamList>
+type Route = RouteProp<RootStackParamList, 'LiveDetail'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'LiveDetail'>
 
 /** 把后端 Live 映射为共享层 LiveDetailItem(平台无关字段) */
 function mapLive(live: Live): LiveDetailItem {

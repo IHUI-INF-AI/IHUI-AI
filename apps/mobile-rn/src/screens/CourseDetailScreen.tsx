@@ -16,10 +16,10 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
-import type { HomeStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type Route = RouteProp<HomeStackParamList, 'CourseDetail'>
-type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
+type Route = RouteProp<RootStackParamList, 'CourseDetail'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
 
 export function CourseDetailScreen() {
   const { t } = useI18n()

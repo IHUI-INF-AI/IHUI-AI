@@ -114,7 +114,7 @@ import NotificationPanel from '../components/NotificationPanel'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -278,7 +278,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     setToastType(type)
     setToastMessage(message)
     setToastVisible(true)
-  }, [])
+  }, [setToastType, setToastMessage, setToastVisible])
   const hideToast = useCallback((): void => setToastVisible(false), [])
 
   // ── 模型列表加载(保留原 streamChat 链路) ──
@@ -816,7 +816,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       return
     }
     // home/ai/mine 是 MainStack 路由,通过 Main navigator 跳转
-    const rnTab: 'home' | 'ai' | 'mine' = tab
+    const rnTab: MainTabKey = tab as MainTabKey
     rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {

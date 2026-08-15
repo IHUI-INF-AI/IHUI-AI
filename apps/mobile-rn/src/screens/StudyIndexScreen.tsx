@@ -332,7 +332,7 @@ export function StudyIndexScreen() {
       navigation.navigate('Share')
       return
     }
-    const rnTab = tab as 'home' | 'ai' | 'mine'
+    const rnTab: MainTabKey = tab as MainTabKey
     rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = () => {

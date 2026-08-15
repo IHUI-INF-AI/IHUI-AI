@@ -29,21 +29,22 @@ export interface PrivacyPolicyModalProps {
 const AGREE_BUTTON_COLOR = tokens.brand.DEFAULT
 const OVERLAY_BG = 'rgba(0,0,0,0.6)'
 const CARD_WIDTH_RATIO = '88%'
-const CARD_MAX_HEIGHT_RATIO = '90%'
+const CARD_MAX_HEIGHT_RATIO = '92%'
 const CARD_BORDER_RADIUS = 12
 const CARD_PADDING_HORIZONTAL = 20
-const CARD_PADDING_VERTICAL = 20
-const SHIELD_SIZE = 48
+const CARD_PADDING_VERTICAL = 14
+const SHIELD_SIZE = 44
 const SHIELD_BG = 'rgba(0,0,0,0.08)'
 const SHIELD_RING = 'rgba(0,0,0,0.12)'
-const TITLE_FONT_SIZE = 16
-const TITLE_MARGIN_TOP = 12
+const TITLE_FONT_SIZE = 18
+const TITLE_MARGIN_BOTTOM = 12
 const SUBTITLE_FONT_SIZE = 12
-const SUBTITLE_MARGIN_TOP = 6
+const SUBTITLE_MARGIN_BOTTOM = 6
 const SAFE_BAR_BG = 'rgba(0,0,0,0.04)'
 const SAFE_BAR_MARGIN_TOP = 14
 const SAFE_BAR_FONT_SIZE = 11
 const SCROLL_MARGIN_TOP = 12
+const SCROLL_MARGIN_BOTTOM = 16
 const PARAGRAPH_FONT_SIZE = 13
 const PARAGRAPH_LINE_HEIGHT = 20
 const PARAGRAPH_MARGIN_BOTTOM = 8
@@ -52,8 +53,9 @@ const HEADING_MARGIN_TOP = 4
 const BUTTON_ROW_MARGIN_TOP = 16
 const BUTTON_HEIGHT = 44
 const BUTTON_BORDER_RADIUS = 8
-const BUTTON_FONT_SIZE = 14
-const BUTTON_GAP = 10
+const BUTTON_FONT_SIZE = 15
+const BUTTON_GAP = 12
+const DISAGREE_COLOR = tokens.text.secondary
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
   const handleDisagree = () => {
@@ -93,16 +95,19 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
           </View>
 
           {/* 隐私政策全文滚动区(flexShrink 收缩,保证底部按钮始终可见) */}
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
-            {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
-              <Text
-                key={index}
-                style={para.isHeading ? styles.heading : styles.paragraph}
-              >
-                {para.text}
-              </Text>
-            ))}
-          </ScrollView>
+          {/* 中间弹性层包裹 ScrollView,保证按钮始终可见 */}
+          <View style={styles.scrollWrapper}>
+            <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
+              {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
+                <Text
+                  key={index}
+                  style={para.isHeading ? styles.heading : styles.paragraph}
+                >
+                  {para.text}
+                </Text>
+              ))}
+            </ScrollView>
+          </View>
 
           {/* 双按钮(对齐 web 端:不同意灰 / 同意并继续黑) */}
           <View style={styles.buttonRow}>
@@ -136,7 +141,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingVertical: 20,
     backgroundColor: OVERLAY_BG,
   } as ViewStyle,
   overlayPressable: {
@@ -176,14 +181,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: TITLE_MARGIN_TOP,
+    marginBottom: TITLE_MARGIN_BOTTOM,
   },
   subtitle: {
     fontSize: SUBTITLE_FONT_SIZE,
     lineHeight: 18,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginTop: SUBTITLE_MARGIN_TOP,
+    marginBottom: SUBTITLE_MARGIN_BOTTOM,
   },
   safeBar: {
     flexDirection: 'row',
@@ -200,11 +205,14 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: tokens.text.secondary,
   },
-  // 关键:flexShrink 让 ScrollView 在空间不足时收缩(而非 flexGrow 撑爆父容器)
+  // 中间弹性层:flex:1 在 column flex 中占满剩余空间,约束 ScrollView 不撑爆
+  scrollWrapper: {
+    flex: 1,
+    minHeight: 80,
+  } as ViewStyle,
   scroll: {
     flexGrow: 0,
     flexShrink: 1,
-    marginTop: SCROLL_MARGIN_TOP,
   } as ViewStyle,
   paragraph: {
     fontSize: PARAGRAPH_FONT_SIZE,
@@ -247,7 +255,7 @@ const styles = StyleSheet.create({
   disagreeText: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.text.medium,
+    color: DISAGREE_COLOR,
     textAlign: 'center',
   },
   agreeText: {
