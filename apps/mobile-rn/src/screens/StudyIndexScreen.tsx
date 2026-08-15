@@ -34,6 +34,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import { Search, X } from 'lucide-react-native'
 import {
   deleteConversation,
@@ -63,6 +64,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
 const API_PATH = '/api/study/videos'
@@ -180,6 +182,7 @@ export function StudyIndexScreen() {
   const { resolvedTheme } = useTheme()
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const [items, setItems] = useState<StudyVideoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -330,7 +333,7 @@ export function StudyIndexScreen() {
       return
     }
     const rnTab = tab as 'home' | 'ai' | 'mine'
-    navigation.navigate('Tabs', { screen: rnTab } as never)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
@@ -379,7 +382,7 @@ export function StudyIndexScreen() {
   }
   const handleDrawerGoHome = () => {
     setDrawerVisible(false)
-    navigation.navigate('Tabs', { screen: 'home' } as never)
+    navigation.navigate('Main', { screen: 'HomeMain' })
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu) => {
     setDrawerVisible(false)

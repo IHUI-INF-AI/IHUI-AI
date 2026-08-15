@@ -52,6 +52,7 @@ import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -290,7 +291,7 @@ export function PlazaScreen() {
       navigateRoot(rootNav, 'Share')
       return
     }
-    rootNav?.navigate('Tabs', { screen: DRAWER_TAB_TO_RN_TAB[tab] })
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
@@ -307,7 +308,7 @@ export function PlazaScreen() {
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
-    rootNav?.navigate('Tabs', { screen: 'ai' })
+    rootNav?.navigate('Main', { screen: 'AiMain' })
   }
   const handleDrawerSelectConversation = (id: string) => {
     setDrawerVisible(false)
@@ -341,7 +342,7 @@ export function PlazaScreen() {
   }
   const handleDrawerGoHome = () => {
     setDrawerVisible(false)
-    rootNav?.navigate('Tabs', { screen: 'home' })
+    rootNav?.navigate('Main', { screen: 'HomeMain' })
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu) => {
     setDrawerVisible(false)

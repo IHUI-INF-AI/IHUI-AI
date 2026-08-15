@@ -12,6 +12,7 @@
  * 故 onRequestClose 返回空函数,阻止 Android 返回键关闭弹窗。
  */
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native'
+import { Shield, Lock, FileText, ArrowUpRight, CornerDownLeft } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   PRIVACY_POLICY_PARAGRAPHS,
@@ -23,6 +24,10 @@ export interface PrivacyPolicyModalProps {
   visible: boolean
   /** 用户点击"同意"回调(由父组件写 storage + 关闭弹窗 + 触发后续初始化) */
   onAgree: () => void
+  /** 点击"服务条款"链接回调(可选,无则静默) */
+  onOpenTerms?: () => void
+  /** 点击"完整隐私政策"链接回调(可选) */
+  onOpenPrivacy?: () => void
 }
 
 // 主题色 #5088fa:1:1 复刻 Uniapp App.vue .privacy-btn.agree 样式(非项目 brand.DEFAULT)
@@ -36,7 +41,8 @@ const CARD_PADDING_HORIZONTAL = 20
 const CARD_PADDING_VERTICAL = 20
 const TITLE_FONT_SIZE = 18
 const TITLE_MARGIN_BOTTOM = 12
-const SCROLL_FLEX = 1
+const _SCROLL_FLEX = 1
+const SCROLL_MAX_HEIGHT = 50
 const SCROLL_MARGIN_BOTTOM = 16
 const PARAGRAPH_FONT_SIZE = 13
 const PARAGRAPH_LINE_HEIGHT = 20
@@ -46,7 +52,7 @@ const HEADING_MARGIN_TOP = 4
 const BUTTON_HEIGHT = 46
 const BUTTON_BORDER_RADIUS = 8
 const BUTTON_FONT_SIZE = 15
-const BUTTON_GAP = 12
+const _BUTTON_GAP = 12
 const DISAGREE_COLOR = tokens.text.secondary
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
@@ -71,7 +77,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
       <View style={styles.overlay}>
         <Pressable style={styles.overlayPressable} onPress={handleDisagree} />
         <View style={styles.card}>
-          <Text style={styles.title}>{PRIVACY_POLICY_TITLE}</Text>
+          <Text style={styles.title}>测试Metro缓存</Text>
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
             {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
               <Text
@@ -140,7 +146,8 @@ const styles = StyleSheet.create({
     marginBottom: TITLE_MARGIN_BOTTOM,
   },
   scroll: {
-    flex: SCROLL_FLEX,
+    flex: _SCROLL_FLEX,
+    maxHeight: SCROLL_MAX_HEIGHT,
     marginBottom: SCROLL_MARGIN_BOTTOM,
   } as ViewStyle,
   paragraph: {
@@ -158,13 +165,11 @@ const styles = StyleSheet.create({
     marginBottom: PARAGRAPH_MARGIN_BOTTOM,
   },
   buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: BUTTON_GAP,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
   } as ViewStyle,
   button: {
-    flex: 1,
     height: BUTTON_HEIGHT,
     borderRadius: BUTTON_BORDER_RADIUS,
     alignItems: 'center',

@@ -105,6 +105,11 @@ config.resolver.nodeModulesPaths = [
   require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
 ]
 
+config.resolver.blockList = [
+  /.*\/ai-service\/.*/,
+  /.*\/\.venv\/.*/,
+]
+
 // pnpm isolated linker 兼容:watchFolders 添加 mobile-rn 必需的目录
 // 不直接 watch 整个 monorepo 根(G:\IHUI-AI),否则会扫描 apps/web/test-results 等
 // 不存在的子目录(FallbackWatcher 报 ENOENT),只 watch packages/ 共享代码目录。
