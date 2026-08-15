@@ -71,7 +71,7 @@ import {
   type VideoContent,
 } from './profileContentTypes'
 
-type ProfileStackNav = NativeStackNavigationProp<ProfileStackParamList>
+type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310) */
@@ -202,7 +202,7 @@ export function ProfileScreen() {
     if (item.viaParent) {
       navigateRoot(rootNav, item.key)
     } else {
-      navigation.navigate(item.key)
+      navigateRoot(rootNav, item.key)
     }
   }
 
@@ -210,10 +210,10 @@ export function ProfileScreen() {
   const handleUserCardPress = (key: UserCardKey) => {
     switch (key) {
       case 'order':
-        navigation.navigate('Order')
+        rootNav?.navigate('Order')
         break
       case 'wallet':
-        navigation.navigate('Wallet')
+        rootNav?.navigate('Wallet')
         break
       case 'company':
         navigateRoot(rootNav, 'Distribution')
@@ -244,7 +244,7 @@ export function ProfileScreen() {
   const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
     title: t(section.titleKey),
     items: section.items.map((m) => ({
-      key: m.key,
+      key: m.key as string,
       label: t(m.labelKey),
       icon: m.icon,
     })),
@@ -333,17 +333,17 @@ export function ProfileScreen() {
         break
       case 'company':
       case 'tools':
-        navigation.navigate('Settings')
+        rootNav?.navigate('Settings')
         break
     }
   }
   const handleDrawerOpenSettings = () => {
     setDrawerVisible(false)
-    navigation.navigate('Settings')
+    rootNav?.navigate('Settings')
   }
   const handleDrawerOpenMessages = () => {
     setDrawerVisible(false)
-    navigation.navigate('MessageCenter')
+    rootNav?.navigate('MessageCenter')
   }
   const handleDrawerGoHome = () => {
     setDrawerVisible(false)
@@ -401,7 +401,7 @@ export function ProfileScreen() {
                   userInfo={userInfoForCard}
                   showRechargeBtn
                   onEdit={() => setEditProfileVisible(true)}
-                  onRecharge={() => navigation.navigate('Wallet')}
+                  onRecharge={() => rootNav?.navigate('Wallet')}
                   onLogin={() => rootNav?.navigate('Login')}
                   onUnsubscribe={() => setUnsubscribeVisible(true)}
                   onLevelIntro={() => setLevelIntroVisible(true)}

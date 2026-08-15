@@ -1,6 +1,6 @@
-import type { ProfileStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type ProfileRoute = keyof ProfileStackParamList
+type ProfileRoute = keyof RootStackParamList
 type RootRoute = keyof RootStackParamList
 
 export type MenuItem =

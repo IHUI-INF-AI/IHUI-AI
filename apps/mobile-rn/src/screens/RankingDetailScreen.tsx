@@ -42,12 +42,12 @@ const MOCK_HISTORY: DrawerConversationItem[] = [
   { id: 'h3', title: '本月榜单 · 通用助手', createdAt: Date.now() - 86400000 * 8 },
 ]
 
-const TAB_MAP: Record<DrawerTab, string> = {
-  home: 'home',
-  ai: 'ai',
-  square: 'home',
-  share: 'home',
-  mine: 'mine',
+const TAB_MAP: Record<DrawerTab, MainTabKey> = {
+  home: 'HomeMain',
+  ai: 'AiMain',
+  square: 'HomeMain',
+  share: 'HomeMain',
+  mine: 'ProfileMain',
 }
 
 export default function RankingDetailScreen() {
