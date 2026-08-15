@@ -67,7 +67,7 @@ import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -404,7 +404,7 @@ export default function AiAssistantN8nScreen() {
       navigation.navigate('Share')
       return
     }
-    const rnTab: 'home' | 'ai' | 'mine' = tab
+    const rnTab: MainTabKey = tab as MainTabKey
     rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {
