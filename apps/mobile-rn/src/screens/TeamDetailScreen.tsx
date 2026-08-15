@@ -3,11 +3,10 @@
  *
  * 保留 RN 特定逻辑(导航/路由/mock 数据/拨号),UI 委托给 @ihui/rn-app 共享组件。
  */
-import { useMemo, useState } from 'react'
-import { Alert, Linking, StyleSheet, View } from 'react-native'
+import { useState } from 'react'
+import { Alert, Linking } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { TeamDetailScreen } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { TeamDetailScreenProps } from '@ihui/rn-app'
@@ -85,7 +84,3 @@ export default function TeamDetailScreenWrapper() {
 
   return <TeamDetailScreen {...props} />
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: tokens.surface.bg },
-})

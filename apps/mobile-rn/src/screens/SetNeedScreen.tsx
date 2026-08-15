@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -25,7 +25,6 @@ const INITIAL_FORM: FormState = {
   contact: '',
 }
 
-const TITLE_MAX = 50
 const DESC_MIN = 10
 
 function showAlert(message: string): void {
@@ -88,7 +87,7 @@ export function SetNeedScreen() {
       t={t}
       form={form}
       submitting={submitting}
-      onFieldChange={updateField}
+      onFieldChange={updateField as (field: string, value: string) => void}
       onSubmit={onSubmit}
       onBack={() => navigation.goBack()}
     />
