@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
@@ -116,12 +116,12 @@ export function SetNeedScreen({
           />
         </View>
 
-        <TouchableOpacity
+        <Pressable
           style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed]}
           onPress={onSubmit}
         >
           <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交需求'}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
     </View>
   )

@@ -6,6 +6,7 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  Modal,
   StyleSheet,
   type TextStyle,
   type ViewStyle,
@@ -202,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     amountCardActive: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.light,
+      backgroundColor: tk.surface.light,
     },
     amountText: {
       fontSize: 15,
