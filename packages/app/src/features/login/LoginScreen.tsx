@@ -1100,6 +1100,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
   // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
   const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
+  // uniapp 输入框风格:浅色 #f5f5f5 底 + #eaeaea 边框(对齐 D 盘 Ai-WXMiniVue 登录页);深色沿用 surface.card
+  const inputBg = colorScheme === 'dark' ? tk.surface.card : '#f5f5f5'
+  const inputBorder = colorScheme === 'dark' ? tk.border.medium : '#eaeaea'
   return StyleSheet.create({
     page: {
       flex: 1,
@@ -1216,14 +1219,14 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     input: {
-      height: 40,
+      height: 50,
       borderWidth: 1,
-      borderColor: tk.border.light,
-      borderRadius: 6,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      borderColor: inputBorder,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: surface,
+      backgroundColor: inputBg,
     },
     codeRow: {
       flexDirection: 'row',
@@ -1234,12 +1237,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flex: 1,
     },
     sendCodeBtn: {
-      height: 40,
-      paddingHorizontal: 12,
-      borderRadius: 6,
+      height: 50,
+      paddingHorizontal: 14,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: surface,
+      borderColor: inputBorder,
+      backgroundColor: inputBg,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1322,26 +1325,26 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== 主按钮 =====
     loginBtn: {
-      height: 40,
-      borderRadius: 6,
+      height: 50,
+      borderRadius: 15,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     loginBtnText: {
       color: onBrandText,
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: 16,
+      fontWeight: '600',
     },
     btnDisabled: {
       opacity: 0.6,
     },
     // ===== SSO 按钮 =====
     ssoBtn: {
-      height: 40,
-      borderRadius: 6,
+      height: 50,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: inputBorder,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: surface,
