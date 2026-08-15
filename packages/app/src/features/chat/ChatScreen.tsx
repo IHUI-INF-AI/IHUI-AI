@@ -64,6 +64,15 @@ export function ChatScreen({
   onInputAgentVariableTextChange,
   onInputAgentVariableImageChange,
   colorScheme = 'light',
+  showHeader = true,
+  showModelBar = true,
+  showInput = true,
+  renderMessage,
+  renderListHeader,
+  renderListFooter,
+  itemSeparatorComponent,
+  containerStyle,
+  flatListStyle,
 }: ChatScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -76,6 +85,9 @@ export function ChatScreen({
       item.role === 'assistant' && isStreaming && index === messages.length - 1
     const setRef = (el: View | null) => {
       if (onMessageRef) onMessageRef(item.id, el)
+    }
+    if (renderMessage) {
+      return <>{renderMessage(item, index)}</>
     }
     return (
       <View style={isUser ? styles.msgEnd : styles.msgStart}>
@@ -94,27 +106,31 @@ export function ChatScreen({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('chat.title')}</Text>
-        <View style={styles.navRow}>
-          {navItems.map((n) => (
-            <TouchableOpacity key={n.key} onPress={n.onPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.navText}>{n.label}</Text>
-            </TouchableOpacity>
-          ))}
+    <View style={[styles.container, containerStyle]}>
+      {showHeader ? (
+        <View style={styles.header}>
+          <Text style={styles.title}>{t('chat.title')}</Text>
+          <View style={styles.navRow}>
+            {navItems.map((n) => (
+              <TouchableOpacity key={n.key} onPress={n.onPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.navText}>{n.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
 
-      <TouchableOpacity
-        onPress={() => onPickerOpenChange(true)}
-        style={styles.modelBar}
-        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-      >
-        <Text style={styles.modelText}>
-          {t('chat.modelLabel')}: {currentModelName} ▾
-        </Text>
-      </TouchableOpacity>
+      {showModelBar ? (
+        <TouchableOpacity
+          onPress={() => onPickerOpenChange(true)}
+          style={styles.modelBar}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          <Text style={styles.modelText}>
+            {t('chat.modelLabel')}: {currentModelName} ▾
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Modal
         visible={pickerOpen}
@@ -157,13 +173,19 @@ export function ChatScreen({
       </Modal>
 
       <FlatList
-        style={styles.list}
+        style={[styles.list, flatListStyle]}
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.listGap} />}
+        ItemSeparatorComponent={
+          itemSeparatorComponent !== undefined && itemSeparatorComponent !== null
+            ? () => <>{itemSeparatorComponent}</>
+            : () => <View style={styles.listGap} />
+        }
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={renderListHeader !== undefined ? () => <>{renderListHeader}</> : undefined}
+        ListFooterComponent={renderListFooter !== undefined ? () => <>{renderListFooter}</> : undefined}
       />
 
       {error ? (
@@ -172,37 +194,39 @@ export function ChatScreen({
         </View>
       ) : null}
 
-      <MessageInput
-        t={t}
-        text={inputText}
-        isStreaming={isStreaming}
-        isSending={isSending}
-        disabled={false}
-        files={inputFiles}
-        agentVariables={agentVariables}
-        showAddFileBtn={true}
-        isFocused={isInputFocused}
-        isFullscreen={isInputFullscreen}
-        isVoiceMode={isVoiceMode}
-        isRecording={isRecording}
-        error={inputError}
-        onTextChange={onInputTextChange}
-        onSend={onSend}
-        onStop={onStop}
-        onFocus={onInputFocus ?? (() => undefined)}
-        onBlur={onInputBlur ?? (() => undefined)}
-        onFullscreenToggle={onInputFullscreenToggle ?? (() => undefined)}
-        onVoiceToggle={onInputVoiceToggle ?? (() => undefined)}
-        onAddImage={onInputAddImage ?? (() => undefined)}
-        onAddFile={onInputAddFile ?? (() => undefined)}
-        onRemoveFile={onInputRemoveFile ?? (() => undefined)}
-        onClear={onInputClear ?? (() => undefined)}
-        onVoiceStart={onInputVoiceStart ?? (() => undefined)}
-        onVoiceEnd={onInputVoiceEnd ?? (() => undefined)}
-        onAgentVariableTextChange={onInputAgentVariableTextChange}
-        onAgentVariableImageChange={onInputAgentVariableImageChange}
-        colorScheme={colorScheme}
-      />
+      {showInput ? (
+        <MessageInput
+          t={t}
+          text={inputText}
+          isStreaming={isStreaming}
+          isSending={isSending}
+          disabled={false}
+          files={inputFiles}
+          agentVariables={agentVariables}
+          showAddFileBtn={true}
+          isFocused={isInputFocused}
+          isFullscreen={isInputFullscreen}
+          isVoiceMode={isVoiceMode}
+          isRecording={isRecording}
+          error={inputError}
+          onTextChange={onInputTextChange}
+          onSend={onSend}
+          onStop={onStop}
+          onFocus={onInputFocus ?? (() => undefined)}
+          onBlur={onInputBlur ?? (() => undefined)}
+          onFullscreenToggle={onInputFullscreenToggle ?? (() => undefined)}
+          onVoiceToggle={onInputVoiceToggle ?? (() => undefined)}
+          onAddImage={onInputAddImage ?? (() => undefined)}
+          onAddFile={onInputAddFile ?? (() => undefined)}
+          onRemoveFile={onInputRemoveFile ?? (() => undefined)}
+          onClear={onInputClear ?? (() => undefined)}
+          onVoiceStart={onInputVoiceStart ?? (() => undefined)}
+          onVoiceEnd={onInputVoiceEnd ?? (() => undefined)}
+          onAgentVariableTextChange={onInputAgentVariableTextChange}
+          onAgentVariableImageChange={onInputAgentVariableImageChange}
+          colorScheme={colorScheme}
+        />
+      ) : null}
     </View>
   )
 }

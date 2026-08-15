@@ -129,6 +129,8 @@ const USER_LEGIT_PATTERNS = [
   /^desktop\.ini$/i,
   /^Thumbs\.db$/i,
   /^项目端口分析与维护成本优化\.md$/i,  // 已迁移到 docs/port-cost-analysis.md
+  /^check-stale-dist\.old\.mjs$/i,   // 历史遗留脚本,已不在项目内
+  /^inject_wb_i18n\.mjs$/i,          // 历史遗留脚本,已不在项目内
 ];
 
 /**
