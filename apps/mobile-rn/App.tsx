@@ -30,10 +30,16 @@ import { GlobalFloatBox } from './src/components/GlobalFloatBox'
  */
 const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
 // 注入全局默认字体（React Native 限制，defaultProps 需要 any 断言）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(Text as any).defaultProps = { ...(Text as any).defaultProps, style: { fontFamily: GLOBAL_FONT_FAMILY } }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: { fontFamily: GLOBAL_FONT_FAMILY } }
+/* eslint-disable @typescript-eslint/no-explicit-any */
+;(Text as any).defaultProps = {
+  ...(Text as any).defaultProps,
+  style: { fontFamily: GLOBAL_FONT_FAMILY },
+}
+;(TextInput as any).defaultProps = {
+  ...(TextInput as any).defaultProps,
+  style: { fontFamily: GLOBAL_FONT_FAMILY },
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
@@ -114,8 +120,10 @@ function AppContent() {
 export default function App() {
   // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
   // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
+  // eslint-enable @typescript-eslint/no-require-imports
   const [fontsLoaded] = useFonts({
-    'AlimamaFangYuanTiVF-Thin': require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf'),
+    'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
   if (!fontsLoaded) return null
   return (
