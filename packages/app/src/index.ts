@@ -556,6 +556,16 @@ export type {
   DeveloperScreenProps,
 } from './types'
 
+/** 批次 33-34(2026-08-15):营业执照/模型备案/修改密码/分佣计划/团队成员详情/排行榜详情(props 类型单一来源 @ihui/types) */
+export type {
+  BusinessLicenseScreenProps,
+  ModelRecordScreenProps,
+  ChangePwdScreenProps,
+  EarnCommissionScreenProps,
+  TeamDetailScreenProps,
+  RankingDetailScreenProps,
+} from './types'
+
 /** 批次 25-26 剩余:直播聊天/消息聊天/订单退款/支付 + VIP 操盘手类型(inline 定义在组件文件) */
 export type {
   LiveChatMessage,

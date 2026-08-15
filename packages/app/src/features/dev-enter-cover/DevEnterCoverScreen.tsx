@@ -121,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     planCardActive: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.light,
+      backgroundColor: tk.surface.light,
     },
     planName: {
       fontSize: 14,
