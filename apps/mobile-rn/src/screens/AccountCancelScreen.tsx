@@ -10,7 +10,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const CONFIRM_SENTENCE = '确认注销'
-const CONSEQUENCE_ITEMS = ['账号数据将被永久删除', '无法恢复任何信息', '关联的服务将终止']
 
 export default function AccountCancelScreen() {
   const { t } = useI18n()
@@ -70,7 +69,12 @@ export default function AccountCancelScreen() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1200))
       Alert.alert('注销成功', '您的账号已注销', [
-        { text: '知道了', onPress: () => { void logout() } },
+        {
+          text: '知道了',
+          onPress: () => {
+            void logout()
+          },
+        },
       ])
     } catch {
       Alert.alert('提示', '提交失败，请稍后重试')

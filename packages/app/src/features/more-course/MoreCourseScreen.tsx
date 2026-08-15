@@ -1,31 +1,21 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, Pressable, StyleSheet, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  Pressable,
+  StyleSheet,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
+import type { MoreCourseScreenProps } from '../../types'
 
-export interface MoreCourseScreenProps {
-  t: TFunction
-  items: {
-    id: string | number
-    title: string
-    cover?: string
-    instructor?: string
-    lessonCount?: number
-    price: number
-    isFree: boolean
-    studentCount?: number
-  }[]
-  loading: boolean
-  refreshing: boolean
-  loadingMore: boolean
-  error: string
-  total: number
-  onRefresh: () => void
-  onEndReached: () => void
-  onPressItem: (item: { id: string | number; title: string }) => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+/** MoreCourseScreen props re-export(单一来源 @ihui/types) */
+export type { MoreCourseScreenProps }
 
 function formatPrice(price: number, isFree: boolean): string {
   if (isFree || price <= 0) return '免费'
@@ -75,7 +65,9 @@ export function MoreCourseScreen({
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.price}>{formatPrice(item.price, item.isFree)}</Text>
-          <Text style={styles.studentCount}>{(item.studentCount ?? 0) > 0 ? `${item.studentCount} 人学过` : ''}</Text>
+          <Text style={styles.studentCount}>
+            {(item.studentCount ?? 0) > 0 ? `${item.studentCount} 人学过` : ''}
+          </Text>
         </View>
       </View>
     </Pressable>
@@ -85,13 +77,14 @@ export function MoreCourseScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>更多课程</Text>
+        {total > 0 ? <Text style={styles.countText}>{`共${total}门`}</Text> : null}
       </View>
       {initialLoading ? (
         <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>加载中...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -152,6 +145,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 14, color: tk.text.medium } as TextStyle,
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    countText: { fontSize: 13, color: tk.text.tertiary, marginLeft: 'auto' } as TextStyle,
     listContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 12 } as ViewStyle,
     card: {
       backgroundColor: tk.surface.card,
@@ -166,8 +160,17 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     coverEmoji: { fontSize: 40 } as TextStyle,
     cardBody: { padding: 12, gap: 6 } as ViewStyle,
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary, lineHeight: 20 } as TextStyle,
-    metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } as ViewStyle,
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tk.text.primary,
+      lineHeight: 20,
+    } as TextStyle,
+    metaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    } as ViewStyle,
     instructor: { fontSize: 12, color: tk.text.medium, flex: 1 } as TextStyle,
     lessonCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
     price: { fontSize: 14, fontWeight: '700', color: tk.warning.deep } as TextStyle,

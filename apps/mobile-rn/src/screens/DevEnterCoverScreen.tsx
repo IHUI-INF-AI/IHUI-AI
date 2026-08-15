@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -8,7 +8,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-export default function DevEnterCoverScreen() {
+export function DevEnterCoverScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -23,10 +23,6 @@ export default function DevEnterCoverScreen() {
     }, 600)
   }
 
-  const onLearnMore = () => {
-    navigation.navigate('ArticleList')
-  }
-
   return (
     <SharedDevEnterCoverScreen
       t={t}
@@ -39,3 +35,5 @@ export default function DevEnterCoverScreen() {
     />
   )
 }
+
+export default DevEnterCoverScreen

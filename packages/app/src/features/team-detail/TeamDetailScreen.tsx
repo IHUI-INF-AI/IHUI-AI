@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TeamDetailScreenProps } from '../../types'
 
@@ -25,8 +25,14 @@ export function TeamDetailScreen({
 
   const stats = useMemo(
     () => [
-      { label: t('teamDetail.transactionVolume') || '成交额', value: '¥' + (member.transactionVolume / 100).toFixed(2) },
-      { label: t('teamDetail.commission') || '获取佣金', value: '¥' + (member.commission / 100).toFixed(2) },
+      {
+        label: t('teamDetail.transactionVolume') || '成交额',
+        value: '¥' + (member.transactionVolume / 100).toFixed(2),
+      },
+      {
+        label: t('teamDetail.commission') || '获取佣金',
+        value: '¥' + (member.commission / 100).toFixed(2),
+      },
       { label: t('teamDetail.orderNum') || '成交订单数', value: String(member.orderNum) },
     ],
     [member, t],
@@ -36,6 +42,12 @@ export function TeamDetailScreen({
 
   return (
     <View style={styles.root}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>{t('teamDetail.title') || '团队成员详情'}</Text>
+      </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.memberCard}>
           <View style={styles.avatar}>
@@ -43,8 +55,12 @@ export function TeamDetailScreen({
           </View>
           <View style={styles.memberMeta}>
             <Text style={styles.nickname}>{member.nickname}</Text>
-            <Text style={styles.metaText}>{t('teamDetail.phone')}:{member.phone}</Text>
-            <Text style={styles.metaText}>{t('teamDetail.joinedAt')}:{member.joinedAt}</Text>
+            <Text style={styles.metaText}>
+              {t('teamDetail.phone')}:{member.phone}
+            </Text>
+            <Text style={styles.metaText}>
+              {t('teamDetail.joinedAt')}:{member.joinedAt}
+            </Text>
           </View>
         </View>
 
@@ -59,7 +75,11 @@ export function TeamDetailScreen({
 
         <View style={styles.actionRow}>
           <Pressable
-            style={({ pressed }) => [styles.actionBtn, styles.actionBtnPrimary, pressed ? styles.pressed : null]}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.actionBtnPrimary,
+              pressed ? styles.pressed : null,
+            ]}
             onPress={onContact}
             accessibilityRole="button"
             accessibilityLabel={t('teamDetail.contact') || '联系成员'}
@@ -83,6 +103,15 @@ export function TeamDetailScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 12,
+    },
+    backText: { fontSize: 14, color: tk.text.medium },
+    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     scrollContent: { padding: 16, gap: 16 },
     memberCard: {
