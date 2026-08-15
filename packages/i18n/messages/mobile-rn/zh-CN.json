@@ -4,7 +4,14 @@
     "agents": "智能体"
   },
   "home": {
-    "welcome": "欢迎使用智汇 AI"
+    "welcome": "欢迎使用智汇 AI",
+    "guest": "游客",
+    "learningProgress": "学习进度",
+    "progressLessons": "已学 {completed}/{total} 节",
+    "progressEmpty": "还没有开始学习,去挑一门课吧",
+    "livePreview": "直播预告",
+    "livePreviewMore": "更多直播",
+    "recommend": "为你推荐"
   },
   "course": {
     "title": "课程",
@@ -12,7 +19,12 @@
     "pay": "支付 ¥{amount}",
     "enroll": "立即报名",
     "enrolled": "已报名",
-    "progress": "学习进度"
+    "progress": "学习进度",
+    "empty": "暂无课程",
+    "completed": "已学完",
+    "complete": "标记学完",
+    "player": "视频加载后即可播放",
+    "progressLessons": "已学 {completed}/{total} 节"
   },
   "live": {
     "title": "直播",
@@ -36,7 +48,11 @@
       "wallet": "我的钱包",
       "walletSubtitle": "查看余额与充值",
       "loginRequired": "请先登录"
-    }
+    },
+    "nickname": "未设置昵称",
+    "logout": "退出登录",
+    "myOrders": "我的订单",
+    "editProfile": "编辑资料"
   },
   "payment": {
     "title": "支付订单",
@@ -130,7 +146,25 @@
     "checkUpdateTitle": "检查更新",
     "checkUpdateLatest": "当前已是最新版本",
     "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
-    "logoutConfirm": "确认退出当前账号?"
+    "logoutConfirm": "确认退出当前账号?",
+    "appPermission": "应用权限",
+    "icpRecord": "ICP 备案",
+    "usageRules": "使用规范",
+    "changePassword": "修改密码",
+    "oldPassword": "旧密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "pwdFieldsRequired": "请填写完整的密码信息",
+    "pwdTooShort": "新密码至少 6 位",
+    "pwdNotMatch": "两次输入的密码不一致",
+    "pwdChanged": "密码修改成功",
+    "pwdChangeFailed": "密码修改失败,请重试",
+    "notifPush": "推送通知",
+    "notifMessage": "站内消息",
+    "notifEmail": "邮件通知",
+    "notification": "消息通知",
+    "account": "账号与安全",
+    "version": "版本"
   },
   "menu": {
     "about": "关于",
@@ -146,7 +180,8 @@
     "usageRules": "使用规范",
     "businessLicense": "营业执照",
     "icpRecord": "ICP 备案",
-    "modelRecord": "模型备案"
+    "modelRecord": "模型备案",
+    "sectionDiscover": "发现"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -198,7 +233,11 @@
     "confirm": "确认",
     "error": "错误",
     "menu": "菜单",
-    "empty": "暂无数据"
+    "empty": "暂无数据",
+    "show": "显示",
+    "hide": "隐藏",
+    "submitting": "提交中...",
+    "viewMore": "查看更多"
   },
   "aiAssistant": {
     "title": "AI 助手",
@@ -405,5 +444,635 @@
       "card": "名片二维码",
       "close": "关闭"
     }
+  },
+  "about": {
+    "title": "关于",
+    "appName": "应用名称",
+    "version": "版本",
+    "description": "应用介绍",
+    "officialSite": "官方网站",
+    "contactEmail": "联系邮箱",
+    "license": "开源许可"
+  },
+  "activityDetail": {
+    "title": "活动详情",
+    "empty": "活动不存在或已下线",
+    "startAt": "开始时间",
+    "endAt": "结束时间",
+    "location": "活动地点"
+  },
+  "agentChat": {
+    "empty": "暂无消息,发送第一条开始对话吧",
+    "placeholder": "输入消息...",
+    "send": "发送"
+  },
+  "agentCreate": {
+    "title": "创建智能体",
+    "name": "名称",
+    "namePlaceholder": "给智能体起个名字",
+    "category": "分类",
+    "categoryPlaceholder": "如:办公助手",
+    "description": "描述",
+    "descPlaceholder": "介绍一下这个智能体",
+    "systemPrompt": "系统提示词",
+    "promptPlaceholder": "定义智能体的角色和行为",
+    "isPublic": "是否公开",
+    "public": "公开",
+    "private": "私有",
+    "submit": "创建"
+  },
+  "agentReviewDetail": {
+    "title": "评价详情",
+    "empty": "评价不存在或已删除",
+    "author": "作者"
+  },
+  "agentSetting": {
+    "title": "智能体设置",
+    "name": "名称",
+    "model": "模型",
+    "temperature": "温度",
+    "enabled": "启用",
+    "save": "保存"
+  },
+  "agentStat": {
+    "title": "智能体统计",
+    "conversations": "对话数",
+    "messages": "消息数",
+    "tokens": "Token 消耗",
+    "avgRating": "平均评分"
+  },
+  "announcementDetail": {
+    "empty": "公告不存在或已删除"
+  },
+  "apiSettings": {
+    "title": "API 设置",
+    "cozeTitle": "Coze 配置",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "请输入 API Token",
+    "baseUrl": "接口地址",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "请输入 Bot ID",
+    "timeout": "超时时间(秒)",
+    "tokenHint": "用于调用 Coze 接口的访问令牌",
+    "save": "保存",
+    "reset": "重置",
+    "diagnoseTitle": "连通性诊断",
+    "diagnose": "诊断",
+    "test": "测试",
+    "testSuccess": "连接正常",
+    "testFailed": "连接失败"
+  },
+  "appPermission": {
+    "intro": "本 APP 严格遵循最小必要原则申请系统权限,所有权限均由您主动授权,您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。撤回非必要权限不影响 APP 其他功能的正常使用。"
+  },
+  "askCreate": {
+    "title": "发布提问",
+    "titleLabel": "标题",
+    "titlePlaceholder": "一句话概括你的问题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "详细描述你的问题",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "submit": "发布"
+  },
+  "bankCard": {
+    "title": "银行卡",
+    "empty": "暂无银行卡",
+    "default": "默认",
+    "holder": "持卡人"
+  },
+  "carte": {
+    "title": "创作者名片",
+    "projects": "项目",
+    "skills": "技能",
+    "rating": "评分",
+    "skillsTitle": "技能特长",
+    "worksTitle": "代表作品",
+    "empty": "暂无作品"
+  },
+  "certApply": {
+    "title": "讲师认证",
+    "name": "姓名",
+    "placeholder": "请输入真实信息",
+    "idCard": "身份证号",
+    "submit": "提交认证",
+    "success": "提交成功,请等待审核"
+  },
+  "community": {
+    "follow": "关注",
+    "follower": "粉丝"
+  },
+  "coupon": {
+    "subtitle": "领券下单,更划算",
+    "retry": "重试"
+  },
+  "courseAnnex": {
+    "title": "课程附件",
+    "empty": "暂无附件",
+    "size": "大小",
+    "download": "下载"
+  },
+  "courseChapter": {
+    "title": "课程章节",
+    "lessons": "共 {count} 节课"
+  },
+  "courseComment": {
+    "title": "课程评论",
+    "empty": "暂无评论"
+  },
+  "courseDetail": {
+    "loadFailed": "加载课程详情失败",
+    "studentCount": "{count} 人学过",
+    "instructor": "讲师",
+    "rating": "评分",
+    "free": "免费",
+    "enrolled": "已报名",
+    "enroll": "立即报名",
+    "pay": "支付 ¥{amount}",
+    "lessons": "课程目录",
+    "completed": "已学完"
+  },
+  "courseEnroll": {
+    "title": "报名课程",
+    "subtitle": "选课报名,开启学习之旅",
+    "searchPlaceholder": "搜索课程",
+    "empty": "暂无课程",
+    "enrolled": "已报名",
+    "enroll": "立即报名",
+    "free": "免费",
+    "instructor": "讲师",
+    "level": "难度",
+    "lessons": "节数",
+    "students": "学员"
+  },
+  "courseFilter": {
+    "title": "筛选课程",
+    "subtitle": "按条件找到适合你的课",
+    "category": "分类",
+    "level": "难度",
+    "priceRange": "价格区间",
+    "reset": "重置",
+    "apply": "确定",
+    "retry": "重试",
+    "empty": "没有符合条件的课程",
+    "instructor": "讲师",
+    "level_label": "难度",
+    "free": "免费"
+  },
+  "courseQAAsk": {
+    "title": "课程提问",
+    "question": "问题描述",
+    "placeholder": "输入你的疑问,讲师会尽快解答",
+    "success": "提交成功",
+    "submit": "提交问题"
+  },
+  "courseResource": {
+    "title": "课程资源",
+    "empty": "暂无资源",
+    "type": "类型",
+    "size": "大小",
+    "open": "打开"
+  },
+  "courseScreen": {
+    "title": "全部课程",
+    "searchPlaceholder": "搜索课程",
+    "empty": "暂无课程",
+    "free": "免费",
+    "studentCount": "{count} 人学过",
+    "nextPage": "下一页"
+  },
+  "customerService": {
+    "title": "联系客服",
+    "empty": "客服信息加载失败",
+    "status": "服务状态",
+    "online": "在线",
+    "offline": "离线",
+    "workingHours": "服务时间",
+    "phone": "客服电话",
+    "email": "客服邮箱"
+  },
+  "distribution": {
+    "title": "分销中心",
+    "subtitle": "推广商品,赚取佣金",
+    "retry": "重试",
+    "empty": "暂无数据",
+    "level": "分销等级",
+    "commissionRate": "佣金比例",
+    "totalEarnings": "累计收益",
+    "withdrawn": "已提现",
+    "pending": "待结算",
+    "withdrawBtn": "申请提现",
+    "withdrawMin": "满 ¥{amount} 方可提现",
+    "products": "分销商品",
+    "commission": "佣金",
+    "sales": "已售 {count} 件"
+  },
+  "earnCommission": {
+    "title": "分佣计划",
+    "introTitle": "邀请好友,赚取佣金",
+    "introDesc": "加入分佣计划,邀请好友注册成为会员,即可获得会员费 20% 的佣金收益",
+    "totalEarnings": "累计收益",
+    "invitedCount": "邀请人数",
+    "rules": "分佣规则",
+    "rateTitle": "分佣比例",
+    "openVip": "开通 VIP 会员 参与分佣计划"
+  },
+  "exam": {
+    "subtitle": "以考促学,检验学习成果",
+    "retry": "重试",
+    "questions": "题数",
+    "end": "结束时间",
+    "startExam": "开始考试"
+  },
+  "examQuestion": {
+    "loadFailed": "加载试卷失败",
+    "single": "单选题",
+    "multi": "多选题",
+    "prev": "上一题",
+    "next": "下一题",
+    "submit": "交卷"
+  },
+  "favorite": {
+    "title": "我的收藏",
+    "tabAll": "全部",
+    "tabCourse": "课程",
+    "tabLive": "直播",
+    "tabArticle": "文章",
+    "empty": "暂无收藏"
+  },
+  "finance": {
+    "title": "财务",
+    "empty": "暂无账单数据",
+    "balance": "账户余额",
+    "todayIncome": "今日收入",
+    "totalIncome": "累计收入",
+    "totalExpense": "累计支出"
+  },
+  "follow": {
+    "title": "关注与粉丝",
+    "following": "关注",
+    "fans": "粉丝",
+    "empty": "暂无数据",
+    "unfollow": "取消关注"
+  },
+  "icpRecord": {
+    "licenseLabel": "ICP备案/许可证号"
+  },
+  "identityVerify": {
+    "title": "身份认证",
+    "subtitle": "完成身份认证,保障账户安全",
+    "uploadFront": "上传身份证人像面",
+    "uploadBack": "上传身份证国徽面",
+    "uploadSelfie": "上传手持身份证照片",
+    "submit": "提交认证",
+    "submitting": "提交中..."
+  },
+  "income": {
+    "title": "收益",
+    "today": "今日收益",
+    "total": "累计收益",
+    "withdrawable": "可提现余额",
+    "withdraw": "提现",
+    "sectionTitle": "收益明细",
+    "empty": "暂无收益记录",
+    "settled": "已结算",
+    "pending": "待结算"
+  },
+  "invite": {
+    "title": "邀请好友",
+    "inviteCode": "邀请码",
+    "totalInvited": "累计邀请",
+    "totalReward": "累计奖励",
+    "share": "立即邀请",
+    "sectionTitle": "邀请记录",
+    "empty": "暂无邀请记录",
+    "statusCompleted": "已完成",
+    "statusPending": "待完成"
+  },
+  "learnDevelop": {
+    "title": "学习开发",
+    "comingSoon": "课程星球正在开发中",
+    "contactLabel": "直接联系李总"
+  },
+  "lecturerDetail": {
+    "title": "讲师详情",
+    "subtitle": "了解讲师,选课不迷路",
+    "empty": "暂无简介",
+    "courses": "课程",
+    "followers": "粉丝",
+    "students": "学员",
+    "followBtn": "关注",
+    "unfollowBtn": "已关注",
+    "retry": "重试",
+    "level": "难度",
+    "studentCount": "{count} 人学过",
+    "free": "免费"
+  },
+  "liveChat": {
+    "title": "直播间互动",
+    "empty": "暂无互动,来抢个沙发吧",
+    "placeholder": "说点什么...",
+    "send": "发送"
+  },
+  "liveList": {
+    "subtitle": "精彩直播,不见不散",
+    "retry": "重试"
+  },
+  "messageChat": {
+    "empty": "暂无消息",
+    "placeholder": "输入消息...",
+    "send": "发送"
+  },
+  "messageDetail": {
+    "title": "消息详情",
+    "reply": "回复",
+    "notFound": "消息不存在或已删除",
+    "from": "发件人",
+    "createdAt": "时间"
+  },
+  "note": {
+    "title": "我的笔记",
+    "subtitle": "好记性不如烂笔头",
+    "empty": "暂无笔记,点击新增开始记录",
+    "add": "新增笔记",
+    "edit": "编辑",
+    "updatedAt": "更新于",
+    "titlePlaceholder": "给笔记起个标题",
+    "placeholder": "记录你的学习心得..."
+  },
+  "noteCreate": {
+    "title": "新建笔记",
+    "titleLabel": "标题",
+    "titlePlaceholder": "给笔记起个标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "记录你的学习心得...",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "isPublic": "公开笔记",
+    "submit": "保存"
+  },
+  "notificationSettings": {
+    "title": "通知设置",
+    "push": "推送通知",
+    "message": "站内消息",
+    "email": "邮件通知",
+    "sms": "短信通知",
+    "marketing": "营销通知",
+    "desc": "按需开启通知渠道,重要消息不错过",
+    "save": "保存",
+    "saving": "保存中..."
+  },
+  "orderLog": {
+    "title": "订单动态",
+    "empty": "暂无动态",
+    "action": "操作",
+    "operator": "操作人"
+  },
+  "orderRefund": {
+    "title": "申请退款",
+    "subtitle": "选择订单,提交退款申请",
+    "retry": "重试",
+    "empty": "暂无可退款的订单",
+    "orderNo": "订单号",
+    "reasonLabel": "退款原因",
+    "reasonPlaceholder": "请填写退款原因",
+    "submit": "提交申请",
+    "applyRefund": "申请退款"
+  },
+  "orderTrack": {
+    "title": "物流跟踪",
+    "empty": "暂无物流信息",
+    "location": "当前位置"
+  },
+  "player": {
+    "noUrl": "暂无播放地址"
+  },
+  "pointsRecord": {
+    "title": "智汇值明细",
+    "tabAll": "全部",
+    "tabEarn": "获取",
+    "tabSpend": "消耗",
+    "balance": "当前余额",
+    "empty": "暂无明细记录",
+    "balanceAfter": "变动后余额"
+  },
+  "postCreate": {
+    "title": "发布帖子",
+    "titleLabel": "标题",
+    "titlePlaceholder": "给帖子起个标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "submit": "发布"
+  },
+  "profileEdit": {
+    "avatarTip": "点击更换头像",
+    "nicknamePlaceholder": "请输入昵称",
+    "bioPlaceholder": "介绍一下自己吧",
+    "avatarModalTitle": "更换头像",
+    "avatarUrlLabel": "头像链接",
+    "avatarUrlPlaceholder": "粘贴图片链接",
+    "avatarUrlHint": "支持 JPG / PNG,建议 200x200"
+  },
+  "promote": {
+    "title": "推广中心",
+    "subtitle": "分享专属链接,邀请好友加入",
+    "retry": "重试",
+    "inviteCount": "邀请人数",
+    "activeCount": "活跃人数",
+    "totalEarnings": "累计收益",
+    "referralLink": "专属推广链接",
+    "copyLink": "复制链接",
+    "copySuccess": "已复制",
+    "shareBtn": "分享",
+    "referralCode": "推广码",
+    "rules": "推广规则",
+    "inviteRecords": "邀请记录",
+    "empty": "暂无数据"
+  },
+  "promotion": {
+    "title": "优惠券",
+    "empty": "暂无可用优惠券",
+    "minSpend": "满 ¥{minSpend} 可用",
+    "expireDate": "有效期至",
+    "useNow": "去使用"
+  },
+  "qrCode": {
+    "title": "我的二维码",
+    "scanTip": "扫一扫上面的二维码,一起学习成长",
+    "share": "分享"
+  },
+  "ranking": {
+    "subtitle": "学习排行榜,看看你排第几",
+    "retry": "重试",
+    "anonymous": "匿名用户",
+    "me": "我",
+    "studyHours": "学习 {count} 小时"
+  },
+  "rankingDetail": {
+    "rank": "排名",
+    "attention": "关注度",
+    "organization": "机构"
+  },
+  "realNameAuth": {
+    "title": "实名认证",
+    "status": "认证状态",
+    "verifiedDesc": "已完成实名认证",
+    "unverifiedDesc": "完成实名认证,解锁更多服务",
+    "name": "真实姓名",
+    "namePlaceholder": "请输入真实姓名",
+    "idNumber": "身份证号",
+    "idNumberPlaceholder": "请输入身份证号",
+    "submit": "提交认证",
+    "submitting": "提交中..."
+  },
+  "recruitment": {
+    "title": "人才招聘",
+    "count": "共 {count} 个职位",
+    "empty": "暂无在招职位",
+    "applied": "已报名",
+    "close": "关闭",
+    "description": "职位描述",
+    "requirements": "任职要求",
+    "applyNow": "立即报名",
+    "appliedWaiting": "已报名,等待审核"
+  },
+  "referrer": {
+    "title": "推荐人",
+    "current": "当前推荐人",
+    "empty": "暂未绑定推荐人",
+    "desc": "绑定推荐人后,双方均可获得奖励",
+    "codeLabel": "推荐码",
+    "codePlaceholder": "请输入推荐码",
+    "submit": "绑定",
+    "submitting": "绑定中..."
+  },
+  "register": {
+    "phone": "手机号",
+    "phonePlaceholder": "请输入手机号",
+    "submit": "注册",
+    "registering": "注册中..."
+  },
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索课程、讲师、内容",
+    "empty": "未找到相关内容"
+  },
+  "securitySettings": {
+    "title": "安全设置",
+    "password": "密码登录",
+    "biometric": "生物识别",
+    "twoFactor": "两步验证",
+    "loginAlert": "登录提醒",
+    "desc": "管理账号安全相关的开关"
+  },
+  "settingsAccount": {
+    "title": "账号管理",
+    "name": "姓名",
+    "email": "邮箱",
+    "phone": "手机号",
+    "save": "保存"
+  },
+  "square": {
+    "title": "AI资讯"
+  },
+  "studyProgress": {
+    "title": "学习进度",
+    "loadFailed": "加载学习进度失败",
+    "courses": "课程(已完成/总数)",
+    "totalMinutes": "累计学习(分钟)",
+    "weekMinutes": "本周学习(分钟)",
+    "streak": "连续打卡(天)",
+    "courseProgress": "课程进度"
+  },
+  "studyPublish": {
+    "title": "发布课程"
+  },
+  "studyRecord": {
+    "title": "学习记录",
+    "subtitle": "{name} 的学习记录",
+    "totalDuration": "累计时长(分钟)",
+    "totalCourses": "课程总数",
+    "completedCourses": "已完成课程",
+    "totalLessons": "课时总数",
+    "completedLessons": "已完成课时",
+    "continuousDays": "连续学习(天)",
+    "empty": "暂无学习记录",
+    "untitled": "未命名学习记录",
+    "duration": "时长",
+    "progress": "进度",
+    "statusCompleted": "已完成",
+    "statusInProgress": "进行中",
+    "statusPaused": "已暂停"
+  },
+  "subscriptions": {
+    "title": "我的订阅",
+    "empty": "暂无订阅",
+    "cancel": "取消订阅"
+  },
+  "taskCenter": {
+    "title": "任务中心",
+    "subtitle": "做任务,拿奖励",
+    "retry": "重试",
+    "empty": "暂无可做的任务",
+    "claimed": "已领取",
+    "claim": "领取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}"
+  },
+  "team": {
+    "title": "我的团队",
+    "subtitle": "团队人数与业绩一览",
+    "retry": "重试",
+    "totalMembers": "团队总人数",
+    "activeMembers": "活跃成员",
+    "directCount": "直推人数",
+    "indirectCount": "间推人数",
+    "totalContribution": "团队总贡献",
+    "empty": "暂无团队成员",
+    "joinDate": "加入时间",
+    "level": "等级"
+  },
+  "teamDetail": {
+    "title": "团队成员详情",
+    "transactionVolume": "成交额",
+    "commission": "获取佣金",
+    "orderNum": "成交订单数",
+    "phone": "手机号",
+    "joinedAt": "加入时间",
+    "contact": "联系",
+    "viewOrders": "查看订单"
+  },
+  "vip": {
+    "subtitle": "开通会员,尊享更多权益",
+    "retry": "重试",
+    "empty": "暂无会员等级信息",
+    "currentLevel": "当前等级",
+    "expireAt": "到期时间",
+    "levelsTitle": "会员等级",
+    "currentBadge": "当前等级",
+    "duration": "{days} 天",
+    "benefitsCount": "{count} 项专属权益"
+  },
+  "vipBenefit": {
+    "title": "会员权益"
+  },
+  "vipTrader": {
+    "title": "VIP 操盘手",
+    "subtitle": "尊享操盘手专属权益",
+    "badge": "操盘手专属",
+    "heroDesc": "限时 ¥{price} 开通,赠送 {power} 算力,尊享大额分销与专属定制权益",
+    "entryTeam": "我的团队",
+    "entryStats": "收益统计",
+    "entryWithdraw": "去提现",
+    "benefits": "专属权益",
+    "benefitCount": "共 {count} 项",
+    "lifetime": "终身有效",
+    "openNow": "立即开通",
+    "opened": "已开通"
+  },
+  "wallet": {
+    "points": "智汇值"
   }
 }
