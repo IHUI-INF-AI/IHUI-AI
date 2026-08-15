@@ -35,6 +35,12 @@ export interface IntroducePopupProps {
   title?: string
   /** 内容(可选,作为副标题渲染于标题下方) */
   content?: string
+  /** 列表文案(可选,覆盖 variant 默认权益列表;用于页面级说明如充值说明/常见问题) */
+  benefits?: string[]
+  /** 更多列表文案(可选,覆盖 variant 默认;传空串隐藏该行) */
+  moreBenefits?: string
+  /** 主按钮文案(可选,覆盖 variant 默认) */
+  confirmText?: string
   /** 主按钮确认回调 */
   onConfirm?: () => void
 }
@@ -165,9 +171,14 @@ export function IntroducePopup({
   level,
   title,
   content,
+  benefits,
+  moreBenefits,
+  confirmText,
   onConfirm,
 }: IntroducePopupProps) {
   const config = VARIANT_CONFIG[variant]
+  const listItems = benefits ?? config.benefits
+  const moreBenefitsText = moreBenefits ?? config.moreBenefits
   const [closing, setClosing] = useState(false)
 
   const handleButton = (action: ButtonAction) => {
@@ -205,34 +216,47 @@ export function IntroducePopup({
           </View>
         ) : null}
         <View style={styles.buttonRow}>
-          {config.buttons.map((btn) => (
-            <Pressable
-              key={btn.text}
-              style={({ pressed }) => [
-                btn.primary ? styles.primaryButton : styles.secondaryButton,
-                pressed ? styles.buttonPressed : null,
-              ]}
-              onPress={() => handleButton(btn.action)}
-              accessibilityRole="button"
-              accessibilityLabel={btn.text}
-            >
-              <Text
-                style={btn.primary ? styles.primaryButtonText : styles.secondaryButtonText}
-                allowFontScaling={false}
+          {config.buttons.map((btn) => {
+            const btnText = btn.primary && confirmText ? confirmText : btn.text
+            return (
+              <Pressable
+                key={btn.text}
+                style={({ pressed }) => [
+                  btn.primary ? styles.primaryButton : styles.secondaryButton,
+                  pressed ? styles.buttonPressed : null,
+                ]}
+                onPress={() => handleButton(btn.action)}
+                accessibilityRole="button"
+                accessibilityLabel={btnText}
               >
-                {btn.text}
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  style={btn.primary ? styles.primaryButtonText : styles.secondaryButtonText}
+                  allowFontScaling={false}
+                >
+                  {btnText}
+                </Text>
+              </Pressable>
+            )
+          })}
         </View>
       </View>
     )
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={requestClose} statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={requestClose}
+      statusBarTranslucent
+    >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={requestClose} accessibilityLabel="关闭介绍弹窗" />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={requestClose}
+          accessibilityLabel="关闭介绍弹窗"
+        />
         <View style={styles.sheet}>
           <Text style={styles.title} numberOfLines={2}>
             {title ?? config.title}
@@ -246,9 +270,12 @@ export function IntroducePopup({
 
           <ScrollView
             style={styles.benefitsScroll}
-            contentContainerStyle={[styles.benefitsContent, { gap: config.benefitGap ?? BENEFIT_GAP }]}
+            contentContainerStyle={[
+              styles.benefitsContent,
+              { gap: config.benefitGap ?? BENEFIT_GAP },
+            ]}
           >
-            {config.benefits.map((text, idx) => (
+            {listItems.map((text, idx) => (
               <View key={idx} style={styles.benefitItem}>
                 <Text style={styles.benefitNumber} allowFontScaling={false}>
                   {idx + 1}.
@@ -258,7 +285,7 @@ export function IntroducePopup({
             ))}
           </ScrollView>
 
-          {config.moreBenefits ? <Text style={styles.moreBenefits}>{config.moreBenefits}</Text> : null}
+          {moreBenefitsText ? <Text style={styles.moreBenefits}>{moreBenefitsText}</Text> : null}
 
           <Text style={styles.copyright} allowFontScaling={false}>
             COPYRIGHT © 2024 IKUIINE-AI ALL RIGHTS RESERVED.
