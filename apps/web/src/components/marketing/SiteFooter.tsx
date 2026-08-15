@@ -185,10 +185,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         <div className={QR_BOX}>{img}</div>
       </button>
     ) : (
-      <div
-        className="cursor-pointer transition-opacity hover:opacity-80"
-        aria-label={t(qr.altKey)}
-      >
+      <div className="cursor-pointer transition-opacity hover:opacity-80" aria-label={t(qr.altKey)}>
         <div className={QR_BOX}>{img}</div>
       </div>
     )
@@ -335,7 +332,7 @@ export function SiteFooter({ className }: { className?: string }) {
     // 让 Row 2 容器底边 = footer 容器底边,Row 2 整体下沉贴合 footer 底(之前 footer pb-3=12px
     // 让 Row 2 距 footer 底 12px 间隙,现在消除);顶部 pt-2/pt-3 保留,Row 1 仍有呼吸空。
     <footer
-      className={`border-t bg-card/50 px-4 pt-2 pb-0 min-[768px]:px-8 min-[768px]:pt-3 min-[768px]:pb-0${className ? ` ${className}` : ''}`}
+      className={`border-t bg-card/50 px-4 py-2 md:py-3 md:px-8${className ? ` ${className}` : ''}`}
     >
       <div className="flex w-full flex-col gap-0">
         {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
@@ -358,9 +355,7 @@ export function SiteFooter({ className }: { className?: string }) {
               <p className="text-[11px] leading-snug text-muted-foreground">
                 {t('companyContact')}
               </p>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {t('companyEmail')}
-              </p>
+              <p className="text-[11px] leading-snug text-muted-foreground">{t('companyEmail')}</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <Link
