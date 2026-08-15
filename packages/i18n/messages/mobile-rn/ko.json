@@ -4,7 +4,14 @@
     "agents": "에이전트"
   },
   "home": {
-    "welcome": "IHUI AI에 오신 것을 환영합니다"
+    "welcome": "IHUI AI에 오신 것을 환영합니다",
+    "guest": "",
+    "learningProgress": "",
+    "progressLessons": "",
+    "progressEmpty": "",
+    "livePreview": "",
+    "livePreviewMore": "",
+    "recommend": ""
   },
   "course": {
     "title": "강의",
@@ -12,7 +19,12 @@
     "pay": "¥{amount} 결제",
     "enroll": "지금 등록",
     "enrolled": "등록됨",
-    "progress": "진도"
+    "progress": "진도",
+    "empty": "",
+    "completed": "",
+    "complete": "",
+    "player": "",
+    "progressLessons": ""
   },
   "live": {
     "title": "라이브",
@@ -36,7 +48,11 @@
       "wallet": "내 지갑",
       "walletSubtitle": "잔액 및 충전 보기",
       "loginRequired": "먼저 로그인하세요"
-    }
+    },
+    "nickname": "",
+    "logout": "",
+    "myOrders": "",
+    "editProfile": ""
   },
   "payment": {
     "title": "결제 주문",
@@ -130,7 +146,25 @@
     "checkUpdateTitle": "업데이트 확인",
     "checkUpdateLatest": "최신 버전입니다",
     "changePhoneMissingUser": "사용자 정보가 누락되었습니다",
-    "logoutConfirm": "로그아웃하시겠습니까?"
+    "logoutConfirm": "로그아웃하시겠습니까?",
+    "appPermission": "",
+    "icpRecord": "",
+    "usageRules": "",
+    "changePassword": "",
+    "oldPassword": "",
+    "newPassword": "",
+    "confirmPassword": "",
+    "pwdFieldsRequired": "",
+    "pwdTooShort": "",
+    "pwdNotMatch": "",
+    "pwdChanged": "",
+    "pwdChangeFailed": "",
+    "notifPush": "",
+    "notifMessage": "",
+    "notifEmail": "",
+    "notification": "",
+    "account": "",
+    "version": ""
   },
   "menu": {
     "about": "정보",
@@ -146,7 +180,8 @@
     "usageRules": "이용 규정",
     "businessLicense": "사업자등록증",
     "icpRecord": "ICP 신고",
-    "modelRecord": "모델 신고"
+    "modelRecord": "모델 신고",
+    "sectionDiscover": ""
   },
   "error": {
     "network": "네트워크 오류"
@@ -198,7 +233,11 @@
     "confirm": "확인",
     "error": "오류",
     "menu": "메뉴",
-    "empty": "데이터 없음"
+    "empty": "데이터 없음",
+    "show": "",
+    "hide": "",
+    "submitting": "",
+    "viewMore": ""
   },
   "aiAssistant": {
     "title": "AI 어시스턴트",
@@ -405,5 +444,635 @@
       "card": "명함 QR코드",
       "close": "닫기"
     }
+  },
+  "about": {
+    "title": "",
+    "appName": "",
+    "version": "",
+    "description": "",
+    "officialSite": "",
+    "contactEmail": "",
+    "license": ""
+  },
+  "activityDetail": {
+    "title": "",
+    "empty": "",
+    "startAt": "",
+    "endAt": "",
+    "location": ""
+  },
+  "agentChat": {
+    "empty": "",
+    "placeholder": "",
+    "send": ""
+  },
+  "agentCreate": {
+    "title": "",
+    "name": "",
+    "namePlaceholder": "",
+    "category": "",
+    "categoryPlaceholder": "",
+    "description": "",
+    "descPlaceholder": "",
+    "systemPrompt": "",
+    "promptPlaceholder": "",
+    "isPublic": "",
+    "public": "",
+    "private": "",
+    "submit": ""
+  },
+  "agentReviewDetail": {
+    "title": "",
+    "empty": "",
+    "author": ""
+  },
+  "agentSetting": {
+    "title": "",
+    "name": "",
+    "model": "",
+    "temperature": "",
+    "enabled": "",
+    "save": ""
+  },
+  "agentStat": {
+    "title": "",
+    "conversations": "",
+    "messages": "",
+    "tokens": "",
+    "avgRating": ""
+  },
+  "announcementDetail": {
+    "empty": ""
+  },
+  "apiSettings": {
+    "title": "",
+    "cozeTitle": "",
+    "apiToken": "",
+    "tokenPlaceholder": "",
+    "baseUrl": "",
+    "botId": "",
+    "botIdPlaceholder": "",
+    "timeout": "",
+    "tokenHint": "",
+    "save": "",
+    "reset": "",
+    "diagnoseTitle": "",
+    "diagnose": "",
+    "test": "",
+    "testSuccess": "",
+    "testFailed": ""
+  },
+  "appPermission": {
+    "intro": ""
+  },
+  "askCreate": {
+    "title": "",
+    "titleLabel": "",
+    "titlePlaceholder": "",
+    "contentLabel": "",
+    "contentPlaceholder": "",
+    "tagsLabel": "",
+    "tagsPlaceholder": "",
+    "submit": ""
+  },
+  "bankCard": {
+    "title": "",
+    "empty": "",
+    "default": "",
+    "holder": ""
+  },
+  "carte": {
+    "title": "",
+    "projects": "",
+    "skills": "",
+    "rating": "",
+    "skillsTitle": "",
+    "worksTitle": "",
+    "empty": ""
+  },
+  "certApply": {
+    "title": "",
+    "name": "",
+    "placeholder": "",
+    "idCard": "",
+    "submit": "",
+    "success": ""
+  },
+  "community": {
+    "follow": "",
+    "follower": ""
+  },
+  "coupon": {
+    "subtitle": "",
+    "retry": ""
+  },
+  "courseAnnex": {
+    "title": "",
+    "empty": "",
+    "size": "",
+    "download": ""
+  },
+  "courseChapter": {
+    "title": "",
+    "lessons": ""
+  },
+  "courseComment": {
+    "title": "",
+    "empty": ""
+  },
+  "courseDetail": {
+    "loadFailed": "",
+    "studentCount": "",
+    "instructor": "",
+    "rating": "",
+    "free": "",
+    "enrolled": "",
+    "enroll": "",
+    "pay": "",
+    "lessons": "",
+    "completed": ""
+  },
+  "courseEnroll": {
+    "title": "",
+    "subtitle": "",
+    "searchPlaceholder": "",
+    "empty": "",
+    "enrolled": "",
+    "enroll": "",
+    "free": "",
+    "instructor": "",
+    "level": "",
+    "lessons": "",
+    "students": ""
+  },
+  "courseFilter": {
+    "title": "",
+    "subtitle": "",
+    "category": "",
+    "level": "",
+    "priceRange": "",
+    "reset": "",
+    "apply": "",
+    "retry": "",
+    "empty": "",
+    "instructor": "",
+    "level_label": "",
+    "free": ""
+  },
+  "courseQAAsk": {
+    "title": "",
+    "question": "",
+    "placeholder": "",
+    "success": "",
+    "submit": ""
+  },
+  "courseResource": {
+    "title": "",
+    "empty": "",
+    "type": "",
+    "size": "",
+    "open": ""
+  },
+  "courseScreen": {
+    "title": "",
+    "searchPlaceholder": "",
+    "empty": "",
+    "free": "",
+    "studentCount": "",
+    "nextPage": ""
+  },
+  "customerService": {
+    "title": "",
+    "empty": "",
+    "status": "",
+    "online": "",
+    "offline": "",
+    "workingHours": "",
+    "phone": "",
+    "email": ""
+  },
+  "distribution": {
+    "title": "",
+    "subtitle": "",
+    "retry": "",
+    "empty": "",
+    "level": "",
+    "commissionRate": "",
+    "totalEarnings": "",
+    "withdrawn": "",
+    "pending": "",
+    "withdrawBtn": "",
+    "withdrawMin": "",
+    "products": "",
+    "commission": "",
+    "sales": ""
+  },
+  "earnCommission": {
+    "title": "",
+    "introTitle": "",
+    "introDesc": "",
+    "totalEarnings": "",
+    "invitedCount": "",
+    "rules": "",
+    "rateTitle": "",
+    "openVip": ""
+  },
+  "exam": {
+    "subtitle": "",
+    "retry": "",
+    "questions": "",
+    "end": "",
+    "startExam": ""
+  },
+  "examQuestion": {
+    "loadFailed": "",
+    "single": "",
+    "multi": "",
+    "prev": "",
+    "next": "",
+    "submit": ""
+  },
+  "favorite": {
+    "title": "",
+    "tabAll": "",
+    "tabCourse": "",
+    "tabLive": "",
+    "tabArticle": "",
+    "empty": ""
+  },
+  "finance": {
+    "title": "",
+    "empty": "",
+    "balance": "",
+    "todayIncome": "",
+    "totalIncome": "",
+    "totalExpense": ""
+  },
+  "follow": {
+    "title": "",
+    "following": "",
+    "fans": "",
+    "empty": "",
+    "unfollow": ""
+  },
+  "icpRecord": {
+    "licenseLabel": ""
+  },
+  "identityVerify": {
+    "title": "",
+    "subtitle": "",
+    "uploadFront": "",
+    "uploadBack": "",
+    "uploadSelfie": "",
+    "submit": "",
+    "submitting": ""
+  },
+  "income": {
+    "title": "",
+    "today": "",
+    "total": "",
+    "withdrawable": "",
+    "withdraw": "",
+    "sectionTitle": "",
+    "empty": "",
+    "settled": "",
+    "pending": ""
+  },
+  "invite": {
+    "title": "",
+    "inviteCode": "",
+    "totalInvited": "",
+    "totalReward": "",
+    "share": "",
+    "sectionTitle": "",
+    "empty": "",
+    "statusCompleted": "",
+    "statusPending": ""
+  },
+  "learnDevelop": {
+    "title": "",
+    "comingSoon": "",
+    "contactLabel": ""
+  },
+  "lecturerDetail": {
+    "title": "",
+    "subtitle": "",
+    "empty": "",
+    "courses": "",
+    "followers": "",
+    "students": "",
+    "followBtn": "",
+    "unfollowBtn": "",
+    "retry": "",
+    "level": "",
+    "studentCount": "",
+    "free": ""
+  },
+  "liveChat": {
+    "title": "",
+    "empty": "",
+    "placeholder": "",
+    "send": ""
+  },
+  "liveList": {
+    "subtitle": "",
+    "retry": ""
+  },
+  "messageChat": {
+    "empty": "",
+    "placeholder": "",
+    "send": ""
+  },
+  "messageDetail": {
+    "title": "",
+    "reply": "",
+    "notFound": "",
+    "from": "",
+    "createdAt": ""
+  },
+  "note": {
+    "title": "",
+    "subtitle": "",
+    "empty": "",
+    "add": "",
+    "edit": "",
+    "updatedAt": "",
+    "titlePlaceholder": "",
+    "placeholder": ""
+  },
+  "noteCreate": {
+    "title": "",
+    "titleLabel": "",
+    "titlePlaceholder": "",
+    "contentLabel": "",
+    "contentPlaceholder": "",
+    "tagsLabel": "",
+    "tagsPlaceholder": "",
+    "isPublic": "",
+    "submit": ""
+  },
+  "notificationSettings": {
+    "title": "",
+    "push": "",
+    "message": "",
+    "email": "",
+    "sms": "",
+    "marketing": "",
+    "desc": "",
+    "save": "",
+    "saving": ""
+  },
+  "orderLog": {
+    "title": "",
+    "empty": "",
+    "action": "",
+    "operator": ""
+  },
+  "orderRefund": {
+    "title": "",
+    "subtitle": "",
+    "retry": "",
+    "empty": "",
+    "orderNo": "",
+    "reasonLabel": "",
+    "reasonPlaceholder": "",
+    "submit": "",
+    "applyRefund": ""
+  },
+  "orderTrack": {
+    "title": "",
+    "empty": "",
+    "location": ""
+  },
+  "player": {
+    "noUrl": ""
+  },
+  "pointsRecord": {
+    "title": "",
+    "tabAll": "",
+    "tabEarn": "",
+    "tabSpend": "",
+    "balance": "",
+    "empty": "",
+    "balanceAfter": ""
+  },
+  "postCreate": {
+    "title": "",
+    "titleLabel": "",
+    "titlePlaceholder": "",
+    "contentLabel": "",
+    "contentPlaceholder": "",
+    "tagsLabel": "",
+    "tagsPlaceholder": "",
+    "submit": ""
+  },
+  "profileEdit": {
+    "avatarTip": "",
+    "nicknamePlaceholder": "",
+    "bioPlaceholder": "",
+    "avatarModalTitle": "",
+    "avatarUrlLabel": "",
+    "avatarUrlPlaceholder": "",
+    "avatarUrlHint": ""
+  },
+  "promote": {
+    "title": "",
+    "subtitle": "",
+    "retry": "",
+    "inviteCount": "",
+    "activeCount": "",
+    "totalEarnings": "",
+    "referralLink": "",
+    "copyLink": "",
+    "copySuccess": "",
+    "shareBtn": "",
+    "referralCode": "",
+    "rules": "",
+    "inviteRecords": "",
+    "empty": ""
+  },
+  "promotion": {
+    "title": "",
+    "empty": "",
+    "minSpend": "",
+    "expireDate": "",
+    "useNow": ""
+  },
+  "qrCode": {
+    "title": "",
+    "scanTip": "",
+    "share": ""
+  },
+  "ranking": {
+    "subtitle": "",
+    "retry": "",
+    "anonymous": "",
+    "me": "",
+    "studyHours": ""
+  },
+  "rankingDetail": {
+    "rank": "",
+    "attention": "",
+    "organization": ""
+  },
+  "realNameAuth": {
+    "title": "",
+    "status": "",
+    "verifiedDesc": "",
+    "unverifiedDesc": "",
+    "name": "",
+    "namePlaceholder": "",
+    "idNumber": "",
+    "idNumberPlaceholder": "",
+    "submit": "",
+    "submitting": ""
+  },
+  "recruitment": {
+    "title": "",
+    "count": "",
+    "empty": "",
+    "applied": "",
+    "close": "",
+    "description": "",
+    "requirements": "",
+    "applyNow": "",
+    "appliedWaiting": ""
+  },
+  "referrer": {
+    "title": "",
+    "current": "",
+    "empty": "",
+    "desc": "",
+    "codeLabel": "",
+    "codePlaceholder": "",
+    "submit": "",
+    "submitting": ""
+  },
+  "register": {
+    "phone": "",
+    "phonePlaceholder": "",
+    "submit": "",
+    "registering": ""
+  },
+  "search": {
+    "title": "",
+    "placeholder": "",
+    "empty": ""
+  },
+  "securitySettings": {
+    "title": "",
+    "password": "",
+    "biometric": "",
+    "twoFactor": "",
+    "loginAlert": "",
+    "desc": ""
+  },
+  "settingsAccount": {
+    "title": "",
+    "name": "",
+    "email": "",
+    "phone": "",
+    "save": ""
+  },
+  "square": {
+    "title": ""
+  },
+  "studyProgress": {
+    "title": "",
+    "loadFailed": "",
+    "courses": "",
+    "totalMinutes": "",
+    "weekMinutes": "",
+    "streak": "",
+    "courseProgress": ""
+  },
+  "studyPublish": {
+    "title": ""
+  },
+  "studyRecord": {
+    "title": "",
+    "subtitle": "",
+    "totalDuration": "",
+    "totalCourses": "",
+    "completedCourses": "",
+    "totalLessons": "",
+    "completedLessons": "",
+    "continuousDays": "",
+    "empty": "",
+    "untitled": "",
+    "duration": "",
+    "progress": "",
+    "statusCompleted": "",
+    "statusInProgress": "",
+    "statusPaused": ""
+  },
+  "subscriptions": {
+    "title": "",
+    "empty": "",
+    "cancel": ""
+  },
+  "taskCenter": {
+    "title": "",
+    "subtitle": "",
+    "retry": "",
+    "empty": "",
+    "claimed": "",
+    "claim": "",
+    "goToDo": "",
+    "progress": ""
+  },
+  "team": {
+    "title": "",
+    "subtitle": "",
+    "retry": "",
+    "totalMembers": "",
+    "activeMembers": "",
+    "directCount": "",
+    "indirectCount": "",
+    "totalContribution": "",
+    "empty": "",
+    "joinDate": "",
+    "level": ""
+  },
+  "teamDetail": {
+    "title": "",
+    "transactionVolume": "",
+    "commission": "",
+    "orderNum": "",
+    "phone": "",
+    "joinedAt": "",
+    "contact": "",
+    "viewOrders": ""
+  },
+  "vip": {
+    "subtitle": "",
+    "retry": "",
+    "empty": "",
+    "currentLevel": "",
+    "expireAt": "",
+    "levelsTitle": "",
+    "currentBadge": "",
+    "duration": "",
+    "benefitsCount": ""
+  },
+  "vipBenefit": {
+    "title": ""
+  },
+  "vipTrader": {
+    "title": "",
+    "subtitle": "",
+    "badge": "",
+    "heroDesc": "",
+    "entryTeam": "",
+    "entryStats": "",
+    "entryWithdraw": "",
+    "benefits": "",
+    "benefitCount": "",
+    "lifetime": "",
+    "openNow": "",
+    "opened": ""
+  },
+  "wallet": {
+    "points": ""
   }
 }
