@@ -15,9 +15,9 @@ import { NavBar, type NavBarAction } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n, type Locale } from '../i18n'
-import type { ProfileStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>
 
 const APP_VERSION = '1.0.2'
 

@@ -18,13 +18,8 @@ import { LiveScreen } from '../screens/LiveScreen'
 import { OrderRefundScreen } from '../screens/OrderRefundScreen'
 import { AgentScreen } from '../screens/AgentScreen'
 import { RegisterScreen } from '../screens/RegisterScreen'
-import { OrderRefundScreen } from '../screens/OrderRefundScreen'
 import { PaymentScreen } from '../screens/PaymentScreen'
 import { VipScreen } from '../screens/VipScreen'
-import { FollowScreen } from '../screens/FollowScreen'
-import { FavoriteScreen } from '../screens/FavoriteScreen'
-import { MessageCenterScreen } from '../screens/MessageCenterScreen'
-import { ProfileEditScreen } from '../screens/ProfileEditScreen'
 import { AIMultimodalScreen } from '../screens/AIMultimodalScreen'
 import { CourseEnrollScreen } from '../screens/CourseEnrollScreen'
 import { LivePlaybackScreen } from '../screens/LivePlaybackScreen'
@@ -133,7 +128,6 @@ import { SearchScreen } from '../screens/SearchScreen'
 import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
-import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
@@ -403,7 +397,6 @@ function ChatHomeScreen() {
 }
 
 function MainNavigator() {
-  const { t } = useI18n()
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
