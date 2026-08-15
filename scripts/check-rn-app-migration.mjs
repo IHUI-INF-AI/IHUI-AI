@@ -50,8 +50,8 @@ const C = {
 }
 
 /**
- * 白名单:允许独立实现(不要求 import @ihui/rn-app)的文件名。
- * 新增豁免需在此处登记并附理由注释。
+ * 白名单:允许独立实现的 RN 独占 screen 文件名。
+ * 新增登记需在此处附理由注释,严格审批。
  */
 const WHITELIST = new Set([
   'DebugScreen.tsx', // 开发调试屏:平台信息展示 + 清缓存/清存储/复制日志,RN 端独占工具
@@ -59,6 +59,13 @@ const WHITELIST = new Set([
   'SharedDemoScreen.tsx', // 共享组件集成验证页:本身用于展示 @ihui/rn-app 组件
   'profileMenuData.ts', // 数据文件:非 screen 组件,导出菜单配置数组
   'profileContentTypes.ts', // 数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义
+  // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
+  'AiAssistantN8nScreen.tsx', // N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互
+  'CourseScreen.tsx', // 课程 Tab 页:CourseCarousel/PopularCourses 等 RN 专属组件 + getStudyStatistics 数据流,Web/Miniapp 有独立实现
+  'PlazaScreen.tsx', // AI 需求广场:双列卡片 + 状态 chips + 悬浮发布按钮 + Drawer 侧滑,RN 端独占交互模式
+  'SquareScreen.tsx', // AI 资讯页:FlatList 资讯流 + SingleTypeBar 分类 + 返回顶部 + Drawer,RN 端独占资讯阅读体验
+  'StudyIndexScreen.tsx', // AI 视频页:三态切换(index/model/study) + TipBanner 滚动 + ModelList 预览 + FloatingActionButton,RN 端独占视频浏览
+  'StudyPublishScreen.tsx', // 课程发布页:expo-image-picker 选图/选视频 + VideoPlayer 预览 + 双态表单(group/video),RN 端独占发布能力
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */

@@ -1,5 +1,15 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
@@ -20,10 +30,8 @@ export interface SetNeedScreenProps {
 }
 
 const TITLE_MAX = 50
-const DESC_MIN = 10
 
 export function SetNeedScreen({
-  t,
   form,
   submitting,
   onFieldChange,

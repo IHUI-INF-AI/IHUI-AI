@@ -8,31 +8,12 @@ import {
   RefreshControl,
   Modal,
   StyleSheet,
-  type TextStyle,
-  type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
+import type { AppTopupScreenProps } from '../../types'
 
-export interface AppTopupScreenProps {
-  t: TFunction
-  selectedId: string
-  customAmount: string
-  payMethod: string
-  balance: number
-  refreshing: boolean
-  introVisible: boolean
-  amountOptions: { id: string; amount: number; label: string }[]
-  payMethods: { id: string; label: string; icon?: string }[]
-  onSelectAmount: (id: string) => void
-  onCustomAmountChange: (text: string) => void
-  onSelectPayMethod: (id: string) => void
-  onRefresh: () => void
-  onSubmit: () => void
-  onCloseIntro: () => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+/** AppTopupScreen props re-export(单一来源 @ihui/types) */
+export type { AppTopupScreenProps }
 
 export function AppTopupScreen({
   t,
@@ -62,13 +43,19 @@ export function AppTopupScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>充值</Text>
       </View>
       <ScrollView
         style={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tk.text.tertiary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tk.text.tertiary}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.balanceCard}>
@@ -136,7 +123,7 @@ export function AppTopupScreen({
               充值金额将立即到账，可用于购买课程、服务等。如有问题请联系客服。
             </Text>
             <TouchableOpacity style={styles.modalClose} onPress={onCloseIntro}>
-              <Text style={styles.modalCloseText}>知道了</Text>
+              <Text style={styles.modalCloseText}>{t('common.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -307,4 +294,3 @@ function createStyles(tk: AppThemeTokens) {
     },
   })
 }
-
