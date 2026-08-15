@@ -22,7 +22,8 @@ import { CourseTabScreen, type CourseTabScreenProps } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { type LearnCategory } from './LearnScreen'
-import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList } from '../navigation/tab-utils'
 
 const PAGE_SIZE = 12
 

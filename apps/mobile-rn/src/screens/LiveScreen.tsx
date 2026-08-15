@@ -4,7 +4,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
-import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList } from '../navigation/tab-utils'
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'LiveMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
