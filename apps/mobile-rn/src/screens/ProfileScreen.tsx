@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   FlatList,
@@ -14,8 +14,13 @@ import {
   TouchableWithoutFeedback,
   View,
   useWindowDimensions,
+  type ImageSourcePropType,
 } from 'react-native'
+// 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
 import Clipboard from '@react-native-clipboard/clipboard'
+import { captureRef } from 'react-native-view-shot'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
@@ -47,9 +52,17 @@ import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
-import { UserMembershipBenefits, type BenefitItem, type MembershipLevel } from '../components/UserMembershipBenefits'
+import {
+  UserMembershipBenefits,
+  type BenefitItem,
+  type MembershipLevel,
+} from '../components/UserMembershipBenefits'
 import { Bot, BookOpen, ChevronDown, Database } from 'lucide-react-native'
-import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
+import Drawer, {
+  type DrawerConversationItem,
+  type DrawerExtraMenu,
+  type DrawerTab,
+} from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
@@ -380,7 +393,11 @@ export function ProfileScreen() {
       <NavBar
         title={t('profile.title')}
         rightActions={[
-          { icon: '✎', label: t('menu.feedback'), onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never) },
+          {
+            icon: '✎',
+            label: t('menu.feedback'),
+            onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
+          },
           { icon: '☰', onPress: () => setDrawerVisible(true) },
         ]}
       />
@@ -418,11 +435,7 @@ export function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             ) : null}
-            <UserCard
-              t={t}
-              isLoggedIn={!!user}
-              onPress={handleUserCardPress}
-            />
+            <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
             {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
             {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
             <TouchableOpacity
@@ -450,6 +463,9 @@ export function ProfileScreen() {
                 />
               </View>
             ) : null}
+            {/* 4 Tab 内容区(StudyBar + 文本/图片/视频/音频)。
+                位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 StudyBar) */}
+            <ProfileContentSection />
             <SharedProfileScreen
               t={t}
               user={
@@ -478,7 +494,6 @@ export function ProfileScreen() {
             />
           </>
         )}
-        <ProfileContentSection />
       </ScrollView>
       <LoginPopUp
         visible={loginPromptVisible}
@@ -529,10 +544,7 @@ export function ProfileScreen() {
         />
       ) : null}
       {/* 等级介绍弹窗(对齐 Uniapp level-intro popup,3 级体系) */}
-      <LevelIntroModal
-        visible={levelIntroVisible}
-        onClose={() => setLevelIntroVisible(false)}
-      />
+      <LevelIntroModal visible={levelIntroVisible} onClose={() => setLevelIntroVisible(false)} />
       {/* 退订确认弹窗(对齐 Uniapp 退订确认弹层,替代 Alert.alert 系统弹窗) */}
       <UnsubscribeModal
         visible={unsubscribeVisible}
@@ -666,9 +678,7 @@ function EditProfileModal({
           </View>
 
           {/* 按钮 */}
-          {saveError ? (
-            <Text style={styles.editProfileError}>{saveError}</Text>
-          ) : null}
+          {saveError ? <Text style={styles.editProfileError}>{saveError}</Text> : null}
           <View style={styles.editProfileBtnRow}>
             <TouchableOpacity
               style={styles.editProfileCancelBtn}
@@ -684,9 +694,7 @@ function EditProfileModal({
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.editProfileSaveBtnText}>
-                {saving ? '保存中...' : '保存'}
-              </Text>
+              <Text style={styles.editProfileSaveBtnText}>{saving ? '保存中...' : '保存'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -716,12 +724,7 @@ const LEVEL_INTRO_DATA: readonly {
   {
     level: 'VIP 会员',
     desc: '付费升级,解锁进阶能力',
-    benefits: [
-      'AI 助手免费次数大幅增加',
-      '部分课程免费学习',
-      '建立专属知识库',
-      '专属客服支持',
-    ],
+    benefits: ['AI 助手免费次数大幅增加', '部分课程免费学习', '建立专属知识库', '专属客服支持'],
   },
   {
     level: '操盘手',
@@ -763,11 +766,7 @@ function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.
               </View>
             ))}
           </ScrollView>
-          <TouchableOpacity
-            style={styles.levelIntroCloseBtn}
-            activeOpacity={0.7}
-            onPress={onClose}
-          >
+          <TouchableOpacity style={styles.levelIntroCloseBtn} activeOpacity={0.7} onPress={onClose}>
             <Text style={styles.levelIntroCloseBtnText}>关闭</Text>
           </TouchableOpacity>
         </View>
@@ -802,7 +801,8 @@ function UnsubscribeModal({
           </View>
           <Text style={styles.unsubscribeTitle}>确认退订</Text>
           <Text style={styles.unsubscribeDesc}>
-            退订后将无法享受会员权益,包括 AI 助手免费次数、专属课程、知识库等。退订操作不可撤销,请谨慎确认。
+            退订后将无法享受会员权益,包括 AI
+            助手免费次数、专属课程、知识库等。退订操作不可撤销,请谨慎确认。
           </Text>
           <View style={styles.unsubscribeBtnRow}>
             <TouchableOpacity
@@ -852,9 +852,12 @@ interface VideoModalState {
 function ProfileContentSection(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ProfileTabId>(1)
   const [textContentList, setTextContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
-  const [imageContentList, setImageContentList] = useState<readonly ImageContent[]>(EMPTY_IMAGE_LIST)
-  const [videoContentList, setVideoContentList] = useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
-  const [audioContentList, setAudioContentList] = useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
+  const [imageContentList, setImageContentList] =
+    useState<readonly ImageContent[]>(EMPTY_IMAGE_LIST)
+  const [videoContentList, setVideoContentList] =
+    useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
+  const [audioContentList, setAudioContentList] =
+    useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
   const [textPagination] = useState<ContentPagination>(createInitialPagination)
   const [imagePagination] = useState<ContentPagination>(createInitialPagination)
   const [videoPagination] = useState<ContentPagination>(createInitialPagination)
@@ -965,10 +968,7 @@ function ProfileContentSection(): React.JSX.Element {
   }, [])
 
   const onVideoPlay = useCallback((url: string) => {
-    if (!url) {
-      Alert.alert('提示', '视频地址无效')
-      return
-    }
+    // 无效地址不再弹系统 Alert,统一进 video-popup Modal 空态(对齐 Uniapp 弹层优先交互)
     setVideoModal({ url, visible: true })
   }, [])
 
@@ -980,11 +980,24 @@ function ProfileContentSection(): React.JSX.Element {
     setVideoModal({ url: '', visible: false })
   }, [])
 
-  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334 + yejiao.png 行 192-197 页面级页脚) */
-  const onCopyLink = useCallback(() => {
-    Clipboard.setString(WEBSITE_URL)
-    Alert.alert('提示', '已复制官网链接')
+  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334 + yejiao.png 行 192-197 页面级页脚)。
+   *  真实写剪贴板 + FloatBox 非阻塞提示(替代假 Alert,文案对齐 Uniapp showToast) */
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('success')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
   }, [])
+  const onCopyLink = useCallback(() => {
+    try {
+      Clipboard.setString(WEBSITE_URL)
+      showToast('success', '已复制官网地址，请在浏览器打开')
+    } catch {
+      showToast('warning', '复制失败，请重试')
+    }
+  }, [showToast])
 
   return (
     <View style={styles.contentSection}>
@@ -1043,7 +1056,18 @@ function ProfileContentSection(): React.JSX.Element {
         visible={preview.visible}
         onClose={closePreview}
       />
-      <VideoPlayerModal url={videoModal.url} visible={videoModal.visible} onClose={closeVideoModal} />
+      <VideoPlayerModal
+        url={videoModal.url}
+        visible={videoModal.visible}
+        onClose={closeVideoModal}
+      />
+      {/* 复制官网链接结果提示(对齐 Uniapp copyWebsiteLink showToast) */}
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   )
 }
@@ -1121,11 +1145,7 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
                 onPress={() => onPreview(item.imageList, idx)}
                 style={styles.imageColumnItem}
               >
-                <Image
-                  source={{ uri: url }}
-                  style={styles.imageColumnImg}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
               </TouchableOpacity>
             ))}
           </View>
@@ -1353,24 +1373,14 @@ function ImagePreviewModal({
   onClose,
 }: ImagePreviewModalProps): React.JSX.Element {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions()
+  // 图片分享弹窗(对齐 Uniapp showImageSharePopup 行 201-216,点"分享"先弹分享弹层)
+  const [shareVisible, setShareVisible] = useState(false)
+  const currentUrl = images[index] ?? images[0] ?? ''
 
-  /** 分享当前预览图片(对齐 Uniapp showImageSharePopup / handleAppShareClick 行 1409+) */
-  const onShare = useCallback(async () => {
-    const currentUrl = images[index] ?? images[0] ?? ''
-    if (!currentUrl) {
-      Alert.alert('提示', '暂无可分享的图片')
-      return
-    }
-    try {
-      await Share.share({
-        message: currentUrl,
-        url: currentUrl,
-        title: '分享图片',
-      })
-    } catch {
-      Alert.alert('提示', '分享失败,请重试')
-    }
-  }, [images, index])
+  /** 分享按钮 → 打开图片分享弹窗(弹窗内提供系统分享 + 保存到相册) */
+  const onShare = useCallback(() => {
+    setShareVisible(true)
+  }, [])
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -1398,16 +1408,131 @@ function ImagePreviewModal({
             contentContainerStyle={styles.previewListContent}
             renderItem={({ item }) => (
               <View style={[styles.previewItem, { width: screenWidth, height: screenHeight }]}>
-                <Image
-                  source={{ uri: item }}
-                  style={styles.previewImage}
-                  resizeMode="contain"
-                />
+                <Image source={{ uri: item }} style={styles.previewImage} resizeMode="contain" />
               </View>
             )}
           />
         ) : null}
       </View>
+      {/* 图片分享弹窗(对齐 Uniapp image-share-popup) */}
+      <ImageSharePopup
+        visible={shareVisible}
+        imageUrl={currentUrl}
+        onClose={() => setShareVisible(false)}
+      />
+    </Modal>
+  )
+}
+
+// ============ 图片分享弹窗(对齐 Uniapp image-share-popup 行 201-216) ============
+
+interface ImageSharePopupProps {
+  visible: boolean
+  imageUrl: string
+  onClose: () => void
+}
+
+/**
+ * 图片分享弹窗 — 居中卡片(对齐 Uniapp image-share-popup:遮罩 + 关闭× + 标题"分享赚现金" + 分享图 + 操作按钮)。
+ * - 分享图:优先当前预览图,无真实资源时回退 app 静态分享图 vip_message.jpg
+ * - 保存到相册:expo-media-library + react-native-view-shot captureRef(对齐 ChatScreen 二维码保存先例)
+ * - 分享:RN Share API(对齐 Uniapp handleAppShareClick)
+ */
+function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): React.JSX.Element {
+  const shareViewRef = useRef<View>(null)
+  const [saving, setSaving] = useState(false)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+
+  const source: ImageSourcePropType = imageUrl ? { uri: imageUrl } : SHARE_FALLBACK_IMAGE
+
+  const onShare = useCallback(async () => {
+    if (!imageUrl) {
+      showToast('warning', '暂无可分享的图片')
+      return
+    }
+    try {
+      await Share.share({ message: imageUrl, url: imageUrl, title: '分享图片' })
+    } catch {
+      showToast('warning', '分享失败，请重试')
+    }
+  }, [imageUrl, showToast])
+
+  const onSaveToAlbum = useCallback(async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', '需要相册权限才能保存图片')
+        return
+      }
+      if (!shareViewRef.current) {
+        showToast('error', '图片未渲染，请稍后重试')
+        return
+      }
+      const uri = await captureRef(shareViewRef, { format: 'png', quality: 1 })
+      await MediaLibrary.saveToLibraryAsync(uri)
+      showToast('success', '图片已保存到相册')
+    } catch {
+      showToast('error', '保存失败，请重试')
+    } finally {
+      setSaving(false)
+    }
+  }, [saving, showToast])
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.sharePopupOverlay}>
+        <View style={styles.sharePopupCard}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.sharePopupClose}
+            activeOpacity={0.7}
+            accessibilityLabel="关闭分享弹窗"
+          >
+            <Text style={styles.sharePopupCloseText}>×</Text>
+          </TouchableOpacity>
+          <Text style={styles.sharePopupTitle}>分享赚现金</Text>
+          {/* 分享图(截图目标容器,collapsible=false 保证 Android 可捕获) */}
+          <View ref={shareViewRef} collapsable={false} style={styles.sharePopupImageWrap}>
+            <Image source={source} style={styles.sharePopupImage} resizeMode="contain" />
+          </View>
+          <View style={styles.sharePopupBtnRow}>
+            <TouchableOpacity
+              style={styles.sharePopupSaveBtn}
+              activeOpacity={0.7}
+              onPress={onSaveToAlbum}
+              disabled={saving}
+              accessibilityLabel="保存到相册"
+            >
+              <Text style={styles.sharePopupSaveBtnText}>
+                {saving ? '保存中...' : '保存到相册'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sharePopupShareBtn}
+              activeOpacity={0.7}
+              onPress={onShare}
+              accessibilityLabel="分享"
+            >
+              <Text style={styles.sharePopupShareBtnText}>分享</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
     </Modal>
   )
 }
@@ -1433,10 +1558,28 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
           {/* 内容区阻止冒泡,避免点击视频/按钮触发遮罩关闭(对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
           <TouchableWithoutFeedback onPress={() => undefined}>
             <View style={styles.videoModalContent}>
-              <View style={{ width: videoWidth, height: videoHeight, borderRadius: 8, overflow: 'hidden' }}>
-                {url ? <VideoPlayer url={url} /> : null}
+              <View
+                style={{
+                  width: videoWidth,
+                  height: videoHeight,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                }}
+              >
+                {url ? (
+                  <VideoPlayer url={url} />
+                ) : (
+                  // 空态:视频源无效时弹窗内提示(替代系统 Alert,对齐 Uniapp video-popup 弹层)
+                  <View style={styles.videoEmptyState}>
+                    <Text style={styles.videoEmptyText}>视频地址无效，暂无可播放的视频</Text>
+                  </View>
+                )}
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.videoModalClose} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.videoModalClose}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.videoModalCloseText}>×</Text>
               </TouchableOpacity>
             </View>
@@ -1466,15 +1609,14 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
   return {
     id: c.id,
     title: c.title?.trim() || '未命名对话',
-    modelConfig: model
-      ? { id: model, name: model, icon: undefined }
-      : undefined,
+    modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
   }
 }
 
 /** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板,对齐 Uniapp user/index.vue 行 682 lingqu) */
-const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 /** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
 function formatAudioTime(seconds: number): string {
@@ -1766,6 +1908,100 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: '#ffffff',
     lineHeight: 30,
+  },
+  // ── 视频空态(对齐 Uniapp video-popup,无有效视频源时弹窗内提示) ──
+  videoEmptyState: {
+    flex: 1,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  videoEmptyText: {
+    fontSize: 14,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  },
+  // ── 图片分享弹窗(对齐 Uniapp image-share-popup 行 1842-1926:居中卡片 + 关闭× + 标题 + 图 + 按钮) ──
+  sharePopupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  sharePopupCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: tokens.surface.card,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  sharePopupClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sharePopupCloseText: {
+    fontSize: 22,
+    color: tokens.text.secondary,
+    lineHeight: 22,
+  },
+  sharePopupTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: 14,
+  },
+  sharePopupImageWrap: {
+    width: '100%',
+    marginBottom: 14,
+  },
+  sharePopupImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: 8,
+  },
+  sharePopupBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignSelf: 'stretch',
+  },
+  sharePopupSaveBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.bg,
+  },
+  sharePopupSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  sharePopupShareBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 对齐 Uniapp popup-share-btn 黑底白字
+    backgroundColor: '#000000',
+  },
+  sharePopupShareBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
   tabLoaderWrap: {

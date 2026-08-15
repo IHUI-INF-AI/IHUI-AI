@@ -7,6 +7,10 @@
  * - 隐私政策全文 ScrollView(移动端合规必需,保留 1:1 复刻 Uniapp 全文)
  * - 底部双按钮:不同意(灰)/ 同意并继续(黑底白字 + CornerDownLeft 图标)
  *
+ * 布局关键:card 用「固定高度」(非 maxHeight),内部 flexbox 明确分配:
+ *   header/safeBar/buttonRow 设 flexShrink:0 固定,ScrollView flex:1 独占中间剩余空间。
+ *   这样 ScrollView 内容再多也只在分配空间内滚动,按钮永远在底部可见。
+ *
  * 小米平台要求:隐私政策弹窗必须显示在最顶层,不可绕过,必须用户同意后才能继续使用。
  * 故 onRequestClose 返回空函数,阻止 Android 返回键关闭弹窗。
  */
@@ -17,16 +21,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native'
 import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import {
-  PRIVACY_POLICY_PARAGRAPHS,
-  PRIVACY_POLICY_TITLE,
-} from '../constants/privacyPolicy'
+import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
 export interface PrivacyPolicyModalProps {
   /** 是否显示弹窗 */
@@ -39,37 +41,30 @@ export interface PrivacyPolicyModalProps {
 const AGREE_BUTTON_COLOR = tokens.brand.DEFAULT
 const OVERLAY_BG = 'rgba(0,0,0,0.6)'
 const CARD_WIDTH_RATIO = '88%'
-const CARD_MAX_HEIGHT_RATIO = '92%'
 const CARD_BORDER_RADIUS = 12
 const CARD_PADDING_HORIZONTAL = 20
-const CARD_PADDING_VERTICAL = 14
+const CARD_PADDING_VERTICAL = 16
 const SHIELD_SIZE = 44
 const SHIELD_BG = 'rgba(0,0,0,0.08)'
 const SHIELD_RING = 'rgba(0,0,0,0.12)'
-const TITLE_FONT_SIZE = 18
-const TITLE_MARGIN_BOTTOM = 12
+const TITLE_FONT_SIZE = 17
 const SUBTITLE_FONT_SIZE = 12
-const SUBTITLE_MARGIN_BOTTOM = 6
 const SAFE_BAR_BG = 'rgba(0,0,0,0.04)'
-const SAFE_BAR_MARGIN_TOP = 14
 const SAFE_BAR_FONT_SIZE = 11
 const PARAGRAPH_FONT_SIZE = 13
 const PARAGRAPH_LINE_HEIGHT = 20
 const PARAGRAPH_MARGIN_BOTTOM = 8
 const HEADING_FONT_SIZE = 14
 const HEADING_MARGIN_TOP = 4
-const BUTTON_ROW_MARGIN_TOP = 16
 const BUTTON_HEIGHT = 44
 const BUTTON_BORDER_RADIUS = 8
 const BUTTON_FONT_SIZE = 15
-const BUTTON_GAP = 12
-const DISAGREE_COLOR = tokens.text.secondary
+const BUTTON_GAP = 8
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
-  // 用屏幕高度硬指定 ScrollView 高度,绕过 RN flex 算法在 column flex 容器中
-  // 不收缩 ScrollView 的问题。ScrollView 占屏幕 25%,按钮始终可见。
   const { height: windowHeight } = useWindowDimensions()
-  const SCROLL_HEIGHT = Math.round(windowHeight * 0.25)
+  // 固定卡片高度 = 屏幕 80%,内部 flexbox 明确分配,按钮必然可见
+  const CARD_HEIGHT = Math.round(windowHeight * 0.8)
 
   const handleDisagree = () => {
     // 复刻 Uniapp preventClose:不允许关闭,RN 用 Alert 提示
@@ -91,7 +86,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
     >
       <View style={styles.overlay}>
         <Pressable style={styles.overlayPressable} onPress={handleDisagree} />
-        <View style={styles.card}>
+        <View style={[styles.card, { height: CARD_HEIGHT }]}>
           {/* 顶部:shield 图标 + 标题 + 副标题(对齐 web 端) */}
           <View style={styles.header}>
             <View style={styles.shieldWrap}>
@@ -107,16 +102,10 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
             <Text style={styles.safeBarText}>你的信息将被加密传输,仅用于账户服务</Text>
           </View>
 
-          {/* 隐私政策全文滚动区:硬高度 = 屏幕 40%,保证按钮始终可见 */}
-          <ScrollView
-            style={[styles.scroll, { height: SCROLL_HEIGHT }]}
-            showsVerticalScrollIndicator
-          >
+          {/* 隐私政策全文滚动区:flex:1 独占中间剩余空间 */}
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
             {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
-              <Text
-                key={index}
-                style={para.isHeading ? styles.heading : styles.paragraph}
-              >
+              <Text key={index} style={para.isHeading ? styles.heading : styles.paragraph}>
                 {para.text}
               </Text>
             ))}
@@ -124,23 +113,25 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
 
           {/* 双按钮(对齐 web 端:不同意灰 / 同意并继续黑) */}
           <View style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [styles.button, styles.disagreeButton, pressed && styles.buttonPressed]}
+            <TouchableOpacity
+              style={styles.disagreeButton}
               onPress={handleDisagree}
+              activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="不同意隐私政策"
             >
               <Text style={styles.disagreeText}>不同意</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.button, styles.agreeButton, pressed && styles.buttonPressed]}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.agreeButton}
               onPress={handleAgree}
+              activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="同意隐私政策"
             >
               <CornerDownLeft size={14} color={tokens.surface.light} strokeWidth={2.25} />
               <Text style={styles.agreeText}>同意并继续</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -162,7 +153,6 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     width: CARD_WIDTH_RATIO,
-    maxHeight: CARD_MAX_HEIGHT_RATIO,
     backgroundColor: tokens.surface.light,
     borderRadius: CARD_BORDER_RADIUS,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
@@ -176,7 +166,9 @@ const styles = StyleSheet.create({
     // Android 阴影
     elevation: 8,
   } as ViewStyle,
+  // 头部/安全条/按钮区:flexShrink 0 固定高度,不被 ScrollView 压缩
   header: {
+    flexShrink: 0,
     alignItems: 'center',
   } as ViewStyle,
   shieldWrap: {
@@ -194,16 +186,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: TITLE_MARGIN_BOTTOM,
+    marginTop: 10,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: SUBTITLE_FONT_SIZE,
     lineHeight: 18,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginBottom: SUBTITLE_MARGIN_BOTTOM,
   },
   safeBar: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -211,21 +204,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    marginTop: SAFE_BAR_MARGIN_TOP,
+    marginTop: 10,
+    marginBottom: 8,
   } as ViewStyle,
   safeBarText: {
     fontSize: SAFE_BAR_FONT_SIZE,
     lineHeight: 16,
     color: tokens.text.secondary,
   },
-  // 中间弹性层:flex:1 在 column flex 中占满剩余空间,约束 ScrollView 不撑爆
-  scrollWrapper: {
-    flex: 1,
-    minHeight: 80,
-  } as ViewStyle,
+  // 关键:flex:1 独占 header/safeBar 与 buttonRow 之间的所有剩余空间,
+  // 配合 card 固定高度,ScrollView 内容再多也只在这块空间内滚动,绝不撑爆卡片。
   scroll: {
-    flexGrow: 0,
-    flexShrink: 1,
+    flex: 1,
+    overflow: 'hidden',
   } as ViewStyle,
   paragraph: {
     fontSize: PARAGRAPH_FONT_SIZE,
@@ -242,33 +233,32 @@ const styles = StyleSheet.create({
     marginBottom: PARAGRAPH_MARGIN_BOTTOM,
   },
   buttonRow: {
+    flexShrink: 0,
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 6,
-    marginTop: 8,
+    gap: BUTTON_GAP,
+    marginTop: 12,
   } as ViewStyle,
-  button: {
-    width: '100%',
-    minHeight: BUTTON_HEIGHT,
+  disagreeButton: {
+    height: BUTTON_HEIGHT,
+    borderRadius: BUTTON_BORDER_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.card,
+  } as ViewStyle,
+  agreeButton: {
+    height: BUTTON_HEIGHT,
     borderRadius: BUTTON_BORDER_RADIUS,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-  } as ViewStyle,
-  disagreeButton: {
-    backgroundColor: tokens.surface.card,
-  } as ViewStyle,
-  agreeButton: {
     backgroundColor: AGREE_BUTTON_COLOR,
-  } as ViewStyle,
-  buttonPressed: {
-    opacity: 0.85,
   } as ViewStyle,
   disagreeText: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: DISAGREE_COLOR,
+    color: tokens.text.medium,
     textAlign: 'center',
   },
   agreeText: {

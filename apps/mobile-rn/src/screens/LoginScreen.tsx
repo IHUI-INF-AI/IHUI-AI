@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Platform, StyleSheet, View } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native'
+import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { SvgXml } from 'react-native-svg'
@@ -15,13 +15,11 @@ import {
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens } from '@ihui/rn-app'
-import type {
-  LoginTab,
-  ThirdPartyLoginOption,
-  ThirdPartyPlatform,
-} from '@ihui/types'
+import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
@@ -54,9 +52,12 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
  * - 第三方登录区:8 平台配置(wechat/google/github/feishu/dingtalk/enterpriseWechat/alipay/apple),
  *   apple forceDisabled(对齐 web use-third-party-config)
  * - 协议同意:onAgreedChange + onOpenTerms(onNavigate('Agreement')) + onOpenPrivacy(navigate('Privacy'))
- * - 忘记密码:Alert 提示"请联系管理员或前往网页端自助重置"(无 ForgotPasswordScreen)
+ * - 忘记密码:navigate('ChangePwd')(对齐 uniapp onForgotPassword → changePwd 页)
  * - 注册链接:navigate('Register')
  * - 保留现有 SSO 跳转链路(复用 useLoginForm.ssoLogin + lib/sso)
+ * - 登录成功回跳:AuthContext.returnUrl 机制(对齐 uniapp setStorageSync('returnUrl'))
+ * - 未绑定手机号:第三方登录返回"请先绑定手机号"时 navigate('ChangePhone')(对齐 uniapp)
+ * - 错误提示:纯错误类 Alert 改 FloatBox 非阻塞提示(对齐 uniapp uni.showToast)
  */
 
 // ===== 资源注入 =====
@@ -183,13 +184,53 @@ const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
 
+// 登录成功后回跳 returnUrl 的延迟(ms):token 写入后 RootNavigator 条件渲染切到已登录分支
+// (注册全部业务路由)需要至少一个渲染帧,延迟确保 navigate 时目标路由已挂载
+// (对齐 uniapp 登录成功后 setTimeout 延迟 reLaunch 的时序)
+const RETURN_URL_NAVIGATE_DELAY_MS = 300
+
+// 检测后端"未绑定手机号"提示(对齐 uniapp:data.data.msg === '请先绑定手机号!' 时跳 changePhone 页)。
+// RN 端 ApiResult / OAuthRedirectResult 失败时后端 msg 透传到 error 字段,
+// 兼容含/不含叹号("!" / "！")的消息变体。
+function isBindPhoneRequired(msg?: string | null): boolean {
+  return !!msg && msg.replace(/[!！]$/, '').includes('请先绑定手机号')
+}
+
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 export function LoginScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<LoginNavigationProp>()
+  const { returnUrl, setReturnUrl } = useAuth()
   const fullUserRef = useRef<AuthUser | null>(null)
+
+  // ===== FloatBox 非阻塞错误提示(对齐 uniapp uni.showToast,替代阻塞式 Alert.alert) =====
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('error')
+  const [toastMessage, setToastMessage] = useState('')
+
+  const showToast = useCallback((type: FloatBoxType, message: string) => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+
+  const hideToast = useCallback(() => setToastVisible(false), [])
+
+  // ===== 登录成功后回跳(对齐 uniapp returnUrl 机制) =====
+  // 跳登录前业务页 setReturnUrl 记录原页面;登录成功后消费 returnUrl 并延迟导航:
+  // token 写入后 RootNavigator 切到已登录分支(注册全部业务路由),LoginScreen 即将卸载,
+  // navigation.dispatch 的闭包链仍指向 root navigator,延迟后目标路由已注册即可回跳。
+  // 无 returnUrl 时默认进 Main(token 生效后 RootNavigator 自动渲染,无需手动导航)。
+  const navigateAfterLogin = useCallback(() => {
+    const target = returnUrl
+    if (!target) return
+    setReturnUrl(null)
+    setTimeout(() => {
+      navigation.dispatch(CommonActions.navigate({ name: target }))
+    }, RETURN_URL_NAVIGATE_DELAY_MS)
+  }, [returnUrl, setReturnUrl, navigation])
 
   // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
@@ -222,6 +263,7 @@ export function LoginScreen() {
         await rnAuthStore.getState().setAuth({ token: accessToken, refreshToken, user })
       }
       fullUserRef.current = null
+      navigateAfterLogin()
     },
     ssoLogin: async (): Promise<LoginApiResult> => {
       const redirectUrl = await openSsoLogin()
@@ -332,6 +374,7 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        navigateAfterLogin()
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
       }
@@ -340,7 +383,7 @@ export function LoginScreen() {
     } finally {
       setEmailLoading(false)
     }
-  }, [email, emailCode, checkAgreement, form])
+  }, [email, emailCode, checkAgreement, form, navigateAfterLogin])
 
   // ===== phone 验证码登录回调 =====
   const handleSendPhoneCode = useCallback(async () => {
@@ -381,6 +424,7 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        navigateAfterLogin()
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
       }
@@ -389,7 +433,7 @@ export function LoginScreen() {
     } finally {
       setPhoneLoading(false)
     }
-  }, [phone, phoneCode, checkAgreement, form])
+  }, [phone, phoneCode, checkAgreement, form, navigateAfterLogin])
 
   // ===== password 登录回调(注入协议检查) =====
   const handlePasswordLogin = useCallback(async () => {
@@ -408,6 +452,13 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        navigateAfterLogin()
+        return
+      }
+      // 未绑定手机号:对齐 uniapp,第三方登录返回"请先绑定手机号"时跳换绑页
+      // (后端失败响应未携带 uuid,传空由 ChangePhoneScreen params 容错)
+      if (!res.cancelled && isBindPhoneRequired(res.error)) {
+        navigation.navigate('ChangePhone', { uuid: '' })
         return
       }
       // 用户取消(cancelled=true)不算错误,不弹错误提示
@@ -415,7 +466,7 @@ export function LoginScreen() {
         form.setError(res.error ?? 'auth.loginFailed')
       }
     },
-    [form],
+    [form, navigation, navigateAfterLogin],
   )
 
   // ===== 第三方登录回调 =====
@@ -427,10 +478,7 @@ export function LoginScreen() {
     async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
       if (!option || !option.enabled || option.forceDisabled) {
-        Alert.alert(
-          t('auth.thirdPartyLogin'),
-          option?.disabledHint ?? t('auth.googleNotConfigured'),
-        )
+        showToast('error', option?.disabledHint ?? t('auth.googleNotConfigured'))
         return
       }
 
@@ -452,7 +500,7 @@ export function LoginScreen() {
         try {
           const installed = await isWechatInstalled()
           if (!installed) {
-            Alert.alert(t('auth.thirdPartyLogin'), '未安装微信 App,请先安装微信')
+            showToast('error', '未安装微信 App,请先安装微信')
             return
           }
 
@@ -465,6 +513,10 @@ export function LoginScreen() {
               refreshToken: res.data.refreshToken,
               user: res.data.user,
             })
+            navigateAfterLogin()
+          } else if (isBindPhoneRequired(res.error)) {
+            // 未绑定手机号:对齐 uniapp,微信登录返回"请先绑定手机号"时跳换绑页
+            navigation.navigate('ChangePhone', { uuid: '' })
           } else {
             form.setError(res.error ?? 'auth.loginFailed')
           }
@@ -483,8 +535,8 @@ export function LoginScreen() {
       // 苹果:iOS 优先原生 SDK,Android 走 web OAuth 跳转
       if (platform === 'apple') {
         if (!isAppleLoginAvailable()) {
-          Alert.alert(
-            t('auth.thirdPartyLogin'),
+          showToast(
+            'error',
             'Apple 登录未配置,请在 .env 设置 EXPO_PUBLIC_APPLE_CLIENT_ID,或安装 expo-apple-authentication(iOS)。',
           )
           return
@@ -521,10 +573,7 @@ export function LoginScreen() {
       // Google:Android/iOS 优先原生 SDK,fallback 到 web OAuth 跳转
       if (platform === 'google') {
         if (!isGoogleLoginAvailable()) {
-          Alert.alert(
-            t('auth.thirdPartyLogin'),
-            'Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。',
-          )
+          showToast('error', 'Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。')
           return
         }
         setThirdPartyLoadingPlatform(platform)
@@ -557,11 +606,7 @@ export function LoginScreen() {
       }
 
       // 飞书/钉钉/企微:无原生 RN SDK,走 OAuth 浏览器跳转兜底
-      if (
-        platform === 'feishu' ||
-        platform === 'dingtalk' ||
-        platform === 'enterpriseWechat'
-      ) {
+      if (platform === 'feishu' || platform === 'dingtalk' || platform === 'enterpriseWechat') {
         setThirdPartyLoadingPlatform(platform)
         try {
           let res: OAuthRedirectResult
@@ -601,7 +646,7 @@ export function LoginScreen() {
         ],
       )
     },
-    [t, form, thirdPartyOptions, applyOAuthResult],
+    [t, form, thirdPartyOptions, applyOAuthResult, showToast, navigateAfterLogin, navigation],
   )
 
   // ===== 协议同意回调 =====
@@ -619,14 +664,10 @@ export function LoginScreen() {
   }, [navigation])
 
   // ===== 忘记密码回调 =====
-  // mobile-rn 无 ForgotPasswordScreen,提示用户走网页端或联系管理员
+  // 对齐 uniapp onForgotPassword:navigateTo('/pages/login-app-other/changePwd')
   const handleForgotPassword = useCallback(() => {
-    Alert.alert(
-      t('auth.forgotPassword'),
-      '移动端暂未提供找回密码功能,您可以通过以下方式重置密码:\n\n1. 联系管理员重置\n2. 前往 IHUI AI 网页端自助重置',
-      [{ text: '我知道了' }],
-    )
-  }, [t])
+    navigation.navigate('ChangePwd')
+  }, [navigation])
 
   // ===== 注册回调 =====
   const handleRegister = useCallback(() => {
@@ -687,6 +728,18 @@ export function LoginScreen() {
           phoneCode={phoneCode}
           phoneCodeSending={phoneCodeSending}
           phoneCountdown={phoneCountdown}
+          // 区号前缀(对齐 uniapp login 的 xiaicc "+86" 区号展示)
+          phonePrefixNode={
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '500',
+                color: resolvedTheme === 'dark' ? '#E5E7EB' : '#1F2937',
+              }}
+            >
+              +86
+            </Text>
+          }
           onPhoneChange={(v) => setPhone(v.replace(/\D/g, '').slice(0, 11))}
           onPhoneCodeChange={(v) => setPhoneCode(v.replace(/\D/g, '').slice(0, 6))}
           onSendPhoneCode={handleSendPhoneCode}
@@ -709,6 +762,8 @@ export function LoginScreen() {
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
+      {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
   )
 }
