@@ -386,19 +386,10 @@ export type RootStackParamList = {
   AppTopup: undefined
 }
 
-export type MainStackParamList = {
-  HomeMain: undefined
-  CourseMain: undefined
-  AiMain: undefined
-  LiveMain: undefined
-  ProfileMain: undefined
-}
-
-export type MainTabKey = keyof MainStackParamList
-
-export function mainScreenForTab(tab: MainTabKey): MainTabKey {
-  return tab
-}
+// MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
+// 避免 RootNavigator ↔ screen 的 require cycle。此处 re-export 保持向后兼容。
+import type { MainStackParamList } from './tab-utils'
+export { mainScreenForTab, type MainTabKey } from './tab-utils'
 
 const RootStack = createNativeStackNavigator<RootStackParamList>()
 const MainStack = createNativeStackNavigator<MainStackParamList>()
@@ -406,10 +397,7 @@ const MainStack = createNativeStackNavigator<MainStackParamList>()
 function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      {/* BISECT-4: ChatHomeScreen 替换为空 View */}
-      <MainStack.Screen name="HomeMain">
-        {() => <View style={{ flex: 1, backgroundColor: 'orange' }} />}
-      </MainStack.Screen>
+      <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
       <MainStack.Screen name="CourseMain" component={CourseScreen} />
       <MainStack.Screen name="AiMain" component={AgentScreen} />
       <MainStack.Screen name="LiveMain" component={LiveScreen} />
