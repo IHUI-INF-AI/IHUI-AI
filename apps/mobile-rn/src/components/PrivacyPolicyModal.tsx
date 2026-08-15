@@ -77,7 +77,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
       <View style={styles.overlay}>
         <Pressable style={styles.overlayPressable} onPress={handleDisagree} />
         <View style={styles.card}>
-          <Text style={styles.title}>测试Metro缓存</Text>
+          <Text style={styles.title}>{PRIVACY_POLICY_TITLE}</Text>
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
             {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
               <Text
