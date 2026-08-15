@@ -49,7 +49,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { mainScreenForTab } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
   formatSSEError,
@@ -75,7 +75,7 @@ import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
-import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -445,8 +445,8 @@ export default function AiAssistantN8nScreen() {
       navigation.navigate('Share')
       return
     }
-    const rnTab: MainTabKey = tab as MainTabKey
-    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
+    // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
     navigation.navigate('Distribution')

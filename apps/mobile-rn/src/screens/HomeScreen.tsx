@@ -65,7 +65,7 @@ import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
@@ -417,8 +417,8 @@ export function HomeScreen() {
       return
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
-    const rnTab: MainTabKey = tab as MainTabKey
-    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
+    // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
     // 一人公司:跳 Distribution(对齐 Uniapp gotocompany → /pagesA/distribution/index)
