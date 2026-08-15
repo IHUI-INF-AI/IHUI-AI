@@ -30,7 +30,7 @@ import {
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { SearchInput } from '../components/SearchInput'
-import { SingleTypeBar } from '../components/SingleTypeBar'
+import StudyBar from '../components/StudyBar'
 import Empty from '../components/common/Empty'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -170,10 +170,12 @@ export default function DistributionOrderListScreen() {
         />
       </View>
       <View style={styles.tabsBar}>
-        <SingleTypeBar
-          items={TABS.map((tab) => ({ id: tab.value, label: tab.label }))}
-          selectedId={activeTab}
-          onSelect={(id) => setActiveTab(id as TabValue)}
+        {/* StudyBar 状态 Tab 切换(对齐 Uniapp distribution_order_list/index.vue 行 46:
+            <StudyBar :barList="tabs" @change="handleTabChange" />,RN 端此前误用 SingleTypeBar) */}
+        <StudyBar
+          items={TABS.map((tab) => ({ key: tab.value, label: tab.label }))}
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as TabValue)}
         />
       </View>
       <FlatList
