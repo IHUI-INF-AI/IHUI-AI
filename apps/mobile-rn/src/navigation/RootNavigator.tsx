@@ -4,7 +4,12 @@ import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
-import { useNavigation, useRoute, type RouteProp, type NavigatorScreenParams } from '@react-navigation/native'
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+  type NavigatorScreenParams,
+} from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -173,6 +178,20 @@ import EarnCommissionScreen from '../screens/EarnCommissionScreen'
 import StudyPublishScreen from '../screens/StudyPublishScreen'
 import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
 import { MoreCourseScreen } from '../screens/MoreCourseScreen'
+// H20 补齐:类型已声明但未注册的路由对应 Screen(此前 navigate 即崩)
+import { CourseDetailScreen } from '../screens/CourseDetailScreen'
+import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
+import { LiveDetailScreen } from '../screens/LiveDetailScreen'
+import { OrderScreen } from '../screens/OrderScreen'
+import SettingsScreen from '../screens/SettingsScreen'
+import { FavoritesScreen } from '../screens/FavoritesScreen'
+import { FavoriteScreen } from '../screens/FavoriteScreen'
+import { FollowScreen } from '../screens/FollowScreen'
+import { FollowingScreen } from '../screens/FollowingScreen'
+import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
+import { CertificateScreen } from '../screens/CertificateScreen'
+import { MessageCenterScreen } from '../screens/MessageCenterScreen'
+import { ProfileEditScreen } from '../screens/ProfileEditScreen'
 import { DevEnterCoverScreen } from '../screens/DevEnterCoverScreen'
 import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
 import { SetNeedScreen } from '../screens/SetNeedScreen'
@@ -614,7 +633,10 @@ function RootNavigatorInner() {
             <RootStack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
             <RootStack.Screen name="RankingDetail" component={RankingDetailScreen} />
             <RootStack.Screen name="TeamDetail" component={TeamDetailScreen} />
-            <RootStack.Screen name="DistributionOrderList" component={DistributionOrderListScreen} />
+            <RootStack.Screen
+              name="DistributionOrderList"
+              component={DistributionOrderListScreen}
+            />
             <RootStack.Screen name="EarnCommission" component={EarnCommissionScreen} />
             <RootStack.Screen name="StudyPublish" component={StudyPublishScreen} />
             <RootStack.Screen name="AiAssistantN8n" component={AiAssistantN8nScreen} />
@@ -625,6 +647,22 @@ function RootNavigatorInner() {
             <RootStack.Screen name="SetNeed" component={SetNeedScreen} />
             <RootStack.Screen name="SubPackageIndex" component={SubPackageIndexScreen} />
             <RootStack.Screen name="AppTopup" component={AppTopupScreen} />
+            {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
+            <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
+            <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+            <RootStack.Screen name="LiveDetail" component={LiveDetailScreen} />
+            <RootStack.Screen name="Order" component={OrderScreen} />
+            <RootStack.Screen name="Wallet" component={WalletScreen} />
+            <RootStack.Screen name="Settings" component={SettingsScreen} />
+            <RootStack.Screen name="Favorites" component={FavoritesScreen} />
+            <RootStack.Screen name="Favorite" component={FavoriteScreen} />
+            <RootStack.Screen name="Follow" component={FollowScreen} />
+            <RootStack.Screen name="Following" component={FollowingScreen} />
+            <RootStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
+            <RootStack.Screen name="Certificate" component={CertificateScreen} />
+            <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />
+            <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+            <RootStack.Screen name="Agent" component={AgentScreen} />
           </>
         ) : (
           <>
