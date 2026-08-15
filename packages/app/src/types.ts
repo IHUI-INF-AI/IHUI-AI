@@ -400,3 +400,21 @@ export type {
   DeveloperFeature,
   DeveloperScreenProps,
 } from '@ihui/types'
+
+export type {
+  IcpRecordScreenProps,
+  AppPermissionScreenProps,
+  UsageRulesScreenProps,
+  LearnDevelopScreenProps,
+  TopupFailScreenProps,
+  TopupSuccessScreenProps,
+  PlazaCoverScreenProps,
+  SubPackageEntry,
+  SubPackageIndexScreenProps,
+  BusinessLicenseScreenProps,
+  ModelRecordScreenProps,
+  ChangePwdScreenProps,
+  EarnCommissionScreenProps,
+  TeamDetailScreenProps,
+  RankingDetailScreenProps,
+} from '@ihui/types'
