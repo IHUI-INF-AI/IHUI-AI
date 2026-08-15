@@ -458,7 +458,7 @@ export function SiteFooter({ className }: { className?: string }) {
               - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-5">
+            <div className="grid grid-cols-2 gap-1 lg:grid-cols-5">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>

@@ -38,18 +38,17 @@ const SIDE_PLACEHOLDER_WIDTH = 32
 const viewStyles = {
   container: (tk: ReturnType<typeof getTokens>, transparent: boolean, statusBarHeight: number): CSSProperties => ({
     width: '100%',
-    backgroundColor: transparent ? 'transparent' : tk.surface.card,
-    borderBottomWidth: transparent ? 0 : 1,
-    borderBottomColor: tk.border.light,
-    borderBottomStyle: transparent ? 'none' : 'solid',
+    backgroundColor: transparent ? 'transparent' : tk.surface.bg,
+    borderBottomWidth: 0,
+    borderBottomStyle: 'none',
     paddingTop: statusBarHeight,
   }),
   row: (contentHeight: number): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 10,
+    paddingRight: 10,
     height: contentHeight,
   }),
   backBtn: (): CSSProperties => ({
@@ -82,14 +81,14 @@ const viewStyles = {
 
 const textStyles = {
   backArrow: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    fontSize: 28,
-    lineHeight: '30px',
-    color: tk.text.primary,
+    fontSize: 20,
+    lineHeight: '22px',
+    color: tk.brand.DEFAULT,
   }),
   title: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    fontSize: 16,
-    fontWeight: 600,
-    color: tk.text.primary,
+    fontSize: 18,
+    fontWeight: 700,
+    color: tk.brand.DEFAULT,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
