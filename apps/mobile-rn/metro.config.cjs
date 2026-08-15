@@ -89,6 +89,14 @@ const { withNativeWind } = require('nativewind/metro')
 const config = getDefaultConfig(__dirname)
 // 显式设置 projectRoot,避免 expo export:embed 时被覆盖为 monorepo 根
 config.projectRoot = __dirname
+// 2026-08-15 修复 "Unable to resolve module ./index from G:\IHUI-AI/.":
+// @expo/metro-config ExpoMetroConfig.js:306 会把 server.unstable_serverRoot
+// 设为 monorepo workspace 根(源码注释原话 "Moves the server root down to the
+// monorepo root",为 expo web 支持)。Metro 0.84 Server._getServerRootDir() 优先
+// 读 unstable_serverRoot 而非 projectRoot,导致相对入口 /index.bundle → ./index
+// 被解析成 G:\IHUI-AI\index(不存在)→ bundle 404。本项目为纯 native RN(无
+// expo web),覆盖回 apps/mobile-rn 与 projectRoot 一致,相对入口恢复可解析。
+config.server.unstable_serverRoot = __dirname
 // resolver.worker = undefined 必要时设置
 
 // pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
@@ -114,9 +122,16 @@ config.resolver.blockList = [
 // 不直接 watch 整个 monorepo 根(G:\IHUI-AI),否则会扫描 apps/web/test-results 等
 // 不存在的子目录(FallbackWatcher 报 ENOENT),只 watch packages/ 共享代码目录。
 // .pnpm 虚拟存储通过 nodeModulesPaths + unstable_enableSymlinks 已可访问,无需 watch。
+//
+// 2026-08-15 修复 "Unable to resolve module ./index from G:\IHUI-AI/.":
+// Metro 0.84 Server._resolveRelativePath 用 watchFolders[0](或 process.cwd())
+// 作为相对 entry 路径的解析基准(/index.bundle → ./index)。expo/metro-config 的
+// getDefaultConfig 在 monorepo 中会自动把 workspace 根(G:\IHUI-AI)放进
+// watchFolders[0],若用 ...(config.watchFolders || []) 保留它,entry 会被解析成
+// G:\IHUI-AI\index(不存在)→ bundle 404。因此必须重置 watchFolders,
+// __dirname(apps/mobile-rn)放第一位作为 entry 解析基准。
 config.watchFolders = [
-  ...(config.watchFolders || []),
-  __dirname, // apps/mobile-rn 自身
+  __dirname, // apps/mobile-rn 自身(必须第一位:相对 entry 路径解析基准)
   require('path').resolve(__dirname, '../../packages'), // 共享 packages
 ]
 

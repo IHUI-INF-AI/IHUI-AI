@@ -42,7 +42,10 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
-import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack'
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
@@ -88,26 +91,16 @@ import type { ChatMessage } from '@ihui/shared'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { NavBar } from '../components/NavBar'
 import { BottomActionBar } from '../components/BottomActionBar'
-import MaterialList, {
-  type MaterialCategory,
-  type MaterialItem,
-} from '../components/MaterialList'
+import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
 import {
   Drawer,
   type DrawerConversationItem,
   type DrawerExtraMenu,
   type DrawerTab,
 } from '../components/Drawer'
-import {
-  ModelConfigDialog,
-  type ModelConfig,
-} from '../components/ModelConfigDialog'
-import ModelList, {
-  type ModelListGroup,
-} from '../components/ModelList'
-import AgentList, {
-  type AgentListItem,
-} from '../components/AgentList'
+import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
+import ModelList, { type ModelListGroup } from '../components/ModelList'
+import AgentList, { type AgentListItem } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import NotificationPanel from '../components/NotificationPanel'
@@ -199,16 +192,14 @@ const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as c
 
 // ── ChatScreen 组件 ──
 
-export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
+export function ChatScreen({
+  navigation,
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, logout } = useAuth()
-  const {
-    inputFiles,
-    isVoiceMode,
-    onInputAddImage,
-    onInputRemoveFile,
-    onInputVoiceToggle,
-  } = useChatInput()
+  const { inputFiles, isVoiceMode, onInputAddImage, onInputRemoveFile, onInputVoiceToggle } =
+    useChatInput()
 
   // ── 弹窗/抽屉状态 ──
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -274,11 +265,14 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
   const [toastMessage, setToastMessage] = useState('')
-  const showToast = useCallback((type: FloatBoxType, message: string): void => {
-    setToastType(type)
-    setToastMessage(message)
-    setToastVisible(true)
-  }, [setToastType, setToastMessage, setToastVisible])
+  const showToast = useCallback(
+    (type: FloatBoxType, message: string): void => {
+      setToastType(type)
+      setToastMessage(message)
+      setToastVisible(true)
+    },
+    [setToastType, setToastMessage, setToastVisible],
+  )
   const hideToast = useCallback((): void => setToastVisible(false), [])
 
   // ── 模型列表加载(保留原 streamChat 链路) ──
@@ -289,7 +283,8 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        const def =
+          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -341,7 +336,12 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
     if (!authUser) {
       Alert.alert('提示', '请先登录后再发送消息', [
-        { text: '去登录', onPress: () => { void logout() } },
+        {
+          text: '去登录',
+          onPress: () => {
+            void logout()
+          },
+        },
         { text: '取消', style: 'cancel' },
       ])
       return
@@ -655,13 +655,17 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       key: 'export',
       label: '导出对话',
       Icon: Download,
-      onPress: () => { void handleExportMessages() },
+      onPress: () => {
+        void handleExportMessages()
+      },
     },
     {
       key: 'share',
       label: '分享对话',
       Icon: Share2,
-      onPress: () => { void handleShareChat() },
+      onPress: () => {
+        void handleShareChat()
+      },
     },
     {
       key: 'tts',
@@ -835,24 +839,27 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     setMaterialCards([])
   }
   /** 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList) */
-  const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
-    const res = await getMessages(id, { page: 1, pageSize: 100 })
-    if (res.success) {
-      const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
-        id: `${m.id}-${idx}`,
-        role: m.role,
-        content: m.content,
-      }))
-      setMessages(loaded)
-      setPrompt('')
-      setMaterialCards([])
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToEnd({ animated: true })
-      })
-    } else {
-      showToast('error', '加载历史对话失败,请重试')
-    }
-  }, [])
+  const loadConversationMessages = useCallback(
+    async (id: string): Promise<void> => {
+      const res = await getMessages(id, { page: 1, pageSize: 100 })
+      if (res.success) {
+        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
+          id: `${m.id}-${idx}`,
+          role: m.role,
+          content: m.content,
+        }))
+        setMessages(loaded)
+        setPrompt('')
+        setMaterialCards([])
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: true })
+        })
+      } else {
+        showToast('error', '加载历史对话失败,请重试')
+      }
+    },
+    [showToast],
+  )
 
   // 从 ProfileScreen Drawer 跳转时携带 conversationId,自动加载对应对话
   useEffect(() => {
@@ -944,18 +951,8 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
         <View style={styles.msgContent}>
-          <View
-            style={[
-              styles.msgBubble,
-              isUser ? styles.msgBubbleUser : styles.msgBubbleAi,
-            ]}
-          >
-            <Text
-              style={[
-                styles.msgText,
-                isUser ? styles.msgTextUser : styles.msgTextAi,
-              ]}
-            >
+          <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
+            <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
               {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
             </Text>
           </View>
@@ -1002,20 +999,21 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
   // ToggleButtonGroup 已合并到 BottomActionBar prompt 模式的 toggle chips
 
   // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
-  const modelListGroups: ModelListGroup[] = models.length > 0
-    ? [
-        {
-          vendor: '可用模型',
-          models: models.map((m) => ({
-            id: m.id,
-            name: m.name,
-            description: m.provider ?? '',
-            icon: '🤖',
-            isFree: !m.input_price,
-          })),
-        },
-      ]
-    : []
+  const modelListGroups: ModelListGroup[] =
+    models.length > 0
+      ? [
+          {
+            vendor: '可用模型',
+            models: models.map((m) => ({
+              id: m.id,
+              name: m.name,
+              description: m.provider ?? '',
+              icon: '🤖',
+              isFree: !m.input_price,
+            })),
+          },
+        ]
+      : []
 
   // ── AgentList items(由 agents 派生,对齐 Uniapp getCozeApiList → AgentList) ──
   const agentListItems: AgentListItem[] = agents.map((a) => ({
@@ -1056,28 +1054,16 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
               <Menu size={22} color={tokens.text.primary} />
             </Pressable>
             {/* Agent 按钮:打开 Agent 列表(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
-            <Pressable
-              hitSlop={8}
-              onPress={showAgentList}
-              accessibilityLabel="选择 Agent"
-            >
+            <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
               <Bot size={22} color={tokens.text.primary} />
             </Pressable>
             {/* 分享按钮:跳个人中心(对齐 Uniapp share-image + goToMyPage);
                 share-points 弹窗改为进页面自动触发,见上方 useEffect) */}
-            <Pressable
-              hitSlop={8}
-              onPress={goToMyPage}
-              accessibilityLabel="个人中心"
-            >
+            <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
               <Share2 size={22} color={tokens.text.primary} />
             </Pressable>
             {/* 加入按钮:显示二维码弹窗 */}
-            <Pressable
-              hitSlop={8}
-              onPress={showQrCode}
-              accessibilityLabel="加入社区"
-            >
+            <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
               <QrCode size={22} color={tokens.text.primary} />
             </Pressable>
           </View>
@@ -1107,21 +1093,27 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
             visible={showMaterialList}
             transparent
             animationType="slide"
-            onRequestClose={() => { setShowMaterialList(false); setCurrentModelType('') }}
+            onRequestClose={() => {
+              setShowMaterialList(false)
+              setCurrentModelType('')
+            }}
           >
             <Pressable
               style={styles.modalMask}
-              onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}
+              onPress={() => {
+                setShowMaterialList(false)
+                setCurrentModelType('')
+              }}
             >
-              <Pressable
-                style={styles.materialPopup}
-                onPress={(e) => e.stopPropagation()}
-              >
+              <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
                 <View style={styles.materialPopupHeader}>
                   <Text style={styles.materialPopupTitle}>我的创作</Text>
                   <Pressable
                     hitSlop={8}
-                    onPress={() => { setShowMaterialList(false); setCurrentModelType('') }}
+                    onPress={() => {
+                      setShowMaterialList(false)
+                      setCurrentModelType('')
+                    }}
                   >
                     <X size={20} color={tokens.text.secondary} />
                   </Pressable>
@@ -1208,12 +1200,7 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
                 accessibilityLabel={label}
               >
                 <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
-                <Text
-                  style={[
-                    styles.modelTypeLabel,
-                    active ? styles.modelTypeLabelActive : null,
-                  ]}
-                >
+                <Text style={[styles.modelTypeLabel, active ? styles.modelTypeLabelActive : null]}>
                   {label}
                 </Text>
               </Pressable>
@@ -1238,7 +1225,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
           onToggleKnowledgeBase={toggleKnowledgeBase}
           onTogglePermanentMemory={togglePermanentMemory}
           onToggleVoiceInput={toggleVoiceInput}
-          onRemoveImage={inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined}
+          onRemoveImage={
+            inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined
+          }
           onInputFocus={handleInputFocus}
           onInputBlur={handleInputBlur}
           onFunctionHandle={handleFunctionHandle}
@@ -1281,7 +1270,12 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       </Modal>
 
       {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup) */}
-      <Modal visible={shareValueVisible} transparent animationType="fade" onRequestClose={hideSharePoints}>
+      <Modal
+        visible={shareValueVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideSharePoints}
+      >
         <Pressable style={styles.modalMask} onPress={hideSharePoints}>
           <Pressable style={styles.shareContent} onPress={(e) => e.stopPropagation()}>
             <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
@@ -1304,18 +1298,24 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
         visible={ttsVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => { if (!ttsLoading) setTtsVisible(false) }}
+        onRequestClose={() => {
+          if (!ttsLoading) setTtsVisible(false)
+        }}
       >
         <Pressable
           style={styles.modalMask}
-          onPress={() => { if (!ttsLoading) setTtsVisible(false) }}
+          onPress={() => {
+            if (!ttsLoading) setTtsVisible(false)
+          }}
         >
           <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>转语音</Text>
               <Pressable
                 hitSlop={8}
-                onPress={() => { if (!ttsLoading) setTtsVisible(false) }}
+                onPress={() => {
+                  if (!ttsLoading) setTtsVisible(false)
+                }}
                 style={styles.listDialogClose}
               >
                 <X size={20} color={tokens.text.primary} />
@@ -1331,7 +1331,10 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
                   <Pressable
                     key={opt}
                     onPress={() => handleTtsSelect(opt)}
-                    style={({ pressed }) => [styles.ttsOptionBtn, pressed && styles.panelItemPressed]}
+                    style={({ pressed }) => [
+                      styles.ttsOptionBtn,
+                      pressed && styles.panelItemPressed,
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel={opt}
                   >
@@ -1386,7 +1389,9 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
                 autoFocus
               />
               <Pressable
-                onPress={() => { void handleUrlConfirm() }}
+                onPress={() => {
+                  void handleUrlConfirm()
+                }}
                 style={styles.urlInputConfirmBtn}
                 accessibilityRole="button"
                 accessibilityLabel="发送链接"
@@ -1455,12 +1460,21 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       />
 
       {/* ModelList 模型列表弹窗(对齐 Uniapp ai_index.vue 行 32 ModelList) */}
-      <Modal visible={modelListVisible} transparent animationType="fade" onRequestClose={() => setModelListVisible(false)}>
+      <Modal
+        visible={modelListVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModelListVisible(false)}
+      >
         <Pressable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
           <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>选择模型</Text>
-              <Pressable hitSlop={8} onPress={() => setModelListVisible(false)} style={styles.listDialogClose}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setModelListVisible(false)}
+                style={styles.listDialogClose}
+              >
                 <X size={20} color={tokens.text.primary} />
               </Pressable>
             </View>
@@ -1480,12 +1494,21 @@ export function ChatScreen({ navigation, route }: NativeStackScreenProps<RootSta
       </Modal>
 
       {/* AgentList 弹窗(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
-      <Modal visible={agentListVisible} transparent animationType="fade" onRequestClose={() => setAgentListVisible(false)}>
+      <Modal
+        visible={agentListVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAgentListVisible(false)}
+      >
         <Pressable style={styles.modalMask} onPress={() => setAgentListVisible(false)}>
           <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>选择 Agent</Text>
-              <Pressable hitSlop={8} onPress={() => setAgentListVisible(false)} style={styles.listDialogClose}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setAgentListVisible(false)}
+                style={styles.listDialogClose}
+              >
                 <X size={20} color={tokens.text.primary} />
               </Pressable>
             </View>
