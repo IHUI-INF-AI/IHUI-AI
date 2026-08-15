@@ -64,7 +64,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
