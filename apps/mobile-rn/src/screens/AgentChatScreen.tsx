@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { AgentChatScreen as SharedAgentChatScreen, type AgentChatMessage } from '@ihui/rn-app'
+import { VoiceInput } from '../components/VoiceInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -62,18 +64,40 @@ export function AgentChatScreen() {
     }
   }
 
+  /** 语音识别文本填入输入框(对齐 Uniapp AgentDialoguePage 输入区麦克风入口;追加而非清空已有输入) */
+  const onVoiceComplete = useCallback((text: string) => {
+    if (!text) return
+    setInput((prev) => (prev ? `${prev} ${text}` : text))
+  }, [])
+
+  // 共享屏 loading / 错误空态时无输入框,同步隐藏语音输入条
+  const showVoiceRow = !loading && !(error && messages.length === 0)
+
   return (
-    <SharedAgentChatScreen
-      t={t}
-      title={name}
-      messages={messages}
-      loading={loading}
-      error={error}
-      input={input}
-      sending={sending}
-      onInputChange={setInput}
-      onSend={onSend}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={styles.container}>
+      <SharedAgentChatScreen
+        t={t}
+        title={name}
+        messages={messages}
+        loading={loading}
+        error={error}
+        input={input}
+        sending={sending}
+        onInputChange={setInput}
+        onSend={onSend}
+        onBack={() => navigation.goBack()}
+      />
+      {/* 语音输入条 — 长按说话,识别文本填入输入框(对齐 Uniapp AgentDialoguePage icon-mic) */}
+      {showVoiceRow ? (
+        <View style={styles.voiceRow}>
+          <VoiceInput disabled={sending} onComplete={onVoiceComplete} />
+        </View>
+      ) : null}
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  voiceRow: { paddingHorizontal: 16, paddingBottom: 12 },
+})

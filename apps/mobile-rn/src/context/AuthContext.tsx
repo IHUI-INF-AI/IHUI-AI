@@ -18,6 +18,12 @@ interface AuthContextValue {
   login: (account: string, password: string) => Promise<LoginResult>
   loginBySso: () => Promise<LoginResult>
   logout: () => Promise<void>
+  /**
+   * 登录成功后回跳的路由名(对齐 uniapp setStorageSync('returnUrl', ...) 机制):
+   * 跳登录前由业务页 setReturnUrl 记录原页面,登录成功后消费并回跳;无则默认进 Main。
+   */
+  returnUrl: string | null
+  setReturnUrl: (url: string | null) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -29,6 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ready 保持本地:必须等 initApi() 完成且 token 已镜像后才置 true,
   // 避免 persist onRehydrateStorage 提前置 ready=true 导致 token 仍为 null 的窗口
   const [ready, setReady] = useState(false)
+  // returnUrl:跳登录前记录的原页面路由名,登录成功后回跳(对齐 uniapp returnUrl 机制)
+  const [returnUrl, setReturnUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let unsub: (() => void) | null = null
@@ -106,7 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, ready, login, loginBySso, logout }}>
+    <AuthContext.Provider
+      value={{ user, token, ready, login, loginBySso, logout, returnUrl, setReturnUrl }}
+    >
       {children}
     </AuthContext.Provider>
   )
