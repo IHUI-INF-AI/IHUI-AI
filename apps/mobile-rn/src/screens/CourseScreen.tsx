@@ -8,11 +8,12 @@ import PopularCourses, {
   type PopularCourse as PopularCourseItem,
 } from '../components/PopularCourses'
 import { useI18n } from '../i18n'
-import type { CourseStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 12
 
-type NavigationProp = NativeStackNavigationProp<CourseStackParamList>
+type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'CourseMain'>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /** Course → PopularCourses 卡片项,VIP 标识用 tags 启发式判断(后端未提供 isVip 字段) */
 function toPopularCourses(items: Course[]): PopularCourseItem[] {
@@ -31,6 +32,7 @@ function toPopularCourses(items: Course[]): PopularCourseItem[] {
 export function CourseScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -85,11 +87,11 @@ export function CourseScreen() {
     <View style={shellStyles.root}>
       <View style={shellStyles.popularWrap}>
         <PopularCourses
-          courses={popularItems}
-          title="热门课程"
-          subtitle="本周学习人数 Top"
-          onPress={(id) => navigation.navigate('CourseDetail', { id })}
-        />
+        courses={popularItems}
+        title="热门课程"
+        subtitle="本周学习人数 Top"
+        onPress={(id) => rootNav?.navigate('CourseDetail', { id })}
+      />
       </View>
       <SharedCourseScreen
         t={t}
@@ -104,7 +106,7 @@ export function CourseScreen() {
           setPage(1)
         }}
         onPageChange={setPage}
-        onPressItem={(id) => navigation.navigate('CourseDetail', { id })}
+        onPressItem={(id) => rootNav?.navigate('CourseDetail', { id })}
       />
     </View>
   )
