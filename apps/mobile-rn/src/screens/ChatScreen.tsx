@@ -109,7 +109,7 @@ import NotificationPanel from '../components/NotificationPanel'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
 import { useI18n } from '../i18n'
 
 // ── 类型定义(强类型,禁用 any) ──
