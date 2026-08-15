@@ -766,11 +766,13 @@ export function LoginScreen() {
           <TouchableOpacity
             style={styles.devFillBtn}
             onPress={() => {
+              console.info('[DEV] fill tapped')
               form.setAccount('admin')
               form.setPassword('admin123')
               setAgreed(true)
               setAgreementError('')
             }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="DEV 填充测试账号"
