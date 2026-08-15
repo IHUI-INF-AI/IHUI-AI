@@ -4467,3 +4467,556 @@ export interface RankingDetailScreenProps {
   onGoHome: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+// ============ 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) ============
+
+/** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
+export interface PlazaItem {
+  id: string
+  title: string
+  description?: string
+  creator?: string
+  createdAt?: string
+  status?: string
+  [key: string]: unknown
+}
+
+/** 广场状态切换 chip */
+export interface StatusChip {
+  label: string
+  value: string
+}
+
+/** AI 需求广场 Screen Props */
+export interface PlazaScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: PlazaItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  status: string
+  search: string
+  showSearch: boolean
+  onRefresh: () => void
+  onEndReached: () => void
+  onStatusChange: (status: string) => void
+  onSearchChange: (search: string) => void
+  onSubmitSearch: () => void
+  onPressItem: (item: PlazaItem) => void
+  onPublish: () => void
+  onBack?: () => void
+}
+
+/** 账号注销 Screen Props */
+export interface AccountCancelScreenProps {
+  t: TFunction
+  phone: string
+  confirmText: string
+  smsCode: string
+  countdown: number
+  showConfirmModal: boolean
+  confirmCountdown: number
+  submitting: boolean
+  onPhoneChange: (text: string) => void
+  onConfirmTextChange: (text: string) => void
+  onSmsCodeChange: (text: string) => void
+  onSendSms: () => void
+  onSubmit: () => void
+  onCloseModal: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 充值 Screen Props */
+export interface AppTopupScreenProps {
+  t: TFunction
+  selectedId: string
+  customAmount: string
+  payMethod: string
+  balance: number
+  refreshing: boolean
+  introVisible: boolean
+  amountOptions: { id: string; amount: number; label: string }[]
+  payMethods: { id: string; label: string; icon?: string }[]
+  onSelectAmount: (id: string) => void
+  onCustomAmountChange: (text: string) => void
+  onSelectPayMethod: (id: string) => void
+  onRefresh: () => void
+  onSubmit: () => void
+  onCloseIntro: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 分类详情 Screen Props */
+export interface CategoryDetailScreenProps {
+  t: TFunction
+  items: { id: string; name: string; description?: string; cover?: string }[]
+  activeTab: string
+  loading: boolean
+  hasMore: boolean
+  error: string
+  onTabChange: (tab: string) => void
+  onLoadMore: () => void
+  onAgentPress: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程星球 Screen Props */
+export interface CoursePlanetScreenProps {
+  t: TFunction
+  data: {
+    hot: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+    beginner: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+    selected: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+  }
+  loading: boolean
+  refreshing: boolean
+  error: string
+  selectedType: 'all' | 'free' | 'paid'
+  onTypeChange: (type: 'all' | 'free' | 'paid') => void
+  onCoursePress: (id: string) => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 开发者入驻 Screen Props */
+export interface DevEnterCoverScreenProps {
+  t: TFunction
+  planType: 'month' | 'year'
+  loading: boolean
+  onSelectPlan: (plan: 'month' | 'year') => void
+  onNavigate: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 分销订单列表 Screen Props */
+export interface DistributionOrderListScreenProps {
+  t: TFunction
+  orders: {
+    id: string
+    orderId: string
+    userNickname: string
+    orderAmount: number
+    commissionAmount: number
+    rate: number
+    createdAt: string
+    status: string
+  }[]
+  keyword: string
+  activeTab: string
+  loading: boolean
+  loadingMore: boolean
+  hasMore: boolean
+  onSearch: () => void
+  onKeywordChange: (keyword: string) => void
+  onTabChange: (tab: string) => void
+  onEndReached: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 知识星球 Screen Props */
+export interface KnowledgePlanetScreenProps {
+  t: TFunction
+  items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onItemClick: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习分类 */
+export interface LearnCategory {
+  id: string
+  name: string
+  icon: string
+}
+
+/** 学习中心 Screen Props */
+export interface LearnScreenProps {
+  t: TFunction
+  progress: { totalCourses: number; completedCourses: number; learningHours: number } | null
+  paths: { id: string; title: string; coverImage?: string }[]
+  recommended: {
+    id: string
+    title: string
+    description?: string
+    coverImage?: string
+    difficulty?: string
+    duration?: number
+  }[]
+  loading: boolean
+  error: string
+  onOpenCourse: (id: string) => void
+  onOpenBrowse: () => void
+  onOpenCategory: (cat: LearnCategory) => void
+  categories: LearnCategory[]
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 更多课程 Screen Props */
+export interface MoreCourseScreenProps {
+  t: TFunction
+  items: {
+    id: string | number
+    title: string
+    cover?: string
+    instructor?: string
+    lessonCount?: number
+    price: number
+    isFree: boolean
+    studentCount?: number
+  }[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  total: number
+  onRefresh: () => void
+  onEndReached: () => void
+  onPressItem: (item: { id: string | number; title: string }) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 需求广场 Screen Props */
+export interface SetNeedScreenProps {
+  t: TFunction
+  form: {
+    title: string
+    description: string
+    lowestPrice: string
+    peakPrice: string
+    contact: string
+  }
+  submitting: boolean
+  onFieldChange: (field: string, value: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============ 批次 37(2026-08-15):课程发布 + 广场文章列表(props 类型单一来源 @ihui/types) ============
+
+/** 课程分类(共享层简化类型,对齐 CourseCategory) */
+export interface StudyCategory {
+  id: string
+  name: string
+}
+
+/** 课程阶段选项 */
+export interface StageOption {
+  id: number
+  name: string
+}
+
+/** StudyPublishScreen props(平台无关,wrapper 注入数据+回调) */
+export interface StudyPublishScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  mode: 'group' | 'video'
+  onModeChange: (mode: 'group' | 'video') => void
+  onBack?: () => void
+  // Group form
+  groupTitle: string
+  groupContent: string
+  groupCategory: string
+  groupStage: number
+  groupCoverUri: string
+  groupCategories: readonly StudyCategory[]
+  groupLoadingCategories: boolean
+  onGroupTitleChange: (v: string) => void
+  onGroupContentChange: (v: string) => void
+  onGroupCategoryChange: (v: string) => void
+  onGroupStageChange: (v: number) => void
+  onGroupCoverPick: () => void
+  onGroupCoverClear: () => void
+  onGroupSubmit: () => void
+  // Video form
+  videoTitle: string
+  videoContent: string
+  videoAgent: string
+  videoRemark: string
+  videoCoverUri: string
+  videoUri: string
+  onVideoTitleChange: (v: string) => void
+  onVideoContentChange: (v: string) => void
+  onVideoAgentChange: (v: string) => void
+  onVideoRemarkChange: (v: string) => void
+  onVideoCoverPick: () => void
+  onVideoCoverClear: () => void
+  onVideoPick: () => void
+  onVideoClear: () => void
+  onVideoSubmit: () => void
+  // Common
+  submitting: boolean
+}
+
+/** 文章卡片(共享层简化类型,保留 UI 渲染所需字段) */
+export interface ArticleItem {
+  id: string
+  title: string
+  summary?: string
+  authorName?: string
+  createdAt?: string
+  viewCount?: number
+  category?: string
+  sourceName?: string
+  [key: string]: unknown
+}
+
+/** 分类项 */
+export interface CategoryItem {
+  id: string
+  label: string
+}
+
+/** SquareScreen props(平台无关,wrapper 注入数据+回调) */
+export interface SquareScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: ArticleItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  categories: CategoryItem[]
+  selectedCategory: string
+  onSelectCategory: (id: string) => void
+  onRefresh: () => void
+  onEndReached: () => void
+  onItemClick: (id: string) => void
+  showBackTop: boolean
+  onBackToTop: () => void
+  onBack?: () => void
+}
+
+// ============ 批次 38(2026-08-15):StudyIndex 学习视频(1 屏迁移自 mobile-rn) ============
+
+/** 赛道分类 */
+export interface StudyTrackCategory {
+  id: string
+  name: string
+}
+
+/** 学习视频项 */
+export interface StudyVideoItem {
+  id: string | number
+  courseId?: string | number
+  title: string
+  name?: string
+  cover?: string
+  teacherName?: string
+  avatar?: string
+  createdAt?: string
+}
+
+/** 模型预览项(简化,对齐 ModelListItem 子集) */
+export interface StudyModelPreview {
+  id: string
+  name: string
+  description: string
+  icon?: string
+  isFree?: boolean
+}
+
+/** StudyIndexScreen props(wrapper 注入数据+回调) */
+export interface StudyIndexScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: StudyVideoItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  page: number
+  total: number
+  search: string
+  searchInput: string
+  showSearch: boolean
+  pageType: 'index' | 'model' | 'study'
+  activeCategory: string
+  models: StudyModelPreview[]
+  previewModels: StudyModelPreview[]
+  previewItems: StudyVideoItem[]
+  initialLoading: boolean
+  trackCategories: readonly StudyTrackCategory[]
+  onRefresh: () => void
+  onEndReached: () => void
+  onSubmitSearch: () => void
+  onSearchInputChange: (v: string) => void
+  onCategoryChange: (id: string) => void
+  onPageTypeChange: (t: 'index' | 'model' | 'study') => void
+  onVideoClick: (item: StudyVideoItem) => void
+  onBack: () => void
+  onViewMoreModels: () => void
+  onViewMoreCourses: () => void
+  retryText: string
+  emptyText: string
+  noMoreText: string
+  loadingText: string
+  loadingMoreText: string
+}
+
+// ============ 批次 39(2026-08-15):AI 助手 N8n(1 屏迁移自 mobile-rn) ============
+
+/** N8n 消息项 */
+export interface N8nMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
+  images?: string[]
+}
+
+/** AiAssistantN8nScreen props(wrapper 注入数据+回调) */
+export interface AiAssistantN8nScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  messages: N8nMessage[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  search: string
+  searchInput: string
+  showSearch: boolean
+  selectedModelLabel: string
+  showModelPicker: boolean
+  modelConfigVisible: boolean
+  modelConfig: {
+    temperature: number
+    maxTokens: number
+    topP: number
+    systemPrompt: string
+  }
+  previewImage: string | null
+  toastVisible: boolean
+  toastType: 'info' | 'error' | 'success' | 'warning'
+  toastMessage: string
+  drawerVisible: boolean
+  drawerConversations: Array<{
+    id: string
+    title: string
+    modelConfig?: {
+      id: string
+      name: string
+      icon?: string
+    }
+    createdAt: number
+  }>
+  drawerConversationsLoaded: boolean
+  drawerUser: {
+    avatar?: string
+    nickname: string
+    level: 'vip' | 'normal'
+  }
+  quickSuggestions: readonly string[]
+  sending: boolean
+  onRefresh: () => void
+  onEndReached: () => void
+  onSubmitSearch: () => void
+  onSearchInputChange: (v: string) => void
+  onSend: (text: string) => void
+  onStop: () => void
+  onModelPress: () => void
+  onModelConfigPress: () => void
+  onPreviewImage: (url: string) => void
+  onClosePreview: () => void
+  onCloseModelPicker: () => void
+  onCloseModelConfig: () => void
+  onCloseDrawer: () => void
+  onDrawerNavigate: (tab: string) => void
+  onDrawerNavigateCompany: () => void
+  onDrawerClaimFree: () => void
+  onDrawerCreateNewChat: () => void
+  onDrawerSelectConversation: (id: string) => void
+  onDrawerDeleteConversation: (id: string) => void
+  onDrawerOpenSettings: () => void
+  onDrawerOpenMessages: () => void
+  onDrawerGoHome: () => void
+  onDrawerNavigateExtra: (menu: string) => void
+  onHideToast: () => void
+  retryText: string
+  emptyText: string
+  noMoreText: string
+  loadingText: string
+  loadingMoreText: string
+}
+
+// ============ 批次 23(补,2026-08-15):课程系深屏(CourseTab 课程学习 tab,props 类型单一来源 @ihui/types) ============
+
+/** 课程分类(对齐 Uniapp learn.vue) */
+export interface CourseCategory {
+  id: string
+  name: string
+  icon: string
+}
+
+/** 学习路径卡片数据 */
+export interface CoursePath {
+  id: string
+  title: string
+  coverImage?: string
+}
+
+/** 热门课程卡片数据 */
+export interface PopularCourseItem {
+  id: string
+  title: string
+  instructor: string
+  lessons: number
+  price: number
+  isFree: boolean
+  isVip: boolean
+  studentCount: number
+}
+
+/** 课程列表项数据 */
+export interface CourseListItem {
+  id: string
+  title: string
+  cover?: string
+  description?: string
+  level?: string
+  instructor: string
+  studentCount: number
+  isFree: boolean
+  price: number
+}
+
+/** 学习进度概览 */
+export interface ProgressOverview {
+  totalCourses: number
+  completedCourses: number
+  learningHours: number
+}
+
+export interface CourseTabScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  progress: ProgressOverview | null
+  paths: CoursePath[]
+  popularItems: PopularCourseItem[]
+  courses: CourseListItem[]
+  loading: boolean
+  error: string
+  keyword: string
+  page: number
+  totalPages: number
+  onKeywordChange: (v: string) => void
+  onPageChange: (page: number) => void
+  onPressCourse: (id: string) => void
+  onPressCategory: (cat: CourseCategory) => void
+  onPressPath: (id: string) => void
+  onPressMoreCourses: () => void
+}
