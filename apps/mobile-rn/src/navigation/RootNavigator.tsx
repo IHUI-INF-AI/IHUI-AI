@@ -403,16 +403,13 @@ export function mainScreenForTab(tab: MainTabKey): MainTabKey {
 const RootStack = createNativeStackNavigator<RootStackParamList>()
 const MainStack = createNativeStackNavigator<MainStackParamList>()
 
-// ChatScreen 组件签名无 props,内部通过 useNavigation/useRoute hooks 获取导航与路由;
-// 嵌入 MainStack 后 navigate 会向 root 冒泡查找 Agent/Wallet/Settings 等路由(H2 升级时改为 MainStack 专属路由)
-function ChatHomeScreen() {
-  return <ChatScreen />
-}
-
 function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
+      {/* BISECT-4: ChatHomeScreen 替换为空 View */}
+      <MainStack.Screen name="HomeMain">
+        {() => <View style={{ flex: 1, backgroundColor: 'orange' }} />}
+      </MainStack.Screen>
       <MainStack.Screen name="CourseMain" component={CourseScreen} />
       <MainStack.Screen name="AiMain" component={AgentScreen} />
       <MainStack.Screen name="LiveMain" component={LiveScreen} />

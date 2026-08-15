@@ -763,24 +763,6 @@ export function LoginScreen() {
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
-      {/* DEV-only 自动填充测试账号(admin):模拟器 adb input 通道对 Fabric TextInput 失效,
-          用于 E2E 冒烟验证登录链路。生产构建 __DEV__=false 不渲染,验收后移除。 */}
-      {__DEV__ ? (
-        <TouchableOpacity
-          style={styles.devFillBtn}
-          onPress={() => {
-            form.setAccount('admin')
-            form.setPassword('admin123')
-            setAgreed(true)
-            setAgreementError('')
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="DEV 填充测试账号"
-        >
-          <Text style={styles.devFillText}>DEV</Text>
-        </TouchableOpacity>
-      ) : null}
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
