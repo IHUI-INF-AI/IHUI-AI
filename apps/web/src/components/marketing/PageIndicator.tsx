@@ -109,7 +109,7 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
       // 2026-08-13 v13:间距再压缩 — gap-0 (0px) → gap-1 (4px),启用 4px 间隙作为点间距,
       //   配合非激活态 button h-2 (8px),视觉间距从 16px 降到 4px(-75%),极致紧凑
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
