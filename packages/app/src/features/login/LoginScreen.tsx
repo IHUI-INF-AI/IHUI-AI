@@ -1114,8 +1114,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     header: {
-      // 移动端窄屏:logo 与欢迎图上下排列(column),避免 row 并排时 44+280+gap 超出屏幕宽
-      flexDirection: 'column',
+      // 移动端一行并排:logo 44 + 欢迎图(≤224) + gap 12 = 280 < 288 屏幕可用宽,不超出
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
