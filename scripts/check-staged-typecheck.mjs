@@ -236,7 +236,7 @@ function writeTempTsconfig(pkg, files) {
     .map((p) => (p.startsWith('.') ? p : `./${p}`))
   const config = {
     extends: './tsconfig.json',
-    include: relFiles,
+    include: [...relFiles, './**/*.d.ts'],
     compilerOptions: {
       noEmit: true,
       incremental: false,
