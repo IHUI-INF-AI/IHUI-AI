@@ -10,7 +10,17 @@
  * 小米平台要求:隐私政策弹窗必须显示在最顶层,不可绕过,必须用户同意后才能继续使用。
  * 故 onRequestClose 返回空函数,阻止 Android 返回键关闭弹窗。
  */
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native'
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native'
 import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
@@ -43,8 +53,6 @@ const SUBTITLE_MARGIN_BOTTOM = 6
 const SAFE_BAR_BG = 'rgba(0,0,0,0.04)'
 const SAFE_BAR_MARGIN_TOP = 14
 const SAFE_BAR_FONT_SIZE = 11
-const SCROLL_MARGIN_TOP = 12
-const SCROLL_MARGIN_BOTTOM = 16
 const PARAGRAPH_FONT_SIZE = 13
 const PARAGRAPH_LINE_HEIGHT = 20
 const PARAGRAPH_MARGIN_BOTTOM = 8
@@ -58,6 +66,11 @@ const BUTTON_GAP = 12
 const DISAGREE_COLOR = tokens.text.secondary
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
+  // 用屏幕高度硬指定 ScrollView 高度,绕过 RN flex 算法在 column flex 容器中
+  // 不收缩 ScrollView 的问题。ScrollView 占屏幕 40%,按钮始终可见。
+  const { height: windowHeight } = useWindowDimensions()
+  const SCROLL_HEIGHT = Math.round(windowHeight * 0.4)
+
   const handleDisagree = () => {
     // 复刻 Uniapp preventClose:不允许关闭,RN 用 Alert 提示
     Alert.alert('提示', '需同意隐私政策才能使用本应用', [{ text: '我知道了' }])
@@ -97,7 +110,10 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
           {/* 隐私政策全文滚动区(flexShrink 收缩,保证底部按钮始终可见) */}
           {/* 中间弹性层包裹 ScrollView,保证按钮始终可见 */}
           <View style={styles.scrollWrapper}>
-            <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
+            <ScrollView
+              style={[styles.scroll, { height: SCROLL_HEIGHT }]}
+              showsVerticalScrollIndicator
+            >
               {PRIVACY_POLICY_PARAGRAPHS.map((para, index) => (
                 <Text
                   key={index}
@@ -229,13 +245,13 @@ const styles = StyleSheet.create({
     marginBottom: PARAGRAPH_MARGIN_BOTTOM,
   },
   buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: BUTTON_GAP,
     marginTop: BUTTON_ROW_MARGIN_TOP,
   } as ViewStyle,
   button: {
-    flex: 1,
+    width: '100%',
     height: BUTTON_HEIGHT,
     borderRadius: BUTTON_BORDER_RADIUS,
     flexDirection: 'row',
