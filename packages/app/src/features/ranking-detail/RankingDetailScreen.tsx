@@ -15,7 +15,6 @@ export type { RankingDetailScreenProps }
 export function RankingDetailScreen({
   t,
   detail,
-  history,
   colorScheme = 'light',
 }: RankingDetailScreenProps) {
   const tk = getTokens(colorScheme)
@@ -33,7 +32,9 @@ export function RankingDetailScreen({
             </View>
           )}
           <View style={styles.titleDesc}>
-            <Text style={styles.title} numberOfLines={1}>{detail.title}</Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {detail.title}
+            </Text>
             <Text style={styles.desc}>
               {`排名:${detail.rank} · 机构:${detail.organization} · 关注度:${detail.attention}`}
             </Text>
@@ -41,16 +42,29 @@ export function RankingDetailScreen({
         </View>
         <View style={styles.row2}>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>{t('rankingDetail.attention') || '关注度'}</Text>
-            <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>{String(detail.attention)}</Text>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
+              {t('rankingDetail.attention') || '关注度'}
+            </Text>
+            <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>
+              {String(detail.attention)}
+            </Text>
           </View>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>{t('rankingDetail.rank') || '排名'}</Text>
-            <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>{`第${detail.rank}名`}</Text>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
+              {t('rankingDetail.rank') || '排名'}
+            </Text>
+            <Text
+              style={[styles.metricValue, { color: tk.text.primary }]}
+              numberOfLines={1}
+            >{`第${detail.rank}名`}</Text>
           </View>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>{t('rankingDetail.organization') || '机构'}</Text>
-            <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>{detail.organization}</Text>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
+              {t('rankingDetail.organization') || '机构'}
+            </Text>
+            <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>
+              {detail.organization}
+            </Text>
           </View>
         </View>
         {detail.context ? (

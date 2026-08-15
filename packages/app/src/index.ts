@@ -133,6 +133,8 @@ export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
 export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
 export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
 export { CourseScreen } from './features/course-screen/CourseScreen'
+export { CourseTabScreen } from './features/course-tab/CourseTabScreen'
+export type { CourseTabScreenProps } from './features/course-tab/CourseTabScreen'
 export { CourseFilterScreen } from './features/course-filter/CourseFilterScreen'
 export { CourseDetailScreen } from './features/course-detail/CourseDetailScreen'
 export { CourseCommentScreen } from './features/course-comment/CourseCommentScreen'
@@ -160,6 +162,39 @@ export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
+/** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) */
+export { AccountCancelScreen } from './features/account-cancel/AccountCancelScreen'
+export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
+export { CategoryDetailScreen } from './features/category-detail/CategoryDetailScreen'
+export { CoursePlanetScreen } from './features/course-planet/CoursePlanetScreen'
+export { DevEnterCoverScreen } from './features/dev-enter-cover/DevEnterCoverScreen'
+export { DistributionOrderListScreen } from './features/distribution-order-list/DistributionOrderListScreen'
+export { KnowledgePlanetScreen } from './features/knowledge-planet/KnowledgePlanetScreen'
+export { LearnScreen } from './features/learn/LearnScreen'
+export { MoreCourseScreen } from './features/more-course/MoreCourseScreen'
+export { PlazaScreen } from './features/plaza/PlazaScreen'
+export type { PlazaScreenProps } from './features/plaza/PlazaScreen'
+export { SquareScreen } from './features/square/SquareScreen'
+export type { SquareScreenProps } from './features/square/SquareScreen'
+export type { ArticleItem } from './features/square/SquareScreen'
+export type { CategoryItem } from './features/square/SquareScreen'
+export { SetNeedScreen } from './features/set-need/SetNeedScreen'
+export { StudyPublishScreen } from './features/study-publish/StudyPublishScreen'
+export type { StudyPublishScreenProps } from './features/study-publish/StudyPublishScreen'
+export type { StudyCategory } from './features/study-publish/StudyPublishScreen'
+export type { StageOption } from './features/study-publish/StudyPublishScreen'
+
+/** 批次 38(2026-08-15):StudyIndex 学习视频 */
+export { StudyIndexScreen } from './features/study-index/StudyIndexScreen'
+export type { StudyIndexScreenProps } from './features/study-index/StudyIndexScreen'
+export type { StudyTrackCategory } from './features/study-index/StudyIndexScreen'
+export type { StudyVideoItem } from './features/study-index/StudyIndexScreen'
+export type { StudyModelPreview } from './features/study-index/StudyIndexScreen'
+
+/** 批次 39(2026-08-15):AI 助手 N8n */
+export { AiAssistantN8nScreen } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
+export type { AiAssistantN8nScreenProps } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
+export type { N8nMessage } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -566,11 +601,23 @@ export type {
   RankingDetailScreenProps,
 } from './types'
 
-/** 批次 25-26 剩余:直播聊天/消息聊天/订单退款/支付 + VIP 操盘手类型(inline 定义在组件文件) */
+/** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(props 类型单一来源 @ihui/types) */
 export type {
-  LiveChatMessage,
-  LiveChatScreenProps,
-} from './features/live-chat/LiveChatScreen'
+  AccountCancelScreenProps,
+  AppTopupScreenProps,
+  CategoryDetailScreenProps,
+  CoursePlanetScreenProps,
+  DevEnterCoverScreenProps,
+  DistributionOrderListScreenProps,
+  KnowledgePlanetScreenProps,
+  LearnCategory,
+  LearnScreenProps,
+  MoreCourseScreenProps,
+  SetNeedScreenProps,
+} from './types'
+
+/** 批次 25-26 剩余:直播聊天/消息聊天/订单退款/支付 + VIP 操盘手类型(inline 定义在组件文件) */
+export type { LiveChatMessage, LiveChatScreenProps } from './features/live-chat/LiveChatScreen'
 export type {
   MessageChatMessage,
   MessageChatScreenProps,
@@ -597,6 +644,12 @@ export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
 export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
 export { UsageRulesScreen } from './features/usage-rules/UsageRulesScreen'
 export { LearnDevelopScreen } from './features/learn-develop/LearnDevelopScreen'
+export type {
+  IcpRecordScreenProps,
+  AppPermissionScreenProps,
+  UsageRulesScreenProps,
+  LearnDevelopScreenProps,
+} from './types'
 /** 批次 32(2026-08-15):静态状态/结果屏(充值失败/成功/广场封面/子包入口,4 屏迁移自 mobile-rn) */
 export { TopupFailScreen } from './features/topup-fail/TopupFailScreen'
 export { TopupSuccessScreen } from './features/topup-success/TopupSuccessScreen'
