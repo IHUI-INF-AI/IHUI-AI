@@ -4,6 +4,7 @@ import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { useNavigation, type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
@@ -392,17 +393,28 @@ import type { MainStackParamList } from './tab-utils'
 export { mainScreenForTab, type MainTabKey } from './tab-utils'
 
 const RootStack = createNativeStackNavigator<RootStackParamList>()
-const MainStack = createNativeStackNavigator<MainStackParamList>()
+// Main 用隐藏 tab bar 的 Bottom Tabs 而非 Stack:
+// Stack 不支持 navigate('Main', { screen: X }) 嵌套参数(state-based navigators 专属),
+// 之前 29 处 Drawer/回主页跳转全部被静默忽略(LogBox 警告 "couldn't be applied to the navigator")。
+// 历史项目 Uniapp customTabBar 本就是 v-if="false"(无底部栏,靠 Drawer reLaunch 切换),
+// 此处 tabBarStyle 隐藏保持视觉一致,同时获得 Tab 的 state-based 嵌套跳转能力。
+const MainTabs = createBottomTabNavigator<MainStackParamList>()
 
 function MainNavigator() {
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="HomeMain" component={HomeScreen} />
-      <MainStack.Screen name="CourseMain" component={CourseScreen} />
-      <MainStack.Screen name="AiMain" component={AgentScreen} />
-      <MainStack.Screen name="LiveMain" component={LiveScreen} />
-      <MainStack.Screen name="ProfileMain" component={ProfileScreen} />
-    </MainStack.Navigator>
+    <MainTabs.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { display: 'none' },
+        lazy: false,
+      }}
+    >
+      <MainTabs.Screen name="HomeMain" component={HomeScreen} />
+      <MainTabs.Screen name="CourseMain" component={CourseScreen} />
+      <MainTabs.Screen name="AiMain" component={AgentScreen} />
+      <MainTabs.Screen name="LiveMain" component={LiveScreen} />
+      <MainTabs.Screen name="ProfileMain" component={ProfileScreen} />
+    </MainTabs.Navigator>
   )
 }
 
