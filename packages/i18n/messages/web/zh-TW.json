@@ -5376,48 +5376,6 @@
       "searchPlaceholder": "搜尋標題",
       "delete": "刪除"
     },
-    "customerService": {
-      "addAgent": "新增坐席",
-      "colNickname": "暱稱",
-      "colStatus": "狀態",
-      "colLoad": "負載",
-      "colSkills": "技能",
-      "colActions": "操作",
-      "loading": "載入中...",
-      "noAgents": "暫無坐席",
-      "switchStatus": "切換狀態",
-      "addAgentTitle": "新增坐席",
-      "addAgentDesc": "將使用者指定為客戶服務坐席",
-      "fieldUserId": "使用者 ID",
-      "userIdPlaceholder": "UUID 格式的使用者 ID",
-      "fieldAgentNickname": "坐席暱稱",
-      "fieldMaxConcurrent": "最大併發會話數",
-      "cancel": "取消",
-      "create": "建立",
-      "addCategory": "新增分類",
-      "colName": "名稱",
-      "colSlug": "標識",
-      "colDescription": "描述",
-      "colSort": "排序",
-      "noCategories": "暫無分類",
-      "addCategoryTitle": "新增分類",
-      "addCategoryDesc": "建立工單分類",
-      "fieldCatName": "分類名稱",
-      "fieldSlug": "標識 (slug)",
-      "slugPlaceholder": "如：billing",
-      "fieldDescription": "描述",
-      "fieldSort": "排序",
-      "statusPlaceholder": "狀態",
-      "allStatus": "全部狀態",
-      "priorityPlaceholder": "優先順序",
-      "allPriority": "全部優先順序",
-      "colTicketNo": "工單號",
-      "colTitle": "標題",
-      "colPriority": "優先順序",
-      "colCreatedAt": "建立時間",
-      "noTickets": "暫無工單",
-      "handle": "處理"
-    },
     "developer": {
       "cancel": "取消",
       "save": "儲存",
@@ -5803,43 +5761,6 @@
       "save": "儲存",
       "deleteTitle": "確認刪除",
       "deleteDesc": "確定要刪除該記錄嗎？此操作不可撤銷。"
-    },
-    "loginLogs": {
-      "delete": "刪除",
-      "edit": "編輯",
-      "loading": "載入中…",
-      "empty": "暫無資料",
-      "colId": "ID",
-      "colUserUuid": "使用者UUID",
-      "colLoginType": "登入型別",
-      "colPlatform": "平臺",
-      "colIp": "IP",
-      "colLocation": "位置",
-      "colUa": "UA",
-      "colLoginTime": "登入時間",
-      "colMessage": "訊息",
-      "colActions": "操作",
-      "dialogEditTitle": "編輯登入日誌",
-      "dialogCreateTitle": "新增登入日誌",
-      "descEdit": "修改登入日誌資訊",
-      "descCreate": "新增新的登入日誌",
-      "fieldUserUuid": "使用者UUID *",
-      "fieldLoginType": "登入型別 *",
-      "fieldPlatform": "平臺",
-      "fieldLocation": "位置",
-      "fieldLoginTime": "登入時間",
-      "fieldMessage": "訊息",
-      "cancel": "取消",
-      "save": "儲存",
-      "labelUserUuid": "使用者UUID",
-      "placeholderUserUuid": "搜尋 UUID",
-      "labelPlatform": "平臺",
-      "placeholderPlatform": "搜尋平臺",
-      "labelLocation": "位置",
-      "placeholderLocation": "搜尋位置",
-      "labelLoginTime": "登入時間",
-      "search": "搜尋",
-      "reset": "重置"
     },
     "notificationLogs": {
       "title": "通知日誌",
@@ -6852,9 +6773,7 @@
           "error": "異常"
         }
       }
-    },
-    "visitTracking": "訪問統計",
-    "behaviorAnalytics": "行為埋點"
+    }
   },
   "knowledgeGraph": {
     "title": "知識圖譜",
@@ -10758,23 +10677,6 @@
     "phPhone": "搜尋手機號",
     "phPlatform": "搜尋平臺"
   },
-  "adminTicketDetail": {
-    "status": "狀態：",
-    "priority": "優先順序：",
-    "issueDescription": "問題描述",
-    "statusTransition": "狀態流轉：",
-    "noTransitions": "無可流轉狀態",
-    "assignAgent": "分配坐席：",
-    "selectAgent": "選擇坐席",
-    "assign": "分配",
-    "replyRecords": "回覆記錄",
-    "noReply": "暫無回覆",
-    "roleAgent": "客戶服務",
-    "roleUser": "使用者",
-    "customerReply": "客戶服務回覆",
-    "replyPlaceholder": "輸入回覆內容...",
-    "sendReply": "傳送回覆"
-  },
   "featureCenter": {
     "title": "開放平臺 Feature Center",
     "description": "一站式發現 API、Agent、文件、模型與 SDK",
@@ -12227,57 +12129,6 @@
       "empty": "暫無問答",
       "answered": "已回答",
       "pending": "待回答"
-    },
-    "eduAttendancePage": {
-      "title": "考勤管理",
-      "subtitle": "學生簽到、簽退與請假管理",
-      "checkIn": "簽到",
-      "checkOut": "簽退",
-      "leave": "請假",
-      "stats": "出勤統計"
-    },
-    "eduGradePage": {
-      "title": "成績管理",
-      "subtitle": "考試成績錄入、統計與排名",
-      "input": "成績錄入",
-      "stats": "成績統計",
-      "rank": "排名",
-      "trend": "趨勢分析"
-    },
-    "eduHomeworkPage": {
-      "title": "作業管理",
-      "subtitle": "作業提交、批改與統計",
-      "submit": "提交作業",
-      "grade": "批改作業",
-      "stats": "完成統計"
-    },
-    "eduEnrollmentPage": {
-      "title": "招生管理",
-      "subtitle": "線索跟進、試聽預約與報名管理",
-      "lead": "線索管理",
-      "trial": "試聽預約",
-      "enroll": "報名記錄"
-    },
-    "eduFinancePage": {
-      "title": "財務管理",
-      "subtitle": "學費標準、繳費與退費管理",
-      "fee": "學費標準",
-      "payment": "繳費記錄",
-      "refund": "退費管理"
-    },
-    "eduEmpty": {
-      "noSchedule": "暫無課程安排",
-      "noMeal": "暫無菜譜記錄",
-      "noPlan": "暫無學習計劃",
-      "noAttendance": "暫無考勤記錄",
-      "noGrade": "暫無成績記錄",
-      "noLead": "暫無線索記錄",
-      "noTrial": "暫無試聽預約",
-      "noEnrollment": "暫無報名記錄",
-      "noHomework": "暫無作業提交",
-      "noRule": "暫無排課規則",
-      "noPayment": "暫無繳費記錄",
-      "noRefund": "暫無退費記錄"
     }
   },
   "marketing": {
@@ -15172,13 +15023,7 @@
     "responsive": {
       "customWidth": "自訂寬度",
       "apply": "套用",
-      "deviceFrame": "裝置外框",
-      "deviceMobilePortrait": "手機直向",
-      "deviceMobileLandscape": "手機橫向",
-      "deviceTabletPortrait": "平板直向",
-      "deviceTabletLandscape": "平板橫向",
-      "deviceDesktop": "桌面端",
-      "deviceCustom": "自訂"
+      "deviceFrame": "裝置外框"
     },
     "templates": {
       "title": "範本"
