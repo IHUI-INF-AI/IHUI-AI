@@ -2,7 +2,7 @@
  * TagsView 探查脚本：输出 DOM 结构和样式信息。
  * 运行: npx playwright test e2e/tagsview-debug.ts --reporter=list
  */
-import { test, expect } from '@playwright/test'
+import { test } from '@playwright/test'
 
 test('探查 TagsView DOM 结构和样式', async ({ page }) => {
   // API 登录
@@ -56,9 +56,7 @@ test('探查 TagsView DOM 结构和样式', async ({ page }) => {
     const link = allLinks.nth(i)
     const href = await link.getAttribute('href')
     const text = await link.textContent()
-    const tagName = await link.evaluate((el) => el.tagName)
     const className = await link.evaluate((el) => el.className)
-    const display = await link.evaluate((el) => window.getComputedStyle(el).display)
     const fontSize = await link.evaluate((el) => parseFloat(window.getComputedStyle(el).fontSize))
     const outline = await link.evaluate((el) => {
       const s = window.getComputedStyle(el)

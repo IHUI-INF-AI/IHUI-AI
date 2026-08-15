@@ -7,6 +7,7 @@ import { FavoritesScreen as SharedFavoritesScreen, type FavoritesItem } from '@i
 import { deleteFavorite } from '../api/social'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
 
@@ -14,8 +15,11 @@ const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+// 对齐说明:Uniapp 历史项目无独立收藏列表页;favorites.* 文案 shared zh-CN 已齐,
+// 本页仅补 colorScheme 主题注入(对齐其余 9 个 wrapper 的深浅色处理)
 export function FavoritesScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<FavoriteItem>(
@@ -67,6 +71,7 @@ export function FavoritesScreen() {
       onLoadMore={loadMore}
       onDelete={onDelete}
       onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
     />
   )
 }

@@ -38,14 +38,23 @@ test.describe('AI Skills 独立页', () => {
 
     // 分类 Tab 可见
     const tabAll = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて/i })
-    const tabAvailable = page.getByRole('button').filter({ hasText: /已上线|Available|이용 가능|利用可能/i })
-    const tabComing = page.getByRole('button').filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
-    const hasAnyTab = await tabAll.or(tabAvailable.or(tabComing)).isVisible({ timeout: 5000 }).catch(() => false)
+    const tabAvailable = page
+      .getByRole('button')
+      .filter({ hasText: /已上线|Available|이용 가능|利用可能/i })
+    const tabComing = page
+      .getByRole('button')
+      .filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
+    const hasAnyTab = await tabAll
+      .or(tabAvailable.or(tabComing))
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
     expect(hasAnyTab).toBeTruthy()
 
     // 搜索框可见
     const searchInput = page.getByPlaceholder(/搜索|Search|검색|検索/i)
-    await expect(searchInput).toBeVisible({ timeout: 5000 }).catch(() => {})
+    await expect(searchInput)
+      .toBeVisible({ timeout: 5000 })
+      .catch(() => {})
   })
 
   test('搜索过滤:输入关键词过滤技能列表', async ({ page }) => {
@@ -82,8 +91,12 @@ test.describe('AI Skills 独立页', () => {
 
     // 点击"全部"Tab
     const tabAll = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて/i })
-    const tabAvailable = page.getByRole('button').filter({ hasText: /已上线|Available|이용 가능|利用可能/i })
-    const tabComing = page.getByRole('button').filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
+    const tabAvailable = page
+      .getByRole('button')
+      .filter({ hasText: /已上线|Available|이용 가능|利用可能/i })
+    const tabComing = page
+      .getByRole('button')
+      .filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
 
     // 尝试切换 Tab
     for (const tab of [tabAvailable, tabComing, tabAll]) {
@@ -107,7 +120,6 @@ test.describe('AI Skills 独立页', () => {
     const isVisible = await firstCard.isVisible({ timeout: 10000 }).catch(() => false)
     if (!isVisible) return
 
-    const href = await firstCard.getAttribute('href')
     await firstCard.click()
     await page.waitForLoadState('networkidle')
 
@@ -118,12 +130,20 @@ test.describe('AI Skills 独立页', () => {
 
     // 元数据区可见
     const metaSection = page.locator('section').first()
-    await expect(metaSection).toBeVisible({ timeout: 5000 }).catch(() => {})
+    await expect(metaSection)
+      .toBeVisible({ timeout: 5000 })
+      .catch(() => {})
 
     // 返回列表页
-    const backButton = page.getByRole('button').filter({ hasText: /返回|Back|돌아가기|戻る/i }).first()
+    const backButton = page
+      .getByRole('button')
+      .filter({ hasText: /返回|Back|돌아가기|戻る/i })
+      .first()
     const backLink = page.locator('a[href="/ai-skills"]').first()
-    const back = await backButton.or(backLink).isVisible({ timeout: 3000 }).catch(() => false)
+    const back = await backButton
+      .or(backLink)
+      .isVisible({ timeout: 3000 })
+      .catch(() => false)
     if (back) {
       await backButton.or(backLink).first().click()
       await page.waitForLoadState('networkidle')

@@ -99,9 +99,7 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
-  test('hover 态:scale-125 → 视觉 10x10(实际 8x8 + CSS scale 1.25)', async ({
-    page,
-  }) => {
+  test('hover 态:scale-125 → 视觉 10x10(实际 8x8 + CSS scale 1.25)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     // 找第一个非激活 dot,模拟 hover
@@ -129,7 +127,7 @@ test.describe('PageIndicator 几何守门', () => {
     // CSS scale 属性:1.25 1.25(Tailwind v4 用 scale 属性而非 transform: scale())
     // 解析首个值(可能格式: "1.25 1.25" 或 "1.24584 1.24584" transition 过程中)
     const scaleMatch = cs.scale.match(/([0-9.]+)/)
-    const scaleVal = scaleMatch ? parseFloat(scaleMatch[1]) : 0
+    const scaleVal = scaleMatch ? parseFloat(scaleMatch[1]!) : 0
     expect(scaleVal).toBeGreaterThanOrEqual(1.2)
     expect(scaleVal).toBeLessThanOrEqual(1.26)
   })
@@ -262,9 +260,7 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
-  test('v13 总高压缩(2026-08-13 v13):7 button 总高 ≈ 106px (含 2px border)', async ({
-    page,
-  }) => {
+  test('v13 总高压缩(2026-08-13 v13):7 button 总高 ≈ 106px (含 2px border)', async ({ page }) => {
     const dims = await page.evaluate((selector) => {
       const container = document.querySelector(selector) as HTMLElement | null
       if (!container) return { error: 'indicator not found' as const }
