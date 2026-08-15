@@ -60,6 +60,8 @@ const ALLOWED_FILES = new Set([
   'railway.json',
   'render.yaml',
   'app.json',
+  // 守门脚本产物
+  '__gate_result.txt',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
