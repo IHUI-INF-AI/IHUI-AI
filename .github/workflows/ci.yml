@@ -45,6 +45,12 @@ jobs:
       - name: Schema drift check
         run: node scripts/check-db-schema-drift.mjs
 
+      - name: API route consistency check
+        run: node scripts/check-api-routes.mjs
+
+      - name: Port registry check
+        run: node scripts/check-port-registry.mjs
+
       - name: Lint
         run: pnpm turbo run lint
 
