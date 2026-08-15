@@ -48,11 +48,8 @@ import Drawer, {
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
-import {
-  mainScreenForTab,
-  type MainTabKey,
-  type RootStackParamList,
-} from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
