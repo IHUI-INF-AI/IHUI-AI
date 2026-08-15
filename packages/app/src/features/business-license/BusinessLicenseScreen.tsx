@@ -1,5 +1,14 @@
 import { useState, useMemo } from 'react'
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ImageLoadEventData, type NativeSyntheticEvent } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ImageLoadEventData,
+  type NativeSyntheticEvent,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BusinessLicenseScreenProps } from '../../types'
 
@@ -17,7 +26,6 @@ export function BusinessLicenseScreen({
   title,
   onBack,
   imageSource,
-  previewVisible,
   onPreviewVisibleChange,
   colorScheme = 'light',
 }: BusinessLicenseScreenProps) {

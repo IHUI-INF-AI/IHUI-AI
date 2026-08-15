@@ -11,32 +11,10 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
+import type { DistributionOrderListScreenProps } from '../../types'
 
-export interface DistributionOrderListScreenProps {
-  t: TFunction
-  orders: {
-    id: string
-    orderId: string
-    userNickname: string
-    orderAmount: number
-    commissionAmount: number
-    rate: number
-    createdAt: string
-    status: string
-  }[]
-  keyword: string
-  activeTab: string
-  loading: boolean
-  loadingMore: boolean
-  hasMore: boolean
-  onSearch: () => void
-  onKeywordChange: (keyword: string) => void
-  onTabChange: (tab: string) => void
-  onEndReached: () => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+/** DistributionOrderListScreen props re-export(单一来源 @ihui/types) */
+export type { DistributionOrderListScreenProps }
 
 const TABS = [
   { key: 'all', label: '全部' },
@@ -79,7 +57,6 @@ export function DistributionOrderListScreen({
   activeTab,
   loading,
   loadingMore,
-  hasMore,
   onSearch,
   onKeywordChange,
   onTabChange,
@@ -129,7 +106,7 @@ export function DistributionOrderListScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>分销订单列表</Text>
       </View>
@@ -154,7 +131,9 @@ export function DistributionOrderListScreen({
               style={[styles.tab, activeTab === tab.key && styles.tabActive]}
               onPress={() => onTabChange(tab.key)}
             >
-              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -284,4 +263,3 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.secondary },
   })
 }
-

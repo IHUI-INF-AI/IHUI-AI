@@ -4,12 +4,7 @@ import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack'
-import {
-  useNavigation,
-  useRoute,
-  type RouteProp,
-  type NavigatorScreenParams,
-} from '@react-navigation/native'
+import { useNavigation, type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -141,13 +136,13 @@ import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
-import { SquareScreen } from '../screens/SquareScreen'
+import SquareScreen from '../screens/SquareScreen'
 import { PlazaScreen } from '../screens/PlazaScreen'
 import { CoursePlanetScreen } from '../screens/CoursePlanetScreen'
 import { LearnDevelopScreen } from '../screens/LearnDevelopScreen'
-import { StudyIndexScreen } from '../screens/StudyIndexScreen'
+import StudyIndexScreen from '../screens/StudyIndexScreen'
 import { KnowledgePlanetScreen } from '../screens/KnowledgePlanetScreen'
-import { AccountCancelScreen } from '../screens/AccountCancelScreen'
+import AccountCancelScreen from '../screens/AccountCancelScreen'
 import { BusinessLicenseScreen } from '../screens/BusinessLicenseScreen'
 import { IcpRecordScreen } from '../screens/IcpRecordScreen'
 import { ModelRecordScreen } from '../screens/ModelRecordScreen'
@@ -196,7 +191,7 @@ import { DevEnterCoverScreen } from '../screens/DevEnterCoverScreen'
 import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
 import { SetNeedScreen } from '../screens/SetNeedScreen'
 import { SubPackageIndexScreen } from '../screens/SubPackageIndexScreen'
-import { AppTopupScreen } from '../screens/AppTopupScreen'
+import AppTopupScreen from '../screens/AppTopupScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -408,12 +403,10 @@ export function mainScreenForTab(tab: MainTabKey): MainTabKey {
 const RootStack = createNativeStackNavigator<RootStackParamList>()
 const MainStack = createNativeStackNavigator<MainStackParamList>()
 
-// ChatScreen 期望 RootStackParamList 导航(向 root 搜索 Agent/Wallet/Settings 等路由);
-// 嵌入 MainStack 后通过 useNavigation/useRoute 桥接 root 类型(H2 升级时改为 MainStack 专属路由)
+// ChatScreen 组件签名无 props,内部通过 useNavigation/useRoute hooks 获取导航与路由;
+// 嵌入 MainStack 后 navigate 会向 root 冒泡查找 Agent/Wallet/Settings 等路由(H2 升级时改为 MainStack 专属路由)
 function ChatHomeScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Chat'>>()
-  const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
-  return <ChatScreen navigation={navigation} route={route} />
+  return <ChatScreen />
 }
 
 function MainNavigator() {
