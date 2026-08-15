@@ -67,12 +67,12 @@ const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
 ]
 
 /** Drawer 5 主菜单 → RN Tab 路由映射(square/share 跳独立页) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, 'home' | 'ai' | 'mine'> = {
-  home: 'home',
-  ai: 'ai',
-  square: 'home',
-  share: 'home',
-  mine: 'mine',
+const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
+  home: 'HomeMain',
+  ai: 'AiMain',
+  square: 'HomeMain',
+  share: 'HomeMain',
+  mine: 'ProfileMain',
 }
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
