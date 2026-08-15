@@ -710,7 +710,8 @@ export function LoginScreen() {
           colorScheme={resolvedTheme}
           logoSource={LOGO_SOURCE}
           // welcome 品牌文字图(对齐 web AuthShell,替代纯文字 "IHUI AI")
-          welcomeNode={<SvgXml xml={welcomeXml} width={280} height={42} />}
+          // 移动端一行并排:logo 44 + 欢迎图 224 + gap 12 = 280 < 288,不超出
+          welcomeNode={<SvgXml xml={welcomeXml} width={224} height={34} />}
           // 4-tab 配置
           tabs={TABS}
           defaultTab="password"

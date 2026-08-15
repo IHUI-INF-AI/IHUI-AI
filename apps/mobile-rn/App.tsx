@@ -31,7 +31,8 @@ function ThemedNavigation() {
       linking={linking}
       theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
     >
-      <RootNavigator />
+      {/* BISECT-3: RootNavigator 替换为空 View */}
+      <View style={{ flex: 1, backgroundColor: 'seagreen' }} />
     </NavigationContainer>
   )
 }
