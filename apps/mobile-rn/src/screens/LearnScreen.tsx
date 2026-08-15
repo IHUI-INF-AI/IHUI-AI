@@ -47,14 +47,14 @@ interface ProgressOverview {
   learningHours: number
 }
 
-/** 课程分类入口(对齐 Uniapp 静态 categories,点击进入课程筛选) */
-interface LearnCategory {
+/** 课程分类入口(对齐 Uniapp 静态 categories,点击进入课程筛选);CourseScreen tab 页复用 */
+export interface LearnCategory {
   id: string
   name: string
   icon: string
 }
 
-const CATEGORIES: readonly LearnCategory[] = [
+export const CATEGORIES: readonly LearnCategory[] = [
   { id: 'douyin', name: '抖音运营', icon: '📱' },
   { id: 'private', name: '私域运营', icon: '👥' },
   { id: 'content', name: '内容创作', icon: '✍️' },
@@ -255,9 +255,7 @@ export function LearnScreen() {
                               <Text style={styles.levelText}>{level}</Text>
                             </View>
                           ) : null}
-                          {duration ? (
-                            <Text style={styles.durationText}>{duration}</Text>
-                          ) : null}
+                          {duration ? <Text style={styles.durationText}>{duration}</Text> : null}
                         </View>
                       </View>
                     </Pressable>
