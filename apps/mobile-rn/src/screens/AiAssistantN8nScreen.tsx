@@ -49,7 +49,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { mainScreenForTab } from '../navigation/RootNavigator'
+import { mainScreenForTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
   formatSSEError,

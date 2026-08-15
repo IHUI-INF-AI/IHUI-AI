@@ -397,7 +397,7 @@ const MainStack = createNativeStackNavigator<MainStackParamList>()
 function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="HomeMain" component={ChatHomeScreen} />
+      <MainStack.Screen name="HomeMain" component={HomeScreen} />
       <MainStack.Screen name="CourseMain" component={CourseScreen} />
       <MainStack.Screen name="AiMain" component={AgentScreen} />
       <MainStack.Screen name="LiveMain" component={LiveScreen} />
