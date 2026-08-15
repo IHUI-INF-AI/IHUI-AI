@@ -1,5 +1,14 @@
 import { useState, useMemo } from 'react'
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ImageLoadEventData, type NativeSyntheticEvent } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ImageLoadEventData,
+  type NativeSyntheticEvent,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ModelRecordScreenProps } from '../../types'
 
@@ -17,7 +26,6 @@ export function ModelRecordScreen({
   title,
   onBack,
   images,
-  previewIndex,
   onPreviewIndexChange,
   colorScheme = 'light',
 }: ModelRecordScreenProps) {
@@ -43,7 +51,7 @@ export function ModelRecordScreen({
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          {images.map((src, index) => (
+          {images.map((src: React.ComponentProps<typeof Image>['source'], index: number) => (
             <TouchableOpacity
               key={index}
               activeOpacity={0.9}
@@ -52,7 +60,10 @@ export function ModelRecordScreen({
             >
               <Image
                 source={src}
-                style={[styles.imageBase, aspects[index] ? { aspectRatio: aspects[index] } : styles.imageFallback]}
+                style={[
+                  styles.imageBase,
+                  aspects[index] ? { aspectRatio: aspects[index] } : styles.imageFallback,
+                ]}
                 resizeMode="contain"
                 onLoad={handleImageLoad(index)}
               />

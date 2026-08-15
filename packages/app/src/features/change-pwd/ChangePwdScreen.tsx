@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePwdScreenProps, TFunction } from '../../types'
 
@@ -80,7 +80,9 @@ export function ChangePwdScreen({
           onPress={onSubmit}
           accessibilityRole="button"
         >
-          <Text style={styles.submitText}>{submitting ? t('common.submitting') || '提交中...' : t('common.confirm') || '确定'}</Text>
+          <Text style={styles.submitText}>
+            {submitting ? t('common.submitting') || '提交中...' : t('common.confirm') || '确定'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -114,7 +116,9 @@ function PwdInput({ label, value, onChange, show, onToggle, tokens, styles, t }:
           autoCorrect={false}
         />
         <TouchableOpacity style={styles.eyeBtn} onPress={onToggle} hitSlop={8}>
-          <Text style={styles.eyeText}>{show ? t('common.hide') || '隐藏' : t('common.show') || '显示'}</Text>
+          <Text style={styles.eyeText}>
+            {show ? t('common.hide') || '隐藏' : t('common.show') || '显示'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

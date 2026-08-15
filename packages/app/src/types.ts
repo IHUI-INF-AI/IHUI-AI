@@ -309,6 +309,12 @@ export type {
   AgentChatScreenProps,
   CourseScreenItem,
   CourseScreenProps,
+  CourseCategory,
+  CoursePath,
+  PopularCourseItem,
+  CourseListItem,
+  ProgressOverview,
+  CourseTabScreenProps,
   CourseDetailItem,
   CourseDetailLesson,
   CourseDetailScreenProps,
@@ -401,6 +407,7 @@ export type {
   DeveloperScreenProps,
 } from '@ihui/types'
 
+/** 批次 31-34(2026-08-15):静态信息/状态/表单/Mock 数据屏(props 类型单一来源 @ihui/types) */
 export type {
   IcpRecordScreenProps,
   AppPermissionScreenProps,
@@ -418,3 +425,35 @@ export type {
   TeamDetailScreenProps,
   RankingDetailScreenProps,
 } from '@ihui/types'
+/** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(props 类型单一来源 @ihui/types) */
+export type {
+  AccountCancelScreenProps,
+  AppTopupScreenProps,
+  CategoryDetailScreenProps,
+  CoursePlanetScreenProps,
+  DevEnterCoverScreenProps,
+  DistributionOrderListScreenProps,
+  KnowledgePlanetScreenProps,
+  LearnCategory,
+  LearnScreenProps,
+  MoreCourseScreenProps,
+  PlazaItem,
+  StatusChip,
+  PlazaScreenProps,
+  SetNeedScreenProps,
+} from '@ihui/types'
+export type { ArticleItem, CategoryItem, SquareScreenProps } from '@ihui/types'
+
+/** 批次 37(2026-08-15):课程发布(props 类型单一来源 @ihui/types) */
+export type { StudyCategory, StageOption, StudyPublishScreenProps } from '@ihui/types'
+
+/** 批次 38(2026-08-15):StudyIndex 学习视频(props 类型单一来源 @ihui/types) */
+export type {
+  StudyTrackCategory,
+  StudyVideoItem,
+  StudyModelPreview,
+  StudyIndexScreenProps,
+} from '@ihui/types'
+
+/** 批次 39(2026-08-15):AI 助手 N8n(props 类型单一来源 @ihui/types) */
+export type { N8nMessage, AiAssistantN8nScreenProps } from '@ihui/types'
