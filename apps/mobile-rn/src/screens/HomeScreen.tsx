@@ -56,13 +56,12 @@ import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type {
-  HomeStackParamList,
   RootStackParamList,
 } from '../navigation/RootNavigator'
-import { mainScreenForTab } from '../navigation/RootNavigator'
+import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
-type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const MENU_ITEMS: HomeMenuItem[] = [
@@ -310,7 +309,7 @@ export function HomeScreen() {
       return
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
-    const rnTab: 'home' | 'ai' | 'mine' = tab
+    const rnTab: MainTabKey = tab as MainTabKey
     rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {
