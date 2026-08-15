@@ -4,7 +4,14 @@
     "agents": "Agents"
   },
   "home": {
-    "welcome": "Welcome to IHUI AI"
+    "welcome": "Welcome to IHUI AI",
+    "guest": "Guest",
+    "learningProgress": "Learning Progress",
+    "progressLessons": "{completed}/{total} lessons completed",
+    "progressEmpty": "Not started yet. Pick a course!",
+    "livePreview": "Upcoming Live",
+    "livePreviewMore": "More",
+    "recommend": "Recommended for You"
   },
   "course": {
     "title": "Courses",
@@ -12,7 +19,12 @@
     "pay": "Pay ¥{amount}",
     "enroll": "Enroll now",
     "enrolled": "Enrolled",
-    "progress": "Progress"
+    "progress": "Progress",
+    "empty": "No courses yet",
+    "completed": "Completed",
+    "complete": "Mark Complete",
+    "player": "The video will play once loaded",
+    "progressLessons": "{completed}/{total} lessons completed"
   },
   "live": {
     "title": "Live",
@@ -36,7 +48,11 @@
       "wallet": "My Wallet",
       "walletSubtitle": "View balance and top up",
       "loginRequired": "Please log in first"
-    }
+    },
+    "nickname": "No nickname yet",
+    "logout": "Log Out",
+    "myOrders": "My Orders",
+    "editProfile": "Edit Profile"
   },
   "payment": {
     "title": "Payment Orders",
@@ -130,7 +146,25 @@
     "checkUpdateTitle": "Check Update",
     "checkUpdateLatest": "You're on the latest version",
     "changePhoneMissingUser": "Missing user info, cannot change phone",
-    "logoutConfirm": "Confirm logout?"
+    "logoutConfirm": "Confirm logout?",
+    "appPermission": "App Permissions",
+    "icpRecord": "ICP Record",
+    "usageRules": "Usage Rules",
+    "changePassword": "Change Password",
+    "oldPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "pwdFieldsRequired": "Please fill in all password fields",
+    "pwdTooShort": "Password must be at least 6 characters",
+    "pwdNotMatch": "Passwords do not match",
+    "pwdChanged": "Password changed",
+    "pwdChangeFailed": "Failed to change password, please retry",
+    "notifPush": "Push Notifications",
+    "notifMessage": "In-App Messages",
+    "notifEmail": "Email Notifications",
+    "notification": "Notifications",
+    "account": "Account & Security",
+    "version": "Version"
   },
   "menu": {
     "about": "About",
@@ -146,7 +180,8 @@
     "usageRules": "Usage Rules",
     "businessLicense": "Business License",
     "icpRecord": "ICP Record",
-    "modelRecord": "Model Record"
+    "modelRecord": "Model Record",
+    "sectionDiscover": "Discover"
   },
   "error": {
     "network": "Network error, please retry"
@@ -198,7 +233,11 @@
     "confirm": "Confirm",
     "error": "Error",
     "menu": "Menu",
-    "empty": "No data"
+    "empty": "No data",
+    "show": "Show",
+    "hide": "Hide",
+    "submitting": "Submitting...",
+    "viewMore": "View more"
   },
   "aiAssistant": {
     "title": "AI Assistant",
@@ -405,5 +444,635 @@
       "card": "Business Card QR Code",
       "close": "Close"
     }
+  },
+  "about": {
+    "title": "About",
+    "appName": "App Name",
+    "version": "Version",
+    "description": "Description",
+    "officialSite": "Official Website",
+    "contactEmail": "Contact Email",
+    "license": "License"
+  },
+  "activityDetail": {
+    "title": "Activity Details",
+    "empty": "Activity not found or offline",
+    "startAt": "Starts",
+    "endAt": "Ends",
+    "location": "Location"
+  },
+  "agentChat": {
+    "empty": "No messages yet. Send the first one to start",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "agentCreate": {
+    "title": "Create Agent",
+    "name": "Name",
+    "namePlaceholder": "Name your agent",
+    "category": "Category",
+    "categoryPlaceholder": "e.g. Office Assistant",
+    "description": "Description",
+    "descPlaceholder": "Describe what this agent does",
+    "systemPrompt": "System Prompt",
+    "promptPlaceholder": "Define the role and behavior of the agent",
+    "isPublic": "Public",
+    "public": "Public",
+    "private": "Private",
+    "submit": "Create"
+  },
+  "agentReviewDetail": {
+    "title": "Review Details",
+    "empty": "Review not found or deleted",
+    "author": "Author"
+  },
+  "agentSetting": {
+    "title": "Agent Settings",
+    "name": "Name",
+    "model": "Model",
+    "temperature": "Temperature",
+    "enabled": "Enabled",
+    "save": "Save"
+  },
+  "agentStat": {
+    "title": "Agent Stats",
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "tokens": "Tokens Used",
+    "avgRating": "Avg. Rating"
+  },
+  "announcementDetail": {
+    "empty": "Announcement not found or deleted"
+  },
+  "apiSettings": {
+    "title": "API Settings",
+    "cozeTitle": "Coze Configuration",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "Enter API token",
+    "baseUrl": "Base URL",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "Enter Bot ID",
+    "timeout": "Timeout (seconds)",
+    "tokenHint": "Access token for calling the Coze API",
+    "save": "Save",
+    "reset": "Reset",
+    "diagnoseTitle": "Connectivity Diagnostics",
+    "diagnose": "Diagnose",
+    "test": "Test",
+    "testSuccess": "Connected",
+    "testFailed": "Connection failed"
+  },
+  "appPermission": {
+    "intro": "This app follows the minimum-necessary principle when requesting system permissions. All permissions are granted by you and can be viewed, adjusted or revoked anytime in system \"Settings - Permission Management\". Revoking optional permissions does not affect other features."
+  },
+  "askCreate": {
+    "title": "Ask a Question",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Summarize your question in one line",
+    "contentLabel": "Details",
+    "contentPlaceholder": "Describe your question in detail",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "submit": "Post"
+  },
+  "bankCard": {
+    "title": "Bank Cards",
+    "empty": "No bank cards yet",
+    "default": "Default",
+    "holder": "Cardholder"
+  },
+  "carte": {
+    "title": "Creator Card",
+    "projects": "Projects",
+    "skills": "Skills",
+    "rating": "Rating",
+    "skillsTitle": "Skills",
+    "worksTitle": "Featured Works",
+    "empty": "No works yet"
+  },
+  "certApply": {
+    "title": "Lecturer Certification",
+    "name": "Name",
+    "placeholder": "Enter your real information",
+    "idCard": "ID Number",
+    "submit": "Submit",
+    "success": "Submitted. Please wait for review"
+  },
+  "community": {
+    "follow": "Following",
+    "follower": "Followers"
+  },
+  "coupon": {
+    "subtitle": "Grab coupons and save more",
+    "retry": "Retry"
+  },
+  "courseAnnex": {
+    "title": "Course Attachments",
+    "empty": "No attachments yet",
+    "size": "Size",
+    "download": "Download"
+  },
+  "courseChapter": {
+    "title": "Chapters",
+    "lessons": "{count} lessons"
+  },
+  "courseComment": {
+    "title": "Course Reviews",
+    "empty": "No reviews yet"
+  },
+  "courseDetail": {
+    "loadFailed": "Failed to load course details",
+    "studentCount": "{count} learners",
+    "instructor": "Instructor",
+    "rating": "Rating",
+    "free": "Free",
+    "enrolled": "Enrolled",
+    "enroll": "Enroll Now",
+    "pay": "Pay ¥{amount}",
+    "lessons": "Lessons",
+    "completed": "Completed"
+  },
+  "courseEnroll": {
+    "title": "Enroll in Courses",
+    "subtitle": "Pick a course and start learning",
+    "searchPlaceholder": "Search courses",
+    "empty": "No courses yet",
+    "enrolled": "Enrolled",
+    "enroll": "Enroll Now",
+    "free": "Free",
+    "instructor": "Instructor",
+    "level": "Level",
+    "lessons": "Lessons",
+    "students": "Students"
+  },
+  "courseFilter": {
+    "title": "Filter Courses",
+    "subtitle": "Find the right course for you",
+    "category": "Category",
+    "level": "Level",
+    "priceRange": "Price Range",
+    "reset": "Reset",
+    "apply": "Apply",
+    "retry": "Retry",
+    "empty": "No courses match the filters",
+    "instructor": "Instructor",
+    "level_label": "Level",
+    "free": "Free"
+  },
+  "courseQAAsk": {
+    "title": "Ask a Question",
+    "question": "Your Question",
+    "placeholder": "Ask anything. The instructor will answer soon",
+    "success": "Submitted successfully",
+    "submit": "Submit"
+  },
+  "courseResource": {
+    "title": "Course Resources",
+    "empty": "No resources yet",
+    "type": "Type",
+    "size": "Size",
+    "open": "Open"
+  },
+  "courseScreen": {
+    "title": "All Courses",
+    "searchPlaceholder": "Search courses",
+    "empty": "No courses yet",
+    "free": "Free",
+    "studentCount": "{count} learners",
+    "nextPage": "Next"
+  },
+  "customerService": {
+    "title": "Customer Service",
+    "empty": "Failed to load service info",
+    "status": "Status",
+    "online": "Online",
+    "offline": "Offline",
+    "workingHours": "Working Hours",
+    "phone": "Phone",
+    "email": "Email"
+  },
+  "distribution": {
+    "title": "Distribution Center",
+    "subtitle": "Promote products and earn commissions",
+    "retry": "Retry",
+    "empty": "No data",
+    "level": "Level",
+    "commissionRate": "Commission Rate",
+    "totalEarnings": "Total Earnings",
+    "withdrawn": "Withdrawn",
+    "pending": "Pending",
+    "withdrawBtn": "Withdraw",
+    "withdrawMin": "Minimum ¥{amount} to withdraw",
+    "products": "Products",
+    "commission": "Commission",
+    "sales": "{count} sold"
+  },
+  "earnCommission": {
+    "title": "Commission Program",
+    "introTitle": "Invite Friends, Earn Commissions",
+    "introDesc": "Join the commission program. Invite friends to sign up as members and earn 20% commission on their membership fees",
+    "totalEarnings": "Total Earnings",
+    "invitedCount": "Friends Invited",
+    "rules": "Program Rules",
+    "rateTitle": "Commission Rates",
+    "openVip": "Get VIP to Join the Program"
+  },
+  "exam": {
+    "subtitle": "Test yourself and track your learning",
+    "retry": "Retry",
+    "questions": "Questions",
+    "end": "Ends",
+    "startExam": "Start Exam"
+  },
+  "examQuestion": {
+    "loadFailed": "Failed to load the exam",
+    "single": "Single Choice",
+    "multi": "Multiple Choice",
+    "prev": "Previous",
+    "next": "Next",
+    "submit": "Submit"
+  },
+  "favorite": {
+    "title": "My Favorites",
+    "tabAll": "All",
+    "tabCourse": "Courses",
+    "tabLive": "Live",
+    "tabArticle": "Articles",
+    "empty": "No favorites yet"
+  },
+  "finance": {
+    "title": "Finance",
+    "empty": "No billing data",
+    "balance": "Balance",
+    "todayIncome": "Today",
+    "totalIncome": "Total Income",
+    "totalExpense": "Total Expense"
+  },
+  "follow": {
+    "title": "Following & Followers",
+    "following": "Following",
+    "fans": "Followers",
+    "empty": "No data",
+    "unfollow": "Unfollow"
+  },
+  "icpRecord": {
+    "licenseLabel": "ICP License No."
+  },
+  "identityVerify": {
+    "title": "Identity Verification",
+    "subtitle": "Verify your identity to secure your account",
+    "uploadFront": "Upload the front of your ID",
+    "uploadBack": "Upload the back of your ID",
+    "uploadSelfie": "Upload a selfie with your ID",
+    "submit": "Submit",
+    "submitting": "Submitting..."
+  },
+  "income": {
+    "title": "Earnings",
+    "today": "Today",
+    "total": "Total",
+    "withdrawable": "Withdrawable",
+    "withdraw": "Withdraw",
+    "sectionTitle": "Earnings Details",
+    "empty": "No earnings yet",
+    "settled": "Settled",
+    "pending": "Pending"
+  },
+  "invite": {
+    "title": "Invite Friends",
+    "inviteCode": "Invite Code",
+    "totalInvited": "Total Invited",
+    "totalReward": "Total Rewards",
+    "share": "Invite Now",
+    "sectionTitle": "Invitation Records",
+    "empty": "No invitations yet",
+    "statusCompleted": "Completed",
+    "statusPending": "Pending"
+  },
+  "learnDevelop": {
+    "title": "Learning & Development",
+    "comingSoon": "Course Planet is under development",
+    "contactLabel": "Contact Mr. Li directly"
+  },
+  "lecturerDetail": {
+    "title": "Lecturer Profile",
+    "subtitle": "Get to know the lecturer before enrolling",
+    "empty": "No introduction yet",
+    "courses": "Courses",
+    "followers": "Followers",
+    "students": "Students",
+    "followBtn": "Follow",
+    "unfollowBtn": "Following",
+    "retry": "Retry",
+    "level": "Level",
+    "studentCount": "{count} learners",
+    "free": "Free"
+  },
+  "liveChat": {
+    "title": "Live Chat",
+    "empty": "No messages yet. Say hi!",
+    "placeholder": "Say something...",
+    "send": "Send"
+  },
+  "liveList": {
+    "subtitle": "Great streams you won't want to miss",
+    "retry": "Retry"
+  },
+  "messageChat": {
+    "empty": "No messages yet",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "messageDetail": {
+    "title": "Message Details",
+    "reply": "Reply",
+    "notFound": "Message not found or deleted",
+    "from": "From",
+    "createdAt": "Time"
+  },
+  "note": {
+    "title": "My Notes",
+    "subtitle": "Notes worth keeping",
+    "empty": "No notes yet. Tap \"New\" to start",
+    "add": "New Note",
+    "edit": "Edit",
+    "updatedAt": "Updated",
+    "titlePlaceholder": "Title your note",
+    "placeholder": "Write down your thoughts..."
+  },
+  "noteCreate": {
+    "title": "New Note",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title your note",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Write down your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "isPublic": "Public",
+    "submit": "Save"
+  },
+  "notificationSettings": {
+    "title": "Notification Settings",
+    "push": "Push Notifications",
+    "message": "In-App Messages",
+    "email": "Email",
+    "sms": "SMS",
+    "marketing": "Marketing",
+    "desc": "Choose which channels can reach you",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+  "orderLog": {
+    "title": "Order Activity",
+    "empty": "No activity yet",
+    "action": "Action",
+    "operator": "Operator"
+  },
+  "orderRefund": {
+    "title": "Request a Refund",
+    "subtitle": "Select an order and submit your request",
+    "retry": "Retry",
+    "empty": "No refundable orders",
+    "orderNo": "Order No.",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Tell us why you want a refund",
+    "submit": "Submit",
+    "applyRefund": "Request Refund"
+  },
+  "orderTrack": {
+    "title": "Order Tracking",
+    "empty": "No tracking updates yet",
+    "location": "Current Location"
+  },
+  "player": {
+    "noUrl": "No video URL available"
+  },
+  "pointsRecord": {
+    "title": "Points History",
+    "tabAll": "All",
+    "tabEarn": "Earned",
+    "tabSpend": "Spent",
+    "balance": "Current Balance",
+    "empty": "No records yet",
+    "balanceAfter": "Balance After"
+  },
+  "postCreate": {
+    "title": "New Post",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title your post",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Share your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "submit": "Post"
+  },
+  "profileEdit": {
+    "avatarTip": "Tap to change avatar",
+    "nicknamePlaceholder": "Enter a nickname",
+    "bioPlaceholder": "Tell us about yourself",
+    "avatarModalTitle": "Change Avatar",
+    "avatarUrlLabel": "Avatar URL",
+    "avatarUrlPlaceholder": "Paste an image link",
+    "avatarUrlHint": "JPG / PNG, 200x200 recommended"
+  },
+  "promote": {
+    "title": "Promotion Center",
+    "subtitle": "Share your link and invite friends",
+    "retry": "Retry",
+    "inviteCount": "Invited",
+    "activeCount": "Active",
+    "totalEarnings": "Total Earnings",
+    "referralLink": "Your Referral Link",
+    "copyLink": "Copy Link",
+    "copySuccess": "Copied",
+    "shareBtn": "Share",
+    "referralCode": "Referral Code",
+    "rules": "Promotion Rules",
+    "inviteRecords": "Invitation Records",
+    "empty": "No data"
+  },
+  "promotion": {
+    "title": "Coupons",
+    "empty": "No coupons available",
+    "minSpend": "Min. spend ¥{minSpend}",
+    "expireDate": "Valid until",
+    "useNow": "Use Now"
+  },
+  "qrCode": {
+    "title": "My QR Code",
+    "scanTip": "Scan the QR code to learn and grow with me",
+    "share": "Share"
+  },
+  "ranking": {
+    "subtitle": "See where you rank this week",
+    "retry": "Retry",
+    "anonymous": "Anonymous",
+    "me": "Me",
+    "studyHours": "{count} hrs studied"
+  },
+  "rankingDetail": {
+    "rank": "Rank",
+    "attention": "Attention",
+    "organization": "Organization"
+  },
+  "realNameAuth": {
+    "title": "Real-Name Verification",
+    "status": "Status",
+    "verifiedDesc": "Real-name verification completed",
+    "unverifiedDesc": "Complete verification to unlock more services",
+    "name": "Real Name",
+    "namePlaceholder": "Enter your real name",
+    "idNumber": "ID Number",
+    "idNumberPlaceholder": "Enter your ID number",
+    "submit": "Submit",
+    "submitting": "Submitting..."
+  },
+  "recruitment": {
+    "title": "Careers",
+    "count": "{count} open positions",
+    "empty": "No open positions",
+    "applied": "Applied",
+    "close": "Close",
+    "description": "Job Description",
+    "requirements": "Requirements",
+    "applyNow": "Apply Now",
+    "appliedWaiting": "Applied, under review"
+  },
+  "referrer": {
+    "title": "Referrer",
+    "current": "Current Referrer",
+    "empty": "No referrer bound yet",
+    "desc": "Both of you will get rewards after binding",
+    "codeLabel": "Referral Code",
+    "codePlaceholder": "Enter a referral code",
+    "submit": "Bind",
+    "submitting": "Binding..."
+  },
+  "register": {
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter your phone number",
+    "submit": "Sign Up",
+    "registering": "Signing up..."
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search courses, lecturers and more",
+    "empty": "No results found"
+  },
+  "securitySettings": {
+    "title": "Security Settings",
+    "password": "Password Login",
+    "biometric": "Biometric Unlock",
+    "twoFactor": "Two-Factor Authentication",
+    "loginAlert": "Login Alerts",
+    "desc": "Manage your account security options"
+  },
+  "settingsAccount": {
+    "title": "Account Management",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "save": "Save"
+  },
+  "square": {
+    "title": "AI Feed"
+  },
+  "studyProgress": {
+    "title": "Study Progress",
+    "loadFailed": "Failed to load study progress",
+    "courses": "Courses (done/total)",
+    "totalMinutes": "Total Minutes",
+    "weekMinutes": "This Week (min)",
+    "streak": "Day Streak",
+    "courseProgress": "Course Progress"
+  },
+  "studyPublish": {
+    "title": "Publish a Course"
+  },
+  "studyRecord": {
+    "title": "Study Records",
+    "subtitle": "{name}'s study records",
+    "totalDuration": "Total Duration (min)",
+    "totalCourses": "Total Courses",
+    "completedCourses": "Completed Courses",
+    "totalLessons": "Total Lessons",
+    "completedLessons": "Completed Lessons",
+    "continuousDays": "Day Streak",
+    "empty": "No study records yet",
+    "untitled": "Untitled",
+    "duration": "Duration",
+    "progress": "Progress",
+    "statusCompleted": "Completed",
+    "statusInProgress": "In Progress",
+    "statusPaused": "Paused"
+  },
+  "subscriptions": {
+    "title": "My Subscriptions",
+    "empty": "No subscriptions yet",
+    "cancel": "Cancel Subscription"
+  },
+  "taskCenter": {
+    "title": "Task Center",
+    "subtitle": "Complete tasks, earn rewards",
+    "retry": "Retry",
+    "empty": "No tasks available",
+    "claimed": "Claimed",
+    "claim": "Claim",
+    "goToDo": "Go",
+    "progress": "{current}/{target}"
+  },
+  "team": {
+    "title": "My Team",
+    "subtitle": "Team size and performance at a glance",
+    "retry": "Retry",
+    "totalMembers": "Total Members",
+    "activeMembers": "Active Members",
+    "directCount": "Direct Referrals",
+    "indirectCount": "Indirect Referrals",
+    "totalContribution": "Team Contribution",
+    "empty": "No team members yet",
+    "joinDate": "Joined",
+    "level": "Level"
+  },
+  "teamDetail": {
+    "title": "Team Member Details",
+    "transactionVolume": "Sales Volume",
+    "commission": "Commission Earned",
+    "orderNum": "Orders Closed",
+    "phone": "Phone",
+    "joinedAt": "Joined",
+    "contact": "Contact",
+    "viewOrders": "View Orders"
+  },
+  "vip": {
+    "subtitle": "Unlock membership and enjoy more benefits",
+    "retry": "Retry",
+    "empty": "No membership levels available",
+    "currentLevel": "Current Level",
+    "expireAt": "Expires",
+    "levelsTitle": "Membership Levels",
+    "currentBadge": "Current",
+    "duration": "{days} days",
+    "benefitsCount": "{count} exclusive benefits"
+  },
+  "vipBenefit": {
+    "title": "Membership Benefits"
+  },
+  "vipTrader": {
+    "title": "VIP Trader",
+    "subtitle": "Exclusive trader benefits",
+    "badge": "Trader Exclusive",
+    "heroDesc": "Open for ¥{price} and get {power} computing power, plus exclusive distribution and customization benefits",
+    "entryTeam": "My Team",
+    "entryStats": "Earnings Stats",
+    "entryWithdraw": "Withdraw",
+    "benefits": "Exclusive Benefits",
+    "benefitCount": "{count} items",
+    "lifetime": "Lifetime access",
+    "openNow": "Activate Now",
+    "opened": "Activated"
+  },
+  "wallet": {
+    "points": "Points"
   }
 }
