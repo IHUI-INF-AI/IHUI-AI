@@ -34,7 +34,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { Search, X } from 'lucide-react-native'
 import {
   deleteConversation,
@@ -332,8 +332,8 @@ export function StudyIndexScreen() {
       navigation.navigate('Share')
       return
     }
-    const rnTab: MainTabKey = tab as MainTabKey
-    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
+    // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)

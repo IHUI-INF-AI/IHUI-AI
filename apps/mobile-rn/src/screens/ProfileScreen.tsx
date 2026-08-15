@@ -67,7 +67,7 @@ import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
@@ -104,15 +104,6 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
   if (nav) {
     nav.navigate(route as never)
   }
-}
-
-/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 由 handleDrawerNavigate 特殊跳转到 RootStack 独立页,不走此映射) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
 }
 
 /**

@@ -33,7 +33,7 @@ import { NavBar, type NavBarAction } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -50,15 +50,6 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
   if (nav) {
     nav.navigate(route as never)
   }
-}
-
-/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 跳 RootStack 独立页) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
 }
 
 /** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer) */

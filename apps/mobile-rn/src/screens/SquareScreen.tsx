@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import {
   SquareScreen as SharedSquareScreen,
   type ArticleItem,
@@ -358,15 +358,6 @@ export default function SquareScreenWrapper() {
       />
     </View>
   )
-}
-
-/** Drawer 主菜单 → RN Tab 路由映射(square/share 在 handleDrawerNavigate 特判跳 RootStack 独立页) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
 }
 
 const styles = StyleSheet.create({
