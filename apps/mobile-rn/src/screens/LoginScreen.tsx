@@ -766,6 +766,7 @@ export function LoginScreen() {
           <TouchableOpacity
             style={styles.devFillBtn}
             onPress={() => {
+              console.info('[DEV] fill test account clicked')
               form.setAccount('admin')
               form.setPassword('[REDACTED-PW]')
               setAgreed(true)

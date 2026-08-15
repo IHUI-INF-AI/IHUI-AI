@@ -65,8 +65,9 @@ import Drawer, {
 } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
-import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
-import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList } from '../navigation/tab-utils'
+import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
