@@ -762,6 +762,22 @@ export function LoginScreen() {
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
+        {__DEV__ ? (
+          <TouchableOpacity
+            style={styles.devFillBtn}
+            onPress={() => {
+              form.setAccount('admin')
+              form.setPassword('admin123')
+              setAgreed(true)
+              setAgreementError('')
+            }}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="DEV 填充测试账号"
+          >
+            <Text style={styles.devFillText}>DEV</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
