@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { mainScreenForTab } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
@@ -16,7 +16,7 @@ import Drawer, {
   type DrawerExtraMenu,
   type DrawerTab,
 } from '../components/Drawer'
-import type { MainTabKey, RootStackParamList } from '../navigation/RootNavigator'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -38,14 +38,6 @@ const MOCK_HISTORY: DrawerConversationItem[] = [
   { id: 'h3', title: '本月榜单 · 通用助手', createdAt: Date.now() - 86400000 * 8 },
 ]
 
-const TAB_MAP: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
-}
-
 export default function RankingDetailScreenWrapper() {
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
@@ -56,7 +48,7 @@ export default function RankingDetailScreenWrapper() {
   const closeDrawer = () => setDrawerVisible(false)
 
   const onNavigate = (tab: DrawerTab) => {
-    rootNav?.navigate('Main', { screen: mainScreenForTab(TAB_MAP[tab]) })
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const onNavigateCompany = () => {
     closeDrawer()
