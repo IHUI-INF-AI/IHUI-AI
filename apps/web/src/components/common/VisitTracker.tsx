@@ -18,7 +18,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
 
-const REPORT_API = '/api/visit-tracking/visit-log'
+const REPORT_API = '/api/visit-tracking/visit-log' // method: POST
 
 function getSessionId(): string {
   try {
