@@ -27,7 +27,7 @@ export default function TopupSuccessScreen() {
   const time = new Date().toLocaleString('zh-CN')
 
   const goOrder = () => navigation.navigate('Order')
-  const goHome = () => navigation.navigate('Tabs', { screen: 'home' } as never)
+  const goHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
 
   return (
     <View style={styles.container}>
