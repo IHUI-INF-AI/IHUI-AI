@@ -28,7 +28,6 @@ const TYPE_TABS = [
 ] as const
 
 export function CoursePlanetScreen({
-  t,
   data,
   loading,
   refreshing,
@@ -43,7 +42,13 @@ export function CoursePlanetScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const renderCourse = (course: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }) => (
+  const renderCourse = (course: {
+    id: string
+    title: string
+    coverImage?: string
+    price: number
+    isFree: boolean
+  }) => (
     <TouchableOpacity
       key={course.id}
       style={styles.courseCard}
@@ -87,7 +92,11 @@ export function CoursePlanetScreen({
         <ScrollView
           style={styles.scroll}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tk.text.tertiary} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={tk.text.tertiary}
+            />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -98,7 +107,9 @@ export function CoursePlanetScreen({
                 style={[styles.typeTab, selectedType === tab.key && styles.typeTabActive]}
                 onPress={() => onTypeChange(tab.key)}
               >
-                <Text style={[styles.typeTabText, selectedType === tab.key && styles.typeTabTextActive]}>
+                <Text
+                  style={[styles.typeTabText, selectedType === tab.key && styles.typeTabTextActive]}
+                >
                   {tab.label}
                 </Text>
               </TouchableOpacity>
@@ -115,9 +126,7 @@ export function CoursePlanetScreen({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>热门课程</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.horizontalList}>
-                      {data.hot.map(renderCourse)}
-                    </View>
+                    <View style={styles.horizontalList}>{data.hot.map(renderCourse)}</View>
                   </ScrollView>
                 </View>
               )}
@@ -125,9 +134,7 @@ export function CoursePlanetScreen({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>新手推荐</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.horizontalList}>
-                      {data.beginner.map(renderCourse)}
-                    </View>
+                    <View style={styles.horizontalList}>{data.beginner.map(renderCourse)}</View>
                   </ScrollView>
                 </View>
               )}
@@ -141,11 +148,13 @@ export function CoursePlanetScreen({
                   </View>
                 </View>
               )}
-              {data.hot.length === 0 && data.beginner.length === 0 && data.selected.length === 0 && (
-                <View style={styles.centerWrap}>
-                  <Text style={styles.emptyText}>暂无课程</Text>
-                </View>
-              )}
+              {data.hot.length === 0 &&
+                data.beginner.length === 0 &&
+                data.selected.length === 0 && (
+                  <View style={styles.centerWrap}>
+                    <Text style={styles.emptyText}>暂无课程</Text>
+                  </View>
+                )}
             </>
           )}
         </ScrollView>

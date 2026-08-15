@@ -8,7 +8,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-export default function CoursePlanetScreen() {
+export function CoursePlanetScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
@@ -31,8 +31,20 @@ export default function CoursePlanetScreen() {
     try {
       const res = await fetchApi<{
         hot: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
-        beginner: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
-        selected: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+        beginner: {
+          id: string
+          title: string
+          coverImage?: string
+          price: number
+          isFree: boolean
+        }[]
+        selected: {
+          id: string
+          title: string
+          coverImage?: string
+          price: number
+          isFree: boolean
+        }[]
       }>('/api/course-planet')
       if (res.success && res.data) {
         setData(res.data)
@@ -56,9 +68,12 @@ export default function CoursePlanetScreen() {
     void load()
   }, [load])
 
-  const onCoursePress = useCallback((id: string) => {
-    navigation.navigate('CourseDetail', { id })
-  }, [navigation])
+  const onCoursePress = useCallback(
+    (id: string) => {
+      navigation.navigate('CourseDetail', { id })
+    },
+    [navigation],
+  )
 
   return (
     <SharedCoursePlanetScreen
@@ -75,3 +90,5 @@ export default function CoursePlanetScreen() {
     />
   )
 }
+
+export default CoursePlanetScreen

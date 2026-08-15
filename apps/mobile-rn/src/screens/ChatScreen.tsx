@@ -37,11 +37,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import type { FlatList } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
-import { useNavigation, useRoute } from '@react-navigation/native'
-import type { NativeStackNavigationProp, RouteProp } from '@react-navigation/native-stack'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
@@ -85,7 +86,11 @@ import {
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import type { ModelConfigType } from '@ihui/ui-native'
-import { ChatScreen as SharedChatScreen, type ChatScreenMessage, type ChatScreenModel } from '@ihui/rn-app'
+import {
+  ChatScreen as SharedChatScreen,
+  type ChatScreenMessage,
+  type ChatScreenModel,
+} from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { BottomActionBar } from '../components/BottomActionBar'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -161,6 +166,8 @@ const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
   id: m.id,
   name: m.name,
   provider: m.provider,
+  context_length: m.context_length,
+  input_price: m.input_price,
 })
 
 // ── 常量 ──
@@ -423,22 +430,23 @@ export function ChatScreen() {
   }
 
   // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
-  const handleModelTypeClick = (type: ModelType): void => {
+  const handleModelTypeClick = useCallback((type: ModelType): void => {
     if (type === 'sck') {
       // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
-      if (currentModelType === 'sck') {
-        setCurrentModelType('')
-        setShowMaterialList(false)
-      } else {
-        setCurrentModelType('sck')
+      setCurrentModelType((prev) => {
+        if (prev === 'sck') {
+          setShowMaterialList(false)
+          return ''
+        }
         setShowMaterialList(true)
-      }
+        return 'sck'
+      })
       return
     }
     // 其他类型:切换选中态(对齐 Uniapp handleModelTypeClick,二次点击收起)
     setCurrentModelType((prev) => (prev === type ? '' : type))
     setShowMaterialList(false)
-  }
+  }, [])
 
   // ── BottomActionBar 核心事件回调(10 个核心) ──
 
@@ -503,9 +511,12 @@ export function ChatScreen() {
   }
 
   /** remove-image:删除图片(复用 useChatInput onInputRemoveFile) */
-  const removeImage = (id: string): void => {
-    onInputRemoveFile(id)
-  }
+  const removeImage = useCallback(
+    (id: string): void => {
+      onInputRemoveFile(id)
+    },
+    [onInputRemoveFile],
+  )
 
   /** update:prompt:更新输入内容 */
   const updatePrompt = (value: string): void => {
@@ -764,51 +775,54 @@ export function ChatScreen() {
 
   // ── 共享组件渲染回调 ──
 
-  const renderMessage = useCallback((item: ChatScreenMessage, index: number): React.ReactNode => {
-    const isUser = item.role === 'user'
-    const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
-    const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
-    return (
-      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
-        <View style={styles.msgContent}>
-          <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
-            <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
-              {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
-            </Text>
-          </View>
-          {showActions ? (
-            <View style={styles.msgActions}>
-              <TouchableOpacity
-                style={styles.msgActionBtn}
-                hitSlop={8}
-                onPress={() => {
-                  Clipboard.setString(item.content)
-                  showToast('success', '已复制')
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="复制"
-              >
-                <Copy size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>复制</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.msgActionBtn}
-                hitSlop={8}
-                onPress={() => {
-                  void Share.share({ message: item.content })
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="分享"
-              >
-                <Share2 size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>分享</Text>
-              </TouchableOpacity>
+  const renderMessage = useCallback(
+    (item: ChatScreenMessage, _index: number): React.ReactNode => {
+      const isUser = item.role === 'user'
+      const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
+      const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
+      return (
+        <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
+          <View style={styles.msgContent}>
+            <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
+              <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
+                {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
+              </Text>
             </View>
-          ) : null}
+            {showActions ? (
+              <View style={styles.msgActions}>
+                <TouchableOpacity
+                  style={styles.msgActionBtn}
+                  hitSlop={8}
+                  onPress={() => {
+                    Clipboard.setString(item.content)
+                    showToast('success', '已复制')
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="复制"
+                >
+                  <Copy size={16} color={tokens.text.secondary} />
+                  <Text style={styles.msgActionText}>复制</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.msgActionBtn}
+                  hitSlop={8}
+                  onPress={() => {
+                    void Share.share({ message: item.content })
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="分享"
+                >
+                  <Share2 size={16} color={tokens.text.secondary} />
+                  <Text style={styles.msgActionText}>分享</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         </View>
-      </View>
-    )
-  }, [messages, isStreaming, showToast])
+      )
+    },
+    [messages, isStreaming, showToast],
+  )
 
   const renderListHeader = useCallback((): React.ReactNode => {
     const nodes: React.ReactNode[] = []
@@ -838,7 +852,7 @@ export function ChatScreen() {
               </Text>
             </View>
           ))}
-        </ScrollView>
+        </ScrollView>,
       )
     }
     if (inputFiles.length > 0) {
@@ -861,11 +875,11 @@ export function ChatScreen() {
               </Pressable>
             </View>
           ))}
-        </ScrollView>
+        </ScrollView>,
       )
     }
     return nodes.length > 0 ? <>{nodes}</> : null
-  }, [materialCards, inputFiles])
+  }, [materialCards, inputFiles, removeImage])
 
   const renderListFooter = useCallback((): React.ReactNode => {
     return (
@@ -893,7 +907,7 @@ export function ChatScreen() {
         })}
       </ScrollView>
     )
-  }, [currentModelType])
+  }, [currentModelType, handleModelTypeClick])
 
   // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
   const showQrCode = (): void => setQrCodeVisible(true)
@@ -1170,17 +1184,43 @@ export function ChatScreen() {
           messages={sharedMessages}
           inputText={prompt}
           isStreaming={isStreaming}
+          error=""
           models={sharedModels}
           model={model}
+          pickerOpen={false}
+          navItems={[]}
+          inputFiles={inputFiles}
+          isInputFocused={false}
+          isInputFullscreen={false}
+          isVoiceMode={isVoiceMode}
+          isRecording={false}
+          isSending={isStreaming}
+          inputError=""
           showHeader={false}
           showModelBar={false}
           showInput={false}
           renderMessage={renderMessage}
-          renderListHeader={renderListHeader}
-          renderListFooter={renderListFooter}
+          renderListHeader={renderListHeader() as React.ReactNode}
+          renderListFooter={renderListFooter() as React.ReactNode}
           itemSeparatorComponent={null}
           containerStyle={{ flex: 1 }}
           flatListStyle={{ flex: 1 }}
+          onInputTextChange={updatePrompt}
+          onSend={() => send()}
+          onStop={stop}
+          onModelChange={setModel}
+          onPickerOpenChange={() => {}}
+          onLongPressMessage={() => {}}
+          onInputFocus={() => {}}
+          onInputBlur={() => {}}
+          onInputFullscreenToggle={() => {}}
+          onInputVoiceToggle={onInputVoiceToggle}
+          onInputAddImage={onInputAddImage}
+          onInputAddFile={() => {}}
+          onInputRemoveFile={onInputRemoveFile}
+          onInputClear={() => {}}
+          onInputVoiceStart={() => {}}
+          onInputVoiceEnd={() => {}}
         />
         <BottomActionBar
           prompt={prompt}
