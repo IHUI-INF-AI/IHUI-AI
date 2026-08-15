@@ -11,7 +11,11 @@
     "progressEmpty": "Not started yet. Pick a course!",
     "livePreview": "Upcoming Live",
     "livePreviewMore": "More",
-    "recommend": "Recommended for You"
+    "recommend": "Recommended for You",
+    "greetingMorning": "Good morning",
+    "greetingNoon": "Good noon",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening"
   },
   "course": {
     "title": "Courses",
