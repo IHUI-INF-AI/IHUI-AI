@@ -1,6 +1,7 @@
 import './global.css'
 import { useEffect } from 'react'
-import { AppRegistry, Platform, View } from 'react-native'
+import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
+import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
@@ -20,6 +21,19 @@ import {
 import { rnAuthStore } from './src/stores/auth-store'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
+
+/**
+ * 全局默认字体:阿里妈妈方圆体(对齐 D 盘 uniapp Ai-WXMiniVue 的 App.vue 全局字体)。
+ * PostScript name = AlimamaFangYuanTiVF-Thin(见 assets/fonts/AlimamaFangYuanTiVF-Thin.ttf)。
+ * 通过 defaultProps.style 注入,所有未显式指定 fontFamily 的 Text/TextInput 默认走此字体;
+ * 显式 style 中的 fontFamily 优先级更高,不受影响。
+ */
+const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
+// 注入全局默认字体（React Native 限制，defaultProps 需要 any 断言）
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(Text as any).defaultProps = { ...(Text as any).defaultProps, style: { fontFamily: GLOBAL_FONT_FAMILY } }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: { fontFamily: GLOBAL_FONT_FAMILY } }
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
@@ -98,6 +112,12 @@ function AppContent() {
 }
 
 export default function App() {
+  // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const [fontsLoaded] = useFonts({
+    'AlimamaFangYuanTiVF-Thin': require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf'),
+  })
+  if (!fontsLoaded) return null
   return (
     <ThemeProvider>
       <AppContent />
