@@ -14,6 +14,7 @@ const ROOT = process.cwd()
 const WEB_DIR = join(ROOT, 'apps/web')
 const API_ROUTES_DIR = join(ROOT, 'apps/api/src/routes')
 const API_PLUGINS_DIR = join(ROOT, 'apps/api/src/plugins')
+const AI_SERVICE_ROUTERS_DIR = join(ROOT, 'apps/ai-service/app/routers')
 const SERVER_FILE = join(ROOT, 'apps/api/src/server.ts')
 
 const C = {
@@ -39,6 +40,8 @@ function collectFiles(dir, exts, result = []) {
       // 跳过单元测试 mock 文件(*.test.ts/tsx/js),fetch mock 非真实 API 调用
       // 保留 e2e 测试(*.spec.ts/tsx),其 API 调用是真实端到端检查
       if (/\.test\.(ts|tsx|js)$/.test(entry)) continue
+      // 跳过 Next.js 配置文件(rewrites 是服务器端路由规则,非前端 API 调用)
+      if (entry === 'next.config.ts' || entry === 'next.config.js') continue
       result.push(full)
     }
   }
@@ -275,6 +278,53 @@ function extractBackendRoutes() {
       }
     }
   }
+  // FastAPI 路由(ai-service):从 apps/ai-service/app/routers/*.py 提取
+  // 模式1: router = APIRouter(prefix="/api/...") → 记录 prefix
+  // 模式2: @router.(get|post|...)("/path") → 记录 method + localPath
+  // 完整路径 = prefix + localPath（main.py include_router 时统一挂载 /api 或 /api/v1 等）
+  if (existsSync(AI_SERVICE_ROUTERS_DIR)) {
+    const routerFiles = collectFiles(AI_SERVICE_ROUTERS_DIR, ['.py'])
+    // 1. 先从 main.py 提取 include_router(router.router, prefix="...") 映射
+    const aiServiceMain = join(ROOT, 'apps/ai-service/app/main.py')
+    const includePrefixMap = new Map() // router变量名 -> prefix
+    if (existsSync(aiServiceMain)) {
+      const mainSrc = readFileSync(aiServiceMain, 'utf8')
+      const includeRe = /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
+      let im
+      while ((im = includeRe.exec(mainSrc)) !== null) {
+        includePrefixMap.set(im[1], im[2])
+      }
+    }
+    for (const file of routerFiles) {
+      const src = readFileSync(file, 'utf8')
+      const rel = relative(ROOT, file)
+      const fileName = relative(AI_SERVICE_ROUTERS_DIR, file).replace(/\.py$/, '')
+      // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）
+      const prefixRe = /APIRouter\(\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
+      const routerPrefixes = []
+      let pm
+      while ((pm = prefixRe.exec(src)) !== null) {
+        routerPrefixes.push(pm[1])
+      }
+      // 如果文件内无 prefix，尝试从 main.py include_router 映射获取
+      if (routerPrefixes.length === 0 && includePrefixMap.has(fileName)) {
+        routerPrefixes.push(includePrefixMap.get(fileName))
+      }
+      // 如果仍无 prefix，使用空字符串
+      const prefixes = routerPrefixes.length > 0 ? routerPrefixes : ['']
+      // 提取 @router.xxx("/path") 注册
+      const fastApiMethodRe = /@router\.(get|post|put|patch|delete|options)\(\s*['"`]([^'"`]+)['"`]/g
+      let fm
+      while ((fm = fastApiMethodRe.exec(src)) !== null) {
+        const method = fm[1].toUpperCase()
+        const localPath = fm[2]
+        for (const p of prefixes) {
+          const fullPath = normalizePath(p, localPath)
+          routes.push({ method, localPath: fullPath, file: rel })
+        }
+      }
+    }
+  }
   // 展开为完整路径（localPath + prefix）
   // 注意：这是简化匹配，实际 Fastify 会合并 prefix
   return { routes, prefixes }
@@ -282,9 +332,13 @@ function extractBackendRoutes() {
 
 /** 将路径归一化为可比较的形式：/api/admin/users/:param */
 function normalizePath(prefix, localPath) {
+  if (!prefix) return localPath
   if (localPath === '/' || localPath === '') return prefix
-  const sep = prefix.endsWith('/') ? '' : '/'
-  return `${prefix}${localPath.startsWith('/') ? localPath : sep + localPath}`
+  // 去掉尾部/头部多余斜杠，避免双斜杠
+  const cleanPrefix = prefix.replace(/\/+$/, '')
+  const cleanLocal = localPath.replace(/^\//, '')
+  if (cleanLocal === '') return cleanPrefix
+  return `${cleanPrefix}/${cleanLocal}`
 }
 
 /** 比对两个路径是否匹配（支持 :param 通配 + Fastify * catch-all） */
@@ -301,6 +355,7 @@ function pathMatches(frontendPath, backendPath) {
     if (fParts.length < starIdx + 1) return false
     for (let i = 0; i < starIdx; i++) {
       if (bParts[i].startsWith(':')) continue
+      if (fParts[i].startsWith(':')) continue // 前端 :param 通配
       if (fParts[i] !== bParts[i]) return false
     }
     return true
@@ -309,6 +364,7 @@ function pathMatches(frontendPath, backendPath) {
   if (fParts.length !== bParts.length) return false
   for (let i = 0; i < fParts.length; i++) {
     if (bParts[i].startsWith(':')) continue // 后端 :param 匹配任意
+    if (fParts[i].startsWith(':')) continue // 前端 :param 通配
     if (fParts[i] !== bParts[i]) return false
   }
   return true
