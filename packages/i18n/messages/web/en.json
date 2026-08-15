@@ -5374,48 +5374,6 @@
       "searchPlaceholder": "Search title",
       "delete": "Delete"
     },
-    "customerService": {
-      "addAgent": "Add Agent",
-      "colNickname": "Nickname",
-      "colStatus": "Status",
-      "colLoad": "Load",
-      "colSkills": "Skills",
-      "colActions": "Actions",
-      "loading": "Loading...",
-      "noAgents": "No agents",
-      "switchStatus": "Switch status",
-      "addAgentTitle": "Add Agent",
-      "addAgentDesc": "Designate user as customer service agent",
-      "fieldUserId": "User ID",
-      "userIdPlaceholder": "User ID in UUID format",
-      "fieldAgentNickname": "Agent Nickname",
-      "fieldMaxConcurrent": "Max Concurrent Sessions",
-      "cancel": "Cancel",
-      "create": "Create",
-      "addCategory": "Add Category",
-      "colName": "Name",
-      "colSlug": "Slug",
-      "colDescription": "Description",
-      "colSort": "Sort Order",
-      "noCategories": "No categories",
-      "addCategoryTitle": "Add Category",
-      "addCategoryDesc": "Create ticket category",
-      "fieldCatName": "Category Name",
-      "fieldSlug": "Slug",
-      "slugPlaceholder": "e.g. billing",
-      "fieldDescription": "Description",
-      "fieldSort": "Sort Order",
-      "statusPlaceholder": "Status",
-      "allStatus": "All Status",
-      "priorityPlaceholder": "Priority",
-      "allPriority": "All Priorities",
-      "colTicketNo": "Ticket No.",
-      "colTitle": "Title",
-      "colPriority": "Priority",
-      "colCreatedAt": "Created At",
-      "noTickets": "No tickets",
-      "handle": "Handle"
-    },
     "developer": {
       "cancel": "Cancel",
       "save": "Save",
@@ -5801,43 +5759,6 @@
       "save": "Save",
       "deleteTitle": "Confirm Delete",
       "deleteDesc": "Are you sure you want to delete this record? This action cannot be undone."
-    },
-    "loginLogs": {
-      "delete": "Delete",
-      "edit": "Edit",
-      "loading": "Loading…",
-      "empty": "No data",
-      "colId": "ID",
-      "colUserUuid": "User UUID",
-      "colLoginType": "Login Type",
-      "colPlatform": "Platform",
-      "colIp": "IP",
-      "colLocation": "Location",
-      "colUa": "UA",
-      "colLoginTime": "Login Time",
-      "colMessage": "Message",
-      "colActions": "Actions",
-      "dialogEditTitle": "Edit Login Log",
-      "dialogCreateTitle": "Add Login Log",
-      "descEdit": "Modify login log info",
-      "descCreate": "Add a new login log",
-      "fieldUserUuid": "User UUID *",
-      "fieldLoginType": "Login Type *",
-      "fieldPlatform": "Platform",
-      "fieldLocation": "Location",
-      "fieldLoginTime": "Login Time",
-      "fieldMessage": "Message",
-      "cancel": "Cancel",
-      "save": "Save",
-      "labelUserUuid": "User UUID",
-      "placeholderUserUuid": "Search UUID",
-      "labelPlatform": "Platform",
-      "placeholderPlatform": "Search platform",
-      "labelLocation": "Location",
-      "placeholderLocation": "Search location",
-      "labelLoginTime": "Login Time",
-      "search": "Search",
-      "reset": "Reset"
     },
     "notificationLogs": {
       "title": "Notification Logs",
@@ -6850,9 +6771,7 @@
           "error": "Error"
         }
       }
-    },
-    "visitTracking": "Visit Stats",
-    "behaviorAnalytics": "Behavior Analytics"
+    }
   },
   "knowledgeGraph": {
     "title": "Knowledge Graph",
@@ -10789,23 +10708,6 @@
     "phPhone": "Search phone",
     "phPlatform": "Search platform"
   },
-  "adminTicketDetail": {
-    "status": "Status:",
-    "priority": "Priority:",
-    "issueDescription": "Issue Description",
-    "statusTransition": "Status Transition:",
-    "noTransitions": "No available transitions",
-    "assignAgent": "Assign Agent:",
-    "selectAgent": "Select agent",
-    "assign": "Assign",
-    "replyRecords": "Reply Records",
-    "noReply": "No replies yet",
-    "roleAgent": "Agent",
-    "roleUser": "User",
-    "customerReply": "Agent Reply",
-    "replyPlaceholder": "Enter reply content...",
-    "sendReply": "Send Reply"
-  },
   "featureCenter": {
     "title": "Feature Center",
     "description": "One-stop discovery of APIs, Agents, docs, models and SDKs",
@@ -12260,57 +12162,6 @@
       "empty": "No questions yet",
       "answered": "Answered",
       "pending": "Pending"
-    },
-    "eduAttendancePage": {
-      "title": "Attendance Management",
-      "subtitle": "Student check-in, check-out and leave management",
-      "checkIn": "Check In",
-      "checkOut": "Check Out",
-      "leave": "Leave",
-      "stats": "Attendance Stats"
-    },
-    "eduGradePage": {
-      "title": "Grade Management",
-      "subtitle": "Exam score entry, statistics and ranking",
-      "input": "Score Entry",
-      "stats": "Grade Stats",
-      "rank": "Ranking",
-      "trend": "Trend Analysis"
-    },
-    "eduHomeworkPage": {
-      "title": "Homework Management",
-      "subtitle": "Homework submission, grading and statistics",
-      "submit": "Submit Homework",
-      "grade": "Grade Homework",
-      "stats": "Completion Stats"
-    },
-    "eduEnrollmentPage": {
-      "title": "Enrollment Management",
-      "subtitle": "Lead tracking, trial booking and enrollment management",
-      "lead": "Lead Management",
-      "trial": "Trial Booking",
-      "enroll": "Enrollment Records"
-    },
-    "eduFinancePage": {
-      "title": "Finance Management",
-      "subtitle": "Tuition standards, payment and refund management",
-      "fee": "Tuition Standards",
-      "payment": "Payment Records",
-      "refund": "Refund Management"
-    },
-    "eduEmpty": {
-      "noSchedule": "No schedule available",
-      "noMeal": "No meal records",
-      "noPlan": "No study plan",
-      "noAttendance": "No attendance records",
-      "noGrade": "No grade records",
-      "noLead": "No lead records",
-      "noTrial": "No trial bookings",
-      "noEnrollment": "No enrollment records",
-      "noHomework": "No homework submissions",
-      "noRule": "No scheduling rules",
-      "noPayment": "No payment records",
-      "noRefund": "No refund records"
     }
   },
   "marketing": {
@@ -15205,13 +15056,7 @@
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame",
-      "deviceMobilePortrait": "Mobile Portrait",
-      "deviceMobileLandscape": "Mobile Landscape",
-      "deviceTabletPortrait": "Tablet Portrait",
-      "deviceTabletLandscape": "Tablet Landscape",
-      "deviceDesktop": "Desktop",
-      "deviceCustom": "Custom"
+      "deviceFrame": "Device Frame"
     },
     "templates": {
       "title": "Templates"

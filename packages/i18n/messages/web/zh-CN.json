@@ -5374,48 +5374,6 @@
       "searchPlaceholder": "搜索标题",
       "delete": "删除"
     },
-    "customerService": {
-      "addAgent": "添加坐席",
-      "colNickname": "昵称",
-      "colStatus": "状态",
-      "colLoad": "负载",
-      "colSkills": "技能",
-      "colActions": "操作",
-      "loading": "加载中...",
-      "noAgents": "暂无坐席",
-      "switchStatus": "切换状态",
-      "addAgentTitle": "添加坐席",
-      "addAgentDesc": "将用户指定为客服坐席",
-      "fieldUserId": "用户 ID",
-      "userIdPlaceholder": "UUID 格式的用户 ID",
-      "fieldAgentNickname": "坐席昵称",
-      "fieldMaxConcurrent": "最大并发会话数",
-      "cancel": "取消",
-      "create": "创建",
-      "addCategory": "添加分类",
-      "colName": "名称",
-      "colSlug": "标识",
-      "colDescription": "描述",
-      "colSort": "排序",
-      "noCategories": "暂无分类",
-      "addCategoryTitle": "添加分类",
-      "addCategoryDesc": "创建工单分类",
-      "fieldCatName": "分类名称",
-      "fieldSlug": "标识 (slug)",
-      "slugPlaceholder": "如：billing",
-      "fieldDescription": "描述",
-      "fieldSort": "排序",
-      "statusPlaceholder": "状态",
-      "allStatus": "全部状态",
-      "priorityPlaceholder": "优先级",
-      "allPriority": "全部优先级",
-      "colTicketNo": "工单号",
-      "colTitle": "标题",
-      "colPriority": "优先级",
-      "colCreatedAt": "创建时间",
-      "noTickets": "暂无工单",
-      "handle": "处理"
-    },
     "developer": {
       "cancel": "取消",
       "save": "保存",
@@ -5801,43 +5759,6 @@
       "save": "保存",
       "deleteTitle": "确认删除",
       "deleteDesc": "确定要删除该记录吗？此操作不可撤销。"
-    },
-    "loginLogs": {
-      "delete": "删除",
-      "edit": "编辑",
-      "loading": "加载中…",
-      "empty": "暂无数据",
-      "colId": "ID",
-      "colUserUuid": "用户UUID",
-      "colLoginType": "登录类型",
-      "colPlatform": "平台",
-      "colIp": "IP",
-      "colLocation": "位置",
-      "colUa": "UA",
-      "colLoginTime": "登录时间",
-      "colMessage": "消息",
-      "colActions": "操作",
-      "dialogEditTitle": "编辑登录日志",
-      "dialogCreateTitle": "新增登录日志",
-      "descEdit": "修改登录日志信息",
-      "descCreate": "添加新的登录日志",
-      "fieldUserUuid": "用户UUID *",
-      "fieldLoginType": "登录类型 *",
-      "fieldPlatform": "平台",
-      "fieldLocation": "位置",
-      "fieldLoginTime": "登录时间",
-      "fieldMessage": "消息",
-      "cancel": "取消",
-      "save": "保存",
-      "labelUserUuid": "用户UUID",
-      "placeholderUserUuid": "搜索 UUID",
-      "labelPlatform": "平台",
-      "placeholderPlatform": "搜索平台",
-      "labelLocation": "位置",
-      "placeholderLocation": "搜索位置",
-      "labelLoginTime": "登录时间",
-      "search": "搜索",
-      "reset": "重置"
     },
     "notificationLogs": {
       "title": "通知日志",
@@ -6850,9 +6771,7 @@
           "error": "异常"
         }
       }
-    },
-    "visitTracking": "访问统计",
-    "behaviorAnalytics": "行为埋点"
+    }
   },
   "knowledgeGraph": {
     "title": "知识图谱",
@@ -10789,23 +10708,6 @@
     "phPhone": "搜索手机号",
     "phPlatform": "搜索平台"
   },
-  "adminTicketDetail": {
-    "status": "状态：",
-    "priority": "优先级：",
-    "issueDescription": "问题描述",
-    "statusTransition": "状态流转：",
-    "noTransitions": "无可流转状态",
-    "assignAgent": "分配坐席：",
-    "selectAgent": "选择坐席",
-    "assign": "分配",
-    "replyRecords": "回复记录",
-    "noReply": "暂无回复",
-    "roleAgent": "客服",
-    "roleUser": "用户",
-    "customerReply": "客服回复",
-    "replyPlaceholder": "输入回复内容...",
-    "sendReply": "发送回复"
-  },
   "featureCenter": {
     "title": "开放平台 Feature Center",
     "description": "一站式发现 API、Agent、文档、模型与 SDK",
@@ -12260,57 +12162,6 @@
       "empty": "暂无问答",
       "answered": "已回答",
       "pending": "待回答"
-    },
-    "eduAttendancePage": {
-      "title": "考勤管理",
-      "subtitle": "学生签到、签退与请假管理",
-      "checkIn": "签到",
-      "checkOut": "签退",
-      "leave": "请假",
-      "stats": "出勤统计"
-    },
-    "eduGradePage": {
-      "title": "成绩管理",
-      "subtitle": "考试成绩录入、统计与排名",
-      "input": "成绩录入",
-      "stats": "成绩统计",
-      "rank": "排名",
-      "trend": "趋势分析"
-    },
-    "eduHomeworkPage": {
-      "title": "作业管理",
-      "subtitle": "作业提交、批改与统计",
-      "submit": "提交作业",
-      "grade": "批改作业",
-      "stats": "完成统计"
-    },
-    "eduEnrollmentPage": {
-      "title": "招生管理",
-      "subtitle": "线索跟进、试听预约与报名管理",
-      "lead": "线索管理",
-      "trial": "试听预约",
-      "enroll": "报名记录"
-    },
-    "eduFinancePage": {
-      "title": "财务管理",
-      "subtitle": "学费标准、缴费与退费管理",
-      "fee": "学费标准",
-      "payment": "缴费记录",
-      "refund": "退费管理"
-    },
-    "eduEmpty": {
-      "noSchedule": "暂无课程安排",
-      "noMeal": "暂无菜谱记录",
-      "noPlan": "暂无学习计划",
-      "noAttendance": "暂无考勤记录",
-      "noGrade": "暂无成绩记录",
-      "noLead": "暂无线索记录",
-      "noTrial": "暂无试听预约",
-      "noEnrollment": "暂无报名记录",
-      "noHomework": "暂无作业提交",
-      "noRule": "暂无排课规则",
-      "noPayment": "暂无缴费记录",
-      "noRefund": "暂无退费记录"
     }
   },
   "marketing": {
@@ -15205,13 +15056,7 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框",
-      "deviceMobilePortrait": "手机竖屏",
-      "deviceMobileLandscape": "手机横屏",
-      "deviceTabletPortrait": "平板竖屏",
-      "deviceTabletLandscape": "平板横屏",
-      "deviceDesktop": "桌面端",
-      "deviceCustom": "自定义"
+      "deviceFrame": "设备外框"
     },
     "templates": {
       "title": "模板"
