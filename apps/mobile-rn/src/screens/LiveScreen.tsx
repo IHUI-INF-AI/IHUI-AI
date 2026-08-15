@@ -4,13 +4,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
-import type { LiveStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList, RootStackParamList } from '../navigation/RootNavigator'
 
-type NavigationProp = NativeStackNavigationProp<LiveStackParamList>
+type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'LiveMain'>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 export function LiveScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const [lives, setLives] = useState<Live[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -52,7 +54,7 @@ export function LiveScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={() => load(true)}
-      onPressItem={(id) => navigation.navigate('LiveDetail', { id })}
+      onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
       onBack={() => navigation.goBack()}
     />
   )
