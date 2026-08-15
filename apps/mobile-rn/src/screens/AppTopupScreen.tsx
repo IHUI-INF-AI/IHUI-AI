@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -24,9 +25,9 @@ export default function AppTopupScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
-  const [selectedId, setSelectedId] = useState(AMOUNT_OPTIONS[0].id)
+  const [selectedId, setSelectedId] = useState(AMOUNT_OPTIONS[0]?.id ?? '')
   const [customAmount, setCustomAmount] = useState('')
-  const [payMethod, setPayMethod] = useState(PAY_METHODS[0].id)
+  const [payMethod, setPayMethod] = useState(PAY_METHODS[0]?.id ?? '')
   const [balance, setBalance] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [introVisible, setIntroVisible] = useState(true)

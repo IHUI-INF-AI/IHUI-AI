@@ -1,5 +1,12 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
@@ -16,10 +23,8 @@ export interface KnowledgePlanetScreenProps {
 }
 
 export function KnowledgePlanetScreen({
-  t,
   items,
   loading,
-  refreshing,
   error,
   onRefresh,
   onItemClick,
