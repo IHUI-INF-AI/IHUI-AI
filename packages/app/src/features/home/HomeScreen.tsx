@@ -260,18 +260,18 @@ export function HomeScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg },
+    container: { flex: 1, backgroundColor: tk.gray[100] },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.gray[100],
     },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       paddingTop: 48,
     },
     headerLeft: { flex: 1 },
@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeText: { fontSize: 10, fontWeight: '700', color: tk.surface.light },
     errorWrap: { paddingHorizontal: 16, paddingVertical: 8 },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    section: { paddingHorizontal: 16, marginTop: 16 },
+    section: { paddingHorizontal: 12, marginTop: 12 },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -313,10 +313,10 @@ function createStyles(tk: AppThemeTokens) {
     linkText: { fontSize: 12, color: tk.success.DEFAULT },
     card: {
       padding: 16,
-      borderRadius: 8,
+      borderRadius: 16,
       borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      borderColor: '#EBEEF5',
+      backgroundColor: tk.surface.light,
     },
     cardSpacing: { marginTop: 8 },
     cardHeaderRow: {
@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning?.DEFAULT ?? '#f59e0b' },
     tagText: { fontSize: 12, color: tk.surface.light },
@@ -352,8 +352,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     outlineBtnText: { fontSize: 13, color: tk.success.DEFAULT },
     menuWrap: {
-      borderRadius: 8,
-      backgroundColor: tk.surface.muted,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#e0e8ff',
+      backgroundColor: tk.surface.light,
       padding: 4,
     },
     menuItem: { padding: 12 },

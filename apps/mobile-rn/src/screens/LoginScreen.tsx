@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
@@ -762,25 +762,7 @@ export function LoginScreen() {
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
-        {__DEV__ ? (
-          <TouchableOpacity
-            style={styles.devFillBtn}
-            onPress={() => {
-              console.info('[DEV] fill tapped')
-              form.setAccount('admin')
-              form.setPassword('admin123')
-              setAgreed(true)
-              setAgreementError('')
-            }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="DEV 填充测试账号"
-          >
-            <Text style={styles.devFillText}>DEV</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+        </View>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>

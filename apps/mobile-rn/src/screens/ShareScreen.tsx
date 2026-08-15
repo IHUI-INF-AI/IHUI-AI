@@ -48,7 +48,7 @@ import Drawer, {
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -60,15 +60,6 @@ interface FloatBoxState {
 }
 
 const FLOAT_BOX_DEFAULT: FloatBoxState = { visible: false, type: 'info', message: '' }
-
-/** Drawer 5 主菜单 → RN Tab 路由映射(对齐 Uniapp share/index.vue 行 5 DrawerComponentall 主菜单跳转) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
-}
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
 const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/'
