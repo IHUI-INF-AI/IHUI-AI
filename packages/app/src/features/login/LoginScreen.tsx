@@ -1103,31 +1103,22 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   return StyleSheet.create({
     page: {
       flex: 1,
-      backgroundColor: tk.surface.muted,
+      backgroundColor: surface,
       paddingHorizontal: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: 'flex-start',
     },
+    // 移动端登录页应为全屏表单,非 web 端"居中悬浮卡片":无 maxWidth/圆角/边框/阴影
     card: {
       width: '100%',
-      maxWidth: 460,
-      padding: 28,
+      paddingVertical: 28,
       backgroundColor: surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      // RN 复刻 web box-shadow 0_4px_24px + 0_1px_4px
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.06,
-      shadowRadius: 24,
-      elevation: 3,
     },
     header: {
-      flexDirection: 'row',
+      // 移动端窄屏:logo 与欢迎图上下排列(column),避免 row 并排时 44+280+gap 超出屏幕宽
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 14,
+      gap: 12,
       marginBottom: 24,
     },
     // logoBox fallback:44×44(2026-08-04 从 31×31 加大,与 logoImage 同步)
