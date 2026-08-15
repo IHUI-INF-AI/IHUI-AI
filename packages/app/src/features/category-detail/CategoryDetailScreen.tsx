@@ -28,7 +28,6 @@ export interface CategoryDetailScreenProps {
 const TABS = ['推荐', '热门', '最新'] as const
 
 export function CategoryDetailScreen({
-  t,
   items,
   activeTab,
   loading,
