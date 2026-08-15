@@ -25,7 +25,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -37,15 +36,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItem,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
-import type {
-  NativeStackNavigationProp,
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack'
+import { useNavigation, useRoute } from '@react-navigation/native'
+import type { NativeStackNavigationProp, RouteProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   Bot,
@@ -89,6 +85,7 @@ import {
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import type { ModelConfigType } from '@ihui/ui-native'
+import { ChatScreen as SharedChatScreen, type ChatScreenMessage, type ChatScreenModel } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { BottomActionBar } from '../components/BottomActionBar'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -108,6 +105,7 @@ import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { mainScreenForTab, type MainTabKey } from '../navigation/RootNavigator'
+import { useI18n } from '../i18n'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -151,6 +149,20 @@ interface PanelItem {
   onPress: () => void
 }
 
+// ── 转换函数 ──
+
+const toChatScreenMessage = (m: ChatMessage): ChatScreenMessage => ({
+  id: m.id,
+  role: m.role as 'user' | 'assistant',
+  content: m.content,
+})
+
+const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
+  id: m.id,
+  name: m.name,
+  provider: m.provider,
+})
+
 // ── 常量 ──
 
 const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
@@ -192,10 +204,10 @@ const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as c
 
 // ── ChatScreen 组件 ──
 
-export function ChatScreen({
-  navigation,
-  route,
-}: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
+export function ChatScreen() {
+  const { t } = useI18n()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, logout } = useAuth()
   const { inputFiles, isVoiceMode, onInputAddImage, onInputRemoveFile, onInputVoiceToggle } =
@@ -750,6 +762,139 @@ export function ChatScreen({
   // start-long-press / end-long-press / input-click / start-voice-animation / stop-voice-animation /
   // modelConfigChange / keyboard-show / keyboard-hide
 
+  // ── 共享组件渲染回调 ──
+
+  const renderMessage = useCallback((item: ChatScreenMessage, index: number): React.ReactNode => {
+    const isUser = item.role === 'user'
+    const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
+    const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
+    return (
+      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
+        <View style={styles.msgContent}>
+          <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
+            <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
+              {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
+            </Text>
+          </View>
+          {showActions ? (
+            <View style={styles.msgActions}>
+              <TouchableOpacity
+                style={styles.msgActionBtn}
+                hitSlop={8}
+                onPress={() => {
+                  Clipboard.setString(item.content)
+                  showToast('success', '已复制')
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="复制"
+              >
+                <Copy size={16} color={tokens.text.secondary} />
+                <Text style={styles.msgActionText}>复制</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.msgActionBtn}
+                hitSlop={8}
+                onPress={() => {
+                  void Share.share({ message: item.content })
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="分享"
+              >
+                <Share2 size={16} color={tokens.text.secondary} />
+                <Text style={styles.msgActionText}>分享</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    )
+  }, [messages, isStreaming, showToast])
+
+  const renderListHeader = useCallback((): React.ReactNode => {
+    const nodes: React.ReactNode[] = []
+    if (materialCards.length > 0) {
+      nodes.push(
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.materialCardsScroll}
+          contentContainerStyle={styles.materialCardsContent}
+        >
+          {materialCards.map((card) => (
+            <View key={card.id} style={styles.materialCard}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => removeMaterialCard(card.id)}
+                style={styles.materialCardClose}
+                accessibilityLabel="删除素材"
+              >
+                <X size={12} color={tokens.surface.light} />
+              </Pressable>
+              <Text style={styles.materialCardTitle} numberOfLines={1}>
+                {card.title}
+              </Text>
+              <Text style={styles.materialCardPreview} numberOfLines={1}>
+                {card.content ? card.content.slice(0, 20) : `类型${card.type}`}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      )
+    }
+    if (inputFiles.length > 0) {
+      nodes.push(
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.imgsListScroll}
+          contentContainerStyle={styles.imgsListContent}
+        >
+          {inputFiles.map((file) => (
+            <View key={file.id} style={styles.imgsListItem}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => removeImage(file.id)}
+                style={styles.imgsListClose}
+                accessibilityLabel="删除图片"
+              >
+                <X size={10} color={tokens.surface.light} />
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
+      )
+    }
+    return nodes.length > 0 ? <>{nodes}</> : null
+  }, [materialCards, inputFiles])
+
+  const renderListFooter = useCallback((): React.ReactNode => {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.modelTypeScroll}
+        contentContainerStyle={styles.modelTypeContent}
+      >
+        {MODEL_TYPES.map(({ key, label, Icon }) => {
+          const active = currentModelType === key
+          return (
+            <Pressable
+              key={key}
+              onPress={() => handleModelTypeClick(key)}
+              style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
+              accessibilityLabel={label}
+            >
+              <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
+              <Text style={[styles.modelTypeLabel, active ? styles.modelTypeLabelActive : null]}>
+                {label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </ScrollView>
+    )
+  }, [currentModelType])
+
   // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
   const showQrCode = (): void => setQrCodeVisible(true)
   const hideQrCode = (): void => setQrCodeVisible(false)
@@ -942,62 +1087,6 @@ export function ChatScreen({
   const materialItems: MaterialItem[] = []
   const materialLoading = false
 
-  // ── 消息列表渲染 ──
-  const renderMessage: ListRenderItem<ChatMessage> = ({ item }) => {
-    const isUser = item.role === 'user'
-    // 操作按钮行:仅 assistant 消息且有内容,且非当前流式输出中的最后一条
-    const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
-    const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
-    return (
-      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
-        <View style={styles.msgContent}>
-          <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
-            <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
-              {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
-            </Text>
-          </View>
-          {showActions ? (
-            <View style={styles.msgActions}>
-              <TouchableOpacity
-                style={styles.msgActionBtn}
-                hitSlop={8}
-                onPress={() => {
-                  Clipboard.setString(item.content)
-                  showToast('success', '已复制')
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="复制"
-              >
-                <Copy size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>复制</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.msgActionBtn}
-                hitSlop={8}
-                onPress={() => {
-                  void Share.share({ message: item.content })
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="分享"
-              >
-                <Share2 size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>分享</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    )
-  }
-
-  const handleMessagesChange = (): void => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true })
-    })
-  }
-
-  // ToggleButtonGroup 已合并到 BottomActionBar prompt 模式的 toggle chips
-
   // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
   const modelListGroups: ModelListGroup[] =
     models.length > 0
@@ -1035,6 +1124,12 @@ export function ChatScreen({
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
   // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
+  // ── 共享组件数据准备 ──
+  const sharedModels: ChatScreenModel[] = models.map(toChatScreenModel)
+  const sharedMessages: ChatScreenMessage[] = messages
+    .filter((m) => m.role !== 'system')
+    .map(toChatScreenMessage)
+
   return (
     <View style={styles.root}>
       {/* 推送通知弹窗(对齐 Uniapp 顶层 PushNotification,组件自管 visible) */}
@@ -1045,7 +1140,6 @@ export function ChatScreen({
         title="智汇AI"
         rightAction={
           <View style={styles.navRight}>
-            {/* 菜单按钮:打开 Drawer(受限于 NavBar 组件左侧固定为返回/占位,菜单放右侧) */}
             <Pressable
               hitSlop={8}
               onPress={() => setDrawerVisible(true)}
@@ -1053,16 +1147,12 @@ export function ChatScreen({
             >
               <Menu size={22} color={tokens.text.primary} />
             </Pressable>
-            {/* Agent 按钮:打开 Agent 列表(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
             <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
               <Bot size={22} color={tokens.text.primary} />
             </Pressable>
-            {/* 分享按钮:跳个人中心(对齐 Uniapp share-image + goToMyPage);
-                share-points 弹窗改为进页面自动触发,见上方 useEffect) */}
             <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
               <Share2 size={22} color={tokens.text.primary} />
             </Pressable>
-            {/* 加入按钮:显示二维码弹窗 */}
             <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
               <QrCode size={22} color={tokens.text.primary} />
             </Pressable>
@@ -1075,143 +1165,23 @@ export function ChatScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        {/* 消息列表区(对齐 Uniapp conversationMessages) */}
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.msgListContent}
-          onContentSizeChange={handleMessagesChange}
-          onLayout={handleMessagesChange}
-          showsVerticalScrollIndicator={false}
+        <SharedChatScreen
+          t={t}
+          messages={sharedMessages}
+          inputText={prompt}
+          isStreaming={isStreaming}
+          models={sharedModels}
+          model={model}
+          showHeader={false}
+          showModelBar={false}
+          showInput={false}
+          renderMessage={renderMessage}
+          renderListHeader={renderListHeader}
+          renderListFooter={renderListFooter}
+          itemSeparatorComponent={null}
+          containerStyle={{ flex: 1 }}
+          flatListStyle={{ flex: 1 }}
         />
-
-        {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件,Modal 形式避免挤压消息列表) */}
-        {showMaterialList ? (
-          <Modal
-            visible={showMaterialList}
-            transparent
-            animationType="slide"
-            onRequestClose={() => {
-              setShowMaterialList(false)
-              setCurrentModelType('')
-            }}
-          >
-            <Pressable
-              style={styles.modalMask}
-              onPress={() => {
-                setShowMaterialList(false)
-                setCurrentModelType('')
-              }}
-            >
-              <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
-                <View style={styles.materialPopupHeader}>
-                  <Text style={styles.materialPopupTitle}>我的创作</Text>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => {
-                      setShowMaterialList(false)
-                      setCurrentModelType('')
-                    }}
-                  >
-                    <X size={20} color={tokens.text.secondary} />
-                  </Pressable>
-                </View>
-                <MaterialList
-                  categories={[...MATERIAL_CATEGORIES]}
-                  activeCategory={materialTab}
-                  onCategoryChange={setMaterialTab}
-                  items={materialItems}
-                  onPress={handleMaterialItemClick}
-                  loading={materialLoading}
-                />
-              </Pressable>
-            </Pressable>
-          </Modal>
-        ) : null}
-
-        {/* Material 卡片区(当前对话引入的素材,横向 + 删除,对齐 Uniapp materialCards) */}
-        {materialCards.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.materialCardsScroll}
-            contentContainerStyle={styles.materialCardsContent}
-          >
-            {materialCards.map((card) => (
-              <View key={card.id} style={styles.materialCard}>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => removeMaterialCard(card.id)}
-                  style={styles.materialCardClose}
-                  accessibilityLabel="删除素材"
-                >
-                  <X size={12} color={tokens.surface.light} />
-                </Pressable>
-                <Text style={styles.materialCardTitle} numberOfLines={1}>
-                  {card.title}
-                </Text>
-                <Text style={styles.materialCardPreview} numberOfLines={1}>
-                  {card.content ? card.content.slice(0, 20) : `类型${card.type}`}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        {/* 图片附件列表(对齐 Uniapp imgsList,复用 useChatInput inputFiles) */}
-        {inputFiles.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.imgsListScroll}
-            contentContainerStyle={styles.imgsListContent}
-          >
-            {inputFiles.map((file) => (
-              <View key={file.id} style={styles.imgsListItem}>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => removeImage(file.id)}
-                  style={styles.imgsListClose}
-                  accessibilityLabel="删除图片"
-                >
-                  <X size={10} color={tokens.surface.light} />
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        {/* 模型类型切换区(横向 ScrollView,对齐 Uniapp 8 个 model-type-btn) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.modelTypeScroll}
-          contentContainerStyle={styles.modelTypeContent}
-        >
-          {MODEL_TYPES.map(({ key, label, Icon }) => {
-            const active = currentModelType === key
-            return (
-              <Pressable
-                key={key}
-                onPress={() => handleModelTypeClick(key)}
-                style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
-                accessibilityLabel={label}
-              >
-                <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
-                <Text style={[styles.modelTypeLabel, active ? styles.modelTypeLabelActive : null]}>
-                  {label}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </ScrollView>
-
-        {/* 功能开关组已合并到 BottomActionBar prompt 模式(对齐 Uniapp BottomActionBar 大一统) */}
-
-        {/* BottomActionBar prompt 模式(模型条 + 开关组 + 图片预览 + 输入框 + 发送 + 辅助行 + 图标组)
-            对齐 Uniapp BottomActionBar.vue 单一组件承载所有底部交互 */}
         <BottomActionBar
           prompt={prompt}
           onPromptChange={updatePrompt}
@@ -1245,6 +1215,50 @@ export function ChatScreen({
           isShowIcon={functionPanelVisible || sourcePanelVisible}
         />
       </KeyboardAvoidingView>
+
+      {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件) */}
+      {showMaterialList ? (
+        <Modal
+          visible={showMaterialList}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowMaterialList(false)
+            setCurrentModelType('')
+          }}
+        >
+          <Pressable
+            style={styles.modalMask}
+            onPress={() => {
+              setShowMaterialList(false)
+              setCurrentModelType('')
+            }}
+          >
+            <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.materialPopupHeader}>
+                <Text style={styles.materialPopupTitle}>我的创作</Text>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    setShowMaterialList(false)
+                    setCurrentModelType('')
+                  }}
+                >
+                  <X size={20} color={tokens.text.secondary} />
+                </Pressable>
+              </View>
+              <MaterialList
+                categories={[...MATERIAL_CATEGORIES]}
+                activeCategory={materialTab}
+                onCategoryChange={setMaterialTab}
+                items={materialItems}
+                onPress={handleMaterialItemClick}
+                loading={materialLoading}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
 
       {/* 二维码弹窗(对齐 Uniapp qr-code-modal) */}
       <Modal visible={qrCodeVisible} transparent animationType="fade" onRequestClose={hideQrCode}>
