@@ -137,6 +137,26 @@ export function formatCurrency(input: number | null | undefined, locale = 'zh-CN
 
 const RTF_CACHE = new Map<string, Intl.RelativeTimeFormat>()
 
+/**
+ * 纯 JS 相对时间 fallback(React Native Hermes 引擎无 Intl.RelativeTimeFormat,2026-08-15 立)。
+ * 语义对齐 Intl.RelativeTimeFormat zh-CN numeric:'auto' 的常用输出(刚刚 / X 分钟前 / …)。
+ */
+function relativeTimeFallback(diffSec: number, locale: string): string {
+  const zh = locale.toLowerCase().startsWith('zh')
+  const abs = Math.abs(diffSec)
+  const n = (v: number) => String(Math.round(v))
+  const pick = (unit: string): string => {
+    if (zh) return `${unit}${diffSec < 0 ? '前' : '后'}`
+    return `${unit}${diffSec < 0 ? ' ago' : ' from now'}`
+  }
+  if (abs < 60) return zh ? '刚刚' : 'just now'
+  if (abs < 3600) return pick(zh ? `${n(abs / 60)} 分钟` : `${n(abs / 60)} min`)
+  if (abs < 86400) return pick(zh ? `${n(abs / 3600)} 小时` : `${n(abs / 3600)} h`)
+  if (abs < 2592000) return pick(zh ? `${n(abs / 86400)} 天` : `${n(abs / 86400)} d`)
+  if (abs < 31536000) return pick(zh ? `${n(abs / 2592000)} 个月` : `${n(abs / 2592000)} mo`)
+  return pick(zh ? `${n(abs / 31536000)} 年` : `${n(abs / 31536000)} y`)
+}
+
 export function formatRelativeTime(
   input: string | number | Date | null | undefined,
   locale = 'zh-CN',
@@ -144,12 +164,17 @@ export function formatRelativeTime(
   if (!input) return '-'
   const then = input instanceof Date ? input.getTime() : new Date(input).getTime()
   if (Number.isNaN(then)) return '-'
+  const diffSec = Math.round((then - Date.now()) / 1000)
+  // Hermes(React Native)不带 Intl.RelativeTimeFormat,直接 new 会抛
+  // "undefined cannot be used as a constructor" 导致整屏渲染崩溃(Red Screen)。
+  if (typeof Intl.RelativeTimeFormat !== 'function') {
+    return relativeTimeFallback(diffSec, locale)
+  }
   let rtf = RTF_CACHE.get(locale)
   if (!rtf) {
     rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
     RTF_CACHE.set(locale, rtf)
   }
-  const diffSec = Math.round((then - Date.now()) / 1000)
   const absDiff = Math.abs(diffSec)
   if (absDiff < 60) return rtf.format(Math.round(diffSec), 'second')
   if (absDiff < 3600) return rtf.format(Math.round(diffSec / 60), 'minute')
