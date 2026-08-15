@@ -15,7 +15,7 @@ export const COLORS = {
   primaryForeground: { light: 'hsl(0 0% 100%)', dark: 'hsl(0 0% 0%)' },
   secondary: { light: 'hsl(0 0% 96.1%)', dark: 'hsl(0 0% 14.9%)' },
   secondaryForeground: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 98%)' },
-  accent: { light: 'hsl(0 0% 88%)', dark: 'hsl(0 0% 17%)' },
+  accent: { light: 'hsl(0 0% 88%)', dark: 'hsl(0 0% 24%)' },
   accentForeground: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 98%)' },
   success: { light: 'hsl(142 71% 45%)', dark: 'hsl(142 65% 50%)' },
   successForeground: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 98%)' },
