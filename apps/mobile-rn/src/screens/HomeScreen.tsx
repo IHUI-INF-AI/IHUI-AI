@@ -12,7 +12,6 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
 import {
   getAllStudyProgress,
   getCourses,
@@ -58,14 +57,13 @@ import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type {
   HomeStackParamList,
-  MainTabParamList,
   RootStackParamList,
 } from '../navigation/RootNavigator'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
-type TabNav = BottomTabNavigationProp<MainTabParamList>
 
 const MENU_ITEMS: HomeMenuItem[] = [
   { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
@@ -268,8 +266,6 @@ export function HomeScreen() {
 
   /** 父级 RootStack 导航(用于跳转 Search/Chat/Promote 等 RootStack 路由) */
   const rootNav = navigation.getParent<RootNav>()
-  /** 父级 Tabs 导航(用于跳转 'course' / 'live' 等 Tab 路由) */
-  const tabNav = navigation.getParent<TabNav>()
 
   // ── 对齐 Uniapp ai_index:NavBar 菜单按钮触发 Drawer ──
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -315,7 +311,7 @@ export function HomeScreen() {
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
     const rnTab: 'home' | 'ai' | 'mine' = tab
-    rootNav?.navigate('Tabs', { screen: rnTab } as never)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {
     // 一人公司:跳 Distribution(对齐 Uniapp gotocompany → /pagesA/distribution/index)
@@ -345,7 +341,7 @@ export function HomeScreen() {
     rootNav?.navigate('MessageCenter')
   }
   const handleDrawerGoHome = (): void => {
-    rootNav?.navigate('Tabs', { screen: 'home' } as never)
+    rootNav?.navigate('Main', { screen: 'HomeMain' })
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu): void => {
     // 扩展菜单(对齐 Uniapp 隐藏菜单 + label_content 入口)
@@ -381,7 +377,7 @@ export function HomeScreen() {
   }
   /** 分享图:跳我的页面(对齐 Uniapp share-image → goToMyPage → /pages/table/user/index) */
   const handleGoToMyPage = (): void => {
-    rootNav?.navigate('Tabs', { screen: 'mine' } as never)
+    rootNav?.navigate('Main', { screen: 'ProfileMain' })
   }
 
   /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 加入社区群 + 分享)
@@ -633,8 +629,8 @@ export function HomeScreen() {
                 break
             }
           }}
-          onNavigateCourses={() => tabNav?.navigate('course')}
-          onNavigateLives={() => tabNav?.navigate('live')}
+          onNavigateCourses={() => rootNav?.navigate('Main', { screen: 'CourseMain' })}
+          onNavigateLives={() => rootNav?.navigate('Main', { screen: 'LiveMain' })}
         />
         {/* KnowledgePlanet 知识星球卡片列表(对齐 Uniapp 首页知识星球入口) */}
         {knowledgeItems.length > 0 ? (

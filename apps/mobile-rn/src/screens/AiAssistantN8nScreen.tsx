@@ -43,6 +43,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import {
   deleteConversation,
   formatSSEError,
@@ -79,6 +80,7 @@ type LocalParamList = RootStackParamList & {
 }
 type N8nRouteProp = RouteProp<LocalParamList, 'AiAssistantN8n'>
 type NavigationProp = NativeStackNavigationProp<LocalParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 interface N8nMessage {
   id: string
@@ -170,6 +172,7 @@ export default function AiAssistantN8nScreen() {
   const { t } = useI18n()
   const { user: authUser } = useAuth()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const route = useRoute<N8nRouteProp>()
   const agentId = route.params?.agentId
   // 路由 title 参数优先(对齐 Uniapp page_title:matchedAgent.agentName / modelNamea)
@@ -402,7 +405,7 @@ export default function AiAssistantN8nScreen() {
       return
     }
     const rnTab: 'home' | 'ai' | 'mine' = tab
-    navigation.navigate('Tabs', { screen: rnTab } as never)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
   }
   const handleDrawerNavigateCompany = (): void => {
     navigation.navigate('Distribution')
@@ -446,7 +449,7 @@ export default function AiAssistantN8nScreen() {
     navigation.navigate('MessageCenter')
   }
   const handleDrawerGoHome = (): void => {
-    navigation.navigate('Tabs', { screen: 'home' } as never)
+    navigation.navigate('Main', { screen: 'HomeMain' })
   }
   const handleNavigateExtra = (menu: DrawerExtraMenu): void => {
     switch (menu) {

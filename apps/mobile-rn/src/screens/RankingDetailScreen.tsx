@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { mainScreenForTab } from '../navigation/RootNavigator'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import Drawer, { type DrawerConversationItem, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
@@ -22,6 +23,7 @@ type RankingDetailParams = {
 }
 type Route = RouteProp<RankingDetailParams, 'RankingDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 // mock 详情(getRankingDetail API 暂无,真实场景用 route.params.id 请求)
 const MOCK_DETAIL = {
@@ -51,6 +53,7 @@ const TAB_MAP: Record<DrawerTab, string> = {
 export default function RankingDetailScreen() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
   const { id } = route.params
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [history, setHistory] = useState<DrawerConversationItem[]>(MOCK_HISTORY)
@@ -59,7 +62,7 @@ export default function RankingDetailScreen() {
   const closeDrawer = () => setDrawerVisible(false)
 
   const onNavigate = (tab: DrawerTab) => {
-    navigation.navigate('Tabs', { screen: TAB_MAP[tab] } as never)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(TAB_MAP[tab]) })
   }
   const onNavigateCompany = () => {
     closeDrawer()
@@ -68,7 +71,7 @@ export default function RankingDetailScreen() {
   const onClaimFree = () => Alert.alert('领取免费资料', '功能即将上线,敬请期待')
   const onCreateNewChat = () => {
     closeDrawer()
-    navigation.navigate('Tabs', { screen: 'ai' } as never)
+    rootNav?.navigate('Main', { screen: 'AiMain' })
   }
   const onNavigateExtra = (menu: DrawerExtraMenu) => {
     closeDrawer()
@@ -93,7 +96,7 @@ export default function RankingDetailScreen() {
     setHistory((prev) => prev.filter((c) => c.id !== convId))
   const onOpenSettings = () => navigation.navigate('Settings')
   const onOpenMessages = () => navigation.navigate('MessageCenter')
-  const onGoHome = () => navigation.navigate('Tabs', { screen: 'home' } as never)
+  const onGoHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
 
   return (
     <View style={styles.container}>
