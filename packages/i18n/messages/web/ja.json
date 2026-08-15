@@ -5376,48 +5376,6 @@
       "searchPlaceholder": "タイトルを",
       "delete": "削除"
     },
-    "customerService": {
-      "addAgent": "オペレーター",
-      "colNickname": "ニックネーム",
-      "colStatus": "ステータス",
-      "colLoad": "負荷",
-      "colSkills": "スキル",
-      "colActions": "操作",
-      "loading": "読み込み中...",
-      "noAgents": "オペレーターなし",
-      "switchStatus": "ステータス",
-      "addAgentTitle": "オペレーター",
-      "addAgentDesc": "ユーザーをカスタマーサービスオペレーターに",
-      "fieldUserId": "ユーザー ID",
-      "userIdPlaceholder": "UUID のユーザー ID",
-      "fieldAgentNickname": "オペレーターニックネーム",
-      "fieldMaxConcurrent": "セッション",
-      "cancel": "キャンセル",
-      "create": "作成",
-      "addCategory": "カテゴリ",
-      "colName": "名称",
-      "colSlug": "スラッグ",
-      "colDescription": "説明",
-      "colSort": "び",
-      "noCategories": "カテゴリなし",
-      "addCategoryTitle": "カテゴリ",
-      "addCategoryDesc": "チケットカテゴリを",
-      "fieldCatName": "カテゴリ",
-      "fieldSlug": "スラッグ (slug)",
-      "slugPlaceholder": "：billing",
-      "fieldDescription": "説明",
-      "fieldSort": "び",
-      "statusPlaceholder": "ステータス",
-      "allStatus": "ステータス",
-      "priorityPlaceholder": "優先度",
-      "allPriority": "すべて優先度",
-      "colTicketNo": "チケット",
-      "colTitle": "タイトル",
-      "colPriority": "優先度",
-      "colCreatedAt": "作成日時",
-      "noTickets": "チケットなし",
-      "handle": "プロセス"
-    },
     "developer": {
       "cancel": "キャンセル",
       "save": "保存",
@@ -5803,43 +5761,6 @@
       "save": "保存",
       "deleteTitle": "削除を確認",
       "deleteDesc": "このレコードをしますか？このはりせません。"
-    },
-    "loginLogs": {
-      "delete": "削除",
-      "edit": "編集",
-      "loading": "読み込み中…",
-      "empty": "データなし",
-      "colId": "ＩＤ",
-      "colUserUuid": "ユーザーUUID",
-      "colLoginType": "ログインタイプ",
-      "colPlatform": "プラットフォーム",
-      "colIp": "ＩＰ",
-      "colLocation": "位置",
-      "colUa": "ＵＡ",
-      "colLoginTime": "ログイン",
-      "colMessage": "メッセージ",
-      "colActions": "操作",
-      "dialogEditTitle": "ログインログ",
-      "dialogCreateTitle": "ログインログ",
-      "descEdit": "ログインログを",
-      "descCreate": "しいログインログを",
-      "fieldUserUuid": "ユーザーUUID *",
-      "fieldLoginType": "ログインタイプ *",
-      "fieldPlatform": "プラットフォーム",
-      "fieldLocation": "位置",
-      "fieldLoginTime": "ログイン",
-      "fieldMessage": "メッセージ",
-      "cancel": "キャンセル",
-      "save": "保存",
-      "labelUserUuid": "ユーザーUUID",
-      "placeholderUserUuid": "UUIDを",
-      "labelPlatform": "プラットフォーム",
-      "placeholderPlatform": "プラットフォームを",
-      "labelLocation": "位置",
-      "placeholderLocation": "を",
-      "labelLoginTime": "ログイン",
-      "search": "検索",
-      "reset": "リセット"
     },
     "notificationLogs": {
       "title": "通知ログ",
@@ -6852,9 +6773,7 @@
           "error": "エラー"
         }
       }
-    },
-    "visitTracking": "アクセス統計",
-    "behaviorAnalytics": "行動分析"
+    }
   },
   "knowledgeGraph": {
     "title": "ナレッジグラフ",
@@ -10816,23 +10735,6 @@
     "phPhone": "を",
     "phPlatform": "プラットフォームを"
   },
-  "adminTicketDetail": {
-    "status": "ステータス：",
-    "priority": "：",
-    "issueDescription": "問題説明",
-    "statusTransition": "ステータス：",
-    "noTransitions": "なステータスはありません",
-    "assignAgent": "りて：",
-    "selectAgent": "を",
-    "assign": "りて",
-    "replyRecords": "返信記録",
-    "noReply": "はまだありません",
-    "roleAgent": "カスタマーサポート",
-    "roleUser": "ユーザー",
-    "customerReply": "を",
-    "replyPlaceholder": "を...",
-    "sendReply": "を"
-  },
   "featureCenter": {
     "title": "オープンプラットフォーム Feature Center",
     "description": "API、Agent、ドキュメント、モデル、SDKの",
@@ -12284,57 +12186,6 @@
       "empty": "質問はまだありません",
       "answered": "回答済み",
       "pending": "未回答"
-    },
-    "eduAttendancePage": {
-      "title": "出席管理",
-      "subtitle": "学生の出欠、退席と休暇管理",
-      "checkIn": "出勤",
-      "checkOut": "退勤",
-      "leave": "休暇",
-      "stats": "出勤統計"
-    },
-    "eduGradePage": {
-      "title": "成績管理",
-      "subtitle": "試験成績の入力、統計と順位",
-      "input": "成績入力",
-      "stats": "成績統計",
-      "rank": "順位",
-      "trend": "トレンド分析"
-    },
-    "eduHomeworkPage": {
-      "title": "宿題管理",
-      "subtitle": "宿題の提出、採点と統計",
-      "submit": "宿題を提出",
-      "grade": "宿題を採点",
-      "stats": "完了統計"
-    },
-    "eduEnrollmentPage": {
-      "title": "入学者管理",
-      "subtitle": "リード追跡、体験予約と登録管理",
-      "lead": "リード管理",
-      "trial": "体験予約",
-      "enroll": "登録記録"
-    },
-    "eduFinancePage": {
-      "title": "財務管理",
-      "subtitle": "授業料基準、支払いと返金管理",
-      "fee": "授業料基準",
-      "payment": "支払い記録",
-      "refund": "返金管理"
-    },
-    "eduEmpty": {
-      "noSchedule": "予定はありません",
-      "noMeal": "献立記録はありません",
-      "noPlan": "学習計画はありません",
-      "noAttendance": "出席記録はありません",
-      "noGrade": "成績記録はありません",
-      "noLead": "リード記録はありません",
-      "noTrial": "体験予約はありません",
-      "noEnrollment": "登録記録はありません",
-      "noHomework": "宿題提出はありません",
-      "noRule": "割り当てルールはありません",
-      "noPayment": "支払い記録はありません",
-      "noRefund": "返金記録はありません"
     }
   },
   "marketing": {
@@ -15229,13 +15080,7 @@
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム",
-      "deviceMobilePortrait": "スマホ縦向き",
-      "deviceMobileLandscape": "スマホ横向き",
-      "deviceTabletPortrait": "タブレット縦向き",
-      "deviceTabletLandscape": "タブレット横向き",
-      "deviceDesktop": "デスクトップ",
-      "deviceCustom": "カスタム"
+      "deviceFrame": "デバイスフレーム"
     },
     "templates": {
       "title": "テンプレート"
