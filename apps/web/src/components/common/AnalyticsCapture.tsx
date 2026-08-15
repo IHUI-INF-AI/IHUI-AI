@@ -20,7 +20,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
 
-const REPORT_URL = '/api/analytics/track'
+const REPORT_URL = '/api/analytics/track' // method: POST
 
 // 常见文档/下载扩展名
 const DOWNLOAD_RE = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz|mp4|mp3|wav|png|jpe?g|webp|gif)(\?|#|$)/i
