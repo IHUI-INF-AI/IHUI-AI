@@ -16,9 +16,32 @@
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import React from 'react'
+// 默认 jsx-runtime 用 classic(需要 React 在作用域),显式导入 React
+import React, { Fragment, type ReactNode, type ComponentProps } from 'react'
 import { render, fireEvent, cleanup, act } from '@testing-library/react'
 import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
+
+// 抑制 lint:React 在此文件确实作为 jsx-runtime 被引用(Fragment/classic 转换),
+// 但 ESLint 静态分析无法识别,加 disable 注释
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+void React
+
+// ─── @/components/feedback mock:Tooltip 必须被 TooltipProvider 包裹 ───
+// 2026-08-17 修复:测试不挂载全局 TooltipProvider,组件库内部 Tooltip 需要 Provider 上下文
+vi.mock('@/components/feedback', () => {
+  const passthrough = ({ children }: { children: ReactNode }) => <Fragment>{children}</Fragment>
+  const TooltipMock = ({ children }: { children: ReactNode }) => <Fragment>{children}</Fragment>
+  return {
+    Tooltip: TooltipMock,
+    TooltipProvider: passthrough,
+    Popover: passthrough,
+    Modal: passthrough,
+    Drawer: passthrough,
+    ConfirmDialog: passthrough,
+    Dropdown: passthrough,
+    Alert: passthrough,
+  }
+})
 
 // ─── next-intl mock ───────────────────────────────────────────
 const { mockT } = vi.hoisted(() => {
@@ -36,23 +59,21 @@ const { mockT } = vi.hoisted(() => {
 })
 vi.mock('next-intl', () => ({ useTranslations: () => mockT }))
 
-// ─── lucide-react mock ────────────────────────────────────────
+// ─── lucide-react mock(importOriginal + 全映射 IconSpan) ────────────────────────
+// 2026-08-17 根治"组件新增图标未列入 mock 列表 → 套件加载失败"
 const { IconSpan } = vi.hoisted(() => {
   const IconSpan = ({ className }: { className?: string }) => (
     <span data-testid="lucide-icon" className={className} />
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    Brain: Icon,
-    Loader2: Icon,
-    Copy: Icon,
-    Check: Icon,
-    ChevronRight: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    mocked[key] = IconSpan
   }
+  return mocked
 })
 
 const STORAGE_KEY = 'ihui:thinking-expanded'
@@ -72,7 +93,7 @@ afterEach(() => {
 })
 
 // ─── 辅助:渲染带内容的 ThinkingSection ─────────────────────
-function renderThinking(props?: Partial<React.ComponentProps<typeof ThinkingSection>>) {
+function renderThinking(props?: Partial<ComponentProps<typeof ThinkingSection>>) {
   return render(
     <ThinkingSection
       content="正在分析问题..."

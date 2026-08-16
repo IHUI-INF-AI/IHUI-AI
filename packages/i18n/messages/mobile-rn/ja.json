@@ -95,7 +95,12 @@
       "refunding": "返金中",
       "completed": "完了",
       "failed": "失敗"
-    }
+    },
+    "tab": {
+      "shipped": "受取待ち"
+    },
+    "empty": "注文はありません",
+    "loadFailed": "読み込みに失敗しました"
   },
   "agent": {
     "config": "設定",
@@ -698,7 +703,10 @@
     "tabCourse": "",
     "tabLive": "",
     "tabArticle": "",
-    "empty": ""
+    "empty": "",
+    "loadFailed": "お気に入り読み込み失敗",
+    "deleteTitle": "お気に入りを削除",
+    "deleteFailed": "削除失敗"
   },
   "finance": {
     "title": "",
@@ -709,11 +717,14 @@
     "totalExpense": ""
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "フォローとファン",
+    "following": "フォロー",
+    "fans": "ファン",
+    "empty": "フォローはありません",
+    "unfollow": "フォロー解除",
+    "loadFailed": "読み込みに失敗しました",
+    "unfollowTitle": "フォロー解除",
+    "unfollowFailed": "フォロー解除失敗"
   },
   "icpRecord": {
     "licenseLabel": ""
@@ -867,13 +878,14 @@
     "submit": ""
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "タップしてアバターを変更",
+    "nicknamePlaceholder": "ニックネームを入力",
+    "bioPlaceholder": "自己紹介",
+    "avatarModalTitle": "アバター変更",
+    "avatarUrlLabel": "アバターURL",
+    "avatarUrlPlaceholder": "アバターURLを入力",
+    "avatarUrlHint": "JPG/PNG対応、200x200推奨",
+    "nicknameTooLong": "ニックネームが長すぎます(8文字以内)"
   },
   "promote": {
     "title": "",
@@ -1007,9 +1019,11 @@
     "statusPaused": ""
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "私の購読",
+    "empty": "購読はありません",
+    "cancel": "購読解除",
+    "cancelTitle": "購読解除",
+    "loadFailed": "読み込みに失敗しました"
   },
   "taskCenter": {
     "title": "",
@@ -1073,6 +1087,46 @@
     "opened": ""
   },
   "wallet": {
-    "points": ""
+    "points": "",
+    "title": "私の財布",
+    "balance": "利用可能残高",
+    "frozen": "凍結金額",
+    "totalRecharge": "累計チャージ",
+    "totalWithdraw": "累計出金",
+    "recharge": "チャージ",
+    "withdraw": "出金",
+    "loadFailed": "読み込みに失敗しました"
+  },
+  "certificate": {
+    "title": "マイ証明書",
+    "empty": "証明書はまだありません",
+    "loadFailed": "読み込みに失敗しました",
+    "status": {
+      "issued": "発行済み",
+      "expired": "期限切れ",
+      "revoked": "取り消されました"
+    },
+    "issuedDate": "発行日",
+    "expiryDate": "有効期限"
+  },
+  "following": {
+    "title": "フォロー中",
+    "empty": "フォローはありません",
+    "loadFailed": "読み込みに失敗しました",
+    "unfollowTitle": "フォロー解除",
+    "unfollow": "フォロー解除"
+  },
+  "messageCenter": {
+    "title": "メッセージ",
+    "empty": "メッセージなし",
+    "loadFailed": "読み込みに失敗しました"
+  },
+  "withdraw": {
+    "submit": "出金申請",
+    "amountPlaceholder": "金額を入力",
+    "amountInvalid": "無効な金額",
+    "minAmount": "最低出金額は10元",
+    "success": "出金成功",
+    "failed": "出金失敗"
   }
 }

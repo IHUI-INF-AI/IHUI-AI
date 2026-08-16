@@ -187,7 +187,15 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    // 覆盖 stream 执行,避免在 jsdom 内发起真实 SSE / fetch
+    executeAgentRuntimeStream: vi.fn(),
+    executeAgentStream: vi.fn(),
+  }
+})
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义

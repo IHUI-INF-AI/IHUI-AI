@@ -38,28 +38,13 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    MessageSquare: Icon,
-    ListTree: Icon,
-    Search: Icon,
-    X: Icon,
-    ChevronRight: Icon,
-    Loader2: Icon,
-    AlertCircle: Icon,
-    Bot: Icon,
-    HelpCircle: Icon,
-    Wrench: Icon,
-    Brain: Icon,
-    FileText: Icon,
-    Circle: Icon,
-    Download: Icon,
-    Check: Icon,
-    Inbox: Icon,
-    FilterX: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    mocked[key] = IconSpan
   }
+  return mocked
 })
 
 import {

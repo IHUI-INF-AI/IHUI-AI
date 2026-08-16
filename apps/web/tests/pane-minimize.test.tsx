@@ -221,11 +221,16 @@ vi.mock('next-intl', () => ({
   useTranslations: () => mockT,
 }))
 
-// ─── @ihui/api-client mock ───────────────────────────────────────
-vi.mock('@ihui/api-client', () => ({
-  probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
-  takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
-}))
+// ─── @ihui/api-client mock(importOriginal 保留所有 export,避免源码 import 链缺导出;
+//   副作用函数 probeEmbed/takeScreenshot 由测试覆写以返回可控数据) ──
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
+    takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
+  }
+})
 
 // ─── lucide-react mock(用 span 替代图标) ─────────────────────────
 const { IconSpan } = vi.hoisted(() => {

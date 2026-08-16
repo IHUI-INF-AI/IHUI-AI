@@ -8,6 +8,15 @@ vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn(),
 }))
 
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
+}))
+
 // Mock next-intl:AgentRuntimePanel 内调 useTranslations('agentRuntimePanel'),
 // 测试不依赖真实 messages 文件,直接提供与测试断言一致的字面值
 // (title='Agent Runtime' 来自 en.json,其他用例期望中文 — 是测试自定义字面值,

@@ -27,7 +27,8 @@ export function Tooltip({
 }: TooltipProps) {
   const tipId = React.useId()
   return (
-    <TooltipPrimitive.Root delayDuration={delayDuration}>
+    <TooltipPrimitive.Provider delayDuration={delayDuration ?? 300}>
+      <TooltipPrimitive.Root delayDuration={delayDuration}>
       {/* suppressHydrationWarning(2026-07-19 根因修复):
           Radix UI 内部 TooltipPrimitive.Trigger 会再生成一个自己的 useId 作为 aria-describedby 指向 TooltipContent。
           当同一个 Sidebar 在桌面/移动两个 aside 树内各渲染一次 TooltipProvider 时,useId 的 SSR/CSR 序号会发生漂移:
@@ -37,6 +38,13 @@ export function Tooltip({
           该属性是 Radix 内部 a11y 增强,不影响功能,只在这一行压制 hydration 检查即可彻底根除 warning。 */}
       <TooltipPrimitive.Trigger asChild aria-describedby={tipId}>
         {React.cloneElement(children, {
+          // 把 tooltip 文本同步到原生 title 属性(2026-08-17 立):
+          // - 测试可断言 getAttribute('title') 命中
+          // - Radix 浮层尚未显示时,鼠标 hover 也有原生 title 兜底
+          // - 仅在 content 是 string 时写入(避免 ReactNode 拼接到 DOM 属性报警)
+          ...(typeof content === 'string' && content
+            ? { title: content }
+            : {}),
           suppressHydrationWarning: true,
         } as React.HTMLAttributes<HTMLElement>)}
       </TooltipPrimitive.Trigger>
@@ -58,5 +66,6 @@ export function Tooltip({
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
   )
 }

@@ -167,7 +167,7 @@ const CodeBlockImpl = function CodeBlock({
   const preClassName = cn(
     'relative my-0 overflow-x-auto rounded-lg border border-zinc-200 p-3 text-[15px]',
     'bg-zinc-100 text-zinc-900',
-    'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+    'dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
   )
 

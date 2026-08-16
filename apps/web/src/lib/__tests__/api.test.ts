@@ -156,6 +156,9 @@ describe('fetchApi', () => {
     }) as unknown as typeof fetch
 
     const promise = fetchApi('/api/test', { signal: controller.signal })
+    // 让 fetchApi 内部的设备指纹注入 microtask 与 signal 合并 microtask 完成,
+    // 再发起 abort,确保 fetch 已被调用一次(契约:AbortError 早返回,不重试)。
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
     controller.abort()
     const r = await promise
     expect(r.success).toBe(false)

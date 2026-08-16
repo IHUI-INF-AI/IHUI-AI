@@ -96,29 +96,37 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    MessageSquare: Icon,
-    ListTree: Icon,
-    Search: Icon,
-    X: Icon,
-    ChevronRight: Icon,
-    Loader2: Icon,
-    AlertCircle: Icon,
-    Bot: Icon,
-    HelpCircle: Icon,
-    Wrench: Icon,
-    Brain: Icon,
-    FileText: Icon,
-    Circle: Icon,
-    Download: Icon,
-    Check: Icon,
-    Inbox: Icon,
-    FilterX: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    mocked[key] = IconSpan
   }
+  return mocked
 })
+
+// ─── @/components/feedback mock:Tooltip 简化为 span + title ──────
+// 不使用 Radix UI Tooltip(需要 TooltipProvider 包裹,happy-dom 下报
+// "useContext must be used within TooltipProvider")。此测试仅验证
+// 过滤行为,不验证 tooltip 渲染。
+const { MockTooltip, MockTooltipProvider } = vi.hoisted(() => {
+  const MockTooltip = ({
+    content,
+    children,
+  }: {
+    content: React.ReactNode
+    children: React.ReactElement
+  }) => {
+    // 用 React.cloneElement 给子节点注入 title(模拟 tooltip 行为,便于 a11y 查询)
+    return React.cloneElement(children, { title: typeof content === 'string' ? content : undefined })
+  }
+  const MockTooltipProvider = ({ children }: { children: React.ReactNode }) => children
+  return { MockTooltip, MockTooltipProvider }
+})
+vi.mock('@/components/feedback', () => ({
+  Tooltip: MockTooltip,
+  TooltipProvider: MockTooltipProvider,
+}))
 
 import { TimelineEventRow } from '../src/components/ai/progress-sections/timeline-event'
 import { TimelineTab } from '../src/components/ai/progress-sections/timeline-tab'

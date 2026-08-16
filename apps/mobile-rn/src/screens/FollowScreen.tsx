@@ -15,34 +15,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 20
 
-/**
- * 对齐说明:Uniapp 历史项目无独立关注/粉丝列表页(仅 developer.vue 详情有关注按钮),
- * 用词对齐 Uniapp user.public 统计文案:statsFollowing=关注 / statsFollowers=粉丝 / unfollow=取消关注。
- * mobile-rn/shared zh-CN 暂无 follow.* key(translate 缺 key 返回 key 本身),
- * key 就绪后此覆盖可删。
- */
-const UNIAPP_TEXT: Record<string, string> = {
-  'follow.title': '关注与粉丝',
-  'follow.following': '关注',
-  'follow.fans': '粉丝',
-  'follow.empty': '暂无关注',
-  'follow.loadFailed': '加载失败',
-  'follow.unfollowTitle': '取消关注',
-  'follow.unfollow': '取消关注',
-  'follow.unfollowFailed': '取消关注失败',
-}
-
 export function FollowScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<FollowTab>('following')
-
-  // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
-  const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
-    [t],
-  )
 
   const fetcher = useCallback(
     async (query: { page: number; pageSize: number }) => {
@@ -51,9 +28,9 @@ export function FollowScreen() {
       if (res.success) {
         return { success: true as const, data: res.data }
       }
-      return { success: false as const, error: res.error || uniappT('follow.loadFailed') }
+      return { success: false as const, error: res.error || t('follow.loadFailed') }
     },
-    [tab, uniappT],
+    [tab, t],
   )
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
@@ -67,17 +44,17 @@ export function FollowScreen() {
 
   // 取关确认弹窗:uni.showModal → RN Alert(取消/取消关注·destructive)
   const onUnfollow = (item: FollowUserItem) => {
-    Alert.alert(uniappT('follow.unfollowTitle'), `${item.nickname || item.username}?`, [
-      { text: uniappT('common.cancel'), style: 'cancel' },
+    Alert.alert(t('follow.unfollowTitle'), `${item.nickname || item.username}?`, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: uniappT('follow.unfollow'),
+        text: t('follow.unfollow'),
         style: 'destructive',
         onPress: async () => {
           const res = await unfollowUser(item.id)
           if (res.success) {
             removeItem((i) => i.id === item.id)
           } else {
-            Alert.alert(uniappT('common.failed'), res.error || uniappT('follow.unfollowFailed'))
+            Alert.alert(t('common.failed'), res.error || t('follow.unfollowFailed'))
           }
         },
       },
@@ -86,7 +63,7 @@ export function FollowScreen() {
 
   return (
     <SharedFollowScreen
-      t={uniappT}
+      t={t}
       items={items}
       activeTab={tab}
       onSelectTab={onSelectTab}

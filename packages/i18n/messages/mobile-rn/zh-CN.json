@@ -99,7 +99,12 @@
       "refunding": "退款中",
       "completed": "已完成",
       "failed": "失败"
-    }
+    },
+    "tab": {
+      "shipped": "待收货"
+    },
+    "empty": "暂无订单信息",
+    "loadFailed": "加载失败"
   },
   "agent": {
     "config": "配置",
@@ -702,7 +707,10 @@
     "tabCourse": "课程",
     "tabLive": "直播",
     "tabArticle": "文章",
-    "empty": "暂无收藏"
+    "empty": "暂无收藏",
+    "loadFailed": "加载收藏失败",
+    "deleteTitle": "删除收藏",
+    "deleteFailed": "删除失败"
   },
   "finance": {
     "title": "财务",
@@ -717,7 +725,10 @@
     "following": "关注",
     "fans": "粉丝",
     "empty": "暂无数据",
-    "unfollow": "取消关注"
+    "unfollow": "取消关注",
+    "loadFailed": "加载失败",
+    "unfollowTitle": "取消关注",
+    "unfollowFailed": "取消关注失败"
   },
   "icpRecord": {
     "licenseLabel": "ICP备案/许可证号"
@@ -877,7 +888,8 @@
     "avatarModalTitle": "更换头像",
     "avatarUrlLabel": "头像链接",
     "avatarUrlPlaceholder": "粘贴图片链接",
-    "avatarUrlHint": "支持 JPG / PNG,建议 200x200"
+    "avatarUrlHint": "支持 JPG / PNG,建议 200x200",
+    "nicknameTooLong": "昵称过长 不能超过8个字符"
   },
   "promote": {
     "title": "推广中心",
@@ -1013,7 +1025,9 @@
   "subscriptions": {
     "title": "我的订阅",
     "empty": "暂无订阅",
-    "cancel": "取消订阅"
+    "cancel": "取消订阅",
+    "cancelTitle": "取消订阅",
+    "loadFailed": "加载失败"
   },
   "taskCenter": {
     "title": "任务中心",
@@ -1077,6 +1091,46 @@
     "opened": "已开通"
   },
   "wallet": {
-    "points": "智汇值"
+    "points": "智汇值",
+    "title": "我的钱包",
+    "balance": "可用余额",
+    "frozen": "冻结金额",
+    "totalRecharge": "累计充值",
+    "totalWithdraw": "累计提现",
+    "recharge": "充值",
+    "withdraw": "提现",
+    "loadFailed": "加载失败"
+  },
+  "certificate": {
+    "title": "我的证书",
+    "empty": "暂无证书",
+    "loadFailed": "加载失败",
+    "status": {
+      "issued": "已发放",
+      "expired": "已过期",
+      "revoked": "已撤销"
+    },
+    "issuedDate": "发放日期",
+    "expiryDate": "有效期至"
+  },
+  "following": {
+    "title": "我的关注",
+    "empty": "暂无关注",
+    "loadFailed": "加载失败",
+    "unfollowTitle": "取消关注",
+    "unfollow": "取消关注"
+  },
+  "messageCenter": {
+    "title": "消息",
+    "empty": "暂无消息",
+    "loadFailed": "加载失败"
+  },
+  "withdraw": {
+    "submit": "申请提现",
+    "amountPlaceholder": "请输入提现金额",
+    "amountInvalid": "金额无效",
+    "minAmount": "最低提现金额为 10 元",
+    "success": "提现成功",
+    "failed": "提现失败"
   }
 }

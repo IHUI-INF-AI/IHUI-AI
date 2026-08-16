@@ -13,24 +13,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 /** 对齐 Uniapp components/loginPopUp/index.vue 昵称校验:最长 8 字符 */
 const NICKNAME_MAX_LENGTH = 8
 
-/**
- * 对齐说明:Uniapp 历史项目无独立资料编辑页(仅 loginPopUp 昵称输入 + UserInfoCardOld「修改资料」入口),
- * - 单导航栏:移除 wrapper 层 NavBar,消除与 shared header 的双标题栏(Uniapp 仅一层 navigation-bars)
- * - 缺失 key 兜底:mobile-rn/shared zh-CN 暂无 profileEdit.avatarTip 等 key
- *   (translate 缺 key 返回 key 本身),文案参照 shared user.profile 命名空间,中文硬编码
- */
-const UNIAPP_TEXT: Record<string, string> = {
-  'profileEdit.avatarTip': '点击更换头像',
-  'profileEdit.nicknamePlaceholder': '请输入昵称',
-  'profileEdit.bioPlaceholder': '介绍一下自己吧',
-  'profileEdit.avatarModalTitle': '更换头像',
-  'profileEdit.avatarUrlLabel': '头像链接',
-  'profileEdit.avatarUrlPlaceholder': '请输入头像 URL',
-  'profileEdit.avatarUrlHint': '支持 JPG / PNG,建议 200x200',
-  // 对齐 Uniapp loginPopUp:「昵称过长 不能超过8个字符」
-  'profileEdit.nicknameTooLong': '昵称过长 不能超过8个字符',
-}
-
 export function ProfileEditScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -45,16 +27,10 @@ export function ProfileEditScreen() {
   const [avatarModalVisible, setAvatarModalVisible] = useState(false)
   const [avatarInput, setAvatarInput] = useState('')
 
-  // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
-  const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
-    [t],
-  )
-
   const fetchProfile = useCallback(async () => {
     if (!token) {
       setLoading(false)
-      setError(uniappT('profileEdit.notLoggedIn'))
+      setError(t('profileEdit.notLoggedIn'))
       return
     }
     setLoading(true)
@@ -67,9 +43,9 @@ export function ProfileEditScreen() {
       setGender((res.data.gender ?? 0) as Gender)
       setAvatar(res.data.avatar ?? null)
     } else {
-      setError(res.error || uniappT('profileEdit.loadFailed'))
+      setError(res.error || t('profileEdit.loadFailed'))
     }
-  }, [token, uniappT])
+  }, [token, t])
 
   useEffect(() => {
     void fetchProfile()
@@ -78,11 +54,11 @@ export function ProfileEditScreen() {
   const onSave = async () => {
     // 对齐 Uniapp loginPopUp 校验顺序:空昵称 → 超长
     if (!nickname.trim()) {
-      Alert.alert(uniappT('profileEdit.nicknameRequired'))
+      Alert.alert(t('profileEdit.nicknameRequired'))
       return
     }
     if (nickname.trim().length > NICKNAME_MAX_LENGTH) {
-      Alert.alert(uniappT('profileEdit.nicknameTooLong'))
+      Alert.alert(t('profileEdit.nicknameTooLong'))
       return
     }
     setSaving(true)
@@ -96,10 +72,10 @@ export function ProfileEditScreen() {
     setSaving(false)
     if (res.success) {
       // uni.showToast(上传成功) → RN Alert
-      Alert.alert(uniappT('profileEdit.saved'))
+      Alert.alert(t('profileEdit.saved'))
       navigation.goBack()
     } else {
-      setError(res.error || uniappT('profileEdit.saveFailed'))
+      setError(res.error || t('profileEdit.saveFailed'))
     }
   }
 
@@ -114,7 +90,7 @@ export function ProfileEditScreen() {
 
   return (
     <SharedProfileEditScreen
-      t={uniappT}
+      t={t}
       nickname={nickname}
       bio={bio}
       gender={gender}

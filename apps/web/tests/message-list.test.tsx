@@ -14,7 +14,7 @@ import React from 'react'
 import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react'
 
 // ─── Mocks(vi.hoisted 必须在 vi.mock 之前)────────────────────────────
-const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
+const { mockT, toastMock, IconSpan, chatStoreRef } = vi.hoisted(() => {
   const map: Record<string, string> = {
     'permission.mode.ask': '请求批准',
     'permission.mode.askDesc': '...',
@@ -33,6 +33,9 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     retry: 'Retry',
     jumpToLatest: 'Jump to latest',
     latest: 'Latest',
+    'message.copy': 'Copy',
+    'message.copied': 'Copied',
+    'message.copyFailed': 'Copy failed',
   }
   const mockT = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
@@ -53,7 +56,11 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
   const IconSpan = ({ className }: { className?: string }) => (
     <span data-testid="lucide-icon" className={className} />
   )
-  return { mockT, toastMock, IconSpan }
+  // 真实 Zustand store(在 vi.mock 工厂中创建后挂到这里)
+  const chatStoreRef: { current: { getState: () => unknown; setState: (s: object) => void } | null } = {
+    current: null,
+  }
+  return { mockT, toastMock, IconSpan, chatStoreRef }
 })
 
 vi.mock('next-intl', () => ({
@@ -69,7 +76,10 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual }
+})
 
 vi.mock('lucide-react', () => {
   const Icon = IconSpan
@@ -122,20 +132,28 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
-vi.mock('@/stores/chat', () => ({
-  useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
-}))
+// 用真实的 zustand create 创建 store,保留订阅语义:setUserScrolledUp 触发重新渲染
+import { create } from 'zustand'
+vi.mock('@/stores/chat', () => {
+  const useStore = create<{
+    messages: unknown[]
+    subAgentActivities: unknown[]
+    conversationId: string | null
+    userScrolledUp: boolean
+    setUserScrolledUp: (v: boolean) => void
+  }>((set) => ({
+    messages: [],
+    subAgentActivities: [],
+    conversationId: null,
+    userScrolledUp: false,
+    setUserScrolledUp: (v: boolean) => set({ userScrolledUp: v }),
+  }))
+  chatStoreRef.current = useStore as unknown as {
+    getState: () => unknown
+    setState: (s: object) => void
+  }
+  return { useChatStore: useStore }
+})
 
 // progress-jump-store mock
 const progressJumpStoreState = {
@@ -296,6 +314,13 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
     timelineStoreState.activeTab = 'inline'
     timelineStoreState.events = []
     timelineStoreState.setActiveTab.mockClear()
+    // 重置 chat store(让 mock store 跨用例清状态,避免污染)
+    chatStoreRef.current?.setState({
+      messages: [],
+      subAgentActivities: [],
+      conversationId: null,
+      userScrolledUp: false,
+    })
     toastMock.success.mockClear()
     toastMock.error.mockClear()
     toastMock.info.mockClear()

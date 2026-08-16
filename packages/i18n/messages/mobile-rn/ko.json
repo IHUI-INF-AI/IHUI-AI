@@ -95,7 +95,12 @@
       "refunding": "환불 중",
       "completed": "완료",
       "failed": "실패"
-    }
+    },
+    "tab": {
+      "shipped": "수령 대기"
+    },
+    "empty": "주문 없음",
+    "loadFailed": "로드 실패"
   },
   "agent": {
     "config": "설정",
@@ -698,7 +703,10 @@
     "tabCourse": "",
     "tabLive": "",
     "tabArticle": "",
-    "empty": ""
+    "empty": "",
+    "loadFailed": "즐겨찾기 로드 실패",
+    "deleteTitle": "즐겨찾기 삭제",
+    "deleteFailed": "삭제 실패"
   },
   "finance": {
     "title": "",
@@ -709,11 +717,14 @@
     "totalExpense": ""
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "팔로우 및 팬",
+    "following": "팔로잉",
+    "fans": "팬",
+    "empty": "팔로잉 없음",
+    "unfollow": "팔로우 취소",
+    "loadFailed": "로드 실패",
+    "unfollowTitle": "팔로우 취소",
+    "unfollowFailed": "팔로우 취소 실패"
   },
   "icpRecord": {
     "licenseLabel": ""
@@ -867,13 +878,14 @@
     "submit": ""
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "탭하여 아바타 변경",
+    "nicknamePlaceholder": "닉네임 입력",
+    "bioPlaceholder": "자기소개",
+    "avatarModalTitle": "아바타 변경",
+    "avatarUrlLabel": "아바타 URL",
+    "avatarUrlPlaceholder": "아바타 URL 입력",
+    "avatarUrlHint": "JPG/PNG 지원, 200x200 권장",
+    "nicknameTooLong": "닉네임이 너무 깁니다(최대 8자)"
   },
   "promote": {
     "title": "",
@@ -1007,9 +1019,11 @@
     "statusPaused": ""
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "내 구독",
+    "empty": "구독 없음",
+    "cancel": "구독 취소",
+    "cancelTitle": "구독 취소",
+    "loadFailed": "로드 실패"
   },
   "taskCenter": {
     "title": "",
@@ -1073,6 +1087,46 @@
     "opened": ""
   },
   "wallet": {
-    "points": ""
+    "points": "",
+    "title": "내 지갑",
+    "balance": "사용 가능 잔액",
+    "frozen": "동결 금액",
+    "totalRecharge": "총 충전",
+    "totalWithdraw": "총 출금",
+    "recharge": "충전",
+    "withdraw": "출금",
+    "loadFailed": "로드 실패"
+  },
+  "certificate": {
+    "title": "내 인증서",
+    "empty": "인증서가 없습니다",
+    "loadFailed": "로드 실패",
+    "status": {
+      "issued": "발급됨",
+      "expired": "만료됨",
+      "revoked": "취소됨"
+    },
+    "issuedDate": "발급일",
+    "expiryDate": "유효 기간"
+  },
+  "following": {
+    "title": "내 팔로잉",
+    "empty": "팔로잉 없음",
+    "loadFailed": "로드 실패",
+    "unfollowTitle": "팔로우 취소",
+    "unfollow": "팔로우 취소"
+  },
+  "messageCenter": {
+    "title": "메시지",
+    "empty": "메시지 없음",
+    "loadFailed": "로드 실패"
+  },
+  "withdraw": {
+    "submit": "출금 신청",
+    "amountPlaceholder": "금액 입력",
+    "amountInvalid": "잘못된 금액",
+    "minAmount": "최소 출금액은 10위안",
+    "success": "출금 성공",
+    "failed": "출금 실패"
   }
 }

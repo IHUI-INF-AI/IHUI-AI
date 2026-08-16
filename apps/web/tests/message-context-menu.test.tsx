@@ -30,7 +30,8 @@ import {
 import type { ContextMenuItem } from '../src/hooks/use-context-menu'
 
 // ─── lucide-react mock ───
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const IconSpan = ({
     className,
     'data-testid': dataTestId,
@@ -47,17 +48,11 @@ vi.mock('lucide-react', () => {
       {...rest}
     />
   )
-  return {
-    __esModule: true,
-    Check: IconSpan,
-    Clipboard: IconSpan,
-    Copy: IconSpan,
-    FileText: IconSpan,
-    MessageSquareWarning: IconSpan,
-    RefreshCw: IconSpan,
-    Share2: IconSpan,
-    Trash2: IconSpan,
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    mocked[key] = IconSpan
   }
+  return mocked
 })
 
 /** 工厂:创建 7 类基础操作菜单项 */

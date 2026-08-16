@@ -32,7 +32,9 @@ import { PlanStepsCard } from '../src/components/ai/progress-sections/plan-steps
 import type { PlanStep } from '../src/hooks/use-agent-progress'
 
 // ─── lucide-react mock:每个图标用独立 testid(便于断言"正确图标渲染") ──
-vi.mock('lucide-react', () => {
+// importOriginal + 全量映射:2026-08-17 根治"组件新增图标未列入 mock 列表 → 套件加载失败"
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const make = (name: string) => {
     const Comp = ({ className }: { className?: string }) => (
       <span data-testid={`icon-${name}`} className={className} aria-hidden />
@@ -40,17 +42,11 @@ vi.mock('lucide-react', () => {
     Comp.displayName = name
     return Comp
   }
-  return {
-    __esModule: true,
-    ListTodo: make('ListTodo'),
-    Check: make('Check'),
-    Clock: make('Clock'),
-    Loader2: make('Loader2'),
-    ChevronRight: make('ChevronRight'),
-    ChevronDown: make('ChevronDown'),
-    AlertCircle: make('AlertCircle'),
-    Copy: make('Copy'),
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    mocked[key] = make(key)
   }
+  return mocked
 })
 
 // ─── next-intl mock:useTranslations 返回 t 函数,支持 key 查表 + 参数插值 ──

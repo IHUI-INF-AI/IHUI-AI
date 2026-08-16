@@ -15,18 +15,6 @@ interface MessagePage {
   total: number
 }
 
-/**
- * 对齐 Uniapp pagesA/message/index.vue(消息):
- * - 标题「消息」:Uniapp navigation-bars title 逐字对齐(shared 默认「消息中心」)
- * - 单导航栏:移除 wrapper 层 NavBar,消除与 shared header 的双标题栏
- *   (Uniapp 仅一层 navigation-bars;推送通知面板已由 RootNavigator 全局挂载,
- *   此处不再重复渲染局部 NotificationPanel)
- */
-const UNIAPP_TEXT: Record<string, string> = {
-  'messageCenter.title': '消息',
-  'messageCenter.empty': '暂无消息',
-}
-
 export function MessageCenterScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -37,12 +25,6 @@ export function MessageCenterScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  // t 包装:Uniapp 对齐文案优先,其余回落 i18n
-  const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
-    [t],
-  )
-
   const load = useCallback(async () => {
     setError('')
     try {
@@ -50,12 +32,12 @@ export function MessageCenterScreen() {
       if (!res.success) throw new Error()
       setItems(res.data.list ?? [])
     } catch {
-      setError(uniappT('messageCenter.loadFailed'))
+      setError(t('messageCenter.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [activeTab, uniappT])
+  }, [activeTab, t])
 
   useEffect(() => {
     setLoading(true)
@@ -73,7 +55,7 @@ export function MessageCenterScreen() {
 
   return (
     <SharedMessageCenterScreen
-      t={uniappT}
+      t={t}
       items={items}
       activeTab={activeTab}
       onSelectTab={onSelectTab}

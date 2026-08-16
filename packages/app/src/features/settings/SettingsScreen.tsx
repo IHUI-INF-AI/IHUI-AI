@@ -288,7 +288,7 @@ function PwdInput({
 
 function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   // 页面背景:浅色 #f5f5f5(对齐 D 盘 Ai-WXMiniVue 设置页),深色沿用 surface.bg
-  const pageBg = colorScheme === 'dark' ? tk.surface.bg : '#f5f5f5'
+  const pageBg = colorScheme === 'dark' ? tk.surface.bg : '#ffffff'
   // 卡片表面:浅色纯白 #fff(对齐 uniapp section-card),深色沿用 surface.muted
   const cardBg = colorScheme === 'dark' ? tk.surface.muted : '#ffffff'
   // 分隔线:浅色 #f0f0f0(对齐 uniapp border-bottom),深色沿用 border.light

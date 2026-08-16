@@ -18,6 +18,7 @@ import {
   Download,
   Code,
   Megaphone,
+  ArrowDown,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -80,8 +81,10 @@ function TypingIndicator({
 /** 把消息 createdAt 格式化为"今天 HH:MM / MM-DD HH:MM" 风格 footer 时间戳(2026-07-28 立)
  *  - hover 消息气泡时在 footer 显示完整时间,便于用户回溯精确时刻
  *  - 与 timeline-event.tsx 内的 formatRelativeTime 互为补充:相对时间用于时间线,绝对时间用于消息气泡 */
-function formatMessageTimestamp(createdAt: number): string {
-  const d = new Date(createdAt)
+function formatMessageTimestamp(createdAt: number | string | undefined): string {
+  const ts = typeof createdAt === 'string' ? new Date(createdAt).getTime() : createdAt
+  if (!ts || Number.isNaN(ts)) return ''
+  const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ''
   const now = new Date()
   const sameDay =
@@ -387,7 +390,7 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-0 px-1',
+        'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
         isFocused && 'ring-1 ring-ring/40',
@@ -557,23 +560,24 @@ const MessageItem = React.memo(function MessageItem({
           - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
-        <div className="flex flex-col gap-0">
+        <div className="flex flex-col gap-1">
           {/* 按钮区(hover 显示,左侧附时间戳) */}
-          <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
-            {/* 时间戳 — AI 消息左侧展示 */}
+          <div className="msg-hover-reveal flex items-center gap-1">
+            {/* 时间戳 — AI 消息左侧展示,随按钮一起 hover 显示 */}
             {!isUser &&
               (() => {
-                const timestampLabel = formatMessageTimestamp(m.createdAt)
-                return timestampLabel ? (
+                const label = formatMessageTimestamp(m.createdAt) || '--'
+                console.log('[ts-debug]', { id: m.id, isUser, createdAt: m.createdAt, label })
+                return (
                   <span
                     className="text-xs text-muted-foreground shrink-0"
                     data-testid={`message-timestamp-${m.id}`}
                   >
-                    {timestampLabel}
+                    {label}
                   </span>
-                ) : null
+                )
               })()}
-            <div className="msg-hover-reveal flex items-center gap-1">
+            <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
               {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
               {!isUser && (
                 <Tooltip
@@ -1779,7 +1783,7 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0 px-4 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-1 px-4 py-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
@@ -1874,6 +1878,41 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
+      {/* Jump-to-latest 浮动按钮(2026-08-17 立,从 MessageInput 迁移):
+          - 监听 useChatStore.userScrolledUp,仅在用户向上滚动超过阈值时显示。
+          - 点击派发 ihui:jump-to-latest 事件,由 MessageList 内 handleJumpToLatest 监听。
+          - isStreaming 时显示脉冲红点(message-list-jump-latest-dot),提示有正在生成的内容。 */}
+      {userScrolledUp && (
+        <Tooltip
+          content={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
+            }}
+            data-testid="message-list-jump-latest"
+            aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+            className={cn(
+              'absolute bottom-4 left-1/2 z-10 inline-flex h-8 -translate-x-1/2 items-center gap-1 rounded-md',
+              'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
+              'transition-all duration-150 hover:bg-accent hover:shadow-lg',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'animate-in fade-in-0 slide-in-from-bottom-2',
+            )}
+          >
+            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+            <span>{t('latest') === 'latest' ? 'Latest' : t('latest')}</span>
+            {isStreaming && (
+              <span
+                className="ml-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+                aria-hidden
+                data-testid="message-list-jump-latest-dot"
+              />
+            )}
+          </button>
+        </Tooltip>
+      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}

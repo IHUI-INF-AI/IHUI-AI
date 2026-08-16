@@ -99,7 +99,12 @@
       "refunding": "Refunding",
       "completed": "Completed",
       "failed": "Failed"
-    }
+    },
+    "tab": {
+      "shipped": "To Receive"
+    },
+    "empty": "No orders yet",
+    "loadFailed": "Failed to load"
   },
   "agent": {
     "config": "Config",
@@ -702,7 +707,10 @@
     "tabCourse": "Courses",
     "tabLive": "Live",
     "tabArticle": "Articles",
-    "empty": "No favorites yet"
+    "empty": "No favorites yet",
+    "loadFailed": "Failed to load favorites",
+    "deleteTitle": "Delete Favorite",
+    "deleteFailed": "Failed to delete"
   },
   "finance": {
     "title": "Finance",
@@ -717,7 +725,10 @@
     "following": "Following",
     "fans": "Followers",
     "empty": "No data",
-    "unfollow": "Unfollow"
+    "unfollow": "Unfollow",
+    "loadFailed": "Failed to load",
+    "unfollowTitle": "Unfollow",
+    "unfollowFailed": "Failed to unfollow"
   },
   "icpRecord": {
     "licenseLabel": "ICP License No."
@@ -877,7 +888,8 @@
     "avatarModalTitle": "Change Avatar",
     "avatarUrlLabel": "Avatar URL",
     "avatarUrlPlaceholder": "Paste an image link",
-    "avatarUrlHint": "JPG / PNG, 200x200 recommended"
+    "avatarUrlHint": "JPG / PNG, 200x200 recommended",
+    "nicknameTooLong": "Nickname too long (max 8 characters)"
   },
   "promote": {
     "title": "Promotion Center",
@@ -1013,7 +1025,9 @@
   "subscriptions": {
     "title": "My Subscriptions",
     "empty": "No subscriptions yet",
-    "cancel": "Cancel Subscription"
+    "cancel": "Cancel Subscription",
+    "cancelTitle": "Cancel Subscription",
+    "loadFailed": "Failed to load"
   },
   "taskCenter": {
     "title": "Task Center",
@@ -1077,6 +1091,46 @@
     "opened": "Activated"
   },
   "wallet": {
-    "points": "Points"
+    "points": "Points",
+    "title": "My Wallet",
+    "balance": "Available Balance",
+    "frozen": "Frozen Amount",
+    "totalRecharge": "Total Recharge",
+    "totalWithdraw": "Total Withdrawal",
+    "recharge": "Recharge",
+    "withdraw": "Withdraw",
+    "loadFailed": "Failed to load"
+  },
+  "certificate": {
+    "title": "My Certificates",
+    "empty": "No certificates yet",
+    "loadFailed": "Failed to load",
+    "status": {
+      "issued": "Issued",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "issuedDate": "Issued Date",
+    "expiryDate": "Valid Until"
+  },
+  "following": {
+    "title": "My Following",
+    "empty": "No followings yet",
+    "loadFailed": "Failed to load",
+    "unfollowTitle": "Unfollow",
+    "unfollow": "Unfollow"
+  },
+  "messageCenter": {
+    "title": "Messages",
+    "empty": "No messages",
+    "loadFailed": "Failed to load"
+  },
+  "withdraw": {
+    "submit": "Submit Withdrawal",
+    "amountPlaceholder": "Enter amount",
+    "amountInvalid": "Invalid amount",
+    "minAmount": "Minimum withdrawal is ¥10",
+    "success": "Withdrawal successful",
+    "failed": "Withdrawal failed"
   }
 }

@@ -95,7 +95,12 @@
       "refunding": "退款中",
       "completed": "已完成",
       "failed": "失敗"
-    }
+    },
+    "tab": {
+      "shipped": "待收貨"
+    },
+    "empty": "暫無訂單資訊",
+    "loadFailed": "加載失敗"
   },
   "agent": {
     "config": "設定",
@@ -698,7 +703,10 @@
     "tabCourse": "",
     "tabLive": "",
     "tabArticle": "",
-    "empty": ""
+    "empty": "",
+    "loadFailed": "加載收藏失敗",
+    "deleteTitle": "刪除收藏",
+    "deleteFailed": "刪除失敗"
   },
   "finance": {
     "title": "",
@@ -709,11 +717,14 @@
     "totalExpense": ""
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "關注與粉絲",
+    "following": "關注",
+    "fans": "粉絲",
+    "empty": "暫無關注",
+    "unfollow": "取消關注",
+    "loadFailed": "加載失敗",
+    "unfollowTitle": "取消關注",
+    "unfollowFailed": "取消關注失敗"
   },
   "icpRecord": {
     "licenseLabel": ""
@@ -867,13 +878,14 @@
     "submit": ""
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "點擊更換頭像",
+    "nicknamePlaceholder": "請輸入暱稱",
+    "bioPlaceholder": "介紹一下自己吧",
+    "avatarModalTitle": "更換頭像",
+    "avatarUrlLabel": "頭像連結",
+    "avatarUrlPlaceholder": "請輸入頭像 URL",
+    "avatarUrlHint": "支援 JPG / PNG，建議 200x200",
+    "nicknameTooLong": "暱稱過長 不能超過8個字元"
   },
   "promote": {
     "title": "",
@@ -1007,9 +1019,11 @@
     "statusPaused": ""
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "我的訂閱",
+    "empty": "暫無訂閱",
+    "cancel": "取消訂閱",
+    "cancelTitle": "取消訂閱",
+    "loadFailed": "加載失敗"
   },
   "taskCenter": {
     "title": "",
@@ -1073,6 +1087,46 @@
     "opened": ""
   },
   "wallet": {
-    "points": ""
+    "points": "",
+    "title": "我的錢包",
+    "balance": "可用餘額",
+    "frozen": "凍結金額",
+    "totalRecharge": "累計儲值",
+    "totalWithdraw": "累計提現",
+    "recharge": "儲值",
+    "withdraw": "提現",
+    "loadFailed": "加載失敗"
+  },
+  "certificate": {
+    "title": "我的證書",
+    "empty": "暫無證書",
+    "loadFailed": "加載失敗",
+    "status": {
+      "issued": "已發放",
+      "expired": "已過期",
+      "revoked": "已撤銷"
+    },
+    "issuedDate": "發放日期",
+    "expiryDate": "有效期至"
+  },
+  "following": {
+    "title": "我的關注",
+    "empty": "暫無關注",
+    "loadFailed": "加載失敗",
+    "unfollowTitle": "取消關注",
+    "unfollow": "取消關注"
+  },
+  "messageCenter": {
+    "title": "消息",
+    "empty": "暫無消息",
+    "loadFailed": "加載失敗"
+  },
+  "withdraw": {
+    "submit": "申請提現",
+    "amountPlaceholder": "請輸入提現金額",
+    "amountInvalid": "金額無效",
+    "minAmount": "最低提現金額為 10 元",
+    "success": "提現成功",
+    "failed": "提現失敗"
   }
 }

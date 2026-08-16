@@ -15,35 +15,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 20
 
-/**
- * 对齐说明:Uniapp 历史项目无独立收藏列表页(收藏散落在各详情页内),
- * 文案参照 shared bookmarks/favorites 命名空间 + tab 类型(全部/课程/直播/文章)中文硬编码。
- * mobile-rn/shared zh-CN 暂无 favorite.* key(translate 缺 key 返回 key 本身),
- * key 就绪后此覆盖自动失效(UNIAPP_TEXT 优先级高于 t,后续可删)。
- */
-const UNIAPP_TEXT: Record<string, string> = {
-  'favorite.title': '我的收藏',
-  'favorite.tabAll': '全部',
-  'favorite.tabCourse': '课程',
-  'favorite.tabLive': '直播',
-  'favorite.tabArticle': '文章',
-  'favorite.empty': '暂无收藏',
-  'favorite.loadFailed': '加载收藏失败',
-  'favorite.deleteTitle': '删除收藏',
-  'favorite.deleteFailed': '删除失败',
-}
-
 export function FavoriteScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<FavoriteFilterTab>('all')
-
-  // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
-  const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
-    [t],
-  )
 
   const fetcher = useCallback(
     async (query: { page: number; pageSize: number }) => {
@@ -56,9 +32,9 @@ export function FavoriteScreen() {
       if (res.success) {
         return { success: true as const, data: res.data }
       }
-      return { success: false as const, error: res.error || uniappT('favorite.loadFailed') }
+      return { success: false as const, error: res.error || t('favorite.loadFailed') }
     },
-    [tab, uniappT],
+    [tab, t],
   )
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
@@ -72,17 +48,17 @@ export function FavoriteScreen() {
 
   // 删除确认弹窗:uni.showModal → RN Alert(取消/删除·destructive)
   const onDelete = (item: FavoriteItemRow) => {
-    Alert.alert(uniappT('favorite.deleteTitle'), item.title, [
-      { text: uniappT('common.cancel'), style: 'cancel' },
+    Alert.alert(t('favorite.deleteTitle'), item.title, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: uniappT('common.delete'),
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           const res = await deleteFavorite(item.targetType, item.targetId)
           if (res.success) {
             removeItem((i) => i.id === item.id)
           } else {
-            Alert.alert(uniappT('common.failed'), res.error || uniappT('favorite.deleteFailed'))
+            Alert.alert(t('common.failed'), res.error || t('favorite.deleteFailed'))
           }
         },
       },
@@ -91,7 +67,7 @@ export function FavoriteScreen() {
 
   return (
     <SharedFavoriteScreen
-      t={uniappT}
+      t={t}
       items={items}
       activeTab={tab}
       onSelectTab={onSelectTab}

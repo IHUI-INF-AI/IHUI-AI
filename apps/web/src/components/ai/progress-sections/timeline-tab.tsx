@@ -361,6 +361,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 <span
                   className="inline-flex items-center gap-0.5 text-emerald-500"
                   data-testid="timeline-count-done"
+                  title={safeT(t, 'timelineCountDone', 'Completed')}
                 >
                   <span aria-hidden>✓</span>
                   <span>{statusCounts.done}</span>
@@ -372,6 +373,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 <span
                   className="inline-flex items-center gap-0.5 text-destructive"
                   data-testid="timeline-count-failed"
+                  title={safeT(t, 'timelineCountFailed', 'Failed')}
                 >
                   <span aria-hidden>⚠</span>
                   <span>{statusCounts.failed}</span>
@@ -383,6 +385,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 <span
                   className="inline-flex items-center gap-0.5 text-primary"
                   data-testid="timeline-count-running"
+                  title={safeT(t, 'timelineCountRunning', 'Running')}
                 >
                   <span aria-hidden>⏳</span>
                   <span>{statusCounts.running}</span>
