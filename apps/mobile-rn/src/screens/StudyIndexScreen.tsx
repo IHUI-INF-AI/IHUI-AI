@@ -72,7 +72,8 @@ const API_PATH = '/api/study/videos'
 const GRID_COVER_HEIGHT = 89
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 /** 免费资料飞书链接(对齐 Uniapp user/index.vue 行 682 lingqu,与 ProfileScreen 保持一致) */
-const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 /** 页面三态(对齐 Uniapp pageType:index=首页预览 / model=模型全屏 / study=课程全屏) */
 type PageType = 'index' | 'model' | 'study'
@@ -159,7 +160,9 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
       <View style={styles.tipInner}>
         <Text style={styles.tipIcon}>💡</Text>
         <View style={styles.tipScrollContainer}>
-          <Animated.View style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}>
+          <Animated.View
+            style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
+          >
             <Text style={styles.tipText}>{TIP_TEXT}</Text>
             <Text style={styles.tipText}>{TIP_TEXT}</Text>
           </Animated.View>
@@ -472,9 +475,7 @@ export function StudyIndexScreen() {
         ) : null}
         {/* 作者行(对齐 Uniapp study_list icon_logo + name) */}
         <View style={styles.gridAuthorRow}>
-          {item.avatar ? (
-            <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
-          ) : null}
+          {item.avatar ? <Image source={{ uri: item.avatar }} style={styles.gridAvatar} /> : null}
           <Text style={styles.gridAuthor} numberOfLines={1}>
             {author}
           </Text>
@@ -622,54 +623,52 @@ export function StudyIndexScreen() {
         <View style={styles.modelListWrap}>
           <ModelList groups={modelListGroups} selectionMode="single" />
         </View>
+      ) : initialLoading ? (
+        <View style={styles.centerWrap}>
+          <Loading text="加载中..." />
+        </View>
       ) : (
-        initialLoading ? (
-          <View style={styles.centerWrap}>
-            <Loading text="加载中..." />
-          </View>
-        ) : (
-          <FlatList
-            data={items}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={renderItem}
-            numColumns={2}
-            columnWrapperStyle={styles.gridRow}
-            contentContainerStyle={styles.listContent}
-            ListHeaderComponent={<TipBanner onPressMyModel={onMyModel} />}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={resolvedTheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
-              />
-            }
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.3}
-            ListEmptyComponent={
-              error ? (
-                <View style={styles.centerWrap}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <Pressable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
-                    <Text style={styles.retryText}>{t('common.ok')}</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <Empty text="暂无学习视频" icon="🎬" />
-              )
-            }
-            ListFooterComponent={
-              loadingMore ? (
-                <Loading text="加载更多..." />
-              ) : items.length > 0 && items.length >= total ? (
-                <View style={styles.noMoreWrap}>
-                  <View style={styles.noMoreLine} />
-                  <Text style={styles.noMoreText}>没有更多了</Text>
-                  <View style={styles.noMoreLine} />
-                </View>
-              ) : null
-            }
-          />
-        )
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={<TipBanner onPressMyModel={onMyModel} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={resolvedTheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
+            />
+          }
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            error ? (
+              <View style={styles.centerWrap}>
+                <Text style={styles.errorText}>{error}</Text>
+                <Pressable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
+                  <Text style={styles.retryText}>{t('common.ok')}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Empty text="暂无学习视频" icon="🎬" />
+            )
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <Loading text="加载更多..." />
+            ) : items.length > 0 && items.length >= total ? (
+              <View style={styles.noMoreWrap}>
+                <View style={styles.noMoreLine} />
+                <Text style={styles.noMoreText}>没有更多了</Text>
+                <View style={styles.noMoreLine} />
+              </View>
+            ) : null
+          }
+        />
       )}
       <FloatingActionButton onPress={onPublish} accessibilityLabel="发布视频" />
 
