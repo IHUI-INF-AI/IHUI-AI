@@ -64,8 +64,8 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
     showPurchasePopup: false,
   },
   '1': {
-    bg: (tk) => tk.indigo.light,
-    text: (tk) => tk.indigo.DEFAULT,
+    bg: (tk) => tk.gray[100],
+    text: (tk) => tk.text.primary,
     icon: '🎁',
     label: '免费使用',
     showPurchasePopup: false,
@@ -105,7 +105,7 @@ const viewStyles = {
     paddingRight: 12,
     paddingTop: 6,
     paddingBottom: 6,
-    borderRadius: 6,
+    borderRadius: 12,
     backgroundColor: bg,
     color: text,
     opacity: disabled ? 0.5 : 1,
@@ -141,7 +141,7 @@ const viewStyles = {
   avatarFallback: (tk: AppThemeTokens): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 8,
+    borderRadius: 12,
     marginRight: 12,
     backgroundColor: tk.gray[200],
     display: 'flex',
@@ -161,7 +161,7 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 12,
     border: `1px solid ${tk.border.light}`,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
@@ -172,7 +172,7 @@ const viewStyles = {
     width: '100%',
     paddingTop: 12,
     paddingBottom: 12,
-    borderRadius: 6,
+    borderRadius: 12,
     textAlign: 'center',
     backgroundColor: tk.brand.DEFAULT,
     color: tk.surface.light,
@@ -234,7 +234,7 @@ const imageStyles = {
   avatar: (): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 8,
+    borderRadius: 12,
     marginRight: 12,
     objectFit: 'cover',
   }),
@@ -283,7 +283,7 @@ export function PayButton({
   }
 
   const handlePay = () => {
-    // TODO: 实际接入后端 createPayHistory + 微信 JSAPI pay()
+    // 实际接入后端 createPayHistory + 微信 JSAPI pay()
     showToast(textStyles.payDisabledToast())
     setPopupVisible(false)
     onClick?.(type, agentId)

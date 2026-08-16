@@ -14,13 +14,13 @@ function trendLabel(
   if (trend === 'up')
     return { text: t('aiCareer.trendUp'), color: tk.brand.DEFAULT, bg: tk.success.light }
   if (trend === 'new')
-    return { text: t('aiCareer.trendNew'), color: tk.purple.DEFAULT, bg: tk.purple.light }
+    return { text: t('aiCareer.trendNew'), color: tk.text.primary, bg: tk.surface.muted }
   return { text: t('aiCareer.trendStable'), color: tk.text.secondary, bg: tk.surface.card }
 }
 
 function scoreColor(score: number, tk: AppThemeTokens): string {
   if (score >= 85) return tk.brand.DEFAULT
-  if (score >= 70) return tk.purple.DEFAULT
+  if (score >= 70) return tk.text.primary
   return tk.warning.DEFAULT
 }
 
@@ -119,35 +119,35 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     backBtn: { paddingBottom: 4 },
-    back: { fontSize: 14, color: tk.text.secondary },
+    back: { fontSize: 16, color: tk.text.secondary },
     header: { paddingTop: 4, paddingBottom: 12 },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    headerSub: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
-    errorText: { color: tk.danger.DEFAULT, fontSize: 12, marginBottom: 8 },
-    loadingText: { color: tk.text.tertiary, fontSize: 12, marginBottom: 8 },
+    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorText: { color: tk.danger.DEFAULT, fontSize: 14, marginBottom: 8 },
+    loadingText: { color: tk.text.tertiary, fontSize: 14, marginBottom: 8 },
     sectionTitle: {
       marginTop: 12,
       marginBottom: 10,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     },
     careerCard: {
-      padding: 16,
+      padding: 14,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 10,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
-    careerCardActive: { borderColor: tk.purple.DEFAULT },
+    careerCardActive: { borderColor: tk.brand.DEFAULT },
     careerHead: { flexDirection: 'row' },
     careerMain: { flex: 1 },
     careerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    careerTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    trendBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    careerTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
     trendText: { fontSize: 11, fontWeight: '600' },
-    careerSalary: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
+    careerSalary: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     matchRing: {
       width: 56,
       height: 56,
@@ -156,19 +156,19 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    matchScore: { fontSize: 18, fontWeight: '700' },
-    matchLabel: { marginTop: 2, fontSize: 10, color: tk.text.tertiary },
-    reasonBox: { marginTop: 12, padding: 10, borderRadius: 8, backgroundColor: tk.surface.muted },
-    reasonTitle: { fontSize: 12, fontWeight: '600', color: tk.text.primary, marginBottom: 6 },
-    reasonItem: { fontSize: 12, color: tk.gray[600], lineHeight: 20 },
+    matchScore: { fontSize: 20, fontWeight: '700' },
+    matchLabel: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
+    reasonBox: { marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: tk.surface.muted },
+    reasonTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    reasonItem: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
     planBtn: {
       marginTop: 10,
-      height: 36,
-      borderRadius: 8,
-      backgroundColor: tk.purple.DEFAULT,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    planBtnText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
+    planBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
   })
 }

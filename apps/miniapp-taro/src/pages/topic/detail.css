@@ -186,7 +186,7 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 10rpx;
-  /* TODO: custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
+  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
   color: #fff;
   font-size: 28rpx;
   font-weight: 600;

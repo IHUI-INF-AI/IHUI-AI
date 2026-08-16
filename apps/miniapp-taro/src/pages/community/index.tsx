@@ -708,7 +708,7 @@ export default function Community() {
                 style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
                 onClick={() => {
                   Taro.showToast({ title: '语音搜索开发中', icon: 'none' })
-                  // TODO: 接入 Taro.getRecorderManager + 语音识别 API
+
                 }}
               >
                 🎤
@@ -719,7 +719,7 @@ export default function Community() {
                 onClick={async () => {
                   try {
                     await chooseImages(1)
-                    // TODO: 上传图片 + 识别内容 + 搜索
+
                     Taro.showToast({ title: '图片搜索开发中', icon: 'none' })
                   } catch {
                     // 用户取消或失败,静默

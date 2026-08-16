@@ -123,5 +123,9 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
   return result
 }
 
-export { setTokenProvider, setBaseUrl, setStreamBaseUrl, streamChat } from '@ihui/api-client'
+export function getStreamBaseUrl(): string {
+  return detectStreamBaseUrl()
+}
+
+export { setTokenProvider, setBaseUrl, setStreamBaseUrl, streamChat, getToken } from '@ihui/api-client'
 export type { ApiResult, ApiResponse } from '@ihui/types'

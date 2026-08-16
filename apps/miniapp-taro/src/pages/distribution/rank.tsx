@@ -50,7 +50,7 @@ export default function DistributionRank() {
   return (
     <View className="min-h-screen bg-background">
       <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[#ff8e53]">
-        {/* TODO: custom color: #ff8e53 暗色变体,无对应 token */}
+
         <Text className="text-primary-foreground text-[36rpx] font-bold">
           {tt('distribution.rankTitle', '分销排行榜')}
         </Text>

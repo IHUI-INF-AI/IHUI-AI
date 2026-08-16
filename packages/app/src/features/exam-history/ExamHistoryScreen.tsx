@@ -85,7 +85,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
     },
     center: {
@@ -95,17 +95,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btn: {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     },
-    btnText: { color: tk.surface.light, fontSize: 14 },
-    back: { fontSize: 14, color: tk.text.medium },
+    btnText: { color: tk.surface.light, fontSize: 16 },
+    back: { fontSize: 16, color: tk.text.medium },
     title: {
       marginTop: 8,
       marginBottom: 12,
@@ -115,11 +115,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
       marginBottom: 8,
     },
     cardHead: {
@@ -129,13 +129,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: '700',
       color: tk.text.primary,
     },
     badge: {
       paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingVertical: 4,
       borderRadius: 4,
       marginLeft: 8,
     },
@@ -146,9 +146,9 @@ function createStyles(tk: AppThemeTokens) {
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 6,
+      marginTop: 8,
     },
-    score: { fontSize: 13, fontWeight: '600', color: tk.brand.DEFAULT },
+    score: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
     metaTime: { fontSize: 11, color: tk.text.tertiary },
   })
 }

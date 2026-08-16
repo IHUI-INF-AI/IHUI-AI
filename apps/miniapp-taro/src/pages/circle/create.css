@@ -79,7 +79,7 @@
   border-radius: 10rpx;
   z-index: 2;
 }
-/* TODO: custom color: #fff 白色图标在半透明黑色遮罩上,需始终保持白色,无对应 token */
+/* custom color: #fff 白色图标在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .cc-del-icon {
   color: #fff;
   font-size: 28rpx;

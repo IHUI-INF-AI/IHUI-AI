@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.DEFAULT,
   },
   actionText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: tokens.surface.light,
   },

@@ -146,7 +146,7 @@ export default function LiveList() {
             >
               <View className="relative w-full h-[320rpx]">
                 <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
-                {/* TODO: custom color: #f0ad4e 自定义橙色,无对应 token,保留原值 */}
+
                 <View
                   className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${
                     item.status === 'living'

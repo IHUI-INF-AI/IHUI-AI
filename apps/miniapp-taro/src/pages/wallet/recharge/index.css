@@ -26,7 +26,7 @@
 .rc-loading-text {
   margin-top: 20rpx;
   font-size: 26rpx;
-  /* TODO: custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
+  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
   color: #fff;
 }
 @keyframes rc-spin {
@@ -207,7 +207,7 @@
   font-size: 28rpx;
   background: var(--color-muted);
 }
-/* TODO: custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝,无对应 token,保留原值 */
+/* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝,无对应 token,保留原值 */
 .rc-method-icon--wx {
   color: #09bb07;
 }

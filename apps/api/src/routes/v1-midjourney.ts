@@ -10,19 +10,16 @@
  * 3. POST /v1/midjourney/action         — 通用操作:upscale/variation/reroll(→ 上游 POST /mj/submit/action)
  * 4. POST /v1/midjourney/upscale        — 单图放大(→ 上游 POST /mj/submit/upscale)
  *
- * 鉴权:Bearer API Key(轻量级校验,TODO 由主 agent 替换为共享 requireApiKeyAuth)。
+ * 鉴权:requireApiKeyAuth(plugins/api-key-auth.ts,Bearer token + developer_api_keys 表)。
  * 计费:按次计费(imagine=1 unit,upscale=0.5 unit,variation/reroll=1 unit),model='midjourney-v6',
  *      通过 relay-billing-service.recordCall 写入 llm_call_logs + 扣减余额。
  *
  * 响应格式统一 { code, message, data },code=0 成功。
  * 上游未配置时返回 5016 "Midjourney-Proxy 渠道未配置"。
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
-import { dbRead } from '../db/index.js'
-import { developerApiKeys } from '@ihui/database'
-import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
+import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { success, error } from '../utils/response.js'
 import { recordCall } from '../services/relay-billing-service.js'
 
@@ -86,52 +83,6 @@ interface MjTaskDetailData {
   image_url: string | null
   progress: string
   fail_reason: string | null
-}
-
-// =============================================================================
-// 轻量级鉴权
-// =============================================================================
-
-// TODO(主 agent): 替换为共享 requireApiKeyAuth(plugins/api-key-auth.ts)
-//   + requireApiKeyPermission('images:write') + requireApiKeyQuota()。
-// 当前为轻量级校验:仅验 key 有效 + status=active,未做 P0-7 安全粒度检查
-//   (expiresAt / allowedIps / allowedModels / maxTokensPerReq)和 quota 预扣。
-function unauthorized(message: string): Error {
-  const err = new Error(message) as Error & { statusCode: number }
-  err.statusCode = 401
-  return err
-}
-
-/** 从 Authorization: Bearer ihui_xxx 提取并校验 API Key,注入 request.apiKey。 */
-async function lightAuth(request: FastifyRequest): Promise<AuthenticatedApiKey> {
-  const header = request.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
-    throw unauthorized('API key required')
-  }
-  const key = header.slice('Bearer '.length).trim()
-  if (!key) throw unauthorized('API key required')
-
-  const [row] = await dbRead
-    .select()
-    .from(developerApiKeys)
-    .where(eq(developerApiKeys.key, key))
-    .limit(1)
-
-  if (!row || row.status !== 'active') throw unauthorized('Invalid or revoked API key')
-
-  const ctx: AuthenticatedApiKey = {
-    id: row.id,
-    userId: row.userId,
-    key: row.key,
-    permissions: (row.permissions ?? []) as ApiKeyPermission[],
-    rateLimit: row.rateLimit,
-    expiresAt: row.expiresAt ?? null,
-    allowedIps: (row.allowedIps ?? null) as string[] | null,
-    allowedModels: (row.allowedModels ?? null) as string[] | null,
-    maxTokensPerReq: row.maxTokensPerReq ?? null,
-  }
-  request.apiKey = ctx
-  return ctx
 }
 
 // =============================================================================
@@ -245,15 +196,8 @@ const taskIdParamSchema = z.object({
 // =============================================================================
 
 const midjourneyRoutes: FastifyPluginAsync = async (server) => {
-  // 轻量级 Bearer 鉴权 preHandler(所有 MJ 路由共享)
-  server.addHook('preHandler', async (request, reply) => {
-    try {
-      await lightAuth(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
-    }
-  })
+  // 共享 API Key 鉴权 preHandler(所有 MJ 路由共享)
+  server.addHook('preHandler', requireApiKeyAuth)
 
   // ===== 1. POST /v1/midjourney/imagine — 文生图提交 =====
   server.post('/v1/midjourney/imagine', async (request, reply) => {
@@ -291,7 +235,7 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       if (!data.result) {
         return reply.status(400).send(error(400, data.description || '上游 MJ 提交失败'))
       }
-      // 计费(TODO 桩)
+      // 计费(桩)
       const apiKey = request.apiKey!
       void chargeMjCall(apiKey, 'imagine', data.result)
 

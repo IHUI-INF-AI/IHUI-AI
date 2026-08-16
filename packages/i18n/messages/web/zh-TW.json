@@ -926,6 +926,20 @@
     "searchNext": "下一個",
     "searchPrev": "上一個",
     "searchClose": "關閉搜索",
+    "message": {
+      "hideContent": "隱藏內容",
+      "showContent": "顯示內容",
+      "like": "點讚",
+      "copy": "複製",
+      "downloadImages": "下載圖片",
+      "share": "分享",
+      "toggleMetadata": "切換元數據",
+      "regenerate": "重新生成",
+      "publishToCommunity": "發佈到社區",
+      "edit": "編輯",
+      "reply": "回覆",
+      "delete": "刪除"
+    },
     "plan": {
       "title": "執行計劃",
       "ariaLabel": "執行計劃步驟",

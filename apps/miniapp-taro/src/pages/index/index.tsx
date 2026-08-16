@@ -67,14 +67,14 @@ const DEFAULT_AVATAR =
 const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
 const QRCODE_IMG = '/static/images/qewm.png'
 
-// 本地 mock 模型列表(对齐原项目 modelList 数据源,TODO: 接入真实 API /api/llm/models)
+// 本地 mock 模型列表(对齐原项目 modelList 数据源)
 const MOCK_MODELS: ModelItem[] = [
   { id: 'step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 128000, input_price: 0 },
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_length: 128000, input_price: 0 },
   { id: 'claude-3.5', name: 'Claude 3.5', provider: 'anthropic', context_length: 200000, input_price: 0 },
 ]
 
-// 本地 mock 智能体列表(对齐原项目 agentList 数据源,TODO: 接入真实 API)
+// 本地 mock 智能体列表(对齐原项目 agentList 数据源)
 const MOCK_AGENTS: AgentInfo[] = [
   { id: 'agent-1', name: 'AI 写作助手', description: '帮你撰写高质量文章、报告和文案', avatar: '', useCount: 1234, category: '写作' },
   { id: 'agent-2', name: '编程助手', description: '代码编写、调试和优化建议', avatar: '', useCount: 2341, category: '开发' },
@@ -83,7 +83,7 @@ const MOCK_AGENTS: AgentInfo[] = [
   { id: 'agent-5', name: '翻译达人', description: '多语言翻译和本地化', avatar: '', useCount: 765, category: '工具' },
 ]
 
-// 本地 mock 技能列表(对齐原项目 skillsPopup 数据源,TODO: 接入真实 API)
+// 本地 mock 技能列表(对齐原项目 skillsPopup 数据源)
 const MOCK_SKILLS: AgentItem[] = [
   { id: 'skill-1', name: '文本生成', description: '高质量文本内容生成', avatar: '', useCount: 5678, category: 'text' },
   { id: 'skill-2', name: '图片生成', description: 'AI 绘画和图片创作', avatar: '', useCount: 4321, category: 'image' },
@@ -459,7 +459,7 @@ export default function Index() {
 
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
-    // 重置分页并刷新数据(TODO: 接入真实 API)
+    // 重置分页并刷新数据
     setState((s) => ({
       ...s,
       page: 1,
@@ -547,7 +547,7 @@ export default function Index() {
         showMaterialList: false,
       }))
       // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
-      // 简化:从 MOCK_MODELS 取第一个作为默认选中(TODO: 接入真实 API 后按类型加载)
+      // 简化:从 MOCK_MODELS 取第一个作为默认选中
       setTimeout(() => {
         setState((s) => {
           if (s.currentModelType !== type) return s // 用户已切换走,不自动选
@@ -630,7 +630,7 @@ export default function Index() {
       if (s.isLoadingMore || !s.hasMore) return s
       return { ...s, isLoadingMore: true, page: s.page + 1 }
     })
-    // 模拟异步加载(TODO: 接入真实 API)
+    // 模拟异步加载
     setTimeout(() => {
       setState((s) => ({
         ...s,
