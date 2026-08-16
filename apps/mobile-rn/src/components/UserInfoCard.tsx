@@ -120,7 +120,7 @@ function UserInfoCardNew({
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
             <Text style={newStyles.name} numberOfLines={1}>
-              {userInfo.username || '用户'}
+              {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
           </TouchableOpacity>
@@ -166,7 +166,11 @@ function UserInfoCardNew({
         <View style={newStyles.inviteRow}>
           <Text style={newStyles.inviteLabel}>邀请码:</Text>
           <Text style={newStyles.inviteCode}>{inviteCode}</Text>
-          <TouchableOpacity style={newStyles.copyBtn} activeOpacity={0.7} onPress={handleCopyInviteCode}>
+          <TouchableOpacity
+            style={newStyles.copyBtn}
+            activeOpacity={0.7}
+            onPress={handleCopyInviteCode}
+          >
             <Text style={newStyles.copyBtnText}>复制</Text>
           </TouchableOpacity>
         </View>
@@ -187,16 +191,31 @@ function UserInfoCardNew({
 
       {/* 退订按钮(对齐 Uniapp unsubscribe,仅 VIP 时显示) */}
       {isVip && onUnsubscribe ? (
-        <TouchableOpacity style={newStyles.unsubscribeBtn} activeOpacity={0.7} onPress={onUnsubscribe}>
+        <TouchableOpacity
+          style={newStyles.unsubscribeBtn}
+          activeOpacity={0.7}
+          onPress={onUnsubscribe}
+        >
           <Text style={newStyles.unsubscribeText}>退订</Text>
         </TouchableOpacity>
       ) : null}
 
       {/* 等级弹窗(对齐 Uniapp levelPopup,点击角色徽章触发) */}
-      <Modal visible={levelModalVisible} transparent animationType="fade" onRequestClose={() => setLevelModalVisible(false)}>
-        <TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={() => setLevelModalVisible(false)}>
+      <Modal
+        visible={levelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLevelModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={newStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setLevelModalVisible(false)}
+        >
           <View style={newStyles.modalCard}>
-            <Text style={newStyles.modalTitle}>{vipLevel || (isVip ? 'VIP 会员' : '普通会员')}</Text>
+            <Text style={newStyles.modalTitle}>
+              {vipLevel || (isVip ? 'VIP 会员' : '普通会员')}
+            </Text>
             {isVip && vipExpireAt ? (
               <Text style={newStyles.modalExpireText}>到期时间:{vipExpireAt}</Text>
             ) : null}
@@ -210,7 +229,11 @@ function UserInfoCardNew({
               <Text style={newStyles.modalBenefitItem}>· 部分课程免费学习</Text>
               <Text style={newStyles.modalBenefitItem}>· 建立专属知识库</Text>
             </View>
-            <TouchableOpacity style={newStyles.modalCloseBtn} activeOpacity={0.7} onPress={() => setLevelModalVisible(false)}>
+            <TouchableOpacity
+              style={newStyles.modalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => setLevelModalVisible(false)}
+            >
               <Text style={newStyles.modalCloseBtnText}>关闭</Text>
             </TouchableOpacity>
           </View>
@@ -477,12 +500,7 @@ const newStyles = StyleSheet.create({
 
 // ===== 旧版(variant='old',对齐 UserInfoCardOld.vue)=====
 
-function UserInfoCardOld({
-  userInfo,
-  showRechargeBtn = true,
-  onEdit,
-  onLogin,
-}: UserInfoCardProps) {
+function UserInfoCardOld({ userInfo, showRechargeBtn = true, onEdit, onLogin }: UserInfoCardProps) {
   // 未登录态:显示登录按钮
   if (!userInfo.uuid) {
     return (
@@ -503,7 +521,7 @@ function UserInfoCardOld({
       {/* 头部:用户名 + 编辑按钮 */}
       <View style={oldStyles.header}>
         <Text style={oldStyles.username} numberOfLines={1}>
-          {userInfo.username || '用户'}
+          {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
         </Text>
         {showRechargeBtn ? (
           <TouchableOpacity style={oldStyles.editBtn} activeOpacity={0.7} onPress={onEdit}>
@@ -514,9 +532,7 @@ function UserInfoCardOld({
 
       {/* 会员状态(简化文本,无徽章) */}
       <View style={oldStyles.membershipRow}>
-        <Text style={oldStyles.membershipText}>
-          {isVip ? '' : '未开通会员'}
-        </Text>
+        <Text style={oldStyles.membershipText}>{isVip ? '' : '未开通会员'}</Text>
         {isVip ? <Text style={oldStyles.vipText}>VIP</Text> : null}
       </View>
 
