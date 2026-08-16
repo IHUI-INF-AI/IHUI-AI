@@ -13,7 +13,6 @@ import {
   Pencil,
   Trash2,
   MessageCircle,
-  BarChart3,
   Eye,
   EyeOff,
   Download,
@@ -555,38 +554,25 @@ const MessageItem = React.memo(function MessageItem({
           - opacity:1 始终显示(原项目 _message-list.scss line 199-205)
           - gap:8px(原项目 .message-actions gap:8px)
           - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
-          - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply + Token(条件)
+          - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
         <div className="flex flex-col gap-0">
-          {/* 常驻元数据区(Token + 时间戳) */}
-          {!isUser &&
-            (() => {
-              const timestampLabel = formatMessageTimestamp(m.createdAt)
-              return (
-                <div className="mt-0.5 flex items-center gap-1">
+          {/* 按钮区(hover 显示,左侧附时间戳) */}
+          <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
+            {/* 时间戳 — AI 消息左侧展示 */}
+            {!isUser &&
+              (() => {
+                const timestampLabel = formatMessageTimestamp(m.createdAt)
+                return timestampLabel ? (
                   <span
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                    data-testid={`message-token-${m.id}`}
+                    className="text-xs text-muted-foreground shrink-0"
+                    data-testid={`message-timestamp-${m.id}`}
                   >
-                    <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                    <span className="font-medium">
-                      {(m.meta?.usage as { totalTokens?: number })?.totalTokens ?? 0} tokens
-                    </span>
+                    {timestampLabel}
                   </span>
-                  {timestampLabel && (
-                    <span
-                      className="text-xs text-muted-foreground"
-                      data-testid={`message-timestamp-${m.id}`}
-                    >
-                      {timestampLabel}
-                    </span>
-                  )}
-                </div>
-              )
-            })()}
-          {/* 按钮区(hover 显示) */}
-          <div className="-mt-0.5 flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
+                ) : null
+              })()}
             <div className="msg-hover-reveal flex items-center gap-1">
               {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
               {!isUser && (
