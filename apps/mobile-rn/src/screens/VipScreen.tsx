@@ -338,7 +338,9 @@ export function VipScreen() {
                   const statusRes = await checkPaymentStatus(orderNo)
                   if (!statusRes.success || !statusRes.data?.paid) {
                     if (__DEV__) {
-                      console.warn('[VipScreen] 支付SDK返回成功但后端状态未同步,乐观提示', { orderNo })
+                      console.warn('[VipScreen] 支付SDK返回成功但后端状态未同步,乐观提示', {
+                        orderNo,
+                      })
                     }
                   }
                 }
@@ -380,7 +382,10 @@ export function VipScreen() {
         <Text style={styles.entryTitle}>权益介绍</Text>
         <View style={styles.entryRow}>
           <Pressable
-            style={({ pressed }) => [styles.entryButton, pressed ? styles.entryButtonPressed : null]}
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
             onPress={() => setIntroIndexVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="会员权益介绍"
@@ -388,7 +393,10 @@ export function VipScreen() {
             <Text style={styles.entryButtonText}>会员权益</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.entryButton, pressed ? styles.entryButtonPressed : null]}
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
             onPress={() => setIntroIndexsVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="操盘手权益介绍"
@@ -396,7 +404,10 @@ export function VipScreen() {
             <Text style={styles.entryButtonText}>操盘手权益</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.entryButton, pressed ? styles.entryButtonPressed : null]}
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
             onPress={() => setPrivateAdvisoryVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="私人顾问介绍"
@@ -515,8 +526,12 @@ export function VipScreen() {
         visible={introVisible}
         title="VIP 会员权益"
         subtitle="解锁全部高级内容与专属服务"
-        icon="👑"
-        bullets={['畅享全站 VIP 课程与直播', '专属客服优先响应', '每月赠送积分,可兑换礼品', '专享会员折扣与活动']}
+        bullets={[
+          '畅享全站 VIP 课程与直播',
+          '专属客服优先响应',
+          '每月赠送积分,可兑换礼品',
+          '专享会员折扣与活动',
+        ]}
         primaryLabel="立即查看"
         onClose={() => setIntroVisible(false)}
         onPrimary={() => setIntroVisible(false)}
@@ -559,10 +574,7 @@ export function VipScreen() {
         onConfirm={onBottomPopupConfirm}
       />
       {/* 私董会名片二维码服务弹窗(对齐 Uniapp privateAdvisory.vue 行 100-114) */}
-      <BottomPops
-        visible={servicePopupVisible}
-        onClose={() => setServicePopupVisible(false)}
-      >
+      <BottomPops visible={servicePopupVisible} onClose={() => setServicePopupVisible(false)}>
         {/* 名片区(对齐 Uniapp mingpian.png) */}
         <View style={styles.serviceCard}>
           <Text style={styles.serviceCardTitle}>{t('vipScreen.qr.card')}</Text>
