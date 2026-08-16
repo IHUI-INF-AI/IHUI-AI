@@ -525,7 +525,8 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/deepseek/chat/stream',
     {
-      config: {\n        rateLimit: { max: 20, timeWindow: '1 minute' },
+      config: {
+        rateLimit: { max: 20, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
