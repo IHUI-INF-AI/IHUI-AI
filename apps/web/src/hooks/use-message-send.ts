@@ -263,6 +263,11 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       return
     }
     // 非流式:直接发送
+    // 先乐观清空输入框,让用户感觉"已发出"(doSend 返回后还会再清空一次,幂等)
+    setValue('')
+    resetReferences()
+    if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
     const ok = await doSend(text, references)
     if (!ok) {
       // 发送失败恢复输入内容

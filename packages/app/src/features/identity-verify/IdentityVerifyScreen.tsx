@@ -63,7 +63,7 @@ export function IdentityVerifyScreen({
         </TouchableOpacity>
         <Text style={styles.title}>{t('identityVerify.title')}</Text>
       </View>
-      <ScrollView style={styles.body} contentContainerStyle={{ padding: 16 }}>
+      <ScrollView style={styles.body} contentContainerStyle={{ padding: 14 }}>
         <View style={styles.card}>
           <Text style={styles.subtitle}>{t('identityVerify.subtitle')}</Text>
           <Text style={[styles.status, status === 'verified' && styles.statusOk]}>
@@ -110,23 +110,23 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     body: { flex: 1 },
     card: {
-      padding: 16,
+      padding: 14,
       marginBottom: 12,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
-    subtitle: { fontSize: 12, color: tk.text.secondary },
-    status: { marginTop: 6, fontSize: 14, fontWeight: '600', color: tk.danger.DEFAULT },
+    subtitle: { fontSize: 14, color: tk.text.secondary },
+    status: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
     statusOk: { color: tk.success.DEFAULT },
     uploadItem: {
       flexDirection: 'row',
@@ -134,26 +134,27 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: 10,
     },
-    label: { fontSize: 12, color: tk.text.medium },
+    label: { fontSize: 14, color: tk.text.medium },
     uploadBtn: {
       width: 48,
-      height: 48,
-      borderRadius: 8,
-      backgroundColor: tk.surface.muted,
+      height: 50,
+      borderRadius: 12,
+      backgroundColor: '#f5f5f5',
       alignItems: 'center',
       justifyContent: 'center',
     },
     uploadBtnText: { fontSize: 24, color: tk.text.tertiary },
-    errorText: { fontSize: 12, color: tk.danger.DEFAULT, marginTop: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     submitBtn: {
       marginTop: 12,
-      paddingVertical: 10,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      height: 50,
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
     submitBtnDisabled: { opacity: 0.5 },
-    submitBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
-    muted: { fontSize: 13, color: tk.text.secondary },
+    submitBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    muted: { fontSize: 14, color: tk.text.secondary },
   })
 }

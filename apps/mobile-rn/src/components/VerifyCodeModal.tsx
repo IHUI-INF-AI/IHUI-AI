@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   description: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
     textAlign: 'center',
     marginTop: 8,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   } as ViewStyle,
   countdown: {
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
   },
   countdownActive: {

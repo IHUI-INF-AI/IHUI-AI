@@ -94,6 +94,11 @@ export function setStreamBaseUrl(url: string): void {
   streamBaseUrl = url.replace(/\/$/, '')
 }
 
+/** 读取当前 streamBaseUrl */
+export function getStreamBaseUrl(): string {
+  return streamBaseUrl
+}
+
 /** 注入全局熔断器(null 表示禁用,所有请求直连) */
 export function setCircuitBreaker(cb: CircuitBreaker | null): void {
   circuitBreaker = cb
@@ -639,6 +644,7 @@ export interface StreamChatOptions {
     tokensAfter: number
     removedCount: number
     usageRatio: number
+    compressedMessages?: Array<{ role: string; content: string }>
   }) => void
   /** AI 主动提问回调:LLM 在流中输出 [[ASK_USER:JSON]] 标记时触发,前端弹窗让用户回答 */
   onQuestion?: (question: {
@@ -718,6 +724,13 @@ export interface StreamChatOptions {
    *  用途:前端收到 response 即清除"完全冷启动"超时(timeout15s),
    *  避免"response 已到达但首个 token 未到达"时误 abort。 */
   onResponse?: () => void
+  /** Token 用量回调(2026-08-15 立):后端在 SSE 流末尾发送 usage chunk 时触发,
+   *  前端据此更新消息 meta.usage,UI 展示 promptTokens/completionTokens/totalTokens。 */
+  onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
+  /** 2026-08-15 立:显式声明流式模式,默认 true。
+   *  后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk 注入,
+   *  不传或传 false 会导致 usage 缺失,token 显示为 0。 */
+  stream?: boolean
 }
 
 /** Subagent 派发生成事件(2026-07-28 立,ai-service tool loop 中 dispatch_subagent 工具执行前发出) */
@@ -1424,6 +1437,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.agentId) body.agentId = opts.agentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
   if (opts.extraBody) Object.assign(body, opts.extraBody)
+  // 2026-08-15 立:streamChat 默认流式,后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk。
+  // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
+  body.stream = opts.stream ?? true
 
   while (true) {
     const isRetry = attempt > 0
@@ -1498,6 +1514,31 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasToolSummary = typeof opts.onToolSummary === 'function'
       // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
       const hasToolDelegate = typeof opts.onToolDelegate === 'function'
+      const hasUsage = typeof opts.onUsage === 'function'
+
+      // 2026-08-15 修复:reader.read() 在 fetch 完成后无法被 AbortController 中断,
+      // 若后端返回 200 但不发送数据,流会永久挂起,导致前端 isStreaming/sendInFlightRef 卡死。
+      // 为 reader.read() 添加 30s 超时保护,超时后 cancel reader 并抛出错误,由外层 catch 块处理重试/报错。
+      const readWithTimeout = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const readPromise = reader.read().catch(() => {
+          // reader.cancel() 导致的 reject 会被 Promise.race 忽略,避免未处理 rejection
+          return { done: true, value: new Uint8Array() }
+        })
+        const timeoutPromise = new Promise<ReadableStreamReadResult<Uint8Array>>(
+          (_, reject) => {
+            timer = setTimeout(() => {
+              reader.cancel().catch(() => {})
+              reject(new Error('SSE read timeout'))
+            }, 30000)
+          },
+        )
+        try {
+          return await Promise.race([readPromise, timeoutPromise])
+        } finally {
+          if (timer) clearTimeout(timer)
+        }
+      }
 
       // ===== Dedupe 机制(isRetry 时启用) =====
       // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
@@ -1585,6 +1626,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               tokensAfter: Number(json.compaction.tokensAfter ?? 0),
               removedCount: Number(json.compaction.removedCount ?? 0),
               usageRatio: Number(json.compaction.usageRatio ?? 0),
+              compressedMessages: json.compaction.compressedMessages,
             })
           }
         } catch {
@@ -1890,6 +1932,42 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 解析 OpenAI 协议 usage chunk(stream_options.include_usage=true 时后端发送)。
+       *  格式:data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}
+       *  触发 onUsage 回调,前端据此更新消息 meta.usage。 */
+      const tryParseUsage = (line: string): void => {
+        if (!hasUsage) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          const usage = json?.usage as Record<string, unknown> | undefined
+          if (!usage || typeof usage !== 'object') return
+          const promptTokens = Number(usage.prompt_tokens ?? usage.promptTokens ?? 0)
+          const completionTokens = Number(usage.completion_tokens ?? usage.completionTokens ?? 0)
+          const totalTokens = Number(usage.total_tokens ?? usage.totalTokens ?? 0)
+          if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+            opts.onUsage!({
+              promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
+              completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
+              totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+            })
+          }
+        } catch {
+          /* 非 JSON 或非 usage 事件忽略 */
+        }
+      }
+
       /**
        * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
        * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
@@ -1907,6 +1985,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
        *  - tool-summary:tryParseToolSummary
        *  - tool-delegate:tryParseToolDelegate
+       *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
        */
       const routeLineByType = (line: string): string | null => {
         if (!line || line.startsWith(':')) return null
@@ -1926,6 +2005,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           const json = JSON.parse(data) as Record<string, unknown>
           // compaction 事件不基于 type 字段,基于 json.compaction.triggered
           if (json.compaction && typeof json.compaction === 'object') return 'compaction'
+          // usage 事件(OpenAI 协议)不基于 type 字段,基于 json.usage
+          if (json.usage && typeof json.usage === 'object') return 'usage'
           const t = json.type
           if (typeof t !== 'string') return null
           switch (t) {
@@ -1967,6 +2048,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseToolSummary(line)
         } else if (route === 'tool_delegate') {
           await tryParseToolDelegate(line)
+        } else if (route === 'usage') {
+          tryParseUsage(line)
         } else {
           // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
           // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -1977,11 +2060,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseSubagent(line)
           tryParseToolSummary(line)
           await tryParseToolDelegate(line)
+          tryParseUsage(line)
         }
       }
 
       for (;;) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readWithTimeout()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
         let nl: number

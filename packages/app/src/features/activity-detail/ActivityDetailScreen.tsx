@@ -82,29 +82,29 @@ export function ActivityDetailScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 16 },
-    muted: { fontSize: 12, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, textAlign: 'center' },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 10 },
+    muted: { fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: { marginTop: 12 },
-    body: { padding: 16 },
-    itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    body: { padding: 14 },
+    itemTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       paddingVertical: 8,
     },
-    metaLabel: { fontSize: 12, color: tk.text.secondary },
-    metaValue: { fontSize: 12, fontWeight: '500', color: tk.text.primary },
-    content: { marginTop: 12, fontSize: 14, lineHeight: 22, color: tk.text.primary },
+    metaLabel: { fontSize: 14, color: tk.text.secondary },
+    metaValue: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
+    content: { marginTop: 12, fontSize: 16, lineHeight: 22, color: tk.text.primary },
   })
 }

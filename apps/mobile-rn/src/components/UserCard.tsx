@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.surface.light,
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
     marginTop: 2,
   },

@@ -40,7 +40,7 @@ const viewStyles = (): CSSProperties => ({
 /** text 样式(集中管理,避免 style 联合类型) */
 const textStyles = {
   title: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 700,
     color: tk.text.primary,
     overflow: 'hidden',

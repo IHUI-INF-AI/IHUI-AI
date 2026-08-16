@@ -68,7 +68,7 @@ export function CourseCommentScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
+    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48 },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -76,17 +76,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btn: {
       marginTop: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
     },
-    btnText: { color: tk.surface.light, fontSize: 14 },
-    back: { fontSize: 14, color: tk.text.secondary },
+    btnText: { color: tk.surface.light, fontSize: 16 },
+    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,
@@ -96,17 +96,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
-      marginBottom: 8,
+      backgroundColor: tk.surface.light,
+      marginBottom: 12,
     },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    user: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    user: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     rating: { fontSize: 12, color: tk.success.DEFAULT },
-    content: { marginTop: 6, fontSize: 13, color: tk.text.medium },
-    meta: { marginTop: 4, fontSize: 11, color: tk.text.tertiary },
+    content: { marginTop: 6, fontSize: 14, color: tk.text.medium },
+    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
   })
 }

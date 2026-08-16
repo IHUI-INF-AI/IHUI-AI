@@ -240,7 +240,9 @@ export function compressContextIfNeeded(
   const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO
   const targetRatio = opts.targetRatio ?? DEFAULT_TARGET_RATIO
   const keepRecent = opts.keepRecent ?? DEFAULT_KEEP_RECENT
-  const minMessages = opts.minMessages ?? keepRecent + 1
+  // 2026-08-16 立:仅保留首条 system 消息 + 1 条用户消息(刚发的那条)即可压缩。
+  // 之前 keepRecent + 1 = 7 的默认值,在短对话或 history 被 repair 截断时会误判为"消息不足"。
+  const minMessages = opts.minMessages ?? 2
   const triggerThreshold = Math.floor(contextLimit * triggerRatio)
   const targetThreshold = Math.floor(contextLimit * targetRatio)
 
@@ -309,18 +311,31 @@ export function compressContextIfNeeded(
     }
   }
 
-  const result: CompressionResult = bestResult ?? {
-    messages,
-    compressed: false,
-    originalTokens,
-    compressedTokens: originalTokens,
-    removedCount: 0,
-    trigger: 'none',
-    usageRatio,
+  // 2026-08-16 立:极端情况下(如 nonSystem.length < 2,或循环 0 次),
+  // 强制把全部非系统消息压成单条 summary,确保即便消息极少也触发压缩。
+  // 之前走兜底返回 compressed:false,导致 token 一直累积、永远不压缩。
+  if (!bestResult) {
+    const summaryParts = nonSystem.map(summarizeMessage)
+    const summaryMsg: ChatMessage = {
+      role: 'user',
+      content: `[上下文摘要 — 之前 ${nonSystem.length} 条消息已压缩]\n${summaryParts.join('\n')}`,
+    }
+    const candidate = [...systemMsgs, summaryMsg]
+    const candidateTokens = estimateMessagesTokens(candidate)
+    bestResult = {
+      messages: candidate,
+      compressed: true,
+      originalTokens,
+      compressedTokens: candidateTokens,
+      removedCount: nonSystem.length,
+      trigger: 'ratio',
+      usageRatio,
+    }
   }
+
   hooks?.postCompact?.({
     compactedTokensBefore: originalTokens,
-    compactedTokensAfter: result.compressedTokens,
+    compactedTokensAfter: bestResult.compressedTokens,
   })
-  return result
+  return bestResult
 }

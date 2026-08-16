@@ -360,7 +360,7 @@ const uptodateStyles = StyleSheet.create({
     color: tokens.surface.light,
   },
   title: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.primary,
     marginTop: 8,
@@ -542,13 +542,13 @@ const listStyles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
   },
   tabItemActive: {
     backgroundColor: tokens.indigo.DEFAULT,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.tertiary,
   },
@@ -600,12 +600,12 @@ const listStyles = StyleSheet.create({
     alignItems: 'center',
   },
   priceFree: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.success.DEFAULT,
   },
   pricePaid: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.primary,
   },

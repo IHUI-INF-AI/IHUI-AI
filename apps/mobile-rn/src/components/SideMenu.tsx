@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   label: {
-    fontSize: 15,
+    fontSize: 16,
     flex: 1,
   },
   labelActive: {

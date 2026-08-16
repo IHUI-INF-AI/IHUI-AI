@@ -123,7 +123,7 @@ const TOGGLE_CHIP_GAP = 8
 const TOGGLE_CHIP_LETTER_SPACING = 0.2
 
 const INPUT_MIN_HEIGHT = 44
-const INPUT_BORDER_RADIUS = 8
+const INPUT_BORDER_RADIUS = 15
 const INPUT_FONT_SIZE = 15
 const INPUT_PADDING_HORIZONTAL = 12
 const INPUT_MAX_HEIGHT = 100
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     borderRadius: INPUT_BORDER_RADIUS,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: '#E6F3FA',
     paddingHorizontal: INPUT_PADDING_HORIZONTAL,
     paddingVertical: 10,
     fontSize: INPUT_FONT_SIZE,
@@ -873,7 +873,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   } as ViewStyle,
   sendLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: tokens.surface.light,
   } as TextStyle,

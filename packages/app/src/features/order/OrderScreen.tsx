@@ -37,7 +37,7 @@ export function OrderScreen({
       case 'paid':
         return { bg: tk.success.light, text: tk.success.deepText }
       case 'shipped':
-        return { bg: tk.indigo.light, text: tk.indigo.deep }
+        return { bg: tk.brand.DEFAULT, text: tk.surface.light }
       case 'completed':
         return { bg: tk.success.light, text: tk.success.deepText }
       case 'cancelled':
@@ -140,32 +140,33 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    tabs: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    tabs: { paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.surface.card,
     },
-    tabActive: { backgroundColor: tk.success.light },
-    tabText: { fontSize: 12, color: tk.text.secondary },
-    tabTextActive: { color: tk.success.DEFAULT, fontWeight: '600' },
-    errorText: { paddingHorizontal: 16, fontSize: 12, color: tk.danger.DEFAULT },
+    tabActive: { backgroundColor: tk.brand.DEFAULT },
+    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
-    listBody: { padding: 16 },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    listBody: { padding: 10 },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      backgroundColor: tk.surface.light,
+      marginBottom: 12,
     },
     cardHead: {
       flexDirection: 'row',
@@ -175,8 +176,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: 16,
+      fontWeight: '600',
       color: tk.text.primary,
     },
     badge: {
@@ -189,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 6,
+      marginTop: 8,
     },
     orderNo: { fontSize: 11, color: tk.text.tertiary },
     metaTime: { fontSize: 11, color: tk.text.tertiary },
@@ -201,8 +202,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     amountLabel: { fontSize: 11, color: tk.text.tertiary },
     amountValue: {
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 20,
+      fontWeight: '700',
       color: tk.text.primary,
     },
   })

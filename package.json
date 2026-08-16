@@ -65,6 +65,24 @@
     "sync:downloads:check": "node scripts/sync-downloads.mjs --check",
     "sync:downloads:dry-run": "node scripts/sync-downloads.mjs --dry-run"
   },
+  "overrides": {
+    "git-clone": ">=0.2.1",
+    "swiper": ">=12.1.2",
+    "lodash-es": ">=4.17.24",
+    "postcss": ">=8.5.18",
+    "nanoid": ">=3.3.18",
+    "undici": ">=7.29.0",
+    "fast-uri": ">=3.1.5",
+    "ip-address": ">=10.3.1",
+    "image-size": ">=2.0.3",
+    "brace-expansion": ">=1.1.18",
+    "html-minifier": ">=4.0.1",
+    "http-cache-semantics": ">=4.1.1",
+    "serialize-javascript": ">=7.0.3",
+    "decompress": ">=4.2.2",
+    "adm-zip": ">=0.6.0",
+    "glob": ">=10.5.0"
+  },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",

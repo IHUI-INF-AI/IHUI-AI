@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 8,
     gap: 6,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
