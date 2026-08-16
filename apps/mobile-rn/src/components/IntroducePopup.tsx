@@ -12,16 +12,30 @@
  */
 import { useState } from 'react'
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+
+// 装饰图(拷贝自原 uniapp static/images,require 内联避免类型声明问题)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DECOR_HEADER_Y = require('../../assets/images/common/headertitley.png')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DECOR_HEADER_T = require('../../assets/images/common/headertitlet.png')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DECOR_LEFT = require('../../assets/images/common/huiyuanqy.jpg')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DECOR_QR = require('../../assets/images/common/saomaa.jpg')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DECOR_AVATAR_FALLBACK = require('../../assets/images/common/daixaodiming.png')
 
 export type IntroducePopupVariant = 'index' | 'indexs' | 'levelIndex' | 'privateAdvisory'
 
@@ -43,6 +57,12 @@ export interface IntroducePopupProps {
   confirmText?: string
   /** 主按钮确认回调 */
   onConfirm?: () => void
+  /** 用户头像 URL(可选,渲染于头像区;缺省用默认占位) */
+  avatarUrl?: string
+  /** 是否展示顶部装饰图(对齐原版 headertitley/headertitlet;默认 true) */
+  showDecorations?: boolean
+  /** 是否展示头像区(对齐原版 avatar-section;默认 true) */
+  showAvatar?: boolean
 }
 
 type ButtonAction = 'confirm' | 'close'
@@ -175,6 +195,9 @@ export function IntroducePopup({
   moreBenefits,
   confirmText,
   onConfirm,
+  avatarUrl,
+  showDecorations = true,
+  showAvatar = true,
 }: IntroducePopupProps) {
   const config = VARIANT_CONFIG[variant]
   const listItems = benefits ?? config.benefits
@@ -258,6 +281,36 @@ export function IntroducePopup({
           accessibilityLabel="关闭介绍弹窗"
         />
         <View style={styles.sheet}>
+          {/* 顶部装饰图(对齐原版 headertitley + headertitlet 左右双图) */}
+          {showDecorations ? (
+            <View style={styles.decorRow}>
+              <Image source={DECOR_HEADER_Y} style={styles.decorHeaderY} resizeMode="contain" />
+              <Image source={DECOR_HEADER_T} style={styles.decorHeaderT} resizeMode="contain" />
+            </View>
+          ) : null}
+
+          {/* 头像区(对齐原版 avatar-section-wrapper:左装饰 + 圆头像 + 身份徽标 + 右二维码) */}
+          {showAvatar ? (
+            <View style={styles.avatarRow}>
+              <Image source={DECOR_LEFT} style={styles.decorLeft} resizeMode="contain" />
+              <View style={styles.avatarWrapper}>
+                <Image
+                  source={DECOR_AVATAR_FALLBACK}
+                  style={styles.avatarBadge}
+                  resizeMode="contain"
+                />
+                <View style={styles.avatarCircle}>
+                  <Image
+                    source={avatarUrl ? { uri: avatarUrl } : DECOR_AVATAR_FALLBACK}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              </View>
+              <Image source={DECOR_QR} style={styles.decorQr} resizeMode="contain" />
+            </View>
+          ) : null}
+
           <Text style={styles.title} numberOfLines={2}>
             {title ?? config.title}
           </Text>
@@ -319,6 +372,60 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 16,
   } as ViewStyle,
+  // ── 顶部装饰图(对齐原版 370x45rpx / 288x25.96rpx) ──
+  decorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  } as ViewStyle,
+  decorHeaderY: {
+    width: 185,
+    height: 22,
+  } as ImageStyle,
+  decorHeaderT: {
+    width: 144,
+    height: 13,
+  } as ImageStyle,
+  // ── 头像区(对齐原版 avatar-section-wrapper) ──
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  } as ViewStyle,
+  decorLeft: {
+    width: 76,
+    marginLeft: 24,
+  } as ImageStyle,
+  avatarWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  avatarBadge: {
+    position: 'absolute',
+    top: -14,
+    width: 77,
+    zIndex: 2,
+  } as ImageStyle,
+  avatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 1,
+    borderColor: '#BFBEFF',
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  } as ViewStyle,
+  avatarImage: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+  } as ImageStyle,
+  decorQr: {
+    width: 122,
+  } as ImageStyle,
   title: {
     fontSize: TITLE_FONT_SIZE,
     lineHeight: TITLE_FONT_SIZE + 6,
