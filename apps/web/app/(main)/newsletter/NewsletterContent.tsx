@@ -71,7 +71,9 @@ export function NewsletterContent(): React.JSX.Element {
           <Mail className="h-3.5 w-3.5 text-primary" />
           {t('hero.badge')}
         </div>
-        <h1 className="mt-3 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('hero.title')}</h1>
+        <h1 className="mt-3 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          {t('hero.title')}
+        </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
@@ -91,7 +93,9 @@ export function NewsletterContent(): React.JSX.Element {
             <h2 className="text-xl font-bold text-foreground">{t('success.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
             <div className="mt-4 w-full text-left">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">{t('success.recommended')}</h3>
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
+                {t('success.recommended')}
+              </h3>
               <ul className="space-y-2">
                 {RECOMMENDED_ARTICLES.map((a) => (
                   <li key={a.slug}>
@@ -186,11 +190,13 @@ export function NewsletterContent(): React.JSX.Element {
                   </span>
                 </label>
 
-                {status === 'error' && (
-                  <p className="text-xs text-destructive">{errorMsg}</p>
-                )}
+                {status === 'error' && <p className="text-xs text-destructive">{errorMsg}</p>}
 
-                <Button type="submit" disabled={status === 'loading' || !agreed || !email} className="w-full">
+                <Button
+                  type="submit"
+                  disabled={status === 'loading' || !agreed || !email}
+                  className="w-full"
+                >
                   {status === 'loading' ? (
                     <>
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />

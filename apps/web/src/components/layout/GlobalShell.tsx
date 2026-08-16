@@ -8,7 +8,15 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay, NavigationProgress, VisitTracker, AnalyticsCapture } from '@/components/common'
+import {
+  PWAInstallPrompt,
+  PWAUpdatePrompt,
+  UpdatePrompt,
+  QuitUpdateOverlay,
+  NavigationProgress,
+  VisitTracker,
+  AnalyticsCapture,
+} from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'

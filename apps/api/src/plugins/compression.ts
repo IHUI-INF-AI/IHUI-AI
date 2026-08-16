@@ -1,6 +1,6 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import fp from 'fastify-plugin';
-import compress from '@fastify/compress';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import fp from 'fastify-plugin'
+import compress from '@fastify/compress'
 
 /**
  * Gzip/Brotli 压缩插件。
@@ -14,10 +14,10 @@ const compressionPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     global: true,
     threshold: 1024, // 仅压缩 > 1KB 的响应
     encodings: ['br', 'gzip', 'deflate'],
-  });
-};
+  })
+}
 
 export default fp(compressionPlugin, {
   name: 'compression-plugin',
   fastify: '5.x',
-});
+})

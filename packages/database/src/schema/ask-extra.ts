@@ -8,9 +8,9 @@ import {
   timestamp,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { asks } from './community.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { asks } from './community.js'
 
 /**
  * 问答分类表。
@@ -35,7 +35,7 @@ export const askCategories = pgTable(
   (t) => ({
     pidIdx: index('ask_categories_pid_idx').on(t.pid),
   }),
-);
+)
 
 /**
  * 问题-分类多对多关联表。
@@ -57,7 +57,7 @@ export const askQuestionCategories = pgTable(
     categoryIdx: index('ask_question_categories_category_idx').on(t.categoryId),
     uniq: unique('ask_question_category_uniq').on(t.askId, t.categoryId),
   }),
-);
+)
 
 /**
  * 问答点赞表（通用：问题/回答）。
@@ -80,7 +80,7 @@ export const askLikes = pgTable(
     userIdx: index('ask_likes_user_target_idx').on(t.userId, t.targetType, t.targetId),
     targetIdx: index('ask_likes_target_idx').on(t.targetType, t.targetId),
   }),
-);
+)
 
 /**
  * 问答收藏表（通用：问题/回答）。
@@ -102,7 +102,7 @@ export const askFavorites = pgTable(
     targetIdx: index('ask_favorites_target_idx').on(t.targetType, t.targetId),
     uniq: unique('ask_favorite_uniq').on(t.userId, t.targetType, t.targetId),
   }),
-);
+)
 
 /**
  * 问答评论表（对问题/回答评论）。
@@ -130,15 +130,15 @@ export const askComments = pgTable(
     userIdx: index('ask_comments_user_idx').on(t.userId),
     pidIdx: index('ask_comments_pid_idx').on(t.pid),
   }),
-);
+)
 
-export type AskCategory = typeof askCategories.$inferSelect;
-export type NewAskCategory = typeof askCategories.$inferInsert;
-export type AskQuestionCategory = typeof askQuestionCategories.$inferSelect;
-export type NewAskQuestionCategory = typeof askQuestionCategories.$inferInsert;
-export type AskLike = typeof askLikes.$inferSelect;
-export type NewAskLike = typeof askLikes.$inferInsert;
-export type AskFavorite = typeof askFavorites.$inferSelect;
-export type NewAskFavorite = typeof askFavorites.$inferInsert;
-export type AskComment = typeof askComments.$inferSelect;
-export type NewAskComment = typeof askComments.$inferInsert;
+export type AskCategory = typeof askCategories.$inferSelect
+export type NewAskCategory = typeof askCategories.$inferInsert
+export type AskQuestionCategory = typeof askQuestionCategories.$inferSelect
+export type NewAskQuestionCategory = typeof askQuestionCategories.$inferInsert
+export type AskLike = typeof askLikes.$inferSelect
+export type NewAskLike = typeof askLikes.$inferInsert
+export type AskFavorite = typeof askFavorites.$inferSelect
+export type NewAskFavorite = typeof askFavorites.$inferInsert
+export type AskComment = typeof askComments.$inferSelect
+export type NewAskComment = typeof askComments.$inferInsert

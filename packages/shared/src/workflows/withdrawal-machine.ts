@@ -55,7 +55,8 @@ export const withdrawalMachine = setup({
       rejectReason: ({ event }) => (event.type === 'REJECT' ? event.reason : undefined),
     }),
     recordTransaction: assign({
-      transactionId: ({ event }) => (event.type === 'PAY_SUCCESS' ? event.transactionId : undefined),
+      transactionId: ({ event }) =>
+        event.type === 'PAY_SUCCESS' ? event.transactionId : undefined,
       paidAt: ({ event }) => (event.type === 'PAY_SUCCESS' ? event.paidAt : undefined),
     }),
     recordError: assign({
@@ -110,13 +111,6 @@ export const withdrawalMachine = setup({
 })
 
 export type WithdrawalState =
-  | 'requested'
-  | 'verifying'
-  | 'approved'
-  | 'paying'
-  | 'paid'
-  | 'rejected'
-  | 'failed'
-  | 'cancelled'
+  'requested' | 'verifying' | 'approved' | 'paying' | 'paid' | 'rejected' | 'failed' | 'cancelled'
 
 export const WITHDRAWAL_AUTO_APPROVE_THRESHOLD = AUTO_APPROVE_THRESHOLD

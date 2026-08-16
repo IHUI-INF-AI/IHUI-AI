@@ -46,11 +46,7 @@ import {
   Clock,
 } from 'lucide-react'
 
-import type {
-  ModelSyncResult,
-  ModelSyncHistoryRecord,
-  SyncStatsResult,
-} from './types'
+import type { ModelSyncResult, ModelSyncHistoryRecord, SyncStatsResult } from './types'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -524,7 +520,11 @@ function ProviderRow({
               disabled={isSyncing}
               className="h-7 px-2.5 text-xs"
             >
-              {isSyncing ? <Loader2 className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {isSyncing ? (
+                <Loader2 className="h-3.5 w-3.5" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
               <span className="ml-1">{tm('sync')}</span>
             </Button>
           </span>
@@ -1173,7 +1173,10 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
                     ? 'text-amber-600 dark:text-amber-500'
                     : 'text-red-600 dark:text-red-500'
               return (
-                <div key={p.provider_code} className="grid grid-cols-2 gap-2 text-[11px] min-[640px]:grid-cols-5">
+                <div
+                  key={p.provider_code}
+                  className="grid grid-cols-2 gap-2 text-[11px] min-[640px]:grid-cols-5"
+                >
                   <span className="truncate font-medium">{p.provider_code}</span>
                   <span className="tabular-nums">{p.total}</span>
                   <span className={`tabular-nums ${pRate}`}>

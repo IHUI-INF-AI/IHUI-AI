@@ -23,7 +23,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: '智能客服', item: 'https://aizhs.top/use-cases/customer-support' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: '智能客服',
+          item: 'https://aizhs.top/use-cases/customer-support',
+        },
       ],
     },
     // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建智能客服 Agent"类检索)
@@ -106,7 +111,10 @@ export default async function CustomerSupportPage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {reviewJsonLd ? (
         <script
           type="application/ld+json"

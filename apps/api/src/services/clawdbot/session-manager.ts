@@ -297,7 +297,10 @@ export class SessionManager extends EventEmitter {
         if (filter?.status) conds.push(eq(clawdbotSessions.status, filter.status))
         const rows =
           conds.length > 0
-            ? await db.select().from(clawdbotSessions).where(and(...conds))
+            ? await db
+                .select()
+                .from(clawdbotSessions)
+                .where(and(...conds))
             : await db.select().from(clawdbotSessions)
         return rows.map(toSession)
       } catch (err) {

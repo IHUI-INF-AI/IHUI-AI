@@ -49,9 +49,7 @@ export interface CrudListConfig<T, TForm> {
  * - useMutation 删除
  * - openCreate/openEdit/closeDialog/submit/handleDelete 函数
  */
-export function useCrudList<T extends { id: string }, TForm>(
-  config: CrudListConfig<T, TForm>,
-) {
+export function useCrudList<T extends { id: string }, TForm>(config: CrudListConfig<T, TForm>) {
   const {
     basePath,
     queryKeyBase,
@@ -203,4 +201,6 @@ export function useCrudList<T extends { id: string }, TForm>(
   }
 }
 
-export type CrudListResult<T extends { id: string }, TForm> = ReturnType<typeof useCrudList<T, TForm>>
+export type CrudListResult<T extends { id: string }, TForm> = ReturnType<
+  typeof useCrudList<T, TForm>
+>

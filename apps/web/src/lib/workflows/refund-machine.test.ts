@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createActor } from 'xstate'
 import { refundMachine } from './refund-machine'
 
-const getStateValue = (snap: ReturnType<ReturnType<typeof createActor<typeof refundMachine>>['getSnapshot']>) =>
-  typeof snap.value === 'string' ? snap.value : String(snap.value)
+const getStateValue = (
+  snap: ReturnType<ReturnType<typeof createActor<typeof refundMachine>>['getSnapshot']>,
+) => (typeof snap.value === 'string' ? snap.value : String(snap.value))
 
 describe('refundMachine', () => {
   it('初始状态为 pending,retryCount = 0', () => {

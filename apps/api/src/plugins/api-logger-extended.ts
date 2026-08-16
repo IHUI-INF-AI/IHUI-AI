@@ -15,7 +15,7 @@ import { normalizeHeader, normalizeHeaderStrict, parsePath } from '../utils/http
  *
  * 配置：ELK_LOG_ENABLED=true 启用，ELK_LOG_SAMPLE_RATE 采样率（0~1，默认 1）
  */
- 
+
 const REQUEST_ID_HEADER = 'x-request-id'
 
 const apiLoggerExtendedPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {

@@ -119,7 +119,12 @@ describe('admin-saas-quota 路由', () => {
     const data = res.json().data
     expect(data.slug).toBe('acme')
     expect(data.placeholder).toBe(false)
-    expect(data.apiCalls).toEqual({ used: 42, limit: 2_000_000, window: 'month', resetAt: '2026-08-31T00:00:00.000Z' })
+    expect(data.apiCalls).toEqual({
+      used: 42,
+      limit: 2_000_000,
+      window: 'month',
+      resetAt: '2026-08-31T00:00:00.000Z',
+    })
     expect(data.aiTokens.used).toBe(123_456)
     expect(data.storage).toEqual({ usedBytes: 5 * MB, limitBytes: 60_000 * MB })
     // 5 次聚合查询(tenants / tenant_quotas / ai_cost_records / api_logs / files)
@@ -141,13 +146,7 @@ describe('admin-saas-quota 路由', () => {
   })
 
   it('无 tenant_quotas / 无聚合记录 → 套餐默认限额兜底,used=0,resetAt=null', async () => {
-    queueSelects(
-      [{ id: 't2', slug: 'startup', plan: 'free' }],
-      [],
-      [],
-      [],
-      [],
-    )
+    queueSelects([{ id: 't2', slug: 'startup', plan: 'free' }], [], [], [], [])
     const res = await server.inject({ method: 'GET', url: `${API_PREFIX}/customers/startup/quota` })
     expect(res.statusCode).toBe(200)
     const data = res.json().data
@@ -170,8 +169,9 @@ describe('admin-saas-quota 路由', () => {
   })
 
   it('requireAdmin 钩子生效:被拦截时返回 401', async () => {
-    mockRequireAdmin.mockImplementationOnce(async (_req: unknown, reply: { status: (n: number) => { send: (b: object) => unknown } }) =>
-      reply.status(401).send({ code: 401, message: '需要管理员权限' }),
+    mockRequireAdmin.mockImplementationOnce(
+      async (_req: unknown, reply: { status: (n: number) => { send: (b: object) => unknown } }) =>
+        reply.status(401).send({ code: 401, message: '需要管理员权限' }),
     )
     const res = await server.inject({ method: 'GET', url: `${API_PREFIX}/customers/x/quota` })
     expect(res.statusCode).toBe(401)

@@ -83,7 +83,7 @@ export function generateReviewSchema(review: ReviewData): ReviewSchema {
   // 校验评分范围
   if (review.ratingValue < worstRating || review.ratingValue > bestRating) {
     throw new Error(
-      `generateReviewSchema: ratingValue (${String(review.ratingValue)}) must be within [${String(worstRating)}, ${String(bestRating)}]`
+      `generateReviewSchema: ratingValue (${String(review.ratingValue)}) must be within [${String(worstRating)}, ${String(bestRating)}]`,
     )
   }
 

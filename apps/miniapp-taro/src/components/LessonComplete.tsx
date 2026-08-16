@@ -34,22 +34,30 @@ export default function LessonComplete({
         onClick={(e) => e.stopPropagation()}
       >
         <Text className="block text-4xl mb-3">🎉</Text>
-        <Text className="block text-base font-medium text-foreground mb-1">{tt('lesson.complete', '学习完成!')}</Text>
+        <Text className="block text-base font-medium text-foreground mb-1">
+          {tt('lesson.complete', '学习完成!')}
+        </Text>
         <Text className="block text-xs text-muted-foreground mb-4">{lessonTitle}</Text>
 
         <View className="flex justify-around mb-4 py-3 bg-muted rounded-lg">
           <View>
             <Text className="block text-sm font-medium text-foreground">{duration || '00:00'}</Text>
-            <Text className="block text-xs text-muted-foreground">{tt('lesson.studyDuration', '学习时长')}</Text>
+            <Text className="block text-xs text-muted-foreground">
+              {tt('lesson.studyDuration', '学习时长')}
+            </Text>
           </View>
           <View>
             <Text className="block text-sm font-medium text-warning">+{points}</Text>
-            <Text className="block text-xs text-muted-foreground">{tt('lesson.points', '积分')}</Text>
+            <Text className="block text-xs text-muted-foreground">
+              {tt('lesson.points', '积分')}
+            </Text>
           </View>
         </View>
 
         {nextLessonTitle && (
-          <Text className="block text-xs text-muted-foreground mb-4">{t('lesson.next', { title: nextLessonTitle })}</Text>
+          <Text className="block text-xs text-muted-foreground mb-4">
+            {t('lesson.next', { title: nextLessonTitle })}
+          </Text>
         )}
 
         <View className="flex space-x-3">
@@ -57,7 +65,9 @@ export default function LessonComplete({
             <Text className="text-sm text-foreground">{tt('lesson.share', '分享')}</Text>
           </View>
           <View className="flex-1 py-2.5 rounded-md bg-primary" onClick={onContinue}>
-            <Text className="text-sm text-white">{nextLessonTitle ? tt('lesson.continue', '继续学习') : tt('lesson.done', '完成')}</Text>
+            <Text className="text-sm text-white">
+              {nextLessonTitle ? tt('lesson.continue', '继续学习') : tt('lesson.done', '完成')}
+            </Text>
           </View>
         </View>
       </View>

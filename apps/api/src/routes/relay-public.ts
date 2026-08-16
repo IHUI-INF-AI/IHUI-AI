@@ -91,8 +91,7 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         const outputBase = toNumber(r.outputPricePer1k, 0)
         return {
           modelId: r.modelId,
-          displayName:
-            r.relayDisplayName ?? r.displayName ?? r.modelId,
+          displayName: r.relayDisplayName ?? r.displayName ?? r.modelId,
           providerCode: r.providerCode ?? r.configName ?? 'unknown',
           contextLength: toNumber(r.contextLength, 0),
           inputPricePer1k: inputBase,

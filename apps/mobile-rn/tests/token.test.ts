@@ -48,8 +48,8 @@ vi.mock('@ihui/shared/auth', () => {
   }
   return {
     bindTokenStoreToApiClient: sharedMocks.bindTokenStoreToApiClient,
-    createInMemoryTokenStore: vi.fn(
-      (config?: Parameters<typeof createMockStore>[0]) => createMockStore(config),
+    createInMemoryTokenStore: vi.fn((config?: Parameters<typeof createMockStore>[0]) =>
+      createMockStore(config),
     ),
   }
 })

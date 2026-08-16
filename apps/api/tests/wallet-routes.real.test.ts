@@ -3,7 +3,12 @@ import Fastify from 'fastify'
 import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { users, userMargins, tokenFlows } from '@ihui/database'
-import { mockAuthenticate, setMockUser, setMockUnauthorized, resetMockAuth } from './helpers/mock-auth.js'
+import {
+  mockAuthenticate,
+  setMockUser,
+  setMockUnauthorized,
+  resetMockAuth,
+} from './helpers/mock-auth.js'
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
@@ -17,7 +22,11 @@ async function createUser(phone: string, nickname?: string) {
   return row
 }
 
-async function createMargin(data: { userId: string; tokenQuantity?: number; frozenQuantity?: number }) {
+async function createMargin(data: {
+  userId: string
+  tokenQuantity?: number
+  frozenQuantity?: number
+}) {
   const [row] = await db
     .insert(userMargins)
     .values({
@@ -29,7 +38,13 @@ async function createMargin(data: { userId: string; tokenQuantity?: number; froz
   return row
 }
 
-async function createFlow(data: { userId: string; opType: number; quantity: number; balanceAfter?: number; remark?: string }) {
+async function createFlow(data: {
+  userId: string
+  opType: number
+  quantity: number
+  balanceAfter?: number
+  remark?: string
+}) {
   const [row] = await db
     .insert(tokenFlows)
     .values({
@@ -312,7 +327,10 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       await createFlow({ userId: user.id, opType: 0, quantity: 100 })
     }
     setMockUser(user.id)
-    const res = await server.inject({ method: 'GET', url: '/api/wallet/recharge/records?page=1&pageSize=2' })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/wallet/recharge/records?page=1&pageSize=2',
+    })
     const body = res.json()
     expect(body.data.list).toHaveLength(2)
     expect(body.data.total).toBe(5)

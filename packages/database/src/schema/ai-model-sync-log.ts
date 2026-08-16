@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  bigserial,
-  text,
-  integer,
-  boolean,
-  timestamp,
-  index,
-} from 'drizzle-orm/pg-core'
+import { pgTable, bigserial, text, integer, boolean, timestamp, index } from 'drizzle-orm/pg-core'
 
 /**
  * AI 模型同步日志表(2026-07-31 立,P0 ModelSyncService 持久化)。

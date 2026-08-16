@@ -1,14 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@ihui/ui-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { CompressionStats } from '@ihui/shared/context/index'
 
@@ -32,7 +25,8 @@ function fmtTime(ts: string): string {
 }
 
 function ratioBadgeClass(ratio: number): string {
-  if (ratio >= 0.6) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  if (ratio >= 0.6)
+    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
   if (ratio >= 0.4) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
   return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
 }
@@ -43,10 +37,7 @@ function qualityClass(score: number): string {
   return 'text-rose-600 dark:text-rose-400'
 }
 
-export function CompressionStatsTable({
-  stats,
-  className,
-}: CompressionStatsTableProps) {
+export function CompressionStatsTable({ stats, className }: CompressionStatsTableProps) {
   const rows = stats.recent ?? []
   return (
     <div className={cn('rounded-md border bg-card', className)}>
@@ -96,7 +87,12 @@ export function CompressionStatsTable({
                       {(r.compressionRatio * 100).toFixed(1)}%
                     </span>
                   </TableCell>
-                  <TableCell className={cn('text-right text-xs font-medium tabular-nums', qualityClass(r.qualityScore))}>
+                  <TableCell
+                    className={cn(
+                      'text-right text-xs font-medium tabular-nums',
+                      qualityClass(r.qualityScore),
+                    )}
+                  >
                     {(r.qualityScore * 100).toFixed(0)}%
                   </TableCell>
                 </TableRow>

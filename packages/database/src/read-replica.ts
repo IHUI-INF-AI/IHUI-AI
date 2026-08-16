@@ -88,11 +88,21 @@ function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn): postgr
     if (pending && typeof (pending as Promise<unknown>).then === 'function') {
       ;(pending as Promise<unknown>).then(
         () => {
-          logger({ query, params: params ?? [], durationMs: performance.now() - start, timestamp: Date.now() })
+          logger({
+            query,
+            params: params ?? [],
+            durationMs: performance.now() - start,
+            timestamp: Date.now(),
+          })
         },
         () => {
           // 查询失败也记录耗时(便于排查慢查询导致的超时)
-          logger({ query, params: params ?? [], durationMs: performance.now() - start, timestamp: Date.now() })
+          logger({
+            query,
+            params: params ?? [],
+            durationMs: performance.now() - start,
+            timestamp: Date.now(),
+          })
         },
       )
     }

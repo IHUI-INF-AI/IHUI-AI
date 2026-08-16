@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { StudyProgressScreen as SharedStudyProgressScreen, type StudyProgressData } from '@ihui/rn-app'
+import {
+  StudyProgressScreen as SharedStudyProgressScreen,
+  type StudyProgressData,
+} from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -26,7 +29,9 @@ export function StudyProgressScreen() {
       else setError(res.error || t('studyProgress.loadFailed'))
       setLoading(false)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -5,7 +5,12 @@ import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import { useI18n, type Locale } from '@/i18n'
 
-type LangItem = { value: Locale; key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW'; native: string; english: string }
+type LangItem = {
+  value: Locale
+  key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW'
+  native: string
+  english: string
+}
 
 const LANGS: LangItem[] = [
   { value: 'zh-CN', key: 'zhCN', native: '简体中文', english: 'Simplified Chinese' },
@@ -23,7 +28,12 @@ const LANG_KEY: Record<string, string> = {
   ja: 'setting.ja',
 }
 
-const DEFAULT_LANG: LangItem = { value: 'zh-CN', key: 'zhCN', native: '简体中文', english: 'Simplified Chinese' }
+const DEFAULT_LANG: LangItem = {
+  value: 'zh-CN',
+  key: 'zhCN',
+  native: '简体中文',
+  english: 'Simplified Chinese',
+}
 
 export default function LanguagePage() {
   const { t, locale, setLocale } = useI18n()
@@ -72,21 +82,37 @@ export default function LanguagePage() {
           <Text className="block text-[24rpx] text-muted-foreground">
             {tt('setting.language.currentLabel', '当前语言')}
           </Text>
-          <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">{tt(LANG_KEY[currentLang.key] ?? 'setting.zhCN', currentLang.native)}</Text>
-          <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{currentLang.english} · {currentLang.value}</Text>
+          <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">
+            {tt(LANG_KEY[currentLang.key] ?? 'setting.zhCN', currentLang.native)}
+          </Text>
+          <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">
+            {currentLang.english} · {currentLang.value}
+          </Text>
         </View>
       </View>
 
       <View className="pt-[32rpx] px-[8rpx] pb-[16rpx]">
-        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.language.chooseHint', '选择应用语言')}</Text>
+        <Text className="text-[24rpx] text-muted-foreground">
+          {tt('setting.language.chooseHint', '选择应用语言')}
+        </Text>
       </View>
 
-      <RadioGroup className="flex flex-col gap-[16rpx]" onChange={(e) => onSelect(e.detail.value as Locale)}>
+      <RadioGroup
+        className="flex flex-col gap-[16rpx]"
+        onChange={(e) => onSelect(e.detail.value as Locale)}
+      >
         {LANGS.map((l) => (
-          <View key={l.value} className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}>
+          <View
+            key={l.value}
+            className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}
+          >
             <View className="flex-1">
-              <Text className="text-[30rpx] text-foreground">{tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}</Text>
-              <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{l.english}</Text>
+              <Text className="text-[30rpx] text-foreground">
+                {tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}
+              </Text>
+              <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">
+                {l.english}
+              </Text>
             </View>
             <Radio
               value={l.value}

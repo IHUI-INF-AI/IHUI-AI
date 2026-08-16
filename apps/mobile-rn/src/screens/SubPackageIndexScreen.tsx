@@ -75,11 +75,5 @@ export function SubPackageIndexScreen() {
     onPress: () => entry.onPress(navigation),
   }))
 
-  return (
-    <SharedSubPackageIndexScreen
-      t={t}
-      onBack={() => navigation.goBack()}
-      entries={entries}
-    />
-  )
+  return <SharedSubPackageIndexScreen t={t} onBack={() => navigation.goBack()} entries={entries} />
 }

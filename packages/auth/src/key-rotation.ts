@@ -117,12 +117,14 @@ export class JwtKeyRotator {
   private advanceRatio = 1.0
   private readonly redis: IORedis | null
 
-  constructor(options: {
-    initialKey?: Uint8Array
-    gracePeriodSec?: number
-    /** Redis 客户端(可选),用于持久化轮换状态 */
-    redis?: IORedis
-  } = {}) {
+  constructor(
+    options: {
+      initialKey?: Uint8Array
+      gracePeriodSec?: number
+      /** Redis 客户端(可选),用于持久化轮换状态 */
+      redis?: IORedis
+    } = {},
+  ) {
     this.gracePeriodSec = options.gracePeriodSec ?? DEFAULT_GRACE_PERIOD_SEC
     this.redis = options.redis ?? null
     const key = options.initialKey ?? getJwtSecret()
@@ -150,7 +152,13 @@ export class JwtKeyRotator {
       const state = JSON.parse(raw) as SerializedState
       // 校验基本字段
       if (!state.current || typeof state.current.keyB64 !== 'string') return
-      if (state.phase && !['stable', 'canary', 'rollout', 'deprecating', 'rotated', 'rolled_back'].includes(state.phase)) return
+      if (
+        state.phase &&
+        !['stable', 'canary', 'rollout', 'deprecating', 'rotated', 'rolled_back'].includes(
+          state.phase,
+        )
+      )
+        return
       this.current = deserializeKeyVersion(state.current)
       this.previous = state.previous ? deserializeKeyVersion(state.previous) : null
       this.phase = state.phase

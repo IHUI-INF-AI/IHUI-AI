@@ -11,8 +11,16 @@ const MAX_LENGTH = 20
 // 允许:中文 / 字母 / 数字 / 下划线,禁止其他特殊符号
 const VALID_REG = /^[\u4e00-\u9fa5A-Za-z0-9_]+$/
 const RANDOM_POOL = [
-  '智汇小达人', 'AI探索者', '学习委员', '知识海绵', '深夜读书人',
-  '代码搬运工', '灵感制造机', '云端漫步者', '效率先锋', '思考的芦苇',
+  '智汇小达人',
+  'AI探索者',
+  '学习委员',
+  '知识海绵',
+  '深夜读书人',
+  '代码搬运工',
+  '灵感制造机',
+  '云端漫步者',
+  '效率先锋',
+  '思考的芦苇',
 ]
 
 export default function Nickname() {
@@ -50,8 +58,10 @@ export default function Nickname() {
   const validate = (val: string): string => {
     const v = val.trim()
     if (!v) return tt('user.nickname.enterNickname', '请输入昵称')
-    if (v.length < MIN_LENGTH) return tt('user.nickname.tooShort', `昵称不能少于${MIN_LENGTH}个字符`)
-    if (v.length > MAX_LENGTH) return tt('user.nickname.maxLength', `昵称不能超过${MAX_LENGTH}个字符`)
+    if (v.length < MIN_LENGTH)
+      return tt('user.nickname.tooShort', `昵称不能少于${MIN_LENGTH}个字符`)
+    if (v.length > MAX_LENGTH)
+      return tt('user.nickname.maxLength', `昵称不能超过${MAX_LENGTH}个字符`)
     if (!VALID_REG.test(v)) return tt('user.nickname.invalidChar', '昵称仅支持中英文、数字和下划线')
     if (original && v === original) return tt('user.nickname.sameAsCurrent', '新昵称与当前昵称相同')
     return ''
@@ -91,7 +101,9 @@ export default function Nickname() {
       <View className="nick-card">
         <View className="nick-input-head">
           <Text className="nick-label">{t('user.nickname.newNickname')}</Text>
-          <Text className="nick-count">{nickname.length}/{MAX_LENGTH}</Text>
+          <Text className="nick-count">
+            {nickname.length}/{MAX_LENGTH}
+          </Text>
         </View>
         <Input
           className="nick-input"
@@ -109,18 +121,14 @@ export default function Nickname() {
       </View>
 
       <View className="nick-rules">
-        <Text className="nick-rules-title">
-          {tt('user.nickname.rulesTitle', '昵称规则')}
-        </Text>
+        <Text className="nick-rules-title">{tt('user.nickname.rulesTitle', '昵称规则')}</Text>
         <Text className="nick-rules-line">
           • {tt('user.nickname.ruleLength', `${MIN_LENGTH}-${MAX_LENGTH} 个字符`)}
         </Text>
         <Text className="nick-rules-line">
           • {tt('user.nickname.ruleChar', '支持中英文、数字')}
         </Text>
-        <Text className="nick-rules-line">
-          • {tt('user.nickname.ruleSymbol', '禁止特殊符号')}
-        </Text>
+        <Text className="nick-rules-line">• {tt('user.nickname.ruleSymbol', '禁止特殊符号')}</Text>
       </View>
 
       <Button

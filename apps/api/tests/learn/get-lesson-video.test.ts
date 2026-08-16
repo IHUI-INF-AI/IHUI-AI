@@ -244,7 +244,10 @@ describe('GET /api/learn/section/:id/video', () => {
       chapterId: VALID_CHAPTER_UUID,
       videoUrl: 'https://cdn.example.com/s.mp4',
     })
-    mockFindChapterById.mockResolvedValueOnce({ id: VALID_CHAPTER_UUID, lessonId: VALID_LESSON_UUID })
+    mockFindChapterById.mockResolvedValueOnce({
+      id: VALID_CHAPTER_UUID,
+      lessonId: VALID_LESSON_UUID,
+    })
     mockIsSignedUp.mockResolvedValueOnce(false)
     const res = await app.inject({
       method: 'GET',
@@ -260,7 +263,10 @@ describe('GET /api/learn/section/:id/video', () => {
       chapterId: VALID_CHAPTER_UUID,
       videoUrl: 'https://cdn.example.com/s.mp4',
     })
-    mockFindChapterById.mockResolvedValueOnce({ id: VALID_CHAPTER_UUID, lessonId: VALID_LESSON_UUID })
+    mockFindChapterById.mockResolvedValueOnce({
+      id: VALID_CHAPTER_UUID,
+      lessonId: VALID_LESSON_UUID,
+    })
     mockIsSignedUp.mockResolvedValueOnce(true)
     const res = await app.inject({
       method: 'GET',

@@ -88,7 +88,17 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
       }
 
       try {
-        const res = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string; roleId?: number; username?: string; status?: number } }>('/auth/me')
+        const res = await fetchApi<{
+          user: {
+            id: string
+            nickname: string
+            avatar?: string
+            phone?: string
+            roleId?: number
+            username?: string
+            status?: number
+          }
+        }>('/auth/me')
         if (cancelled) return
         if (res.success) {
           const u = res.data.user
@@ -109,7 +119,17 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
           if (cancelled) return
           if (refreshed) {
             setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
-            const retry = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string; roleId?: number; username?: string; status?: number } }>('/auth/me')
+            const retry = await fetchApi<{
+              user: {
+                id: string
+                nickname: string
+                avatar?: string
+                phone?: string
+                roleId?: number
+                username?: string
+                status?: number
+              }
+            }>('/auth/me')
             if (!cancelled && retry.success) {
               const u = retry.data.user
               setUser({

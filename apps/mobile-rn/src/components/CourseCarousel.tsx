@@ -1,13 +1,14 @@
 /**
  * CourseCarousel 课程轮播卡片 (mobile-rn 端)
  *
- * 3 变体(对齐历史 Uniapp 项目):
+ * 4 变体(对齐历史 Uniapp 项目):
  * - index(默认):横向滚动课程卡片(banner 式,FlatList horizontal)
  * - UpToDate:最新课程(2 列网格 + 分类标签 + 课时 + VIP/价格徽章)
  * - list:课程列表(标签页切换:入门/精选,纵向列表)
+ * - swiper:图片轮播(images + 圆点指示器,对齐原版 CourseCarousel/index.vue)
  *
  * 对齐历史项目:
- * - index.vue( swiper banner)→ variant='index'
+ * - index.vue(swiper banner 图片轮播)→ variant='swiper'(images 图片列表 + 圆点)
  * - UpToDate.vue(2 列网格)→ variant='UpToDate'
  * - list.vue(标签页 + 列表)→ variant='list'
  *
@@ -18,8 +19,9 @@
  *   - 浅色优雅风,颜色全部使用 rnLightTokens,严禁硬编码
  *   - 系统字体,无 ttf
  */
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { useAutoPlay } from '@ihui/shared'
 import {
   FlatList,
   Image,
@@ -27,7 +29,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
   type ListRenderItem,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native'
 
 /** 单门课程数据(对齐原项目 PopularCourses 关键字段的子集) */
@@ -51,7 +56,7 @@ export interface CourseCarouselItem {
 }
 
 /** 课程轮播变体 */
-export type CourseCarouselVariant = 'index' | 'UpToDate' | 'list'
+export type CourseCarouselVariant = 'index' | 'UpToDate' | 'list' | 'swiper'
 
 export interface CourseCarouselProps {
   courses: CourseCarouselItem[]
@@ -62,6 +67,12 @@ export interface CourseCarouselProps {
   courses2?: CourseCarouselItem[]
   /** list 变体:标签页标题(默认 ['爆款入门课程', '爆款精选课程']) */
   tabLabels?: readonly [string, string]
+  /** swiper 变体:图片轮播 URL 列表(对齐原版 CourseCarousel/index.vue 7 张图) */
+  images?: string[]
+  /** swiper 变体:自动播放间隔(ms,默认 3000) */
+  autoplayInterval?: number
+  /** swiper 变体:图片点击回调(原版 item-click,回传图片 URL 与下标) */
+  onImagePress?: (imageUrl: string, index: number) => void
 }
 
 // ===== 共享常量 =====
@@ -485,12 +496,7 @@ function ListCarousel({
           onPress={() => setSelectedTab(0)}
           style={[listStyles.tabItem, selectedTab === 0 ? listStyles.tabItemActive : null]}
         >
-          <Text
-            style={[
-              listStyles.tabText,
-              selectedTab === 0 ? listStyles.tabTextActive : null,
-            ]}
-          >
+          <Text style={[listStyles.tabText, selectedTab === 0 ? listStyles.tabTextActive : null]}>
             {tabLabels[0]}
           </Text>
         </TouchableOpacity>
@@ -499,12 +505,7 @@ function ListCarousel({
           onPress={() => setSelectedTab(1)}
           style={[listStyles.tabItem, selectedTab === 1 ? listStyles.tabItemActive : null]}
         >
-          <Text
-            style={[
-              listStyles.tabText,
-              selectedTab === 1 ? listStyles.tabTextActive : null,
-            ]}
-          >
+          <Text style={[listStyles.tabText, selectedTab === 1 ? listStyles.tabTextActive : null]}>
             {tabLabels[1]}
           </Text>
         </TouchableOpacity>
@@ -545,7 +546,7 @@ const listStyles = StyleSheet.create({
     borderRadius: 12,
   },
   tabItemActive: {
-    backgroundColor: tokens.indigo.DEFAULT,
+    backgroundColor: tokens.brand.DEFAULT,
   },
   tabText: {
     fontSize: 12,
@@ -611,6 +612,121 @@ const listStyles = StyleSheet.create({
   },
 })
 
+// ===== swiper 变体(图片轮播 + 圆点指示器)=====
+// 对齐原版 CourseCarousel/index.vue:swiper 横向轮播(autoplay 3000ms / circular / 圆点指示器)
+
+const SWIPER_HEIGHT = 144
+const SWIPER_RADIUS = 30
+
+function SwiperCarousel({
+  images,
+  onImagePress,
+  autoplayInterval,
+}: {
+  images: string[]
+  onImagePress: ((imageUrl: string, index: number) => void) | undefined
+  autoplayInterval: number
+}): React.JSX.Element | null {
+  const { width: windowWidth } = useWindowDimensions()
+  const [trackWidth, setTrackWidth] = useState(windowWidth)
+  const { current, setCurrent } = useAutoPlay(images.length, autoplayInterval, images.length > 1)
+  const listRef = useRef<FlatList<string>>(null)
+
+  const width = trackWidth > 0 ? trackWidth : windowWidth
+
+  useEffect(() => {
+    if (listRef.current && width > 0) {
+      listRef.current.scrollToOffset({ offset: current * width, animated: true })
+    }
+  }, [current, width])
+
+  const onScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.x / width)
+      if (idx !== current && idx >= 0 && idx < images.length) {
+        setCurrent(idx)
+      }
+    },
+    [current, width, images.length, setCurrent],
+  )
+
+  if (images.length === 0) return null
+
+  const renderItem: ListRenderItem<string> = ({ item, index }) => (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => onImagePress?.(item, index)}
+      style={{ width }}
+    >
+      <Image source={{ uri: item }} style={swiperStyles.image} resizeMode="cover" />
+    </TouchableOpacity>
+  )
+
+  return (
+    <View
+      style={swiperStyles.container}
+      onLayout={(e) => setTrackWidth(Math.round(e.nativeEvent.layout.width))}
+    >
+      <FlatList<string>
+        ref={listRef}
+        data={images}
+        horizontal
+        pagingEnabled
+        keyExtractor={(_, index) => String(index)}
+        renderItem={renderItem}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScrollEnd}
+      />
+      <View style={swiperStyles.indicator}>
+        {images.map((_, index) => (
+          <View
+            key={index}
+            style={[swiperStyles.dot, index === current && swiperStyles.dotActive]}
+          />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+const swiperStyles = StyleSheet.create({
+  container: {
+    width: '100%',
+    height: SWIPER_HEIGHT,
+    position: 'relative',
+    borderRadius: SWIPER_RADIUS,
+    overflow: 'hidden',
+    backgroundColor: tokens.surface.muted,
+  },
+  image: {
+    width: '100%',
+    height: SWIPER_HEIGHT,
+    borderRadius: SWIPER_RADIUS,
+  },
+  indicator: {
+    position: 'absolute',
+    bottom: 15,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 5,
+  },
+  dotActive: {
+    width: 16,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: tokens.surface.light,
+  },
+})
+
 // ===== 主组件(变体分发)=====
 
 const DEFAULT_TAB_LABELS = ['爆款入门课程', '爆款精选课程'] as const
@@ -621,7 +737,19 @@ function CourseCarousel({
   variant = 'index',
   courses2,
   tabLabels,
+  images,
+  autoplayInterval = 3000,
+  onImagePress,
 }: CourseCarouselProps): React.JSX.Element {
+  if (variant === 'swiper') {
+    return (
+      <SwiperCarousel
+        images={images ?? []}
+        onImagePress={onImagePress}
+        autoplayInterval={autoplayInterval}
+      />
+    )
+  }
   if (variant === 'UpToDate') {
     return <UpToDateCarousel courses={courses} onPress={onPress} />
   }

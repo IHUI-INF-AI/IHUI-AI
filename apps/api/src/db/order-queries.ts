@@ -366,7 +366,9 @@ export async function processRefund(
   const rows = await db
     .update(eduRefunds)
     .set({ status, processMessage, processTime: new Date(), updatedAt: new Date() })
-    .where(and(eq(eduRefunds.id, id), inArray(eduRefunds.status, ['pending', 'approved', 'rejected'])))
+    .where(
+      and(eq(eduRefunds.id, id), inArray(eduRefunds.status, ['pending', 'approved', 'rejected'])),
+    )
     .returning()
   return rows[0]
 }

@@ -109,7 +109,11 @@ export class BaseClient {
         const resp = await this.fetchFn(this.buildUrl(path), {
           method,
           headers,
-          body: isFormData ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
+          body: isFormData
+            ? (body as FormData)
+            : body !== undefined
+              ? JSON.stringify(body)
+              : undefined,
           signal: controller.signal,
         })
         clearTimeout(timer)
@@ -146,7 +150,11 @@ export class BaseClient {
    * 发起流式请求,返回原始 ReadableStream。
    * 流式请求不超时、不重试(无法安全回放流)。
    */
-  async requestStream(method: string, path: string, body?: unknown): Promise<ReadableStream<Uint8Array>> {
+  async requestStream(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<ReadableStream<Uint8Array>> {
     const resp = await this.fetchFn(this.buildUrl(path), {
       method,
       headers: this.buildHeaders(),

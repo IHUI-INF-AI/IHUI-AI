@@ -137,7 +137,9 @@ const LEAD_STATUSES = [
 ] as const
 
 const LEAD_STATUS_MAP: Map<string, string> = new Map(LEAD_STATUSES.map((s) => [s.value, s.label]))
-const LEAD_STATUS_COLOR_MAP: Map<string, string> = new Map(LEAD_STATUSES.map((s) => [s.value, s.color]))
+const LEAD_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  LEAD_STATUSES.map((s) => [s.value, s.color]),
+)
 
 const STATUS_ORDER: string[] = LEAD_STATUSES.map((s) => s.value)
 
@@ -149,7 +151,9 @@ const TRIAL_STATUSES = [
 ] as const
 
 const TRIAL_STATUS_MAP: Map<string, string> = new Map(TRIAL_STATUSES.map((s) => [s.value, s.label]))
-const TRIAL_STATUS_COLOR_MAP: Map<string, string> = new Map(TRIAL_STATUSES.map((s) => [s.value, s.color]))
+const TRIAL_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  TRIAL_STATUSES.map((s) => [s.value, s.color]),
+)
 
 const ENROLLMENT_STATUSES = [
   { value: 'enrolled', label: '在读', color: 'bg-green-500' },
@@ -157,8 +161,12 @@ const ENROLLMENT_STATUSES = [
   { value: 'graduate', label: '已毕业', color: 'bg-blue-500' },
 ] as const
 
-const ENROLLMENT_STATUS_MAP: Map<string, string> = new Map(ENROLLMENT_STATUSES.map((s) => [s.value, s.label]))
-const ENROLLMENT_STATUS_COLOR_MAP: Map<string, string> = new Map(ENROLLMENT_STATUSES.map((s) => [s.value, s.color]))
+const ENROLLMENT_STATUS_MAP: Map<string, string> = new Map(
+  ENROLLMENT_STATUSES.map((s) => [s.value, s.label]),
+)
+const ENROLLMENT_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  ENROLLMENT_STATUSES.map((s) => [s.value, s.color]),
+)
 
 /* ─── Lead Dialog ─── */
 
@@ -275,7 +283,9 @@ function LeadDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {LEAD_SOURCES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -366,7 +376,14 @@ function TrialDialog({
   }
 
   const handleSave = async () => {
-    if (!form.studentName.trim() || !form.parentName.trim() || !form.parentPhone.trim() || !form.trialDate || !form.trialTime) return
+    if (
+      !form.studentName.trim() ||
+      !form.parentName.trim() ||
+      !form.parentPhone.trim() ||
+      !form.trialDate ||
+      !form.trialTime
+    )
+      return
     setSaving(true)
     try {
       await onSave(form)
@@ -463,7 +480,17 @@ function TrialDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentName.trim() || !form.parentName.trim() || !form.parentPhone.trim() || !form.trialDate || !form.trialTime}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saving ||
+              !form.studentName.trim() ||
+              !form.parentName.trim() ||
+              !form.parentPhone.trim() ||
+              !form.trialDate ||
+              !form.trialTime
+            }
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             添加预约
           </Button>
@@ -575,7 +602,9 @@ function EnrollmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -588,7 +617,9 @@ function EnrollmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {terms.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -634,7 +665,16 @@ function EnrollmentDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentName.trim() || !form.classId || !form.termId || !form.enrollDate}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saving ||
+              !form.studentName.trim() ||
+              !form.classId ||
+              !form.termId ||
+              !form.enrollDate
+            }
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             添加报名
           </Button>
@@ -690,14 +730,22 @@ export default function EnrollmentPage() {
   })
 
   const enrollQuery = useQuery({
-    queryKey: ['edu-ai-management', 'enrollment', enrollClassFilter, enrollTermFilter, enrollStatusFilter],
+    queryKey: [
+      'edu-ai-management',
+      'enrollment',
+      enrollClassFilter,
+      enrollTermFilter,
+      enrollStatusFilter,
+    ],
     queryFn: () => {
       const params = new URLSearchParams()
       if (enrollClassFilter) params.set('classId', enrollClassFilter)
       if (enrollTermFilter) params.set('termId', enrollTermFilter)
       if (enrollStatusFilter) params.set('status', enrollStatusFilter)
       const qs = params.toString()
-      return api<{ list: EnrollmentRecord[] }>(`/api/edu-ai-management/enrollment${qs ? `?${qs}` : ''}`)
+      return api<{ list: EnrollmentRecord[] }>(
+        `/api/edu-ai-management/enrollment${qs ? `?${qs}` : ''}`,
+      )
     },
   })
 
@@ -809,25 +857,35 @@ export default function EnrollmentPage() {
         <TabsContent value="leads" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Select value={leadStatusFilter} onValueChange={(v) => setLeadStatusFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={leadStatusFilter}
+                onValueChange={(v) => setLeadStatusFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {LEAD_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={leadSourceFilter} onValueChange={(v) => setLeadSourceFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={leadSourceFilter}
+                onValueChange={(v) => setLeadSourceFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="全部来源" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部来源</SelectItem>
                   {LEAD_SOURCES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -866,15 +924,33 @@ export default function EnrollmentPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">线索姓名</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">电话</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学员</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">年龄</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">来源</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">跟进人</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">下次跟进</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          线索姓名
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          电话
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          年龄
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          来源
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          跟进人
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          下次跟进
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -883,7 +959,9 @@ export default function EnrollmentPage() {
                           <td className="px-4 py-3 text-xs font-medium">{lead.name}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{lead.phone}</td>
                           <td className="px-4 py-3 text-xs">{lead.studentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{lead.studentAge}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {lead.studentAge}
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {LEAD_SOURCE_MAP.get(lead.source) ?? lead.source}
                           </td>
@@ -898,8 +976,12 @@ export default function EnrollmentPage() {
                               {LEAD_STATUS_MAP.get(lead.status) ?? lead.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{lead.follower}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{lead.nextFollowUp ?? '-'}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {lead.follower}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {lead.nextFollowUp ?? '-'}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             {lead.status !== 'enrolled' && lead.status !== 'lost' && (
                               <Button
@@ -910,7 +992,8 @@ export default function EnrollmentPage() {
                                 disabled={updateLeadStatus.isPending}
                               >
                                 <ChevronRight className="mr-1 h-3 w-3" />
-                                {LEAD_STATUSES[STATUS_ORDER.indexOf(lead.status) + 1]?.label ?? '推进'}
+                                {LEAD_STATUSES[STATUS_ORDER.indexOf(lead.status) + 1]?.label ??
+                                  '推进'}
                               </Button>
                             )}
                           </td>
@@ -963,15 +1046,33 @@ export default function EnrollmentPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学员</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">家长</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">电话</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">试听日期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">科目</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">教师</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          家长
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          电话
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          试听日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          科目
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          教师
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -979,7 +1080,9 @@ export default function EnrollmentPage() {
                         <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{t.studentName}</td>
                           <td className="px-4 py-3 text-xs">{t.parentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.parentPhone}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {t.parentPhone}
+                          </td>
                           <td className="px-4 py-3 text-xs">{t.trialDate}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{t.trialTime}</td>
                           <td className="px-4 py-3 text-xs">{t.subject}</td>
@@ -1049,36 +1152,51 @@ export default function EnrollmentPage() {
         <TabsContent value="enrollments" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Select value={enrollClassFilter} onValueChange={(v) => setEnrollClassFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={enrollClassFilter}
+                onValueChange={(v) => setEnrollClassFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-36">
                   <SelectValue placeholder="全部班级" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部班级</SelectItem>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={enrollTermFilter} onValueChange={(v) => setEnrollTermFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={enrollTermFilter}
+                onValueChange={(v) => setEnrollTermFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-36">
                   <SelectValue placeholder="全部学期" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部学期</SelectItem>
                   {terms.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={enrollStatusFilter} onValueChange={(v) => setEnrollStatusFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={enrollStatusFilter}
+                onValueChange={(v) => setEnrollStatusFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {ENROLLMENT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1117,13 +1235,27 @@ export default function EnrollmentPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学员</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">班级</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">报名日期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">总费用</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">已支付</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          报名日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          总费用
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          已支付
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1133,7 +1265,9 @@ export default function EnrollmentPage() {
                           <td className="px-4 py-3 text-xs">{e.className}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{e.termName}</td>
                           <td className="px-4 py-3 text-xs">{e.enrollDate}</td>
-                          <td className="px-4 py-3 text-xs font-medium">{e.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {e.totalFee.toLocaleString()}
+                          </td>
                           <td className="px-4 py-3 text-xs">{e.paidAmount.toLocaleString()}</td>
                           <td className="px-4 py-3">
                             <Badge
@@ -1158,11 +1292,7 @@ export default function EnrollmentPage() {
       </Tabs>
 
       {/* Dialogs */}
-      <LeadDialog
-        open={leadDialogOpen}
-        onOpenChange={setLeadDialogOpen}
-        onSave={handleAddLead}
-      />
+      <LeadDialog open={leadDialogOpen} onOpenChange={setLeadDialogOpen} onSave={handleAddLead} />
 
       <TrialDialog
         open={trialDialogOpen}

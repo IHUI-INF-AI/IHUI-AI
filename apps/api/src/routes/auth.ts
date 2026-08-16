@@ -1103,7 +1103,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: {
         summary: '刷新访问令牌',
-        description: '使用 refreshToken 轮换签发新的 accessToken / refreshToken(支持 body 或 httpOnly cookie)',
+        description:
+          '使用 refreshToken 轮换签发新的 accessToken / refreshToken(支持 body 或 httpOnly cookie)',
         tags: ['auth'],
         body: {
           type: 'object',

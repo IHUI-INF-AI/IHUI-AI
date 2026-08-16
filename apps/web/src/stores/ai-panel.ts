@@ -131,7 +131,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       //   用户后续拖拽正常持久化(setWidth 受 MIN 320 / MAX 720 钳制)
       version: 4,
       migrate: (persistedState: unknown, version: number) => {
-        const s = ((persistedState as Partial<AiPanelState>) || {})
+        const s = (persistedState as Partial<AiPanelState>) || {}
         if (version < 4 && typeof s.width === 'number') {
           s.width = AI_PANEL_DEFAULT_WIDTH
         }

@@ -112,22 +112,20 @@ export function AiModelDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="pointsMultiplier">积分消耗倍数</Label>
-            <Tooltip content="扣分 = (输入+输出 token)/1000 × 倍数。免费=0x,经济=1x,标准=3x,高级=10x,旗舰=30x">
-              <select
-                id="pointsMultiplier"
-                value={form.pointsMultiplier}
-                onChange={(e) =>
-                  setForm({ ...form, pointsMultiplier: Number(e.target.value) })
-                }
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {POINTS_MULTIPLIERS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </Tooltip>
+              <Tooltip content="扣分 = (输入+输出 token)/1000 × 倍数。免费=0x,经济=1x,标准=3x,高级=10x,旗舰=30x">
+                <select
+                  id="pointsMultiplier"
+                  value={form.pointsMultiplier}
+                  onChange={(e) => setForm({ ...form, pointsMultiplier: Number(e.target.value) })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {POINTS_MULTIPLIERS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </Tooltip>
             </div>
           </div>
           <div className="space-y-1">

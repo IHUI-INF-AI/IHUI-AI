@@ -166,9 +166,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
         xhr.upload.onprogress = (e) => {
           if (!e.lengthComputable) return
           const pct = Math.round((e.loaded / e.total) * 100)
-          setItems((prev) =>
-            prev.map((it) => (it.key === key ? { ...it, progress: pct } : it)),
-          )
+          setItems((prev) => prev.map((it) => (it.key === key ? { ...it, progress: pct } : it)))
           onProgress?.(e.loaded, e.total)
         }
 
@@ -249,17 +247,13 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
           newUrls.push(url)
           setItems((prev) =>
             prev.map((it) =>
-              it.key === item.key
-                ? { ...it, status: 'done', progress: 100, url }
-                : it,
+              it.key === item.key ? { ...it, status: 'done', progress: 100, url } : it,
             ),
           )
         } catch (err) {
           const msg = err instanceof Error ? err.message : '上传失败'
           setItems((prev) =>
-            prev.map((it) =>
-              it.key === item.key ? { ...it, status: 'error', error: msg } : it,
-            ),
+            prev.map((it) => (it.key === item.key ? { ...it, status: 'error', error: msg } : it)),
           )
           onError?.(err instanceof Error ? err : new Error(msg))
         }
@@ -311,19 +305,15 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       {safeValue.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {safeValue.map((url, idx) => {
-            const isImg = /\.(png|jpe?g|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(url) || isImageMime(accept ?? '')
+            const isImg =
+              /\.(png|jpe?g|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(url) || isImageMime(accept ?? '')
             return (
               <div
                 key={`${url}-${idx}`}
                 className="group relative h-20 w-20 overflow-hidden rounded-md border bg-muted"
               >
                 {isImg ? (
-                  <img
-                    src={url}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
+                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                     <FileIcon className="h-7 w-7" />

@@ -28,9 +28,11 @@ interface Opt {
   label: string
 }
 
-const OPT_BASE = 'py-[14rpx] px-[28rpx] bg-card rounded-[12rpx] text-[26rpx] text-secondary-foreground border border-border'
+const OPT_BASE =
+  'py-[14rpx] px-[28rpx] bg-card rounded-[12rpx] text-[26rpx] text-secondary-foreground border border-border'
 const OPT_ACTIVE = 'bg-primary/10 text-primary border-primary'
-const TAG_BASE = 'py-[12rpx] px-[24rpx] bg-card rounded-[12rpx] text-[24rpx] text-secondary-foreground border border-border'
+const TAG_BASE =
+  'py-[12rpx] px-[24rpx] bg-card rounded-[12rpx] text-[24rpx] text-secondary-foreground border border-border'
 const TAG_ACTIVE = 'bg-primary/10 text-primary border-primary'
 
 export default function ModelEdit() {
@@ -64,8 +66,7 @@ export default function ModelEdit() {
       setAgentInfo({
         name: (res.name as string) || (res.agentName as string),
         avatar: (res.avatar as string) || undefined,
-        prologue:
-          (res.prologue as string) || (res.description as string) || undefined,
+        prologue: (res.prologue as string) || (res.description as string) || undefined,
       })
     } catch (e) {
       logger.error('model-edit', '加载智能体', e)
@@ -79,9 +80,7 @@ export default function ModelEdit() {
   })
 
   const toggleCategory = (cat: string) => {
-    setCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-    )
+    setCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]))
   }
 
   const saleTypeOpts: Opt[] = [
@@ -143,11 +142,7 @@ export default function ModelEdit() {
     { value: 'full', label: tt('devEnter.modelEdit.discountFull', '全部参与') },
   ]
 
-  const renderOpts = (
-    opts: Opt[],
-    current: string,
-    onSelect: (v: string) => void,
-  ) => (
+  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void) => (
     <View className="flex flex-wrap gap-[16rpx]">
       {opts.map((o) => (
         <View
@@ -207,134 +202,142 @@ export default function ModelEdit() {
 
       <ScrollView scrollY className="flex-1 box-border">
         <View className="p-[24rpx]">
-        {/* 智能体信息 */}
-        <View className="flex items-center bg-card p-[24rpx] rounded-[16rpx] mb-[16rpx] gap-[20rpx] border border-border">
-          {agentInfo.avatar ? (
-            <Image className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0" src={agentInfo.avatar} mode="aspectFill" />
-          ) : (
-            <View className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0 flex items-center justify-center text-primary text-[36rpx] font-semibold">
-              <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
-            </View>
-          )}
-          <View className="flex-1 overflow-hidden">
-            <Text className="block text-[30rpx] font-semibold text-foreground">
-              {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
-            </Text>
-            {agentInfo.prologue ? (
-              <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] overflow-hidden line-clamp-2">{agentInfo.prologue}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        {loading ? <Text className="block text-[24rpx] text-muted-foreground text-center py-[16rpx]">{t('common.loading')}</Text> : null}
-
-        {/* 1. 种类多选 */}
-        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-          {tt('devEnter.modelEdit.categoryLabel', '种类（多选）')}
-        </Text>
-        <View className="flex flex-wrap gap-[16rpx]">
-          {CATEGORIES.map((c) => (
-            <View
-              key={c}
-              className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
-              onClick={() => toggleCategory(c)}
-            >
-              <Text>{c}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* 2. 部门 */}
-        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">{tt('devEnter.modelEdit.departmentLabel', '部门')}</Text>
-        <Picker
-          mode="selector"
-          range={DEPARTMENTS}
-          value={deptIndex}
-          onChange={(e) => setDeptIndex(Number(e.detail.value))}
-        >
-          <View className="flex items-center justify-between py-[20rpx] px-[24rpx] bg-card rounded-[12rpx] text-[28rpx] text-foreground border border-border">
-            <Text>{DEPARTMENTS[deptIndex]}</Text>
-            <Text className="text-muted-foreground text-[24rpx]">▾</Text>
-          </View>
-        </Picker>
-
-        {/* 3. 售卖方式 */}
-        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-          {tt('devEnter.modelEdit.saleTypeLabel', '售卖方式')}
-        </Text>
-        {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
-
-        {/* 4. 收费周期 + 价格 (付费/限时免费时显示) */}
-        {saleType !== 'free' ? (
-          <View className="bg-card rounded-[16rpx] pt-[8rpx] px-[24rpx] pb-[24rpx] mt-[8rpx] border border-border">
-            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
-            </Text>
-            {renderOpts(periodOpts, chargePeriod, (v) =>
-              setChargePeriod(v as ChargePeriod),
-            )}
-            {saleType === 'paid' ? (
-              <View className="mt-[8rpx]">
-                <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-                  {tt('devEnter.modelEdit.priceLabel', '价格')}
-                </Text>
-                <View className="flex items-center bg-secondary rounded-[12rpx] px-[20rpx] mt-[12rpx] border border-border">
-                  <Text className="text-[32rpx] text-primary mr-[12rpx] font-semibold">¥</Text>
-                  <Input
-                    className="flex-1 h-[72rpx] text-[28rpx] text-foreground"
-                    type="digit"
-                    value={price}
-                    placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
-                    onInput={(e) => setPrice(e.detail.value)}
-                  />
-                </View>
+          {/* 智能体信息 */}
+          <View className="flex items-center bg-card p-[24rpx] rounded-[16rpx] mb-[16rpx] gap-[20rpx] border border-border">
+            {agentInfo.avatar ? (
+              <Image
+                className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0"
+                src={agentInfo.avatar}
+                mode="aspectFill"
+              />
+            ) : (
+              <View className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0 flex items-center justify-center text-primary text-[36rpx] font-semibold">
+                <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
               </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* 5. 限时免费时限 (限时免费时显示) */}
-        {saleType === 'limited' ? (
-          <View>
-            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.limitedDurationLabel', '限时免费时限')}
-            </Text>
-            {renderOpts(durationOpts, limitedDuration, (v) =>
-              setLimitedDuration(v as LimitedDuration),
             )}
+            <View className="flex-1 overflow-hidden">
+              <Text className="block text-[30rpx] font-semibold text-foreground">
+                {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
+              </Text>
+              {agentInfo.prologue ? (
+                <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] overflow-hidden line-clamp-2">
+                  {agentInfo.prologue}
+                </Text>
+              ) : null}
+            </View>
           </View>
-        ) : null}
 
-        {/* 6. 面向群体 */}
-        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-          {tt('devEnter.modelEdit.targetGroupLabel', '面向群体')}
-        </Text>
-        {renderOpts(groupOpts, targetGroup, (v) =>
-          setTargetGroup(v as TargetGroup),
-        )}
-
-        {/* 7. 折扣参与 (非免费时显示) */}
-        {saleType !== 'free' ? (
-          <View>
-            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
+          {loading ? (
+            <Text className="block text-[24rpx] text-muted-foreground text-center py-[16rpx]">
+              {t('common.loading')}
             </Text>
-            {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
-          </View>
-        ) : null}
+          ) : null}
 
-        {/* 提交审核 */}
-        <View
-          className={`mt-[40rpx] p-[26rpx] bg-primary text-primary-foreground text-center rounded-[16rpx] text-[30rpx] font-semibold ${submitting ? 'opacity-60' : ''}`}
-          onClick={onSubmit}
-        >
-          <Text>
-            {submitting
-              ? tt('devEnter.modelEdit.submitting', '提交中…')
-              : tt('devEnter.modelEdit.submit', '提交审核')}
+          {/* 1. 种类多选 */}
+          <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+            {tt('devEnter.modelEdit.categoryLabel', '种类（多选）')}
           </Text>
-        </View>
-        <View className="h-[60rpx]" />
+          <View className="flex flex-wrap gap-[16rpx]">
+            {CATEGORIES.map((c) => (
+              <View
+                key={c}
+                className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
+                onClick={() => toggleCategory(c)}
+              >
+                <Text>{c}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* 2. 部门 */}
+          <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+            {tt('devEnter.modelEdit.departmentLabel', '部门')}
+          </Text>
+          <Picker
+            mode="selector"
+            range={DEPARTMENTS}
+            value={deptIndex}
+            onChange={(e) => setDeptIndex(Number(e.detail.value))}
+          >
+            <View className="flex items-center justify-between py-[20rpx] px-[24rpx] bg-card rounded-[12rpx] text-[28rpx] text-foreground border border-border">
+              <Text>{DEPARTMENTS[deptIndex]}</Text>
+              <Text className="text-muted-foreground text-[24rpx]">▾</Text>
+            </View>
+          </Picker>
+
+          {/* 3. 售卖方式 */}
+          <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+            {tt('devEnter.modelEdit.saleTypeLabel', '售卖方式')}
+          </Text>
+          {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
+
+          {/* 4. 收费周期 + 价格 (付费/限时免费时显示) */}
+          {saleType !== 'free' ? (
+            <View className="bg-card rounded-[16rpx] pt-[8rpx] px-[24rpx] pb-[24rpx] mt-[8rpx] border border-border">
+              <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+                {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
+              </Text>
+              {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod))}
+              {saleType === 'paid' ? (
+                <View className="mt-[8rpx]">
+                  <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+                    {tt('devEnter.modelEdit.priceLabel', '价格')}
+                  </Text>
+                  <View className="flex items-center bg-secondary rounded-[12rpx] px-[20rpx] mt-[12rpx] border border-border">
+                    <Text className="text-[32rpx] text-primary mr-[12rpx] font-semibold">¥</Text>
+                    <Input
+                      className="flex-1 h-[72rpx] text-[28rpx] text-foreground"
+                      type="digit"
+                      value={price}
+                      placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
+                      onInput={(e) => setPrice(e.detail.value)}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* 5. 限时免费时限 (限时免费时显示) */}
+          {saleType === 'limited' ? (
+            <View>
+              <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+                {tt('devEnter.modelEdit.limitedDurationLabel', '限时免费时限')}
+              </Text>
+              {renderOpts(durationOpts, limitedDuration, (v) =>
+                setLimitedDuration(v as LimitedDuration),
+              )}
+            </View>
+          ) : null}
+
+          {/* 6. 面向群体 */}
+          <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+            {tt('devEnter.modelEdit.targetGroupLabel', '面向群体')}
+          </Text>
+          {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup))}
+
+          {/* 7. 折扣参与 (非免费时显示) */}
+          {saleType !== 'free' ? (
+            <View>
+              <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
+                {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
+              </Text>
+              {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
+            </View>
+          ) : null}
+
+          {/* 提交审核 */}
+          <View
+            className={`mt-[40rpx] p-[26rpx] bg-primary text-primary-foreground text-center rounded-[16rpx] text-[30rpx] font-semibold ${submitting ? 'opacity-60' : ''}`}
+            onClick={onSubmit}
+          >
+            <Text>
+              {submitting
+                ? tt('devEnter.modelEdit.submitting', '提交中…')
+                : tt('devEnter.modelEdit.submit', '提交审核')}
+            </Text>
+          </View>
+          <View className="h-[60rpx]" />
         </View>
       </ScrollView>
     </View>

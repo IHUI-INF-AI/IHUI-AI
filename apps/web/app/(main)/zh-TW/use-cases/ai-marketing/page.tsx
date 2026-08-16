@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, Megaphone, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  Megaphone,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 import { BackButton } from '@/components/common'
 
 const jsonLd = {
@@ -23,7 +33,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 行銷內容', item: 'https://aizhs.top/zh-TW/use-cases/ai-marketing' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 行銷內容',
+          item: 'https://aizhs.top/zh-TW/use-cases/ai-marketing',
+        },
       ],
     },
     {
@@ -41,12 +56,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 品牌語調學習模組' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '上傳品牌指南', text: '上傳品牌故事/語調文件/歷史爆款文章,AI 學習品牌語氣與禁忌表達,所有產出符合調性。' },
-        { '@type': 'HowToStep', position: 2, name: '訓練語調模型', text: '基於品牌歷史內容微調 LLM,確保所有 AI 產出與品牌人設一致,人工審校工作量減少 80%。' },
-        { '@type': 'HowToStep', position: 3, name: '接入多平台 API', text: '一鍵對接小紅書/抖音/微博/公眾號/LinkedIn/Twitter 平台 Open API,內容直發,無需切換工具。' },
-        { '@type': 'HowToStep', position: 4, name: '配置 A/B 測試', text: '同一選題自動生成 3-5 個標題與封面變體,Agent 自動跑 A/B 測試,72 小時內識別高 CTR 版本。' },
-        { '@type': 'HowToStep', position: 5, name: '匯入使用者畫像', text: '匯入 CRM 使用者畫像(年齡/地域/消費力/興趣),Agent 自動匹配調性與內容角度,轉換率提升 35%。' },
-        { '@type': 'HowToStep', position: 6, name: '啟用資料回饋', text: '接入平台資料(閱讀/點讚/轉換),AI 自動覆盤高表現內容模式,反哺下一輪內容生成。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '上傳品牌指南',
+          text: '上傳品牌故事/語調文件/歷史爆款文章,AI 學習品牌語氣與禁忌表達,所有產出符合調性。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '訓練語調模型',
+          text: '基於品牌歷史內容微調 LLM,確保所有 AI 產出與品牌人設一致,人工審校工作量減少 80%。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '接入多平台 API',
+          text: '一鍵對接小紅書/抖音/微博/公眾號/LinkedIn/Twitter 平台 Open API,內容直發,無需切換工具。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '配置 A/B 測試',
+          text: '同一選題自動生成 3-5 個標題與封面變體,Agent 自動跑 A/B 測試,72 小時內識別高 CTR 版本。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '匯入使用者畫像',
+          text: '匯入 CRM 使用者畫像(年齡/地域/消費力/興趣),Agent 自動匹配調性與內容角度,轉換率提升 35%。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '啟用資料回饋',
+          text: '接入平台資料(閱讀/點讚/轉換),AI 自動覆盤高表現內容模式,反哺下一輪內容生成。',
+        },
       ],
     },
   ],
@@ -75,12 +120,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '一鍵多平台改寫', desc: '一篇 3000 字深度文章,AI 自動改寫為小紅書短文/抖音腳本/知乎回答/LinkedIn 長文/微博推文,各平台調性匹配,人工微調即可發布。' },
-  { title: 'SEO 智慧優化', desc: '輸入目標關鍵詞,AI 自動生成 SEO 友善的標題/Meta/正文結構,內建 Google/Bing/百度主流 SEO 規則,自然排名提升。' },
-  { title: '品牌語調統一', desc: '上傳品牌指南 + 歷史爆款,AI 學習調性後所有產出 100% 符合品牌,避免不同編輯產出風格不一。' },
-  { title: 'A/B 測試文案', desc: '同一選題自動生成 3-5 個標題與封面變體,Agent 自動跑 A/B 測試,72 小時內識別高 CTR 版本,轉換率提升 35%。' },
-  { title: '使用者畫像驅動', desc: '匯入 CRM 使用者畫像(年齡/地域/消費力/興趣),Agent 自動匹配調性/內容角度/CTA 措辭,千人千面內容生成。' },
-  { title: '資料回饋閉環', desc: '接入各平台資料(閱讀/點讚/轉換),AI 自動覆盤高表現內容模式,反哺下一輪創作,持續優化。' },
+  {
+    title: '一鍵多平台改寫',
+    desc: '一篇 3000 字深度文章,AI 自動改寫為小紅書短文/抖音腳本/知乎回答/LinkedIn 長文/微博推文,各平台調性匹配,人工微調即可發布。',
+  },
+  {
+    title: 'SEO 智慧優化',
+    desc: '輸入目標關鍵詞,AI 自動生成 SEO 友善的標題/Meta/正文結構,內建 Google/Bing/百度主流 SEO 規則,自然排名提升。',
+  },
+  {
+    title: '品牌語調統一',
+    desc: '上傳品牌指南 + 歷史爆款,AI 學習調性後所有產出 100% 符合品牌,避免不同編輯產出風格不一。',
+  },
+  {
+    title: 'A/B 測試文案',
+    desc: '同一選題自動生成 3-5 個標題與封面變體,Agent 自動跑 A/B 測試,72 小時內識別高 CTR 版本,轉換率提升 35%。',
+  },
+  {
+    title: '使用者畫像驅動',
+    desc: '匯入 CRM 使用者畫像(年齡/地域/消費力/興趣),Agent 自動匹配調性/內容角度/CTA 措辭,千人千面內容生成。',
+  },
+  {
+    title: '資料回饋閉環',
+    desc: '接入各平台資料(閱讀/點讚/轉換),AI 自動覆盤高表現內容模式,反哺下一輪創作,持續優化。',
+  },
 ]
 
 const cases = [
@@ -119,7 +182,10 @@ const metrics = [
 export default function AiMarketingPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         {/* Hero */}
@@ -132,13 +198,18 @@ export default function AiMarketingPage() {
             AI 行銷內容生成:多平台一鍵產出,產能提升 10 倍
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0 開源,支援私有化部署,品牌語調統一保障。
+            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0
+            開源,支援私有化部署,品牌語調統一保障。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -148,11 +219,16 @@ export default function AiMarketingPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">行銷團隊的產能瓶頸</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              行銷團隊的產能瓶頸
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -162,7 +238,9 @@ export default function AiMarketingPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -178,7 +256,9 @@ export default function AiMarketingPage() {
 
         {/* 案例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">客戶落地案例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            客戶落地案例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -193,7 +273,9 @@ export default function AiMarketingPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術棧與工具鏈</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術棧與工具鏈
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源,無縫對接 5 大主流社群平台。
@@ -211,7 +293,9 @@ export default function AiMarketingPage() {
         {/* 聯絡/CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">開始搭建你的 AI 行銷內容助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            開始搭建你的 AI 行銷內容助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             註冊即得 1000 積分,從行銷內容場景模板一鍵 fork,30 分鐘體驗多平台一鍵產出。
           </p>
@@ -230,10 +314,18 @@ export default function AiMarketingPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 商務諮詢 8804</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 行銷學院 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 品牌訂製 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 平台鏡像 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 商務諮詢 8804
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 行銷學院 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 品牌訂製 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 平台鏡像 8809
+            </span>
           </div>
         </section>
       </main>

@@ -29,9 +29,7 @@ export async function deleteFavorite(
 }
 
 /** 取消关注 — DELETE /follows/:userId */
-export async function unfollowUser(
-  userId: string,
-): Promise<ApiResult<{ followed: false }>> {
+export async function unfollowUser(userId: string): Promise<ApiResult<{ followed: false }>> {
   return fetchApi<{ followed: false }>(`/follows/${userId}`, {
     method: 'DELETE',
   })

@@ -57,12 +57,18 @@ function cleanupStaleEndpoints(): void {
 }
 
 /** 根据 category 找到最近活跃的端 */
-function findEndpointByCategory(category: 'browser' | 'computer'): RegisteredEndpoint | null {
+function findEndpointByCategory(
+  category: 'browser' | 'computer',
+  userId?: string,
+): RegisteredEndpoint | null {
   cleanupStaleEndpoints()
   const targetEndpoint = category === 'browser' ? 'extension' : 'desktop'
   let best: RegisteredEndpoint | null = null
   for (const ep of _endpoints.values()) {
     if (ep.capability.endpoint !== targetEndpoint) continue
+    // 2026-08-16 修复:多用户隔离——指令带 userId 时只匹配该用户的端点,
+    // 避免同一 api 实例上 LLM 指令被推送到其他用户的 desktop/extension。
+    if (userId && ep.userId !== userId) continue
     if (!best || ep.lastSeen > best.lastSeen) {
       best = ep
     }
@@ -148,8 +154,8 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     }
     const req = result.data as AgentActionRequest
 
-    // 找到对应类型的端
-    const ep = findEndpointByCategory(req.category)
+    // 找到对应类型的端(带 userId 过滤,2026-08-16 多用户隔离)
+    const ep = findEndpointByCategory(req.category, req.userId)
     if (!ep) {
       const response: AgentActionResponse = {
         requestId: req.requestId,

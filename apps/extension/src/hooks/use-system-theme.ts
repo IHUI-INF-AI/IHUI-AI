@@ -84,7 +84,8 @@ export function useSystemTheme() {
       const onStorageChange = (changes: Record<string, StorageChange>) => {
         if (!(THEME_STORAGE_KEY in changes)) return
         const newPref =
-          (changes[THEME_STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ?? 'system'
+          (changes[THEME_STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ??
+          'system'
         currentPref = newPref
         applyTheme(resolveTheme(newPref))
       }

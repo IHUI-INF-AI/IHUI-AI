@@ -86,19 +86,25 @@ export default function IntegralPage() {
 
   return (
     <View className="min-h-screen bg-background">
-
       <View className="py-[60rpx] px-[40rpx] bg-[linear-gradient(135deg,#2c2c2c,#1a1a1a)] text-center">
         <Text className="block text-[60rpx] font-bold text-white">{total}</Text>
-        <Text className="block mt-[12rpx] text-[26rpx] text-[#d4af6a]">{tt('member.integral.current', '当前积分')}</Text>
+        <Text className="block mt-[12rpx] text-[26rpx] text-[#d4af6a]">
+          {tt('member.integral.current', '当前积分')}
+        </Text>
       </View>
       <View className="p-[24rpx]">
         {list.map((it) => (
-          <View key={it.id} className="flex justify-between items-center bg-card rounded-[16rpx] py-[28rpx] px-[24rpx] mb-[16rpx]">
+          <View
+            key={it.id}
+            className="flex justify-between items-center bg-card rounded-[16rpx] py-[28rpx] px-[24rpx] mb-[16rpx]"
+          >
             <View className="flex flex-col">
               <Text className="text-[28rpx] text-foreground">{it.type}</Text>
               <Text className="mt-[10rpx] text-[22rpx] text-muted-foreground">{it.time}</Text>
             </View>
-            <Text className={`text-[34rpx] font-semibold ${it.amount > 0 ? 'text-success' : 'text-destructive'}`}>
+            <Text
+              className={`text-[34rpx] font-semibold ${it.amount > 0 ? 'text-success' : 'text-destructive'}`}
+            >
               {it.amount > 0 ? '+' : ''}
               {it.amount}
             </Text>
@@ -112,7 +118,10 @@ export default function IntegralPage() {
         {error && !list.length ? (
           <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('member.integral.loadFailed', '加载失败')}</Text>
-            <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary" onClick={() => load(true)}>
+            <Text
+              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary"
+              onClick={() => load(true)}
+            >
               {t('common.retry')}
             </Text>
           </View>

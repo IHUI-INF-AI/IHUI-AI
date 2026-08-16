@@ -265,6 +265,8 @@ export function AISidePanel() {
   React.useEffect(() => {
     if (!open) return
 
+    console.log('[AISidePanel] effect triggered, open=', open, 'storeConversationId=', storeConversationId, 'prevId=', prevConversationIdRef.current)
+
     // 切换会话前保存旧会话到缓存(LRU:delete + set 重新插入)
     const prevId = prevConversationIdRef.current
     if (prevId && prevId !== storeConversationId) {
@@ -288,13 +290,16 @@ export function AISidePanel() {
     let cancelled = false
 
     async function loadHistory(id: string) {
+      console.log('[loadHistory] called with id=', id, 'cacheSize=', conversationCacheRef.current.size)
       // 缓存命中:同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新
       const cached = conversationCacheRef.current.get(id)
+      console.log('[loadHistory] cache hit=', !!cached, 'cachedMessagesCount=', cached?.messages?.length)
       if (cached) {
         // LRU 更新:delete + set 重新插入到末尾(最近使用)
         conversationCacheRef.current.delete(id)
         conversationCacheRef.current.set(id, cached)
         // 同步填充 store(无 loading 状态,无闪烁)
+        console.log('[loadHistory] cache hit - setting messages, count=', cached.messages.length)
         useChatStore.setState({ messages: cached.messages, error: null })
         setHasMoreHistory(cached.hasMore)
         oldestCursorRef.current = cached.oldestCursor
@@ -314,10 +319,12 @@ export function AISidePanel() {
                 role: m.role,
                 content: m.content,
                 createdAt: new Date(m.createdAt).getTime(),
+                reasoning: m.reasoning,
               }))
               // 仅当当前仍在该会话时才更新 store(避免覆盖用户已切换到的新会话)
               if (useChatStore.getState().conversationId === id) {
-                useChatStore.setState({ messages: hydrated, error: null })
+                console.log('[loadHistory] setting messages from API, count=', hydrated.length)
+          useChatStore.setState({ messages: hydrated, error: null })
                 setConversationTitle(convRes.data.conversation.title || null)
                 oldestCursorRef.current = msgRes.data.nextCursor
                 setHasMoreHistory(msgRes.data.hasMore)
@@ -348,6 +355,7 @@ export function AISidePanel() {
       }
 
       // 缓存未命中:正常拉取
+      console.log('[loadHistory] cache miss - fetching from API')
       setLoadingHistory(true)
       try {
         // #8 分页加载:默认 page=1 返回最新 pageSize 条(后端 offset 模式按 desc + reverse)
@@ -357,11 +365,16 @@ export function AISidePanel() {
         ])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
+          console.log(
+            '[loadHistory] API response messagesCount=',
+            msgRes.data.messages.length,
+          )
           const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
             id: m.id,
             role: m.role,
             content: m.content,
             createdAt: new Date(m.createdAt).getTime(),
+            reasoning: m.reasoning,
           }))
           useChatStore.setState({ messages: hydrated, error: null })
           setConversationTitle(convRes.data.conversation.title || null)
@@ -399,12 +412,14 @@ export function AISidePanel() {
             useChatStore.getState().clearPendingQuestion()
           }
         } else {
+          console.log('[loadHistory] API returned error, clearing messages')
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
           useChatStore.getState().clearPendingQuestion()
         }
-      } catch {
+      } catch (err) {
+        console.log('[loadHistory] caught error:', err)
         if (!cancelled) {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
@@ -417,6 +432,7 @@ export function AISidePanel() {
     }
 
     if (storeConversationId) {
+      console.log('[AISidePanel] storeConversationId=', storeConversationId, 'about to call loadHistory')
       // 重置分页状态(防止上一会话的游标残留)
       oldestCursorRef.current = null
       setHasMoreHistory(false)
@@ -444,6 +460,7 @@ export function AISidePanel() {
 
       void loadHistory(storeConversationId)
     } else {
+      console.log('[AISidePanel] storeConversationId is null, clearing messages')
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
       oldestCursorRef.current = null

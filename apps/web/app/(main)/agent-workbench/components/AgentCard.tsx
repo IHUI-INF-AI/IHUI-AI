@@ -47,7 +47,10 @@ export const ROLE_LABEL: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<AgentStatus, { label: string; className: string }> = {
-  running: { label: '运行中', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
+  running: {
+    label: '运行中',
+    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+  },
   paused: { label: '已暂停', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   stopped: { label: '已停止', className: 'bg-muted text-muted-foreground' },
   error: { label: '异常', className: 'bg-destructive/10 text-destructive' },
@@ -120,7 +123,12 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
               {roleLabel} · {agent.model}
             </p>
           </div>
-          <span className={cn('inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium', badge.className)}>
+          <span
+            className={cn(
+              'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium',
+              badge.className,
+            )}
+          >
             {badge.label}
           </span>
         </div>
@@ -177,7 +185,10 @@ export function AgentDetailCard({ agent }: DetailProps) {
         {agent.tools && agent.tools.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {agent.tools.map((t) => (
-              <span key={t} className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span
+                key={t}
+                className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+              >
                 {t}
               </span>
             ))}

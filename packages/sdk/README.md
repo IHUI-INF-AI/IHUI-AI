@@ -32,32 +32,32 @@ console.log(completion.choices[0].message.content)
 
 ## 配置选项
 
-| 选项 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `apiKey` | `string` | (必需) | API Key,格式 `ihui_xxx` |
-| `secret` | `string` | — | API Secret,创建/轮换时返回 |
-| `baseUrl` | `string` | `http://localhost:8802` | 后端 API 地址 |
-| `timeout` | `number` | `30000` | 请求超时(毫秒),流式请求不超时 |
-| `maxRetries` | `number` | `2` | 最大重试次数,网络错误和 5xx 重试,429 不重试 |
-| `fetch` | `typeof fetch` | 全局 fetch | 自定义 fetch 实现(测试/拦截用) |
+| 选项         | 类型           | 默认值                  | 说明                                        |
+| ------------ | -------------- | ----------------------- | ------------------------------------------- |
+| `apiKey`     | `string`       | (必需)                  | API Key,格式 `ihui_xxx`                     |
+| `secret`     | `string`       | —                       | API Secret,创建/轮换时返回                  |
+| `baseUrl`    | `string`       | `http://localhost:8802` | 后端 API 地址                               |
+| `timeout`    | `number`       | `30000`                 | 请求超时(毫秒),流式请求不超时               |
+| `maxRetries` | `number`       | `2`                     | 最大重试次数,网络错误和 5xx 重试,429 不重试 |
+| `fetch`      | `typeof fetch` | 全局 fetch              | 自定义 fetch 实现(测试/拦截用)              |
 
 ## 功能模块(13 个)
 
-| 模块 | 端点数 | 说明 |
-|------|--------|------|
-| `client.ai` | 13 | Chat / Embeddings / Models / MoA |
-| `client.agents` | 12 | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行 |
-| `client.audio` | 8 | TTS / ASR / 语音对话 / 声纹 / 音乐 |
-| `client.images` | 6 | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| `client.videos` | 3 | 视频生成 / 任务查询 / 编排 |
-| `client.threed` | 1 | 3D 模型生成 |
-| `client.generation` | 3 | 生成队列:入队 / 状态 / 取消 |
-| `client.knowledge` | 13 | 知识库 / RAG / 知识图谱 |
-| `client.tools` | 16 | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图 |
-| `client.memory` | 8 | 记忆:保存 / 召回 / 搜索 / Dream / 分类 |
-| `client.messages` | 4 | 消息:发布 / 订阅 / 状态 |
-| `client.files` | 9 | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片 |
-| `client.user` | 9 | 用户 / 工作区 / 工作流 / 统计 |
+| 模块                | 端点数 | 说明                                                |
+| ------------------- | ------ | --------------------------------------------------- |
+| `client.ai`         | 13     | Chat / Embeddings / Models / MoA                    |
+| `client.agents`     | 12     | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行      |
+| `client.audio`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐                  |
+| `client.images`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景   |
+| `client.videos`     | 3      | 视频生成 / 任务查询 / 编排                          |
+| `client.threed`     | 1      | 3D 模型生成                                         |
+| `client.generation` | 3      | 生成队列:入队 / 状态 / 取消                         |
+| `client.knowledge`  | 13     | 知识库 / RAG / 知识图谱                             |
+| `client.tools`      | 16     | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图            |
+| `client.memory`     | 8      | 记忆:保存 / 召回 / 搜索 / Dream / 分类              |
+| `client.messages`   | 4      | 消息:发布 / 订阅 / 状态                             |
+| `client.files`      | 9      | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片 |
+| `client.user`       | 9      | 用户 / 工作区 / 工作流 / 统计                       |
 
 ## 使用示例
 
@@ -201,8 +201,8 @@ try {
   await client.ai.getModel('nonexistent')
 } catch (e) {
   if (e instanceof SdkError) {
-    console.log(e.status)  // 404
-    console.log(e.code)    // 'http_404'
+    console.log(e.status) // 404
+    console.log(e.code) // 'http_404'
     console.log(e.message) // 'Not Found'
   }
 }
@@ -210,14 +210,14 @@ try {
 
 ### 错误分类
 
-| status | 说明 | 是否重试 |
-|--------|------|----------|
-| 0 | 网络错误 | 是 |
-| 401 | API Key 无效 | 否 |
-| 403 | 权限不足 | 否 |
-| 404 | 资源不存在 | 否 |
-| 429 | 配额超限 | 否 |
-| 5xx | 服务器错误 | 是 |
+| status | 说明         | 是否重试 |
+| ------ | ------------ | -------- |
+| 0      | 网络错误     | 是       |
+| 401    | API Key 无效 | 否       |
+| 403    | 权限不足     | 否       |
+| 404    | 资源不存在   | 否       |
+| 429    | 配额超限     | 否       |
+| 5xx    | 服务器错误   | 是       |
 
 ### 重试机制
 

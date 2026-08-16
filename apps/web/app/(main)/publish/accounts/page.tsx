@@ -2,18 +2,44 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, QrCode, Upload, ShieldCheck } from 'lucide-react'
 import {
-  Button, Card, CardContent, Input, Label,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  QrCode,
+  Upload,
+  ShieldCheck,
+} from 'lucide-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
-import { PLATFORM_SCHEMAS, getPlatformSchema, normalizeCredentials } from '@/lib/publish/platform-schemas'
+import {
+  PLATFORM_SCHEMAS,
+  getPlatformSchema,
+  normalizeCredentials,
+} from '@/lib/publish/platform-schemas'
 import { ScanLoginDialog } from './ScanLoginDialog'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
 import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
@@ -41,7 +67,19 @@ const ACCOUNTS_STATUS_KEY: Record<PublishAccount['status'], string> = {
 export default function AccountsPage() {
   const t = useTranslations('publish')
   const tc = useTranslations('common')
-  const { accounts, loading, saving, verifyingId, batchVerifying, create, update, verify, remove, batchVerify, reload } = usePublishAccounts()
+  const {
+    accounts,
+    loading,
+    saving,
+    verifyingId,
+    batchVerifying,
+    create,
+    update,
+    verify,
+    remove,
+    batchVerify,
+    reload,
+  } = usePublishAccounts()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<PublishAccount | null>(null)
   const [form, setForm] = React.useState({ platform: 'wordpress', nickname: '' })
@@ -49,16 +87,15 @@ export default function AccountsPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<PublishAccount | null>(null)
   const [scanOpen, setScanOpen] = React.useState(false)
-  const [scanDefaultPlatform, setScanDefaultPlatform] = React.useState<string | undefined>(undefined)
+  const [scanDefaultPlatform, setScanDefaultPlatform] = React.useState<string | undefined>(
+    undefined,
+  )
   const [batchOpen, setBatchOpen] = React.useState(false)
 
-  const pendingPlatforms = React.useMemo(
-    () => {
-      const configured = new Set(accounts.map((a) => a.platform))
-      return PLATFORM_SCHEMAS.filter((s) => !configured.has(s.platformId))
-    },
-    [accounts],
-  )
+  const pendingPlatforms = React.useMemo(() => {
+    const configured = new Set(accounts.map((a) => a.platform))
+    return PLATFORM_SCHEMAS.filter((s) => !configured.has(s.platformId))
+  }, [accounts])
 
   function openAdd(platformId?: string) {
     setEditing(null)
@@ -85,7 +122,10 @@ export default function AccountsPage() {
   async function confirmDelete() {
     if (!deleteTarget) return
     const ok = await remove(deleteTarget.id)
-    if (ok) { setDeleteOpen(false); setDeleteTarget(null) }
+    if (ok) {
+      setDeleteOpen(false)
+      setDeleteTarget(null)
+    }
   }
 
   return (
@@ -98,16 +138,30 @@ export default function AccountsPage() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
-            <QrCode className="h-4 w-4" />{t('accounts.scanLogin')}
+            <QrCode className="h-4 w-4" />
+            {t('accounts.scanLogin')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
-            <Upload className="h-4 w-4" />{t('accounts.batchImport')}
+            <Upload className="h-4 w-4" />
+            {t('accounts.batchImport')}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => void batchVerify()} disabled={batchVerifying || accounts.length === 0}>
-            {batchVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void batchVerify()}
+            disabled={batchVerifying || accounts.length === 0}
+          >
+            {batchVerifying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
             {t('accounts.batchVerify')}
           </Button>
-          <Button size="sm" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
+          <Button size="sm" onClick={() => openAdd()}>
+            <Plus className="h-4 w-4" />
+            {t('accounts.add')}
+          </Button>
         </div>
       </div>
 
@@ -118,8 +172,12 @@ export default function AccountsPage() {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {pendingPlatforms.map((s) => (
-              <button key={s.platformId} type="button" onClick={() => openAdd(s.platformId)}
-                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent">
+              <button
+                key={s.platformId}
+                type="button"
+                onClick={() => openAdd(s.platformId)}
+                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
+              >
                 <span className="font-medium">{s.platformName}</span>
                 <span className="text-muted-foreground">+ 配置</span>
               </button>
@@ -129,12 +187,17 @@ export default function AccountsPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
       ) : accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <AlertCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('accounts.noAccounts')}</p>
-          <Button size="sm" variant="outline" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
+          <Button size="sm" variant="outline" onClick={() => openAdd()}>
+            <Plus className="h-4 w-4" />
+            {t('accounts.add')}
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -154,11 +217,17 @@ export default function AccountsPage() {
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">{a.displayName}</div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {schema?.platformName ?? t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')}
+                          {schema?.platformName ??
+                            t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')}
                         </div>
                       </div>
                     </div>
-                    <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-medium', STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled)}>
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                        STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled,
+                      )}
+                    >
                       {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
                     </span>
                   </div>
@@ -175,22 +244,57 @@ export default function AccountsPage() {
                         {t('riskNotEvaluated')}
                       </span>
                     )}
-                    <CookieHealthIndicator accountId={a.id} compact={false} onRefreshed={() => void reload()} />
+                    <CookieHealthIndicator
+                      accountId={a.id}
+                      compact={false}
+                      onRefreshed={() => void reload()}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    <Button size="sm" variant="outline" onClick={() => verify(a.id)} disabled={isVerifying} className="h-7 text-xs">
-                      {isVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => verify(a.id)}
+                      disabled={isVerifying}
+                      className="h-7 text-xs"
+                    >
+                      {isVerifying ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3 w-3" />
+                      )}
                       {t('accounts.verify')}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => openScanLogin(a.platform)} className="h-7 text-xs" title={t('accounts.scanLoginHint')}>
-                      <QrCode className="h-3 w-3" />{t('accounts.scan')}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openScanLogin(a.platform)}
+                      className="h-7 text-xs"
+                      title={t('accounts.scanLoginHint')}
+                    >
+                      <QrCode className="h-3 w-3" />
+                      {t('accounts.scan')}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(a)} className="h-7 text-xs">
-                      <Pencil className="h-3 w-3" />{t('accounts.edit')}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEdit(a)}
+                      className="h-7 text-xs"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      {t('accounts.edit')}
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive hover:text-destructive"
-                      onClick={() => { setDeleteTarget(a); setDeleteOpen(true) }}>
-                      <Trash2 className="h-3 w-3" />{t('accounts.delete')}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 text-xs text-destructive hover:text-destructive"
+                      onClick={() => {
+                        setDeleteTarget(a)
+                        setDeleteOpen(true)
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      {t('accounts.delete')}
                     </Button>
                   </div>
                 </CardContent>
@@ -200,35 +304,63 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {!loading && accounts.length > 0 && (
-        <AccountGroupManager accounts={accounts} />
-      )}
+      {!loading && accounts.length > 0 && <AccountGroupManager accounts={accounts} />}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !saving && setDialogOpen(o)}>
         <DialogContent className="min-[640px]:max-w-lg">
           <form onSubmit={submit} className="space-y-3">
-            <DialogHeader><DialogTitle>{editing ? t('accounts.edit') : t('accounts.add')}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>{editing ? t('accounts.edit') : t('accounts.add')}</DialogTitle>
+            </DialogHeader>
             <div className="space-y-1">
               <Label className="text-xs">{t('accounts.platform')}</Label>
-              <Select value={form.platform} onValueChange={(v) => { setForm({ ...form, platform: v }); setCredentials({}) }} disabled={!!editing}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={form.platform}
+                onValueChange={(v) => {
+                  setForm({ ...form, platform: v })
+                  setCredentials({})
+                }}
+                disabled={!!editing}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {PLATFORM_SCHEMAS.map((s) => (
-                    <SelectItem key={s.platformId} value={s.platformId}>{s.platformName}</SelectItem>
+                    <SelectItem key={s.platformId} value={s.platformId}>
+                      {s.platformName}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('accounts.nickname')}</Label>
-              <Input value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} required className="h-8 text-xs" />
+              <Input
+                value={form.nickname}
+                onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                required
+                className="h-8 text-xs"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('accounts.credentials')}</Label>
-              <CredentialGuide platformId={form.platform} value={credentials} onChange={setCredentials} disabled={saving} />
+              <CredentialGuide
+                platformId={form.platform}
+                value={credentials}
+                onChange={setCredentials}
+                disabled={saving}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tc('cancel')}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={saving}
+              >
+                {tc('cancel')}
+              </Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editing ? tc('save') : tc('create')}
@@ -240,11 +372,17 @@ export default function AccountsPage() {
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t('accounts.delete')}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{t('accounts.delete')}</DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-muted-foreground">{t('accounts.deleteConfirm')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{tc('cancel')}</Button>
-            <Button variant="destructive" onClick={confirmDelete}>{tc('confirm')}</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {tc('cancel')}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              {tc('confirm')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

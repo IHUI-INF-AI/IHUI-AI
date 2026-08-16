@@ -2,10 +2,7 @@ import { useCallback, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import {
-  CourseFilterScreen as SharedCourseFilterScreen,
-  type CourseFilterItem,
-} from '@ihui/rn-app'
+import { CourseFilterScreen as SharedCourseFilterScreen, type CourseFilterItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'

@@ -103,7 +103,11 @@ function langName(lang: 'zh' | 'en' | 'ja' | 'ko'): string {
 }
 
 /** 规则版优化(LLM 降级用)。 */
-function optimizeRuleBased(prompt: string, options: OptimizeOptions, type: PromptType): OptimizeResult {
+function optimizeRuleBased(
+  prompt: string,
+  options: OptimizeOptions,
+  type: PromptType,
+): OptimizeResult {
   const improvements: string[] = []
 
   const { text: clarifiedText, replaced } = replaceVagueTerms(prompt)

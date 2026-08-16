@@ -15,7 +15,13 @@ vi.mock('react-native', () => {
   }
 })
 
-function CapturedText({ path, params }: { path: string; params?: Record<string, string | number> }) {
+function CapturedText({
+  path,
+  params,
+}: {
+  path: string
+  params?: Record<string, string | number>
+}) {
   const { t } = useI18n()
   const text = params ? t(path, params) : t(path)
   return createElement('Text', { 'data-path': path }, text)

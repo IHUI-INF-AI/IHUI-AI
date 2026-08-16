@@ -18,7 +18,9 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const containerId = React.useId().replace(/[:]/g, '')
   const qrRef = React.useRef<FeishuQrInstance | null>(null)
-  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>('loading')
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>(
+    'loading',
+  )
   const [errorMsg, setErrorMsg] = React.useState('')
 
   React.useEffect(() => {
@@ -41,13 +43,15 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
 
     // 飞书 QRLogin SDK 通过 goto 参数指定完整 OAuth 授权 URL,
     // 扫码成功后 SDK 通过 postMessage 通知父窗口跳转(不会自动整页跳转)
-    const gotoUrl = `https://passport.feishu.cn/suite/passport/oauth/authorize?${new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      state,
-      scope: config.scope || 'contact:user.base:readonly',
-    }).toString()}`
+    const gotoUrl = `https://passport.feishu.cn/suite/passport/oauth/authorize?${new URLSearchParams(
+      {
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        state,
+        scope: config.scope || 'contact:user.base:readonly',
+      },
+    ).toString()}`
 
     // 飞书 SDK 扫码成功后 postMessage 通知父窗口,不同版本消息格式可能不同:
     // { type: 'redirect', url: 'xxx' } / { proto: 'redirect', data: { redirect_uri: 'xxx' } } 等

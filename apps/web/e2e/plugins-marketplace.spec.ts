@@ -44,7 +44,10 @@ test.describe('插件市场 Codex 10 插件对齐', () => {
 
     for (const plugin of CODEX_TEN_PLUGINS) {
       const card = page.locator('text=' + plugin.name).first()
-      const icon = card.locator('xpath=ancestor::*[contains(@class,"card") or contains(@class,"Card")][1]').locator('svg, img').first()
+      const icon = card
+        .locator('xpath=ancestor::*[contains(@class,"card") or contains(@class,"Card")][1]')
+        .locator('svg, img')
+        .first()
       await expect(icon).toBeVisible({ timeout: 10000 })
     }
   })

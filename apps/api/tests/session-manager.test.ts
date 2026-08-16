@@ -50,7 +50,17 @@ function rejectingChain(error: unknown) {
     then: (_resolve: (v: unknown[]) => unknown, reject: (e: unknown) => unknown) =>
       Promise.reject(error).then(undefined, reject),
   }
-  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'values', 'set', 'returning', 'onConflictDoNothing']) {
+  for (const m of [
+    'from',
+    'where',
+    'orderBy',
+    'limit',
+    'offset',
+    'values',
+    'set',
+    'returning',
+    'onConflictDoNothing',
+  ]) {
     c[m] = vi.fn(() => c)
   }
   return c
@@ -213,9 +223,7 @@ describe('clawdbot SessionManager DB 持久化层', () => {
       const updateChain = chain([])
       mockDb.update.mockReturnValue(updateChain)
       await mgr.incrementMessageCount('sess_1')
-      expect(updateChain.set).toHaveBeenCalledWith(
-        expect.objectContaining({ messageCount: 4 }),
-      )
+      expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ messageCount: 4 }))
     })
   })
 

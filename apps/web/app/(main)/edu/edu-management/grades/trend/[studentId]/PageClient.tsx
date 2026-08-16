@@ -98,9 +98,8 @@ export default function TrendPage() {
 
   const { data: weaknessData, isLoading: weaknessLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'weakness', studentId],
-    queryFn: () => api<{ weakness: WeaknessItem[] }>(
-      `/api/edu-ai-management/exam-score/weakness/${studentId}`,
-    ),
+    queryFn: () =>
+      api<{ weakness: WeaknessItem[] }>(`/api/edu-ai-management/exam-score/weakness/${studentId}`),
     enabled: !!studentId,
   })
 
@@ -174,7 +173,9 @@ export default function TrendPage() {
             <SelectContent>
               <SelectItem value="all">全部科目</SelectItem>
               {subjects.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -287,7 +288,9 @@ export default function TrendPage() {
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{w.subject}</span>
                     {w.isWeak && (
-                      <Badge variant="destructive" className="text-[10px]">薄弱</Badge>
+                      <Badge variant="destructive" className="text-[10px]">
+                        薄弱
+                      </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">

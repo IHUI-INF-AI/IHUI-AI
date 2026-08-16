@@ -142,8 +142,10 @@ export function createUserModule(client: BaseClient): UserModule {
         'GET',
         `/projects/${encodeURIComponent(projectId)}/files`,
       ),
-    getWorkflow: (id) => client.request<V1WorkflowInfo>('GET', `/workflows/${encodeURIComponent(id)}`),
-    runWorkflow: (req) => client.request<V1RunWorkflowResponse>('POST', '/workflows/instances', req),
+    getWorkflow: (id) =>
+      client.request<V1WorkflowInfo>('GET', `/workflows/${encodeURIComponent(id)}`),
+    runWorkflow: (req) =>
+      client.request<V1RunWorkflowResponse>('POST', '/workflows/instances', req),
     runCozeWorkflow: (req) =>
       client.request<V1RunCozeWorkflowResponse>('POST', '/workflows/coze/run', req),
     runN8nWorkflow: (req) =>

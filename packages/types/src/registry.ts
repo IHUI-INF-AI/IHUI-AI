@@ -26,11 +26,7 @@ export type RegistrySyncStatus = 'success' | 'fail' | 'skipped' | 'running'
 export type RegistrySortKey = 'latest' | 'hot' | 'best'
 
 /** 安装状态 */
-export type RegistryInstallStatus =
-  | 'not_installed'
-  | 'installed'
-  | 'upgradable'
-  | 'failed'
+export type RegistryInstallStatus = 'not_installed' | 'installed' | 'upgradable' | 'failed'
 
 // ================== 资源条目 ==================
 
@@ -269,11 +265,7 @@ export interface ProviderModelListResponse {
 
 /** 配置文件类型 */
 export type ConfigFileType =
-  | 'env_example'
-  | 'env_production_example'
-  | 'config_py'
-  | 'package_json'
-  | 'docker_compose'
+  'env_example' | 'env_production_example' | 'config_py' | 'package_json' | 'docker_compose'
 
 /** 单个文件漂移报告 */
 export interface ConfigDriftReport {

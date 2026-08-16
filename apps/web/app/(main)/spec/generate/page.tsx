@@ -9,15 +9,7 @@ import type { SpecGenerateResult } from '@ihui/shared/spec/index'
 import { SpecGenerateForm } from '@/components/spec/SpecGenerateForm'
 import { SpecMarkdown } from '@/components/spec/SpecMarkdown'
 
-function StatItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-}) {
+function StatItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground">{icon}</span>
@@ -49,10 +41,7 @@ export default function SpecGeneratePage() {
         </div>
       </div>
 
-      <SpecGenerateForm
-        defaultTemplateId={templateId}
-        onGenerated={setResult}
-      />
+      <SpecGenerateForm defaultTemplateId={templateId} onGenerated={setResult} />
 
       {result && (
         <Card>

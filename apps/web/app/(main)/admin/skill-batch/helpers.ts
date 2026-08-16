@@ -122,9 +122,12 @@ export async function batchUpdateSkills(
 
 /** 导出技能为 JSON 文件 */
 export function exportSkillsAsJson(skills: UserSkill[]): void {
-  const blob = new Blob([JSON.stringify({ skills, exportedAt: new Date().toISOString() }, null, 2)], {
-    type: 'application/json',
-  })
+  const blob = new Blob(
+    [JSON.stringify({ skills, exportedAt: new Date().toISOString() }, null, 2)],
+    {
+      type: 'application/json',
+    },
+  )
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

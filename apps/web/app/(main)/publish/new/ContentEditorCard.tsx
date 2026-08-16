@@ -12,7 +12,17 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
-import { Card, CardContent, Input, Label, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ihui/ui-react'
+import {
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@ihui/ui-react'
 import { CONTENT_FORMAT_KEY } from '../helpers'
 import { UploadProgress } from '@/components/publish/UploadProgress'
 import { RichTextEditor } from '@/components/publish/RichTextEditor'
@@ -123,9 +133,7 @@ export function ContentEditorCard({
               <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground transition-colors hover:bg-accent">
                 <Upload className="h-4 w-4" />
                 <span>
-                  {fileMeta
-                    ? `${fileMeta.filename} · ${fileMeta.format}`
-                    : t('new.uploadFileHint')}
+                  {fileMeta ? `${fileMeta.filename} · ${fileMeta.format}` : t('new.uploadFileHint')}
                 </span>
                 <input
                   ref={fileInputRef}
@@ -157,9 +165,7 @@ export function ContentEditorCard({
           <Label>{t('new.coverImage')}</Label>
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent">
             <Upload className="h-4 w-4" />
-            <span>
-              {coverMeta ? coverMeta.filename : t('new.coverImage')}
-            </span>
+            <span>{coverMeta ? coverMeta.filename : t('new.coverImage')}</span>
             <input
               ref={coverInputRef}
               type="file"

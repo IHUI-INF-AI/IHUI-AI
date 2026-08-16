@@ -2217,7 +2217,10 @@ export function SpecPanel({ className }: { className?: string }) {
         {watchStatus?.watchers.length ? (
           <div className="flex flex-wrap items-center gap-1">
             {watchStatus.watchers.map((w) => (
-              <Tooltip key={w.watchId} content={`监听路径: ${w.watchPath}\n启动时间: ${w.startedAt}`}>
+              <Tooltip
+                key={w.watchId}
+                content={`监听路径: ${w.watchPath}\n启动时间: ${w.startedAt}`}
+              >
                 <span className="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                   <span>{w.watchId.slice(0, 8)}</span>

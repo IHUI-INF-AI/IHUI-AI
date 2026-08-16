@@ -69,7 +69,11 @@ const QUICK_ENDPOINTS: Array<{ method: 'POST' | 'GET'; path: string; desc: strin
   { method: 'GET', path: '/api/public/status/overview', desc: '公开状态页-系统总览' },
   { method: 'GET', path: '/api/public/status/models', desc: '公开状态页-模型可用性' },
   { method: 'GET', path: '/api/public/status/incidents', desc: '公开状态页-事件列表' },
-  { method: 'POST', path: '/api/developer/api-keys/:id/shares', desc: 'API Key 临时分享(限时 token)' },
+  {
+    method: 'POST',
+    path: '/api/developer/api-keys/:id/shares',
+    desc: 'API Key 临时分享(限时 token)',
+  },
   { method: 'GET', path: '/api/admin/export/orders.csv', desc: '充值订单 CSV 导出' },
   { method: 'GET', path: '/api/admin/export/relay-logs.csv', desc: '调用日志 CSV 导出' },
   { method: 'GET', path: '/api/developer/conversations', desc: '中转站会话历史列表' },

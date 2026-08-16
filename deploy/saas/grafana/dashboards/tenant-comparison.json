@@ -32,7 +32,12 @@
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "legend": { "calcs": ["max", "mean"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "legend": {
+          "calcs": ["max", "mean"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
@@ -70,7 +75,12 @@
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
       "id": 2,
       "options": {
-        "legend": { "calcs": ["max", "mean"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "legend": {
+          "calcs": ["max", "mean"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [

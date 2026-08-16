@@ -37,7 +37,6 @@ const miscRoutes: FastifyPluginAsync = async (server) => {
 
   // 2026-08-10:原 /analytics/track 已迁移至 routes/analytics.ts(公开匿名上报,
   // 兼容批量/单事件)。本文件保留其他端点,不再定义 track 避免重复。
-
 }
 
 export default miscRoutes

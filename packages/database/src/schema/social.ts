@@ -1,13 +1,5 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  integer,
-  text,
-  timestamp,
-  unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, integer, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 用户关注表。
@@ -29,7 +21,7 @@ export const userFollows = pgTable(
   (t) => ({
     userFollowUnique: unique().on(t.followerId, t.followingId),
   }),
-);
+)
 
 /**
  * 用户收藏表。
@@ -50,7 +42,7 @@ export const userFavorites = pgTable(
   (t) => ({
     userFavoriteUnique: unique().on(t.userId, t.resourceType, t.resourceId),
   }),
-);
+)
 
 /**
  * 订阅表。
@@ -71,7 +63,7 @@ export const subscriptions = pgTable(
   (t) => ({
     subscriptionUnique: unique().on(t.userId, t.targetType, t.targetId),
   }),
-);
+)
 
 /**
  * 标签表（通用、多资源类型）。
@@ -88,7 +80,7 @@ export const tags = pgTable('tags', {
   usageCount: integer('usage_count').default(0).notNull(),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 标签关联表（多资源类型）。
@@ -110,15 +102,15 @@ export const tagRelations = pgTable(
   (t) => ({
     tagRelationUnique: unique().on(t.tagId, t.resourceType, t.resourceId),
   }),
-);
+)
 
-export type UserFollow = typeof userFollows.$inferSelect;
-export type NewUserFollow = typeof userFollows.$inferInsert;
-export type UserFavorite = typeof userFavorites.$inferSelect;
-export type NewUserFavorite = typeof userFavorites.$inferInsert;
-export type Subscription = typeof subscriptions.$inferSelect;
-export type NewSubscription = typeof subscriptions.$inferInsert;
-export type Tag = typeof tags.$inferSelect;
-export type NewTag = typeof tags.$inferInsert;
-export type TagRelation = typeof tagRelations.$inferSelect;
-export type NewTagRelation = typeof tagRelations.$inferInsert;
+export type UserFollow = typeof userFollows.$inferSelect
+export type NewUserFollow = typeof userFollows.$inferInsert
+export type UserFavorite = typeof userFavorites.$inferSelect
+export type NewUserFavorite = typeof userFavorites.$inferInsert
+export type Subscription = typeof subscriptions.$inferSelect
+export type NewSubscription = typeof subscriptions.$inferInsert
+export type Tag = typeof tags.$inferSelect
+export type NewTag = typeof tags.$inferInsert
+export type TagRelation = typeof tagRelations.$inferSelect
+export type NewTagRelation = typeof tagRelations.$inferInsert

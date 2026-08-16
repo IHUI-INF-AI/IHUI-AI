@@ -362,6 +362,8 @@ export default function AiAssistantN8nScreen() {
       messages: apiMessages,
       agentId,
       signal: controller.signal,
+      // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+      stream: true,
       temperature: modelConfig.temperature,
       topP: modelConfig.topP,
       maxTokens: modelConfig.maxTokens,
@@ -708,7 +710,11 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 16 },
   // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
-  voiceInputWrap: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: tokens.surface.card },
+  voiceInputWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: tokens.surface.card,
+  },
   // 模型选择条(对齐 Uniapp ModelList 位置:输入区上方)
   modelBar: {
     flexDirection: 'row',

@@ -58,16 +58,22 @@ export default function NotificationPage() {
   return (
     <View className="min-h-screen bg-background">
       <View className="px-[32rpx] pt-[32rpx] pb-[16rpx]">
-        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.notification.categoryTitle', '通知分类')}</Text>
+        <Text className="text-[24rpx] text-muted-foreground">
+          {tt('setting.notification.categoryTitle', '通知分类')}
+        </Text>
       </View>
       <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {loading ? (
           <View className="px-[32rpx] py-[60rpx] text-center">
-            <Text className="text-[26rpx] text-muted-foreground">{tt('common.loading', '加载中…')}</Text>
+            <Text className="text-[26rpx] text-muted-foreground">
+              {tt('common.loading', '加载中…')}
+            </Text>
           </View>
         ) : list.length === 0 ? (
           <View className="px-[32rpx] py-[60rpx] text-center">
-            <Text className="text-[26rpx] text-muted-foreground">{tt('setting.notification.empty', '暂无通知设置项')}</Text>
+            <Text className="text-[26rpx] text-muted-foreground">
+              {tt('setting.notification.empty', '暂无通知设置项')}
+            </Text>
           </View>
         ) : (
           list.map((item, idx) => (
@@ -90,10 +96,15 @@ export default function NotificationPage() {
       </View>
 
       <View className="px-[32rpx] pt-[32rpx] pb-[16rpx]">
-        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.notification.moreTitle', '更多')}</Text>
+        <Text className="text-[24rpx] text-muted-foreground">
+          {tt('setting.notification.moreTitle', '更多')}
+        </Text>
       </View>
       <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex items-center justify-between px-[32rpx] py-[28rpx]" onClick={onDetail}>
+        <View
+          className="flex items-center justify-between px-[32rpx] py-[28rpx]"
+          onClick={onDetail}
+        >
           <View className="flex-1 mr-[16rpx]">
             <Text className="text-[28rpx] text-foreground">
               {tt('setting.notification.detail', '通知详情')}

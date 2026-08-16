@@ -478,7 +478,13 @@ function looseEquals(l: unknown, r: unknown): boolean {
 
 function strictEquals(l: unknown, r: unknown): boolean {
   if (typeof l !== typeof r) return false
-  if (typeof l === 'number' || typeof l === 'string' || typeof l === 'boolean' || l === null || l === undefined) {
+  if (
+    typeof l === 'number' ||
+    typeof l === 'string' ||
+    typeof l === 'boolean' ||
+    l === null ||
+    l === undefined
+  ) {
     return l === r
   }
   // 对象:仅引用相等

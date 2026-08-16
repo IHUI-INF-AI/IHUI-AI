@@ -3,7 +3,18 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search, ArrowUp, ArrowDown, Gauge } from 'lucide-react'
+import {
+  ExternalLink,
+  Zap,
+  Building2,
+  User,
+  AlertTriangle,
+  Lightbulb,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  Gauge,
+} from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
 import { highlight } from './text-utils'
@@ -51,10 +62,14 @@ const BILLING_FILTERS: Array<{ key: BillingMode | 'all'; labelKey: string }> = [
 function matchBillingMode(billing: string, mode: BillingMode): boolean {
   const s = billing.toLowerCase()
   switch (mode) {
-    case 'token': return s.includes('按 token') || s.includes('按token') || s.includes('per token')
-    case 'gpu': return s.includes('gpu') || s.includes('按秒') || s.includes('算力')
-    case 'free': return s.includes('免费') || s.includes('free')
-    case 'subscription': return s.includes('套餐') || s.includes('包月') || s.includes('包年')
+    case 'token':
+      return s.includes('按 token') || s.includes('按token') || s.includes('per token')
+    case 'gpu':
+      return s.includes('gpu') || s.includes('按秒') || s.includes('算力')
+    case 'free':
+      return s.includes('免费') || s.includes('free')
+    case 'subscription':
+      return s.includes('套餐') || s.includes('包月') || s.includes('包年')
   }
 }
 
@@ -115,7 +130,13 @@ export function ApiRelaysSection() {
 
   // 每个计费模式下的平台数量
   const billingCounts = React.useMemo(() => {
-    const counts: Record<BillingMode | 'all', number> = { all: 0, token: 0, free: 0, gpu: 0, subscription: 0 }
+    const counts: Record<BillingMode | 'all', number> = {
+      all: 0,
+      token: 0,
+      free: 0,
+      gpu: 0,
+      subscription: 0,
+    }
     for (const r of COMPANY_RELAYS) {
       counts.all++
       if (matchBillingMode(r.billing, 'token')) counts.token++
@@ -158,8 +179,10 @@ export function ApiRelaysSection() {
 
   /** 延迟 badge 配色:<200 绿 / <500 黄 / >=500 红 / -1 灰 */
   function latencyBadge(latency: number): { text: string; className: string } {
-    if (latency === -1) return { text: t('speedError'), className: 'bg-muted text-muted-foreground' }
-    if (latency < 200) return { text: `${latency}ms`, className: 'bg-emerald-500/10 text-emerald-600' }
+    if (latency === -1)
+      return { text: t('speedError'), className: 'bg-muted text-muted-foreground' }
+    if (latency < 200)
+      return { text: `${latency}ms`, className: 'bg-emerald-500/10 text-emerald-600' }
     if (latency < 500) return { text: `${latency}ms`, className: 'bg-amber-500/10 text-amber-600' }
     return { text: `${latency}ms`, className: 'bg-rose-500/10 text-rose-600' }
   }
@@ -242,7 +265,9 @@ export function ApiRelaysSection() {
                   }`}
                 >
                   {t(f.labelKey)}
-                  <span className={`ml-1 tabular-nums ${activeBilling === f.key ? 'text-background/70' : 'text-muted-foreground/60'}`}>
+                  <span
+                    className={`ml-1 tabular-nums ${activeBilling === f.key ? 'text-background/70' : 'text-muted-foreground/60'}`}
+                  >
                     {billingCounts[f.key]}
                   </span>
                 </button>
@@ -262,7 +287,11 @@ export function ApiRelaysSection() {
               >
                 {t('sortByName')}
                 {sortField === 'name' ? (
-                  sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                  sortDir === 'asc' ? (
+                    <ArrowUp className="h-2 w-2" />
+                  ) : (
+                    <ArrowDown className="h-2 w-2" />
+                  )
                 ) : null}
               </button>
               <button
@@ -276,7 +305,11 @@ export function ApiRelaysSection() {
               >
                 {t('sortByBilling')}
                 {sortField === 'billing' ? (
-                  sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                  sortDir === 'asc' ? (
+                    <ArrowUp className="h-2 w-2" />
+                  ) : (
+                    <ArrowDown className="h-2 w-2" />
+                  )
                 ) : null}
               </button>
               {speedMap.size > 0 ? (
@@ -291,7 +324,11 @@ export function ApiRelaysSection() {
                 >
                   {t('sortBySpeed')}
                   {sortField === 'speed' ? (
-                    sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                    sortDir === 'asc' ? (
+                      <ArrowUp className="h-2 w-2" />
+                    ) : (
+                      <ArrowDown className="h-2 w-2" />
+                    )
                   ) : null}
                 </button>
               ) : null}
@@ -352,9 +389,13 @@ export function ApiRelaysSection() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[10px] text-muted-foreground/80">{highlight(relay.billing, query)}</p>
+                    <p className="text-[10px] text-muted-foreground/80">
+                      {highlight(relay.billing, query)}
+                    </p>
                     {speedMap.has(relay.name) ? (
-                      <span className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium tabular-nums ${latencyBadge(speedMap.get(relay.name)!).className}`}>
+                      <span
+                        className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium tabular-nums ${latencyBadge(speedMap.get(relay.name)!).className}`}
+                      >
                         {latencyBadge(speedMap.get(relay.name)!).text}
                       </span>
                     ) : null}

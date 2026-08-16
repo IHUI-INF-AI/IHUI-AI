@@ -77,14 +77,7 @@
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
 export type DownloadPlatform =
-  | 'web'
-  | 'desktop'
-  | 'ios'
-  | 'android-apk'
-  | 'mobile'
-  | 'wechat-miniapp'
-  | 'extension'
-  | 'cli'
+  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
 
 /** 单个下载资源文件元数据(一个端可能有多种格式/架构,如 desktop 同时提供 .exe 和 .msi) */
 export interface DownloadAsset {
@@ -455,7 +448,8 @@ export function getDownloadsStatus(): DownloadsStatusItem[] {
     extension: 'extension 安装包随 CI 构建同步,无需配置',
     cli: 'cli 走 npm install,无需配置',
     ios: 'NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID(或 NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL)',
-    'android-apk': 'NEXT_PUBLIC_DOWNLOAD_APK_URL(或 NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL / CDN_BASE)',
+    'android-apk':
+      'NEXT_PUBLIC_DOWNLOAD_APK_URL(或 NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL / CDN_BASE)',
     'wechat-miniapp': 'NEXT_PUBLIC_DOWNLOAD_WECHAT_QR(或 NEXT_PUBLIC_DOWNLOAD_WECHAT_URL)',
   }
   return (Object.keys(meta) as DownloadPlatform[]).map((platform) => ({
@@ -482,5 +476,7 @@ export function formatFileSize(bytes: number): string {
     unitIndex++
   }
   // B 整数显示,KB/MB/GB 保留 1 位小数
-  return unitIndex === 0 ? `${Math.round(value)} ${units[unitIndex]}` : `${value.toFixed(1)} ${units[unitIndex]}`
+  return unitIndex === 0
+    ? `${Math.round(value)} ${units[unitIndex]}`
+    : `${value.toFixed(1)} ${units[unitIndex]}`
 }

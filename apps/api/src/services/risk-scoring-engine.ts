@@ -104,7 +104,10 @@ export async function calculateRiskScore(
     })
   }
 
-  const score = Math.min(100, factors.reduce((sum, f) => sum + f.score, 0))
+  const score = Math.min(
+    100,
+    factors.reduce((sum, f) => sum + f.score, 0),
+  )
   const decision: RiskScoreResult['decision'] =
     score >= 60 ? 'deny' : score >= 30 ? 'challenge' : 'allow'
 

@@ -22,7 +22,10 @@ interface OAuthCallbackHandlerProps {
  * - generic 平台从 URL ?platform=xxx 读取,调用 /api/auth/{platform}/callback
  *   后端 /auth/:platform/callback 支持:dingtalk / enterpriseWechat / wechat / feishu / github / alipay
  */
-function buildApiPath(provider: OAuthCallbackHandlerProps['provider'], platformParam: string | null): string | null {
+function buildApiPath(
+  provider: OAuthCallbackHandlerProps['provider'],
+  platformParam: string | null,
+): string | null {
   if (provider === 'google') return '/api/auth/google/callback'
   if (provider === 'apple') return '/api/auth/apple/callback'
   // generic:必须从 URL 读 platform 参数
@@ -127,7 +130,9 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     return (
       <div className="space-y-4 p-6 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">{t('loading', { provider: providerLabel(provider, t) })}</p>
+        <p className="text-sm text-muted-foreground">
+          {t('loading', { provider: providerLabel(provider, t) })}
+        </p>
       </div>
     )
   }

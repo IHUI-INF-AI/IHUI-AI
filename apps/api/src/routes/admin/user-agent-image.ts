@@ -12,7 +12,7 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 import { requireAdmin } from '../../plugins/require-permission.js'
 const userAgentImageRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/user-agent-image', async (request, reply) => {
+  server.get('/user-agent-image', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize } = q.data

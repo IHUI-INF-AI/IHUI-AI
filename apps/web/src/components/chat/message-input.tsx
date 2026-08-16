@@ -193,7 +193,9 @@ export function MessageInput({
   const canSend = value.trim().length > 0
   // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
   const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
-  const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(null)
+  const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(
+    null,
+  )
   const [skillInvokeError, setSkillInvokeError] = React.useState<string | null>(null)
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
@@ -346,7 +348,9 @@ export function MessageInput({
             暂存为 pending,显示在输入框上方,流式结束后自动发送 */}
         {pendingMessage && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
-            <span className="flex-1 truncate text-amber-700 dark:text-amber-300">{pendingMessage.text}</span>
+            <span className="flex-1 truncate text-amber-700 dark:text-amber-300">
+              {pendingMessage.text}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -378,7 +382,9 @@ export function MessageInput({
               <AgentProgressTrigger />
               {userScrolledUp && (
                 <Tooltip
-                  content={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+                  content={
+                    t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')
+                  }
                 >
                   <button
                     type="button"
@@ -386,7 +392,9 @@ export function MessageInput({
                       window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
                     }}
                     data-testid="message-list-jump-latest"
-                    aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+                    aria-label={
+                      t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')
+                    }
                     className={cn(
                       'ml-2 inline-flex h-8 items-center gap-1 rounded-md',
                       'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
@@ -562,34 +570,34 @@ export function MessageInput({
                         ? t('permission.mode.auto')
                         : t('permission.mode.ask')}
                   </span>
-                {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
+                  {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
                     只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
                     展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
-                {activeWorkspaceMode === 'bypass-permissions' && (
-                  <Tooltip content={t('permission.infoButtonTitle')}>
-                    <button
-                      type="button"
-                      onClick={() => setInfoMode('bypass-permissions')}
-                      className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
-                      aria-label={t('permission.infoButtonLabel')}
-                      data-testid="permission-mode-info-button"
-                    >
-                      <Info className="h-3 w-3" aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                )}
-                {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
+                  {activeWorkspaceMode === 'bypass-permissions' && (
+                    <Tooltip content={t('permission.infoButtonTitle')}>
+                      <button
+                        type="button"
+                        onClick={() => setInfoMode('bypass-permissions')}
+                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                        aria-label={t('permission.infoButtonLabel')}
+                        data-testid="permission-mode-info-button"
+                      >
+                        <Info className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                  )}
+                  {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
                     复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
-                {isHighRisk && autoRevert.isActive && (
-                  <span
-                    className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
-                    data-testid="titlebar-auto-revert"
-                  >
-                    {t('permission.titleBarAutoRevert', {
-                      time: formatRemaining(autoRevert.remainingMs),
-                    })}
-                  </span>
-                )}
+                  {isHighRisk && autoRevert.isActive && (
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
+                      data-testid="titlebar-auto-revert"
+                    >
+                      {t('permission.titleBarAutoRevert', {
+                        time: formatRemaining(autoRevert.remainingMs),
+                      })}
+                    </span>
+                  )}
                 </div>
               </div>
             )}

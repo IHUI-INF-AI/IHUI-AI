@@ -1,12 +1,7 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
 import { selectClass, inputSm } from '@/lib/form-styles'
 import { DEFAULT_PAGE_SIZE as PAGE_SIZE } from '@ihui/shared/constants'
-import type {
-  NewsArticle,
-  NewsArticlesData,
-  NewsInformation,
-  NewsInfoData,
-} from '@ihui/types'
+import type { NewsArticle, NewsArticlesData, NewsInformation, NewsInfoData } from '@ihui/types'
 
 export { api, selectClass, inputSm, PAGE_SIZE }
 

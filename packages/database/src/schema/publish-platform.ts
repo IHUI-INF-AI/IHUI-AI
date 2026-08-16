@@ -117,16 +117,20 @@ export const publishAccountGroups = pgTable('publish_account_groups', {
 })
 
 /** 分组成员关联表:分组 ↔ publish_accounts 多对多 */
-export const publishAccountGroupMembers = pgTable('publish_account_group_members', {
-  groupId: varchar('group_id', { length: 40 }).notNull(),
-  /** 关联 publish_accounts.id (BIGSERIAL → bigint) */
-  accountId: bigserial('account_id', { mode: 'bigint' }).notNull(),
-  userId: varchar('user_id', { length: 64 }).notNull(),
-  addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
-}, (t) => [
-  // 复合主键 (group_id, account_id)
-  primaryKey({ columns: [t.groupId, t.accountId] }),
-])
+export const publishAccountGroupMembers = pgTable(
+  'publish_account_group_members',
+  {
+    groupId: varchar('group_id', { length: 40 }).notNull(),
+    /** 关联 publish_accounts.id (BIGSERIAL → bigint) */
+    accountId: bigserial('account_id', { mode: 'bigint' }).notNull(),
+    userId: varchar('user_id', { length: 64 }).notNull(),
+    addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // 复合主键 (group_id, account_id)
+    primaryKey({ columns: [t.groupId, t.accountId] }),
+  ],
+)
 
 export type PublishAccount = typeof publishAccounts.$inferSelect
 export type NewPublishAccount = typeof publishAccounts.$inferInsert

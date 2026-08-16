@@ -20,7 +20,14 @@ interface Props {
   onSubmit: (e: React.FormEvent) => void
 }
 
-export function CreateUserDialog({ open, onOpenChange, form, onChange, submitting, onSubmit }: Props) {
+export function CreateUserDialog({
+  open,
+  onOpenChange,
+  form,
+  onChange,
+  submitting,
+  onSubmit,
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

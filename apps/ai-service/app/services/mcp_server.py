@@ -1138,7 +1138,7 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
 # 源代码语言: {language}
 
 def test_placeholder():
-    \"\"\"TODO: 根据以下代码补充测试用例。\"\"\"
+    \"\"\"测试模板占位:需根据源代码补充具体用例。\"\"\"
     # 源代码:
     # {chr(10).join('# ' + l for l in code.splitlines()[:20])}
     pass

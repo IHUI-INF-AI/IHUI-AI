@@ -182,7 +182,15 @@ declare global {
 
 /** 支持的第三方登录平台 + 本站 App 扫码 */
 export type ThirdPartyPlatform =
-  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'github' | 'feishu' | 'alipay' | 'app'
+  | 'google'
+  | 'apple'
+  | 'dingtalk'
+  | 'enterpriseWechat'
+  | 'wechat'
+  | 'github'
+  | 'feishu'
+  | 'alipay'
+  | 'app'
 
 /** 第三方登录状态机 */
 export type ThirdPartyLoginStatus =

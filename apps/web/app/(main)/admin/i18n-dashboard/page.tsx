@@ -29,7 +29,6 @@ export default function I18nDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
-
       {error && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           i18n 数据加载失败:{(error as Error).message}

@@ -67,7 +67,8 @@ export function getAllRoutesForFeed(): FeedItem[] {
     {
       title: '文档中心 — 智汇 AI',
       path: '/docs',
-      description: '智汇 AI 完整文档:快速开始、自托管、API、MCP、Agent 开发、知识库、多模型、工作流、团队协作。',
+      description:
+        '智汇 AI 完整文档:快速开始、自托管、API、MCP、Agent 开发、知识库、多模型、工作流、团队协作。',
       category: '文档',
       publishedAt: PUBLISHED_BATCH,
     },
@@ -92,8 +93,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
     {
       title: 'IHUI AI vs FastGPT:知识库 + Agent 市场',
       path: '/compare/ihui-vs-fastgpt',
-      description:
-        'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 六端分发 + 团队协作。',
+      description: 'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 六端分发 + 团队协作。',
       category: '对比',
       publishedAt: PUBLISHED_BATCH,
     },

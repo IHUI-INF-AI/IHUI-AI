@@ -119,7 +119,6 @@ export default function WithdrawalPage() {
               className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
               onClick={() => setMethod(m.value)}
             >
-
               <View
                 className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[#1677ff]'}`}
               >

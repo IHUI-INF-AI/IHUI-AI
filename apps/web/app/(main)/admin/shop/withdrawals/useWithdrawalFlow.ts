@@ -6,7 +6,10 @@ import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_FLOW, type ListData, type WithdrawalFlowItem } from './types'
 
-export function useWithdrawalFlow(enabled: boolean, t: (key: string, params?: Record<string, string | number>) => string) {
+export function useWithdrawalFlow(
+  enabled: boolean,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
   const qc = useQueryClient()
 
   const [fSearch, setFSearch] = React.useState({
@@ -65,7 +68,9 @@ export function useWithdrawalFlow(enabled: boolean, t: (key: string, params?: Re
         : api('/api/admin/shop/withdrawal-flow', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(fEditing ? t('withdrawals.flow.toast.updated') : t('withdrawals.flow.toast.created'))
+      toast.success(
+        fEditing ? t('withdrawals.flow.toast.updated') : t('withdrawals.flow.toast.created'),
+      )
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawal-flow'] })
       closeFlow()
     },

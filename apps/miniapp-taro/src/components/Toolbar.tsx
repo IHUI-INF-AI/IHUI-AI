@@ -33,11 +33,7 @@ export interface ToolbarProps {
 function isImagePath(icon: string): boolean {
   // 修复 (2026-08-12): Vite 把 SVG 静态 import 编译为 data:image/svg+xml;base64,... URL,
   // 原正则 /^(https?:)?\/\// 不覆盖 data: 前缀,导致 SVG 落入 emoji 分支被当文本渲染。
-  return (
-    icon.startsWith('data:') ||
-    /^(https?:)?\/\//.test(icon) ||
-    icon.startsWith('/')
-  )
+  return icon.startsWith('data:') || /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
 export default function Toolbar({ items, className }: ToolbarProps) {

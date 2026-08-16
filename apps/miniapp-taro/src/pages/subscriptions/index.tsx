@@ -108,9 +108,13 @@ export default function SubscriptionsPage() {
             {loading ? (
               <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
             ) : hasMore ? (
-              <Text className="text-[24rpx] text-muted-foreground">{t('subscriptions.loadMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">
+                {t('subscriptions.loadMore')}
+              </Text>
             ) : (
-              <Text className="text-[24rpx] text-muted-foreground">{t('subscriptions.noMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">
+                {t('subscriptions.noMore')}
+              </Text>
             )}
           </View>
         </View>
