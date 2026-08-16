@@ -422,7 +422,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/agent-workbench', labelKey: 'agentWorkbench', icon: Activity },
-      { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
+      {
+        href: '/ai-world',
+        labelKey: 'aiWorld',
+        icon: Globe,
+        children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
+      },
       // 2026-07-24 对标 TRAE Work AI 工作台能力:5 个 P0 可视化页面接入
       { href: '/memory', labelKey: 'memory', icon: Brain },
       { href: '/subagents', labelKey: 'subagents', icon: Bot },
@@ -678,11 +683,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   //   [&>svg]:!h-3.5 [&>svg]:!w-3.5(14px !important)—— 同为 !important,后写胜出
   //   (tailwind-merge 识别同 group,后写覆盖前写)。
   // - 4×28 + gap(3×2) + padding(2×4) = 126px ≤ 130px 侧边栏最小宽度,单行排开不折行
-  const btnClass = cn(
-    TOPBAR_BTN_BASE,
-    'h-7 w-7 p-0 bg-transparent',
-    '[&>svg]:!h-5 [&>svg]:!w-5',
-  )
+  const btnClass = cn(TOPBAR_BTN_BASE, 'h-7 w-7 p-0 bg-transparent', '[&>svg]:!h-5 [&>svg]:!w-5')
 
   return (
     <div
@@ -1499,7 +1500,9 @@ const NavGroupSection = React.memo(function NavGroupSection({
   // 命中当前路由 → 强制展开(用户在用该分组的某个页面时,不应被折叠隐藏)
   // 性能修复:使用预计算的 activeHref 替代 pathname，避免每次路由变化遍历所有子项。
   const groupActive = activeHref
-    ? group.items.some((item) => item.href === activeHref || item.children?.some((c) => c.href === activeHref))
+    ? group.items.some(
+        (item) => item.href === activeHref || item.children?.some((c) => c.href === activeHref),
+      )
     : false
 
   // SSR-safe + no-flash(2026-07-22 修复首屏 sidebar 子菜单展开闪烁):
@@ -1692,10 +1695,13 @@ const Sidebar = React.memo(function Sidebar({
   const startNav = useNavigationStore((s) => s.start)
 
   // 点击导航项时立即设置乐观路由 + 触发全局进度条
-  const handleBeforeNav = React.useCallback((href: string) => {
-    setPendingHref(href)
-    startNav()
-  }, [startNav])
+  const handleBeforeNav = React.useCallback(
+    (href: string) => {
+      setPendingHref(href)
+      startNav()
+    },
+    [startNav],
+  )
 
   // 稳定引用 registerRef(2026-08-05 深度修复):
   // 原定义在 navContent 内部 → 每次 Sidebar 渲染创建新函数引用 →
@@ -1861,151 +1867,151 @@ const Sidebar = React.memo(function Sidebar({
   }, [activeHref])
 
   const navContent = (navId: string, ref: React.Ref<HTMLElement>, scope: 'desktop' | 'mobile') => (
-      <nav
-        ref={ref}
-        id={navId}
-        aria-label={t('title')}
-        className={cn(
-          'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
-          // 滚动条已完全隐藏(globals.css .hover-scroll),不占布局空间。
-          // px-2 左右各 8px 对称,折叠态 aside border-r(1px)用 pl-[9px] pr-2 补偿图标视觉中心。
-          collapsed ? 'pl-[9px] pr-2' : 'px-2',
-        )}
-      >
-        {/* 新建任务按钮(对齐旧架构 .nav-new-chat,黑白对调主题)
+    <nav
+      ref={ref}
+      id={navId}
+      aria-label={t('title')}
+      className={cn(
+        'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
+        // 滚动条已完全隐藏(globals.css .hover-scroll),不占布局空间。
+        // px-2 左右各 8px 对称,折叠态 aside border-r(1px)用 pl-[9px] pr-2 补偿图标视觉中心。
+        collapsed ? 'pl-[9px] pr-2' : 'px-2',
+      )}
+    >
+      {/* 新建任务按钮(对齐旧架构 .nav-new-chat,黑白对调主题)
             2026-07-19 用户反馈:整体偏灰,不再用极端黑/白对比;
             改用 bg-foreground/10 + text-foreground,保持"亮色暗色反向对比"特性
             (亮色模式 10% 黑 = 浅灰底 + 黑字 / 暗色模式 10% 白 = 深灰底 + 白字),
             hover 升至 /20 给出明显反馈,但整体仍不抢眼。 */}
-        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
-          {collapsed ? (
-            <Tooltip content={tchat('newConversation')} side="right">
-              <button
-                type="button"
-                onClick={toggleAiPanel}
-                aria-label={tchat('newConversation')}
-                aria-pressed={aiPanelOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            </Tooltip>
-          ) : (
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content={tchat('newConversation')} side="right">
             <button
               type="button"
               onClick={toggleAiPanel}
+              aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
-              className={cn(
-                BTN_NEW_CONVERSATION_CLASS,
-                'bg-foreground/10 text-foreground hover:bg-foreground/20',
-              )}
+              className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20"
             >
-              <Plus className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 whitespace-nowrap text-left">{tchat('newConversation')}</span>
+              <Plus className="h-5 w-5" />
             </button>
-          )}
-        </div>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleAiPanel}
+            aria-pressed={aiPanelOpen}
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              'bg-foreground/10 text-foreground hover:bg-foreground/20',
+            )}
+          >
+            <Plus className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{tchat('newConversation')}</span>
+          </button>
+        )}
+      </div>
 
-        {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
+      {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
             - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
             - active 态(/plugins 路由命中):bg-foreground/20 锁定,提示"正在该页面"
             - 折叠态:36×36 正方形图标按钮,与"新建任务"折叠态对齐
             - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
-        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
-          {collapsed ? (
-            <Tooltip content={t('pluginMarket')} side="right">
-              <Link
-                href="/plugins"
-                onClick={onCloseMobile}
-                aria-label={t('pluginMarket')}
-                aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
-                className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
-                  pathname.startsWith('/plugins') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
-                )}
-              >
-                <Package className="h-5 w-5" />
-              </Link>
-            </Tooltip>
-          ) : (
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content={t('pluginMarket')} side="right">
             <Link
               href="/plugins"
               onClick={onCloseMobile}
+              aria-label={t('pluginMarket')}
               aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
               className={cn(
-                BTN_NEW_CONVERSATION_CLASS,
-                pathname.startsWith('/plugins')
-                  ? 'bg-foreground/20 text-foreground'
-                  : 'text-foreground hover:bg-foreground/20',
+                'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
+                pathname.startsWith('/plugins') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
               )}
             >
-              <Package className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 whitespace-nowrap text-left">{t('pluginMarket')}</span>
+              <Package className="h-5 w-5" />
             </Link>
-          )}
-        </div>
+          </Tooltip>
+        ) : (
+          <Link
+            href="/plugins"
+            onClick={onCloseMobile}
+            aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              pathname.startsWith('/plugins')
+                ? 'bg-foreground/20 text-foreground'
+                : 'text-foreground hover:bg-foreground/20',
+            )}
+          >
+            <Package className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{t('pluginMarket')}</span>
+          </Link>
+        )}
+      </div>
 
-        {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
+      {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
             - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
             - active 态(/self-media/automation 路由命中):bg-foreground/20 锁定
             - 折叠态:36×36 正方形图标按钮,与上方两个按钮对齐
             - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
-        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
-          {collapsed ? (
-            <Tooltip content={t('selfMediaAutomation')} side="right">
-              <Link
-                href="/self-media/automation"
-                onClick={onCloseMobile}
-                aria-label={t('selfMediaAutomation')}
-                aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
-                className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
-                  pathname.startsWith('/self-media/automation')
-                    ? 'bg-foreground/20'
-                    : 'hover:bg-foreground/20',
-                )}
-              >
-                <Clock className="h-5 w-5" />
-              </Link>
-            </Tooltip>
-          ) : (
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content={t('selfMediaAutomation')} side="right">
             <Link
               href="/self-media/automation"
               onClick={onCloseMobile}
+              aria-label={t('selfMediaAutomation')}
               aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
               className={cn(
-                BTN_NEW_CONVERSATION_CLASS,
+                'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
                 pathname.startsWith('/self-media/automation')
-                  ? 'bg-foreground/20 text-foreground'
-                  : 'text-foreground hover:bg-foreground/20',
+                  ? 'bg-foreground/20'
+                  : 'hover:bg-foreground/20',
               )}
             >
-              <Clock className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 whitespace-nowrap text-left">{t('selfMediaAutomation')}</span>
+              <Clock className="h-5 w-5" />
             </Link>
-          )}
-        </div>
+          </Tooltip>
+        ) : (
+          <Link
+            href="/self-media/automation"
+            onClick={onCloseMobile}
+            aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              pathname.startsWith('/self-media/automation')
+                ? 'bg-foreground/20 text-foreground'
+                : 'text-foreground hover:bg-foreground/20',
+            )}
+          >
+            <Clock className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{t('selfMediaAutomation')}</span>
+          </Link>
+        )}
+      </div>
 
-        {/* 侧边栏任务列表卡片(展开态显示) */}
-        <SidebarChatHistory collapsed={collapsed} />
+      {/* 侧边栏任务列表卡片(展开态显示) */}
+      <SidebarChatHistory collapsed={collapsed} />
 
-        {visibleGroups.map((group, gi) => (
-            <NavGroupSection
-              key={group.label || `group-${gi}`}
-              group={group}
-              collapsed={collapsed}
-              activeHref={activeHref}
-              onCloseMobile={onCloseMobile}
-              registerRef={registerRef}
-              t={t}
-              scope={scope}
-              isFirst={gi === 0}
-              onBeforeNav={handleBeforeNav}
-            />
-        ))}
-      </nav>
+      {visibleGroups.map((group, gi) => (
+        <NavGroupSection
+          key={group.label || `group-${gi}`}
+          group={group}
+          collapsed={collapsed}
+          activeHref={activeHref}
+          onCloseMobile={onCloseMobile}
+          registerRef={registerRef}
+          t={t}
+          scope={scope}
+          isFirst={gi === 0}
+          onBeforeNav={handleBeforeNav}
+        />
+      ))}
+    </nav>
   )
 
   /**
@@ -2016,18 +2022,18 @@ const Sidebar = React.memo(function Sidebar({
    * 移动端 footer 内容由 mobileFooter 在移动 drawer 中提供。
    */
   const desktopFooter = (
-      <div className="shrink-0 hidden min-[1024px]:block">
-        <SidebarActions collapsed={collapsed} />
-        <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
-      </div>
+    <div className="shrink-0 hidden min-[1024px]:block">
+      <SidebarActions collapsed={collapsed} />
+      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+    </div>
   )
 
   /** 移动端 drawer footer:始终显示在移动 drawer 中(160px+ 宽,正常布局) */
   const mobileFooter = (
-      <div className="shrink-0">
-        <SidebarActions collapsed={collapsed} />
-        <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
-      </div>
+    <div className="shrink-0">
+      <SidebarActions collapsed={collapsed} />
+      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+    </div>
   )
 
   // 桌面端 logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
