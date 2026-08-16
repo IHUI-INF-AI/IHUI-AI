@@ -9,7 +9,7 @@
 /* ===== Header:用户信息 + VIP 状态(对齐原项目 VIP 金色渐变) ===== */
 .member-header {
   padding: 60rpx 40rpx 40rpx;
-  /* TODO: custom color: VIP 金色渐变(#ffd700→#ffc107→#ff6b00),无对应 token,保留原值 */
+  /* custom color: VIP 金色渐变(#ffd700→#ffc107→#ff6b00),无对应 token,保留原值 */
   background: linear-gradient(135deg, #ffd700 0%, #ffc107 50%, #ff6b00 100%);
 }
 .member-user {
@@ -258,7 +258,7 @@
   font-size: 40rpx;
   font-weight: 700;
   color: #ff6b00;
-  /* TODO: custom color: 品牌橙 */
+  /* custom color: 品牌橙 */
   margin-right: 16rpx;
 }
 .member-original-price {
@@ -386,7 +386,7 @@
 }
 .member-progress-fill {
   height: 100%;
-  /* TODO: custom color: 金色渐变进度填充,无对应 token,保留原值 */
+  /* custom color: 金色渐变进度填充,无对应 token,保留原值 */
   background: linear-gradient(90deg, #ffd700, #ff6b00);
   border-radius: 8rpx;
   transition: width 0.3s ease;

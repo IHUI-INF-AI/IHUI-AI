@@ -53,7 +53,7 @@ export function CourseScreen({
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           loading ? (
@@ -130,53 +130,53 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     title: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
       paddingBottom: 8,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    searchWrap: { paddingHorizontal: 16, paddingVertical: 12, marginBottom: 4 },
+    searchWrap: { paddingHorizontal: 10, paddingVertical: 12, marginBottom: 8 },
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 8,
-      backgroundColor: tk.surface.muted,
+      borderRadius: 12,
+      backgroundColor: '#f5f5f5',
+      height: 50,
       paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.primary,
     },
-    errorWrap: { paddingHorizontal: 16, paddingVertical: 8 },
-    error: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    error: { fontSize: 14, color: tk.danger.DEFAULT },
     empty: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 13, color: tk.text.secondary },
+    muted: { fontSize: 14, color: tk.text.secondary },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-    metaText: { fontSize: 12, color: tk.text.secondary },
-    cardDesc: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
+    cardTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    metaRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+    metaText: { fontSize: 14, color: tk.text.secondary },
+    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     footerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginTop: 8,
     },
-    price: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
+    price: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
     pagination: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginTop: 16,
     },
-    pageBtn: { fontSize: 14, color: tk.text.primary },
+    pageBtn: { fontSize: 16, color: tk.text.primary },
     pageBtnDisabled: { opacity: 0.4 },
     pageIndicator: { fontSize: 12, color: tk.text.secondary },
   })

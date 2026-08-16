@@ -15,7 +15,7 @@
   flex: 1;
   padding: 28rpx 12rpx;
   text-align: center;
-  /* TODO: custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
+  /* custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
   background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
   border-radius: 30rpx;
   box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3), 0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);

@@ -88,7 +88,7 @@ export function AgentProgressTrigger({
   // 2) 有 plan 步骤且有进度 → "构建 X/Y"(保留 v8 风格)
   // 3) 空闲 → mode label("构建" / "计划" / "审查" / "规格")
   const liveStatusText = React.useMemo<string>(() => {
-    if (isStreaming && currentTask.kind !== 'idle' && currentTask.label) {
+    if (isStreaming && currentTask.label) {
       return currentTask.label
     }
     if (totalSteps > 0) {
@@ -97,8 +97,8 @@ export function AgentProgressTrigger({
     return modeLabel
   }, [isStreaming, currentTask, totalSteps, currentStepNumber, modeLabel])
 
-  // 是否有"实时状态"(流式任务)→ 用于文字色突出 + 加 spinner
-  const hasLiveActivity = isStreaming && currentTask.kind !== 'idle'
+  // 是否有"实时状态"(流式任务时显示 spinner + 扫光,即使还没有具体任务名也显示"执行中")
+  const hasLiveActivity = isStreaming
 
   // Phase 16: 推导连接状态
   const connectionState = React.useMemo(
@@ -185,14 +185,25 @@ export function AgentProgressTrigger({
           />
           <TruncatedText
             value={liveStatusText}
-            className="min-w-0 flex-1 max-w-[180px]"
+            className="min-w-0 flex-1 max-w-[180px] animate-shimmer bg-clip-text text-transparent"
+            style={{
+              backgroundImage:
+                'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
+              backgroundSize: '200% 100%',
+              WebkitBackgroundClip: 'text',
+            }}
           />
         </span>
       ) : (
-        /* 静态状态:连接状态点 + 任务列表标签(无活动时) */
+        /* 静态状态:连接状态点 + 当前工作文字提示 */
         <span className="inline-flex items-center gap-1 whitespace-nowrap">
           <ConnectionStatusDot state={connectionState} />
-          <span>任务列表</span>
+          <span className="animate-shimmer bg-clip-text text-transparent" style={{
+            backgroundImage:
+              'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
+            backgroundSize: '200% 100%',
+            WebkitBackgroundClip: 'text',
+          }}>{liveStatusText}</span>
         </span>
       )}
     </button>

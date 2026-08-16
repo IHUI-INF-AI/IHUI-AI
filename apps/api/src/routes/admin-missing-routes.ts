@@ -29,7 +29,7 @@
  * 复核 apps/web/src 调用 /admin/* 端点频次:无高频被 apps/web 调用且仍为空桩
  * 的端点(admin/ 子目录全部已实装真实 CRUD)。剩余真正空桩均在受影响清单外:
  *
- *   // TODO: progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
+ *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
  *   - admin-support-tickets.ts(3 个空桩,/support/tickets/:id/{status,
  *     replies,reply});**纠正**:`customerServiceTickets` 表已存在(packages/
  *     database/src/schema/customer-service.ts L42),原注释"待 support_tickets
@@ -37,7 +37,7 @@
  *     'pending'|'open'|'resolved'|'closed'|'rejected' vs 前端
  *     'open'|'processing'|'closed'|'resolved')
  *
- *   // TODO: progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
+ *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
  *   - admin/stats.ts L407-438 dashboard/revenue/users 聚合端点(3 个空数据桩,
  *     返回零值 mock 数据;需补建聚合查询接 orders/users 等真实表)
  *
@@ -54,7 +54,7 @@
  *   - admin-support-tickets.ts 需对齐 status 枚举语义后实装(可选方案:扩展
  *     customerServiceTickets.status 或新增 view 映射)
  *   - admin/stats.ts L407 聚合端点需补建物化视图或缓存表
- *   - 详见各子路由文件内 TODO 注释
+ *   - 详见各子路由文件内  注释
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { requireAdmin } from '../plugins/require-permission.js'

@@ -87,8 +87,8 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   }),
   indicatorWrap: (): CSSProperties => ({
     position: 'absolute',

@@ -569,49 +569,50 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     tabRow: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 8,
     },
     tabItem: {
       flex: 1,
-      height: 36,
-      borderRadius: 8,
+      height: 48,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
     },
     tabItemActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    tabText: { fontSize: 16, color: tk.text.secondary },
+    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
   })
 }
 
 const formStyles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { padding: 16, gap: 14, paddingBottom: 32 },
+  content: { padding: 14, gap: 14, paddingBottom: 32 },
 })
 
 const fieldStyles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '500', color: getTokens('light').text.primary },
+  label: { fontSize: 14, fontWeight: '500', color: getTokens('light').text.primary },
   input: {
     borderWidth: 1,
     borderColor: getTokens('light').border.light,
-    borderRadius: 8,
+    borderRadius: 12,
+    height: 50,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 16,
     color: getTokens('light').text.primary,
-    backgroundColor: getTokens('light').surface.card,
+    backgroundColor: '#f5f5f5',
   },
   textarea: {
     minHeight: 80,
@@ -621,24 +622,24 @@ const fieldStyles = StyleSheet.create({
 const coverStyles = StyleSheet.create({
   box: {
     height: 120,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: getTokens('light').border.light,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: getTokens('light').surface.card,
+    backgroundColor: getTokens('light').surface.light,
   },
   previewWrap: {
     position: 'relative',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   preview: {
     width: '100%',
     height: 120,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   clearBtn: {
     position: 'absolute',
@@ -646,20 +647,20 @@ const coverStyles = StyleSheet.create({
     right: 4,
     width: 24,
     height: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clearText: { fontSize: 16, color: getTokens('light').surface.light, lineHeight: 18 },
+  clearText: { fontSize: 18, color: getTokens('light').surface.light, lineHeight: 18 },
   icon: { fontSize: 28, color: getTokens('light').text.tertiary },
-  hint: { fontSize: 12, color: getTokens('light').text.tertiary },
+  hint: { fontSize: 14, color: getTokens('light').text.tertiary },
   pressed: { opacity: 0.85 },
 })
 
 const chipStyles = StyleSheet.create({
   loading: { paddingVertical: 8 },
-  empty: { fontSize: 13, color: getTokens('light').text.tertiary, paddingVertical: 4 },
+  empty: { fontSize: 14, color: getTokens('light').text.tertiary, paddingVertical: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingHorizontal: 12,
@@ -674,19 +675,19 @@ const chipStyles = StyleSheet.create({
     borderColor: getTokens('light').brand.DEFAULT,
   },
   chipPressed: { opacity: 0.85 },
-  chipText: { fontSize: 13, color: getTokens('light').text.secondary },
-  chipTextActive: { fontSize: 13, color: getTokens('light').surface.light, fontWeight: '500' },
+  chipText: { fontSize: 14, color: getTokens('light').text.secondary },
+  chipTextActive: { fontSize: 14, color: getTokens('light').surface.light, fontWeight: '500' },
 })
 
 const submitStyles = StyleSheet.create({
   btn: {
-    height: 46,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: 15,
     backgroundColor: getTokens('light').brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: 8,
   },
-  text: { fontSize: 15, fontWeight: '600', color: getTokens('light').surface.light },
+  text: { fontSize: 16, fontWeight: '600', color: getTokens('light').surface.light },
   pressed: { opacity: 0.85 },
 })

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SSEEvent, SSEEventType } from '@ihui/types'
+import { getStreamBaseUrl, getToken } from '@/lib/api'
 
 /**
  * LangGraph Agent SSE 流消费 hook(2026-07-23 立,Q1 HITL web 端)
@@ -215,7 +216,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       }
 
       const query = input ? `?input=${encodeURIComponent(JSON.stringify(input))}` : ''
-      const url = `/api/agent-langgraph/${threadId}/stream${query}`
+      const relativeUrl = `/api/agent-langgraph/${threadId}/stream${query}`
+      const baseUrl = getStreamBaseUrl()
+      const url = baseUrl ? `${baseUrl}${relativeUrl}` : relativeUrl
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -330,10 +333,14 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
       ;(async () => {
         try {
+          const headers: Record<string, string> = { Accept: 'text/event-stream' }
+          const token = getToken()
+          if (token) headers['Authorization'] = `Bearer ${token}`
           const res = await fetch(url, {
             method: 'GET',
             signal: controller.signal,
-            headers: { Accept: 'text/event-stream' },
+            headers,
+            credentials: 'include',
           })
 
           if (!res.ok || !res.body) {

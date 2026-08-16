@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: 8,
@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: 40,
-    height: 40,
-    borderRadius: 8,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: tokens.surface.muted,
   },
   avatarFallback: {

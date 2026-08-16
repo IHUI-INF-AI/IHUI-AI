@@ -106,7 +106,7 @@ export function OrderRefundScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
@@ -194,68 +194,68 @@ export function OrderRefundScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.medium },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    backText: { fontSize: 18, color: tk.text.medium },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    errorWrap: { paddingHorizontal: 16, paddingVertical: 8 },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    successWrap: { paddingHorizontal: 16, paddingVertical: 8 },
-    successText: { fontSize: 13, color: tk.success.DEFAULT },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    successWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    successText: { fontSize: 14, color: tk.success.DEFAULT },
     outlineBtn: {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignSelf: 'flex-start',
     },
-    outlineBtnText: { fontSize: 13, color: tk.success.DEFAULT },
-    separator: { height: 12 },
+    outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
+    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
     cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardAmount: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
+    cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    cardAmount: { marginLeft: 8, fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
     cardMetaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 4,
+      marginTop: 8,
     },
-    metaText: { fontSize: 12, color: tk.text.secondary },
+    metaText: { fontSize: 14, color: tk.text.secondary },
     refundForm: {
       marginTop: 12,
-      padding: 16,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
     },
-    formLabel: { fontSize: 13, fontWeight: '500', color: tk.text.primary },
+    formLabel: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
     formInput: {
       marginTop: 8,
       paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
+      paddingHorizontal: 14,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: '#eaeaea',
       minHeight: 80,
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: '#f5f5f5',
     },
     formActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    formBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-    formPrimaryBtn: { backgroundColor: tk.success.DEFAULT },
-    formPrimaryBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    formBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    formPrimaryBtn: { backgroundColor: tk.brand.DEFAULT, height: 50 },
+    formPrimaryBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     formOutlineBtn: {
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -265,6 +265,6 @@ function createStyles(tk: AppThemeTokens) {
     applyRow: { marginTop: 12 },
     applyBtn: { alignSelf: 'flex-start' },
     emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
   })
 }

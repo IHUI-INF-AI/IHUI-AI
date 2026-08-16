@@ -51,12 +51,12 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     } as ViewStyle,
-    backText: { fontSize: 14, color: tk.text.medium } as TextStyle,
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     body: {
       flex: 1,
       backgroundColor: '#cbeaf1',
@@ -128,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.8,
     } as ViewStyle,
     detailsButtonText: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '700',
       color: '#FFFFFF',
     } as TextStyle,

@@ -147,7 +147,7 @@
 }
 .model-type-tag.type-av {
   background: var(--color-accent);
-  /* TODO: custom color: #b89dff 紫色品牌色,无对应 token,保留原值 */
+  /* custom color: #b89dff 紫色品牌色,无对应 token,保留原值 */
   color: #b89dff;
 }
 

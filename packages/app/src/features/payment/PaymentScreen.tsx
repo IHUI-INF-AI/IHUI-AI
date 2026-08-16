@@ -111,7 +111,7 @@ export function PaymentScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.orderNo}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
@@ -209,7 +209,7 @@ function statusToStyle(status: PaymentOrderStatus, tk: AppThemeTokens) {
     case 'cancelled':
       return { backgroundColor: tk.surface.muted }
     case 'refunded':
-      return { backgroundColor: tk.purple.light }
+      return { backgroundColor: tk.surface.muted }
     default:
       return { backgroundColor: tk.surface.muted }
   }
@@ -218,65 +218,66 @@ function statusToStyle(status: PaymentOrderStatus, tk: AppThemeTokens) {
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.medium },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    backText: { fontSize: 18, color: tk.text.medium },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    errorWrap: { paddingHorizontal: 16, paddingVertical: 8 },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    toastWrap: { paddingHorizontal: 16, paddingVertical: 8 },
-    toastText: { fontSize: 13, color: tk.success.DEFAULT },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    toastWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    toastText: { fontSize: 14, color: tk.success.DEFAULT },
     outlineBtn: {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
     },
-    outlineBtnText: { fontSize: 13, color: tk.success.DEFAULT },
-    separator: { height: 12 },
+    outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
+    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
     cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-    statusTagText: { fontSize: 12, color: tk.text.primary },
+    statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 4,
+      marginTop: 8,
     },
-    metaText: { fontSize: 12, color: tk.text.secondary },
+    metaText: { fontSize: 14, color: tk.text.secondary },
     amountRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
       marginTop: 8,
     },
-    amountValue: { fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
+    amountValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
-      paddingVertical: 10,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      height: 50,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    primaryBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    primaryBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     secondaryActions: { flexDirection: 'row', gap: 8 },
     flexBtn: { flex: 1 },
     btnDisabled: { opacity: 0.5 },
     emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
   })
 }

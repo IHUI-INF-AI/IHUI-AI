@@ -925,6 +925,20 @@
     "searchNext": "다음",
     "searchPrev": "이전",
     "searchClose": "검색 닫기",
+    "message": {
+      "hideContent": "콘텐츠 숨기기",
+      "showContent": "콘텐츠 표시",
+      "like": "좋아요",
+      "copy": "복사",
+      "downloadImages": "이미지 다운로드",
+      "share": "공유",
+      "toggleMetadata": "메타데이터 전환",
+      "regenerate": "다시 생성",
+      "publishToCommunity": "커뮤니티에 게시",
+      "edit": "편집",
+      "reply": "답글",
+      "delete": "삭제"
+    },
     "plan": {
       "title": "실행 계획",
       "ariaLabel": "실행 계획 단계",

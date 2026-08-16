@@ -59,10 +59,11 @@ export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       padding: 16,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      backgroundColor: tk.surface.light,
+      marginBottom: 12,
     },
     unread: {
       borderColor: tk.success.DEFAULT,
@@ -99,8 +100,8 @@ export function createCardStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       marginTop: 6,
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: '700',
       color: tk.text.primary,
     },
     cardContent: {

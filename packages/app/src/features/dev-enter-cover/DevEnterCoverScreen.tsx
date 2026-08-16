@@ -79,19 +79,19 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     content: {
       flex: 1,
-      padding: 24,
+      padding: 14,
     },
     desc: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
       lineHeight: 20,
       marginBottom: 24,
@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 24,
     },
     planLabel: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: 12,
@@ -111,11 +111,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     planCard: {
       flex: 1,
-      padding: 16,
+      padding: 14,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
       alignItems: 'center',
     },
     planCardActive: {
@@ -123,32 +123,33 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     planName: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 4,
+      marginBottom: 8,
     },
     planNameActive: {
       color: tk.brand.DEFAULT,
     },
     planPrice: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     },
     planPriceActive: {
       color: tk.brand.DEFAULT,
     },
     submitBtn: {
-      paddingVertical: 14,
+      height: 50,
       borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     btnDisabled: {
       opacity: 0.6,
     },
     submitBtnText: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '600',
       color: tk.surface.light,
     },

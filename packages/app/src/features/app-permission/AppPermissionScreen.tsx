@@ -80,15 +80,15 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 16, paddingBottom: 32, gap: 12 },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    body: { padding: 14, paddingBottom: 32, gap: 12 },
     intro: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
       lineHeight: 22,
       paddingHorizontal: 4,
@@ -96,12 +96,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 8,
-      padding: 16,
+      borderRadius: 12,
+      padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    permName: { fontSize: 15, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
-    permDesc: { fontSize: 13, color: tk.text.secondary, lineHeight: 22 },
+    permName: { fontSize: 16, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    permDesc: { fontSize: 14, color: tk.text.secondary, lineHeight: 22 },
   })
 }

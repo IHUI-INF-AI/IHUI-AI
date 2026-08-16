@@ -376,7 +376,7 @@ export default function VipBenefitsPopup({
             </View>
           </ScrollView>
           <View className="px-4 py-3">
-            {/* TODO: custom color: #fbbf24 VIP 品牌金色渐变起始色,无对应 token,保留原值 */}
+
             <View
               className="w-full py-3 rounded-md text-center"
               style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}

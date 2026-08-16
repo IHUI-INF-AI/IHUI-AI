@@ -62,7 +62,7 @@ export default function CartePage() {
 
   return (
     <View className="min-h-screen bg-background">
-      {/* TODO: custom color: #0f766e/#14b8a6 品牌青绿渐变,无对应 token,保留原值 */}
+
       <View className="bg-gradient-to-b from-[#0f766e] to-[#14b8a6] px-6 pt-12 pb-8 text-white text-center">
         <View className="flex justify-center mb-4">
           {info.avatar ? (

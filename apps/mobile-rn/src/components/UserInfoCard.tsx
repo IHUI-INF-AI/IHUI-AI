@@ -254,7 +254,7 @@ const newStyles = StyleSheet.create({
   avatarWrap: {
     width: 60,
     height: 60,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
     borderWidth: 1,
@@ -447,7 +447,7 @@ const newStyles = StyleSheet.create({
     marginBottom: 8,
   },
   modalDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
     textAlign: 'center',
     marginBottom: 12,
@@ -466,7 +466,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     backgroundColor: tokens.indigo.DEFAULT,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   modalCloseBtnText: {
     fontSize: 14,
@@ -574,7 +574,7 @@ const oldStyles = StyleSheet.create({
   },
   editBtn: {
     backgroundColor: tokens.indigo.light,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -589,11 +589,11 @@ const oldStyles = StyleSheet.create({
     marginBottom: 12,
   },
   membershipText: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
   },
   vipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: tokens.warning.DEFAULT,
     marginLeft: 4,
@@ -605,7 +605,7 @@ const oldStyles = StyleSheet.create({
   avatar: {
     width: 64,
     height: 64,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: tokens.surface.light,
     backgroundColor: tokens.surface.card,
@@ -622,14 +622,14 @@ const oldStyles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   tokenLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.primary,
   },
   tokenValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.primary,
   },
