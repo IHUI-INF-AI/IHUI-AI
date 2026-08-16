@@ -3,10 +3,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
 import type { CommissionOverview, InviteInfo } from '@ihui/api-client'
-import {
-  VipTraderScreen as SharedVipTraderScreen,
-  type VipTraderStat,
-} from '@ihui/rn-app'
+import { VipTraderScreen as SharedVipTraderScreen, type VipTraderStat } from '@ihui/rn-app'
 import { ConfirmPurchasePopUp } from '../components/ConfirmPurchasePopUp'
 import { useWechatPayment } from '../hooks/useWechatPayment'
 import { useI18n } from '../i18n'
@@ -40,7 +37,11 @@ function buildStats(o: CommissionOverview, invite?: InviteInfo): VipTraderStat[]
   // 邀请码 / 佣金比例 / 分销等级(对齐 Uniapp trader 页邀请信息展示)
   if (invite) {
     base.push(
-      { label: '我的邀请码', value: invite.inviteCode || '—', trend: `已邀请 ${invite.inviteCount} 人` },
+      {
+        label: '我的邀请码',
+        value: invite.inviteCode || '—',
+        trend: `已邀请 ${invite.inviteCount} 人`,
+      },
       {
         label: '分销等级',
         value: invite.level || '—',
@@ -77,19 +78,23 @@ export default function VipTraderScreen() {
       if (overviewRes.status === 'fulfilled' && overviewRes.value.success) {
         setStats(buildStats(overviewRes.value.data, inviteInfo))
       } else {
-        setStats(inviteInfo ? buildStats(
-          {
-            totalCommission: 0,
-            availableCommission: 0,
-            frozenCommission: 0,
-            withdrawnCommission: 0,
-            pendingCommission: 0,
-            invitedCount: inviteInfo.inviteCount,
-            activeCount: 0,
-            rank: 0,
-          },
-          inviteInfo,
-        ) : [])
+        setStats(
+          inviteInfo
+            ? buildStats(
+                {
+                  totalCommission: 0,
+                  availableCommission: 0,
+                  frozenCommission: 0,
+                  withdrawnCommission: 0,
+                  pendingCommission: 0,
+                  invitedCount: inviteInfo.inviteCount,
+                  activeCount: 0,
+                  rank: 0,
+                },
+                inviteInfo,
+              )
+            : [],
+        )
         if (overviewRes.status === 'fulfilled' && !overviewRes.value.success) {
           setError(overviewRes.value.error || t('vipTrader.loadFailed'))
         }
