@@ -34,8 +34,14 @@ export function createGenerationModule(client: BaseClient): GenerationModule {
     enqueue: (req) =>
       client.request<V1GenerationEnqueueResponse>('POST', '/generation/enqueue', req),
     getStatus: (jobId) =>
-      client.request<V1GenerationStatusResponse>('GET', `/generation/status/${encodeURIComponent(jobId)}`),
+      client.request<V1GenerationStatusResponse>(
+        'GET',
+        `/generation/status/${encodeURIComponent(jobId)}`,
+      ),
     cancel: (jobId) =>
-      client.request<V1GenerationCancelResponse>('POST', `/generation/cancel/${encodeURIComponent(jobId)}`),
+      client.request<V1GenerationCancelResponse>(
+        'POST',
+        `/generation/cancel/${encodeURIComponent(jobId)}`,
+      ),
   }
 }

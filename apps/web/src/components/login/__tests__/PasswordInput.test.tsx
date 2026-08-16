@@ -90,13 +90,7 @@ describe('PasswordInput 密码显隐切换', () => {
   })
 
   it('showLabel / hideLabel 自定义 prop 覆盖默认 i18n', () => {
-    render(
-      <PasswordInput
-        data-testid="pwd"
-        showLabel="自定义显示"
-        hideLabel="自定义隐藏"
-      />,
-    )
+    render(<PasswordInput data-testid="pwd" showLabel="自定义显示" hideLabel="自定义隐藏" />)
     const toggle = screen.getByTestId('password-toggle')
     expect(toggle.getAttribute('aria-label')).toBe('自定义显示')
     fireEvent.click(toggle)

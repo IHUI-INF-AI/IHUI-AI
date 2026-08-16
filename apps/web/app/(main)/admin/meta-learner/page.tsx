@@ -16,8 +16,21 @@ type RunStatus = 'running' | 'success' | 'failed' | 'skipped'
 
 interface StatusData {
   learner: { totalLessons: number; byType: Record<string, number>; avgConfidence: number }
-  scheduler: { enabled: boolean; intervalSeconds: number; minFailures: number; running: boolean; historyCount: number }
-  skillEvolution: { enabled: boolean; intervalSeconds: number; minFailures: number; maxSkillsPerRun: number; running: boolean; historyCount: number }
+  scheduler: {
+    enabled: boolean
+    intervalSeconds: number
+    minFailures: number
+    running: boolean
+    historyCount: number
+  }
+  skillEvolution: {
+    enabled: boolean
+    intervalSeconds: number
+    minFailures: number
+    maxSkillsPerRun: number
+    running: boolean
+    historyCount: number
+  }
 }
 
 interface MetaLesson {
@@ -118,7 +131,8 @@ export default function MetaLearnerPage() {
     queryFn: () => api<AgentFailuresData>('/api/admin/meta-learner/agent-failures'),
   })
   const triggerMutation = useMutation({
-    mutationFn: () => api<{ status: string }>('/api/admin/meta-learner/trigger', { method: 'POST' }),
+    mutationFn: () =>
+      api<{ status: string }>('/api/admin/meta-learner/trigger', { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meta-learner'] }),
   })
 
@@ -138,14 +152,22 @@ export default function MetaLearnerPage() {
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => triggerMutation.mutate()} disabled={triggerMutation.isPending}>
-          {triggerMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Zap className="mr-1.5 h-4 w-4" />}
+          {triggerMutation.isPending ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Zap className="mr-1.5 h-4 w-4" />
+          )}
           {t('trigger')}
         </Button>
       </header>
 
       {triggerMutation.isSuccess && <Alert variant="success" title={t('triggerSuccess')} />}
       {triggerMutation.isError && (
-        <Alert variant="danger" title={t('triggerError')} description={(triggerMutation.error as Error).message} />
+        <Alert
+          variant="danger"
+          title={t('triggerError')}
+          description={(triggerMutation.error as Error).message}
+        />
       )}
 
       <section className="space-y-3">
@@ -160,24 +182,53 @@ export default function MetaLearnerPage() {
         ) : status ? (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Brain className="h-4 w-4 text-primary" />{t('learner')}</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Brain className="h-4 w-4 text-primary" />
+                  {t('learner')}
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <p className="text-muted-foreground">{t('lessons')}: {status.learner.totalLessons}</p>
-                <p className="text-muted-foreground">{t('confidence')}: {(status.learner.avgConfidence * 100).toFixed(0)}%</p>
+                <p className="text-muted-foreground">
+                  {t('lessons')}: {status.learner.totalLessons}
+                </p>
+                <p className="text-muted-foreground">
+                  {t('confidence')}: {(status.learner.avgConfidence * 100).toFixed(0)}%
+                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-primary" />{t('scheduler')}</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Clock className="h-4 w-4 text-primary" />
+                  {t('scheduler')}
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <Badge className={status.scheduler.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}>{status.scheduler.enabled ? t('enabled') : t('disabled')}</Badge>
-                <p className="text-muted-foreground">{t('history')}: {status.scheduler.historyCount}</p>
+                <Badge className={status.scheduler.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}>
+                  {status.scheduler.enabled ? t('enabled') : t('disabled')}
+                </Badge>
+                <p className="text-muted-foreground">
+                  {t('history')}: {status.scheduler.historyCount}
+                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Zap className="h-4 w-4 text-primary" />{t('skillEvolution')}</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Zap className="h-4 w-4 text-primary" />
+                  {t('skillEvolution')}
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <Badge className={status.skillEvolution.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}>{status.skillEvolution.enabled ? t('enabled') : t('disabled')}</Badge>
-                <p className="text-muted-foreground">{t('history')}: {status.skillEvolution.historyCount}</p>
+                <Badge
+                  className={status.skillEvolution.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}
+                >
+                  {status.skillEvolution.enabled ? t('enabled') : t('disabled')}
+                </Badge>
+                <p className="text-muted-foreground">
+                  {t('history')}: {status.skillEvolution.historyCount}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -216,31 +267,53 @@ export default function MetaLearnerPage() {
               <>
                 <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-primary" />{t('agentErrors')}</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Activity className="h-4 w-4 text-primary" />
+                        {t('agentErrors')}
+                      </CardTitle>
+                    </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                       <p className="text-2xl font-medium">{f.agentErrors.total}</p>
                       <div className="flex flex-wrap gap-2">{byTypeRows(f.agentErrors.byType)}</div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Zap className="h-4 w-4 text-primary" />{t('toolFailures')}</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Zap className="h-4 w-4 text-primary" />
+                        {t('toolFailures')}
+                      </CardTitle>
+                    </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                       <p className="text-2xl font-medium">{f.toolFailures.total}</p>
-                      <div className="flex flex-wrap gap-2">{byTypeRows(f.toolFailures.byType)}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {byTypeRows(f.toolFailures.byType)}
+                      </div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-primary" />{t('failedCheckpoints')}</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Clock className="h-4 w-4 text-primary" />
+                        {t('failedCheckpoints')}
+                      </CardTitle>
+                    </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                       <p className="text-2xl font-medium">{f.failedCheckpoints}</p>
-                      <p className="text-xs text-muted-foreground">{t('lessonsExtracted')}: {t('recentFailures')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('lessonsExtracted')}: {t('recentFailures')}
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">{t('recentFailures')}</p>
                   {f.recent.length === 0 ? (
-                    <EmptyState icon={<Activity className="h-8 w-8 text-muted-foreground" />} label={t('noFailures')} />
+                    <EmptyState
+                      icon={<Activity className="h-8 w-8 text-muted-foreground" />}
+                      label={t('noFailures')}
+                    />
                   ) : (
                     <div className="overflow-x-auto rounded-lg border">
                       <table className="w-full text-sm">
@@ -254,9 +327,15 @@ export default function MetaLearnerPage() {
                         <tbody>
                           {f.recent.map((r, i) => (
                             <tr key={`${i}-${r.time}`} className="border-t">
-                              <td className="px-3 py-2"><Badge className={typeBadge[r.errorType] ?? typeBadge.unknown}>{r.errorType}</Badge></td>
+                              <td className="px-3 py-2">
+                                <Badge className={typeBadge[r.errorType] ?? typeBadge.unknown}>
+                                  {r.errorType}
+                                </Badge>
+                              </td>
                               <td className="max-w-md truncate px-3 py-2">{r.error || '-'}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{formatShortDateTime(r.time, locale)}</td>
+                              <td className="px-3 py-2 text-muted-foreground">
+                                {formatShortDateTime(r.time, locale)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -280,7 +359,10 @@ export default function MetaLearnerPage() {
         ) : lessonsQuery.isError ? (
           <Alert variant="danger" description={(lessonsQuery.error as Error).message} />
         ) : lessons.length === 0 ? (
-          <EmptyState icon={<Brain className="h-8 w-8 text-muted-foreground" />} label={t('noLessons')} />
+          <EmptyState
+            icon={<Brain className="h-8 w-8 text-muted-foreground" />}
+            label={t('noLessons')}
+          />
         ) : (
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
@@ -296,17 +378,32 @@ export default function MetaLearnerPage() {
               <tbody>
                 {lessons.map((lesson) => (
                   <tr key={lesson.lessonId} className="border-t">
-                    <td className="px-3 py-2"><Badge className={LESSON_BADGE[lesson.lessonType]}>{t(LESSON_I18N[lesson.lessonType])}</Badge></td>
+                    <td className="px-3 py-2">
+                      <Badge className={LESSON_BADGE[lesson.lessonType]}>
+                        {t(LESSON_I18N[lesson.lessonType])}
+                      </Badge>
+                    </td>
                     <td className="max-w-xs px-3 py-2">
                       <p className="truncate">{lesson.title}</p>
-                      {lesson.content && <p className="line-clamp-1 text-xs text-muted-foreground">{lesson.content}</p>}
+                      {lesson.content && (
+                        <p className="line-clamp-1 text-xs text-muted-foreground">
+                          {lesson.content}
+                        </p>
+                      )}
                     </td>
-                    <td className="px-3 py-2 text-right">{(lesson.confidence * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-2 text-right">
+                      {(lesson.confidence * 100).toFixed(0)}%
+                    </td>
                     <td className="px-3 py-2 text-right">{lesson.occurrenceCount}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
                         {lesson.sourceSkills.map((s, i) => (
-                          <span key={`${i}-${s}`} className="rounded bg-muted px-1.5 py-0.5 text-xs">{s}</span>
+                          <span
+                            key={`${i}-${s}`}
+                            className="rounded bg-muted px-1.5 py-0.5 text-xs"
+                          >
+                            {s}
+                          </span>
                         ))}
                       </div>
                     </td>
@@ -328,16 +425,25 @@ export default function MetaLearnerPage() {
         ) : historyQuery.isError ? (
           <Alert variant="danger" description={(historyQuery.error as Error).message} />
         ) : history.length === 0 ? (
-          <EmptyState icon={<Clock className="h-8 w-8 text-muted-foreground" />} label={t('noHistory')} />
+          <EmptyState
+            icon={<Clock className="h-8 w-8 text-muted-foreground" />}
+            label={t('noHistory')}
+          />
         ) : (
           <div className="space-y-2">
             {history.map((entry, i) => (
               <Card key={`${i}-${entry.triggered_at}`}>
                 <CardContent className="flex flex-wrap items-center gap-3 p-3 text-sm min-[640px]:p-3">
                   <Badge className={RUN_BADGE[entry.status]}>{t(RUN_I18N[entry.status])}</Badge>
-                  <span className="text-muted-foreground">{t('runAt')}: {formatShortDateTime(entry.triggered_at, locale)}</span>
-                  <span className="text-muted-foreground">{t('duration')}: {(entry.duration_ms / 1000).toFixed(1)}s</span>
-                  <span className="text-muted-foreground">{t('lessonsExtracted')}: {entry.lessons_extracted}</span>
+                  <span className="text-muted-foreground">
+                    {t('runAt')}: {formatShortDateTime(entry.triggered_at, locale)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {t('duration')}: {(entry.duration_ms / 1000).toFixed(1)}s
+                  </span>
+                  <span className="text-muted-foreground">
+                    {t('lessonsExtracted')}: {entry.lessons_extracted}
+                  </span>
                   {entry.error && <span className="text-red-600">{entry.error}</span>}
                 </CardContent>
               </Card>

@@ -49,6 +49,7 @@ export interface ConversationMessage {
   conversationId: string
   role: ChatRole
   content: string
+  reasoning?: string
   tokens: number | null
   metadata: ChatMessageMetadata | null
   createdAt: string
@@ -83,9 +84,7 @@ export function listConversations(params: ListConversationsParams = {}) {
   qs.set('page', String(params.page ?? 1))
   qs.set('pageSize', String(params.pageSize ?? 20))
   if (params.search) qs.set('search', params.search)
-  return fetchApi<ListConversationsResult>(
-    `/api/chat/conversations?${qs.toString()}`,
-  )
+  return fetchApi<ListConversationsResult>(`/api/chat/conversations?${qs.toString()}`)
 }
 
 /** 获取对话详情 */
@@ -134,12 +133,15 @@ export function sendMessage(
   content: string,
   role: ChatRole = 'user',
   metadata?: ChatMessageMetadata,
+  reasoning?: string,
 ) {
   return fetchApi<{ message: ConversationMessage }>(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages`,
     {
       method: 'POST',
-      body: JSON.stringify(metadata ? { content, role, metadata } : { content, role }),
+      body: JSON.stringify(
+        { content, role, metadata, reasoning },
+      ),
     },
   )
 }

@@ -146,8 +146,7 @@ export default function TeacherDetail() {
     Taro.navigateTo({ url: `/pages/course/detail?id=${courseId}` })
   }, [])
 
-  const isGoldTeacher =
-    (teacher?.courses ?? 0) >= 10 || (teacher?.students ?? 0) >= 1000
+  const isGoldTeacher = (teacher?.courses ?? 0) >= 10 || (teacher?.students ?? 0) >= 1000
 
   const stats: Array<{ num: number; label: string }> = [
     { num: teacher?.fans ?? 0, label: tt('teacher.detail.fans', '粉丝') },
@@ -169,11 +168,7 @@ export default function TeacherDetail() {
           <View className="tdetail-header">
             <View className="tdetail-header-top">
               {teacher.avatar ? (
-                <Image
-                  className="tdetail-avatar"
-                  src={teacher.avatar}
-                  mode="aspectFill"
-                />
+                <Image className="tdetail-avatar" src={teacher.avatar} mode="aspectFill" />
               ) : (
                 <View className="tdetail-avatar tdetail-avatar-fallback">
                   <Text>{teacher.name.charAt(0) || '?'}</Text>
@@ -216,9 +211,7 @@ export default function TeacherDetail() {
           {/* 教师简介 */}
           {teacher.intro && (
             <View className="tdetail-intro">
-              <Text className="tdetail-section-title">
-                {tt('teacher.detail.intro', '简介')}
-              </Text>
+              <Text className="tdetail-section-title">{tt('teacher.detail.intro', '简介')}</Text>
               <Text
                 className={`tdetail-intro-text ${introExpanded ? '' : 'tdetail-intro-text-collapsed'}`}
               >
@@ -244,7 +237,11 @@ export default function TeacherDetail() {
                 {courses.map((c) => {
                   const price = formatPrice(c.price)
                   return (
-                    <View key={c.id} className="tdetail-course-card" onClick={() => onOpenCourse(c.id)}>
+                    <View
+                      key={c.id}
+                      className="tdetail-course-card"
+                      onClick={() => onOpenCourse(c.id)}
+                    >
                       {c.coverUrl ? (
                         <Image
                           className="tdetail-course-cover"
@@ -273,9 +270,7 @@ export default function TeacherDetail() {
                 })}
               </View>
             ) : (
-              <Text className="tdetail-empty">
-                {tt('teacher.detail.noCourses', '暂无课程')}
-              </Text>
+              <Text className="tdetail-empty">{tt('teacher.detail.noCourses', '暂无课程')}</Text>
             )}
           </View>
 
@@ -289,11 +284,7 @@ export default function TeacherDetail() {
                 {reviews.map((rv) => (
                   <View key={rv.id} className="tdetail-review-card">
                     {rv.avatar ? (
-                      <Image
-                        className="tdetail-review-avatar"
-                        src={rv.avatar}
-                        mode="aspectFill"
-                      />
+                      <Image className="tdetail-review-avatar" src={rv.avatar} mode="aspectFill" />
                     ) : (
                       <View className="tdetail-review-avatar tdetail-review-avatar-fallback">
                         <Text>{rv.nickname.charAt(0) || '?'}</Text>
@@ -311,9 +302,7 @@ export default function TeacherDetail() {
                 ))}
               </View>
             ) : (
-              <Text className="tdetail-empty">
-                {tt('teacher.detail.noReviews', '暂无评价')}
-              </Text>
+              <Text className="tdetail-empty">{tt('teacher.detail.noReviews', '暂无评价')}</Text>
             )}
           </View>
 

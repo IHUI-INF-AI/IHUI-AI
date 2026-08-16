@@ -62,7 +62,11 @@ export async function upsertRecord(input: UpsertRecordInput): Promise<LessonReco
   if (sectionId) conds.push(eq(lessonRecords.sectionId, sectionId))
   else conds.push(sql`${lessonRecords.sectionId} IS NULL`)
 
-  const existing = await db.select().from(lessonRecords).where(and(...conds)).limit(1)
+  const existing = await db
+    .select()
+    .from(lessonRecords)
+    .where(and(...conds))
+    .limit(1)
 
   if (existing[0]) {
     // 更新
@@ -309,7 +313,10 @@ export async function updateWatchPosition(
   // progress 基于 position/totalDuration(若 totalDuration=0 则保持原值)
   const newProgress =
     record.totalDuration > 0
-      ? Math.min(100, Math.max(record.progress, Math.floor((position / record.totalDuration) * 100)))
+      ? Math.min(
+          100,
+          Math.max(record.progress, Math.floor((position / record.totalDuration) * 100)),
+        )
       : record.progress
   // status: 有心跳即为进行中(除非已完成)
   const newStatus = record.status === 2 ? 2 : 1
@@ -402,7 +409,12 @@ export async function getProgressOverview(userId: string): Promise<ProgressOverv
   const categoryMap = new Map<string, { total: number; completed: number; progress: number }>()
   for (const s of signups) {
     // 处理分类名,含中文逗号分隔的多个分类
-    const names = s.categoryName ? s.categoryName.split(/[,，]/).map((n) => n.trim()).filter(Boolean) : ['未分类']
+    const names = s.categoryName
+      ? s.categoryName
+          .split(/[,，]/)
+          .map((n) => n.trim())
+          .filter(Boolean)
+      : ['未分类']
     for (const name of names) {
       const entry = categoryMap.get(name) ?? { total: 0, completed: 0, progress: 0 }
       entry.total++

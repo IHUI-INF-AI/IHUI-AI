@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, Languages, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  Languages,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ko/use-cases/ai-translation#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 번역', item: 'https://aizhs.top/ko/use-cases/ai-translation' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: '사용 사례',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 번역',
+          item: 'https://aizhs.top/ko/use-cases/ai-translation',
+        },
       ],
     },
     {
@@ -34,18 +54,50 @@ const jsonLd = {
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: '용어집 / 번역 메모리 / 브랜드 톤 문서 / 대상 언어 목록' }],
+      supply: [
+        { '@type': 'HowToSupply', name: '용어집 / 번역 메모리 / 브랜드 톤 문서 / 대상 언어 목록' },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI 다국어 번역 엔진' },
         { '@type': 'HowToTool', name: 'IHUI AI 용어집 관리 모듈' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '용어집 구축', text: '제품/브랜드/업계 용어를 50+ 언어로 등록, Agent가 용어 일관성을 엄격히 지키고 번역 분산을 방지합니다.' },
-        { '@type': 'HowToStep', position: 2, name: '번역 메모리 업로드', text: '과거 고품질 대역 문서를 업로드, Agent가 팀 문체를 학습하여 AI 산출물이 과거 번역 스타일을 따르도록 합니다.' },
-        { '@type': 'HowToStep', position: 3, name: '대상 언어 설정', text: '50+ 주요 언어 (번체/간체 지역 변형 포함) 선택, 원클릭 일괄 번역 시작.' },
-        { '@type': 'HowToStep', position: 4, name: '문화 적응 학습', text: '대상 시장의 문화 관습 (일본어 경어, 아랍어 RTL, 스페인 라틴아메리카/스페인 변형)에 맞게 번역을 미세 조정, 문화 마찰 회피.' },
-        { '@type': 'HowToStep', position: 5, name: '리뷰 규칙 설정', text: '용어 일관성/숫자 형식/날짜 형식/단위 환산/민감어 규칙 설정, Agent가 의심스러운 번역을 자동 플래그.' },
-        { '@type': 'HowToStep', position: 6, name: '워크플로우 연결', text: 'Git/CMS/Confluence/Notion/Figma 등 콘텐츠 소스 연결, 번역 업데이트 자동 동기화, 사람은 중요 콘텐츠만 최종 리뷰.' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '용어집 구축',
+          text: '제품/브랜드/업계 용어를 50+ 언어로 등록, Agent가 용어 일관성을 엄격히 지키고 번역 분산을 방지합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '번역 메모리 업로드',
+          text: '과거 고품질 대역 문서를 업로드, Agent가 팀 문체를 학습하여 AI 산출물이 과거 번역 스타일을 따르도록 합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '대상 언어 설정',
+          text: '50+ 주요 언어 (번체/간체 지역 변형 포함) 선택, 원클릭 일괄 번역 시작.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '문화 적응 학습',
+          text: '대상 시장의 문화 관습 (일본어 경어, 아랍어 RTL, 스페인 라틴아메리카/스페인 변형)에 맞게 번역을 미세 조정, 문화 마찰 회피.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '리뷰 규칙 설정',
+          text: '용어 일관성/숫자 형식/날짜 형식/단위 환산/민감어 규칙 설정, Agent가 의심스러운 번역을 자동 플래그.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '워크플로우 연결',
+          text: 'Git/CMS/Confluence/Notion/Figma 등 콘텐츠 소스 연결, 번역 업데이트 자동 동기화, 사람은 중요 콘텐츠만 최종 리뷰.',
+        },
       ],
     },
   ],
@@ -74,12 +126,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '50+ 언어 문서 번역', desc: '50+ 주요 언어(중/영/일/한/프/독/서/러/아랍/포/이/번간체) 지원, Word/PDF/Markdown/JSON/CSV 등 일괄 번역, 용어 일관성 99%.' },
-  { title: '로컬라이제이션 워크플로우', desc: 'Git/CMS/Confluence/Notion 등 콘텐츠 소스 연결, 소스 업데이트 시 자동 번역 트리거, 사람은 중요 콘텐츠만 최종 리뷰.' },
-  { title: '용어집 관리', desc: '다국어 용어집 구축, AI가 용어 일관성 엄격 준수, 브랜드명/제품명/기술 용어 오역 제로, TM(번역 메모리)을 프로젝트 횡단 재사용.' },
-  { title: '스마트 번역 리뷰', desc: '용어 일관성/숫자/날짜/단위 환산/민감어 규칙 설정, Agent가 의심스러운 번역 자동 플래그, 사람 리뷰 75% 절감.' },
-  { title: '문화 적응', desc: '대상 시장의 문화 관습(일본어 경어 위계, 아랍어 RTL, 스페인 라틴아메리카/스페인 변형)에 따라 표현 자동 조정, 문화 마찰 회피.' },
-  { title: '자막 번역', desc: '영상 자막 SRT/VTT 파일을 파싱하여 번역, 타임라인 자동 정렬, 다국어 자막 버전 내보내기, 자막 번역 효율 8배.' },
+  {
+    title: '50+ 언어 문서 번역',
+    desc: '50+ 주요 언어(중/영/일/한/프/독/서/러/아랍/포/이/번간체) 지원, Word/PDF/Markdown/JSON/CSV 등 일괄 번역, 용어 일관성 99%.',
+  },
+  {
+    title: '로컬라이제이션 워크플로우',
+    desc: 'Git/CMS/Confluence/Notion 등 콘텐츠 소스 연결, 소스 업데이트 시 자동 번역 트리거, 사람은 중요 콘텐츠만 최종 리뷰.',
+  },
+  {
+    title: '용어집 관리',
+    desc: '다국어 용어집 구축, AI가 용어 일관성 엄격 준수, 브랜드명/제품명/기술 용어 오역 제로, TM(번역 메모리)을 프로젝트 횡단 재사용.',
+  },
+  {
+    title: '스마트 번역 리뷰',
+    desc: '용어 일관성/숫자/날짜/단위 환산/민감어 규칙 설정, Agent가 의심스러운 번역 자동 플래그, 사람 리뷰 75% 절감.',
+  },
+  {
+    title: '문화 적응',
+    desc: '대상 시장의 문화 관습(일본어 경어 위계, 아랍어 RTL, 스페인 라틴아메리카/스페인 변형)에 따라 표현 자동 조정, 문화 마찰 회피.',
+  },
+  {
+    title: '자막 번역',
+    desc: '영상 자막 SRT/VTT 파일을 파싱하여 번역, 타임라인 자동 정렬, 다국어 자막 버전 내보내기, 자막 번역 효율 8배.',
+  },
 ]
 
 const cases = [
@@ -118,7 +188,10 @@ const metrics = [
 export default function AiTranslationPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +203,18 @@ export default function AiTranslationPage() {
             AI 다국어 번역:50+ 언어 로컬라이제이션, 비용 70% 절감
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원, 용어집 + 문화 적응으로 번역 품질 보장.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원,
+            용어집 + 문화 적응으로 번역 품질 보장.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +224,16 @@ export default function AiTranslationPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">해외 진출 팀의 로컬라이제이션 과제</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              해외 진출 팀의 로컬라이제이션 과제
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +243,9 @@ export default function AiTranslationPage() {
 
         {/* 능력 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6대 핵심 능력</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6대 핵심 능력
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +261,9 @@ export default function AiTranslationPage() {
 
         {/* 사례 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">고객 도입 사례</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            고객 도입 사례
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +278,13 @@ export default function AiTranslationPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">기술 스택과 툴체인</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              기술 스택과 툴체인
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스, Git/CMS/Confluence/Notion과 깊이 통합.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스,
+            Git/CMS/Confluence/Notion과 깊이 통합.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +299,12 @@ export default function AiTranslationPage() {
         {/* 문의 / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI 다국어 번역 어시스턴트 구축을 시작하세요</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI 다국어 번역 어시스턴트 구축을 시작하세요
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            가입 시 1000 크레딧 증정, 번역 시나리오 템플릿에서 원클릭 fork, 30분 만에 다국어 일괄 번역을 체험.
+            가입 시 1000 크레딧 증정, 번역 시나리오 템플릿에서 원클릭 fork, 30분 만에 다국어 일괄
+            번역을 체험.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +321,18 @@ export default function AiTranslationPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 번역 상담 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 용어집 트레이닝 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 온프레미스 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 언어 확장 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 번역 상담 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 용어집 트레이닝 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 온프레미스 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 언어 확장 8809
+            </span>
           </div>
         </section>
       </main>

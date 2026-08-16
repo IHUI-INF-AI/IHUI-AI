@@ -59,14 +59,8 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
     }
   }, [agentId, timeRange, refreshKey])
 
-  const times = React.useMemo(
-    () => Array.from(new Set(cells.map((c) => c.time))).sort(),
-    [cells],
-  )
-  const tools = React.useMemo(
-    () => Array.from(new Set(cells.map((c) => c.tool))).sort(),
-    [cells],
-  )
+  const times = React.useMemo(() => Array.from(new Set(cells.map((c) => c.time))).sort(), [cells])
+  const tools = React.useMemo(() => Array.from(new Set(cells.map((c) => c.tool))).sort(), [cells])
 
   const lookup = React.useMemo(() => {
     const m = new Map<string, ErrorCell>()
@@ -82,9 +76,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           错误热力图
-          <span className="text-xs font-normal text-muted-foreground">
-            共 {totalErrors} 次错误
-          </span>
+          <span className="text-xs font-normal text-muted-foreground">共 {totalErrors} 次错误</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -162,7 +154,9 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
 
             {hoverCell && (
               <div className="rounded-md border bg-muted/40 p-2 text-xs">
-                <div className="font-medium">{hoverCell.tool} @ {hoverCell.time}</div>
+                <div className="font-medium">
+                  {hoverCell.tool} @ {hoverCell.time}
+                </div>
                 <div className="text-muted-foreground">错误次数: {hoverCell.count}</div>
                 {hoverCell.lastError && (
                   <div className="mt-1 text-red-600">

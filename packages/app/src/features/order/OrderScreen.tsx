@@ -121,7 +121,9 @@ export function OrderScreen({
                     </View>
                     <View style={styles.amountRow}>
                       <Text style={styles.amountLabel}>{t('order.amount')}</Text>
-                      <Text style={styles.amountValue}>¥{item.amount !== null ? item.amount.toFixed(2) : '—'}</Text>
+                      <Text style={styles.amountValue}>
+                        ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+                      </Text>
                     </View>
                   </View>
                 </TouchableOpacity>

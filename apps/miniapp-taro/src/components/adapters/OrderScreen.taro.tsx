@@ -70,10 +70,7 @@ const STATUS_FALLBACK: Record<string, string> = {
 const toRpx = (px: number): string => `${px * 2}rpx`
 
 /** 订单状态徽章配色(复用源文件 statusColors 逻辑,token 驱动) */
-const statusColors = (
-  status: AppOrderStatus,
-  tk: RnThemeTokens,
-): { bg: string; text: string } => {
+const statusColors = (status: AppOrderStatus, tk: RnThemeTokens): { bg: string; text: string } => {
   switch (status) {
     case 'pending':
       return { bg: tk.warning.amberLight, text: tk.warning.amberText }
@@ -305,11 +302,7 @@ export function OrderScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View
-                key={tab}
-                style={viewStyles.tab(tk, active)}
-                onTap={() => onSelectTab(tab)}
-              >
+              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)}>
                 <Text style={textStyles.tab(tk, active)}>{tabLabel(tab)}</Text>
               </View>
             )
@@ -347,9 +340,7 @@ export function OrderScreen({
                           <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                         </View>
                         <View style={viewStyles.badge(sc.bg)}>
-                          <Text style={textStyles.badge(sc.text)}>
-                            {statusLabel(item.status)}
-                          </Text>
+                          <Text style={textStyles.badge(sc.text)}>{statusLabel(item.status)}</Text>
                         </View>
                       </View>
                       <View style={viewStyles.metaRow()}>
@@ -357,12 +348,8 @@ export function OrderScreen({
                         <Text style={textStyles.metaTime(tk)}>{item.createdAt}</Text>
                       </View>
                       <View style={viewStyles.amountRow()}>
-                        <Text style={textStyles.amountLabel(tk)}>
-                          {tr('order.amount', '金额')}
-                        </Text>
-                        <Text style={textStyles.amountValue(tk)}>
-                          ¥{item.amount.toFixed(2)}
-                        </Text>
+                        <Text style={textStyles.amountLabel(tk)}>{tr('order.amount', '金额')}</Text>
+                        <Text style={textStyles.amountValue(tk)}>¥{item.amount.toFixed(2)}</Text>
                       </View>
                     </View>
                   </View>

@@ -56,12 +56,7 @@ const BUTTON_FONT_SIZE = 15
 
 const EMPTY_TEXT_FONT_SIZE = 13
 
-export function BottomPopup({
-  visible,
-  onClose,
-  levels,
-  onConfirm,
-}: BottomPopupProps) {
+export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopupProps) {
   const [selectedId, setSelectedId] = useState<string>('')
 
   const handleConfirm = () => {

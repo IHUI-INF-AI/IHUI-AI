@@ -14,12 +14,7 @@
  * Redis 不可用时 fail-open(放行),保障可用性。
  */
 
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
 import { logger } from '../utils/logger.js'
@@ -145,9 +140,7 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const now = Date.now()
     const ipCount = await incrCounter(redis, K_FREQ(ip), now, WINDOW_MS)
     const userId = request.userId
-    const userCount = userId
-      ? await incrCounter(redis, K_FREQ_USER(userId), now, WINDOW_MS)
-      : 0
+    const userCount = userId ? await incrCounter(redis, K_FREQ_USER(userId), now, WINDOW_MS) : 0
     const maxCount = Math.max(ipCount, userCount)
 
     if (maxCount > BLOCK_THRESHOLD) {
@@ -195,11 +188,7 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     }
 
     // 4. 自动化标记(仅记录,不阻塞;高分由 anomaly-detector 综合)
-    if (
-      isMissingOrShortUserAgent(ua) ||
-      isCurlLike(ua) ||
-      isHeadlessBrowser(ua)
-    ) {
+    if (isMissingOrShortUserAgent(ua) || isCurlLike(ua) || isHeadlessBrowser(ua)) {
       logger.info('anti-automation: automation client flagged', { ip, path, ua })
       // 异步记录异常事件,不阻塞
       ipRep.recordBadEvent(ip, 'automation-ua').catch(() => {})

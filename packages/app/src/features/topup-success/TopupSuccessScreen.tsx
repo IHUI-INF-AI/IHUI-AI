@@ -51,7 +51,11 @@ export function TopupSuccessScreen({
             <Text style={styles.primaryText}>返回首页</Text>
           </TouchableOpacity>
           {faqItems && faqItems.length > 0 && onFaqVisibleChange && (
-            <TouchableOpacity style={styles.faqLink} activeOpacity={0.7} onPress={() => onFaqVisibleChange(true)}>
+            <TouchableOpacity
+              style={styles.faqLink}
+              activeOpacity={0.7}
+              onPress={() => onFaqVisibleChange(true)}
+            >
               <Text style={styles.faqText}>常见问题 ?</Text>
             </TouchableOpacity>
           )}
@@ -61,12 +65,20 @@ export function TopupSuccessScreen({
   )
 }
 
-function Row({ label, value, tk, styles }: { label: string; value: string; tk: AppThemeTokens; styles: ReturnType<typeof createStyles> }) {
+function Row({
+  label,
+  value,
+  tk,
+  styles,
+}: {
+  label: string
+  value: string
+  tk: AppThemeTokens
+  styles: ReturnType<typeof createStyles>
+}) {
   return (
     <View style={styles.row}>
-      <Text style={[styles.rowLabel, { color: tk.text.secondary }]}>
-        {label}
-      </Text>
+      <Text style={[styles.rowLabel, { color: tk.text.secondary }]}>{label}</Text>
       <Text style={[styles.rowValue, { color: tk.text.primary }]} numberOfLines={1}>
         {value}
       </Text>

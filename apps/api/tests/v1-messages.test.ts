@@ -21,7 +21,13 @@ vi.hoisted(() => {
 
 // mock db(避免连真实库)
 vi.mock('../src/db/index.js', () => ({
-  db: { execute: vi.fn().mockResolvedValue([]), select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  db: {
+    execute: vi.fn().mockResolvedValue([]),
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
   dbRead: { select: vi.fn() },
 }))
 
@@ -120,7 +126,10 @@ describe('anthropicRequestToOpenAI', () => {
   it('with system array:数组形式 system 拼接为字符串', () => {
     const input: AnthropicMessagesRequest = {
       model: 'claude-3-5-sonnet',
-      system: [{ type: 'text', text: '规则1' }, { type: 'text', text: '规则2' }],
+      system: [
+        { type: 'text', text: '规则1' },
+        { type: 'text', text: '规则2' },
+      ],
       messages: [{ role: 'user', content: 'hi' }],
       max_tokens: 256,
     }
@@ -173,9 +182,7 @@ describe('anthropicRequestToOpenAI', () => {
         },
         {
           role: 'user',
-          content: [
-            { type: 'tool_result', tool_use_id: 'toolu_01', content: '晴天 25 度' },
-          ],
+          content: [{ type: 'tool_result', tool_use_id: 'toolu_01', content: '晴天 25 度' }],
         },
       ],
       max_tokens: 1024,
@@ -288,9 +295,7 @@ describe('openAIStreamChunkToAnthropicEvents', () => {
     const state = createStreamState('claude-3-5-sonnet')
     const chunk: OpenAIChatChunk = {
       id: 'chatcmpl-1',
-      choices: [
-        { index: 0, delta: { content: '你好' }, finish_reason: null },
-      ],
+      choices: [{ index: 0, delta: { content: '你好' }, finish_reason: null }],
     }
     const events = openAIStreamChunkToAnthropicEvents(chunk, state)
     expect(events.map((e) => e.type)).toEqual([
@@ -338,7 +343,12 @@ describe('openAIStreamChunkToAnthropicEvents', () => {
             index: 0,
             delta: {
               tool_calls: [
-                { index: 0, id: 'call_01', type: 'function', function: { name: 'get_weather', arguments: '' } },
+                {
+                  index: 0,
+                  id: 'call_01',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '' },
+                },
               ],
             },
             finish_reason: null,
@@ -365,9 +375,7 @@ describe('openAIStreamChunkToAnthropicEvents', () => {
           {
             index: 0,
             delta: {
-              tool_calls: [
-                { index: 0, function: { arguments: '{"city":"北京"}' } },
-              ],
+              tool_calls: [{ index: 0, function: { arguments: '{"city":"北京"}' } }],
             },
             finish_reason: null,
           },

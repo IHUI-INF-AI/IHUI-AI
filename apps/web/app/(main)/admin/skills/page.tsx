@@ -33,7 +33,10 @@ export default function AdminSkillsPage() {
         description: input.description.trim() || undefined,
         version: input.version.trim() || undefined,
         tags: input.tags.trim()
-          ? input.tags.split(',').map((s) => s.trim()).filter(Boolean)
+          ? input.tags
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
           : undefined,
       }
       return api('/api/skills', { method: 'POST', body: JSON.stringify(body) })
@@ -118,10 +121,7 @@ export default function AdminSkillsPage() {
         onClose={() => setDelId(null)}
       />
 
-      <SkillMarketDialog
-        open={marketOpen}
-        onClose={() => setMarketOpen(false)}
-      />
+      <SkillMarketDialog open={marketOpen} onClose={() => setMarketOpen(false)} />
     </div>
   )
 }

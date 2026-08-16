@@ -27,17 +27,22 @@ export function SearchScreen() {
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
 
-  const runSearch = useCallback(async (kw: string) => {
-    const trimmed = kw.trim()
-    if (!trimmed) return
-    setLoading(true)
-    setError('')
-    setSearched(true)
-    const res = await fetchApi<SearchScreenItem[]>(`/api/search?keyword=${encodeURIComponent(trimmed)}`)
-    setLoading(false)
-    if (res.success) setResults(res.data ?? [])
-    else setError(res.error || t('search.failed'))
-  }, [t])
+  const runSearch = useCallback(
+    async (kw: string) => {
+      const trimmed = kw.trim()
+      if (!trimmed) return
+      setLoading(true)
+      setError('')
+      setSearched(true)
+      const res = await fetchApi<SearchScreenItem[]>(
+        `/api/search?keyword=${encodeURIComponent(trimmed)}`,
+      )
+      setLoading(false)
+      if (res.success) setResults(res.data ?? [])
+      else setError(res.error || t('search.failed'))
+    },
+    [t],
+  )
 
   const onSearch = useCallback(() => {
     void runSearch(keyword)

@@ -179,10 +179,7 @@ export const monitorRoutes: FastifyPluginAsync = async (server) => {
     const missRate = totalOps > 0 ? Math.round((misses / totalOps) * 10_000) / 100 : 0
 
     // 并行扫描 keys
-    const [topKeys, byPrefix] = await Promise.all([
-      getTopRedisKeys(redis),
-      getKeysByPrefix(redis),
-    ])
+    const [topKeys, byPrefix] = await Promise.all([getTopRedisKeys(redis), getKeysByPrefix(redis)])
 
     return reply.send(
       success({

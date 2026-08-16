@@ -96,7 +96,9 @@ export function DesktopSettingsCard() {
             <Power className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="whitespace-nowrap text-sm font-medium">开机自启</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">登录系统时自动启动并最小化到托盘</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                登录系统时自动启动并最小化到托盘
+              </p>
             </div>
           </div>
           <Switch
@@ -119,7 +121,9 @@ export function DesktopSettingsCard() {
           </div>
           <div className="grid grid-cols-1 gap-1.5 text-xs">
             <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">唤起 / 隐藏主窗口</span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                唤起 / 隐藏主窗口
+              </span>
               <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Shift+I
               </kbd>

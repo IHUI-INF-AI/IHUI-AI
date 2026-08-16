@@ -169,8 +169,9 @@ export async function checkConsistency(storyId: string): Promise<ConsistencyIssu
       type: p.type,
       description: p.description,
     }))
-    const unresolved = Array.from(story.unresolvedForeshadows)
-      .map((id) => story.plotPoints.find((p) => p.id === id)?.description ?? id)
+    const unresolved = Array.from(story.unresolvedForeshadows).map(
+      (id) => story.plotPoints.find((p) => p.id === id)?.description ?? id,
+    )
     const relationRules = Object.entries(SYMMETRIC_PAIRS)
       .map(([k, v]) => `${k}↔${v}`)
       .join(', ')
@@ -182,7 +183,11 @@ export async function checkConsistency(storyId: string): Promise<ConsistencyIssu
       },
       {
         role: 'user',
-        content: JSON.stringify({ characters: charactersCtx, plotPoints: plotCtx, unresolvedForeshadows: unresolved }, null, 2),
+        content: JSON.stringify(
+          { characters: charactersCtx, plotPoints: plotCtx, unresolvedForeshadows: unresolved },
+          null,
+          2,
+        ),
       },
     ]
     const result = await callRealLlm({ messages, temperature: 0.1, maxTokens: 1000 })
@@ -254,7 +259,11 @@ export async function analyzePacing(storyId: string): Promise<PacingAnalysis> {
         content: JSON.stringify({
           totalPoints: ruleBased.totalPoints,
           byType: ruleBased.byType,
-          plotPoints: story.plotPoints.map((p) => ({ chapter: p.chapter, type: p.type, description: p.description })),
+          plotPoints: story.plotPoints.map((p) => ({
+            chapter: p.chapter,
+            type: p.type,
+            description: p.description,
+          })),
         }),
       },
     ]
@@ -276,10 +285,7 @@ export async function analyzePacing(storyId: string): Promise<PacingAnalysis> {
 }
 
 /** 规则版章节大纲建议(LLM 降级用)。 */
-function suggestChapterOutlineRuleBased(
-  analysis: PacingAnalysis,
-  chapterNumber: number,
-): string[] {
+function suggestChapterOutlineRuleBased(analysis: PacingAnalysis, chapterNumber: number): string[] {
   const suggestions: string[] = [`第 ${chapterNumber} 章建议聚焦：`]
   if (analysis.byType.setup < 2) suggestions.push('- 完成主要角色设定与场景铺垫')
   if (analysis.byType.conflict < analysis.totalPoints * 0.3) {

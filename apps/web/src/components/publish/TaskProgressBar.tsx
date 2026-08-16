@@ -21,12 +21,7 @@ export interface TaskProgressBarProps {
   readonly running: boolean
 }
 
-export function TaskProgressBar({
-  completed,
-  total,
-  failed,
-  running,
-}: TaskProgressBarProps) {
+export function TaskProgressBar({ completed, total, failed, running }: TaskProgressBarProps) {
   const t = useTranslations('publish')
   const safeTotal = Math.max(1, total)
   const successCount = Math.max(0, completed - failed)
@@ -43,9 +38,7 @@ export function TaskProgressBar({
           <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
         ) : null}
         <span className="text-muted-foreground">
-          {allDone
-            ? t('taskAllComplete')
-            : `${t('taskProgress')} ${completed}/${total}`}
+          {allDone ? t('taskAllComplete') : `${t('taskProgress')} ${completed}/${total}`}
         </span>
         <span className="text-emerald-600 dark:text-emerald-400">
           {t('stats.totalSuccess')} {successCount}

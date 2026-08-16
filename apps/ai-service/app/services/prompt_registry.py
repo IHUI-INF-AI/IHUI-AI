@@ -152,7 +152,7 @@ class PromptRegistry:
         logger.info("Prompt 回滚成功: name=%s, target_version=%d, new_version=%d", name, target_version, new_version)
         return entry
 
-    def list_prompts(self) -> list[dict]:
+    def list_prompts(self) -> list[dict[str, Any]]:
         """列出所有 prompt。"""
         return [
             {
@@ -166,7 +166,7 @@ class PromptRegistry:
             for e in self._prompts.values()
         ]
 
-    def get_versions(self, name: str) -> list[dict]:
+    def get_versions(self, name: str) -> list[dict[str, Any]]:
         """获取指定 prompt 的所有版本。"""
         entry = self._prompts.get(name)
         if not entry:

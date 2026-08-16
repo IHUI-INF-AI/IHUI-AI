@@ -104,8 +104,8 @@ export function isFreeProviderModel(model: string): boolean {
  * 由 drizzle 自动参数化,防 SQL 注入。
  */
 function buildFreeProviderWhereSql(): SQL {
-  const conds: SQL[] = FREE_PROVIDER_PREFIXES.map((p) =>
-    sql`lower(model) LIKE ${p.toLowerCase() + '%'}`,
+  const conds: SQL[] = FREE_PROVIDER_PREFIXES.map(
+    (p) => sql`lower(model) LIKE ${p.toLowerCase() + '%'}`,
   )
   return sql.join(conds, sql` OR `)
 }

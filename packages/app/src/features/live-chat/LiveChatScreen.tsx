@@ -143,7 +143,13 @@ function createStyles(tk: AppThemeTokens) {
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     back: { fontSize: 16, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 12,
+    },
     list: { flex: 1 },
     empty: { paddingVertical: 40, alignItems: 'center' },
     msg: {

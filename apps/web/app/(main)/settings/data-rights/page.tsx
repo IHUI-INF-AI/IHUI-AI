@@ -160,13 +160,7 @@ interface UserFieldRow {
 }
 
 /** 将用户档案字段渲染为键值列表(i18n 有 key 的用翻译,其余用字段名)。 */
-function UserInfoList({
-  user,
-  t,
-}: {
-  user: ExportUser
-  t: ReturnType<typeof useTranslations>
-}) {
+function UserInfoList({ user, t }: { user: ExportUser; t: ReturnType<typeof useTranslations> }) {
   const rows: UserFieldRow[] = [
     { label: t('email'), value: formatValue(user.email) },
     { label: t('phone'), value: formatValue(user.phone) },
@@ -364,7 +358,11 @@ export default function DataRightsPage() {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">{t('portabilityDesc')}</p>
 
-              <Button onClick={handlePortability} disabled={portabilityLoading} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button
+                onClick={handlePortability}
+                disabled={portabilityLoading}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
                 {portabilityLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

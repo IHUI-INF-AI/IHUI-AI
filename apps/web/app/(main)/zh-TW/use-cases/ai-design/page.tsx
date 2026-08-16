@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, PaintBucket, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  PaintBucket,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 import { BackButton } from '@/components/common'
 
 const jsonLd = {
@@ -23,7 +33,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 設計協作', item: 'https://aizhs.top/zh-TW/use-cases/ai-design' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 設計協作',
+          item: 'https://aizhs.top/zh-TW/use-cases/ai-design',
+        },
       ],
     },
     {
@@ -41,12 +56,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 草圖轉程式碼模組' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '上傳品牌資產', text: '上傳品牌 VI/歷史海報/Logo/設計系統 tokens,AI 自動抽取色板/字體/版型,建構品牌設計語言模型。' },
-        { '@type': 'HowToStep', position: 2, name: '配置設計系統', text: '錄入 Figma Tokens(顏色/字級/間距/圓角/陰影),Agent 後續生成嚴格遵循設計系統,設計師無需重工。' },
-        { '@type': 'HowToStep', position: 3, name: '訓練概念生成', text: '基於品牌歷史爆款海報/Logo 訓練概念模型,AI 自動生成符合品牌調性的 3-5 個創意方向,設計師挑選深化。' },
-        { '@type': 'HowToStep', position: 4, name: '草圖轉程式碼', text: '上傳手繪 UI 草圖(白板/紙筆),Agent 自動辨識元件結構並生成 React + Tailwind 程式碼,準確率 85%+。' },
-        { '@type': 'HowToStep', position: 5, name: '設定評審規則', text: '配置可存取性(a11y)規則/品牌一致性規則/響應式規則,Agent 自動評審設計稿,標記需修改項目。' },
-        { '@type': 'HowToStep', position: 6, name: '接入協作工具', text: '對接 Figma/Sketch/即時設計/藍湖/Notion,設計師無需切換工具,AI 嵌入工作流。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '上傳品牌資產',
+          text: '上傳品牌 VI/歷史海報/Logo/設計系統 tokens,AI 自動抽取色板/字體/版型,建構品牌設計語言模型。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '配置設計系統',
+          text: '錄入 Figma Tokens(顏色/字級/間距/圓角/陰影),Agent 後續生成嚴格遵循設計系統,設計師無需重工。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '訓練概念生成',
+          text: '基於品牌歷史爆款海報/Logo 訓練概念模型,AI 自動生成符合品牌調性的 3-5 個創意方向,設計師挑選深化。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '草圖轉程式碼',
+          text: '上傳手繪 UI 草圖(白板/紙筆),Agent 自動辨識元件結構並生成 React + Tailwind 程式碼,準確率 85%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '設定評審規則',
+          text: '配置可存取性(a11y)規則/品牌一致性規則/響應式規則,Agent 自動評審設計稿,標記需修改項目。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '接入協作工具',
+          text: '對接 Figma/Sketch/即時設計/藍湖/Notion,設計師無需切換工具,AI 嵌入工作流。',
+        },
       ],
     },
   ],
@@ -75,12 +120,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '海報/Logo 概念生成', desc: '輸入品牌關鍵詞與目標受眾,AI 自動生成 3-5 個創意方向(配色/版型/字體),設計師挑選後深化,概念階段時間從 1 天壓縮到 1 小時。' },
-  { title: 'UI 草圖轉程式碼', desc: '上傳手繪 UI 草圖(白板/紙筆圖片),Agent 自動辨識元件結構並生成 React + Tailwind 程式碼,準確率 85%+,程式碼可讀性符合團隊規範。' },
-  { title: '品牌資產管理', desc: '統一管理 Logo/字體/色板/版型/圖示,新人 5 分鐘內熟悉品牌,品牌資產複用率從 30% 提升到 80%。' },
-  { title: '設計稿智慧評審', desc: '配置可存取性(a11y)/品牌一致性/響應式/對比度等規則,Agent 自動評審設計稿,標記需修改項目,回饋時間從 1 天縮到 10 分鐘。' },
-  { title: '設計系統檢索', desc: '自然語言查詢(如「找一個 12px 圓角的卡片元件」),Agent 從設計系統庫回傳最符合的歷史元件,設計師無需翻 Figma 檔案。' },
-  { title: '協作工具整合', desc: '對接 Figma/Sketch/即時設計/藍湖/Notion,設計師無需切換工具,AI 嵌入現有工作流,學習成本接近 0。' },
+  {
+    title: '海報/Logo 概念生成',
+    desc: '輸入品牌關鍵詞與目標受眾,AI 自動生成 3-5 個創意方向(配色/版型/字體),設計師挑選後深化,概念階段時間從 1 天壓縮到 1 小時。',
+  },
+  {
+    title: 'UI 草圖轉程式碼',
+    desc: '上傳手繪 UI 草圖(白板/紙筆圖片),Agent 自動辨識元件結構並生成 React + Tailwind 程式碼,準確率 85%+,程式碼可讀性符合團隊規範。',
+  },
+  {
+    title: '品牌資產管理',
+    desc: '統一管理 Logo/字體/色板/版型/圖示,新人 5 分鐘內熟悉品牌,品牌資產複用率從 30% 提升到 80%。',
+  },
+  {
+    title: '設計稿智慧評審',
+    desc: '配置可存取性(a11y)/品牌一致性/響應式/對比度等規則,Agent 自動評審設計稿,標記需修改項目,回饋時間從 1 天縮到 10 分鐘。',
+  },
+  {
+    title: '設計系統檢索',
+    desc: '自然語言查詢(如「找一個 12px 圓角的卡片元件」),Agent 從設計系統庫回傳最符合的歷史元件,設計師無需翻 Figma 檔案。',
+  },
+  {
+    title: '協作工具整合',
+    desc: '對接 Figma/Sketch/即時設計/藍湖/Notion,設計師無需切換工具,AI 嵌入現有工作流,學習成本接近 0。',
+  },
 ]
 
 const cases = [
@@ -119,7 +182,10 @@ const metrics = [
 export default function AiDesignPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         {/* Hero */}
@@ -132,13 +198,18 @@ export default function AiDesignPage() {
             AI 設計協作:草圖轉程式碼 + 品牌資產統一管理
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0 開源,支援私有化部署,Figma/即時設計深度整合。
+            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0
+            開源,支援私有化部署,Figma/即時設計深度整合。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -148,11 +219,16 @@ export default function AiDesignPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">設計團隊的協作痛點</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              設計團隊的協作痛點
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -162,7 +238,9 @@ export default function AiDesignPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -178,7 +256,9 @@ export default function AiDesignPage() {
 
         {/* 案例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">客戶落地案例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            客戶落地案例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -193,7 +273,9 @@ export default function AiDesignPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術棧與工具鏈</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術棧與工具鏈
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源,Figma/即時設計深度整合。
@@ -211,7 +293,9 @@ export default function AiDesignPage() {
         {/* 聯絡/CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">開始搭建你的 AI 設計協作助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            開始搭建你的 AI 設計協作助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             註冊即得 1000 積分,從設計協作場景模板一鍵 fork,30 分鐘體驗草圖轉程式碼。
           </p>
@@ -230,10 +314,18 @@ export default function AiDesignPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 設計諮詢 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 設計學院 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 品牌訂製 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Figma 外掛 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 設計諮詢 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 設計學院 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 品牌訂製 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Figma 外掛 8809
+            </span>
           </div>
         </section>
       </main>

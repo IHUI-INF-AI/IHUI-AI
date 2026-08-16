@@ -163,7 +163,10 @@ export default function CouponPage() {
                   </Button>
                 ) : (
                   <Text className="self-end mt-[16rpx] text-[22rpx] text-muted-foreground">
-                    {tt(COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired', c.status === 'used' ? '已使用' : '已过期')}
+                    {tt(
+                      COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired',
+                      c.status === 'used' ? '已使用' : '已过期',
+                    )}
                   </Text>
                 )}
               </View>

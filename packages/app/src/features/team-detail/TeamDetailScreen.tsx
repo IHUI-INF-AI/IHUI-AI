@@ -123,7 +123,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     avatar: {
-      width: 48, height: 48, borderRadius: 24,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

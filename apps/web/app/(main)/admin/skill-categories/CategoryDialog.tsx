@@ -65,7 +65,9 @@ export function CategoryFormDialog({
   }
 
   function renderPreviewIcon(iconName: string) {
-    const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[iconName]
+    const Icon = (
+      LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>
+    )[iconName]
     if (!Icon) return null
     return <Icon className="h-4 w-4" />
   }

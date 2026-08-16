@@ -1,13 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  XCircle,
-} from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, XCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'

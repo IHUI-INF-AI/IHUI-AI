@@ -59,25 +59,28 @@ export default function CircleDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const loadedRef = useRef('')
 
-  const loadAll = useCallback(async (qid: string) => {
-    try {
-      const res = (await getCircleDetail(qid)) as DetailExt
-      setData(res)
-      setLiked(!!res.liked)
-      setFavorited(!!res.favorited)
-      setFollowing(!!res.following)
-    } catch (e) {
-      logger.error('circle/detail', '获取动态详情', e)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
-    }
-    try {
-      const c = await get<CommentData>(`/circles/${qid}/comments`, { page: 1, pageSize: 10 })
-      setComments(c.list || [])
-      setCommentTotal(c.total || 0)
-    } catch (e) {
-      logger.error('circle/detail', '加载评论', e)
-    }
-  }, [tt])
+  const loadAll = useCallback(
+    async (qid: string) => {
+      try {
+        const res = (await getCircleDetail(qid)) as DetailExt
+        setData(res)
+        setLiked(!!res.liked)
+        setFavorited(!!res.favorited)
+        setFollowing(!!res.following)
+      } catch (e) {
+        logger.error('circle/detail', '获取动态详情', e)
+        Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+      }
+      try {
+        const c = await get<CommentData>(`/circles/${qid}/comments`, { page: 1, pageSize: 10 })
+        setComments(c.list || [])
+        setCommentTotal(c.total || 0)
+      } catch (e) {
+        logger.error('circle/detail', '加载评论', e)
+      }
+    },
+    [tt],
+  )
 
   useDidShow(() => {
     const instance = Taro.getCurrentInstance()
@@ -233,11 +236,7 @@ export default function CircleDetailPage() {
             {data.aigcWork ? (
               <View className="cd-aigc-card" onClick={goAigcDetail}>
                 {data.aigcWork.coverUrl ? (
-                  <Image
-                    className="cd-aigc-cover"
-                    src={data.aigcWork.coverUrl}
-                    mode="aspectFill"
-                  />
+                  <Image className="cd-aigc-cover" src={data.aigcWork.coverUrl} mode="aspectFill" />
                 ) : null}
                 <View className="cd-aigc-info">
                   <Text className="cd-aigc-tag">{tt('circle.detail.aigcTag', 'AI 作品')}</Text>

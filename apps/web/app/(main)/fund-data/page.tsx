@@ -8,8 +8,17 @@ import { Calendar, DollarSign, Loader2, Search, TrendingUp } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
-  Button, Card, CardContent, CardHeader, CardTitle,
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -202,7 +211,11 @@ export default function FundDataPage() {
               {t('loading')}
             </div>
           ) : historyQuery.isError ? (
-            <Alert variant="danger" title={t('error')} description={(historyQuery.error as Error).message} />
+            <Alert
+              variant="danger"
+              title={t('error')}
+              description={(historyQuery.error as Error).message}
+            />
           ) : history.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-8">
               <Calendar className="h-8 w-8 text-muted-foreground" />

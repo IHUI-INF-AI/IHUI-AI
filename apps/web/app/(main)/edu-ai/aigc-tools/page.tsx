@@ -425,17 +425,25 @@ export default function EduAiAigcToolsPage() {
               </div>
 
               {detail.pros?.length ? (
-                <DetailSection title={t('pros')} items={detail.pros} marker="+" markerClass="text-emerald-600" />
+                <DetailSection
+                  title={t('pros')}
+                  items={detail.pros}
+                  marker="+"
+                  markerClass="text-emerald-600"
+                />
               ) : null}
               {detail.cons?.length ? (
-                <DetailSection title={t('cons')} items={detail.cons} marker="-" markerClass="text-rose-600" />
+                <DetailSection
+                  title={t('cons')}
+                  items={detail.cons}
+                  marker="-"
+                  markerClass="text-rose-600"
+                />
               ) : null}
               {detail.alternatives?.length ? (
                 <DetailSection title={t('alternatives')} items={detail.alternatives} />
               ) : null}
-              {detail.tips?.length ? (
-                <DetailSection title={t('tips')} items={detail.tips} />
-              ) : null}
+              {detail.tips?.length ? <DetailSection title={t('tips')} items={detail.tips} /> : null}
             </div>
           ) : null}
         </DialogContent>

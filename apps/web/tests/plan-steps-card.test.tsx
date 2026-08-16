@@ -70,7 +70,7 @@ const I18N_MAP: Record<string, string> = {
   'plan.copyReasoning': '复制推理过程',
   'plan.reasoningCopied': '推理过程已复制',
   'plan.reasoningCopyFailed': '复制失败',
-  'copied': '已复制',
+  copied: '已复制',
 }
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, string | number>) => {
@@ -100,13 +100,7 @@ vi.mock('@ihui/ui-react', () => ({
     children: React.ReactNode
     asChild?: boolean
   }) => <div data-testid="tooltip-trigger">{children}</div>,
-  TooltipContent: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode
-    side?: string
-  }) => (
+  TooltipContent: ({ children, ...props }: { children: React.ReactNode; side?: string }) => (
     <div data-testid="tooltip-content" data-side={props.side ?? 'top'}>
       {children}
     </div>
@@ -263,9 +257,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('有 explanation 时渲染说明文本(短文本直接显示)', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '分析需求', explanation: '这是详细说明' }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '分析需求', explanation: '这是详细说明' })]
     render(<PlanStepsCard steps={steps} />)
     expect(screen.getByText('这是详细说明')).toBeTruthy()
   })
@@ -367,9 +359,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('点击步骤跳转消息:有 sourceMessageId 时调用 requestJumpToMessage', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '可跳转步骤', sourceMessageId: 'msg-123' }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '可跳转步骤', sourceMessageId: 'msg-123' })]
     const { container } = render(<PlanStepsCard steps={steps} />)
     const li = container.querySelector(`[data-testid="plan-steps-card-item-s1"]`)
     expect(li).toBeTruthy()
@@ -378,9 +368,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('hover 步骤联动:setHoveredPlanStep 被调用', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '可联动步骤', sourceMessageId: 'msg-456' }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '可联动步骤', sourceMessageId: 'msg-456' })]
     const { container } = render(<PlanStepsCard steps={steps} />)
     const li = container.querySelector(`[data-testid="plan-steps-card-item-s1"]`)!
     fireEvent.mouseEnter(li)
@@ -460,9 +448,7 @@ describe('PlanStepsCard', () => {
   // ─── Tooltip 富文本浮层(2026-07-31 升级 native title → shadcn Tooltip) ──
 
   it('分段进度条段落 hover 显示 Tooltip 富文本(步骤名 + 状态 + 耗时)', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '分析需求', status: 'completed', durationMs: 1500 }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '分析需求', status: 'completed', durationMs: 1500 })]
     render(<PlanStepsCard steps={steps} />)
     const tooltipContent = screen.getByTestId('tooltip-content')
     expect(tooltipContent.textContent).toContain('分析需求')
@@ -485,9 +471,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('段落 Tooltip 在 error=true 时显示错误状态文案', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '连接数据库', status: 'completed', error: true }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '连接数据库', status: 'completed', error: true })]
     render(<PlanStepsCard steps={steps} />)
     const tooltipContent = screen.getByTestId('tooltip-content')
     expect(tooltipContent.textContent).toContain('失败')
@@ -504,9 +488,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('段落 Tooltip 在无 durationMs 时不显示耗时', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '分析需求', status: 'pending' }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '分析需求', status: 'pending' })]
     render(<PlanStepsCard steps={steps} />)
     const tooltipContent = screen.getByTestId('tooltip-content')
     expect(tooltipContent.textContent).toContain('待开始')

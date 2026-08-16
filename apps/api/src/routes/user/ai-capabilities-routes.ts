@@ -104,7 +104,10 @@ const aiCapabilitiesRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      request.log.warn({ err: e, capabilityId: cap.id }, 'ai capability invoke LLM 调用失败,降级返回')
+      request.log.warn(
+        { err: e, capabilityId: cap.id },
+        'ai capability invoke LLM 调用失败,降级返回',
+      )
       return reply.send(
         success({
           success: true,
@@ -116,9 +119,7 @@ const aiCapabilitiesRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/v1/ai/capabilities/auto-match', async (request, reply) => {
-    const body = z
-      .object({ input: z.string().min(1).max(2000) })
-      .safeParse(request.body ?? {})
+    const body = z.object({ input: z.string().min(1).max(2000) }).safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     const q = body.data.input.toLowerCase()
     let best: { cap: CapabilityItem; score: number } | null = null

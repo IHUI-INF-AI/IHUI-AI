@@ -48,9 +48,7 @@ export default function LoginPageClient() {
   // QR 模式:从 URL 参数读取初始平台
   const platformParam = searchParams.get('platform') as ThirdPartyPlatform | null
   const defaultPlatform =
-    platformParam && QR_PLATFORMS.some((p) => p.key === platformParam)
-      ? platformParam
-      : 'wechat'
+    platformParam && QR_PLATFORMS.some((p) => p.key === platformParam) ? platformParam : 'wechat'
 
   useEffect(() => {
     // QR 嵌入模式:不打开弹窗,直接渲染页面内容

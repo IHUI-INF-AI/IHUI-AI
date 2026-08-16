@@ -117,10 +117,9 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
   })
 
   it('token 从 null 变为有值时建立连接', () => {
-    const { rerender } = renderHook(
-      ({ token }) => useNotificationWebSocket(token),
-      { initialProps: { token: null as string | null } },
-    )
+    const { rerender } = renderHook(({ token }) => useNotificationWebSocket(token), {
+      initialProps: { token: null as string | null },
+    })
 
     expect(mockCreateClient).not.toHaveBeenCalled()
 
@@ -131,10 +130,9 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
   })
 
   it('token 变化时断开旧连接建立新连接', () => {
-    const { rerender } = renderHook(
-      ({ token }) => useNotificationWebSocket(token),
-      { initialProps: { token: 'token-1' } },
-    )
+    const { rerender } = renderHook(({ token }) => useNotificationWebSocket(token), {
+      initialProps: { token: 'token-1' },
+    })
 
     const oldClient = clients[0]!
     expect(oldClient.connect).toHaveBeenCalled()

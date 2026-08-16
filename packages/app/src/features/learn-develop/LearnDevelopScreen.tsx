@@ -28,15 +28,22 @@ export function LearnDevelopScreen({
           <View style={styles.cardGradientBottom} />
           <View style={styles.cardContent}>
             <View style={styles.benefitsList}>
-              <Text style={styles.benefitText}>{t('learnDevelop.comingSoon', { fallback: '课程星球正在开发中' })}</Text>
+              <Text style={styles.benefitText}>
+                {t('learnDevelop.comingSoon', { fallback: '课程星球正在开发中' })}
+              </Text>
             </View>
             <Pressable
-              style={({ pressed }) => [styles.detailsButton, pressed ? styles.detailsButtonPressed : null]}
+              style={({ pressed }) => [
+                styles.detailsButton,
+                pressed ? styles.detailsButtonPressed : null,
+              ]}
               onPress={onContact}
               accessibilityRole="button"
               accessibilityLabel={t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
             >
-              <Text style={styles.detailsButtonText}>{t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}</Text>
+              <Text style={styles.detailsButtonText}>
+                {t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+              </Text>
             </Pressable>
           </View>
         </View>

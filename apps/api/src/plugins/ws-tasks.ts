@@ -6,12 +6,7 @@ import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
 import { eq, and } from 'drizzle-orm'
-import {
-  agentTasks,
-  contentGenerationTasks,
-  exportTasks,
-  workspaceAiTasks,
-} from '@ihui/database'
+import { agentTasks, contentGenerationTasks, exportTasks, workspaceAiTasks } from '@ihui/database'
 
 /**
  * WebSocket 任务进度推送插件(多实例版本,使用 Redis Pub/Sub)。
@@ -108,10 +103,7 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
               .select({ id: contentGenerationTasks.id })
               .from(contentGenerationTasks)
               .where(
-                and(
-                  eq(contentGenerationTasks.id, taskId),
-                  eq(contentGenerationTasks.userId, uid),
-                ),
+                and(eq(contentGenerationTasks.id, taskId), eq(contentGenerationTasks.userId, uid)),
               )
               .limit(1),
           () =>
@@ -124,12 +116,7 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
             db
               .select({ id: workspaceAiTasks.id })
               .from(workspaceAiTasks)
-              .where(
-                and(
-                  eq(workspaceAiTasks.id, taskId),
-                  eq(workspaceAiTasks.userId, uid),
-                ),
-              )
+              .where(and(eq(workspaceAiTasks.id, taskId), eq(workspaceAiTasks.userId, uid)))
               .limit(1),
         ]
         let owned = false

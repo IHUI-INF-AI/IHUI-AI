@@ -119,9 +119,16 @@ function MemberPanel({ group }: { group: Group }) {
   return (
     <div className="space-y-3">
       {success && (
-        <Alert variant="success" description={t('success')} closable onClose={() => setSuccess(false)} />
+        <Alert
+          variant="success"
+          description={t('success')}
+          closable
+          onClose={() => setSuccess(false)}
+        />
       )}
-      {error && <Alert variant="danger" description={error} closable onClose={() => setError('')} />}
+      {error && (
+        <Alert variant="danger" description={error} closable onClose={() => setError('')} />
+      )}
 
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Shield className="h-3.5 w-3.5 shrink-0 text-primary/70" />
@@ -212,7 +219,9 @@ function EditGroupDialog({ group, open, onOpenChange, onSave }: EditGroupDialogP
           <DialogDescription>{group?.name}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {error && <Alert variant="danger" description={error} closable onClose={() => setError('')} />}
+          {error && (
+            <Alert variant="danger" description={error} closable onClose={() => setError('')} />
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="group-name">{t('groupName')}</Label>
             <Input
@@ -311,7 +320,9 @@ function GroupCard({
             onClick={() => setMembersOpen((o) => !o)}
           >
             {t('memberList')}
-            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', membersOpen && 'rotate-180')} />
+            <ChevronDown
+              className={cn('ml-1 h-3.5 w-3.5 transition-transform', membersOpen && 'rotate-180')}
+            />
           </Button>
           <Button variant="outline" size="sm" onClick={() => onEdit(group)}>
             <Pencil className="mr-1 h-3.5 w-3.5" />
@@ -441,7 +452,10 @@ export default function GroupsPage() {
           />
           <Button
             onClick={() =>
-              createGroup.mutate({ name: name.trim(), description: description.trim() || undefined })
+              createGroup.mutate({
+                name: name.trim(),
+                description: description.trim() || undefined,
+              })
             }
             disabled={!name.trim() || createGroup.isPending}
             className="shrink-0"

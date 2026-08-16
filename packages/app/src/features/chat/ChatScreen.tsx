@@ -1,13 +1,5 @@
 import { useMemo } from 'react'
-import {
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   ChatScreenMessage,
@@ -81,8 +73,7 @@ export function ChatScreen({
 
   const renderItem = ({ item, index }: { item: ChatScreenMessage; index: number }) => {
     const isUser = item.role === 'user'
-    const isLastAi =
-      item.role === 'assistant' && isStreaming && index === messages.length - 1
+    const isLastAi = item.role === 'assistant' && isStreaming && index === messages.length - 1
     const setRef = (el: View | null) => {
       if (onMessageRef) onMessageRef(item.id, el)
     }
@@ -112,7 +103,11 @@ export function ChatScreen({
           <Text style={styles.title}>{t('chat.title')}</Text>
           <View style={styles.navRow}>
             {navItems.map((n) => (
-              <TouchableOpacity key={n.key} onPress={n.onPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                key={n.key}
+                onPress={n.onPress}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.navText}>{n.label}</Text>
               </TouchableOpacity>
             ))}
@@ -184,8 +179,12 @@ export function ChatScreen({
         }
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={renderListHeader !== undefined ? () => <>{renderListHeader}</> : undefined}
-        ListFooterComponent={renderListFooter !== undefined ? () => <>{renderListFooter}</> : undefined}
+        ListHeaderComponent={
+          renderListHeader !== undefined ? () => <>{renderListHeader}</> : undefined
+        }
+        ListFooterComponent={
+          renderListFooter !== undefined ? () => <>{renderListFooter}</> : undefined
+        }
       />
 
       {error ? (

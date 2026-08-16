@@ -7,12 +7,18 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: { count?: number }) => {
     const fmt = (label: string, count: number) => `${label} (${count})`
     switch (key) {
-      case 'plan': return fmt('计划', params?.count ?? 0)
-      case 'reference': return fmt('引用', params?.count ?? 0)
-      case 'toolCallStats': return `工具调用 (${params?.count ?? 0} 次)`
-      case 'moreItems': return `还有 ${params?.count ?? 0} 个`
-      case 'parameters': return '参数'
-      default: return key
+      case 'plan':
+        return fmt('计划', params?.count ?? 0)
+      case 'reference':
+        return fmt('引用', params?.count ?? 0)
+      case 'toolCallStats':
+        return `工具调用 (${params?.count ?? 0} 次)`
+      case 'moreItems':
+        return `还有 ${params?.count ?? 0} 个`
+      case 'parameters':
+        return '参数'
+      default:
+        return key
     }
   },
 }))
@@ -84,9 +90,7 @@ describe('ToolCallCard repeated 徽章渲染', () => {
       />,
     )
     const badge = screen.getByText('已跳过')
-    expect(badge.getAttribute('aria-label')).toBe(
-      'LLM 试图重复调用同参数工具,被去重机制跳过',
-    )
+    expect(badge.getAttribute('aria-label')).toBe('LLM 试图重复调用同参数工具,被去重机制跳过')
   })
 
   it('repeated 徽章与 iteration 徽章共存时都渲染', () => {
@@ -134,11 +138,7 @@ describe('ToolCallCard image rendering', () => {
 
   it('image_generation 工具无 imageUrl 时回退到 JSON 渲染', () => {
     render(
-      <ToolCallCard
-        toolName="image_generation"
-        args={{ prompt: '一只猫' }}
-        status="success"
-      />,
+      <ToolCallCard toolName="image_generation" args={{ prompt: '一只猫' }} status="success" />,
     )
     fireEvent.click(screen.getByText('image_generation').closest('button')!)
     // 无 img
@@ -188,13 +188,7 @@ describe('ToolCallCard summary rendering', () => {
   })
 
   it('summarize_artifacts 无 summaryData 时回退到 JSON', () => {
-    render(
-      <ToolCallCard
-        toolName="summarize_artifacts"
-        args={{}}
-        status="success"
-      />,
-    )
+    render(<ToolCallCard toolName="summarize_artifacts" args={{}} status="success" />)
     fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
     // 无聚合视图标题
     expect(screen.queryByText(/^计划/)).toBeNull()

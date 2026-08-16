@@ -121,7 +121,9 @@ export default function DistributionTeamPage() {
                 {teamQ.isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{s.value}</div>
+                  <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                    {s.value}
+                  </div>
                 )}
               </CardContent>
             </Card>

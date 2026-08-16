@@ -40,10 +40,7 @@ export function HighRiskWarningBanner(props: {
       aria-live="polite"
       className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 animate-pulse-soft"
     >
-      <AlertTriangle
-        className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500"
-        aria-hidden="true"
-      />
+      <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
       <div className="min-w-0 flex-1 leading-snug">
         <div>{t('permission.inputWarning')}</div>
         {autoRevert.isActive ? (

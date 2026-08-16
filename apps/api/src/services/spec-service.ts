@@ -951,7 +951,8 @@ class SpecService {
   }): Promise<SpecGenerateFromRequirementResult> {
     const { requirement, format } = input
     const timestamp = new Date().toISOString().slice(0, 10)
-    const requirementPreview = requirement.length > 500 ? requirement.slice(0, 500) + '...' : requirement
+    const requirementPreview =
+      requirement.length > 500 ? requirement.slice(0, 500) + '...' : requirement
 
     const sections: Array<{ title: string; level: number }> = [
       { title: '概述', level: 1 },
@@ -1039,10 +1040,9 @@ ${requirementPreview}
     // 读取 base spec 内容
     let baseSpec = ''
     if (input.baseVersion === 'latest') {
-      baseSpec = await readFile(
-        join(root, '.trae-cn', 'specs', `${scopeHash}.md`),
-        'utf-8',
-      ).catch(() => '')
+      baseSpec = await readFile(join(root, '.trae-cn', 'specs', `${scopeHash}.md`), 'utf-8').catch(
+        () => '',
+      )
     } else {
       baseSpec = await readFile(
         join(root, '.trae-cn', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
@@ -1160,9 +1160,7 @@ ${requirementPreview}
     const scopeHash = computeScopeHash(input.scope)
 
     const branches = await this.readBranchIndex(root)
-    const target = branches.find(
-      (b) => b.specId === scopeHash && b.name === input.branchName,
-    )
+    const target = branches.find((b) => b.specId === scopeHash && b.name === input.branchName)
     if (!target) {
       return { abandoned: false, branchName: input.branchName }
     }
@@ -1194,8 +1192,17 @@ ${requirementPreview}
     const changes = input.proposedChanges.toLowerCase()
 
     const HIGH_RISK_KEYWORDS = [
-      'delete', 'remove', 'drop', 'migrate', 'refactor', 'breaking',
-      '删除', '移除', '迁移', '重构', '破坏性',
+      'delete',
+      'remove',
+      'drop',
+      'migrate',
+      'refactor',
+      'breaking',
+      '删除',
+      '移除',
+      '迁移',
+      '重构',
+      '破坏性',
     ]
     const TEST_KEYWORDS = ['test', 'spec', '__tests__', '测试', 'e2e']
 
@@ -1441,15 +1448,10 @@ ${requirementPreview}
    * 本地实装:读取 .trae-cn/specs/branches/index.json。
    * scope 给定时按 specId 过滤,否则返回全部(不同 scope 的分支)。
    */
-  async listBranches(
-    workspacePath: string,
-    scope?: SpecScope,
-  ): Promise<SpecBranchesResult> {
+  async listBranches(workspacePath: string, scope?: SpecScope): Promise<SpecBranchesResult> {
     const root = resolve(workspacePath)
     const branches = await this.readBranchIndex(root)
-    const filtered = scope
-      ? branches.filter((b) => b.specId === computeScopeHash(scope))
-      : branches
+    const filtered = scope ? branches.filter((b) => b.specId === computeScopeHash(scope)) : branches
     return { branches: filtered }
   }
 

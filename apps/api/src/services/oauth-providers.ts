@@ -188,7 +188,12 @@ async function getWecomAccessToken(): Promise<string> {
   const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${env.WECOM_CORP_ID}&corpsecret=${env.WECOM_SECRET}`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`WeCom gettoken failed: ${resp.status}`)
-  const data = (await resp.json()) as { access_token?: string; expires_in?: number; errcode?: number; errmsg?: string }
+  const data = (await resp.json()) as {
+    access_token?: string
+    expires_in?: number
+    errcode?: number
+    errmsg?: string
+  }
   if (!data.access_token) {
     throw new Error(`WeCom gettoken error: ${data.errcode ?? '?'} ${data.errmsg ?? ''}`)
   }

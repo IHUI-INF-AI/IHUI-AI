@@ -94,14 +94,25 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
   beforeEach(() => {
     if (typeof window !== 'undefined' && !window.matchMedia) {
       window.matchMedia = ((query: string) => ({
-        matches: false, media: query, onchange: null,
-        addListener: () => {}, removeListener: () => {},
-        addEventListener: () => {}, removeEventListener: () => {},
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
         dispatchEvent: () => false,
       })) as unknown as typeof window.matchMedia
     }
-    if (typeof globalThis !== 'undefined' && !(globalThis as { ResizeObserver?: unknown }).ResizeObserver) {
-      class MockResizeObserver { observe() {} unobserve() {} disconnect() {} }
+    if (
+      typeof globalThis !== 'undefined' &&
+      !(globalThis as { ResizeObserver?: unknown }).ResizeObserver
+    ) {
+      class MockResizeObserver {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
       ;(globalThis as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver
     }
     localStorage.clear()

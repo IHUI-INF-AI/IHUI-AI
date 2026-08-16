@@ -65,7 +65,9 @@ describe('Switch 粗野硬阴影 (Neo-Brutalist,2026-08-01 重设计)', () => {
     const rootCls = screen.getByTestId('sw').getAttribute('class') ?? ''
     const thumb = screen.getByTestId('sw').querySelector('span')
     const thumbCls = thumb?.getAttribute('class') ?? ''
-    expect(rootCls, 'ON 应为品牌橙').toContain('data-[state=checked]:bg-[var(--color-brand-orange)]')
+    expect(rootCls, 'ON 应为品牌橙').toContain(
+      'data-[state=checked]:bg-[var(--color-brand-orange)]',
+    )
     expect(thumbCls, 'ON 拇指应变白').toContain('data-[state=checked]:bg-background')
   })
 })
@@ -89,7 +91,6 @@ describe('Switch prefers-reduced-motion 降级', () => {
     expect(cls, 'Thumb 应该有 motion-reduce:transition-none').toContain(
       'motion-reduce:transition-none',
     )
-
   })
 })
 

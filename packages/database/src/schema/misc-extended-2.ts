@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * 热搜词表。
@@ -11,7 +11,7 @@ export const hotWords = pgTable('hot_words', {
   status: varchar('status', { length: 20 }).default('active').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 资讯置顶表。
@@ -22,7 +22,7 @@ export const newsTops = pgTable('news_tops', {
   newsId: uuid('news_id').notNull(),
   sort: integer('sort').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 资讯推荐表。
@@ -33,11 +33,11 @@ export const newsRecommends = pgTable('news_recommends', {
   newsId: uuid('news_id').notNull(),
   sort: integer('sort').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type HotWord = typeof hotWords.$inferSelect;
-export type NewHotWord = typeof hotWords.$inferInsert;
-export type NewsTop = typeof newsTops.$inferSelect;
-export type NewNewsTop = typeof newsTops.$inferInsert;
-export type NewsRecommend = typeof newsRecommends.$inferSelect;
-export type NewNewsRecommend = typeof newsRecommends.$inferInsert;
+export type HotWord = typeof hotWords.$inferSelect
+export type NewHotWord = typeof hotWords.$inferInsert
+export type NewsTop = typeof newsTops.$inferSelect
+export type NewNewsTop = typeof newsTops.$inferInsert
+export type NewsRecommend = typeof newsRecommends.$inferSelect
+export type NewNewsRecommend = typeof newsRecommends.$inferInsert

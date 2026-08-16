@@ -22,7 +22,16 @@ type TabKey = 'platform' | 'external'
 
 const TAB_CATEGORY_MAP: Record<TabKey, string[]> = {
   platform: ['AI 模型发布', 'AI 学术前沿', 'AI 产业动态', 'AI 安全与治理'],
-  external: ['科技前沿', '教育创新', '金融科技', '医疗健康', '机器人产业', 'AI 艺术', '创业投资', '政策法规'],
+  external: [
+    '科技前沿',
+    '教育创新',
+    '金融科技',
+    '医疗健康',
+    '机器人产业',
+    'AI 艺术',
+    '创业投资',
+    '政策法规',
+  ],
 }
 
 function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {

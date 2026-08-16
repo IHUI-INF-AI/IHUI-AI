@@ -25,9 +25,7 @@ import type { Tenant, TenantForm } from './types'
 
 type PendingMap = { [slug: string]: 'pause' | 'resume' | 'backup' | 'delete' | null }
 
-type ConfirmAction =
-  | { type: 'pause' | 'resume' | 'backup' | 'delete'; tenant: Tenant }
-  | null
+type ConfirmAction = { type: 'pause' | 'resume' | 'backup' | 'delete'; tenant: Tenant } | null
 
 export default function AdminSaasPage() {
   const t = useTranslations('admin.saas')

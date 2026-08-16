@@ -140,8 +140,7 @@ async function triggerAndMeasure(page: Page): Promise<DialogMeasurement> {
         position: cs.position,
         className: (agreement.className || '').toString().substring(0, 200),
       },
-      fixSuccess:
-        Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5,
+      fixSuccess: Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5,
     }
   })
 }

@@ -76,9 +76,4 @@ export const approvalMachine = setup({
   },
 })
 
-export type ApprovalState =
-  | 'draft'
-  | 'submitted'
-  | 'approved'
-  | 'rejected'
-  | 'cancelled'
+export type ApprovalState = 'draft' | 'submitted' | 'approved' | 'rejected' | 'cancelled'

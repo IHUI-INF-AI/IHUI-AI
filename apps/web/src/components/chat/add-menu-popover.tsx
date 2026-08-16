@@ -100,11 +100,7 @@ export function AddMenuPopover(props: {
             onSendToChat={onSkillSendToChat}
           />
         ) : (
-          <div
-            role="menu"
-            aria-label={t('addMenuDesc')}
-            className="flex w-60 flex-col gap-0.5"
-          >
+          <div role="menu" aria-label={t('addMenuDesc')} className="flex w-60 flex-col gap-0.5">
             <button
               type="button"
               role="menuitem"

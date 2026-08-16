@@ -2,7 +2,15 @@
 
 import * as React from 'react'
 import { Loader2, ChevronRight, ChevronDown, MessageSquare } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 export interface SessionMessage {
@@ -45,7 +53,17 @@ function shortId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) + '…' : id
 }
 
-function SessionRow({ node, prefix, isLast, depth }: { node: SessionNode; prefix: string; isLast: boolean; depth: number }) {
+function SessionRow({
+  node,
+  prefix,
+  isLast,
+  depth,
+}: {
+  node: SessionNode
+  prefix: string
+  isLast: boolean
+  depth: number
+}) {
   const [open, setOpen] = React.useState(false)
   const badge = STATUS_BADGE[node.status]
   const hasChildren = !!node.children && node.children.length > 0
@@ -58,7 +76,11 @@ function SessionRow({ node, prefix, isLast, depth }: { node: SessionNode; prefix
       <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-xs hover:bg-muted/40 rounded-sm">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
         <CollapsibleTrigger className="flex flex-1 min-w-0 items-center gap-1.5 text-left">
-          {open ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+          {open ? (
+            <ChevronDown className="h-3 w-3 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0" />
+          )}
           <span className="font-medium">{shortId(node.id)}</span>
           <span className="text-muted-foreground">{timeFmt.format(new Date(node.startedAt))}</span>
           <span className="flex items-center gap-0.5 text-muted-foreground">

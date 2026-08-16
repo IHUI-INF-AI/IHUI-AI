@@ -125,7 +125,11 @@ export function FundingSection({ items }: Props) {
             >
               {t(SORT_BY_LABEL_KEY[field] ?? 'funding.sortByDate')}
               {sortField === field ? (
-                sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                sortDir === 'asc' ? (
+                  <ArrowUp className="h-2 w-2" />
+                ) : (
+                  <ArrowDown className="h-2 w-2" />
+                )
               ) : null}
             </button>
           ))}
@@ -142,7 +146,10 @@ export function FundingSection({ items }: Props) {
           </div>
         ) : null}
         {filtered.map((item) => (
-          <Card key={item.id} className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md">
+          <Card
+            key={item.id}
+            className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
+          >
             <CardContent className="space-y-2 p-4">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="success">{item.amount}</Badge>

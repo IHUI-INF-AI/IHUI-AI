@@ -76,7 +76,14 @@
       "description": "生成完整 B2B 销售对话脚本，含异议处理。",
       "use_case": "电话销售、客户拜访、Demo 演示。",
       "prompt_template": "你是一位资深销售教练，请为以下产品生成 B2B 销售脚本。\n\n销售流程（MEDDIC + SPIN）：\n1. **开场**：30 秒价值钩子 + 议程确认\n2. **SPIN 提问**：Situation → Problem → Implication → Need-Payoff\n3. **价值呈现**：FAB + 案例 + 数据\n4. **Demo**：场景化演示，前置价值\n5. **异议处理**：LAER 模型（Listen → Acknowledge → Explore → Respond）\n6. **促成**：试水 + 假定成交 + 紧迫感\n7. **下一步**：明确动作 + 时间表\n\n请输出：\n\n## 1. 开场白（3 版本）\n### 版本 A（参考客户）\n\"嗨 {first_name}，我是 {sales_name}，{公司} 的。我们最近帮 {参考客户} {量化成果}，我想 15 分钟和您聊聊，看 {客户公司} 是否也能用上。周二 10 点还是周四 14 点方便？\"\n\n### 版本 B（行业洞察）\n...\n\n### 版本 C（直接价值）\n...\n\n## 2. SPIN 提问清单\n### Situation Questions（5 个，了解现状）\n1. 您团队目前如何处理 X？\n2. ...\n\n### Problem Questions（5 个，挖痛点）\n1. 在 X 过程中，最让您头疼的是什么？\n2. ...\n\n### Implication Questions（3 个，放大影响）\n1. 这个问题如果持续，会对 Y 造成什么影响？\n2. ...\n\n### Need-Payoff Questions（3 个，引导价值）\n1. 如果有一个方案能 X，对您团队价值多大？\n2. ...\n\n## 3. 价值呈现\n### FAB 矩阵\n| Feature | Advantage | Benefit |\n|---------|-----------|---------|\n\n### 标杆案例话术\n\"{客户} 之前也面临同样问题，用了我们方案后 {量化成果}。\"\n\n## 4. Demo 脚本\n| 步骤 | 操作 | 价值点 | 客户互动 |\n|------|------|--------|----------|\n\n## 5. 异议处理库\n| 异议 | LAER 回应 |\n|------|-----------|\n| \"太贵了\" | L: \"...\" A: \"...\" E: \"...\" R: \"...\" |\n| \"要再考虑\" | ... |\n| \"已经有供应商\" | ... |\n| \"现在不是时候\" | ... |\n| \"需要上级批准\" | ... |\n| \"功能不满足\" | ... |\n\n## 6. 促成话术（3 版本）\n### 试水型\n\"如果方案能满足 X，您这边走流程大概多久？\"\n\n### 假定成交型\n\"...\n\n### 紧迫感型\n\"...\"\n\n## 7. 下一步确认\n- 发送合同 / 试用账号 / 跟进会议\n- 时间表 + 责任人\n\n产品：{product}\n目标客户：{target_customer}\n决策人：{decision_maker}\n客单价：{price}\n销售周期：{cycle}\n典型异议：{common_objections}",
-      "variables": ["product", "target_customer", "decision_maker", "price", "cycle", "common_objections"],
+      "variables": [
+        "product",
+        "target_customer",
+        "decision_maker",
+        "price",
+        "cycle",
+        "common_objections"
+      ],
       "example_input": "product=IHUI 企业版 AI 写作\ntarget_customer=500 人以上企业市场部\ndecision_maker=CMO\nprice=5 万 / 年\ncycle=2 周\ncommon_objections=预算紧 / 已有供应商",
       "example_output": "## 开场白 A \"嗨 {first_name}，我们帮 {参考客户} 内容团队效率提升 3 倍...\" ## SPIN 提问 Situation: 您团队目前每周产出多少篇内容？...",
       "tags": ["sales", "b2b", "script", "objection-handling"],

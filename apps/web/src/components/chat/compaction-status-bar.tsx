@@ -60,16 +60,9 @@ export function CompactionStatusBar() {
       >
         {/* 扫光动效(仅压缩中显示) */}
         {isCompacting && (
-          <span
-            className="relative inline-flex h-2 w-2 shrink-0"
-            aria-hidden
-          >
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"
-            />
-            <span
-              className="relative inline-flex h-2 w-2 rounded-full bg-primary"
-            />
+          <span className="relative inline-flex h-2 w-2 shrink-0" aria-hidden>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
           </span>
         )}
 
@@ -96,8 +89,8 @@ export function CompactionStatusBar() {
         {/* 压缩详情(仅完成态显示) */}
         {!isCompacting && (
           <span className="text-muted-foreground">
-            {compactionStatus.tokensBefore} → {compactionStatus.tokensAfter} tokens
-            (压缩 {compactionStatus.removedCount} 条历史为摘要)
+            {compactionStatus.tokensBefore} → {compactionStatus.tokensAfter} tokens (压缩{' '}
+            {compactionStatus.removedCount} 条历史为摘要)
           </span>
         )}
 

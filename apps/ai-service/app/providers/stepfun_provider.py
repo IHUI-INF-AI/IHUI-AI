@@ -25,6 +25,29 @@ class StepfunProvider(OpenAIProvider):
         base = api_base or "https://api.stepfun.com"
         super().__init__(api_key, base, timeout)
 
+    def _build_payload(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        *,
+        tools: list[dict[str, Any]] | None,
+        stream: bool,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self._strip_prefix(model),
+            "messages": messages,
+        }
+        if tools:
+            payload["tools"] = tools
+            if "tool_choice" in kwargs:
+                payload["tool_choice"] = kwargs.pop("tool_choice")
+        if stream:
+            payload["stream"] = True
+            # StepFun 不支持 OpenAI 的 stream_options,不添加 include_usage
+        payload.update(kwargs)
+        return payload
+
     async def complete(
         self,
         messages: list[dict[str, Any]],
@@ -60,6 +83,8 @@ class StepfunProvider(OpenAIProvider):
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         payload = self._build_payload(messages, model, tools=tools, stream=True, **kwargs)
+        final_model = model
+        final_usage: dict[str, Any] = {}
         try:
             client = get_http_client()
             async with client.stream(
@@ -92,12 +117,17 @@ class StepfunProvider(OpenAIProvider):
                     if delta.get("tool_calls"):
                         yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
                     if chunk.get("usage"):
-                        yield {
-                            "type": "done",
-                            "model": chunk.get("model", model),
-                            "usage": chunk["usage"],
-                            "stub": False,
-                        }
+                        final_usage = chunk["usage"]
+                    if chunk.get("model"):
+                        final_model = chunk["model"]
+            # 流结束时 yield 一次 done,携带最终 usage/model
+            if final_usage:
+                yield {
+                    "type": "done",
+                    "model": final_model,
+                    "usage": final_usage,
+                    "stub": False,
+                }
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"StepFun 流式网络异常: {e}"}
         except ProviderError as e:

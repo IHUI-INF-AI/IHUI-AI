@@ -14,7 +14,15 @@ interface Props {
   onCustomTo: (v: string) => void
 }
 
-export function TokenValueFilters({ range, customFrom, customTo, t, onRange, onCustomFrom, onCustomTo }: Props) {
+export function TokenValueFilters({
+  range,
+  customFrom,
+  customTo,
+  t,
+  onRange,
+  onCustomFrom,
+  onCustomTo,
+}: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex rounded-lg border p-0.5">

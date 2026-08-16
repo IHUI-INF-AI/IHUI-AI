@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import time
 from collections.abc import AsyncIterator as AsyncIteratorType
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -1637,9 +1638,10 @@ class LLMGateway:
             trimmed_messages, used_model, has_tools="tools" in kwargs
         )
 
-        # 厂商原生适配器(可选增强):tools 存在时优先用厂商原生流式 API。
-        # 流式场景不支持中途 fallback(已发送的 chunk 不可撤回),适配器内部自行处理错误。
-        if "tools" in kwargs and not self._is_stub_mode():
+        # 厂商原生适配器(可选增强):tools 存在或 StepFun 模型时优先用厂商原生流式 API。
+        # StepFun 的 LiteLLM 集成存在 buffering 问题,直接使用原生 httpx 流式可确保逐 chunk 输出。
+        provider_code = _model_to_provider_code(used_model)
+        if (("tools" in kwargs) or provider_code == "stepfun") and not self._is_stub_mode():
             provider = await self._get_provider(used_model, owner_uuid)
             if provider is not None:
                 # P1 修复(2026-08-06): 用浅拷贝再 pop,避免破坏原 kwargs 的 tools,
@@ -1716,6 +1718,9 @@ class LLMGateway:
             final_usage: dict[str, Any] = {}
             # P0 修复:try/finally 确保客户端断开时显式关闭 litellm 响应流,防止 httpx 连接泄漏
             # 客户端中途断开 → GeneratorExit 从 async for 抛出,finally 仍会执行 aclose
+            _stream_debug = True  # Force enable SSE debug logging
+            _stream_last = time.perf_counter()
+            _stream_count = 0
             try:
                 async for chunk in response:
                     if hasattr(chunk, "choices") and chunk.choices:
@@ -1723,6 +1728,16 @@ class LLMGateway:
                         token = getattr(delta, "content", None)
                         if token:
                             accumulated_content += token
+                            if _stream_debug:
+                                _stream_count += 1
+                                now = time.perf_counter()
+                                logger.debug(
+                                    "[SSE-DEBUG] backend chunk #%s interval=%.1fms token=%r",
+                                    _stream_count,
+                                    (now - _stream_last) * 1000,
+                                    token,
+                                )
+                                _stream_last = now
                             yield {"type": "chunk", "content": token}
                         reasoning_token = getattr(delta, "reasoning_content", None)
                         if reasoning_token:

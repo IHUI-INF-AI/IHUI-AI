@@ -191,8 +191,7 @@ export default function PersonasPage() {
   const query = search.trim().toLowerCase()
   const filtered = query
     ? personas.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) || p.description.toLowerCase().includes(query),
+        (p) => p.name.toLowerCase().includes(query) || p.description.toLowerCase().includes(query),
       )
     : personas
 

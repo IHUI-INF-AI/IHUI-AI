@@ -49,7 +49,10 @@ function getRedis(): Redis | null {
 }
 
 /** 进程内降级存储(Redis 不可用时) */
-const fallbackStore = new Map<string, { failures: number; lockedUntil: number; lastFailAt: number }>()
+const fallbackStore = new Map<
+  string,
+  { failures: number; lockedUntil: number; lastFailAt: number }
+>()
 
 function fallbackKey(account: string, ip: string): string {
   return `${account}::${ip}`
@@ -103,7 +106,9 @@ export async function recordLoginFailure(account: string, ip: string): Promise<n
     }
     return Math.max(0, MAX_FAILURES - count)
   } catch (e) {
-    logger.error('[account-lockout] recordLoginFailure redis failed, fallback to memory', { error: e })
+    logger.error('[account-lockout] recordLoginFailure redis failed, fallback to memory', {
+      error: e,
+    })
     return fallbackRecordFailure(account, ip)
   }
 }
@@ -119,7 +124,9 @@ export async function getLockRemainingMs(account: string, ip: string): Promise<n
     if (ttl > 0) return ttl * 1000
     return 0
   } catch (e) {
-    logger.error('[account-lockout] getLockRemainingMs redis failed, fallback to memory', { error: e })
+    logger.error('[account-lockout] getLockRemainingMs redis failed, fallback to memory', {
+      error: e,
+    })
     return fallbackGetLockRemainingMs(account, ip)
   }
 }
@@ -136,7 +143,9 @@ export async function clearLoginFailures(account: string, ip: string): Promise<v
     const lockKey = `${KEY_PREFIX_LOCK}${account}:${ip}`
     await redis.del(failKey, lockKey)
   } catch (e) {
-    logger.error('[account-lockout] clearLoginFailures redis failed, fallback to memory', { error: e })
+    logger.error('[account-lockout] clearLoginFailures redis failed, fallback to memory', {
+      error: e,
+    })
     fallbackClearFailures(account, ip)
   }
 }

@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, timestamp, text, boolean, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, timestamp, text, boolean, unique } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * RBAC 角色表。
@@ -16,7 +16,7 @@ export const roles = pgTable('roles', {
   isSystem: boolean('is_system').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 权限点表。
@@ -31,7 +31,7 @@ export const permissions = pgTable('permissions', {
   action: varchar('action', { length: 32 }).notNull(),
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 角色-权限关联表。
@@ -52,7 +52,7 @@ export const rolePermissions = pgTable(
   (t) => ({
     rolePermissionUnique: unique().on(t.roleId, t.permissionId),
   }),
-);
+)
 
 /**
  * 用户-角色关联表。
@@ -75,13 +75,13 @@ export const userRoles = pgTable(
   (t) => ({
     userRoleUnique: unique().on(t.userId, t.roleId),
   }),
-);
+)
 
-export type Role = typeof roles.$inferSelect;
-export type NewRole = typeof roles.$inferInsert;
-export type Permission = typeof permissions.$inferSelect;
-export type NewPermission = typeof permissions.$inferInsert;
-export type RolePermission = typeof rolePermissions.$inferSelect;
-export type NewRolePermission = typeof rolePermissions.$inferInsert;
-export type UserRole = typeof userRoles.$inferSelect;
-export type NewUserRole = typeof userRoles.$inferInsert;
+export type Role = typeof roles.$inferSelect
+export type NewRole = typeof roles.$inferInsert
+export type Permission = typeof permissions.$inferSelect
+export type NewPermission = typeof permissions.$inferInsert
+export type RolePermission = typeof rolePermissions.$inferSelect
+export type NewRolePermission = typeof rolePermissions.$inferInsert
+export type UserRole = typeof userRoles.$inferSelect
+export type NewUserRole = typeof userRoles.$inferInsert

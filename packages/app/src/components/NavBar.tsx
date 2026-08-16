@@ -36,7 +36,11 @@ const BACK_BUTTON_SIZE = 32
 const SIDE_PLACEHOLDER_WIDTH = 32
 
 const viewStyles = {
-  container: (tk: ReturnType<typeof getTokens>, transparent: boolean, statusBarHeight: number): CSSProperties => ({
+  container: (
+    tk: ReturnType<typeof getTokens>,
+    transparent: boolean,
+    statusBarHeight: number,
+  ): CSSProperties => ({
     width: '100%',
     backgroundColor: transparent ? 'transparent' : tk.surface.bg,
     borderBottomWidth: 0,

@@ -58,7 +58,9 @@ export async function parseWindsurf(input: ParserInput): Promise<ParserResult> {
   if (!baseUrl) {
     return {
       providers: [],
-      globalWarnings: ['Windsurf settings.json 中未找到 windsurf.ai.baseUrl,Windsurf 无默认 API 端点'],
+      globalWarnings: [
+        'Windsurf settings.json 中未找到 windsurf.ai.baseUrl,Windsurf 无默认 API 端点',
+      ],
     }
   }
   const apiFormat = inferApiFormat(baseUrl, model)

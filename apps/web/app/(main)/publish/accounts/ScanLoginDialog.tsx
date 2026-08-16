@@ -19,8 +19,18 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import {
-  Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@ihui/ui-react'
 import { CountdownTimer } from '@/components/publish/CountdownTimer'
 
@@ -37,7 +47,12 @@ const TIMEOUT_SECONDS = 300
 
 type Phase = 'idle' | 'starting' | 'polling' | 'success' | 'failed'
 
-export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform }: ScanLoginDialogProps) {
+export function ScanLoginDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  defaultPlatform,
+}: ScanLoginDialogProps) {
   const t = useTranslations('publish')
   const tCommon = useTranslations('common')
   const toast = useToast()
@@ -51,7 +66,9 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
   const startTimeRef = React.useRef<number>(0)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
-  React.useEffect(() => { if (defaultPlatform) setPlatform(defaultPlatform) }, [defaultPlatform])
+  React.useEffect(() => {
+    if (defaultPlatform) setPlatform(defaultPlatform)
+  }, [defaultPlatform])
 
   React.useEffect(() => {
     if (!open) return
@@ -62,13 +79,18 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
           setPlatforms(r.data.platforms)
           if (!platform && r.data.platforms.length > 0) setPlatform(r.data.platforms[0]!.platform)
         }
-      } catch (e) { toast.error((e as Error).message) }
+      } catch (e) {
+        toast.error((e as Error).message)
+      }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   React.useEffect(() => {
-    return () => { stopPolling(); if (sessionId) void closeBrowserSession(sessionId) }
+    return () => {
+      stopPolling()
+      if (sessionId) void closeBrowserSession(sessionId)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -80,18 +102,26 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
   }, [open, phase])
 
   function stopPolling() {
-    if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null }
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
   }
 
   function failSession(msg: string) {
     stopPolling()
-    if (sessionId) { void closeBrowserSession(sessionId); setSessionId('') }
+    if (sessionId) {
+      void closeBrowserSession(sessionId)
+      setSessionId('')
+    }
     setPhase('failed')
     setErrorMsg(msg)
     toast.error(msg)
   }
 
-  function handleCountdownExpire() { failSession(t('accounts.scanLoginTimeout')) }
+  function handleCountdownExpire() {
+    failSession(t('accounts.scanLoginTimeout'))
+  }
 
   async function handleStart() {
     if (!platform) return
@@ -100,7 +130,11 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
     setPhase('starting')
     setErrorMsg('')
     try {
-      const r = await createBrowserSession({ url: plat.login_url, viewport_width: 1024, viewport_height: 720 })
+      const r = await createBrowserSession({
+        url: plat.login_url,
+        viewport_width: 1024,
+        viewport_height: 720,
+      })
       if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
       const sid = r.data.session_id
       setSessionId(sid)
@@ -119,24 +153,34 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
   function startPolling(sid: string, plat: string) {
     stopPolling()
     pollTimerRef.current = setInterval(async () => {
-      if (Date.now() - startTimeRef.current > TIMEOUT_MS) { failSession(t('accounts.scanLoginTimeout')); return }
+      if (Date.now() - startTimeRef.current > TIMEOUT_MS) {
+        failSession(t('accounts.scanLoginTimeout'))
+        return
+      }
       try {
         const r = await detectLoginFromCdp(sid, plat)
         if (r.success && r.data?.detected) {
-          stopPolling(); setSessionId(''); void closeBrowserSession(sid)
+          stopPolling()
+          setSessionId('')
+          void closeBrowserSession(sid)
           setPhase('success')
           toast.success(`${t('accounts.scanLoginSuccess')} (${r.data.cookies_count} cookies)`)
           onSuccess?.()
         } else if (r.success && r.data?.error) {
           failSession(r.data.error)
         }
-      } catch { /* 网络错误静默,继续轮询 */ }
+      } catch {
+        /* 网络错误静默,继续轮询 */
+      }
     }, POLL_INTERVAL_MS)
   }
 
   function handleCancel() {
     stopPolling()
-    if (sessionId) { void closeBrowserSession(sessionId); setSessionId('') }
+    if (sessionId) {
+      void closeBrowserSession(sessionId)
+      setSessionId('')
+    }
     setPhase('idle')
   }
 
@@ -148,7 +192,8 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
       <DialogContent className="min-[640px]:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5" />{t('accounts.scanLoginTitle')}
+            <QrCode className="h-5 w-5" />
+            {t('accounts.scanLoginTitle')}
           </DialogTitle>
           <DialogDescription>{t('accounts.scanLoginDescription')}</DialogDescription>
         </DialogHeader>
@@ -158,18 +203,31 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
             <>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('accounts.platform')}</label>
-                <Select value={platform} onValueChange={setPlatform} disabled={platforms.length === 0}>
-                  <SelectTrigger><SelectValue placeholder={t('accounts.selectPlatform')} /></SelectTrigger>
+                <Select
+                  value={platform}
+                  onValueChange={setPlatform}
+                  disabled={platforms.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('accounts.selectPlatform')} />
+                  </SelectTrigger>
                   <SelectContent>
-                    {platforms.map((p) => (<SelectItem key={p.platform} value={p.platform}>{p.name}</SelectItem>))}
+                    {platforms.map((p) => (
+                      <SelectItem key={p.platform} value={p.platform}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <Button onClick={handleStart} disabled={!platform || isBusy} className="w-full">
-                {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}<QrCode className="h-4 w-4" />
+                {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                <QrCode className="h-4 w-4" />
                 {t('accounts.startScanLogin')}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">点击后将在右侧内置浏览器打开登录页,支持扫码或账号密码登录</p>
+              <p className="text-center text-xs text-muted-foreground">
+                点击后将在右侧内置浏览器打开登录页,支持扫码或账号密码登录
+              </p>
             </>
           )}
 
@@ -185,9 +243,15 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <div className="space-y-1 text-center">
                 <p className="text-sm font-medium">正在等待扫码登录</p>
-                <p className="text-xs text-muted-foreground">请在右侧内置浏览器中完成 {platformName} 扫码登录</p>
+                <p className="text-xs text-muted-foreground">
+                  请在右侧内置浏览器中完成 {platformName} 扫码登录
+                </p>
               </div>
-              <CountdownTimer totalSeconds={countdownSeconds} onExpire={handleCountdownExpire} variant="danger" />
+              <CountdownTimer
+                totalSeconds={countdownSeconds}
+                onExpire={handleCountdownExpire}
+                variant="danger"
+              />
               <p className="text-xs text-muted-foreground">检测到登录后会自动保存账号</p>
             </div>
           )}
@@ -210,13 +274,24 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
 
         <DialogFooter>
           {phase === 'idle' && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {tCommon('cancel')}
+            </Button>
           )}
           {phase === 'polling' && (
-            <Button variant="outline" onClick={handleCancel}>{t('accounts.cancelScan')}</Button>
+            <Button variant="outline" onClick={handleCancel}>
+              {t('accounts.cancelScan')}
+            </Button>
           )}
           {(phase === 'success' || phase === 'failed') && (
-            <Button onClick={() => { setPhase('idle'); setErrorMsg(''); setSessionId(''); onOpenChange(false) }}>
+            <Button
+              onClick={() => {
+                setPhase('idle')
+                setErrorMsg('')
+                setSessionId('')
+                onOpenChange(false)
+              }}
+            >
               {tCommon('close')}
             </Button>
           )}

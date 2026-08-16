@@ -104,10 +104,7 @@ function specialtyChips(specialties: string[] | undefined, className?: string) {
       {items.map((s, i) => (
         <span
           key={`${i}-${s}`}
-          className={cn(
-            'rounded-md px-2 py-0.5 text-xs',
-            CHIP_COLORS[i % CHIP_COLORS.length],
-          )}
+          className={cn('rounded-md px-2 py-0.5 text-xs', CHIP_COLORS[i % CHIP_COLORS.length])}
         >
           {s}
         </span>
@@ -260,12 +257,10 @@ export default function TradersPage() {
               />
             </div>
 
-            {applyMutation.isSuccess && (
-              <Alert variant="success" title={t('applySuccess')} />
-            )}
+            {applyMutation.isSuccess && <Alert variant="success" title={t('applySuccess')} />}
 
-            {applyMutation.isError && (
-              isDuplicate ? (
+            {applyMutation.isError &&
+              (isDuplicate ? (
                 <Alert variant="warning" title={t('applyDuplicate')} />
               ) : (
                 <Alert
@@ -273,21 +268,16 @@ export default function TradersPage() {
                   title={t('error')}
                   description={applyError?.message ?? ''}
                 />
-              )
-            )}
+              ))}
 
             {formError && <Alert variant="warning" title={formError} />}
 
             <div className="flex items-center gap-2">
               <Button type="submit" disabled={applyMutation.isPending}>
-                {applyMutation.isPending && (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                )}
+                {applyMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 {applyMutation.isPending ? t('submitting') : t('submit')}
               </Button>
-              {applyMutation.isSuccess && (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              )}
+              {applyMutation.isSuccess && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
             </div>
           </form>
         </CardContent>
