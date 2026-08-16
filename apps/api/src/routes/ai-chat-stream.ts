@@ -263,9 +263,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/chat/stream',
     {
-      config: {
-        compression: false,
-        rateLimit: {
+      config: {\n        rateLimit: {
           max: 20,
           timeWindow: '1 minute',
           keyGenerator: (req) => req.userId || req.ip,
@@ -382,9 +380,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/chat/answer',
     {
-      config: {
-        compression: false,
-        rateLimit: {
+      config: {\n        rateLimit: {
           max: 20,
           timeWindow: '1 minute',
           keyGenerator: (req) => req.userId || req.ip,
