@@ -97,7 +97,9 @@ export default function AdminSettlementPage() {
           return (
             <div key={s.key} className="rounded-lg border bg-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{t(SUMMARY_KEY[s.key] ?? 'summary_unknown')}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(SUMMARY_KEY[s.key] ?? 'summary_unknown')}
+                </span>
                 <Icon className={cn('h-4 w-4', s.cls)} />
               </div>
               <p className="mt-2 text-2xl font-bold">{fmtAmount(s.value)}</p>

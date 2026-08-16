@@ -9,7 +9,14 @@ import { Button } from '@ihui/ui-react'
 
 import { CategoryTable } from './CategoryTable'
 import { CategoryFormDialog, CategoryDeleteDialog } from './CategoryDialog'
-import { api, fetchCategories, createCategory, updateCategory, EMPTY_FORM, categoryToForm } from './helpers'
+import {
+  api,
+  fetchCategories,
+  createCategory,
+  updateCategory,
+  EMPTY_FORM,
+  categoryToForm,
+} from './helpers'
 import type { SkillCategory, SkillCategoryForm } from './types'
 import { BackButton } from '@/components/common'
 

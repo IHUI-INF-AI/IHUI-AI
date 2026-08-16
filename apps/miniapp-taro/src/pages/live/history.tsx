@@ -40,35 +40,38 @@ export default function LiveHistory() {
   const loadingRef = useRef(false)
   const lenRef = useRef(0)
 
-  const load = useCallback(async (reset = false) => {
-    if (loadingRef.current) return
-    if (reset) {
-      pageRef.current = 1
-      hasMoreRef.current = true
-      lenRef.current = 0
-      setHasMore(true)
-      setRawList([])
-    }
-    if (!reset && !hasMoreRef.current) return
-    loadingRef.current = true
-    setLoading(true)
-    try {
-      const res = await getLiveHistory({ page: pageRef.current, pageSize: PAGE_SIZE })
-      const more = (res.list || []) as HistoryItem[]
-      lenRef.current = reset ? more.length : lenRef.current + more.length
-      setRawList((prev) => (reset ? more : [...prev, ...more]))
-      const next = lenRef.current < res.total
-      hasMoreRef.current = next
-      setHasMore(next)
-      pageRef.current++
-    } catch (e) {
-      logger.error('live/history', '获取历史记录', e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
-    } finally {
-      loadingRef.current = false
-      setLoading(false)
-    }
-  }, [tt])
+  const load = useCallback(
+    async (reset = false) => {
+      if (loadingRef.current) return
+      if (reset) {
+        pageRef.current = 1
+        hasMoreRef.current = true
+        lenRef.current = 0
+        setHasMore(true)
+        setRawList([])
+      }
+      if (!reset && !hasMoreRef.current) return
+      loadingRef.current = true
+      setLoading(true)
+      try {
+        const res = await getLiveHistory({ page: pageRef.current, pageSize: PAGE_SIZE })
+        const more = (res.list || []) as HistoryItem[]
+        lenRef.current = reset ? more.length : lenRef.current + more.length
+        setRawList((prev) => (reset ? more : [...prev, ...more]))
+        const next = lenRef.current < res.total
+        hasMoreRef.current = next
+        setHasMore(next)
+        pageRef.current++
+      } catch (e) {
+        logger.error('live/history', '获取历史记录', e)
+        Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+      }
+    },
+    [tt],
+  )
 
   const displayList = useMemo(() => {
     const now = Date.now()
@@ -129,8 +132,16 @@ export default function LiveHistory() {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View key={item.id} className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]" onClick={() => goDetail(item.id)}>
-                <Image className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]" src={item.coverUrl} mode="aspectFill" />
+              <View
+                key={item.id}
+                className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                onClick={() => goDetail(item.id)}
+              >
+                <Image
+                  className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]"
+                  src={item.coverUrl}
+                  mode="aspectFill"
+                />
                 <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
                   <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                   {item.anchor && (

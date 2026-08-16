@@ -48,11 +48,7 @@ const Collapsible = React.forwardRef<HTMLDivElement, CollapsibleProps>(
 
     return (
       <CollapsibleContext.Provider value={value}>
-        <div
-          ref={ref}
-          className={cn('w-full', className)}
-          data-state={open ? 'open' : 'closed'}
-        >
+        <div ref={ref} className={cn('w-full', className)} data-state={open ? 'open' : 'closed'}>
           {children}
         </div>
       </CollapsibleContext.Provider>
@@ -63,28 +59,27 @@ Collapsible.displayName = 'Collapsible'
 
 export type CollapsibleTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
-const CollapsibleTrigger = React.forwardRef<
-  HTMLButtonElement,
-  CollapsibleTriggerProps
->(({ className, onClick, children, ...props }, ref) => {
-  const { open, toggle, contentId } = useCollapsibleContext('CollapsibleTrigger')
-  return (
-    <button
-      ref={ref}
-      type="button"
-      aria-expanded={open}
-      aria-controls={contentId}
-      onClick={(e) => {
-        onClick?.(e)
-        if (!e.defaultPrevented) toggle()
-      }}
-      className={cn('flex w-full items-center', className)}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-})
+const CollapsibleTrigger = React.forwardRef<HTMLButtonElement, CollapsibleTriggerProps>(
+  ({ className, onClick, children, ...props }, ref) => {
+    const { open, toggle, contentId } = useCollapsibleContext('CollapsibleTrigger')
+    return (
+      <button
+        ref={ref}
+        type="button"
+        aria-expanded={open}
+        aria-controls={contentId}
+        onClick={(e) => {
+          onClick?.(e)
+          if (!e.defaultPrevented) toggle()
+        }}
+        className={cn('flex w-full items-center', className)}
+        {...props}
+      >
+        {children}
+      </button>
+    )
+  },
+)
 CollapsibleTrigger.displayName = 'CollapsibleTrigger'
 
 export interface CollapsibleContentProps extends React.HTMLAttributes<HTMLDivElement> {

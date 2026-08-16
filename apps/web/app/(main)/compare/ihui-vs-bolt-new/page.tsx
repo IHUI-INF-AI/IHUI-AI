@@ -13,10 +13,7 @@ const compareJsonLd = {
         'Bolt.new 是 StackBlitz 出品的浏览器内全栈应用生成工具(2025 现象级产品);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
-      about: [
-        { '@id': 'https://aizhs.top/#organization' },
-        { '@type': 'Thing', name: 'Bolt.new' },
-      ],
+      about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Bolt.new' }],
     },
     {
       '@type': 'BreadcrumbList',
@@ -24,7 +21,12 @@ const compareJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Bolt.new', item: 'https://aizhs.top/compare/ihui-vs-bolt-new' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs Bolt.new',
+          item: 'https://aizhs.top/compare/ihui-vs-bolt-new',
+        },
       ],
     },
   ],

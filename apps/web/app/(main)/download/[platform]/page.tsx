@@ -20,6 +20,11 @@ export const metadata: Metadata = {
 }
 
 // Next.js 15 动态路由 page 组件(server component,仅 params 解析 + 渲染 client content)
+// A 套壳:静态导出要求动态路由提供 generateStaticParams,返回占位参数,运行时客户端渲染
+export function generateStaticParams() {
+  return [{ platform: 'desktop' }]
+}
+
 export default async function DownloadPage({ params }: DownloadPageProps) {
   const { platform } = await params
   return <DownloadDetailContent platform={platform} />

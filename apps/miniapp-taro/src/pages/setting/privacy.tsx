@@ -101,7 +101,8 @@ export default function PrivacySettingPage() {
     Taro.navigateTo({ url: '/pages/about/privacy' })
   }, [])
 
-  const statusText = (s: string) => t(PRIVACY_STATUS_KEY[s || 'unknown'] ?? 'settingPrivacy.status.unknown')
+  const statusText = (s: string) =>
+    t(PRIVACY_STATUS_KEY[s || 'unknown'] ?? 'settingPrivacy.status.unknown')
 
   return (
     <View className="page">
@@ -111,7 +112,9 @@ export default function PrivacySettingPage() {
         {PERMISSIONS.map((item) => (
           <View className="perm-item" key={item.key}>
             <View className="perm-info">
-              <Text className="perm-label">{t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}</Text>
+              <Text className="perm-label">
+                {t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}
+              </Text>
               <Text className={`perm-status ${permStatus[item.key] || 'unknown'}`}>
                 {statusText(permStatus[item.key] || 'unknown')}
               </Text>
@@ -131,7 +134,11 @@ export default function PrivacySettingPage() {
             <Text className="switch-label">{t('settingPrivacy.mute')}</Text>
             <Text className="switch-desc">{t('settingPrivacy.muteDesc')}</Text>
           </View>
-          <Switch checked={mute} color="var(--color-primary)" onChange={(e) => onToggle('mute', e.detail.value)} />
+          <Switch
+            checked={mute}
+            color="var(--color-primary)"
+            onChange={(e) => onToggle('mute', e.detail.value)}
+          />
         </View>
         <View className="switch-item">
           <View className="switch-info">

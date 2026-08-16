@@ -36,12 +36,10 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
       // 过滤 agent.action 控制指令(由 background agent-control bridge 处理,
       // 不是用户通知)。兼容直接 / {notification: ...} 包装两种 payload 格式。
       const payload = msg.payload as
-        | { data?: { type?: string }; notification?: { data?: { type?: string } } }
-        | undefined
+        { data?: { type?: string }; notification?: { data?: { type?: string } } } | undefined
       const inner = payload?.notification
       const dataType =
-        payload?.data?.type ??
-        (inner && typeof inner === 'object' ? inner.data?.type : undefined)
+        payload?.data?.type ?? (inner && typeof inner === 'object' ? inner.data?.type : undefined)
       if (dataType === 'agent.action') return
       setCount((c) => c + 1)
     }

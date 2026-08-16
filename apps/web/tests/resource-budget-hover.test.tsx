@@ -121,7 +121,9 @@ describe('ResourceBudget hover tooltip — 样式约束', () => {
     const { container } = render(
       <ResourceBudget used={50} total={100} label="tokens" variant="block" />,
     )
-    const tooltip = container.querySelector('[data-testid="resource-budget-tooltip"]') as HTMLElement
+    const tooltip = container.querySelector(
+      '[data-testid="resource-budget-tooltip"]',
+    ) as HTMLElement
     expect(tooltip.className).toContain('rounded-md')
     expect(tooltip.className).not.toContain(FORBIDDEN_ROUNDED)
   })

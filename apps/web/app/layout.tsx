@@ -104,7 +104,7 @@ export const metadata: Metadata = {
     canonical: '/',
     languages: {
       'x-default': '/',
-      'en': '/en',
+      en: '/en',
     },
   },
   // 2026-08-02 OG alternateLocale:zh-CN + zh-TW + en(对应 /en/* landing pages)

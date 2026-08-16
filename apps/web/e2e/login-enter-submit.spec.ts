@@ -96,7 +96,11 @@ async function getCapturedSubmitsCount(page: Page): Promise<number> {
 /**
  * 打开登录弹窗并切到指定 tab。
  */
-async function openLoginDialog(page: Page, tabTestId: string, firstInputTestId: string): Promise<void> {
+async function openLoginDialog(
+  page: Page,
+  tabTestId: string,
+  firstInputTestId: string,
+): Promise<void> {
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
   await page.waitForLoadState('networkidle').catch(() => {})
 
@@ -136,7 +140,9 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       expect(count, '密码框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
     })
 
-    test('协议 label Enter → form submit(走 onKeyDown form.requestSubmit)', async ({ freshPage: page }) => {
+    test('协议 label Enter → form submit(走 onKeyDown form.requestSubmit)', async ({
+      freshPage: page,
+    }) => {
       test.setTimeout(60000)
       await openLoginDialog(page, 'login-tab-password', 'login-account-input')
       await installSubmitListener(page)
@@ -157,7 +163,10 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
-      expect(count, 'label Enter 应通过 onKeyDown form.requestSubmit() 触发 form submit').toBeGreaterThanOrEqual(1)
+      expect(
+        count,
+        'label Enter 应通过 onKeyDown form.requestSubmit() 触发 form submit',
+      ).toBeGreaterThanOrEqual(1)
     })
   })
 

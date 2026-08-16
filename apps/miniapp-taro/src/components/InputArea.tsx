@@ -19,7 +19,6 @@ import closeInputPng from '@/assets/remote/images/close_input.png'
 import filePng from '@/assets/remote/images/file.png'
 import { rpx } from '@/utils/rpx'
 
-
 export interface InputFileItem {
   imgUrl: string
   fileType?: 'image' | 'document' | 'video' | 'audio' | 'file'

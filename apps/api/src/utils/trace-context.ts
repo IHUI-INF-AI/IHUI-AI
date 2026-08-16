@@ -15,10 +15,10 @@ import { randomBytes } from 'node:crypto'
 import type { FastifyRequest } from 'fastify'
 
 export interface TraceContext {
-  traceId: string      // 32 hex
-  parentId: string     // 16 hex
-  version: string      // 2 hex(通常 "00")
-  flags: string        // 2 hex(通常 "01" sampled)
+  traceId: string // 32 hex
+  parentId: string // 16 hex
+  version: string // 2 hex(通常 "00")
+  flags: string // 2 hex(通常 "01" sampled)
 }
 
 /**
@@ -27,9 +27,9 @@ export interface TraceContext {
  */
 export function generateTraceparent(): string {
   const version = '00'
-  const traceId = randomBytes(16).toString('hex')      // 32 hex
-  const parentId = randomBytes(8).toString('hex')       // 16 hex
-  const flags = '01'                                    // sampled
+  const traceId = randomBytes(16).toString('hex') // 32 hex
+  const parentId = randomBytes(8).toString('hex') // 16 hex
+  const flags = '01' // sampled
   return `${version}-${traceId}-${parentId}-${flags}`
 }
 
@@ -83,8 +83,8 @@ export function propagateToHeaders(request?: FastifyRequest | null): Record<stri
     ? `${ctx.version}-${ctx.traceId}-${ctx.parentId}-${ctx.flags}`
     : generateTraceparent()
   return {
-    'traceparent': traceparent,
-    'X-Trace-Id': ctx?.traceId ?? (traceparent.split('-')[1] ?? ''),
+    traceparent: traceparent,
+    'X-Trace-Id': ctx?.traceId ?? traceparent.split('-')[1] ?? '',
   }
 }
 

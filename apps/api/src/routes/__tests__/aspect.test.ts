@@ -99,16 +99,19 @@ import searchAspectPlugin from '../../plugins/search-aspect.js'
 import watchAspectPlugin from '../../plugins/watch-aspect.js'
 import pointAspectPlugin from '../../plugins/point-aspect.js'
 
-const mockRedisPlugin = fp(async (server: FastifyInstance) => {
-  server.decorate('redis', {
-    set: mockRedisSet,
-    get: vi.fn().mockResolvedValue(null),
-    del: vi.fn().mockResolvedValue(1),
-    quit: vi.fn(),
-    on: vi.fn(),
-  } as never)
-  server.decorate('redisForQueue', {} as never)
-}, { name: 'mock-redis', fastify: '5.x' })
+const mockRedisPlugin = fp(
+  async (server: FastifyInstance) => {
+    server.decorate('redis', {
+      set: mockRedisSet,
+      get: vi.fn().mockResolvedValue(null),
+      del: vi.fn().mockResolvedValue(1),
+      quit: vi.fn(),
+      on: vi.fn(),
+    } as never)
+    server.decorate('redisForQueue', {} as never)
+  },
+  { name: 'mock-redis', fastify: '5.x' },
+)
 
 const USER_ID = '00000000-0000-4000-8000-000000000001'
 const RESOURCE_ID = '00000000-0000-4000-8000-000000000010'
@@ -310,4 +313,3 @@ describe('AOP aspects (search / watch / point)', () => {
     expect(mockIncreasePoints).not.toHaveBeenCalled()
   })
 })
-

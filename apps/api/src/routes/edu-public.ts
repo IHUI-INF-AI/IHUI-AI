@@ -96,7 +96,10 @@ const createOfflineRecordSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional(),
   hours: z.number().min(0).optional(),
-  occurredAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+  occurredAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
   attachments: z
     .array(
       z.object({
@@ -119,7 +122,10 @@ const updateOfflineRecordSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
   hours: z.number().min(0).optional(),
-  occurredAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+  occurredAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
   attachments: z
     .array(
       z.object({
@@ -141,7 +147,11 @@ const createCertSchema = z.object({
   certName: z.string().min(1).max(200),
   certUrl: z.string().max(512).nullable().optional(),
   issuer: z.string().max(200).nullable().optional(),
-  issuedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  issuedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .nullable()
+    .optional(),
 })
 
 const createPaperSchema = z.object({

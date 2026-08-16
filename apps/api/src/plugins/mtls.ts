@@ -16,12 +16,7 @@
  * - MTLS_CLIENT_CERT_REQUIRED:'true'/'false'(是否强制要求客户端证书)
  * - MTLS_CRL_PATH:证书吊销列表路径(可选,简化实现仅提供 hook)
  */
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import type { PeerCertificate } from 'node:tls'
 import { TLSSocket } from 'node:tls'
 import fp from 'fastify-plugin'
@@ -192,9 +187,7 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       const authErr = socket.authorizationError
       const errMsg = authErr instanceof Error ? authErr.message : 'unknown'
       if (required) {
-        reply
-          .status(401)
-          .send(error(401, `Client certificate verification failed: ${errMsg}`))
+        reply.status(401).send(error(401, `Client certificate verification failed: ${errMsg}`))
         return
       }
       logger.warn('mTLS: client certificate not authorized (degraded mode)', {
@@ -219,9 +212,7 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (cnAllowList && cnAllowList.length > 0) {
       const cn = asString(cert.subject.CN)
       if (!cnAllowList.includes(cn)) {
-        reply
-          .status(403)
-          .send(error(403, `Client certificate CN "${cn}" not in allow list`))
+        reply.status(403).send(error(403, `Client certificate CN "${cn}" not in allow list`))
         return
       }
     }

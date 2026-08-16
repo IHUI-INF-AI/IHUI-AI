@@ -56,11 +56,7 @@ export interface AiWorldHotApp {
 }
 
 export type LeaderboardId =
-  | 'lmsys'
-  | 'opencompass'
-  | 'hf-open-llm'
-  | 'superclue'
-  | 'artificial-analysis'
+  'lmsys' | 'opencompass' | 'hf-open-llm' | 'superclue' | 'artificial-analysis'
 
 export interface AiWorldRanking {
   id: string

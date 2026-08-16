@@ -17,9 +17,9 @@ export interface UseWithdrawalMachineReturn {
 
 export function useWithdrawalMachine(): UseWithdrawalMachineReturn {
   const [snapshot, send, canType] = useWorkflowMachine(withdrawalMachine)
-  const state = (typeof snapshot?.value === 'string'
-    ? snapshot.value
-    : String(snapshot?.value ?? 'requested')) as WithdrawalState
+  const state = (
+    typeof snapshot?.value === 'string' ? snapshot.value : String(snapshot?.value ?? 'requested')
+  ) as WithdrawalState
   const context = (snapshot?.context ?? { amount: 0, retryCount: 0 }) as WithdrawalContext
 
   return {

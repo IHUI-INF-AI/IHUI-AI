@@ -111,10 +111,10 @@ class LLMUsageService:
             day_key = datetime.fromtimestamp(r.timestamp).strftime("%Y-%m-%d")
             if day_key not in daily:
                 daily[day_key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0}
-            daily[day_key]["input_tokens"] += r.input_tokens  # type: ignore[operator]
-            daily[day_key]["output_tokens"] += r.output_tokens  # type: ignore[operator]
-            daily[day_key]["total_tokens"] += r.input_tokens + r.output_tokens  # type: ignore[operator]
-            daily[day_key]["cost"] += r.estimated_cost  # type: ignore[operator]
+            daily[day_key]["input_tokens"] += r.input_tokens
+            daily[day_key]["output_tokens"] += r.output_tokens
+            daily[day_key]["total_tokens"] += r.input_tokens + r.output_tokens
+            daily[day_key]["cost"] += r.estimated_cost
 
         # 按模型汇总
         model_breakdown: dict[str, dict[str, int | float]] = {}
@@ -122,11 +122,11 @@ class LLMUsageService:
             key = f"{r.provider}/{r.model}"
             if key not in model_breakdown:
                 model_breakdown[key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
-            model_breakdown[key]["input_tokens"] += r.input_tokens  # type: ignore[operator]
-            model_breakdown[key]["output_tokens"] += r.output_tokens  # type: ignore[operator]
-            model_breakdown[key]["total_tokens"] += r.input_tokens + r.output_tokens  # type: ignore[operator]
-            model_breakdown[key]["cost"] += r.estimated_cost  # type: ignore[operator]
-            model_breakdown[key]["calls"] += 1  # type: ignore[operator]
+            model_breakdown[key]["input_tokens"] += r.input_tokens
+            model_breakdown[key]["output_tokens"] += r.output_tokens
+            model_breakdown[key]["total_tokens"] += r.input_tokens + r.output_tokens
+            model_breakdown[key]["cost"] += r.estimated_cost
+            model_breakdown[key]["calls"] += 1
 
         # 按厂商汇总
         provider_breakdown: dict[str, dict[str, int | float]] = {}
@@ -134,11 +134,11 @@ class LLMUsageService:
             p = r.provider
             if p not in provider_breakdown:
                 provider_breakdown[p] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
-            provider_breakdown[p]["input_tokens"] += r.input_tokens  # type: ignore[operator]
-            provider_breakdown[p]["output_tokens"] += r.output_tokens  # type: ignore[operator]
-            provider_breakdown[p]["total_tokens"] += r.input_tokens + r.output_tokens  # type: ignore[operator]
-            provider_breakdown[p]["cost"] += r.estimated_cost  # type: ignore[operator]
-            provider_breakdown[p]["calls"] += 1  # type: ignore[operator]
+            provider_breakdown[p]["input_tokens"] += r.input_tokens
+            provider_breakdown[p]["output_tokens"] += r.output_tokens
+            provider_breakdown[p]["total_tokens"] += r.input_tokens + r.output_tokens
+            provider_breakdown[p]["cost"] += r.estimated_cost
+            provider_breakdown[p]["calls"] += 1
 
         # 每日 breakdown 排序
         daily_sorted = dict(sorted(daily.items()))

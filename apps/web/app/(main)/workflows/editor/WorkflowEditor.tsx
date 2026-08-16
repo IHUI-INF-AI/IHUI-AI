@@ -57,12 +57,9 @@ export function WorkflowEditor({ steps, onChange }: Props) {
   )
 
   // 选择节点
-  const onNodeClick = React.useCallback(
-    (_: React.MouseEvent, node: Node<StepNodeData>) => {
-      setSelectedNode(node)
-    },
-    [],
-  )
+  const onNodeClick = React.useCallback((_: React.MouseEvent, node: Node<StepNodeData>) => {
+    setSelectedNode(node)
+  }, [])
 
   // 点击画布空白取消选择
   const onPaneClick = React.useCallback(() => {
@@ -189,7 +186,12 @@ export function WorkflowEditor({ steps, onChange }: Props) {
             maskColor="hsl(var(--background) / 0.7)"
             className="!rounded-md !border !shadow-sm"
           />
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="hsl(var(--border))" />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="hsl(var(--border))"
+          />
         </ReactFlow>
       </div>
       <PropertiesPanel
@@ -203,15 +205,25 @@ export function WorkflowEditor({ steps, onChange }: Props) {
 
 function getColor(type: StepType): StepNodeData['color'] {
   switch (type) {
-    case 'trigger': return 'blue'
-    case 'echo': return 'slate'
-    case 'skill': return 'violet'
-    case 'llm': return 'emerald'
-    case 'condition': return 'amber'
-    case 'delay': return 'slate'
-    case 'loop': return 'blue'
-    case 'parallel': return 'violet'
-    case 'tool': return 'amber'
-    default: return 'slate'
+    case 'trigger':
+      return 'blue'
+    case 'echo':
+      return 'slate'
+    case 'skill':
+      return 'violet'
+    case 'llm':
+      return 'emerald'
+    case 'condition':
+      return 'amber'
+    case 'delay':
+      return 'slate'
+    case 'loop':
+      return 'blue'
+    case 'parallel':
+      return 'violet'
+    case 'tool':
+      return 'amber'
+    default:
+      return 'slate'
   }
 }

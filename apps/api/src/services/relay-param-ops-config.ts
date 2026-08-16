@@ -96,7 +96,12 @@ function isNonEmptyString(v: unknown): v is string {
 }
 
 /** 把 systemConfigs 行的 value(JSON 字符串)解析为 ParamOpRule,失败返回 null。 */
-function parseRule(raw: string, id: string, createdAt?: Date, updatedAt?: Date): ParamOpRule | null {
+function parseRule(
+  raw: string,
+  id: string,
+  createdAt?: Date,
+  updatedAt?: Date,
+): ParamOpRule | null {
   if (!raw) return null
   let parsed: unknown
   try {
@@ -148,7 +153,12 @@ export async function listParamOpRules(): Promise<ParamOpRule[]> {
 
   const rules: ParamOpRule[] = []
   for (const row of rows) {
-    const rule = parseRule(row.value, row.key, row.createdAt ?? undefined, row.updatedAt ?? undefined)
+    const rule = parseRule(
+      row.value,
+      row.key,
+      row.createdAt ?? undefined,
+      row.updatedAt ?? undefined,
+    )
     if (rule) rules.push(rule)
   }
   // priority 降序(高优先级在前),同优先级按 createdAt 升序(早创建在前)
@@ -162,11 +172,7 @@ export async function listParamOpRules(): Promise<ParamOpRule[]> {
 /** 查询单条规则,不存在返回 null。 */
 export async function getParamOpRule(id: string): Promise<ParamOpRule | null> {
   if (!isNonEmptyString(id)) return null
-  const [row] = await dbRead
-    .select()
-    .from(systemConfigs)
-    .where(eq(systemConfigs.key, id))
-    .limit(1)
+  const [row] = await dbRead.select().from(systemConfigs).where(eq(systemConfigs.key, id)).limit(1)
   if (!row) return null
   return parseRule(row.value, row.key, row.createdAt ?? undefined, row.updatedAt ?? undefined)
 }

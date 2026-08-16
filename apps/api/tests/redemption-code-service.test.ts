@@ -180,14 +180,24 @@ describe('redemption-code-service — 兑换码核心 service', () => {
 
     it('count=0 → 抛错拒绝', async () => {
       await expect(
-        batchGenerateCodes({ count: 0, faceValueCents: 990, tokenAmount: 100, createdBy: 'admin-1' }),
+        batchGenerateCodes({
+          count: 0,
+          faceValueCents: 990,
+          tokenAmount: 100,
+          createdBy: 'admin-1',
+        }),
       ).rejects.toThrow('count 必须是大于 0 的整数')
       expect(mockDbInsert).not.toHaveBeenCalled()
     })
 
     it('count>1000 → 抛错拒绝', async () => {
       await expect(
-        batchGenerateCodes({ count: 1001, faceValueCents: 990, tokenAmount: 100, createdBy: 'admin-1' }),
+        batchGenerateCodes({
+          count: 1001,
+          faceValueCents: 990,
+          tokenAmount: 100,
+          createdBy: 'admin-1',
+        }),
       ).rejects.toThrow('count 不能超过 1000')
       expect(mockDbInsert).not.toHaveBeenCalled()
     })
@@ -294,7 +304,12 @@ describe('redemption-code-service — 兑换码核心 service', () => {
 
     it('重复兑换幂等:第二次返回 already_used', async () => {
       // 第一次 update 抢占成功
-      const claimedRow = { id: 'code-1', code: 'IHUI-AAAA-BBBB-CCCC', tokenAmount: 500, status: 'used' }
+      const claimedRow = {
+        id: 'code-1',
+        code: 'IHUI-AAAA-BBBB-CCCC',
+        tokenAmount: 500,
+        status: 'used',
+      }
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
       // tx.update(developerApiKeys) 内联充值
       mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 600 }]))
@@ -349,7 +364,12 @@ describe('redemption-code-service — 兑换码核心 service', () => {
     })
 
     it('用户无 active Key:返回 no_active_key', async () => {
-      const claimedRow = { id: 'code-1', code: 'IHUI-AAAA-BBBB-CCCC', tokenAmount: 500, status: 'used' }
+      const claimedRow = {
+        id: 'code-1',
+        code: 'IHUI-AAAA-BBBB-CCCC',
+        tokenAmount: 500,
+        status: 'used',
+      }
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
       mockDbReadSelect.mockReturnValueOnce(chain([])) // 无 active key
 
@@ -360,7 +380,12 @@ describe('redemption-code-service — 兑换码核心 service', () => {
     })
 
     it('rechargeByKey 返回 null(Key 不存在):返回 key_not_found', async () => {
-      const claimedRow = { id: 'code-1', code: 'IHUI-AAAA-BBBB-CCCC', tokenAmount: 500, status: 'used' }
+      const claimedRow = {
+        id: 'code-1',
+        code: 'IHUI-AAAA-BBBB-CCCC',
+        tokenAmount: 500,
+        status: 'used',
+      }
       // tx.update(redemptionCodes) 抢占码
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
       // tx.update(developerApiKeys) 返回空(Key 不存在)→ throw ERR_KEY_RECHARGE_FAILED → 事务回滚

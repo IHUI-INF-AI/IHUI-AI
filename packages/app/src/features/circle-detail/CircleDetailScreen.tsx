@@ -86,18 +86,12 @@ export function CircleDetailScreen({
             >
               <Text style={styles.actionBtnPrimaryText}>{t('circleDetail.post')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.actionBtnOutline]}
-              onPress={onLeave}
-            >
+            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]} onPress={onLeave}>
               <Text style={styles.actionBtnOutlineText}>{t('circleDetail.leave')}</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnPrimary]}
-            onPress={onJoin}
-          >
+          <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={onJoin}>
             <Text style={styles.actionBtnPrimaryText}>{t('circleDetail.join')}</Text>
           </TouchableOpacity>
         )}

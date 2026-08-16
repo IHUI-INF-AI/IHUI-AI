@@ -126,7 +126,9 @@ export default function LettersPage() {
                               {formatLetterTime(m.letter.createdAt)}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-muted-foreground">{m.letter.content}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {m.letter.content}
+                          </p>
                         </div>
                       </button>
                     )

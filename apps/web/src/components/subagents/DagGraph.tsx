@@ -149,14 +149,18 @@ function DagGraphInner({ dag, className }: DagGraphProps) {
 
   if (!dag || dag.nodes.length === 0) {
     return (
-      <div className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}>
+      <div
+        className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}
+      >
         无 DAG 配置
       </div>
     )
   }
 
   return (
-    <div className={`h-[420px] w-full overflow-hidden rounded-md border bg-background ${className ?? ''}`}>
+    <div
+      className={`h-[420px] w-full overflow-hidden rounded-md border bg-background ${className ?? ''}`}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}

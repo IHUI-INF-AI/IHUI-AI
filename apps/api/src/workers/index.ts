@@ -13,10 +13,7 @@ import {
   RELAY_HEALTH_CHECK_QUEUE_NAME,
 } from './relay-health-check-worker.js'
 import { startBatchWorker } from './batch-worker.js'
-import {
-  startUsdtPaymentWorker,
-  USDT_PAYMENT_QUEUE_NAME,
-} from './usdt-payment-worker.js'
+import { startUsdtPaymentWorker, USDT_PAYMENT_QUEUE_NAME } from './usdt-payment-worker.js'
 
 /**
  * 启动所有 BullMQ Worker（异步任务消费者）。

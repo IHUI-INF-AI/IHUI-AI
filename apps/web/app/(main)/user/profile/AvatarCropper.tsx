@@ -3,7 +3,14 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RotateCcw, RotateCw } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button } from '@ihui/ui-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 interface Props {
@@ -276,7 +283,13 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
           <Button type="button" variant="outline" onClick={onCancel} className="shrink-0">
             <span className="whitespace-nowrap">{t('cropCancel')}</span>
           </Button>
-          <Button type="button" variant="outline" onClick={reset} disabled={!loaded} className="shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={reset}
+            disabled={!loaded}
+            className="shrink-0"
+          >
             <span className="whitespace-nowrap">{t('cropReset')}</span>
           </Button>
           <Button type="button" onClick={confirm} disabled={!loaded} className="shrink-0">

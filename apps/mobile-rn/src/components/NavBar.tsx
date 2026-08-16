@@ -11,7 +11,15 @@
  * - 向后兼容:title?/onBack?/rightAction?/transparent? 旧 API 全保留
  */
 import { type ReactNode } from 'react'
-import { Image, StatusBar, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
+import {
+  Image,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewStyle,
+} from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 export interface NavBarAction {
@@ -70,8 +78,13 @@ export function NavBar({
   const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
   const hasCustomBg = backgroundColor !== undefined
   const showBorder = !transparent && !hasCustomBg
-  const resolvedBg = hasCustomBg ? backgroundColor : transparent ? 'transparent' : tokens.surface.card
-  const hasLeftContent = onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
+  const resolvedBg = hasCustomBg
+    ? backgroundColor
+    : transparent
+      ? 'transparent'
+      : tokens.surface.card
+  const hasLeftContent =
+    onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
   const hasRightContent =
     (rightActions !== undefined && rightActions.length > 0) || rightAction !== undefined
 

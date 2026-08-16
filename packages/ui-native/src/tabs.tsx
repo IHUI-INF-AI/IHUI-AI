@@ -15,7 +15,11 @@ export interface TabsProps extends Omit<ComponentProps<typeof View>, 'children'>
 
 export function Tabs({ tabs, value, onChange, className, ...props }: TabsProps) {
   return (
-    <View className={cn('flex-row rounded-lg bg-muted p-1', className)} accessibilityRole="tablist" {...props}>
+    <View
+      className={cn('flex-row rounded-lg bg-muted p-1', className)}
+      accessibilityRole="tablist"
+      {...props}
+    >
       {tabs.map((tab) => {
         const active = tab.value === value
         return (

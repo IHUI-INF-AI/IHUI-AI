@@ -67,7 +67,7 @@ export interface SkillPublishRequest {
 }
 
 /** 发布端点响应(返回新建的市场条目) */
-export type SkillPublishResponse = SkillMarketEntry;
+export type SkillPublishResponse = SkillMarketEntry
 
 /** 订阅状态查询响应 */
 export interface SkillSubscriptionResponse {

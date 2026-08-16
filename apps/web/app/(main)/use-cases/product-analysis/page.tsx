@@ -23,7 +23,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 产品分析', item: 'https://aizhs.top/use-cases/product-analysis' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 产品分析',
+          item: 'https://aizhs.top/use-cases/product-analysis',
+        },
       ],
     },
     {
@@ -41,12 +46,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 反馈聚合器' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '接入埋点数据', text: '对接 Sensors/Amplitude/Mixpanel/自建埋点,统一数据 schema,Agent 自动发现行为模式。' },
-        { '@type': 'HowToStep', position: 2, name: '配置行为分析', text: '设定关键漏斗与留存指标,Agent 自动识别异常波动,定位流失环节与用户分群。' },
-        { '@type': 'HowToStep', position: 3, name: '设置优先级模型', text: '基于 RICE/KANO 模型,Agent 给需求池打分排序,产品经理专注高 ROI 项。' },
-        { '@type': 'HowToStep', position: 4, name: '生成 A/B 方案', text: '输入实验假设,Agent 自动设计实验分组、样本量、指标体系,显著性达 90%+。' },
-        { '@type': 'HowToStep', position: 5, name: '聚合用户反馈', text: '聚合 App Store/客服/社媒/问卷反馈,Agent 自动分类(BUG/需求/赞美/吐槽),80% 自动归档。' },
-        { '@type': 'HowToStep', position: 6, name: '输出路线图建议', text: '基于数据 + 反馈 + 优先级,Agent 每月生成下季度路线图建议,数据驱动而非拍脑袋。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '接入埋点数据',
+          text: '对接 Sensors/Amplitude/Mixpanel/自建埋点,统一数据 schema,Agent 自动发现行为模式。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '配置行为分析',
+          text: '设定关键漏斗与留存指标,Agent 自动识别异常波动,定位流失环节与用户分群。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '设置优先级模型',
+          text: '基于 RICE/KANO 模型,Agent 给需求池打分排序,产品经理专注高 ROI 项。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '生成 A/B 方案',
+          text: '输入实验假设,Agent 自动设计实验分组、样本量、指标体系,显著性达 90%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '聚合用户反馈',
+          text: '聚合 App Store/客服/社媒/问卷反馈,Agent 自动分类(BUG/需求/赞美/吐槽),80% 自动归档。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '输出路线图建议',
+          text: '基于数据 + 反馈 + 优先级,Agent 每月生成下季度路线图建议,数据驱动而非拍脑袋。',
+        },
       ],
     },
   ],
@@ -66,11 +101,26 @@ export const metadata: Metadata = {
 }
 
 const capabilities = [
-  { title: '用户行为分析', desc: '统一埋点数据 schema,自动发现行为模式,识别异常波动与流失环节,定位高价值用户分群。' },
-  { title: '功能优先级', desc: '基于 RICE/KANO 模型给需求池打分排序,产品经理专注高 ROI 项,告别拍脑袋决策。' },
-  { title: 'A/B 测试设计', desc: '输入实验假设,Agent 自动设计分组、样本量、指标体系,显著性达 90%+,避免假阳性。' },
-  { title: '路线图建议', desc: '基于数据 + 反馈 + 优先级,每月生成下季度路线图建议,数据驱动而非拍脑袋。' },
-  { title: '反馈聚合', desc: '聚合 App Store/客服/社媒/问卷反馈,自动分类(BUG/需求/赞美/吐槽),80% 自动归档。' },
+  {
+    title: '用户行为分析',
+    desc: '统一埋点数据 schema,自动发现行为模式,识别异常波动与流失环节,定位高价值用户分群。',
+  },
+  {
+    title: '功能优先级',
+    desc: '基于 RICE/KANO 模型给需求池打分排序,产品经理专注高 ROI 项,告别拍脑袋决策。',
+  },
+  {
+    title: 'A/B 测试设计',
+    desc: '输入实验假设,Agent 自动设计分组、样本量、指标体系,显著性达 90%+,避免假阳性。',
+  },
+  {
+    title: '路线图建议',
+    desc: '基于数据 + 反馈 + 优先级,每月生成下季度路线图建议,数据驱动而非拍脑袋。',
+  },
+  {
+    title: '反馈聚合',
+    desc: '聚合 App Store/客服/社媒/问卷反馈,自动分类(BUG/需求/赞美/吐槽),80% 自动归档。',
+  },
   { title: '产品复盘', desc: '每周生成产品复盘报告,功能使用率/留存/满意度一览,迭代节奏数据可见。' },
 ]
 
@@ -93,7 +143,10 @@ const metrics = [
 export default function ProductAnalysisPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         <section className="space-y-5 text-center">
@@ -110,15 +163,21 @@ export default function ProductAnalysisPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -133,7 +192,9 @@ export default function ProductAnalysisPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 步落地</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 步落地
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
               <div key={s.step} className="rounded-2xl border bg-card p-6">
@@ -149,7 +210,9 @@ export default function ProductAnalysisPage() {
 
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始构建你的 AI 产品分析助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            开始构建你的 AI 产品分析助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从产品分析场景模板一键 fork,30 分钟体验。
           </p>

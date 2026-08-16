@@ -8,8 +8,8 @@ import {
   timestamp,
   jsonb,
   index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 存储驱动配置表 - 管理 edu_platform 的对象存储驱动(local/aliyun-oss/tencent-cos/qiniu 等)。
@@ -38,7 +38,7 @@ export const ossDrivers = pgTable(
     driverIdx: index('oss_drivers_driver_idx').on(t.driver),
     enabledIdx: index('oss_drivers_enabled_idx').on(t.isEnabled),
   }),
-);
+)
 
-export type OssDriver = typeof ossDrivers.$inferSelect;
-export type NewOssDriver = typeof ossDrivers.$inferInsert;
+export type OssDriver = typeof ossDrivers.$inferSelect
+export type NewOssDriver = typeof ossDrivers.$inferInsert

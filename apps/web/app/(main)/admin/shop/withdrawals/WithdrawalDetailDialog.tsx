@@ -35,7 +35,11 @@ export function WithdrawalDetailDialog(props: Props) {
       <DialogContent>
         <form onSubmit={submitDetail} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{dEditing ? t('withdrawals.detail.dialog.editTitle') : t('withdrawals.detail.dialog.createTitle')}</DialogTitle>
+            <DialogTitle>
+              {dEditing
+                ? t('withdrawals.detail.dialog.editTitle')
+                : t('withdrawals.detail.dialog.createTitle')}
+            </DialogTitle>
           </DialogHeader>
           {dErr && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -113,7 +117,8 @@ export function WithdrawalDetailDialog(props: Props) {
               {t('withdrawals.detail.dialog.cancel')}
             </Button>
             <Button type="submit" disabled={dSaveMut.isPending}>
-              {dSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.detail.dialog.save')}
+              {dSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('withdrawals.detail.dialog.save')}
             </Button>
           </DialogFooter>
         </form>

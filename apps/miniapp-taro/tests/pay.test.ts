@@ -65,17 +65,13 @@ describe('miniapp-taro 微信支付调起', () => {
     it('signType 默认 RSA', async () => {
       mockPaymentSuccess()
       await requestWxPayment(validWxParams)
-      expect(fns.requestPayment).toHaveBeenCalledWith(
-        expect.objectContaining({ signType: 'RSA' }),
-      )
+      expect(fns.requestPayment).toHaveBeenCalledWith(expect.objectContaining({ signType: 'RSA' }))
     })
 
     it('signType 传 MD5 时透传', async () => {
       mockPaymentSuccess()
       await requestWxPayment({ ...validWxParams, signType: 'MD5' })
-      expect(fns.requestPayment).toHaveBeenCalledWith(
-        expect.objectContaining({ signType: 'MD5' }),
-      )
+      expect(fns.requestPayment).toHaveBeenCalledWith(expect.objectContaining({ signType: 'MD5' }))
     })
 
     it('缺少必填参数直接透传(由微信端校验)', async () => {
@@ -109,9 +105,12 @@ describe('miniapp-taro 微信支付调起', () => {
 
     it('参数错误', async () => {
       mockPaymentFail({ errMsg: 'requestPayment:fail parameter error' })
-      await expect(requestWxPayment(validWxParams)).rejects.toThrow('requestPayment:fail parameter error')
+      await expect(requestWxPayment(validWxParams)).rejects.toThrow(
+        'requestPayment:fail parameter error',
+      )
       expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试', icon: 'none',
+        title: '支付失败,请重试',
+        icon: 'none',
       })
     })
 
@@ -119,7 +118,8 @@ describe('miniapp-taro 微信支付调起', () => {
       mockPaymentFail({ errMsg: 'requestPayment:fail unknown' })
       await expect(requestWxPayment(validWxParams)).rejects.toThrow('requestPayment:fail unknown')
       expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试', icon: 'none',
+        title: '支付失败,请重试',
+        icon: 'none',
       })
     })
   })
@@ -147,7 +147,11 @@ describe('miniapp-taro 微信支付调起', () => {
     it('从字段构建 orderInfo', async () => {
       mockPaymentSuccess()
       await requestWxPayment({
-        appid: 'wx123', partnerid: 'p1', prepayid: 'pre1', nonceStr: 'n', sign: 's',
+        appid: 'wx123',
+        partnerid: 'p1',
+        prepayid: 'pre1',
+        nonceStr: 'n',
+        sign: 's',
       })
       const call = fns.requestPayment.mock.calls[0][0] as Record<string, unknown>
       const orderInfo = JSON.parse(call.orderInfo as string)
@@ -203,7 +207,8 @@ describe('miniapp-taro 微信支付调起', () => {
         'weapp unsupported alipay',
       )
       expect(fns.showToast).toHaveBeenCalledWith({
-        title: '微信小程序暂不支持支付宝支付', icon: 'none',
+        title: '微信小程序暂不支持支付宝支付',
+        icon: 'none',
       })
     })
 
@@ -257,7 +262,11 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestAliPayment({ orderInfo: 'test' })).rejects.toMatchObject({
         errMsg: 'short msg',
       })
-      expect(fns.showToast).toHaveBeenCalledWith({ title: 'short msg', icon: 'none', duration: 2000 })
+      expect(fns.showToast).toHaveBeenCalledWith({
+        title: 'short msg',
+        icon: 'none',
+        duration: 2000,
+      })
     })
 
     it('支付宝长错误消息降级为通用提示', async () => {
@@ -268,7 +277,9 @@ describe('miniapp-taro 微信支付调起', () => {
         errMsg: longMsg,
       })
       expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试', icon: 'none', duration: 2000,
+        title: '支付失败,请重试',
+        icon: 'none',
+        duration: 2000,
       })
     })
   })

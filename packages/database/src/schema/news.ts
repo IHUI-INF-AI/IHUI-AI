@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 资讯分类表。
@@ -14,7 +23,7 @@ export const newsCategories = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ sortIdx: index('news_categories_sort_idx').on(t.sort) }),
-);
+)
 
 /**
  * 资讯文章表。
@@ -44,9 +53,9 @@ export const newsArticles = pgTable(
     catIdx: index('news_articles_category_idx').on(t.categoryId),
     pubIdx: index('news_articles_published_idx').on(t.isPublished),
   }),
-);
+)
 
-export type NewsCategory = typeof newsCategories.$inferSelect;
-export type NewNewsCategory = typeof newsCategories.$inferInsert;
-export type NewsArticle = typeof newsArticles.$inferSelect;
-export type NewNewsArticle = typeof newsArticles.$inferInsert;
+export type NewsCategory = typeof newsCategories.$inferSelect
+export type NewNewsCategory = typeof newsCategories.$inferInsert
+export type NewsArticle = typeof newsArticles.$inferSelect
+export type NewNewsArticle = typeof newsArticles.$inferInsert

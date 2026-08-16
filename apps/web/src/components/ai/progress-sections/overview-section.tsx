@@ -1,7 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { Activity, Loader2, CheckCircle2, XCircle, AlertCircle, Circle, Clipboard, Check } from 'lucide-react'
+import {
+  Activity,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Circle,
+  Clipboard,
+  Check,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -113,7 +122,10 @@ export const OverviewSection = React.memo(function OverviewSection({
     })
   }
   if (overview.totalSubagents > 0) {
-    const parts = [`${overview.activeSubagents}${t('overview.active')}`, `${overview.totalSubagents}${t('overview.total')}`]
+    const parts = [
+      `${overview.activeSubagents}${t('overview.active')}`,
+      `${overview.totalSubagents}${t('overview.total')}`,
+    ]
     if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents}${t('overview.dead')}`)
     stats.push({ label: t('overview.subagents'), value: parts.join(' · ') })
   }
@@ -124,7 +136,10 @@ export const OverviewSection = React.memo(function OverviewSection({
     })
   }
   if (overview.totalChanges > 0) {
-    stats.push({ label: t('overview.changes'), value: `${overview.totalChanges}${t('overview.files')}` })
+    stats.push({
+      label: t('overview.changes'),
+      value: `${overview.totalChanges}${t('overview.files')}`,
+    })
   }
   if (sessionDuration) {
     stats.push({ label: t('overview.duration'), value: sessionDuration })
@@ -201,9 +216,7 @@ export const OverviewSection = React.memo(function OverviewSection({
           </span>
           {overview.error && (
             <Tooltip content={overview.error}>
-              <span className="flex-1 break-all text-[10px] text-red-500/80">
-                {overview.error}
-              </span>
+              <span className="flex-1 break-all text-[10px] text-red-500/80">{overview.error}</span>
             </Tooltip>
           )}
         </div>

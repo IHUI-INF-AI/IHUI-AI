@@ -96,7 +96,9 @@ export function DiffFileList({
         )
       })}
       {!filtered.length && (
-        <div className="px-2 py-4 text-center text-muted-foreground">{t('diffFileList.noMatch')}</div>
+        <div className="px-2 py-4 text-center text-muted-foreground">
+          {t('diffFileList.noMatch')}
+        </div>
       )}
     </div>
   )
@@ -112,15 +114,30 @@ interface FileRowProps {
   showActions: boolean
 }
 
-function FileRow({ file, isActive, selectable, isSelected, onSelect, onClick, showActions }: FileRowProps) {
+function FileRow({
+  file,
+  isActive,
+  selectable,
+  isSelected,
+  onSelect,
+  onClick,
+  showActions,
+}: FileRowProps) {
   const Icon = getFileIcon(file.filename)
-  const dir = file.filename.includes('/') ? file.filename.slice(0, file.filename.lastIndexOf('/')) : ''
+  const dir = file.filename.includes('/')
+    ? file.filename.slice(0, file.filename.lastIndexOf('/'))
+    : ''
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={() => onClick(file.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(file.id) } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(file.id)
+        }
+      }}
       className={cn(
         'group flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
         isActive ? 'bg-muted text-foreground' : 'hover:bg-muted/50',

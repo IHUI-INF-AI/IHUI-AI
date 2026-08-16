@@ -18,9 +18,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import { render, screen, cleanup } from '@testing-library/react'
-import {
-  ResourceBudget,
-} from '../src/components/ai/progress-sections/resource-budget'
+import { ResourceBudget } from '../src/components/ai/progress-sections/resource-budget'
 
 // ─── lucide-react mock ───────────────────────────────────────
 const { IconSpan } = vi.hoisted(() => {
@@ -45,9 +43,7 @@ afterEach(() => {
 // ─── inline variant 基础渲染 ──────────────────────────────
 describe('ResourceBudget — inline variant 基础渲染', () => {
   it('渲染 span 容器 + 默认 data-testid', () => {
-    const { container } = render(
-      <ResourceBudget used={50} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={50} total={100} label="tokens" />)
     const el = container.querySelector('[data-testid="resource-budget-inline"]')
     expect(el).toBeTruthy()
     expect(el?.tagName.toLowerCase()).toBe('span')
@@ -61,16 +57,12 @@ describe('ResourceBudget — inline variant 基础渲染', () => {
   })
 
   it('inline 模式渲染当前 usage 文案', () => {
-    const { container } = render(
-      <ResourceBudget used={30} total={100} label="requests" />,
-    )
+    const { container } = render(<ResourceBudget used={30} total={100} label="requests" />)
     expect(container.textContent).toContain('Current usage:')
   })
 
   it('aria-label 含 used / total / label', () => {
-    const { container } = render(
-      <ResourceBudget used={30} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={30} total={100} label="tokens" />)
     const el = container.querySelector('[data-testid="resource-budget-inline"]') as HTMLElement
     expect(el.getAttribute('aria-label')).toBe('Current usage: 30 / 100 tokens')
   })
@@ -171,18 +163,14 @@ describe('ResourceBudget — 进度条 fill 颜色阈值', () => {
 // ─── icon 颜色映射 ──────────────────────────────────────────
 describe('ResourceBudget — icon 颜色阈值', () => {
   it('pct < 70% → icon text-primary', () => {
-    const { container } = render(
-      <ResourceBudget used={50} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={50} total={100} label="tokens" />)
     const icon = container.querySelector('[data-testid="lucide-icon"]') as HTMLElement
     expect(icon.className).toContain('text-primary')
     expect(icon.className).not.toContain('text-amber-500')
   })
 
   it('pct = 70% → icon text-amber-500', () => {
-    const { container } = render(
-      <ResourceBudget used={70} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={70} total={100} label="tokens" />)
     const icon = container.querySelector('[data-testid="lucide-icon"]') as HTMLElement
     expect(icon.className).toContain('text-amber-500')
   })
@@ -217,9 +205,7 @@ describe('ResourceBudget — active prop', () => {
   })
 
   it('active 默认为 false(inline 模式)', () => {
-    const { container } = render(
-      <ResourceBudget used={50} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={50} total={100} label="tokens" />)
     const icon = container.querySelector('[data-testid="lucide-icon"]') as HTMLElement
     expect(icon.className).not.toContain('animate-spin')
   })
@@ -291,9 +277,7 @@ describe('ResourceBudget — 边界场景', () => {
   })
 
   it('inline 模式边界:used=0 显示 0%', () => {
-    const { container } = render(
-      <ResourceBudget used={0} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={0} total={100} label="tokens" />)
     expect(container.textContent).toContain('0 / 100')
   })
 })
@@ -377,9 +361,7 @@ describe('ResourceBudget — variant 行为差异', () => {
   })
 
   it('variant=inline(default)时不渲染 block div', () => {
-    const { container } = render(
-      <ResourceBudget used={50} total={100} label="tokens" />,
-    )
+    const { container } = render(<ResourceBudget used={50} total={100} label="tokens" />)
     expect(container.querySelector('[data-testid="resource-budget-block"]')).toBeFalsy()
     expect(container.querySelector('[data-testid="resource-budget-inline"]')).toBeTruthy()
   })

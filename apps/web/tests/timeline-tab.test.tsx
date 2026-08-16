@@ -62,7 +62,10 @@ vi.mock('lucide-react', () => {
   }
 })
 
-import { TimelineTab, flattenToTimelineEvents } from '../src/components/ai/progress-sections/timeline-tab'
+import {
+  TimelineTab,
+  flattenToTimelineEvents,
+} from '../src/components/ai/progress-sections/timeline-tab'
 import { useTimelineStore, type TimelineEvent } from '../src/stores/timeline-store'
 
 // ─── 工具函数:构造测试事件 ──────────────────────────────────────
@@ -83,13 +86,57 @@ function makeEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
 }
 
 const SAMPLE_EVENTS: TimelineEvent[] = [
-  makeEvent({ id: 'p1', type: 'plan', title: 'Plan step alpha', status: 'done', timestamp: '2026-07-28T10:00:00Z' }),
-  makeEvent({ id: 'p2', type: 'plan', title: 'Plan step beta', status: 'pending', timestamp: '2026-07-28T10:01:00Z' }),
-  makeEvent({ id: 's1', type: 'subagent', title: '@validator · 验证类型', status: 'running', timestamp: '2026-07-28T10:02:00Z' }),
-  makeEvent({ id: 's2', type: 'subagent', title: '@reviewer · 审查代码', status: 'done', timestamp: '2026-07-28T10:03:00Z' }),
-  makeEvent({ id: 't1', type: 'tool', title: 'read_file', description: 'src/components/Button.tsx', status: 'done', timestamp: '2026-07-28T10:04:00Z' }),
-  makeEvent({ id: 't2', type: 'tool', title: 'edit_file', description: 'src/lib/utils.ts', status: 'failed', timestamp: '2026-07-28T10:05:00Z' }),
-  makeEvent({ id: 'q1', type: 'question', title: '是否继续?', status: 'pending', timestamp: '2026-07-28T10:06:00Z' }),
+  makeEvent({
+    id: 'p1',
+    type: 'plan',
+    title: 'Plan step alpha',
+    status: 'done',
+    timestamp: '2026-07-28T10:00:00Z',
+  }),
+  makeEvent({
+    id: 'p2',
+    type: 'plan',
+    title: 'Plan step beta',
+    status: 'pending',
+    timestamp: '2026-07-28T10:01:00Z',
+  }),
+  makeEvent({
+    id: 's1',
+    type: 'subagent',
+    title: '@validator · 验证类型',
+    status: 'running',
+    timestamp: '2026-07-28T10:02:00Z',
+  }),
+  makeEvent({
+    id: 's2',
+    type: 'subagent',
+    title: '@reviewer · 审查代码',
+    status: 'done',
+    timestamp: '2026-07-28T10:03:00Z',
+  }),
+  makeEvent({
+    id: 't1',
+    type: 'tool',
+    title: 'read_file',
+    description: 'src/components/Button.tsx',
+    status: 'done',
+    timestamp: '2026-07-28T10:04:00Z',
+  }),
+  makeEvent({
+    id: 't2',
+    type: 'tool',
+    title: 'edit_file',
+    description: 'src/lib/utils.ts',
+    status: 'failed',
+    timestamp: '2026-07-28T10:05:00Z',
+  }),
+  makeEvent({
+    id: 'q1',
+    type: 'question',
+    title: '是否继续?',
+    status: 'pending',
+    timestamp: '2026-07-28T10:06:00Z',
+  }),
 ]
 
 // ─── 每个测试前后重置 store ──────────────────────────────────────
@@ -260,9 +307,7 @@ describe('TimelineTab — 类型过滤 chips', () => {
   })
 
   it('无该 type 事件时,chip count=0 但仍渲染(用户可点击看到 0 匹配的空态)', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'p1', type: 'plan', status: 'done' }),
-    ])
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'p1', type: 'plan', status: 'done' })])
     render(<TimelineTab />)
     expect(within(screen.getByTestId('timeline-filter-thinking')).getByText('0')).toBeTruthy()
   })
@@ -377,10 +422,12 @@ describe('TimelineTab — 状态计数 chips', () => {
 
   it('count=0 的 status 不渲染对应 chip', () => {
     // 全 done 场景:failed=0, running=0
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'a', type: 'plan', status: 'done' }),
-      makeEvent({ id: 'b', type: 'tool', status: 'done' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([
+        makeEvent({ id: 'a', type: 'plan', status: 'done' }),
+        makeEvent({ id: 'b', type: 'tool', status: 'done' }),
+      ])
     render(<TimelineTab />)
     expect(screen.getByTestId('timeline-count-done')).toBeTruthy()
     expect(screen.queryByTestId('timeline-count-failed')).toBeNull()
@@ -388,9 +435,7 @@ describe('TimelineTab — 状态计数 chips', () => {
   })
 
   it('只有 pending 时:done/failed/running chip 都不渲染', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'a', type: 'plan', status: 'pending' }),
-    ])
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'a', type: 'plan', status: 'pending' })])
     render(<TimelineTab />)
     expect(screen.queryByTestId('timeline-count-done')).toBeNull()
     expect(screen.queryByTestId('timeline-count-failed')).toBeNull()
@@ -423,10 +468,12 @@ describe('TimelineTab — 过滤后空态增强', () => {
 
   it('有事件但 typeFilter 过滤后无匹配:显示 "no match" + clear filters', () => {
     // 移除 thinking 事件,再点击 thinking chip
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'p1', type: 'plan', status: 'done' }),
-      makeEvent({ id: 'p2', type: 'plan', status: 'pending' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([
+        makeEvent({ id: 'p1', type: 'plan', status: 'done' }),
+        makeEvent({ id: 'p2', type: 'plan', status: 'pending' }),
+      ])
     render(<TimelineTab />)
     fireEvent.click(screen.getByTestId('timeline-filter-thinking'))
     expect(screen.getByTestId('timeline-no-match')).toBeTruthy()
@@ -434,11 +481,13 @@ describe('TimelineTab — 过滤后空态增强', () => {
   })
 
   it('点击 clear filters 重置 typeFilter=all + searchQuery="" 并恢复事件', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'p1', type: 'plan', title: 'alpha', status: 'done' }),
-      makeEvent({ id: 'p2', type: 'plan', title: 'beta', status: 'pending' }),
-      makeEvent({ id: 't1', type: 'tool', title: 'read_file', status: 'done' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([
+        makeEvent({ id: 'p1', type: 'plan', title: 'alpha', status: 'done' }),
+        makeEvent({ id: 'p2', type: 'plan', title: 'beta', status: 'pending' }),
+        makeEvent({ id: 't1', type: 'tool', title: 'read_file', status: 'done' }),
+      ])
     render(<TimelineTab />)
     // 触发过滤
     fireEvent.click(screen.getByTestId('timeline-filter-tool'))
@@ -480,9 +529,7 @@ describe('TimelineTab — React.memo 优化', () => {
     const { rerender } = render(<TimelineTab />)
     expect(document.querySelectorAll('[data-event-type]').length).toBe(7)
     // 修改 store events
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'a', type: 'plan', status: 'done' }),
-    ])
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'a', type: 'plan', status: 'done' })])
     rerender(<TimelineTab />)
     expect(document.querySelectorAll('[data-event-type]').length).toBe(1)
   })
@@ -509,12 +556,48 @@ describe('flattenToTimelineEvents', () => {
   it('subagent status 映射:spawned/running → running, done → done, failed/dead → failed', () => {
     const events = flattenToTimelineEvents({
       subagents: [
-        { id: 's1', nickname: 'n1', handle: '@h1', status: 'spawned', spawnedAt: '2026-07-28T10:00:00Z' },
-        { id: 's2', nickname: 'n2', handle: '@h2', status: 'running', spawnedAt: '2026-07-28T10:01:00Z' },
-        { id: 's3', nickname: 'n3', handle: '@h3', status: 'done', spawnedAt: '2026-07-28T10:02:00Z' },
-        { id: 's4', nickname: 'n4', handle: '@h4', status: 'failed', spawnedAt: '2026-07-28T10:03:00Z' },
-        { id: 's5', nickname: 'n5', handle: '@h5', status: 'dead', spawnedAt: '2026-07-28T10:04:00Z' },
-        { id: 's6', nickname: 'n6', handle: '@h6', status: 'idle', spawnedAt: '2026-07-28T10:05:00Z' },
+        {
+          id: 's1',
+          nickname: 'n1',
+          handle: '@h1',
+          status: 'spawned',
+          spawnedAt: '2026-07-28T10:00:00Z',
+        },
+        {
+          id: 's2',
+          nickname: 'n2',
+          handle: '@h2',
+          status: 'running',
+          spawnedAt: '2026-07-28T10:01:00Z',
+        },
+        {
+          id: 's3',
+          nickname: 'n3',
+          handle: '@h3',
+          status: 'done',
+          spawnedAt: '2026-07-28T10:02:00Z',
+        },
+        {
+          id: 's4',
+          nickname: 'n4',
+          handle: '@h4',
+          status: 'failed',
+          spawnedAt: '2026-07-28T10:03:00Z',
+        },
+        {
+          id: 's5',
+          nickname: 'n5',
+          handle: '@h5',
+          status: 'dead',
+          spawnedAt: '2026-07-28T10:04:00Z',
+        },
+        {
+          id: 's6',
+          nickname: 'n6',
+          handle: '@h6',
+          status: 'idle',
+          spawnedAt: '2026-07-28T10:05:00Z',
+        },
       ],
     })
     expect(events.map((e) => e.status)).toEqual([
@@ -557,14 +640,16 @@ describe('flattenToTimelineEvents', () => {
         { id: 'p2', step: 'plan-b', status: 'done', timestamp: '2026-07-28T10:04:00Z' },
       ],
       subagents: [
-        { id: 's1', nickname: 'n1', handle: '@h1', status: 'done', spawnedAt: '2026-07-28T10:01:00Z' },
+        {
+          id: 's1',
+          nickname: 'n1',
+          handle: '@h1',
+          status: 'done',
+          spawnedAt: '2026-07-28T10:01:00Z',
+        },
       ],
-      tools: [
-        { id: 't1', toolName: 'tool-a', status: 'done', startedAt: '2026-07-28T10:03:00Z' },
-      ],
-      questions: [
-        { id: 'q1', question: 'q-a', answered: true, timestamp: '2026-07-28T10:00:00Z' },
-      ],
+      tools: [{ id: 't1', toolName: 'tool-a', status: 'done', startedAt: '2026-07-28T10:03:00Z' }],
+      questions: [{ id: 'q1', question: 'q-a', answered: true, timestamp: '2026-07-28T10:00:00Z' }],
     })
     expect(events.map((e) => e.id)).toEqual(['q1', 's1', 'p1', 't1', 'p2'])
   })
@@ -572,7 +657,13 @@ describe('flattenToTimelineEvents', () => {
   it('tool description 含 durationMs 数字', () => {
     const events = flattenToTimelineEvents({
       tools: [
-        { id: 't1', toolName: 'read_file', status: 'success', startedAt: '2026-07-28T10:00:00Z', durationMs: 1234 },
+        {
+          id: 't1',
+          toolName: 'read_file',
+          status: 'success',
+          startedAt: '2026-07-28T10:00:00Z',
+          durationMs: 1234,
+        },
         { id: 't2', toolName: 'edit_file', status: 'success', startedAt: '2026-07-28T10:01:00Z' },
       ],
     })
@@ -584,8 +675,21 @@ describe('flattenToTimelineEvents', () => {
   it('subagent title:有 currentTask 时显示 "handle · currentTask",否则 "handle · nickname"', () => {
     const events = flattenToTimelineEvents({
       subagents: [
-        { id: 's1', nickname: 'validator', handle: '@validator', status: 'done', spawnedAt: '2026-07-28T10:00:00Z', currentTask: '验证类型' },
-        { id: 's2', nickname: 'reviewer', handle: '@reviewer', status: 'done', spawnedAt: '2026-07-28T10:01:00Z' },
+        {
+          id: 's1',
+          nickname: 'validator',
+          handle: '@validator',
+          status: 'done',
+          spawnedAt: '2026-07-28T10:00:00Z',
+          currentTask: '验证类型',
+        },
+        {
+          id: 's2',
+          nickname: 'reviewer',
+          handle: '@reviewer',
+          status: 'done',
+          spawnedAt: '2026-07-28T10:01:00Z',
+        },
       ],
     })
     const [first, second] = events
@@ -662,9 +766,9 @@ describe('TimelineTab — thinking/reference 类型事件渲染与过滤', () =>
   })
 
   it('thinking 类型事件:渲染在事件列表中', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'th-1', type: 'thinking', status: 'done', title: '推理中' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([makeEvent({ id: 'th-1', type: 'thinking', status: 'done', title: '推理中' })])
     useTimelineStore.getState().setActiveTab('timeline')
     const { container } = render(<TimelineTab />)
     expect(container.querySelector('[data-event-type="thinking"]')).toBeTruthy()
@@ -672,19 +776,21 @@ describe('TimelineTab — thinking/reference 类型事件渲染与过滤', () =>
   })
 
   it('reference 类型事件:渲染在事件列表中', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'ref-1', type: 'reference', status: 'done', title: '参考文档' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([makeEvent({ id: 'ref-1', type: 'reference', status: 'done', title: '参考文档' })])
     useTimelineStore.getState().setActiveTab('timeline')
     const { container } = render(<TimelineTab />)
     expect(container.querySelector('[data-event-type="reference"]')).toBeTruthy()
   })
 
   it('thinking/reference 不在 filter chips 中(只 4 + all)', () => {
-    useTimelineStore.getState().setEvents([
-      makeEvent({ id: 'th-1', type: 'thinking' }),
-      makeEvent({ id: 'ref-1', type: 'reference' }),
-    ])
+    useTimelineStore
+      .getState()
+      .setEvents([
+        makeEvent({ id: 'th-1', type: 'thinking' }),
+        makeEvent({ id: 'ref-1', type: 'reference' }),
+      ])
     useTimelineStore.getState().setActiveTab('timeline')
     render(<TimelineTab />)
     // 4 + all 5 个 filter chip
@@ -743,8 +849,18 @@ describe('TimelineTab — 100+ events 性能 + 大数据集边界', () => {
     const bigEvents: TimelineEvent[] = Array.from({ length: 120 }, (_, i) =>
       makeEvent({
         id: `evt-${i}`,
-        type: (i % 4 === 0 ? 'plan' : i % 4 === 1 ? 'subagent' : i % 4 === 2 ? 'tool' : 'question') as TimelineEvent['type'],
-        status: (i % 3 === 0 ? 'done' : i % 3 === 1 ? 'running' : 'pending') as TimelineEvent['status'],
+        type: (i % 4 === 0
+          ? 'plan'
+          : i % 4 === 1
+            ? 'subagent'
+            : i % 4 === 2
+              ? 'tool'
+              : 'question') as TimelineEvent['type'],
+        status: (i % 3 === 0
+          ? 'done'
+          : i % 3 === 1
+            ? 'running'
+            : 'pending') as TimelineEvent['status'],
         title: `Event ${i}`,
         timestamp: new Date(Date.now() - i * 1000).toISOString(),
       }),
@@ -803,9 +919,7 @@ describe('TimelineTab — children 折叠交互 + 嵌套展示', () => {
       id: 'parent-1',
       type: 'plan',
       status: 'running',
-      children: [
-        makeEvent({ id: 'c-1', type: 'tool', status: 'done', title: '子事件' }),
-      ],
+      children: [makeEvent({ id: 'c-1', type: 'tool', status: 'done', title: '子事件' })],
     })
     useTimelineStore.getState().setEvents([eventWithChildren])
     render(<TimelineTab />)

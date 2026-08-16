@@ -11,7 +11,7 @@ import { commentLogQuerySchema, idParamSchema } from './_shared.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 const commentLogsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/comment-logs', async (request, reply) => {
+  server.get('/comment-logs', async (request, reply) => {
     const q = commentLogQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, userUuid, commentId, createdAt } = q.data

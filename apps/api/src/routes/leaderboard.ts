@@ -41,12 +41,15 @@ const leaderboardRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /model-leaderboard/:modelId — 模型详情
-  server.get<{ Params: { modelId: string } }>('/model-leaderboard/:modelId', async (request, reply) => {
-    const { modelId } = request.params
-    const entry = await getLeaderboardEntry(modelId)
-    if (!entry) return reply.status(404).send(error(404, '模型不存在'))
-    return reply.send(success({ entry }))
-  })
+  server.get<{ Params: { modelId: string } }>(
+    '/model-leaderboard/:modelId',
+    async (request, reply) => {
+      const { modelId } = request.params
+      const entry = await getLeaderboardEntry(modelId)
+      if (!entry) return reply.status(404).send(error(404, '模型不存在'))
+      return reply.send(success({ entry }))
+    },
+  )
 }
 
 export default leaderboardRoutes

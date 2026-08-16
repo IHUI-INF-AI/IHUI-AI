@@ -130,10 +130,7 @@ export async function updateHook(
 }
 
 /** 删除 Hook。返回 true=删除成功 / false=ai-service 不可用或不存在。 */
-export async function deleteHook(
-  request: FastifyRequest | null,
-  hookId: string,
-): Promise<boolean> {
+export async function deleteHook(request: FastifyRequest | null, hookId: string): Promise<boolean> {
   const data = await callAiHooks<{ deleted?: boolean }>(
     request,
     `/api/hooks/${encodeURIComponent(hookId)}`,
@@ -223,10 +220,7 @@ function filterToQueryParams(filter: HookLogsFilter | undefined): URLSearchParam
  *
  * 直接在 api 层对返回的 logs 做过滤,确保过滤条件生效。
  */
-function applyLogsFilter(
-  logs: unknown[],
-  filter: HookLogsFilter | undefined,
-): unknown[] {
+function applyLogsFilter(logs: unknown[], filter: HookLogsFilter | undefined): unknown[] {
   if (!filter) return logs
   return logs.filter((item) => {
     const log = item as Record<string, unknown>
@@ -383,7 +377,7 @@ export async function getHookStats(
   if (total === 0) return empty
   const successCount = logs.filter((l) => l.success === true).length
   const failedCount = total - successCount
-  const totalDuration = logs.reduce((sum, l) => sum + (Number(l.duration ?? 0)), 0)
+  const totalDuration = logs.reduce((sum, l) => sum + Number(l.duration ?? 0), 0)
   const avgDuration = Math.round((totalDuration / total) * 100) / 100
   return {
     total,
@@ -569,9 +563,7 @@ export interface HookHealthResponse {
  *
  * 失败降级返回空结果。
  */
-export async function getHooksHealth(
-  request: FastifyRequest | null,
-): Promise<HookHealthResponse> {
+export async function getHooksHealth(request: FastifyRequest | null): Promise<HookHealthResponse> {
   const empty: HookHealthResponse = {
     summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 0, stale: 0 },
     hooks: [],
@@ -591,11 +583,9 @@ export async function triggerHookHealthCheck(
   request: FastifyRequest | null,
   hookId: string,
 ): Promise<unknown | null> {
-  return callAiHooks<unknown>(
-    request,
-    `/api/hooks/${encodeURIComponent(hookId)}/health-check`,
-    { method: 'POST' },
-  )
+  return callAiHooks<unknown>(request, `/api/hooks/${encodeURIComponent(hookId)}/health-check`, {
+    method: 'POST',
+  })
 }
 
 // ============================================================================
@@ -703,9 +693,7 @@ export async function createAbTest(
  *
  * 失败降级返回空数组。
  */
-export async function listAbTests(
-  request: FastifyRequest | null,
-): Promise<AbTestConfig[]> {
+export async function listAbTests(request: FastifyRequest | null): Promise<AbTestConfig[]> {
   const data = await callAiHooks<AbTestConfig[]>(request, '/api/hooks/ab-tests', {
     method: 'GET',
   })
@@ -751,9 +739,7 @@ export async function stopAbTest(
  *
  * 失败降级返回空数组。
  */
-export async function listHookTemplates(
-  request: FastifyRequest | null,
-): Promise<unknown[]> {
+export async function listHookTemplates(request: FastifyRequest | null): Promise<unknown[]> {
   const data = await callAiHooks<unknown[]>(request, '/api/hooks/templates', {
     method: 'GET',
   })

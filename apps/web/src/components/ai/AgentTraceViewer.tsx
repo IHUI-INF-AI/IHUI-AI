@@ -70,20 +70,26 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
   return (
     <div className="space-y-3">
       {/* 总体摘要 */}
-      <div className={cn(
-        'rounded-xl border p-4',
-        trace.success ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-destructive/30 bg-destructive/5',
-      )}
+      <div
+        className={cn(
+          'rounded-xl border p-4',
+          trace.success
+            ? 'border-emerald-500/30 bg-emerald-500/5'
+            : 'border-destructive/30 bg-destructive/5',
+        )}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {trace.success
-              ? <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              : <XCircle className="h-5 w-5 text-destructive" />}
-            <span className={cn(
-              'text-sm font-medium',
-              trace.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
+            {trace.success ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            ) : (
+              <XCircle className="h-5 w-5 text-destructive" />
             )}
+            <span
+              className={cn(
+                'text-sm font-medium',
+                trace.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
+              )}
             >
               {trace.success ? '执行成功' : '执行失败'}
             </span>
@@ -111,10 +117,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
           return (
             <div
               key={idx}
-              className={cn(
-                'rounded-xl border bg-card',
-                hasErrorInIter && 'border-destructive/30',
-              )}
+              className={cn('rounded-xl border bg-card', hasErrorInIter && 'border-destructive/30')}
             >
               <button
                 type="button"
@@ -122,29 +125,30 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
-                    hasErrorInIter
-                      ? 'bg-destructive/10 text-destructive'
-                      : 'bg-muted text-muted-foreground',
-                  )}
+                  <span
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
+                      hasErrorInIter
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-muted text-muted-foreground',
+                    )}
                   >
                     {it.iteration}
                   </span>
                   <span className="text-sm font-medium">第 {it.iteration} 轮</span>
-                  {hasErrorInIter && (
-                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                  )}
+                  {hasErrorInIter && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground">
                     {it.tool_calls.length > 0 ? `${it.tool_calls.length} 个工具` : '无工具调用'}
-                    {' · '}{formatDuration(it.duration_ms)}
+                    {' · '}
+                    {formatDuration(it.duration_ms)}
                   </span>
-                  <ChevronDown className={cn(
-                    'h-4 w-4 text-muted-foreground transition-transform',
-                    isOpen && 'rotate-180',
-                  )}
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground transition-transform',
+                      isOpen && 'rotate-180',
+                    )}
                   />
                 </div>
               </button>
@@ -155,10 +159,13 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {it.reasoning && (
                     <div>
                       <p className="mb-1 text-xs font-medium text-muted-foreground">推理</p>
-                      <div className={cn(
-                        'rounded-md bg-muted/40 p-3 text-sm',
-                        !showAllReasoning && it.reasoning.length > 300 && 'max-h-24 overflow-hidden',
-                      )}
+                      <div
+                        className={cn(
+                          'rounded-md bg-muted/40 p-3 text-sm',
+                          !showAllReasoning &&
+                            it.reasoning.length > 300 &&
+                            'max-h-24 overflow-hidden',
+                        )}
                       >
                         <p className="whitespace-pre-wrap break-words">{it.reasoning}</p>
                       </div>
@@ -188,14 +195,18 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                               key={tc.id}
                               className={cn(
                                 'rounded-md border px-3 py-2',
-                                result?.error ? 'border-destructive/30 bg-destructive/5' : 'bg-muted/20',
+                                result?.error
+                                  ? 'border-destructive/30 bg-destructive/5'
+                                  : 'bg-muted/20',
                               )}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">{tc.name}</span>
-                                {result?.error
-                                  ? <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                                  : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                                {result?.error ? (
+                                  <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                                ) : (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                )}
                               </div>
                               {tc.args && Object.keys(tc.args).length > 0 && (
                                 <p className="mt-1 truncate text-xs text-muted-foreground">

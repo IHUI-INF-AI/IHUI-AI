@@ -238,9 +238,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
 
     it('无 active Key → 自动创建默认 Key,token_balance = quota', async () => {
       mockDbReadSelect.mockReturnValueOnce(
-        chain([
-          { id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }],
-        ),
+        chain([{ id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }]),
       )
       // 查 active Key 返回空
       mockDbReadSelect.mockReturnValueOnce(chain([]))
@@ -289,9 +287,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(result.success).toBe(true)
       expect(result.tokenQuota).toBe(-1)
       // 验证 update 设 tokenBalance = -1
-      expect(updateResult.set).toHaveBeenCalledWith(
-        expect.objectContaining({ tokenBalance: -1 }),
-      )
+      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: -1 }))
     })
 
     it('Key 已是 -1(无限额度)+ quota>0 → 保持 -1 不变更(不调 update)', async () => {

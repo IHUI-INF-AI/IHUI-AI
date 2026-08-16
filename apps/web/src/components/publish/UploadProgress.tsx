@@ -53,12 +53,7 @@ const STATUS_BAR_CLASS: Record<UploadStatus, string> = {
   error: 'bg-rose-500',
 }
 
-export function UploadProgress({
-  progress,
-  fileName,
-  status,
-  fileSize,
-}: UploadProgressProps) {
+export function UploadProgress({ progress, fileName, status, fileSize }: UploadProgressProps) {
   const t = useTranslations('publish')
   const Icon = STATUS_ICON[status]
   const clamped = Math.max(0, Math.min(100, progress))
@@ -77,9 +72,7 @@ export function UploadProgress({
           {fileName ?? t(labelKey)}
         </span>
         {typeof fileSize === 'number' && fileSize > 0 && (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {fmtSize(fileSize)}
-          </span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">{fmtSize(fileSize)}</span>
         )}
         <span className={cn('shrink-0 text-[10px] font-mono', STATUS_TEXT_CLASS[status])}>
           {clamped.toFixed(0)}%

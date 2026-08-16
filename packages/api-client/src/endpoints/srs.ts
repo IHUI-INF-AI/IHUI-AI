@@ -115,9 +115,7 @@ export async function getSrsStreamByKey(key: string): Promise<ApiResult<SrsStrea
 }
 
 /** 创建直播流(生成推流密钥+URL)— POST /srs/streams */
-export async function createSrsStream(
-  data: SrsCreateStreamInput,
-): Promise<ApiResult<SrsStream>> {
+export async function createSrsStream(data: SrsCreateStreamInput): Promise<ApiResult<SrsStream>> {
   return fetchApi<SrsStream>('/srs/streams', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -165,9 +163,7 @@ export async function getSrsServers(): Promise<ApiResult<SrsServer[]>> {
 }
 
 /** 添加 SRS 服务器 — POST /srs/servers */
-export async function createSrsServer(
-  data: SrsCreateServerInput,
-): Promise<ApiResult<SrsServer>> {
+export async function createSrsServer(data: SrsCreateServerInput): Promise<ApiResult<SrsServer>> {
   return fetchApi<SrsServer>('/srs/servers', {
     method: 'POST',
     body: JSON.stringify(data),

@@ -1,9 +1,6 @@
 'use client'
 
-import {
-  SPEC_LIFECYCLE_STAGES,
-  type SpecLifecycleStage,
-} from '@ihui/shared/spec/index'
+import { SPEC_LIFECYCLE_STAGES, type SpecLifecycleStage } from '@ihui/shared/spec/index'
 
 interface LifecycleTimelineProps {
   proposedAt?: string
@@ -12,12 +9,7 @@ interface LifecycleTimelineProps {
   verifiedAt?: string
 }
 
-const stageOrder: SpecLifecycleStage[] = [
-  'proposed',
-  'approved',
-  'implementing',
-  'verified',
-]
+const stageOrder: SpecLifecycleStage[] = ['proposed', 'approved', 'implementing', 'verified']
 
 function formatDate(iso?: string): string {
   if (!iso) return ''
@@ -80,16 +72,12 @@ export function LifecycleTimeline({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{meta.label}</span>
                 {isCurrent && (
-                  <span className={`rounded-md px-1.5 py-0.5 text-xs ${meta.color}`}>
-                    当前
-                  </span>
+                  <span className={`rounded-md px-1.5 py-0.5 text-xs ${meta.color}`}>当前</span>
                 )}
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
               {stamp && (
-                <p className="mt-0.5 text-xs text-muted-foreground/70">
-                  {formatDate(stamp)}
-                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground/70">{formatDate(stamp)}</p>
               )}
             </div>
           </li>

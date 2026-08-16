@@ -20,7 +20,7 @@ import os
 import sys
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class MCPClient:
         self._writer: asyncio.StreamWriter | None = None
         self._connected = False
         self._request_id = 0
-        self._pending: dict[int, asyncio.Future[dict]] = {}
+        self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self._read_task: asyncio.Task[None] | None = None
         self._reconnect_attempts = 0
         self._sse_buffer = b""
@@ -153,7 +153,7 @@ class MCPClient:
         logger.error("list_tools 失败: %s", error.get("message", "未知错误"))
         return []
 
-    async def call_tool(self, name: str, arguments: dict) -> dict:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         """调用工具。"""
         resp = await self._send_request("tools/call", {"name": name, "arguments": arguments})
         if "result" in resp:
@@ -174,8 +174,8 @@ class MCPClient:
         return self._request_id
 
     async def _send_request(
-        self, method: str, params: dict | None = None, timeout: float | None = None,
-    ) -> dict:
+        self, method: str, params: dict[str, Any] | None = None, timeout: float | None = None,
+    ) -> dict[str, Any]:
         if not self._connected:
             return {"error": {"code": -32000, "message": "未连接"}}
         req_id = self._next_id()
@@ -183,7 +183,7 @@ class MCPClient:
         if params is not None:
             msg["params"] = params
         loop = asyncio.get_running_loop()
-        fut: asyncio.Future[dict] = loop.create_future()
+        fut: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._pending[req_id] = fut
         try:
             data = json.dumps(msg, ensure_ascii=False)
@@ -205,7 +205,7 @@ class MCPClient:
         finally:
             self._pending.pop(req_id, None)
 
-    async def _send_notification(self, method: str, params: dict | None = None) -> None:
+    async def _send_notification(self, method: str, params: dict[str, Any] | None = None) -> None:
         msg: dict[str, Any] = {"jsonrpc": "2.0", "method": method}
         if params is not None:
             msg["params"] = params
@@ -552,11 +552,11 @@ class MCPClientManager:
                     logger.warning("获取 %s 工具列表失败: %s", client.config.name, e)
         return tools
 
-    async def call_external_tool(self, server_name: str, tool_name: str, args: dict) -> dict:
+    async def call_external_tool(self, server_name: str, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """调用指定 Server 的工具。"""
         client = self._clients.get(server_name)
         if client is None:
             return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
         if not client.is_connected():
             return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
-        return await client.call_tool(tool_name, args)
+        return cast(dict[str, Any], await client.call_tool(tool_name, args))

@@ -39,8 +39,15 @@ export interface CozeClient {
     opts?: { intervalMs?: number; maxWaitMs?: number },
   ): Promise<{ status: CozeChatStatus; messages: CozeChatMessageItem[] }>
   createConversation(meta?: Record<string, unknown>): Promise<{ id: string; created_at: number }>
-  retrieveConversation(id: string): Promise<{ id: string; created_at: number; meta_data?: Record<string, unknown> }>
-  runWorkflow(opts: { workflow_id: string; parameters: Record<string, unknown>; is_async?: boolean; timeoutMs?: number }): Promise<CozeWorkflowRunResult>
+  retrieveConversation(
+    id: string,
+  ): Promise<{ id: string; created_at: number; meta_data?: Record<string, unknown> }>
+  runWorkflow(opts: {
+    workflow_id: string
+    parameters: Record<string, unknown>
+    is_async?: boolean
+    timeoutMs?: number
+  }): Promise<CozeWorkflowRunResult>
   getWorkflowHistory(workflowId: string, executeId: string): Promise<unknown>
   listBots(workspaceId: string): Promise<unknown>
   getBotOnlineInfo(botId: string): Promise<unknown>
@@ -48,12 +55,24 @@ export interface CozeClient {
   createDataset(name: string, workspaceId: string): Promise<{ dataset_id: string }>
   deleteDataset(datasetId: string): Promise<unknown>
   testConnection(): Promise<{ ok: boolean; message: string }>
-  streamChat(opts: CozeCreateChatOptions, handlers: CozeStreamChatHandlers, timeoutMs?: number): Promise<void>
+  streamChat(
+    opts: CozeCreateChatOptions,
+    handlers: CozeStreamChatHandlers,
+    timeoutMs?: number,
+  ): Promise<void>
 }
 
-interface CozeResponse<T> { code: number; msg: string; data: T }
+interface CozeResponse<T> {
+  code: number
+  msg: string
+  data: T
+}
 
-function buildUrl(baseUrl: string, path: string, params?: Record<string, string | undefined>): string {
+function buildUrl(
+  baseUrl: string,
+  path: string,
+  params?: Record<string, string | undefined>,
+): string {
   const url = `${baseUrl.replace(/\/$/, '')}${path}`
   if (!params) return url
   const qs = new URLSearchParams()
@@ -94,7 +113,12 @@ export function createCozeClient(config: CozeConfig): CozeClient {
         throw new CozeApiError(`HTTP ${res.status}`, res.status, text)
       }
       const json = (await res.json()) as CozeResponse<T>
-      if (json.code !== 0) throw new CozeApiError(json.msg || `业务错误 code=${json.code}`, json.code, JSON.stringify(json))
+      if (json.code !== 0)
+        throw new CozeApiError(
+          json.msg || `业务错误 code=${json.code}`,
+          json.code,
+          JSON.stringify(json),
+        )
       return json.data
     } finally {
       clearTimeout(timer)
@@ -124,34 +148,65 @@ export function createCozeClient(config: CozeConfig): CozeClient {
       })
     },
     retrieveChat(conversationId: string, chatId: string): Promise<CozeChatStatus> {
-      return cozeRequest<CozeChatStatus>('/v3/chat/retrieve', { params: { conversation_id: conversationId, chat_id: chatId } })
+      return cozeRequest<CozeChatStatus>('/v3/chat/retrieve', {
+        params: { conversation_id: conversationId, chat_id: chatId },
+      })
     },
-    listChatMessages(conversationId: string, chatId: string): Promise<{ data: CozeChatMessageItem[] }> {
-      return cozeRequest<{ data: CozeChatMessageItem[] }>('/v3/chat/message/list', { params: { conversation_id: conversationId, chat_id: chatId } })
+    listChatMessages(
+      conversationId: string,
+      chatId: string,
+    ): Promise<{ data: CozeChatMessageItem[] }> {
+      return cozeRequest<{ data: CozeChatMessageItem[] }>('/v3/chat/message/list', {
+        params: { conversation_id: conversationId, chat_id: chatId },
+      })
     },
-    async pollChatComplete(conversationId: string, chatId: string, opts: { intervalMs?: number; maxWaitMs?: number } = {}): Promise<{ status: CozeChatStatus; messages: CozeChatMessageItem[] }> {
+    async pollChatComplete(
+      conversationId: string,
+      chatId: string,
+      opts: { intervalMs?: number; maxWaitMs?: number } = {},
+    ): Promise<{ status: CozeChatStatus; messages: CozeChatMessageItem[] }> {
       const interval = opts.intervalMs ?? 1500
       const maxWait = opts.maxWaitMs ?? 120000
       const start = Date.now()
       for (;;) {
         const status = await this.retrieveChat(conversationId, chatId)
         if (['completed', 'failed', 'canceled'].includes(status.status)) {
-          return { status, messages: (await this.listChatMessages(conversationId, chatId)).data ?? [] }
+          return {
+            status,
+            messages: (await this.listChatMessages(conversationId, chatId)).data ?? [],
+          }
         }
-        if (Date.now() - start > maxWait) throw new CozeApiError('轮询超时', -1, `wait > ${maxWait}ms`)
+        if (Date.now() - start > maxWait)
+          throw new CozeApiError('轮询超时', -1, `wait > ${maxWait}ms`)
         await new Promise((r) => setTimeout(r, interval))
       }
     },
-    createConversation(meta?: Record<string, unknown>): Promise<{ id: string; created_at: number }> {
-      return cozeRequest<{ id: string; created_at: number }>('/v3/conversation/create', { method: 'POST', body: meta ?? {} })
+    createConversation(
+      meta?: Record<string, unknown>,
+    ): Promise<{ id: string; created_at: number }> {
+      return cozeRequest<{ id: string; created_at: number }>('/v3/conversation/create', {
+        method: 'POST',
+        body: meta ?? {},
+      })
     },
-    retrieveConversation(id: string): Promise<{ id: string; created_at: number; meta_data?: Record<string, unknown> }> {
+    retrieveConversation(
+      id: string,
+    ): Promise<{ id: string; created_at: number; meta_data?: Record<string, unknown> }> {
       return cozeRequest('/v3/conversation/retrieve', { params: { conversation_id: id } })
     },
-    runWorkflow(opts: { workflow_id: string; parameters: Record<string, unknown>; is_async?: boolean; timeoutMs?: number }): Promise<CozeWorkflowRunResult> {
+    runWorkflow(opts: {
+      workflow_id: string
+      parameters: Record<string, unknown>
+      is_async?: boolean
+      timeoutMs?: number
+    }): Promise<CozeWorkflowRunResult> {
       return cozeRequest<CozeWorkflowRunResult>('/v1/workflow/run', {
         method: 'POST',
-        body: { workflow_id: opts.workflow_id, parameters: opts.parameters, is_async: opts.is_async ?? false },
+        body: {
+          workflow_id: opts.workflow_id,
+          parameters: opts.parameters,
+          is_async: opts.is_async ?? false,
+        },
         timeoutMs: opts.timeoutMs,
       })
     },
@@ -166,11 +221,18 @@ export function createCozeClient(config: CozeConfig): CozeClient {
     },
     listDatasets(workspaceId: string, pageSize = 20, pageIndex = 1): Promise<unknown> {
       return cozeRequest('/v1/datasets', {
-        params: { workspace_id: workspaceId, page_size: String(pageSize), page_index: String(pageIndex) },
+        params: {
+          workspace_id: workspaceId,
+          page_size: String(pageSize),
+          page_index: String(pageIndex),
+        },
       })
     },
     createDataset(name: string, workspaceId: string): Promise<{ dataset_id: string }> {
-      return cozeRequest<{ dataset_id: string }>('/v1/datasets', { method: 'POST', body: { name, workspace_id: workspaceId, capacity: 1 } })
+      return cozeRequest<{ dataset_id: string }>('/v1/datasets', {
+        method: 'POST',
+        body: { name, workspace_id: workspaceId, capacity: 1 },
+      })
     },
     deleteDataset(datasetId: string): Promise<unknown> {
       return cozeRequest(`/v1/datasets/${datasetId}`, { method: 'DELETE' })
@@ -196,7 +258,11 @@ export function createCozeClient(config: CozeConfig): CozeClient {
         clearTimeout(timer)
       }
     },
-    async streamChat(opts: CozeCreateChatOptions, handlers: CozeStreamChatHandlers, timeoutMs?: number): Promise<void> {
+    async streamChat(
+      opts: CozeCreateChatOptions,
+      handlers: CozeStreamChatHandlers,
+      timeoutMs?: number,
+    ): Promise<void> {
       if (!config.token) throw new CozeApiError('Coze token 未配置', -1, '')
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), timeoutMs ?? timeout)
@@ -225,8 +291,15 @@ export function createCozeClient(config: CozeConfig): CozeClient {
             const data = line.slice(5).trim()
             if (data === '[DONE]') continue
             try {
-              const json = JSON.parse(data) as { code?: number; msg?: string; delta?: string; content?: string; data?: { content?: string } }
-              if (json?.code && json.code !== 0) throw new CozeApiError(json.msg || `code=${json.code}`, json.code, data)
+              const json = JSON.parse(data) as {
+                code?: number
+                msg?: string
+                delta?: string
+                content?: string
+                data?: { content?: string }
+              }
+              if (json?.code && json.code !== 0)
+                throw new CozeApiError(json.msg || `code=${json.code}`, json.code, data)
               const delta = json?.delta ?? json?.content ?? json?.data?.content
               if (typeof delta === 'string' && delta) handlers.onDelta?.(delta)
             } catch (e) {

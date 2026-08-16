@@ -66,8 +66,12 @@ export default function SetNeed() {
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.directionTitle')}</Text>
-        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] mb-[24rpx]">{t('plaza.setNeed.directionDesc')}</Text>
+        <Text className="block text-[30rpx] text-foreground font-semibold">
+          {t('plaza.setNeed.directionTitle')}
+        </Text>
+        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] mb-[24rpx]">
+          {t('plaza.setNeed.directionDesc')}
+        </Text>
         <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
           {categories.map((label, i) => {
             const key = CATEGORY_KEYS[i] || label
@@ -78,7 +82,11 @@ export default function SetNeed() {
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => toggleCategory(key)}
               >
-                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{label}</Text>
+                <Text
+                  className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
+                >
+                  {label}
+                </Text>
               </View>
             )
           })}
@@ -86,7 +94,9 @@ export default function SetNeed() {
       </View>
 
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.levelTitle')}</Text>
+        <Text className="block text-[30rpx] text-foreground font-semibold">
+          {t('plaza.setNeed.levelTitle')}
+        </Text>
         <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
           {levels.map((lv) => {
             const active = level === lv
@@ -96,7 +106,11 @@ export default function SetNeed() {
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setLevel(lv)}
               >
-                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{lv}</Text>
+                <Text
+                  className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
+                >
+                  {lv}
+                </Text>
               </View>
             )
           })}
@@ -104,7 +118,9 @@ export default function SetNeed() {
       </View>
 
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.budgetTitle')}</Text>
+        <Text className="block text-[30rpx] text-foreground font-semibold">
+          {t('plaza.setNeed.budgetTitle')}
+        </Text>
         <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
           {budgets.map((b) => {
             const active = budget === b
@@ -114,14 +130,23 @@ export default function SetNeed() {
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setBudget(b)}
               >
-                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{b}</Text>
+                <Text
+                  className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
+                >
+                  {b}
+                </Text>
               </View>
             )
           })}
         </View>
       </View>
 
-      <Button className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]" loading={saving} onClick={save} disabled={saving}>
+      <Button
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]"
+        loading={saving}
+        onClick={save}
+        disabled={saving}
+      >
         {t('plaza.setNeed.save')}
       </Button>
     </View>

@@ -9,12 +9,22 @@ import { DiffFileList } from './diff-file-list'
 import { DiffPreview } from '@/components/ai/diff-preview'
 import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ChevronUp, Maximize2, Minimize2, Plus, Minus, Loader2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Maximize2,
+  Minimize2,
+  Plus,
+  Minus,
+  Loader2,
+} from 'lucide-react'
 
 type DiffContent = { oldContent: string; newContent: string }
 
 export function DiffViewerPane() {
-  const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile, workspacePath } = useIDEWorkspace()
+  const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile, workspacePath } =
+    useIDEWorkspace()
   const t = useTranslations('ide')
   const [showFileList, setShowFileList] = React.useState(true)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
@@ -39,10 +49,7 @@ export function DiffViewerPane() {
   // 监听 activeFileId 变化时清空缓存,强制下次重新拉取真实 diff 内容。
   const prevActiveFileIdRef = React.useRef<string | undefined>(undefined)
   React.useEffect(() => {
-    if (
-      prevActiveFileIdRef.current !== undefined &&
-      prevActiveFileIdRef.current !== activeFileId
-    ) {
+    if (prevActiveFileIdRef.current !== undefined && prevActiveFileIdRef.current !== activeFileId) {
       // 切换文件时清空旧缓存(防陈旧数据)
       setContentCache(new Map())
       contentCacheRef.current = new Map()
@@ -143,16 +150,46 @@ export function DiffViewerPane() {
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex items-center gap-1 px-2 py-1 text-xs">
-            <button onClick={() => setShowFileList(!showFileList)} className="flex items-center rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground">{showFileList ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
-            <span className="truncate text-muted-foreground">{activeDiff?.filename ?? t('diffViewer.selectFile')}</span>
+            <button
+              onClick={() => setShowFileList(!showFileList)}
+              className="flex items-center rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            >
+              {showFileList ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
+            <span className="truncate text-muted-foreground">
+              {activeDiff?.filename ?? t('diffViewer.selectFile')}
+            </span>
             {activeDiff && (
               <div className="flex items-center gap-0.5">
-                <button onClick={goPrev} disabled={activeIdx <= 0} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                <button onClick={goNext} disabled={activeIdx >= diffFiles.length - 1} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
-                <span className="text-muted-foreground">{activeIdx + 1}/{diffFiles.length}</span>
+                <button
+                  onClick={goPrev}
+                  disabled={activeIdx <= 0}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={goNext}
+                  disabled={activeIdx >= diffFiles.length - 1}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                <span className="text-muted-foreground">
+                  {activeIdx + 1}/{diffFiles.length}
+                </span>
               </div>
             )}
-            <button onClick={() => setIsFullscreen(!isFullscreen)} className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground">{isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}</button>
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            >
+              {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+            </button>
           </div>
           {effectiveDiff && <ChangeSummary file={effectiveDiff} />}
           <div className="flex-1 overflow-auto">
@@ -207,10 +244,12 @@ function ChangeSummary({ file }: { file: DiffFile }) {
     <div className="flex flex-col gap-1 bg-muted/20 px-3 py-1.5 text-xs">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-          <Plus className="h-3 w-3" />{file.additions}
+          <Plus className="h-3 w-3" />
+          {file.additions}
         </span>
         <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
-          <Minus className="h-3 w-3" />{file.deletions}
+          <Minus className="h-3 w-3" />
+          {file.deletions}
         </span>
         <div className="flex items-center gap-1.5">
           <div className="flex h-1 w-16 overflow-hidden rounded-sm bg-muted">
@@ -219,7 +258,9 @@ function ChangeSummary({ file }: { file: DiffFile }) {
           </div>
           <span className="text-muted-foreground">{t('diffViewer.addPct', { pct })}</span>
         </div>
-        <span className="text-muted-foreground">{t('diffViewer.changeBlocks', { count: blocks })}</span>
+        <span className="text-muted-foreground">
+          {t('diffViewer.changeBlocks', { count: blocks })}
+        </span>
       </div>
       {preview && (
         <div className="flex flex-wrap items-center gap-0.5 font-mono text-[11px]">
@@ -251,7 +292,9 @@ function computeWordDiffPreview(oldContent: string, newContent: string): WordTok
     const ol = oldLines[i] ?? ''
     const nl = newLines[i] ?? ''
     if (ol !== nl && ol.trim() && nl.trim()) {
-      return wordDiff(ol, nl).filter((t) => t.type !== 'eq').slice(0, 10)
+      return wordDiff(ol, nl)
+        .filter((t) => t.type !== 'eq')
+        .slice(0, 10)
     }
   }
   return null

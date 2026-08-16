@@ -84,13 +84,13 @@ export function AgreementCheckbox({
         aria-hidden="true"
         className={cn(
           // 2026-08-13 修订:勾选态改为 border-transparent
-        // 与共享 Checkbox 保持全局一致(避免 1px 描边感,完全靠 bg-primary 填充提供视觉边界)
-        'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
-        error
-          ? 'border-destructive'
-          : checked
-            ? 'border-transparent bg-primary text-primary-foreground'
-            : 'border-input bg-background group-hover:border-foreground/60',
+          // 与共享 Checkbox 保持全局一致(避免 1px 描边感,完全靠 bg-primary 填充提供视觉边界)
+          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+          error
+            ? 'border-destructive'
+            : checked
+              ? 'border-transparent bg-primary text-primary-foreground'
+              : 'border-input bg-background group-hover:border-foreground/60',
         )}
       >
         {checked && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}

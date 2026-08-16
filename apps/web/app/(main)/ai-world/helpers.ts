@@ -53,7 +53,9 @@ export interface FetchRankingsParams {
   offset?: number
 }
 
-export async function fetchAiWorldRankings(params: FetchRankingsParams): Promise<PaginatedRankings> {
+export async function fetchAiWorldRankings(
+  params: FetchRankingsParams,
+): Promise<PaginatedRankings> {
   const qs = new URLSearchParams()
   if (params.leaderboard) qs.set('leaderboard', params.leaderboard)
   if (params.category) qs.set('category', params.category)
@@ -64,7 +66,9 @@ export async function fetchAiWorldRankings(params: FetchRankingsParams): Promise
 }
 
 export async function fetchLeaderboards(): Promise<LeaderboardInfo[]> {
-  const res = await api<{ leaderboards: LeaderboardInfo[]; total: number }>('/api/ai-world/rankings/leaderboards')
+  const res = await api<{ leaderboards: LeaderboardInfo[]; total: number }>(
+    '/api/ai-world/rankings/leaderboards',
+  )
   return res.leaderboards
 }
 

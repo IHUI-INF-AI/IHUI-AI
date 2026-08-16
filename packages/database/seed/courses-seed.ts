@@ -19,18 +19,12 @@
  */
 
 import { createDb } from '../src/client.js'
-import {
-  lessons,
-  learnCategories,
-  lessonChapters,
-} from '../src/schema/learn.js'
+import { lessons, learnCategories, lessonChapters } from '../src/schema/learn.js'
 import { certificateTemplates } from '../src/schema/certificate.js'
 import { eq } from 'drizzle-orm'
 import { upsertByUnique } from './_utils/upsert-by-unique.js'
 
-const db = createDb(
-  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui',
-)
+const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
 interface ChapterDef {
   title: string
@@ -292,19 +286,15 @@ export async function seedCourses() {
     let sortOrder = existingChapters.length
     for (const ch of c.chapters) {
       if (existingByTitle.has(ch.title)) continue
-      await db
-        .insert(lessonChapters)
-        .values({
-          lessonId: lessonId as string,
-          title: ch.title,
-          sortOrder: sortOrder++,
-        })
+      await db.insert(lessonChapters).values({
+        lessonId: lessonId as string,
+        title: ch.title,
+        sortOrder: sortOrder++,
+      })
       addedChapters++
     }
   }
-  console.log(
-    `  课程: 新增 ${addedCourses} / 更新 ${updatedCourses}; 章节: 新增 ${addedChapters}`,
-  )
+  console.log(`  课程: 新增 ${addedCourses} / 更新 ${updatedCourses}; 章节: 新增 ${addedChapters}`)
 
   // 4. 2 个证书视觉模板
   let addedTpl = 0

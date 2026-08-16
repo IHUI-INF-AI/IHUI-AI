@@ -33,103 +33,91 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     keyword: z.string().optional(),
   })
 
-  server.post(
-    '/api/agent/creation/my/:type',
-    { preHandler: requireAuth },
-    async (req, reply) => {
-      const paramParsed = creationTypeParam.safeParse(req.params)
-      if (!paramParsed.success) {
-        return reply.status(400).send(error(400, '无效的 type,允许:agent|workflow|plugin'))
-      }
-      const bodyParsed = creationBody.safeParse(req.body ?? {})
-      if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { type, ...rest } = { type: paramParsed.data.type, ...bodyParsed.data }
-      const userId = rest.userId ?? req.userId
-      if (!userId) {
-        return reply.status(401).send(error(401, '需要登录后查询'))
-      }
-      const page = rest.page
-      const pageSize = rest.pageSize
-      const offset = (page - 1) * pageSize
+  server.post('/api/agent/creation/my/:type', { preHandler: requireAuth }, async (req, reply) => {
+    const paramParsed = creationTypeParam.safeParse(req.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, '无效的 type,允许:agent|workflow|plugin'))
+    }
+    const bodyParsed = creationBody.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { type, ...rest } = { type: paramParsed.data.type, ...bodyParsed.data }
+    const userId = rest.userId ?? req.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '需要登录后查询'))
+    }
+    const page = rest.page
+    const pageSize = rest.pageSize
+    const offset = (page - 1) * pageSize
 
-      try {
-        if (type === 'agent') {
-          const conditions: SQL[] = [eq(agents.userId, userId)]
-          if (rest.keyword) {
-            conditions.push(sql`${agents.name} ILIKE ${`%${rest.keyword}%`}`)
-          }
-          const where = sql.join(conditions, sql` AND `)
-          const list = await db
-            .select()
-            .from(agents)
-            .where(where)
-            .orderBy(desc(agents.createdAt))
-            .limit(pageSize)
-            .offset(offset)
-          const totalRows = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(agents)
-            .where(where)
-          return reply.send(
-            success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
-          )
+    try {
+      if (type === 'agent') {
+        const conditions: SQL[] = [eq(agents.userId, userId)]
+        if (rest.keyword) {
+          conditions.push(sql`${agents.name} ILIKE ${`%${rest.keyword}%`}`)
         }
-        if (type === 'workflow') {
-          // workflows 表用 createdBy 关联用户(非 userId)
-          const conditions: SQL[] = [eq(workflows.createdBy, userId)]
-          if (rest.keyword) {
-            conditions.push(sql`${workflows.name} ILIKE ${`%${rest.keyword}%`}`)
-          }
-          const where = sql.join(conditions, sql` AND `)
-          const list = await db
-            .select()
-            .from(workflows)
-            .where(where)
-            .orderBy(desc(workflows.createdAt))
-            .limit(pageSize)
-            .offset(offset)
-          const totalRows = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(workflows)
-            .where(where)
-          return reply.send(
-            success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
-          )
-        }
-        if (type === 'plugin') {
-          // plugin:全局插件列表,不需要 userId 过滤(插件是平台级的)
-          // 仅返回已上架(is_active=true)的插件,支持 keyword 搜索 name
-          const conditions: SQL[] = [eq(plugins.isActive, true)]
-          if (rest.keyword) {
-            conditions.push(sql`${plugins.name} ILIKE ${`%${rest.keyword}%`}`)
-          }
-          const where = sql.join(conditions, sql` AND `)
-          const list = await db
-            .select()
-            .from(plugins)
-            .where(where)
-            .orderBy(desc(plugins.createdAt))
-            .limit(pageSize)
-            .offset(offset)
-          const totalRows = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(plugins)
-            .where(where)
-          return reply.send(
-            success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
-          )
-        }
-        return reply.send(success({ list: [], total: 0, page, pageSize }))
-      } catch (e) {
-        req.log.error(e)
-        return reply.status(500).send(error(500, '查询我的创作失败'))
+        const where = sql.join(conditions, sql` AND `)
+        const list = await db
+          .select()
+          .from(agents)
+          .where(where)
+          .orderBy(desc(agents.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+        const totalRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(agents)
+          .where(where)
+        return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
       }
-    },
-  )
+      if (type === 'workflow') {
+        // workflows 表用 createdBy 关联用户(非 userId)
+        const conditions: SQL[] = [eq(workflows.createdBy, userId)]
+        if (rest.keyword) {
+          conditions.push(sql`${workflows.name} ILIKE ${`%${rest.keyword}%`}`)
+        }
+        const where = sql.join(conditions, sql` AND `)
+        const list = await db
+          .select()
+          .from(workflows)
+          .where(where)
+          .orderBy(desc(workflows.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+        const totalRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(workflows)
+          .where(where)
+        return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      }
+      if (type === 'plugin') {
+        // plugin:全局插件列表,不需要 userId 过滤(插件是平台级的)
+        // 仅返回已上架(is_active=true)的插件,支持 keyword 搜索 name
+        const conditions: SQL[] = [eq(plugins.isActive, true)]
+        if (rest.keyword) {
+          conditions.push(sql`${plugins.name} ILIKE ${`%${rest.keyword}%`}`)
+        }
+        const where = sql.join(conditions, sql` AND `)
+        const list = await db
+          .select()
+          .from(plugins)
+          .where(where)
+          .orderBy(desc(plugins.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+        const totalRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(plugins)
+          .where(where)
+        return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      }
+      return reply.send(success({ list: [], total: 0, page, pageSize }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询我的创作失败'))
+    }
+  })
 
   // -------------------------------------------------------------------------
   // 2. GET /api/cozeZhsApi/agent-category/agent/:id — 查询某 agent 的收费配置
@@ -200,9 +188,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     async (req, reply) => {
       const bodyParsed = createChargeBody.safeParse(req.body ?? {})
       if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
       const b = bodyParsed.data
       try {
@@ -261,9 +247,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       }
       const bodyParsed = updateChargeBody.safeParse(req.body ?? {})
       if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
       const b = bodyParsed.data
       const sets: Record<string, unknown> = { updatedAt: new Date() }
@@ -346,9 +330,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     async (req, reply) => {
       const bodyParsed = searchWorkflowBody.safeParse(req.body ?? {})
       if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
       // 无 workflow_run 专表,返回空 results
       // 缺表记录:.trae-cn/tmp/p0-4-db-needed.txt

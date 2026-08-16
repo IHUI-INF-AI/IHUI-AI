@@ -50,7 +50,8 @@ export function WalletScreen({
 
   // i18n 三级降级:prop t > I18nContext tt > 硬编码中文(WalletScreenProps.t 必填,useTt 防御性兜底)
   const tFn: TFunction =
-    tProp ?? ((key, options) => tt(key, key, options as Record<string, string | number> | undefined))
+    tProp ??
+    ((key, options) => tt(key, key, options as Record<string, string | number> | undefined))
   /** t(key) 未命中(返回 key 原值)时降级到硬编码 fallback */
   const tr = (key: string, fallback: string): string => {
     const v = tFn(key)
@@ -61,8 +62,16 @@ export function WalletScreen({
     ? [
         { label: tr('wallet.balance', '余额'), value: balance.balance, tone: 'primary' },
         { label: tr('wallet.frozen', '冻结'), value: balance.frozenBalance, tone: 'muted' },
-        { label: tr('wallet.totalRecharge', '累计充值'), value: balance.totalRecharge, tone: 'primary' },
-        { label: tr('wallet.totalWithdraw', '累计提现'), value: balance.totalWithdraw, tone: 'muted' },
+        {
+          label: tr('wallet.totalRecharge', '累计充值'),
+          value: balance.totalRecharge,
+          tone: 'primary',
+        },
+        {
+          label: tr('wallet.totalWithdraw', '累计提现'),
+          value: balance.totalWithdraw,
+          tone: 'muted',
+        },
       ]
     : []
 

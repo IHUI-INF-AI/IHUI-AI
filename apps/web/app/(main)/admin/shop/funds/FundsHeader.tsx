@@ -17,7 +17,12 @@ export function FundsHeader({ accounts }: Props) {
   const totalFrozen = accounts.reduce((s, a) => s + a.frozen, 0)
   const cards = [
     { label: t('funds.totalBalance'), value: totalBalance, icon: Wallet, cls: 'text-primary' },
-    { label: t('funds.totalFrozen'), value: totalFrozen, icon: TrendingDown, cls: 'text-amber-600' },
+    {
+      label: t('funds.totalFrozen'),
+      value: totalFrozen,
+      icon: TrendingDown,
+      cls: 'text-amber-600',
+    },
     {
       label: t('funds.accountCount'),
       value: accounts.length,

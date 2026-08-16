@@ -107,7 +107,10 @@ export async function getPluginStatsSummary(days: number): Promise<PluginStatsSu
  * 按插件聚合:安装 / 卸载 / 点击 / 置顶 / 取消置顶 / 热度。
  * 热度公式: heat = installs * 10 + clicks * 1 + pins * 20 - uninstalls * 5
  */
-export async function getPluginStatsByPlugin(days: number, limit: number): Promise<PluginStatsRow[]> {
+export async function getPluginStatsByPlugin(
+  days: number,
+  limit: number,
+): Promise<PluginStatsRow[]> {
   const since = sql`now() - interval '${sql.raw(String(days))} days'`
   const installsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`
   const uninstallsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`
@@ -138,7 +141,11 @@ export async function getPluginStatsByPlugin(days: number, limit: number): Promi
     clicks: Number(r.clicks ?? 0),
     pins: Number(r.pins ?? 0),
     unpins: Number(r.unpins ?? 0),
-    heat: Number(r.installs ?? 0) * 10 + Number(r.clicks ?? 0) + Number(r.pins ?? 0) * 20 - Number(r.uninstalls ?? 0) * 5,
+    heat:
+      Number(r.installs ?? 0) * 10 +
+      Number(r.clicks ?? 0) +
+      Number(r.pins ?? 0) * 20 -
+      Number(r.uninstalls ?? 0) * 5,
   }))
 }
 

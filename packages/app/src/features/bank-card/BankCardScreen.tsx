@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BankCardItem, BankCardScreenProps } from '../../types'
 
@@ -51,9 +44,7 @@ export function BankCardScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.center}>
-            <Text style={styles.muted}>
-              {loading ? t('common.loading') : t('bankCard.empty')}
-            </Text>
+            <Text style={styles.muted}>{loading ? t('common.loading') : t('bankCard.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => (

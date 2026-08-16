@@ -33,7 +33,11 @@ export function PostDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('postDetail.loadFailed')}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.back}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
@@ -48,9 +52,7 @@ export function PostDetailScreen({
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.metaRow}>
         <Text style={styles.author}>{item.author}</Text>
-        {item.circleName ? (
-          <Text style={styles.circle}>#{item.circleName}</Text>
-        ) : null}
+        {item.circleName ? <Text style={styles.circle}>#{item.circleName}</Text> : null}
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.content}>{item.content}</Text>

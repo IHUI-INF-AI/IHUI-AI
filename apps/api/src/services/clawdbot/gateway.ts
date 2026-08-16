@@ -134,10 +134,7 @@ export class ClawdbotGateway extends EventEmitter {
       try {
         const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data as Uint8Array)
         const parsed = JSON.parse(buf.toString('utf8')) as GatewayMessage
-        logger.debug(
-          { messageId: parsed.id, type: parsed.type },
-          '[Gateway] WS message received',
-        )
+        logger.debug({ messageId: parsed.id, type: parsed.type }, '[Gateway] WS message received')
         this.emit('message', parsed)
       } catch (err) {
         logger.warn({ err: err as Error }, '[Gateway] 消息解析失败,忽略非 JSON 帧')
@@ -152,10 +149,7 @@ export class ClawdbotGateway extends EventEmitter {
     ws.on('close', (code, reason) => {
       this.connected = false
       this.wsClient = null
-      logger.info(
-        { code, reason: reason.toString() },
-        '[Gateway] WebSocket closed',
-      )
+      logger.info({ code, reason: reason.toString() }, '[Gateway] WebSocket closed')
       this.emit('disconnected')
       if (!this.manuallyDisconnected) this.scheduleReconnect()
     })

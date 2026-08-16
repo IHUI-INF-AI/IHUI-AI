@@ -148,10 +148,7 @@ async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<vo
       .select({ id: pointTransactions.id })
       .from(pointTransactions)
       .where(
-        and(
-          eq(pointTransactions.referenceId, order.orderNo),
-          eq(pointTransactions.type, 'earn'),
-        ),
+        and(eq(pointTransactions.referenceId, order.orderNo), eq(pointTransactions.type, 'earn')),
       )
       .limit(1)
     if (!earned[0]) {
@@ -292,7 +289,11 @@ export async function completeOrderWithSaga(
         // P2-20(2026-08-06):补偿同时扣回已发放的赠送 token,保证 Saga 回滚一致
         if (r.bonusAmount > 0) {
           try {
-            await deductToken(order.userId, r.bonusAmount, `订单 ${orderNo} saga 补偿扣回赠送 token`)
+            await deductToken(
+              order.userId,
+              r.bonusAmount,
+              `订单 ${orderNo} saga 补偿扣回赠送 token`,
+            )
           } catch (e) {
             logger.error(`[saga] recharge-tokens bonus compensate failed`, { err: e, orderNo })
           }

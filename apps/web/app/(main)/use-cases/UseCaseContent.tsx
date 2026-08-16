@@ -355,7 +355,9 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
           {uc.metrics.map((m) => (
             <div key={m.label} className="text-center">
               <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-              <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                {m.label}
+              </div>
             </div>
           ))}
         </div>
@@ -397,7 +399,9 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 工作流程 */}
       <section className="mt-16">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">4 步落地</h2>
+        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          4 步落地
+        </h2>
         <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-6">
@@ -413,7 +417,9 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 核心收益 */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-5 min-[768px]:p-8 min-[1024px]:p-12">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">核心收益</h2>
+        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          核心收益
+        </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {uc.benefits.map((b, i) => {
             const BIcon = b.icon
@@ -433,7 +439,9 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始你的 AI 用例</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          开始你的 AI 用例
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           注册即得 1000 积分,从用例模板一键 fork,5 分钟体验。
         </p>

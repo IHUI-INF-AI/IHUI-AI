@@ -114,9 +114,10 @@ export default function RelayKeysPage() {
   })
 
   function copyKey(k: string) {
-    navigator.clipboard
-      ?.writeText(k)
-      .then(() => toast.success('已复制'), () => toast.error('复制失败'))
+    navigator.clipboard?.writeText(k).then(
+      () => toast.success('已复制'),
+      () => toast.error('复制失败'),
+    )
   }
   function toggleScope(s: string) {
     setScopes((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]))
@@ -191,7 +192,11 @@ export default function RelayKeysPage() {
                           className="text-muted-foreground hover:text-foreground"
                           aria-label="切换显示"
                         >
-                          {visible[k.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          {visible[k.id] ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
                         </button>
                         <button
                           onClick={() => copyKey(k.key)}
@@ -207,9 +212,7 @@ export default function RelayKeysPage() {
                           <span
                             className={cn(
                               'ml-0.5 font-medium',
-                              tok.danger
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : 'text-foreground',
+                              tok.danger ? 'text-rose-600 dark:text-rose-400' : 'text-foreground',
                             )}
                           >
                             {tok.text}
@@ -220,9 +223,7 @@ export default function RelayKeysPage() {
                           <span
                             className={cn(
                               'ml-0.5 font-medium',
-                              bal.danger
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : 'text-foreground',
+                              bal.danger ? 'text-rose-600 dark:text-rose-400' : 'text-foreground',
                             )}
                           >
                             {bal.text}
@@ -316,7 +317,10 @@ export default function RelayKeysPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button onClick={() => createMut.mutate()} disabled={!name.trim() || createMut.isPending}>
+            <Button
+              onClick={() => createMut.mutate()}
+              disabled={!name.trim() || createMut.isPending}
+            >
               {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               创建
             </Button>

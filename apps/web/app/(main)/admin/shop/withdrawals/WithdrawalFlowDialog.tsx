@@ -35,7 +35,11 @@ export function WithdrawalFlowDialog(props: Props) {
       <DialogContent>
         <form onSubmit={submitFlow} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{fEditing ? t('withdrawals.flow.dialog.editTitle') : t('withdrawals.flow.dialog.createTitle')}</DialogTitle>
+            <DialogTitle>
+              {fEditing
+                ? t('withdrawals.flow.dialog.editTitle')
+                : t('withdrawals.flow.dialog.createTitle')}
+            </DialogTitle>
           </DialogHeader>
           {fErr && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -101,7 +105,8 @@ export function WithdrawalFlowDialog(props: Props) {
               {t('withdrawals.flow.dialog.cancel')}
             </Button>
             <Button type="submit" disabled={fSaveMut.isPending}>
-              {fSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.flow.dialog.save')}
+              {fSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('withdrawals.flow.dialog.save')}
             </Button>
           </DialogFooter>
         </form>

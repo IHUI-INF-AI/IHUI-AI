@@ -37,7 +37,9 @@ export function ProductsContent(): React.JSX.Element {
           <ShoppingBag className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -52,16 +54,12 @@ export function ProductsContent(): React.JSX.Element {
           )}`
           return (
             <Card key={id} className="relative flex flex-col p-4 min-[768px]:p-6">
-              {popular && (
-                <Badge className="absolute right-4 top-4">{t('popular')}</Badge>
-              )}
+              {popular && <Badge className="absolute right-4 top-4">{t('popular')}</Badge>}
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-              <div className="mt-2 text-2xl font-bold text-primary">
-                {t(`cards.${id}.price`)}
-              </div>
+              <div className="mt-2 text-2xl font-bold text-primary">{t(`cards.${id}.price`)}</div>
               <p className="mt-2 text-sm text-muted-foreground">{t(`cards.${id}.desc`)}</p>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
@@ -84,7 +82,9 @@ export function ProductsContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('ctaTitle')}
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>

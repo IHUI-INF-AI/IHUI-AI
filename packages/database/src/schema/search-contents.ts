@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, index, pgEnum } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  timestamp,
+  index,
+  pgEnum,
+} from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 /**
  * D 盘 ihui-ai-edu-search-service 跨服务内容索引表 (search_contents)
@@ -15,12 +24,14 @@ export const searchContentTopicTypeEnum = pgEnum('search_content_topic_type', [
   'question',
   'resource',
   'lesson',
-]);
+])
 
 export const searchContents = pgTable(
   'search_contents',
   {
-    id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
+    id: uuid('id')
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
     /** 来源服务原始 ID (article.id / news.id / question.id / resource.id / lesson.id) */
     topicId: uuid('topic_id').notNull(),
     topicType: searchContentTopicTypeEnum('topic_type').notNull(),
@@ -53,7 +64,7 @@ export const searchContents = pgTable(
     /** PG 全文搜索 GIN 索引(后续可加 to_tsvector('simple', search_text) 触发器) */
     // ginIdx: index('search_contents_search_text_gin').using('gin', sql`to_tsvector('simple', ${t.searchText})`),
   }),
-);
+)
 
-export type SearchContent = typeof searchContents.$inferSelect;
-export type NewSearchContent = typeof searchContents.$inferInsert;
+export type SearchContent = typeof searchContents.$inferSelect
+export type NewSearchContent = typeof searchContents.$inferInsert

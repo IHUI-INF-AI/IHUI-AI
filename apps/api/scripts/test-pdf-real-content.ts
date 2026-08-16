@@ -50,7 +50,10 @@ const textContent = result.buffer.toString('latin1')
 console.log('contains %%EOF:', textContent.includes('%%EOF'))
 console.log('contains Helvetica font:', textContent.includes('Helvetica'))
 console.log('contains FlateDecode (compressed stream):', textContent.includes('FlateDecode'))
-console.log('contains text content stream:', textContent.includes('/Length') || textContent.includes('stream'))
+console.log(
+  'contains text content stream:',
+  textContent.includes('/Length') || textContent.includes('stream'),
+)
 
 const outputPath = process.env.OUTPUT_PATH ?? 'g:\\IHUI-AI\\.trae-cn\\tmp\\pdf-test-after.pdf'
 writeFileSync(outputPath, result.buffer)
@@ -76,4 +79,6 @@ if (!textContent.includes('FlateDecode')) {
   process.exit(1)
 }
 
-console.log('PASS: PDF contains real content (stub=false, size > 1KB, has Helvetica + FlateDecode content stream)')
+console.log(
+  'PASS: PDF contains real content (stub=false, size > 1KB, has Helvetica + FlateDecode content stream)',
+)

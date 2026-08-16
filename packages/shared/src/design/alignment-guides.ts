@@ -109,10 +109,7 @@ export function computeGuides(
  * @param dragged 被拖拽元素当前矩形
  * @param guides computeGuides 返回的参考线集合
  */
-export function applySnap(
-  dragged: ElementRect,
-  guides: GuideLine[],
-): { x: number; y: number } {
+export function applySnap(dragged: ElementRect, guides: GuideLine[]): { x: number; y: number } {
   let snapX: number | null = null
   let snapY: number | null = null
   let minDX = Infinity

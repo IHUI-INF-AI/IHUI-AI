@@ -22,7 +22,9 @@ function toTimestamp(time: string | number | undefined): number {
 export function KnowledgePlanetScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [items, setItems] = useState<{ id: string; title: string; cover?: string; summary?: string; createdAt: number }[]>([])
+  const [items, setItems] = useState<
+    { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
+  >([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -30,7 +32,15 @@ export function KnowledgePlanetScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<{ id: string | number; title: string; img?: string; time?: string | number; classification?: string }[]>(API_PATH)
+      const res = await fetchApi<
+        {
+          id: string | number
+          title: string
+          img?: string
+          time?: string | number
+          classification?: string
+        }[]
+      >(API_PATH)
       if (!res.success) throw new Error()
       const rawList = res.data ?? []
       setItems(
@@ -59,9 +69,12 @@ export function KnowledgePlanetScreen() {
     void load()
   }, [load])
 
-  const onItemClick = useCallback((id: string) => {
-    navigation.navigate('AnnouncementDetail', { id })
-  }, [navigation])
+  const onItemClick = useCallback(
+    (id: string) => {
+      navigation.navigate('AnnouncementDetail', { id })
+    },
+    [navigation],
+  )
 
   return (
     <SharedKnowledgePlanetScreen

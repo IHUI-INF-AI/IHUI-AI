@@ -175,7 +175,9 @@ export function MembersTable({
                                 variant="ghost"
                                 size="sm"
                                 className="shrink-0"
-                                onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
+                                onClick={() =>
+                                  actionMut.mutate({ action: 'reject', id: member.id })
+                                }
                                 disabled={actionMut.isPending}
                               >
                                 <XCircle className="h-4 w-4 shrink-0" />

@@ -8,6 +8,7 @@ import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
+import { useAgentControl } from '@/hooks/use-agent-control'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
@@ -45,6 +46,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useDesktopEvents()
   // 桌面端 deep-link 监听:ihui:// scheme 回调,自动完成 SSO 闭环(浏览器端 no-op)
   useDesktopDeepLink()
+  // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
+  useAgentControl()
   const { setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 

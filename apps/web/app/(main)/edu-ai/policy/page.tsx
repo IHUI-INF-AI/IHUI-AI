@@ -119,7 +119,12 @@ export default function EduAiPolicyPage() {
     },
   })
 
-  const { data: detail, isLoading: detailLoading, isError: detailError, error: detailErrorObj } = useQuery({
+  const {
+    data: detail,
+    isLoading: detailLoading,
+    isError: detailError,
+    error: detailErrorObj,
+  } = useQuery({
     queryKey: ['edu-ai', 'policy', 'detail', selectedId],
     queryFn: () =>
       api<PolicyDetailData>(`/api/ai-education/policy/${selectedId}`).then((d) => d.policy),

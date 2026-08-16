@@ -243,12 +243,15 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
 /**
  * 获取系统主题(P1-7:主题跟随,2026-07-27 立)。
  * 返回 'light' | 'dark' | undefined(非 Tauri 或失败)。
+ * 2026-08-16 修复:此前 invoke('plugin:os|theme') 命令不存在(tauri-plugin-os
+ * 无 theme 命令,theme 是 window API),catch 后恒 undefined → 主题跟随从未生效。
+ * 改用 getCurrentWindow().theme()。
  */
 export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
   if (!isTauri()) return undefined
   try {
-    const theme = await invoke<string>('plugin:os|theme')
-    return theme as 'light' | 'dark'
+    const theme = await getCurrentWindow().theme()
+    return theme ?? undefined
   } catch {
     return undefined
   }
@@ -261,6 +264,9 @@ export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
 export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void): () => void {
   if (!isTauri()) return () => {}
   const win = getCurrentWindow()
+  // 2026-08-16 修复竞态:cleanup 先于 onThemeChanged Promise resolve 时,
+  // unlisten 仍为 undefined 会泄漏监听器(pendingPromise 模式,与 useDesktopEvents 一致)。
+  let cancelled = false
   let unlisten: (() => void) | undefined
   win
     .onThemeChanged(async () => {
@@ -268,9 +274,14 @@ export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void)
       if (theme) callback(theme)
     })
     .then((fn: () => void) => {
-      unlisten = fn
+      if (cancelled) {
+        fn()
+      } else {
+        unlisten = fn
+      }
     })
   return () => {
+    cancelled = true
     unlisten?.()
   }
 }
@@ -773,6 +784,8 @@ export interface WindowInfo {
   title: string
   appName: string
   windowId: string
+  /** 窗口在屏幕上的 [x, y, width, height](物理像素),2026-08-16 Rust 端已返回真实值 */
+  bounds: [number, number, number, number]
 }
 
 /** 活动窗口查询结果。 */
@@ -886,4 +899,28 @@ export async function keyboardHotkey(keys: string[]): Promise<OkResult> {
 export async function getActiveWindow(): Promise<ActiveWindowResult> {
   requireTauri()
   return await invoke<ActiveWindowResult>('active_window')
+}
+
+/** 剪贴板读取结果。 */
+export interface ClipboardResult {
+  clipboard: string
+}
+
+/**
+ * 读取剪贴板内容。
+ * @param format 'text'(默认)或 'image'(返回 base64 dataURL)
+ */
+export async function clipboardGet(format?: 'text' | 'image'): Promise<ClipboardResult> {
+  requireTauri()
+  return await invoke<ClipboardResult>('clipboard_get', { format: format ?? null })
+}
+
+/**
+ * 写入剪贴板。
+ * @param content 文本内容(format='text')或 base64 image dataURL(format='image')
+ * @param format 'text'(默认)或 'image'
+ */
+export async function clipboardSet(content: string, format?: 'text' | 'image'): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('clipboard_set', { content, format: format ?? null })
 }

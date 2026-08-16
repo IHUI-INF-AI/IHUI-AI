@@ -33,8 +33,26 @@ describe('useWalletStore', () => {
   })
 
   it('addTransaction添加到列表头部并更新余额', () => {
-    const tx1 = { id: 't1', amount: 50, balanceAfter: 50, type: 'recharge' as const, status: 'done', payMethod: 'alipay', remark: null, createdAt: '2026-01-01' }
-    const tx2 = { id: 't2', amount: -10, balanceAfter: 40, type: 'consume' as const, status: 'done', payMethod: null, remark: 'buy', createdAt: '2026-01-02' }
+    const tx1 = {
+      id: 't1',
+      amount: 50,
+      balanceAfter: 50,
+      type: 'recharge' as const,
+      status: 'done',
+      payMethod: 'alipay',
+      remark: null,
+      createdAt: '2026-01-01',
+    }
+    const tx2 = {
+      id: 't2',
+      amount: -10,
+      balanceAfter: 40,
+      type: 'consume' as const,
+      status: 'done',
+      payMethod: null,
+      remark: 'buy',
+      createdAt: '2026-01-02',
+    }
     useWalletStore.getState().addTransaction(tx1)
     useWalletStore.getState().addTransaction(tx2)
     const s = useWalletStore.getState()
@@ -45,16 +63,44 @@ describe('useWalletStore', () => {
   })
 
   it('setWithdrawRecords设置提现记录', () => {
-    const records = [{ id: 'w1', amount: 20, balanceAfter: 80, type: 'withdraw' as const, status: 'pending', payMethod: 'bank', remark: null, createdAt: '2026-01-03' }]
+    const records = [
+      {
+        id: 'w1',
+        amount: 20,
+        balanceAfter: 80,
+        type: 'withdraw' as const,
+        status: 'pending',
+        payMethod: 'bank',
+        remark: null,
+        createdAt: '2026-01-03',
+      },
+    ]
     useWalletStore.getState().setWithdrawRecords(records)
     expect(useWalletStore.getState().withdrawRecords).toEqual(records)
   })
 
   it('fetchBalance成功时更新balance和withdrawRecords', async () => {
-    vi.mocked(getBalance).mockResolvedValue({ success: true, data: { balance: 200, frozenBalance: 0, totalRecharge: 500, totalWithdraw: 300 } })
+    vi.mocked(getBalance).mockResolvedValue({
+      success: true,
+      data: { balance: 200, frozenBalance: 0, totalRecharge: 500, totalWithdraw: 300 },
+    })
     vi.mocked(getWithdrawRecords).mockResolvedValue({
       success: true,
-      data: { list: [{ id: 'w1', amount: 50, balanceAfter: 150, type: 'withdraw' as const, status: 'done', payMethod: 'bank', remark: null, createdAt: '2026-01-01' }], total: 1 },
+      data: {
+        list: [
+          {
+            id: 'w1',
+            amount: 50,
+            balanceAfter: 150,
+            type: 'withdraw' as const,
+            status: 'done',
+            payMethod: 'bank',
+            remark: null,
+            createdAt: '2026-01-01',
+          },
+        ],
+        total: 1,
+      },
     })
 
     await useWalletStore.getState().fetchBalance()

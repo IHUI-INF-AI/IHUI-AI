@@ -16,11 +16,25 @@ type PopupType = 'level' | 'trader' | 'privateAdvisory' | null
 /** 等级对比矩阵数据（硬编码，无需额外 API） */
 const LEVEL_MATRIX = [
   { label: 'vip.privilege.matrixDailyChats', values: ['10', '100', '300', '∞'] },
-  { label: 'vip.privilege.matrixModelAccess', values: ['vip.privilege.matrixBasic', 'vip.privilege.matrixAdvanced', 'vip.privilege.matrixAdvanced', 'vip.privilege.matrixAll'] },
+  {
+    label: 'vip.privilege.matrixModelAccess',
+    values: [
+      'vip.privilege.matrixBasic',
+      'vip.privilege.matrixAdvanced',
+      'vip.privilege.matrixAdvanced',
+      'vip.privilege.matrixAll',
+    ],
+  },
   { label: 'vip.privilege.matrixExclusiveService', values: ['×', '×', '✓', '✓'] },
-  { label: 'vip.privilege.matrixCourseDiscount', values: ['vip.privilege.matrixNone', '9', '8', '7'] },
+  {
+    label: 'vip.privilege.matrixCourseDiscount',
+    values: ['vip.privilege.matrixNone', '9', '8', '7'],
+  },
   { label: 'vip.privilege.matrixAgentCount', values: ['3', '10', '30', '∞'] },
-  { label: 'vip.privilege.matrixPrice', values: ['vip.privilege.matrixFree', '¥30', '¥88', '¥299'] },
+  {
+    label: 'vip.privilege.matrixPrice',
+    values: ['vip.privilege.matrixFree', '¥30', '¥88', '¥299'],
+  },
 ]
 
 const TRADER_BENEFITS = [
@@ -78,10 +92,7 @@ export default function PrivilegePage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [privRes, info] = await Promise.all([
-        getVipPrivilege(),
-        getVipInfo().catch(() => null),
-      ])
+      const [privRes, info] = await Promise.all([getVipPrivilege(), getVipInfo().catch(() => null)])
       setList((privRes.list || []) as Privilege[])
       if (info) setVipInfo(info)
     } catch {
@@ -133,7 +144,9 @@ export default function PrivilegePage() {
             {tt('vip.privilege.expireTime', '到期时间')}：{vipInfo.expireTime}
           </Text>
         ) : (
-          <Text className="header-expire">{tt('vip.privilege.openHint', '开通会员享受全部权益')}</Text>
+          <Text className="header-expire">
+            {tt('vip.privilege.openHint', '开通会员享受全部权益')}
+          </Text>
         )}
       </View>
 
@@ -185,20 +198,34 @@ export default function PrivilegePage() {
           <View className="popup-card" onClick={(e) => e.stopPropagation()}>
             <View className="popup-header">
               <Text className="popup-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>×</Text>
+              <Text className="popup-close" onClick={() => setPopup(null)}>
+                ×
+              </Text>
             </View>
             <View className="popup-body">
               <View className="matrix">
                 <View className="matrix-row header-row">
-                  <Text className="matrix-cell label">{tt('vip.privilege.matrixBenefit', '权益')}</Text>
-                  <Text className="matrix-cell level-cell">{tt('vip.privilege.levelNormal', '普通')}</Text>
-                  <Text className="matrix-cell level-cell">{tt('vip.privilege.levelMonth', '月度')}</Text>
-                  <Text className="matrix-cell level-cell">{tt('vip.privilege.levelQuarter', '季度')}</Text>
-                  <Text className="matrix-cell level-cell">{tt('vip.privilege.levelYear', '年度')}</Text>
+                  <Text className="matrix-cell label">
+                    {tt('vip.privilege.matrixBenefit', '权益')}
+                  </Text>
+                  <Text className="matrix-cell level-cell">
+                    {tt('vip.privilege.levelNormal', '普通')}
+                  </Text>
+                  <Text className="matrix-cell level-cell">
+                    {tt('vip.privilege.levelMonth', '月度')}
+                  </Text>
+                  <Text className="matrix-cell level-cell">
+                    {tt('vip.privilege.levelQuarter', '季度')}
+                  </Text>
+                  <Text className="matrix-cell level-cell">
+                    {tt('vip.privilege.levelYear', '年度')}
+                  </Text>
                 </View>
                 {LEVEL_MATRIX.map((row) => (
                   <View key={row.label} className="matrix-row">
-                    <Text className="matrix-cell label">{tt(row.label, MATRIX_FALLBACK[row.label] || row.label)}</Text>
+                    <Text className="matrix-cell label">
+                      {tt(row.label, MATRIX_FALLBACK[row.label] || row.label)}
+                    </Text>
                     {row.values.map((v, i) => (
                       <Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
                         {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK[v] || v) : v}
@@ -208,7 +235,10 @@ export default function PrivilegePage() {
                 ))}
               </View>
               <Text className="matrix-desc">
-                {tt('vip.privilege.matrixDesc', '1元=1点成长值，升级会员享受更高权益。全部课程/算力/自动化智能体/知识库/定制服务等，持续增加功能。')}
+                {tt(
+                  'vip.privilege.matrixDesc',
+                  '1元=1点成长值，升级会员享受更高权益。全部课程/算力/自动化智能体/知识库/定制服务等，持续增加功能。',
+                )}
               </Text>
             </View>
             <View className="popup-footer">
@@ -226,11 +256,16 @@ export default function PrivilegePage() {
           <View className="popup-card" onClick={(e) => e.stopPropagation()}>
             <View className="popup-header">
               <Text className="popup-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>×</Text>
+              <Text className="popup-close" onClick={() => setPopup(null)}>
+                ×
+              </Text>
             </View>
             <View className="popup-body">
               <Text className="benefit-intro">
-                {tt('vip.privilege.traderDesc', '操盘手是平台认证的专业市场分析角色，享有专属数据工具与一对一指导服务。')}
+                {tt(
+                  'vip.privilege.traderDesc',
+                  '操盘手是平台认证的专业市场分析角色，享有专属数据工具与一对一指导服务。',
+                )}
               </Text>
               <View className="benefit-list">
                 {TRADER_BENEFITS.map((key) => (
@@ -255,12 +290,19 @@ export default function PrivilegePage() {
         <View className="popup-mask" onClick={() => setPopup(null)}>
           <View className="popup-card" onClick={(e) => e.stopPropagation()}>
             <View className="popup-header">
-              <Text className="popup-title">{tt('vip.privilege.privateAdvisory', '私董会权益')}</Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>×</Text>
+              <Text className="popup-title">
+                {tt('vip.privilege.privateAdvisory', '私董会权益')}
+              </Text>
+              <Text className="popup-close" onClick={() => setPopup(null)}>
+                ×
+              </Text>
             </View>
             <View className="popup-body">
               <Text className="benefit-intro">
-                {tt('vip.privilege.privateAdvisoryDesc', '私董会是平台最高端会员圈层，汇聚行业大咖，享有一对一顾问与闭门沙龙参与权。')}
+                {tt(
+                  'vip.privilege.privateAdvisoryDesc',
+                  '私董会是平台最高端会员圈层，汇聚行业大咖，享有一对一顾问与闭门沙龙参与权。',
+                )}
               </Text>
               <View className="benefit-list">
                 {PRIVATE_BENEFITS.map((key) => (

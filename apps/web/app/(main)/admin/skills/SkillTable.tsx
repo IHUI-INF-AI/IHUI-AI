@@ -97,16 +97,18 @@ export function SkillTable({
               </td>
               <td className="px-4 py-2.5">
                 <div className="flex flex-wrap gap-1">
-                  {Array.isArray(skill.tags) && skill.tags.length > 0
-                    ? skill.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))
-                    : <span className="text-xs text-muted-foreground">-</span>}
+                  {Array.isArray(skill.tags) && skill.tags.length > 0 ? (
+                    skill.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
                 </div>
               </td>
               <td className="px-4 py-2.5 text-muted-foreground">

@@ -220,23 +220,20 @@ export default function CoursePlanet() {
       </View>
       <ScrollView scrollX className="whitespace-nowrap bg-card">
         <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
-        {CATEGORY_KEYS.map((cat) => (
-          <Text
-            key={cat.key}
-            className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
-            onClick={() => onCategoryChange(cat.key)}
-          >
-            {tt(cat.label, cat.key)}
-          </Text>
-        ))}
+          {CATEGORY_KEYS.map((cat) => (
+            <Text
+              key={cat.key}
+              className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
+              onClick={() => onCategoryChange(cat.key)}
+            >
+              {tt(cat.label, cat.key)}
+            </Text>
+          ))}
         </View>
       </ScrollView>
       {displayList.length > 0 && (
         <View className="px-[24rpx] mb-[16rpx]">
-          <SectionHeader
-            title={tt('coursePlanet.featured', '精选推荐')}
-            showMore={false}
-          />
+          <SectionHeader title={tt('coursePlanet.featured', '精选推荐')} showMore={false} />
         </View>
       )}
       {displayList.length > 0 && (

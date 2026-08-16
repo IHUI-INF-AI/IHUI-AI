@@ -79,8 +79,7 @@ export default function AigcPublishScreen() {
     }
   }
 
-  const removeFile = (id: string) =>
-    setFiles((prev) => prev.filter((f) => f.id !== id))
+  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
 
   const validate = (): boolean => {
     if (workType === 'text') {

@@ -62,11 +62,19 @@ function toKebab(s: string): string {
 
 function defaultLabel(name: string): string {
   // userName -> User Name
-  return toPascal(name).replace(/([A-Z])/g, ' $1').trim()
+  return toPascal(name)
+    .replace(/([A-Z])/g, ' $1')
+    .trim()
 }
 
 function tsType(t: GenField['type']): string {
-  return t === 'boolean' ? 'boolean' : t === 'number' ? 'number' : t === 'date' ? 'string' : 'string'
+  return t === 'boolean'
+    ? 'boolean'
+    : t === 'number'
+      ? 'number'
+      : t === 'date'
+        ? 'string'
+        : 'string'
 }
 
 function renderTableHeader(fields: GenField[]): string {
@@ -76,9 +84,7 @@ function renderTableHeader(fields: GenField[]): string {
 }
 
 function renderTableCell(fields: GenField[]): string {
-  return fields
-    .map((f) => `              <TableCell>{item.${f.name}}</TableCell>`)
-    .join('\n')
+  return fields.map((f) => `              <TableCell>{item.${f.name}}</TableCell>`).join('\n')
 }
 
 function renderFormFields(fields: GenField[]): string {

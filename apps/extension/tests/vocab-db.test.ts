@@ -51,7 +51,10 @@ interface CursorLike {
 }
 
 class FakeIndex implements IDBIndexLike {
-  constructor(private store: Store, private keyPath: string) {}
+  constructor(
+    private store: Store,
+    private keyPath: string,
+  ) {}
   openCursor(
     _range?: IDBValidKeyLike | IDBKeyRangeLike | null,
     direction: 'next' | 'prev' = 'next',
@@ -191,7 +194,11 @@ class FakeTransaction {
   onerror: ((this: unknown, ev: Event) => unknown) | null = null
   onabort: ((this: unknown, ev: Event) => unknown) | null = null
   stores = new Map<string, FakeStore>()
-  constructor(public databases: Map<string, FakeStore>, _mode: 'readonly' | 'readwrite', storeNames: string[]) {
+  constructor(
+    public databases: Map<string, FakeStore>,
+    _mode: 'readonly' | 'readwrite',
+    storeNames: string[],
+  ) {
     for (const name of storeNames) {
       const s = databases.get(name)
       if (s) this.stores.set(name, s)

@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, integer, text, boolean, timestamp, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  text,
+  boolean,
+  timestamp,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 公告表。
@@ -20,7 +29,7 @@ export const announcements = pgTable('announcements', {
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 帮助文章表。
@@ -39,7 +48,7 @@ export const helpArticles = pgTable('help_articles', {
   isPublished: boolean('is_published').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 帮助分类表。
@@ -53,7 +62,7 @@ export const helpCategories = pgTable('help_categories', {
   icon: varchar('icon', { length: 64 }),
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 文档表。
@@ -73,7 +82,7 @@ export const docs = pgTable('docs', {
   viewCount: integer('view_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 公告已读记录表。
@@ -95,15 +104,15 @@ export const announcementReads = pgTable(
   (t) => ({
     uniq: unique().on(t.userId, t.announcementId),
   }),
-);
+)
 
-export type Announcement = typeof announcements.$inferSelect;
-export type NewAnnouncement = typeof announcements.$inferInsert;
-export type AnnouncementRead = typeof announcementReads.$inferSelect;
-export type NewAnnouncementRead = typeof announcementReads.$inferInsert;
-export type HelpArticle = typeof helpArticles.$inferSelect;
-export type NewHelpArticle = typeof helpArticles.$inferInsert;
-export type HelpCategory = typeof helpCategories.$inferSelect;
-export type NewHelpCategory = typeof helpCategories.$inferInsert;
-export type Doc = typeof docs.$inferSelect;
-export type NewDoc = typeof docs.$inferInsert;
+export type Announcement = typeof announcements.$inferSelect
+export type NewAnnouncement = typeof announcements.$inferInsert
+export type AnnouncementRead = typeof announcementReads.$inferSelect
+export type NewAnnouncementRead = typeof announcementReads.$inferInsert
+export type HelpArticle = typeof helpArticles.$inferSelect
+export type NewHelpArticle = typeof helpArticles.$inferInsert
+export type HelpCategory = typeof helpCategories.$inferSelect
+export type NewHelpCategory = typeof helpCategories.$inferInsert
+export type Doc = typeof docs.$inferSelect
+export type NewDoc = typeof docs.$inferInsert

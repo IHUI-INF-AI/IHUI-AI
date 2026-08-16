@@ -21,7 +21,16 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  Input,
+  Label,
+  Switch,
+} from '@ihui/ui-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChat } from '@/hooks/use-chat'
@@ -529,9 +538,7 @@ export default function AutomationPage() {
                         disabled={saving !== null}
                         className="h-7 text-xs"
                       >
-                        {saving === 'saving' ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : null}
+                        {saving === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                         {t('save')}
                       </Button>
                     </div>
@@ -619,8 +626,7 @@ export default function AutomationPage() {
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h, idx) => {
-                const taskName =
-                  tasks.find((t) => t.id === h.task_id)?.name ?? h.task_id
+                const taskName = tasks.find((t) => t.id === h.task_id)?.name ?? h.task_id
                 return (
                   <div
                     key={`${h.task_id}-${idx}-${h.triggered_at}`}
@@ -651,14 +657,13 @@ export default function AutomationPage() {
                     )}
                     {h.status === 'success' && h.extra && Object.keys(h.extra).length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-                        {Object.entries(h.extra).slice(0, 5).map(([k, v]) => (
-                          <span
-                            key={k}
-                            className="rounded bg-muted px-1.5 py-0.5 font-mono"
-                          >
-                            {k}: {String(v).slice(0, 40)}
-                          </span>
-                        ))}
+                        {Object.entries(h.extra)
+                          .slice(0, 5)
+                          .map(([k, v]) => (
+                            <span key={k} className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                              {k}: {String(v).slice(0, 40)}
+                            </span>
+                          ))}
                       </div>
                     )}
                   </div>

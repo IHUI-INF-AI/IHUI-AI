@@ -195,10 +195,7 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
                 providerCode: aiModelConfig.providerCode,
               })
               .from(aiModelConfigModels)
-              .innerJoin(
-                aiModelConfig,
-                eq(aiModelConfig.id, aiModelConfigModels.configId),
-              )
+              .innerJoin(aiModelConfig, eq(aiModelConfig.id, aiModelConfigModels.configId))
               .where(
                 and(
                   eq(aiModelConfigModels.isRelayPublic, true),
@@ -253,9 +250,7 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const q = incidentsQuerySchema.safeParse(request.query)
       if (!q.success)
-        return reply
-          .status(400)
-          .send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
       const { limit } = q.data
       try {
         const data = await withCache<IncidentsPayload>(
@@ -272,7 +267,9 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
                 startedAt: sql<Date>`min(${llmCallLogs.createdAt})`,
                 resolvedAt: sql<Date>`max(${llmCallLogs.createdAt})`,
                 errorCount: sql<number>`count(*)::int`,
-                latestModel: sql<string | null>`(array_agg(${llmCallLogs.model} ORDER BY ${llmCallLogs.createdAt} DESC))[1]`,
+                latestModel: sql<
+                  string | null
+                >`(array_agg(${llmCallLogs.model} ORDER BY ${llmCallLogs.createdAt} DESC))[1]`,
               })
               .from(llmCallLogs)
               .where(
@@ -301,7 +298,10 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
       } catch (e) {
         // schema drift(provider_code 字段未迁移)或其他查询错误时降级返回空 incidents,
         // 避免阻塞公开状态页整体可用性。错误详情记日志便于排查。
-        request.log.error({ err: e, endpoint: 'incidents' }, 'status incidents query failed, degrading to empty')
+        request.log.error(
+          { err: e, endpoint: 'incidents' },
+          'status incidents query failed, degrading to empty',
+        )
         return reply.send(success({ incidents: [] }))
       }
     },

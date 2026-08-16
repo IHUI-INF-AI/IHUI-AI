@@ -7,14 +7,12 @@ vi.hoisted(() => {
 })
 
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi
-    .fn()
-    .mockResolvedValue({
-      userId: 'mock-user-id',
-      phone: '13800000000',
-      familyId: '11111111-1111-4111-8111-111111111111',
-      roleId: 1,
-    }),
+  verifyAccessToken: vi.fn().mockResolvedValue({
+    userId: 'mock-user-id',
+    phone: '13800000000',
+    familyId: '11111111-1111-4111-8111-111111111111',
+    roleId: 1,
+  }),
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,

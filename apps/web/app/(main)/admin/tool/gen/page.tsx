@@ -5,8 +5,24 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Wand2, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
-import { getToolGenMeta, postToolGen, type GenField, type GenResult, type GenType, type GenTypeMeta } from '@/lib/api/admin-tool-gen'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+} from '@ihui/ui-react'
+import {
+  getToolGenMeta,
+  postToolGen,
+  type GenField,
+  type GenResult,
+  type GenType,
+  type GenTypeMeta,
+} from '@/lib/api/admin-tool-gen'
 import { FieldEditor, TemplateSelector } from '@/components/admin/tool/gen/field-editor'
 import { GenResultViewer } from '@/components/admin/tool/gen/result-viewer'
 import { BackButton } from '@/components/common'
@@ -125,7 +141,11 @@ export default function ToolGenPage() {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={pending || loadingMeta}>
-                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
                 <span>{t('generate')}</span>
               </Button>
             </div>

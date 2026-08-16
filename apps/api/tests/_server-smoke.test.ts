@@ -82,11 +82,7 @@ vi.mock('@fastify/cookie', async () => {
     instance.decorateRequest('cookies', null)
     instance.addHook(
       'onRequest',
-      (
-        request: FastifyRequest,
-        _reply: FastifyReply,
-        done: () => void,
-      ) => {
+      (request: FastifyRequest, _reply: FastifyReply, done: () => void) => {
         const cookieHeader = request.headers.cookie
         ;(request as unknown as { cookies: Record<string, string> }).cookies =
           typeof cookieHeader === 'string' ? parseCookieHeader(cookieHeader) : {}
@@ -132,4 +128,3 @@ describe('server smoke', () => {
     await server.close()
   }, 60000)
 })
-

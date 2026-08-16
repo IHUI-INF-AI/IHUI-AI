@@ -73,26 +73,23 @@ export function ImageUpload({
 
   // 解析响应 URL:支持 /api/files/upload/form 返回 { data: { file: { id } } },
   // 构造公开访问 URL `/uploads/<id>`(匹配 server.ts fastifyStatic prefix)
-  const resolveUrl: NonNullable<UploadProps['resolveUrl']> = React.useCallback(
-    (response) => {
-      if (!response || typeof response !== 'object') return null
-      const r = response as Record<string, unknown>
-      // /api/files/upload/form 响应:{ success, data: { file: { id, name, ... } } }
-      if (r.data && typeof r.data === 'object') {
-        const d = r.data as Record<string, unknown>
-        if (typeof d.url === 'string') return d.url
-        if (d.file && typeof d.file === 'object') {
-          const f = d.file as Record<string, unknown>
-          if (typeof f.id === 'string') return `/uploads/${f.id}`
-          if (typeof f.url === 'string') return f.url
-          if (typeof f.path === 'string') return f.path
-        }
+  const resolveUrl: NonNullable<UploadProps['resolveUrl']> = React.useCallback((response) => {
+    if (!response || typeof response !== 'object') return null
+    const r = response as Record<string, unknown>
+    // /api/files/upload/form 响应:{ success, data: { file: { id, name, ... } } }
+    if (r.data && typeof r.data === 'object') {
+      const d = r.data as Record<string, unknown>
+      if (typeof d.url === 'string') return d.url
+      if (d.file && typeof d.file === 'object') {
+        const f = d.file as Record<string, unknown>
+        if (typeof f.id === 'string') return `/uploads/${f.id}`
+        if (typeof f.url === 'string') return f.url
+        if (typeof f.path === 'string') return f.path
       }
-      if (typeof r.url === 'string') return r.url
-      return null
-    },
-    [],
-  )
+    }
+    if (typeof r.url === 'string') return r.url
+    return null
+  }, [])
 
   return (
     <Upload

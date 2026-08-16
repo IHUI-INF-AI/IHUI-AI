@@ -8,11 +8,7 @@
 
 /** 支付错误类型枚举 */
 export type PayErrorType =
-  | 'cancel'
-  | 'wxNotInstalled'
-  | 'aliNotInstalled'
-  | 'paramError'
-  | 'unknown'
+  'cancel' | 'wxNotInstalled' | 'aliNotInstalled' | 'paramError' | 'unknown'
 
 /** 支付错误对象形态(Taro / WeChat lib / Alipay SDK 错误结构的并集) */
 export interface PayErrorLike {

@@ -4,9 +4,39 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Loader2, ArrowLeft, Play, Square, RotateCcw, Workflow, Zap, Edit3, Save, X, Trash2, ToggleLeft, ToggleRight, Info } from 'lucide-react'
+import {
+  Loader2,
+  ArrowLeft,
+  Play,
+  Square,
+  RotateCcw,
+  Workflow,
+  Zap,
+  Edit3,
+  Save,
+  X,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Info,
+} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TRIGGER_KEYS, INSTANCE_STATUS_KEYS, DETAIL_TAB_KEYS } from '../helpers'
 import { WorkflowEditor } from '../editor/WorkflowEditor'
@@ -65,9 +95,9 @@ export default function WorkflowDetailPage() {
   const instQ = useQuery({
     queryKey: ['workflows', id, 'instances', instPage],
     queryFn: () =>
-      api<{ list: Instance[]; total: number }>(`/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`).then(
-        (d) => d,
-      ),
+      api<{ list: Instance[]; total: number }>(
+        `/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`,
+      ).then((d) => d),
   })
 
   const insts = instQ.data?.list ?? []
@@ -192,12 +222,14 @@ export default function WorkflowDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('detail.confirmDelete')}</DialogTitle>
-            <DialogDescription>
-              {t('detail.deleteConfirm', { name: wf.name })}
-            </DialogDescription>
+            <DialogDescription>{t('detail.deleteConfirm', { name: wf.name })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteMut.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={deleteMut.isPending}
+            >
               {t('editor.cancel')}
             </Button>
             <Button
@@ -262,11 +294,21 @@ export default function WorkflowDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditInfoMode(false)} disabled={saveInfoMut.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setEditInfoMode(false)}
+              disabled={saveInfoMut.isPending}
+            >
               {t('editor.cancel')}
             </Button>
             <Button
-              onClick={() => saveInfoMut.mutate({ name: editName, description: editDesc, triggerType: editTrigger })}
+              onClick={() =>
+                saveInfoMut.mutate({
+                  name: editName,
+                  description: editDesc,
+                  triggerType: editTrigger,
+                })
+              }
               disabled={saveInfoMut.isPending || !editName.trim()}
             >
               {saveInfoMut.isPending ? (
@@ -302,10 +344,14 @@ export default function WorkflowDetailPage() {
             <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
               {t(TRIGGER_KEYS[wf.triggerType] ?? 'triggers.unknown')}
-              <span className={cn(
-                'ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
-                wf.isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
-              )}>
+              <span
+                className={cn(
+                  'ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                  wf.isActive
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
                 {wf.isActive ? t('status.active') : t('status.inactive')}
               </span>
             </div>
@@ -329,7 +375,11 @@ export default function WorkflowDetailPage() {
             )}
             {wf.isActive ? t('detail.deactivate') : t('detail.activate')}
           </Button>
-          <Button size="sm" onClick={() => triggerMut.mutate()} disabled={triggerMut.isPending || !wf.isActive}>
+          <Button
+            size="sm"
+            onClick={() => triggerMut.mutate()}
+            disabled={triggerMut.isPending || !wf.isActive}
+          >
             <Play className="h-4 w-4" />
             {t('detail.trigger')}
           </Button>
@@ -533,9 +583,7 @@ export default function WorkflowDetailPage() {
               </Button>
             </div>
             <WorkflowEditor
-              steps={
-                Array.isArray(wf.steps) ? (wf.steps as WorkflowStep[]) : []
-              }
+              steps={Array.isArray(wf.steps) ? (wf.steps as WorkflowStep[]) : []}
               onChange={() => {}}
             />
           </div>

@@ -193,7 +193,10 @@ export default function PromptsPage() {
       if (editingName) {
         const res = await fetchApi(`/api/prompts/${encodeURIComponent(editingName)}`, {
           method: 'PUT',
-          body: JSON.stringify({ content: formContent.trim(), description: formDesc.trim() || undefined }),
+          body: JSON.stringify({
+            content: formContent.trim(),
+            description: formDesc.trim() || undefined,
+          }),
         })
         if (res.success) {
           toast.success(t('prompts.messages.updateSuccess'))
@@ -277,10 +280,10 @@ export default function PromptsPage() {
     if (rollbackTarget === null) return
     setRollbackPending(true)
     try {
-      const res = await fetchApi(
-        `/api/prompts/${encodeURIComponent(historyName)}/rollback`,
-        { method: 'POST', body: JSON.stringify({ target_version: rollbackTarget }) },
-      )
+      const res = await fetchApi(`/api/prompts/${encodeURIComponent(historyName)}/rollback`, {
+        method: 'POST',
+        body: JSON.stringify({ target_version: rollbackTarget }),
+      })
       if (res.success) {
         toast.success(t('prompts.history.rollbackSuccess'))
         setHistoryOpen(false)
@@ -387,7 +390,9 @@ export default function PromptsPage() {
                       <th className="px-4 py-2 font-medium">{t('prompts.table.description')}</th>
                       <th className="px-4 py-2 font-medium">{t('prompts.table.latestVersion')}</th>
                       <th className="px-4 py-2 font-medium">{t('prompts.table.updatedAt')}</th>
-                      <th className="px-4 py-2 font-medium text-right">{t('prompts.table.actions')}</th>
+                      <th className="px-4 py-2 font-medium text-right">
+                        {t('prompts.table.actions')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -472,9 +477,7 @@ export default function PromptsPage() {
         <DialogContent className="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>
-                {editingName ? t('prompts.edit') : t('prompts.create')}
-              </DialogTitle>
+              <DialogTitle>{editingName ? t('prompts.edit') : t('prompts.create')}</DialogTitle>
             </DialogHeader>
             {formErr && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -612,9 +615,7 @@ export default function PromptsPage() {
                             )}
                           </div>
                           {v.description && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {v.description}
-                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">{v.description}</p>
                           )}
                           <p className="mt-1 font-mono text-[10px] text-muted-foreground">
                             {new Date(v.created_at).toLocaleString()}
@@ -661,7 +662,11 @@ export default function PromptsPage() {
             {t('prompts.history.rollbackConfirm', { version: rollbackTarget ?? '' })}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRollbackTarget(null)} disabled={rollbackPending}>
+            <Button
+              variant="outline"
+              onClick={() => setRollbackTarget(null)}
+              disabled={rollbackPending}
+            >
               {t('prompts.form.cancel')}
             </Button>
             <Button onClick={confirmRollback} disabled={rollbackPending}>
@@ -685,7 +690,11 @@ export default function PromptsPage() {
             {t('prompts.messages.deleteConfirm', { name: deleteTarget ?? '' })}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deletePending}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deletePending}
+            >
               {t('prompts.form.cancel')}
             </Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={deletePending}>

@@ -11,7 +11,6 @@ import wenjianPng from '@/assets/remote/images/wenjian.png'
 import selectedModelPng from '@/assets/remote/images/selected_model.png'
 import { rpx } from '@/utils/rpx'
 
-
 /**
  * BottomActionBar 底部操作栏
  *

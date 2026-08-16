@@ -392,6 +392,8 @@ export function ChatScreen() {
       model,
       messages: apiMessages,
       signal: controller.signal,
+      // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+      stream: true,
       contextLimit: getModelContextCapacity(model),
       onDelta: (delta) => {
         setMessages((prev) => {

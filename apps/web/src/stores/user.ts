@@ -37,12 +37,12 @@ const createdStore = createUserStore<UserProfile>({
   version: 0,
   // 持久化字段与原实现一致:profile + statistics + following + followers
   // 工厂 partialize 类型只认 UserStoreState<UserProfile>,扩展字段通过 unknown 双重断言访问
-  partialize: (((s: WebUserState) => ({
+  partialize: ((s: WebUserState) => ({
     profile: s.profile,
     statistics: s.statistics,
     following: s.following,
     followers: s.followers,
-  })) as unknown) as (s: UserStoreState<UserProfile>) => Partial<UserStoreState<UserProfile>>,
+  })) as unknown as (s: UserStoreState<UserProfile>) => Partial<UserStoreState<UserProfile>>,
 })
 
 // 类型别名:接受扩展字段的 setState(工厂类型只认 UserStoreState<UserProfile>)

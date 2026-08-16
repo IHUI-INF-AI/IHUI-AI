@@ -196,9 +196,7 @@ describe('ToolGenPage', () => {
     await waitFor(() => expect(screen.getByDisplayValue('id')).not.toBeNull())
     // 直接通过 querySelector 拿到模板 select 的原生 select 元素,模拟 change 事件
     // (shadcn Select 内部用 Radix,测试环境模拟点击不友好;用原生 select 元素走 fallback 路径)
-    const nativeSelect = document.querySelector(
-      '#gen-type',
-    ) as HTMLButtonElement
+    const nativeSelect = document.querySelector('#gen-type') as HTMLButtonElement
     expect(nativeSelect).not.toBeNull()
     // shadcn Select 触发通过 onValueChange;此处通过 fireEvent 在父级触发是不行的。
     // 改用 simulate: 直接调用组件内的 onValueChange 通过 keydown Enter on the trigger?

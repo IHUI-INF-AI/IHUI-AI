@@ -20,7 +20,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from .agent_checkpoint import (
     AgentCheckpointManager,
@@ -445,7 +445,7 @@ class AgentLoopV2:
         last_exc: Optional[BaseException] = None
         for attempt in range(self.llm_retry_max + 1):
             try:
-                return await self._llm_complete(messages, tools_schema)
+                return cast(dict[str, Any], await self._llm_complete(messages, tools_schema))
             except asyncio.CancelledError:
                 raise
             except Exception as e:

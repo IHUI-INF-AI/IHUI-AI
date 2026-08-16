@@ -206,9 +206,7 @@ export default function PlazaIndex() {
 
   const renderCard = (item: PlazaItem) => (
     <View className="pza-card" onClick={() => onItemClick(item)}>
-      {item.coverUrl ? (
-        <Image className="pza-cover" src={item.coverUrl} mode="widthFix" />
-      ) : null}
+      {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
       <View className="pza-info">
         <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
         {item.desc ? <Text className="pza-desc">{item.desc}</Text> : null}
@@ -265,7 +263,9 @@ export default function PlazaIndex() {
             className={`pza-tab${status === tab.key ? ' active' : ''}`}
             onClick={() => onStatusChange(tab.key)}
           >
-            <Text>{tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}</Text>
+            <Text>
+              {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
+            </Text>
           </View>
         ))}
       </ScrollView>
@@ -372,7 +372,8 @@ export default function PlazaIndex() {
               </View>
               <View className="pza-center-meta">
                 <Text className="pza-center-label">
-                  {tt('plaza.index.detailAuthor', '发布人')}:{detail.author || tt('plaza.index.anonymous', '匿名')}
+                  {tt('plaza.index.detailAuthor', '发布人')}:
+                  {detail.author || tt('plaza.index.anonymous', '匿名')}
                 </Text>
               </View>
             </ScrollView>
@@ -385,9 +386,7 @@ export default function PlazaIndex() {
         <View className="pza-mask" onClick={() => setShowBottom(false)}>
           <View className="pza-bottom-sheet" catchMove>
             <View className="pza-sheet-head">
-              <Text className="pza-sheet-title">
-                {tt('plaza.index.identityTitle', '切换身份')}
-              </Text>
+              <Text className="pza-sheet-title">{tt('plaza.index.identityTitle', '切换身份')}</Text>
             </View>
             {IDENTITIES.map((it) => (
               <View
@@ -395,9 +394,7 @@ export default function PlazaIndex() {
                 className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
                 onClick={() => onIdentityChange(it.key)}
               >
-                <Text>
-                  {tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}
-                </Text>
+                <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
               </View>
             ))}
           </View>

@@ -73,7 +73,11 @@ describe('miniapp-taro share 工具', () => {
 
   it('getShareInfo 支持自定义 title/imageUrl', () => {
     taroStorage['ihui_user_info'] = { inviteCode: 'ABC123' }
-    const info = getShareInfo('/pages/course/detail', '好课推荐', 'https://img.example.com/cover.png')
+    const info = getShareInfo(
+      '/pages/course/detail',
+      '好课推荐',
+      'https://img.example.com/cover.png',
+    )
     expect(info.title).toBe('好课推荐')
     expect(info.imageUrl).toBe('https://img.example.com/cover.png')
     expect(info.path).toBe('/pages/course/detail?source=share&inviteCode=ABC123')

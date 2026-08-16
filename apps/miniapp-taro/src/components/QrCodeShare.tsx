@@ -30,7 +30,8 @@ export default function QrCodeShare({
     }
     Taro.saveImageToPhotosAlbum({
       filePath: qrUrl,
-      success: () => Taro.showToast({ title: tt('qrcode.savedAlbum', '已保存到相册'), icon: 'success' }),
+      success: () =>
+        Taro.showToast({ title: tt('qrcode.savedAlbum', '已保存到相册'), icon: 'success' }),
       fail: () => Taro.showToast({ title: tt('qrcode.saveFailed', '保存失败'), icon: 'none' }),
     })
     onSave?.()
@@ -50,7 +51,9 @@ export default function QrCodeShare({
           <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
         ) : (
           <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
-            <Text className="text-xs text-muted-foreground">{tt('qrcode.loading', '二维码加载中')}</Text>
+            <Text className="text-xs text-muted-foreground">
+              {tt('qrcode.loading', '二维码加载中')}
+            </Text>
           </View>
         )}
         {logoUrl && (
@@ -62,7 +65,9 @@ export default function QrCodeShare({
         )}
       </View>
 
-      {userName && <Text className="mt-4 text-sm text-foreground">{t('qrcode.from', { name: userName })}</Text>}
+      {userName && (
+        <Text className="mt-4 text-sm text-foreground">{t('qrcode.from', { name: userName })}</Text>
+      )}
 
       <View className="flex gap-3 mt-6 w-full">
         <Button
@@ -71,10 +76,7 @@ export default function QrCodeShare({
         >
           分享给好友
         </Button>
-        <Button
-          className="flex-1 !bg-primary !text-white text-sm rounded-md"
-          onClick={handleSave}
-        >
+        <Button className="flex-1 !bg-primary !text-white text-sm rounded-md" onClick={handleSave}>
           {tt('invite.saveImage', '保存图片')}
         </Button>
       </View>

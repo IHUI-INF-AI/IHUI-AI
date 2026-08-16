@@ -111,7 +111,8 @@ export function CapabilityRadar({ capabilities, size = 200 }: Props) {
         const labelR = radius + 18
         const x = cx + Math.cos(angle) * labelR
         const y = cy + Math.sin(angle) * labelR
-        const anchor = Math.abs(Math.cos(angle)) < 0.1 ? 'middle' : Math.cos(angle) > 0 ? 'start' : 'end'
+        const anchor =
+          Math.abs(Math.cos(angle)) < 0.1 ? 'middle' : Math.cos(angle) > 0 ? 'start' : 'end'
         return (
           <g key={i}>
             <text

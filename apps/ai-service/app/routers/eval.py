@@ -28,7 +28,7 @@ class CreateDatasetRequest(BaseModel):
     """创建数据集请求。"""
 
     name: str = Field(..., description="数据集名称,唯一标识")
-    items: list[dict] = Field(default_factory=list, description="数据条目列表")
+    items: list[dict[str, Any]] = Field(default_factory=list, description="数据条目列表")
     description: str = Field("", description="数据集描述")
 
 
@@ -107,7 +107,7 @@ async def create_eval_run(req: RunEvalRequest) -> dict[str, Any]:
     """创建评估运行(对数据集中的每个 item 执行 LLM 调用)。"""
     try:
         # 使用 stub LLM 完成函数(仅返回输入内容,后续可替换为真实 LLM)
-        async def _stub_llm(messages: list, tools: Any = None) -> dict:
+        async def _stub_llm(messages: list[dict[str, Any]], tools: Any = None) -> dict[str, Any]:
             content = messages[-1].get("content", "") if messages else ""
             return {"content": f"stub response for: {content[:50]}", "tool_calls": None}
 

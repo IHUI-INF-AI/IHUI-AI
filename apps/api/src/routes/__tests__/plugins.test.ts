@@ -199,9 +199,15 @@ describe('Plugin Marketplace API (4 端点完整覆盖)', () => {
     })
 
     it('数据含损坏 JSON → 跳过该条,不影响其他有效数据', async () => {
-      store.set(`${mockUserId}:plugins:good`, JSON.stringify({ installedAt: '2026-07-22T10:00:00.000Z', pinned: false }))
+      store.set(
+        `${mockUserId}:plugins:good`,
+        JSON.stringify({ installedAt: '2026-07-22T10:00:00.000Z', pinned: false }),
+      )
       store.set(`${mockUserId}:plugins:broken`, '{not-json')
-      store.set(`${mockUserId}:plugins:missing-field`, JSON.stringify({ installedAt: '2026-07-22T10:00:00.000Z' /* 缺 pinned */ }))
+      store.set(
+        `${mockUserId}:plugins:missing-field`,
+        JSON.stringify({ installedAt: '2026-07-22T10:00:00.000Z' /* 缺 pinned */ }),
+      )
       const res = await app.inject({ method: 'GET', url: '/api/plugins/installed' })
       expect(res.statusCode).toBe(200)
       const body = res.json()

@@ -1519,20 +1519,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // 2026-08-15 修复:reader.read() 在 fetch 完成后无法被 AbortController 中断,
       // 若后端返回 200 但不发送数据,流会永久挂起,导致前端 isStreaming/sendInFlightRef 卡死。
       // 为 reader.read() 添加 30s 超时保护,超时后 cancel reader 并抛出错误,由外层 catch 块处理重试/报错。
-      const readWithTimeout = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+      const readWithTimeout = async (): Promise<{ done: boolean; value?: Uint8Array }> => {
         let timer: ReturnType<typeof setTimeout> | undefined
         const readPromise = reader.read().catch(() => {
           // reader.cancel() 导致的 reject 会被 Promise.race 忽略,避免未处理 rejection
           return { done: true, value: new Uint8Array() }
         })
-        const timeoutPromise = new Promise<ReadableStreamReadResult<Uint8Array>>(
-          (_, reject) => {
-            timer = setTimeout(() => {
-              reader.cancel().catch(() => {})
-              reject(new Error('SSE read timeout'))
-            }, 30000)
-          },
-        )
+        const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
+          timer = setTimeout(() => {
+            reader.cancel().catch(() => {})
+            reject(new Error('SSE read timeout'))
+          }, 30000)
+        })
         try {
           return await Promise.race([readPromise, timeoutPromise])
         } finally {
@@ -2064,6 +2062,35 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      // ===== 流式调试:测量 chunk 到达间隔(仅开发期启用) =====
+      // 在控制台输出每个 SSE data: 行的时间戳/长度/内容摘要,
+      // 用于判断是"后端攒批"还是"前端解析/渲染批量处理"导致非逐字显示。
+      const enableStreamDebug =
+        typeof process !== 'undefined' &&
+        (process.env.NEXT_PUBLIC_DEBUG_SSE === 'true' ||
+          process.env.NODE_ENV?.includes('dev'))
+      const debugChunkTimer = enableStreamDebug
+        ? (() => {
+            let lastTime = performance.now()
+            let count = 0
+            return {
+              mark: (label: string, delta: string, line: string) => {
+                const now = performance.now()
+                const interval = now - lastTime
+                lastTime = now
+                count++
+                console.log(
+                  `[SSE-DEBUG] #${String(count).padStart(4, '0')} ${label} interval=${interval.toFixed(1)}ms deltaLen=${delta.length} chunkLen=${line.length} delta=${JSON.stringify(delta)}`,
+                )
+              },
+              reset: () => {
+                lastTime = performance.now()
+                count = 0
+              },
+            }
+          })()
+        : null
+
       for (;;) {
         const { done, value } = await readWithTimeout()
         if (done) break
@@ -2088,10 +2115,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             const agentId = hasAgentDelta ? extractAgentId(line) : undefined
             if (agentId) emitAgentDelta(agentId, delta)
             else emitDelta(delta)
+            debugChunkTimer?.mark('delta', delta, line)
           }
           if (hasReasoning) {
             const r = parseStreamLineReasoning(line)
-            if (r) opts.onReasoning!(r)
+            if (r) {
+              opts.onReasoning!(r)
+              debugChunkTimer?.mark('reasoning', r, line)
+            }
           }
         }
       }

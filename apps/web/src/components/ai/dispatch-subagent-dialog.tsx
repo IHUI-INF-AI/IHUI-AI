@@ -182,7 +182,11 @@ function linesToArray(text: string): string[] {
     .filter((l) => l.length > 0)
 }
 
-export function DispatchSubagentDialog({ open, onOpenChange, agentId }: DispatchSubagentDialogProps) {
+export function DispatchSubagentDialog({
+  open,
+  onOpenChange,
+  agentId,
+}: DispatchSubagentDialogProps) {
   const tchat = useTranslations('aiChat')
   const [activeTab, setActiveTab] = React.useState('dispatch')
 
@@ -526,9 +530,7 @@ function DispatchForm({
               {dagNodes.map((node) => (
                 <div key={node.id} className="flex items-center gap-1.5">
                   <Tooltip content={node.id}>
-                    <code
-                      className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]"
-                    >
+                    <code className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
                       {node.id.slice(0, 8)}
                     </code>
                   </Tooltip>

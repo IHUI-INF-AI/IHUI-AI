@@ -142,7 +142,9 @@ function TraceCard({
             </div>
             <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="truncate">{trace.goal}</span>
-              <span className="shrink-0">{t('trajectory.steps')}: {trace.steps}</span>
+              <span className="shrink-0">
+                {t('trajectory.steps')}: {trace.steps}
+              </span>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -425,11 +427,7 @@ export default function TrajectoryPage() {
                         <p className="mb-2 text-xs text-muted-foreground">
                           {t('trajectory.error')}
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => refetchDetail()}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => refetchDetail()}>
                           <RefreshCw className="mr-1.5 h-3 w-3" />
                           {t('trajectory.retry')}
                         </Button>

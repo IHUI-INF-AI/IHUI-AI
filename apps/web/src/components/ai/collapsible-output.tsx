@@ -71,9 +71,7 @@ export function CollapsibleOutput({
         <StatusIcon className={cn('h-4 w-4 shrink-0', statusClassName)} />
         <span className="flex-1 truncate text-sm font-medium">{title}</span>
         {duration !== undefined && (
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {duration}ms
-          </span>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{duration}ms</span>
         )}
         {hasBody && (
           <ChevronDown
