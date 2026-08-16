@@ -1330,7 +1330,7 @@ export function AgentTaskProgressPane() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         data-testid="plan-list"
       >
         {!threadId && (
@@ -1447,7 +1447,7 @@ export function AgentTaskProgressPane() {
               role="toolbar"
               aria-label={t('sectionsToolbarLabel')}
               data-testid="sections-container"
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+              className="min-h-0 overflow-y-auto overflow-x-hidden"
             >
               <ThinkingSection
                 content={overview.content}

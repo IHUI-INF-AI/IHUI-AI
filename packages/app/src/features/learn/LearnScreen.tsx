@@ -218,13 +218,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium } as TextStyle,
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scroll: { flex: 1 } as ViewStyle,
     scrollContent: {
       paddingBottom: 24,
@@ -235,16 +235,16 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: 24,
     } as ViewStyle,
-    loadingText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' } as TextStyle,
+    loadingText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
+    errorText: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' } as TextStyle,
     retryBtn: {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
-    retryText: { fontSize: 13, fontWeight: '600', color: tk.surface.light } as TextStyle,
+    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
 
     progressOverview: {
       flexDirection: 'row',
@@ -261,15 +261,15 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 24,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
-      marginBottom: 4,
+      marginBottom: 8,
     } as TextStyle,
     progressLabel: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
 
     section: {
-      padding: 16,
+      padding: 14,
       marginBottom: 8,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -280,12 +280,12 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12,
     } as ViewStyle,
     sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
     moreLink: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
 
@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 140,
       borderRadius: 12,
       overflow: 'hidden',
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     } as ViewStyle,
     pathCover: {
       width: '100%',
@@ -314,7 +314,7 @@ function createStyles(tk: AppThemeTokens) {
     pathCoverEmoji: { fontSize: 32 } as TextStyle,
     pathTitle: {
       padding: 10,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -334,7 +334,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 32,
     } as TextStyle,
     categoryName: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.primary,
     } as TextStyle,
 
@@ -345,7 +345,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       borderRadius: 12,
       overflow: 'hidden',
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     } as ViewStyle,
     courseImageWrap: {
       width: 110,
@@ -366,14 +366,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     } as ViewStyle,
     courseTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     courseDesc: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
-      marginTop: 4,
+      marginTop: 8,
     } as TextStyle,
     courseMeta: {
       flexDirection: 'row',
@@ -384,14 +384,14 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     levelBadge: {
       paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
-      backgroundColor: tk.purple.light,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: tk.surface.muted,
     } as ViewStyle,
     levelText: {
       fontSize: 11,
       fontWeight: '600',
-      color: tk.purple.DEFAULT,
+      color: tk.brand.DEFAULT,
     } as TextStyle,
     durationText: {
       fontSize: 11,
@@ -402,6 +402,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 24,
       alignItems: 'center',
     } as ViewStyle,
-    emptyText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
+    emptyText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
   })
 }

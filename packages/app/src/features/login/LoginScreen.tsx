@@ -1107,7 +1107,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     page: {
       flex: 1,
       backgroundColor: surface,
-      paddingHorizontal: 16,
+      paddingHorizontal: 15,
       justifyContent: 'flex-start',
     },
     // 移动端登录页应为全屏表单,非 web 端"居中悬浮卡片":无 maxWidth/圆角/边框/阴影
@@ -1176,7 +1176,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // ===== Tab 切换条 =====
     tabBar: {
       flexDirection: 'row',
-      gap: 4,
+      gap: 0,
       marginBottom: 16,
       padding: 4,
       borderRadius: 8,
@@ -1193,7 +1193,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.brand.DEFAULT,
     },
     tabText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '500',
       color: tk.text.secondary,
     },
@@ -1214,7 +1214,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'space-between',
     },
     label: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -1224,7 +1224,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       borderColor: inputBorder,
       borderRadius: 12,
       paddingHorizontal: 14,
-      fontSize: 16,
+      fontSize: 18,
       color: tk.text.primary,
       backgroundColor: inputBg,
     },
@@ -1247,7 +1247,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'center',
     },
     sendCodeBtnText: {
-      fontSize: 12,
+      fontSize: 16,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -1333,7 +1333,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     loginBtnText: {
       color: onBrandText,
-      fontSize: 16,
+      fontSize: 20,
       fontWeight: '600',
     },
     btnDisabled: {

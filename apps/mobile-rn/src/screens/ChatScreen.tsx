@@ -258,7 +258,7 @@ export function ChatScreen() {
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
-  // P1.1 转语音 Modal(占位 TODO 替换:语音类型选项 + 模拟 TTS loading)
+  // P1.1 转语音 Modal(语音类型选项 + 模拟 TTS loading)
   const [ttsVisible, setTtsVisible] = useState(false)
   const [ttsLoading, setTtsLoading] = useState(false)
   // P1.2 收藏 UI 状态(不调 API,用 Set 跟踪已收藏消息 id)
@@ -544,7 +544,7 @@ export function ChatScreen() {
   const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
   /**
-   * P1.1 转语音:打开语音类型选项 Modal(占位 TODO 替换)。
+   * P1.1 转语音:打开语音类型选项 Modal。
    * 选中类型后模拟 3s TTS 转换,真实 TTS 待 API 接入。
    */
   const openTtsPanel = (): void => {
@@ -562,7 +562,7 @@ export function ChatScreen() {
   }
 
   /**
-   * P1.2 收藏:切换最近一条 assistant 消息的收藏状态(占位 TODO 替换)。
+   * P1.2 收藏:切换最近一条 assistant 消息的收藏状态。
    * 不调 API,仅用 Set 跟踪 UI 状态 + toast 反馈。
    */
   const toggleFavorite = (): void => {
@@ -583,7 +583,7 @@ export function ChatScreen() {
   }
 
   /**
-   * P1.4 网页链接确认:将输入的 URL 作为消息发送(占位 TODO 替换)。
+   * P1.4 网页链接确认:将输入的 URL 作为消息发送。
    * 复用 send(overrideText) 走完整的登录/VIP/流式校验链路。
    */
   const handleUrlConfirm = async (): Promise<void> => {
@@ -655,8 +655,8 @@ export function ChatScreen() {
    * 2. 清空对话 → Alert 二次确认
    * 3. 导出对话 → Share.share 分享对话文本
    * 4. 分享对话 → Share.share(语义独立,UI 入口分离)
-   * 5. 转语音 → 占位提示(TODO: 后续接 TTS)
-   * 6. 收藏 → 占位提示(TODO: 后续接收藏 API)
+   * 5. 转语音 → 占位提示(后续接 TTS)
+   * 6. 收藏 → 占位提示(后续接收藏 API)
    */
   const functionPanelItems: readonly PanelItem[] = [
     {
@@ -706,9 +706,9 @@ export function ChatScreen() {
 
   /**
    * source-handle 面板 4 项列表(对齐 Uniapp source-handle 子组件)。
-   * 1. 素材库 → 占位提示(TODO: 后续接 MaterialList 列表)
-   * 2. 网页链接 → 占位提示(TODO: 后续接输入弹窗)
-   * 3. 文件上传 → 占位提示(TODO: 后续接 DocumentPicker)
+   * 1. 素材库 → 占位提示(后续接 MaterialList 列表)
+   * 2. 网页链接 → 占位提示(后续接输入弹窗)
+   * 3. 文件上传 → 占位提示(后续接 DocumentPicker)
    * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
    */
   const sourcePanelItems: readonly PanelItem[] = [
@@ -717,7 +717,7 @@ export function ChatScreen() {
       label: '素材库',
       Icon: BookOpen,
       onPress: () => {
-        // P1.3:复用 sck 模型类型 + MaterialList 弹窗(占位 TODO 替换)
+        // P1.3:复用 sck 模型类型 + MaterialList 弹窗
         setSourcePanelVisible(false)
         setCurrentModelType('sck')
         setShowMaterialList(true)
@@ -728,7 +728,7 @@ export function ChatScreen() {
       label: '网页链接',
       Icon: Link,
       onPress: () => {
-        // P1.4:打开 URL 输入 Modal(占位 TODO 替换)
+        // P1.4:打开 URL 输入 Modal
         setSourcePanelVisible(false)
         setUrlInputVisible(true)
       },
@@ -738,7 +738,7 @@ export function ChatScreen() {
       label: '文件上传',
       Icon: Paperclip,
       onPress: () => {
-        // P1.5:expo-document-picker 未安装,弹 Modal 占位(占位 TODO 替换)
+        // P1.5:expo-document-picker 未安装,弹 Modal 占位
         setSourcePanelVisible(false)
         setFileUploadVisible(true)
       },
@@ -1029,7 +1029,7 @@ export function ChatScreen() {
   // ── 分享智汇值弹窗自动触发(对齐 Uniapp checkFirstShareStatus API 自动检查) ──
   // Uniapp:用户进页面时若未领过智汇值则由 API 自动弹出 share-points 弹窗。
   // mobile-rn:Share2 按钮改为跳个人中心(对齐 goToMyPage),弹窗改由本 effect 自动触发。
-  // TODO: 待 API 实现 checkFirstShareStatus 后接入真实检查;
+  // 待 API 实现 checkFirstShareStatus 后接入真实检查;
   //   当前用注释占位,不自动弹出(避免每次进页面都弹,影响 UX)。
   // useEffect(() => {
   //   void (async () => {
@@ -1753,9 +1753,9 @@ const styles = StyleSheet.create({
   },
   msgBubble: {
     maxWidth: '78%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   msgBubbleUser: {
     backgroundColor: tokens.brand.DEFAULT,
@@ -1764,7 +1764,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   msgText: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 20,
   },
   msgTextUser: {
@@ -1805,7 +1805,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 56,
     backgroundColor: tokens.surface.card,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
     justifyContent: 'center',
@@ -1872,7 +1872,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 8,
     backgroundColor: tokens.surface.card,
     height: 30,
     minWidth: 100,

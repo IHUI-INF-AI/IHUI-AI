@@ -154,17 +154,23 @@ export function CourseCard({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    card: { backgroundColor: tk.surface.muted, borderRadius: 8, overflow: 'hidden' },
+    card: {
+      backgroundColor: tk.surface.light,
+      borderRadius: 16,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },
-    body: { padding: 16, gap: 8 },
-    title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    description: { fontSize: 12, color: tk.text.secondary },
+    body: { padding: 14, gap: 8 },
+    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    description: { fontSize: 14, color: tk.text.secondary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    lecturer: { fontSize: 12, color: tk.text.secondary },
+    lecturer: { fontSize: 14, color: tk.text.secondary },
     levelBadge: {
       backgroundColor: LEVEL_TINT,
-      borderRadius: 6,
+      borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -173,21 +179,21 @@ function createStyles(tk: AppThemeTokens) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 6,
+      borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
     tagText: { fontSize: 11, color: tk.text.secondary },
     footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    price: { fontSize: 16, fontWeight: '700', color: PRICE_COLOR },
+    price: { fontSize: 18, fontWeight: '700', color: PRICE_COLOR },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: 6,
+      borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
-    freeTagText: { fontSize: 12, fontWeight: '700', color: FREE_COLOR },
+    freeTagText: { fontSize: 14, fontWeight: '700', color: FREE_COLOR },
     enroll: { fontSize: 11, color: tk.text.tertiary },
-    footer: { marginTop: 4 },
+    footer: { marginTop: 8 },
   })
 }

@@ -134,7 +134,7 @@ export default function Settings() {
         <View className="bg-card rounded-[12rpx] overflow-hidden">
           <View className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted">
             <Text className="text-[28rpx] text-foreground flex-1">{tt('setting.notification', '消息通知')}</Text>
-            {/* TODO: native prop: Switch color 需 hex,微信小程序不支持 CSS 变量,保留 #07c160 */}
+
             <Switch checked={notifEnabled} color="#07c160" onChange={onNotifChange} />
           </View>
           <View className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted" onClick={() => navigate('/pages/setting/language')}>

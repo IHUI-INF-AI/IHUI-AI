@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    // 对齐 Uniapp navigation-bars 的 padding: 0 24rpx(750rpx 制,24rpx ≈ 12dp)
-    paddingHorizontal: 12,
+    // 对齐 Uniapp navigation-bars 的 padding: 0 20rpx(750rpx 制,20rpx = 10dp)
+    paddingHorizontal: 10,
   },
   leftSection: {
     flexDirection: 'row',
@@ -188,9 +188,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backArrow: {
-    fontSize: 28,
+    fontSize: 24,
     color: tokens.text.primary,
-    lineHeight: 30,
+    lineHeight: 26,
     includeFontPadding: false,
   },
   center: {
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   actionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.primary,
     maxWidth: 60,
   },
