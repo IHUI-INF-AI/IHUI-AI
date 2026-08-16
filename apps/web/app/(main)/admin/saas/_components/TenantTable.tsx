@@ -81,12 +81,7 @@ export function TenantTable({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
                     <Tooltip content={t('action.detail')}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        asChild
-                        aria-label={t('action.detail')}
-                      >
+                      <Button size="icon" variant="ghost" asChild aria-label={t('action.detail')}>
                         <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
@@ -122,12 +117,7 @@ export function TenantTable({
                       </Tooltip>
                     )}
                     <Tooltip content={t('action.backup')}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        asChild
-                        aria-label={t('action.backup')}
-                      >
+                      <Button size="icon" variant="ghost" asChild aria-label={t('action.backup')}>
                         <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
                           <Database className="h-4 w-4" />
                         </Link>

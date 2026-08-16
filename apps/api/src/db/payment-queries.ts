@@ -136,7 +136,10 @@ export async function updateOrderStatus(
       if (status === 'refunded') eduValues.refundTime = new Date()
       const eduConds = [eq(eduOrders.orderNo, orderNo)]
       if (fromStatus) eduConds.push(eq(eduOrders.status, fromStatus))
-      await tx.update(eduOrders).set(eduValues).where(and(...eduConds))
+      await tx
+        .update(eduOrders)
+        .set(eduValues)
+        .where(and(...eduConds))
     }
     return updated
   })

@@ -107,9 +107,7 @@ export async function submitReview(
   const rows = await db
     .select()
     .from(examWrongQuestion)
-    .where(
-      and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)),
-    )
+    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
     .limit(1)
 
   const wrong = rows[0]
@@ -136,9 +134,7 @@ export async function submitReview(
       lastReviewAt: now,
       updatedAt: now,
     })
-    .where(
-      and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)),
-    )
+    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
 
   return {
     success: true,
@@ -162,9 +158,7 @@ export async function initSRSForWrongQuestion(userId: string, questionId: string
       dueDate: now,
       updatedAt: now,
     })
-    .where(
-      and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)),
-    )
+    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
 }
 
 /** 获取复习统计:待复习数 / 已复习数 / 连续天数 / 平均难度因子。 */
@@ -186,9 +180,7 @@ export async function getReviewStats(userId: string): Promise<SRSReviewStats> {
   const reviewedRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(examWrongQuestion)
-    .where(
-      and(eq(examWrongQuestion.userId, userId), isNotNull(examWrongQuestion.lastReviewAt)),
-    )
+    .where(and(eq(examWrongQuestion.userId, userId), isNotNull(examWrongQuestion.lastReviewAt)))
   const totalReviewed = reviewedRows[0]?.count ?? 0
 
   const avgRows = await db
@@ -205,9 +197,7 @@ export async function getReviewStats(userId: string): Promise<SRSReviewStats> {
       d: sql<string>`distinct to_char(${examWrongQuestion.lastReviewAt}, 'YYYY-MM-DD')`,
     })
     .from(examWrongQuestion)
-    .where(
-      and(eq(examWrongQuestion.userId, userId), isNotNull(examWrongQuestion.lastReviewAt)),
-    )
+    .where(and(eq(examWrongQuestion.userId, userId), isNotNull(examWrongQuestion.lastReviewAt)))
   const reviewDates = new Set(dateRows.map((r) => r.d).filter(Boolean))
 
   let streak = 0
@@ -215,9 +205,7 @@ export async function getReviewStats(userId: string): Promise<SRSReviewStats> {
   const todayStr = formatDay(today)
   const yesterdayStr = formatDay(new Date(today.getTime() - 86400000))
   if (reviewDates.has(todayStr) || reviewDates.has(yesterdayStr)) {
-    let cursor = reviewDates.has(todayStr)
-      ? new Date(today)
-      : new Date(today.getTime() - 86400000)
+    let cursor = reviewDates.has(todayStr) ? new Date(today) : new Date(today.getTime() - 86400000)
     while (reviewDates.has(formatDay(cursor))) {
       streak += 1
       cursor = new Date(cursor.getTime() - 86400000)

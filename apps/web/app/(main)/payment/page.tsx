@@ -62,7 +62,9 @@ export default function PaymentPage() {
               key={plan.id}
               className={cn(
                 'relative flex flex-col transition-colors',
-                plan.highlighted ? 'border-primary shadow-md min-[1024px]:scale-105' : 'hover:bg-accent',
+                plan.highlighted
+                  ? 'border-primary shadow-md min-[1024px]:scale-105'
+                  : 'hover:bg-accent',
               )}
             >
               {plan.highlighted && (
@@ -74,9 +76,13 @@ export default function PaymentPage() {
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}</CardTitle>
+                <CardTitle className="text-lg">
+                  {t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}
+                </CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{priceLabel}</span>
+                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                    {priceLabel}
+                  </span>
                   {!isEnterprise && (
                     <span className="text-sm text-muted-foreground">{t('perMonth')}</span>
                   )}

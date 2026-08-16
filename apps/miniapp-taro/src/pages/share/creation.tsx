@@ -104,7 +104,11 @@ export default function ShareCreationPage() {
     return (
       <View className="min-h-screen bg-background">
         <NavBar title={t('share.creation.title')} showBack />
-        <ErrorView title={t('share.creation.loadFailed')} desc={error || t('share.creation.contentNotExist')} onRetry={load} />
+        <ErrorView
+          title={t('share.creation.loadFailed')}
+          desc={error || t('share.creation.contentNotExist')}
+          onRetry={load}
+        />
       </View>
     )
   }
@@ -130,10 +134,14 @@ export default function ShareCreationPage() {
               <Text className="block text-sm font-medium text-foreground truncate">
                 {content.modelName || t('share.creation.modelDefault')}
               </Text>
-              <Text className="block text-xs text-muted-foreground">{fmtTime(content.createdAt)}</Text>
+              <Text className="block text-xs text-muted-foreground">
+                {fmtTime(content.createdAt)}
+              </Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-xs text-muted-foreground">{t('share.creation.tokenCost', { n: content.tokenCost })}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t('share.creation.tokenCost', { n: content.tokenCost })}
+              </Text>
             ) : null}
           </View>
           {content.userName ? (
@@ -155,7 +163,9 @@ export default function ShareCreationPage() {
 
         {answer.thinking ? (
           <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-            <Text className="block text-xs text-muted-foreground mb-2">{t('share.creation.thinkingProcess')}</Text>
+            <Text className="block text-xs text-muted-foreground mb-2">
+              {t('share.creation.thinkingProcess')}
+            </Text>
             <Text className="block text-xs text-foreground whitespace-pre-wrap">
               {answer.thinking}
             </Text>
@@ -163,7 +173,9 @@ export default function ShareCreationPage() {
         ) : null}
 
         <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-          <Text className="block text-xs text-muted-foreground mb-2">{t('share.creation.aiAnswer')}</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">
+            {t('share.creation.aiAnswer')}
+          </Text>
           {answer.text ? (
             <Text className="block text-sm text-foreground whitespace-pre-wrap leading-relaxed">
               {answer.text}
@@ -196,7 +208,9 @@ export default function ShareCreationPage() {
           ) : null}
           {answer.audio?.url ? (
             <View className="mt-3 p-2 bg-muted rounded-md flex items-center">
-              <Text className="text-xs text-foreground flex-1">{t('share.creation.voiceAnswer')}</Text>
+              <Text className="text-xs text-foreground flex-1">
+                {t('share.creation.voiceAnswer')}
+              </Text>
               <Text className="text-xs text-muted-foreground">
                 {answer.audio.duration ? `${answer.audio.duration}s` : ''}
               </Text>

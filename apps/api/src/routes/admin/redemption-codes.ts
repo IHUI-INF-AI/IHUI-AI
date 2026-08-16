@@ -35,15 +35,16 @@ const batchBodySchema = z.object({
   tokenAmount: z.number().int().positive(),
   /** 过期时间(ISO 8601 字符串,可选) */
   expiresAt: z
-    .transform(emptyToUndefined).pipe(z.iso.datetime().optional())
+    .transform(emptyToUndefined)
+    .pipe(z.iso.datetime().optional())
     .transform((v) => (v ? new Date(v) : null)),
 })
 
 const listQuerySchema = paginationSchema.extend({
   /** 状态筛选:unused/used/expired/disabled */
-  status: z.transform(emptyToUndefined).pipe(
-    z.enum(['unused', 'used', 'expired', 'disabled']).optional(),
-  ),
+  status: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['unused', 'used', 'expired', 'disabled']).optional()),
   /** 批次 ID 筛选 */
   batchId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })

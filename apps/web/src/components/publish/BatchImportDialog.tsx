@@ -15,10 +15,24 @@
  */
 
 import * as React from 'react'
-import { Upload, Download, FileText, Loader2, CheckCircle2, AlertCircle, FileDown } from 'lucide-react'
+import {
+  Upload,
+  Download,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  FileDown,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@ihui/ui-react'
 import {
   batchImportAccounts,
@@ -162,11 +176,18 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) reset()
+        onOpenChange(o)
+      }}
+    >
       <DialogContent className="min-[640px]:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />{t('batchImport.title')}
+            <Upload className="h-5 w-5" />
+            {t('batchImport.title')}
           </DialogTitle>
           <DialogDescription>{t('batchImport.description')}</DialogDescription>
         </DialogHeader>
@@ -175,11 +196,27 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
           {phase === 'idle' && (
             <>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={handleDownloadTemplate}>
-                  <Download className="h-4 w-4" />{t('batchImport.downloadTemplate')}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleDownloadTemplate}
+                >
+                  <Download className="h-4 w-4" />
+                  {t('batchImport.downloadTemplate')}
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1" onClick={handleExport} disabled={exporting}>
-                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4" />
+                  )}
                   {t('batchImport.export')}
                 </Button>
               </div>
@@ -187,7 +224,12 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <span className="text-sm font-medium">{t('batchImport.selectFile')}</span>
                 <span className="text-xs text-muted-foreground">CSV 格式,支持 38 平台</span>
-                <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileSelect} />
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
               </label>
             </>
           )}
@@ -214,7 +256,9 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
                         <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
                         <td className="py-1 pr-2 font-mono">{r.platform}</td>
                         <td className="py-1 pr-2">{r.nickname || '-'}</td>
-                        <td className="py-1 text-muted-foreground">{Object.keys(r.credentials).length}</td>
+                        <td className="py-1 text-muted-foreground">
+                          {Object.keys(r.credentials).length}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -252,9 +296,14 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
               {result.errors.length > 0 && (
                 <div className="max-h-32 overflow-y-auto rounded-md border border-rose-500/20 bg-rose-500/5 p-2">
                   {result.errors.map((e, i) => (
-                    <div key={i} className="flex items-start gap-1.5 py-0.5 text-xs text-rose-600 dark:text-rose-400">
+                    <div
+                      key={i}
+                      className="flex items-start gap-1.5 py-0.5 text-xs text-rose-600 dark:text-rose-400"
+                    >
                       <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>第 {e.row + 1} 行:{e.error}</span>
+                      <span>
+                        第 {e.row + 1} 行:{e.error}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -271,17 +320,32 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
           )}
           {phase === 'preview' && (
             <>
-              <Button variant="outline" onClick={() => { setPhase('idle'); setRows([]) }} className="shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPhase('idle')
+                  setRows([])
+                }}
+                className="shrink-0"
+              >
                 <span className="whitespace-nowrap">{tCommon('back')}</span>
               </Button>
               <Button onClick={handleImport} className="shrink-0 min-w-0">
                 <Upload className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t('batchImport.confirmImport', { count: rows.length })}</span>
+                <span className="truncate">
+                  {t('batchImport.confirmImport', { count: rows.length })}
+                </span>
               </Button>
             </>
           )}
           {phase === 'done' && (
-            <Button onClick={() => { reset(); onOpenChange(false) }} className="shrink-0">
+            <Button
+              onClick={() => {
+                reset()
+                onOpenChange(false)
+              }}
+              className="shrink-0"
+            >
               <span className="whitespace-nowrap">{tCommon('close')}</span>
             </Button>
           )}

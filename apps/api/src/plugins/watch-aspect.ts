@@ -64,10 +64,7 @@ const watchAspectPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
       const wasSet = await server.redis.set(dedupKey, '1', 'EX', DEDUP_TTL_SEC, 'NX')
       shouldCount = wasSet === 'OK'
     } catch (e) {
-      server.log.warn(
-        { err: e },
-        'watch-aspect: redis dedup failed, degrading to always-count',
-      )
+      server.log.warn({ err: e }, 'watch-aspect: redis dedup failed, degrading to always-count')
       shouldCount = true
     }
 

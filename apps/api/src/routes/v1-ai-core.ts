@@ -1161,6 +1161,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      compression: false,
     },
     async (request, reply) => {
       const parsed = agentExecuteSchema.safeParse(request.body)

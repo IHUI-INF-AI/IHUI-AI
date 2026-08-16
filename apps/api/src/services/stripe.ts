@@ -37,10 +37,7 @@ function buildHeaders(): Record<string, string> {
 
 type FormValue = string | number | boolean | undefined
 
-async function stripePost<T>(
-  path: string,
-  body: Record<string, FormValue>,
-): Promise<T> {
+async function stripePost<T>(path: string, body: Record<string, FormValue>): Promise<T> {
   const form = new URLSearchParams()
   for (const [k, v] of Object.entries(body)) {
     if (v !== undefined && v !== null) form.set(k, String(v))
@@ -63,11 +60,7 @@ async function stripeGet<T>(path: string): Promise<T> {
   return parseStripeResponse<T>(resp, 'GET', path)
 }
 
-async function parseStripeResponse<T>(
-  resp: Response,
-  method: string,
-  path: string,
-): Promise<T> {
+async function parseStripeResponse<T>(resp: Response, method: string, path: string): Promise<T> {
   const text = await resp.text()
   if (!resp.ok) {
     let detail = text
@@ -134,9 +127,7 @@ export interface CheckoutSessionStatus {
   metadata: Record<string, string> | null
 }
 
-export async function getCheckoutSession(
-  sessionId: string,
-): Promise<CheckoutSessionStatus> {
+export async function getCheckoutSession(sessionId: string): Promise<CheckoutSessionStatus> {
   return stripeGet<CheckoutSessionStatus>(`/v1/checkout/sessions/${sessionId}`)
 }
 
@@ -151,9 +142,7 @@ export interface PaymentIntentResult {
   metadata: Record<string, string> | null
 }
 
-export async function queryPaymentIntent(
-  paymentIntentId: string,
-): Promise<PaymentIntentResult> {
+export async function queryPaymentIntent(paymentIntentId: string): Promise<PaymentIntentResult> {
   return stripeGet<PaymentIntentResult>(`/v1/payment_intents/${paymentIntentId}`)
 }
 
@@ -170,9 +159,7 @@ export interface RefundResult {
   payment_intent: string
 }
 
-export async function refundPaymentIntent(
-  params: RefundParams,
-): Promise<RefundResult> {
+export async function refundPaymentIntent(params: RefundParams): Promise<RefundResult> {
   const body: Record<string, FormValue> = {
     payment_intent: params.paymentIntentId,
   }
@@ -198,10 +185,7 @@ export interface StripeEvent {
  * - DEV 环境 + 未配置 STRIPE_WEBHOOK_SECRET 时降级直接 parse(便于本地测试)
  * - 生产环境强制验签 + 时间戳防重放(5 分钟窗口)
  */
-export function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-): StripeEvent {
+export function verifyWebhookSignature(payload: string, signature: string): StripeEvent {
   const secret = env.STRIPE_WEBHOOK_SECRET
   if (!secret) {
     if (env.NODE_ENV !== 'production') {
@@ -222,9 +206,7 @@ export function verifyWebhookSignature(
   if (!t || !v1) throw new Error('Invalid Stripe-Signature header')
 
   const signedPayload = `${t}.${payload}`
-  const expected = createHmac('sha256', secret)
-    .update(signedPayload, 'utf-8')
-    .digest('hex')
+  const expected = createHmac('sha256', secret).update(signedPayload, 'utf-8').digest('hex')
   const a = Buffer.from(expected, 'utf-8')
   const b = Buffer.from(v1, 'utf-8')
   if (a.length !== b.length || !timingSafeEqual(a, b)) {

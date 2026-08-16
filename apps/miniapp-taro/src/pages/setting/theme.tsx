@@ -134,9 +134,7 @@ export default function ThemePage() {
       </RadioGroup>
 
       <View className="theme-hint">
-        <Text className="theme-hint-title">
-          {tt('setting.theme.hintTitle', '主题说明')}
-        </Text>
+        <Text className="theme-hint-title">{tt('setting.theme.hintTitle', '主题说明')}</Text>
         <Text className="theme-hint-line">
           {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
         </Text>

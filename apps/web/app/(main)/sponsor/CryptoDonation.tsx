@@ -111,24 +111,22 @@ export function CryptoDonation(): React.JSX.Element {
 
               <div className="mt-4 flex items-stretch gap-3">
                 <Tooltip content={t('qrCode')}>
-                <a
-                  href={`${w.explorer}${w.address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted"
-                  aria-label={t('qrCode')}
-                >
-                  <QrCode className="h-6 w-6" />
-                  <span className="mt-1 text-[10px]">{t('qrCode')}</span>
-                </a>
+                  <a
+                    href={`${w.explorer}${w.address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted"
+                    aria-label={t('qrCode')}
+                  >
+                    <QrCode className="h-6 w-6" />
+                    <span className="mt-1 text-[10px]">{t('qrCode')}</span>
+                  </a>
                 </Tooltip>
                 <div className="flex min-w-0 flex-1 flex-col justify-between">
                   <Tooltip content={w.address}>
-                  <code
-                    className="block break-all text-xs leading-relaxed text-foreground"
-                  >
-                    {w.address}
-                  </code>
+                    <code className="block break-all text-xs leading-relaxed text-foreground">
+                      {w.address}
+                    </code>
                   </Tooltip>
                   <Button
                     type="button"

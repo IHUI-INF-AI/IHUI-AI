@@ -6,7 +6,6 @@ import path from 'path'
 // (541 个规则如 .-bottom-[2px]{bottom:-2rpx} 被 WXSS parser 当作属性选择器报错)
 // weapp-tailwindcss 同时处理 WXSS 选择器转义和 wxml class 匹配,保留全部样式
 import type { Plugin, UserConfig } from 'vite'
-import type Chain from 'webpack-chain'
 import tailwindcss from 'tailwindcss'
 import { WeappTailwindcss } from 'weapp-tailwindcss/vite'
 
@@ -114,11 +113,11 @@ export default defineConfig(async (merge) => {
                 path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
               ],
             },
-            webpackChain: (chain: Chain) => {
+            webpackChain: (chain: any) => {
               chain.module
                 .rule('script')
                 .use('babelLoader')
-                .tap((options) => ({
+                .tap((options: any) => ({
                   ...options,
                   presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
                 }))
@@ -160,11 +159,11 @@ export default defineConfig(async (merge) => {
       // - common: 跨≥2 个异步 chunk 共享的业务代码，仅作用于 async 包，不影响首屏
       // - runtime: webpack 运行时单独抽出，利于长缓存
       // 优化前 app.js 单文件 823 KiB（含全部 vendor + runtime），优化后主 bundle 显著下降
-      webpackChain: (chain: Chain) => {
+      webpackChain: (chain: any) => {
         chain.module
           .rule('script')
           .use('babelLoader')
-          .tap((options) => ({
+          .tap((options: Record<string, unknown>) => ({
             ...options,
             presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
           }))
@@ -222,5 +221,9 @@ export default defineConfig(async (merge) => {
     },
     rn: { appName: 'ihui-miniapp', postcss: { cssModules: { enable: false } } },
   }
-  return merge({}, base, process.env.NODE_ENV === 'development' ? devConfig : prodConfig)
+  return merge(
+    {},
+    base,
+    process.env.NODE_ENV === 'development' ? devConfig : prodConfig,
+  ) as unknown as UserConfig & Record<string, unknown>
 })

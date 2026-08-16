@@ -29,9 +29,18 @@ import { parseCursor } from './parsers/cursor.js'
 import { parseEnvFile } from './parsers/env-file.js'
 import { parseWindsurf } from './parsers/windsurf.js'
 import {
-  parseTrae, parseTraeWork, parseQoder, parseQoderWork,
-  parseCodexDesktop, parseClaudeCodeDesktop,
-  parseGithubCopilot, parseAmazonQ, parseContinue, parseTabnine, parseCody, parseZed,
+  parseTrae,
+  parseTraeWork,
+  parseQoder,
+  parseQoderWork,
+  parseCodexDesktop,
+  parseClaudeCodeDesktop,
+  parseGithubCopilot,
+  parseAmazonQ,
+  parseContinue,
+  parseTabnine,
+  parseCody,
+  parseZed,
   parseAntigravity,
 } from './parsers/ide-generic.js'
 import type { ParserFn, ParserInput, ParserResult } from './parsers/types.js'
@@ -219,7 +228,11 @@ const PARSERS: ParserEntry[] = [
     source: 'antigravity',
     fn: parseAntigravity,
     inputKind: 'text',
-    filePatterns: [/antigravity.*settings\.json$/i, /antigravity.*\.json$/i, /antigravity.*config.*\.json$/i],
+    filePatterns: [
+      /antigravity.*settings\.json$/i,
+      /antigravity.*\.json$/i,
+      /antigravity.*config.*\.json$/i,
+    ],
     description: 'Google Antigravity (Gemini) 配置',
   },
 ]

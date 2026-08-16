@@ -60,10 +60,7 @@ interface AiServiceHistoryResponse {
   list?: AiServiceTask[]
 }
 
-async function fetchAiService<T>(
-  path: string,
-  authHeader: string | undefined,
-): Promise<T | null> {
+async function fetchAiService<T>(path: string, authHeader: string | undefined): Promise<T | null> {
   const url = `${config.AI_SERVICE_URL}/api/publish${path}`
   const headers: Record<string, string> = {}
   if (authHeader) headers.authorization = authHeader
@@ -97,9 +94,16 @@ function filterByPeriod<T extends { createdAt?: string; scheduledAt?: string | n
 }
 
 const PLATFORM_COLORS = [
-  'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500',
-  'bg-purple-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500',
-  'bg-teal-500', 'bg-orange-500',
+  'bg-blue-500',
+  'bg-emerald-500',
+  'bg-amber-500',
+  'bg-rose-500',
+  'bg-purple-500',
+  'bg-cyan-500',
+  'bg-pink-500',
+  'bg-indigo-500',
+  'bg-teal-500',
+  'bg-orange-500',
 ]
 
 function buildTrend(tasks: readonly AiServiceTask[]): Array<{ date: string; count: number }> {
@@ -274,10 +278,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/publish/analytics/accounts', async (request, reply) => {
     const period = parsePeriod(request.query)
     const authHeader = request.headers.authorization
-    const histRes = await fetchAiService<AiServiceHistoryResponse>(
-      '/history?limit=200',
-      authHeader,
-    )
+    const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))
     }
@@ -289,10 +290,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/publish/analytics/platforms', async (request, reply) => {
     const period = parsePeriod(request.query)
     const authHeader = request.headers.authorization
-    const histRes = await fetchAiService<AiServiceHistoryResponse>(
-      '/history?limit=200',
-      authHeader,
-    )
+    const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))
     }

@@ -367,7 +367,13 @@ export function ProviderFormDialog({
           </div>
 
           <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending} className="shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={isPending}
+              className="shrink-0"
+            >
               <span className="whitespace-nowrap">{t('cancel')}</span>
             </Button>
             <Button type="submit" disabled={isPending} className="shrink-0">

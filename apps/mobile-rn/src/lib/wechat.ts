@@ -72,12 +72,10 @@ export function isWechatAvailable(): boolean {
 
 /** 发送微信授权请求,返回 code(native only)。
  *  抛出错误时 message 含 errCode,errCode=USER_CANCEL(-2) 表示用户取消(非错误)。 */
-export async function sendWechatAuth(
-  scope = 'snsapi_userinfo',
-  state?: string,
-): Promise<string> {
+export async function sendWechatAuth(scope = 'snsapi_userinfo', state?: string): Promise<string> {
   if (Platform.OS === 'web') throw new Error('微信原生 SDK 不支持 web 平台')
-  if (!wechatLib || typeof wechatLib.sendAuthRequest !== 'function') throw new Error('微信 SDK 未初始化')
+  if (!wechatLib || typeof wechatLib.sendAuthRequest !== 'function')
+    throw new Error('微信 SDK 未初始化')
 
   const res: AuthResponse = await wechatLib.sendAuthRequest(scope, state)
   if (res.errCode !== undefined && res.errCode !== WECHAT_ERRCODE.SUCCESS) {

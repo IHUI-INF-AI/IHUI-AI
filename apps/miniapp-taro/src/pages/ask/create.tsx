@@ -193,7 +193,10 @@ export default function AskCreatePage() {
           <Textarea
             className="ask-create-textarea"
             value={form.content}
-            placeholder={tt('ask.create.detailPlaceholder', '详细描述你的问题,越详细越容易得到回答')}
+            placeholder={tt(
+              'ask.create.detailPlaceholder',
+              '详细描述你的问题,越详细越容易得到回答',
+            )}
             maxlength={CONTENT_MAX}
             onInput={(e) => updateForm({ content: e.detail.value })}
           />
@@ -288,10 +291,7 @@ export default function AskCreatePage() {
               <Text className="ask-create-sheet-title">
                 {tt('ask.create.categoryLabel', '分类')}
               </Text>
-              <Text
-                className="ask-create-sheet-close"
-                onClick={() => setShowCategorySheet(false)}
-              >
+              <Text className="ask-create-sheet-close" onClick={() => setShowCategorySheet(false)}>
                 ×
               </Text>
             </View>

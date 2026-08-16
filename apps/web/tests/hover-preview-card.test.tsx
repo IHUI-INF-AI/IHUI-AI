@@ -68,11 +68,7 @@ describe('HoverPreviewCard — 基础渲染', () => {
 
   it('role=tooltip 语义属性', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.getAttribute('role')).toBe('tooltip')
@@ -100,11 +96,7 @@ describe('HoverPreviewCard — 样式与定位', () => {
 
   it('position.left / position.top 应用到 fixed 容器 inline style', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 256, y: 128 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 256, y: 128 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.style.left).toBe('256px')
@@ -113,11 +105,7 @@ describe('HoverPreviewCard — 样式与定位', () => {
 
   it('fixed 定位 + z-index 1000(高优先级,不被其他元素遮挡)', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('fixed')
@@ -126,11 +114,7 @@ describe('HoverPreviewCard — 样式与定位', () => {
 
   it('pointer-events-none:不阻挡下层元素的鼠标交互', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('pointer-events-none')
@@ -138,11 +122,7 @@ describe('HoverPreviewCard — 样式与定位', () => {
 
   it('固定宽度 240px', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('w-[240px]')
@@ -150,11 +130,7 @@ describe('HoverPreviewCard — 样式与定位', () => {
 
   it('圆角 + 边框 + 阴影 + popover 背景色', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('rounded-md')
@@ -193,22 +169,14 @@ describe('HoverPreviewCard — 隐藏时位置与内容变化', () => {
     )
     expect(container.firstChild).toBeNull()
     rerender(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 100, y: 100 }}
-        content={<span>内容</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 100, y: 100 }} content={<span>内容</span>} />,
     )
     expect(container.querySelector('[data-testid="hover-preview-card"]')).toBeTruthy()
   })
 
   it('visible=true 切换 false:卡片消失', () => {
     const { container, rerender } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 100, y: 100 }}
-        content={<span>内容</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 100, y: 100 }} content={<span>内容</span>} />,
     )
     expect(container.querySelector('[data-testid="hover-preview-card"]')).toBeTruthy()
     rerender(
@@ -223,21 +191,13 @@ describe('HoverPreviewCard — 隐藏时位置与内容变化', () => {
 
   it('位置更新:从 (10,10) 切到 (200,300),style 同步', () => {
     const { container, rerender } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 10, y: 10 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 10, y: 10 }} content={<span>x</span>} />,
     )
     let card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.style.left).toBe('10px')
     expect(card.style.top).toBe('10px')
     rerender(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 200, y: 300 }}
-        content={<span>x</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 200, y: 300 }} content={<span>x</span>} />,
     )
     card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.style.left).toBe('200px')
@@ -448,18 +408,10 @@ function StatefulTestConsumer(): React.ReactElement {
       >
         Update
       </button>
-      <button
-        type="button"
-        data-testid="nullify-data"
-        onClick={() => setData(null)}
-      >
+      <button type="button" data-testid="nullify-data" onClick={() => setData(null)}>
         Nullify
       </button>
-      <button
-        type="button"
-        data-testid="close-button"
-        onClick={() => preview.close()}
-      >
+      <button type="button" data-testid="close-button" onClick={() => preview.close()}>
         Close
       </button>
       {preview.visible && (
@@ -596,11 +548,7 @@ describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
 
   it('role=tooltip 验证(屏幕阅读器朗读为"提示")', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>preview</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>preview</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.getAttribute('role')).toBe('tooltip')
@@ -609,11 +557,7 @@ describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
   it('Esc 键:hover card 组件本身不自动处理 Esc(由父组件负责关闭)', () => {
     // HoverPreviewCard 是纯展示组件,不绑定 keydown 监听
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>preview</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>preview</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     // 验证卡片元素存在
@@ -635,7 +579,11 @@ describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
         <HoverPreviewCard
           visible={true}
           position={pos}
-          content={<span>preview at {pos.x},{pos.y}</span>}
+          content={
+            <span>
+              preview at {pos.x},{pos.y}
+            </span>
+          }
         />,
       )
       const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
@@ -657,11 +605,7 @@ describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
       </div>
     )
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={complexContent}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={complexContent} />,
     )
     expect(container.querySelector('h4')?.textContent).toBe('Title')
     expect(container.querySelectorAll('li').length).toBe(2)

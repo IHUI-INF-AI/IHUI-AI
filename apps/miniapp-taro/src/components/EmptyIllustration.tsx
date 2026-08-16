@@ -41,7 +41,11 @@ export default function EmptyIllustration({
       {imgSrc ? (
         <Image className="w-12 h-12 mb-3" src={imgSrc} mode="aspectFit" />
       ) : (
-        <Image className="w-12 h-12 mb-3" src={ICON_EMOJIS[type] || '/static/images/icons/inbox.svg'} mode="aspectFit" />
+        <Image
+          className="w-12 h-12 mb-3"
+          src={ICON_EMOJIS[type] || '/static/images/icons/inbox.svg'}
+          mode="aspectFit"
+        />
       )}
       <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS[type]}</Text>
       {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}

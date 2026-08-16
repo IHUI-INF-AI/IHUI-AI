@@ -322,12 +322,8 @@ function auditStagingFiles(options = {}) {
       }
     }
     if (hasMultiFileDir) {
-      console.log(
-        '      如果混入了其他 agent 改动,请用 node scripts/safe-commit.mjs 重新提交:',
-      )
-      console.log(
-        '      node scripts/safe-commit.mjs -m "fix(web): ..." -- apps/web/foo.tsx',
-      )
+      console.log('      如果混入了其他 agent 改动,请用 node scripts/safe-commit.mjs 重新提交:')
+      console.log('      node scripts/safe-commit.mjs -m "fix(web): ..." -- apps/web/foo.tsx')
       console.log('      (safe-commit 会 git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验)')
     }
 
@@ -336,9 +332,7 @@ function auditStagingFiles(options = {}) {
       console.log(
         `   ⚠️  staged 文件数 ${stagedFiles.length} > 5 — 多 agent 并行时容易混入其他 agent 改动`,
       )
-      console.log(
-        '      强烈建议用 node scripts/safe-commit.mjs -m "..." -- <files> 重新提交',
-      )
+      console.log('      强烈建议用 node scripts/safe-commit.mjs -m "..." -- <files> 重新提交')
     }
 
     console.log('')

@@ -95,7 +95,9 @@ function pickTitle(item: AiFeedTimelineItem, lang: TitleLang): string {
   return item.title
 }
 
-function groupByDay(items: AiFeedTimelineItem[]): Array<{ day: string; items: AiFeedTimelineItem[] }> {
+function groupByDay(
+  items: AiFeedTimelineItem[],
+): Array<{ day: string; items: AiFeedTimelineItem[] }> {
   const groups = new Map<string, AiFeedTimelineItem[]>()
   for (const it of items) {
     const date = new Date(it.lastSeenAt)
@@ -150,7 +152,10 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
     const lng = params.get('lang')
     if (ch) setActiveChannel(ch)
     if (cat) setActiveCategory(cat)
-    if (kw) { setKeyword(kw); setDebouncedKeyword(kw) }
+    if (kw) {
+      setKeyword(kw)
+      setDebouncedKeyword(kw)
+    }
     if (tr) setActiveTrend(tr)
     if (lng === 'zh' || lng === 'en' || lng === 'ja' || lng === 'ko') setTitleLang(lng)
   }, [])
@@ -167,7 +172,6 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
     const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
     window.history.replaceState(null, '', newUrl)
   }, [activeChannel, activeCategory, debouncedKeyword, activeTrend, titleLang])
-
 
   const channelFiltered = React.useMemo(() => {
     if (!activeChannel) return items
@@ -406,8 +410,8 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                           ) : null}
                           {isRising ? (
                             <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                              <TrendingUp className="h-2.5 w-2.5" />
-                              +{it.trendGrowthPct !== null ? `${it.trendGrowthPct.toFixed(0)}%` : ''}
+                              <TrendingUp className="h-2.5 w-2.5" />+
+                              {it.trendGrowthPct !== null ? `${it.trendGrowthPct.toFixed(0)}%` : ''}
                             </span>
                           ) : null}
                           {isCooling ? (
@@ -438,7 +442,9 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                         ) : null}
 
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
-                          {it.author ? <span className="min-w-0 max-w-[120px] truncate">{it.author}</span> : null}
+                          {it.author ? (
+                            <span className="min-w-0 max-w-[120px] truncate">{it.author}</span>
+                          ) : null}
                           {it.url ? (
                             <ExternalLink className="h-2.5 w-2.5 opacity-0 transition-opacity group-hover:opacity-100" />
                           ) : null}

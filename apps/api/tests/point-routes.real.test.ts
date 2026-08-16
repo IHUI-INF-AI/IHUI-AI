@@ -30,7 +30,12 @@ async function createUser(phone: string, nickname?: string) {
   return row
 }
 
-async function createChannel(data: { name: string; code?: string; status?: number; sort?: number }) {
+async function createChannel(data: {
+  name: string
+  code?: string
+  status?: number
+  sort?: number
+}) {
   const [row] = await db
     .insert(eduPointChannels)
     .values({
@@ -317,7 +322,10 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     await createChannel({ name: '启用', status: 1 })
     await createChannel({ name: '禁用', status: 0 })
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'GET', url: '/api/admin/edu-points/channels?status=0' })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/admin/edu-points/channels?status=0',
+    })
     const body = res.json()
     expect(body.data.list).toHaveLength(1)
     expect(body.data.list[0].name).toBe('禁用')

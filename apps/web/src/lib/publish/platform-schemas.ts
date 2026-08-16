@@ -66,7 +66,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         type: 'text',
         placeholder: 'https://your-site.com',
         required: true,
-        helpText: 'WordPress 站点首页地址,需包含 https:// 前缀,系统会自动拼接 /wp-json/wp/v2 接口路径。',
+        helpText:
+          'WordPress 站点首页地址,需包含 https:// 前缀,系统会自动拼接 /wp-json/wp/v2 接口路径。',
       },
       {
         name: 'username',
@@ -81,7 +82,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: '应用密码',
         type: 'password',
         required: true,
-        helpText: '在 WordPress 后台「用户 → 个人资料 → 应用密码」点击「添加新应用密码」生成,不是登录密码。',
+        helpText:
+          '在 WordPress 后台「用户 → 个人资料 → 应用密码」点击「添加新应用密码」生成,不是登录密码。',
       },
     ],
   },
@@ -90,14 +92,15 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: 'Medium',
     authType: 'api_key',
     setupGuideUrl: 'https://medium.com/me/settings/security',
-    helpText: '通过 Medium Integration Token 发布,需 Medium 账号(推荐用邮箱注册)。' ,
+    helpText: '通过 Medium Integration Token 发布,需 Medium 账号(推荐用邮箱注册)。',
     fields: [
       {
         name: 'integration_token',
         label: '集成令牌',
         type: 'password',
         required: true,
-        helpText: '登录 Medium → 右上角头像 → Settings → Security & apps → Integration tokens → 生成新令牌。',
+        helpText:
+          '登录 Medium → 右上角头像 → Settings → Security & apps → Integration tokens → 生成新令牌。',
       },
       {
         name: 'author_id',
@@ -114,7 +117,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: 'YouTube',
     authType: 'oauth',
     setupGuideUrl: 'https://console.cloud.google.com/apis/credentials',
-    helpText: '通过 Google OAuth 2.0 + YouTube Data API v3 发布视频,需在 Google Cloud Console 创建凭据。',
+    helpText:
+      '通过 Google OAuth 2.0 + YouTube Data API v3 发布视频,需在 Google Cloud Console 创建凭据。',
     fields: [
       {
         name: 'client_id',
@@ -122,7 +126,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         type: 'text',
         required: true,
         placeholder: 'xxxxx.apps.googleusercontent.com',
-        helpText: 'Google Cloud Console → API & Services → Credentials → 创建 OAuth 2.0 Client ID(Web application)。',
+        helpText:
+          'Google Cloud Console → API & Services → Credentials → 创建 OAuth 2.0 Client ID(Web application)。',
       },
       {
         name: 'client_secret',
@@ -136,7 +141,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'Refresh Token',
         type: 'password',
         required: true,
-        helpText: '通过 OAuth 授权流程获取,用于自动刷新 access_token。配置一次后长期有效,无需重复授权。',
+        helpText:
+          '通过 OAuth 授权流程获取,用于自动刷新 access_token。配置一次后长期有效,无需重复授权。',
       },
     ],
   },
@@ -207,7 +213,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         type: 'textarea',
         required: true,
         placeholder: 'sessionid=xxx; sessionid_ss=xxx; ...',
-        helpText: '在 mp.toutiao.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
+        helpText:
+          '在 mp.toutiao.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
       },
     ],
   },
@@ -290,7 +297,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: 'CSDN',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://blog.csdn.net/',
-    helpText: '通过 CSDN Cookie(UserName / UserToken / UserSecret)+ Playwright 发布,需登录 blog.csdn.net。',
+    helpText:
+      '通过 CSDN Cookie(UserName / UserToken / UserSecret)+ Playwright 发布,需登录 blog.csdn.net。',
     fields: [
       {
         name: 'UserName',
@@ -384,7 +392,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'Access Token',
         type: 'password',
         required: true,
-        helpText: '博客园 → 设置 → OAuth 应用 → 申请 Personal Access Token(需博客园账号并通过实名认证)。',
+        helpText:
+          '博客园 → 设置 → OAuth 应用 → 申请 Personal Access Token(需博客园账号并通过实名认证)。',
       },
     ],
   },
@@ -433,7 +442,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         type: 'textarea',
         required: true,
         placeholder: 'remember_user_token=xxx; _session_id=xxx; ...',
-        helpText: '在 jianshu.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
+        helpText:
+          '在 jianshu.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
       },
     ],
   },
@@ -443,14 +453,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '百家号',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://baijiahao.baidu.com/',
-    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布,需登录 baijiahao.baidu.com 创作者后台。',
+    helpText:
+      '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布,需登录 baijiahao.baidu.com 创作者后台。',
     fields: [
       {
         name: 'BDUSS',
         label: 'BDUSS',
         type: 'password',
         required: true,
-        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,长期登录令牌(HttpOnly),在 baidu.com 域下复制。',
+        helpText:
+          '百度全系登录 Cookie 中的 BDUSS 字段,长期登录令牌(HttpOnly),在 baidu.com 域下复制。',
       },
       {
         name: 'STOKEN',
@@ -466,7 +478,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '企鹅号',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://om.qq.com/',
-    helpText: '通过腾讯 Cookie(RK / ptcz / pgv_pvid)+ Playwright 发布,需登录 om.qq.com 企鹅号后台。',
+    helpText:
+      '通过腾讯 Cookie(RK / ptcz / pgv_pvid)+ Playwright 发布,需登录 om.qq.com 企鹅号后台。',
     fields: [
       {
         name: 'RK',
@@ -496,7 +509,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '大鱼号',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://mp.dayu.com/',
-    helpText: '通过阿里 Cookie(cna / _csrf_token / unb)+ Playwright 发布,需登录 mp.dayu.com 大鱼号后台。',
+    helpText:
+      '通过阿里 Cookie(cna / _csrf_token / unb)+ Playwright 发布,需登录 mp.dayu.com 大鱼号后台。',
     fields: [
       {
         name: 'cna',
@@ -526,7 +540,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '网易号',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://mp.163.com/',
-    helpText: '通过网易 Cookie(P_INFO / S_INFO / NTES_SESS)+ Playwright 发布,需登录 mp.163.com 网易号后台。',
+    helpText:
+      '通过网易 Cookie(P_INFO / S_INFO / NTES_SESS)+ Playwright 发布,需登录 mp.163.com 网易号后台。',
     fields: [
       {
         name: 'P_INFO',
@@ -586,7 +601,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '新浪看点',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://mp.sina.com.cn/',
-    helpText: '通过新浪 Cookie(SCF / ALF / SUB)+ Playwright 发布,需登录 mp.sina.com.cn 新浪看点后台。',
+    helpText:
+      '通过新浪 Cookie(SCF / ALF / SUB)+ Playwright 发布,需登录 mp.sina.com.cn 新浪看点后台。',
     fields: [
       {
         name: 'SCF',
@@ -617,7 +633,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '西瓜视频',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://studio.ixigua.com/',
-    helpText: '通过字节 Cookie(sessionid / ttwid)+ Playwright 发布视频,需登录 studio.ixigua.com 创作者后台。',
+    helpText:
+      '通过字节 Cookie(sessionid / ttwid)+ Playwright 发布视频,需登录 studio.ixigua.com 创作者后台。',
     fields: [
       {
         name: 'sessionid',
@@ -640,14 +657,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '好看视频',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://haokan.baidu.com/',
-    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布视频,需登录 haokan.baidu.com 创作者后台。',
+    helpText:
+      '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布视频,需登录 haokan.baidu.com 创作者后台。',
     fields: [
       {
         name: 'BDUSS',
         label: 'BDUSS',
         type: 'password',
         required: true,
-        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,与百家号共用(同账号可发布到百家号+好看视频)。',
+        helpText:
+          '百度全系登录 Cookie 中的 BDUSS 字段,与百家号共用(同账号可发布到百家号+好看视频)。',
       },
       {
         name: 'STOKEN',
@@ -687,7 +706,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '百度贴吧',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://tieba.baidu.com/',
-    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发帖,需在 platform_config 指定目标贴吧名(tieba_kw)。',
+    helpText:
+      '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发帖,需在 platform_config 指定目标贴吧名(tieba_kw)。',
     fields: [
       {
         name: 'BDUSS',
@@ -717,7 +737,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'db_clnd',
         type: 'password',
         required: true,
-        helpText: '豆瓣登录 Cookie 中的 db_clnd 字段,登录会话令牌(HttpOnly),在 douban.com 域下复制。',
+        helpText:
+          '豆瓣登录 Cookie 中的 db_clnd 字段,登录会话令牌(HttpOnly),在 douban.com 域下复制。',
       },
       {
         name: 'ck',
@@ -733,14 +754,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '36氪',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.36kr.com/',
-    helpText: '通过 36氪 Cookie(_36kr_session / acw_tc)+ Playwright 发布文章,需登录 36kr.com 创作者后台。',
+    helpText:
+      '通过 36氪 Cookie(_36kr_session / acw_tc)+ Playwright 发布文章,需登录 36kr.com 创作者后台。',
     fields: [
       {
         name: '_36kr_session',
         label: '_36kr_session',
         type: 'password',
         required: true,
-        helpText: '36氪 Cookie 中的 _36kr_session 字段,登录会话令牌(HttpOnly),在 36kr.com 域下复制。',
+        helpText:
+          '36氪 Cookie 中的 _36kr_session 字段,登录会话令牌(HttpOnly),在 36kr.com 域下复制。',
       },
       {
         name: 'acw_tc',
@@ -756,14 +779,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '虎嗅网',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.huxiu.com/',
-    helpText: '通过虎嗅 Cookie(huxiu_session / huxiu_token)+ Playwright 发布文章,需登录 huxiu.com。',
+    helpText:
+      '通过虎嗅 Cookie(huxiu_session / huxiu_token)+ Playwright 发布文章,需登录 huxiu.com。',
     fields: [
       {
         name: 'huxiu_session',
         label: 'huxiu_session',
         type: 'password',
         required: true,
-        helpText: '虎嗅 Cookie 中的 huxiu_session 字段,登录会话令牌(HttpOnly),在 huxiu.com 域下复制。',
+        helpText:
+          '虎嗅 Cookie 中的 huxiu_session 字段,登录会话令牌(HttpOnly),在 huxiu.com 域下复制。',
       },
       {
         name: 'huxiu_token',
@@ -779,14 +804,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '钛媒体',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.tmtpost.com/',
-    helpText: '通过钛媒体 Cookie(tmt_session / tmt_token)+ Playwright 发布文章,需登录 tmtpost.com。',
+    helpText:
+      '通过钛媒体 Cookie(tmt_session / tmt_token)+ Playwright 发布文章,需登录 tmtpost.com。',
     fields: [
       {
         name: 'tmt_session',
         label: 'tmt_session',
         type: 'password',
         required: true,
-        helpText: '钛媒体 Cookie 中的 tmt_session 字段,登录会话令牌(HttpOnly),在 tmtpost.com 域下复制。',
+        helpText:
+          '钛媒体 Cookie 中的 tmt_session 字段,登录会话令牌(HttpOnly),在 tmtpost.com 域下复制。',
       },
       {
         name: 'tmt_token',
@@ -809,7 +836,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'acPasstoken',
         type: 'password',
         required: true,
-        helpText: 'AcFun Cookie 中的 acPasstoken 字段,登录通行令牌(HttpOnly),在 acfun.cn 域下复制。',
+        helpText:
+          'AcFun Cookie 中的 acPasstoken 字段,登录通行令牌(HttpOnly),在 acfun.cn 域下复制。',
       },
       {
         name: 'ac_session',
@@ -832,7 +860,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'NTES_SESS',
         type: 'password',
         required: true,
-        helpText: '网易全系 Cookie 中的 NTES_SESS 字段,核心会话令牌,与网易号共用(同账号可发布到网易号+LOFTER)。',
+        helpText:
+          '网易全系 Cookie 中的 NTES_SESS 字段,核心会话令牌,与网易号共用(同账号可发布到网易号+LOFTER)。',
       },
       {
         name: 'S_INFO',
@@ -871,14 +900,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '人民网',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.people.com.cn/',
-    helpText: '通过人民网 Cookie(people_session / people_token)+ Playwright 发布文章,需登录 people.com.cn 创作者后台。',
+    helpText:
+      '通过人民网 Cookie(people_session / people_token)+ Playwright 发布文章,需登录 people.com.cn 创作者后台。',
     fields: [
       {
         name: 'people_session',
         label: 'people_session',
         type: 'password',
         required: true,
-        helpText: '人民网 Cookie 中的 people_session 字段,登录会话令牌(HttpOnly),在 people.com.cn 域下复制。',
+        helpText:
+          '人民网 Cookie 中的 people_session 字段,登录会话令牌(HttpOnly),在 people.com.cn 域下复制。',
       },
       {
         name: 'people_token',
@@ -894,14 +925,16 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '中国新闻网',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.chinanews.com.cn/',
-    helpText: '通过中国新闻网 Cookie(cn_session / cn_token)+ Playwright 发布文章,需登录 chinanews.com.cn 创作者后台。',
+    helpText:
+      '通过中国新闻网 Cookie(cn_session / cn_token)+ Playwright 发布文章,需登录 chinanews.com.cn 创作者后台。',
     fields: [
       {
         name: 'cn_session',
         label: 'cn_session',
         type: 'password',
         required: true,
-        helpText: '中国新闻网 Cookie 中的 cn_session 字段,登录会话令牌(HttpOnly),在 chinanews.com.cn 域下复制。',
+        helpText:
+          '中国新闻网 Cookie 中的 cn_session 字段,登录会话令牌(HttpOnly),在 chinanews.com.cn 域下复制。',
       },
       {
         name: 'cn_token',
@@ -917,7 +950,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '虎扑社区',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://bbs.hupu.com/',
-    helpText: '通过虎扑 Cookie(hupu_token / hupu_session)+ Playwright 发帖,需在 platform_config 指定目标版块 ID(hupu_fid)。',
+    helpText:
+      '通过虎扑 Cookie(hupu_token / hupu_session)+ Playwright 发帖,需在 platform_config 指定目标版块 ID(hupu_fid)。',
     fields: [
       {
         name: 'hupu_token',

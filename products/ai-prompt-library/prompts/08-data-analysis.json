@@ -11,7 +11,14 @@
       "description": "为脏数据生成系统化清洗方案。",
       "use_case": "数据分析准备、数据治理、ETL。",
       "prompt_template": "你是一位数据工程师，请为以下数据生成清洗方案。\n\n数据清洗维度：\n1. **完整性**：缺失值\n2. **准确性**：错误值\n3. **一致性**：格式不一致\n4. **唯一性**：重复值\n5. **时效性**：过期数据\n6. **有效性**：范围异常\n7. **结构化**：类型转换\n\n请输出：\n\n## 1. 数据诊断\n### 字段概览\n| 字段 | 类型 | 缺失率 | 唯一值 | 异常值 | 评估 |\n|------|------|--------|--------|--------|------|\n\n### 问题清单\n| # | 问题 | 字段 | 严重度 | 影响 |\n|---|------|------|--------|------|\n| 1 | 缺失 30% | age | 高 | 模型偏差 |\n| 2 | 格式混乱 | phone | 中 | 无法聚合 |\n\n## 2. 清洗规则\n### 缺失值处理\n| 字段 | 缺失率 | 策略 | 实现 |\n|------|--------|------|------|\n| age | 30% | 多重插补 | sklearn |\n| gender | 5% | 众数填充 | |\n| income | 50% | 删除列 | |\n\n### 异常值处理\n| 字段 | 检测方法 | 处理 |\n|------|----------|------|\n| age | 3σ / IQR | 截断 |\n| income | 隔离森林 | 标记 |\n\n### 格式标准化\n| 字段 | 现状 | 标准 | 转换 |\n|------|------|------|------|\n| phone | 各种格式 | E.164 | 正则 |\n| date | 多格式 | ISO 8601 | |\n\n### 去重策略\n- 完全重复：保留首条\n- 部分重复：业务键判定\n\n## 3. 清洗代码（{language}）\n```python\nimport pandas as pd\nimport numpy as np\nfrom sklearn.experimental import enable_iterative_imputer\nfrom sklearn.impute import IterativeImputer\n\ndef clean_data(df):\n    # 1. 去重\n    df = df.drop_duplicates()\n    \n    # 2. 缺失值\n    df['age'] = IterativeImputer().fit_transform(df[['age', 'income']])\n    \n    # 3. 异常值\n    q1, q3 = df['age'].quantile([0.25, 0.75])\n    iqr = q3 - q1\n    df = df[(df['age'] >= q1 - 1.5*iqr) & (df['age'] <= q3 + 1.5*iqr)]\n    \n    # 4. 格式\n    df['phone'] = df['phone'].str.replace(r'\\D', '')\n    df['date'] = pd.to_datetime(df['date'], errors='coerce')\n    \n    return df\n```\n\n## 4. 数据质量验证\n| 检查项 | 阈值 | 实际 | 通过 |\n|--------|------|------|------|\n| 缺失率 | <5% | | |\n| 唯一性 | 100% | | |\n| 范围合理 | - | | |\n\n## 5. 文档化\n- 清洗规则文档\n- 字段字典\n- 血缘追溯\n- 版本管理\n\n数据描述：{data_description}\n样本量：{sample_size}\n字段数：{field_count}\n已知问题：{known_issues}\n分析目的：{purpose}",
-      "variables": ["data_description", "sample_size", "field_count", "known_issues", "purpose", "language"],
+      "variables": [
+        "data_description",
+        "sample_size",
+        "field_count",
+        "known_issues",
+        "purpose",
+        "language"
+      ],
       "example_input": "data_description=用户注册数据\nsample_size=10 万行\nfield_count=20\nknown_issues=年龄有负数 / 手机格式乱\npurpose=用户分群分析\nlanguage=Python",
       "example_output": "## 问题清单 1 年龄缺失 30% / 2 手机格式乱 / 3 重复 5%... ## 清洗规则 年龄多重插补 / 手机正则 / 去重... ## 代码 ...",
       "tags": ["data-cleaning", "etl", "data-quality"],

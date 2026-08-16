@@ -13,7 +13,8 @@ const decodeParam = (v: string | undefined): string => (v ? decodeURIComponent(v
 const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) => string) => {
   const v = (raw || '').toLowerCase()
   if (v.includes('ali') || v.includes('zfb')) return tt('vip.success.payAlipay', '支付宝')
-  if (v.includes('wechat') || v.includes('wx') || v === '') return tt('vip.success.payWechat', '微信支付')
+  if (v.includes('wechat') || v.includes('wx') || v === '')
+    return tt('vip.success.payWechat', '微信支付')
   return decodeParam(raw)
 }
 
@@ -167,9 +168,7 @@ export default function VipSuccessPage() {
           <Text className="vs-share-icon-text">🎁</Text>
         </View>
         <View className="vs-share-content">
-          <Text className="vs-share-title">
-            {tt('vip.success.shareTitle', '分享好友赚佣金')}
-          </Text>
+          <Text className="vs-share-title">{tt('vip.success.shareTitle', '分享好友赚佣金')}</Text>
           <Text className="vs-share-desc">
             {tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金')}
           </Text>

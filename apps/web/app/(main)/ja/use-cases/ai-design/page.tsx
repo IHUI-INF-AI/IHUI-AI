@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, PaintBucket, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  PaintBucket,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ja/use-cases/ai-design#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI デザイン協業', item: 'https://aizhs.top/ja/use-cases/ai-design' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'ユースケース',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI デザイン協業',
+          item: 'https://aizhs.top/ja/use-cases/ai-design',
+        },
       ],
     },
     {
@@ -34,18 +54,53 @@ const jsonLd = {
       inLanguage: ['ja', 'zh-CN', 'zh-TW', 'en', 'ko'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: 'ブランド VI マニュアル / 過去デザイン稿 / デザインシステム tokens' }],
+      supply: [
+        {
+          '@type': 'HowToSupply',
+          name: 'ブランド VI マニュアル / 過去デザイン稿 / デザインシステム tokens',
+        },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI デザインコンセプト生成エンジン' },
         { '@type': 'HowToTool', name: 'IHUI AI スケッチ → コードモジュール' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: 'ブランド資産アップロード', text: 'ブランド VI / 過去ポスター / Logo / デザインシステム tokens をアップロード、AI がパレット・フォント・レイアウトを抽出。' },
-        { '@type': 'HowToStep', position: 2, name: 'デザインシステム設定', text: 'Figma Tokens (色・字サイズ・間隔・角丸・影) を入力、生成はデザインシステムに厳密準拠し再作業を不要に。' },
-        { '@type': 'HowToStep', position: 3, name: 'コンセプト生成学習', text: 'ブランドの過去ヒットポスター / Logo でコンセプトモデルを学習、AI が 3-5 のクリエイティブ方向を自動生成。' },
-        { '@type': 'HowToStep', position: 4, name: 'スケッチ → コード', text: '手描き UI スケッチをアップロード、Agent がコンポーネント構造を認識して React + Tailwind コードを生成 (精度 85%+)。' },
-        { '@type': 'HowToStep', position: 5, name: 'レビュールール設定', text: 'アクセシビリティ (a11y) / ブランド一貫性 / レスポンシブのルールを設定、Agent が自動でデザイン稿をレビューし修正項目をフラグ。' },
-        { '@type': 'HowToStep', position: 6, name: '協業ツール接続', text: 'Figma / Sketch / 即時設計 / 藍湖 / Notion と連携、デザイナーはツール切替不要、AI がワークフローに組み込まれます。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: 'ブランド資産アップロード',
+          text: 'ブランド VI / 過去ポスター / Logo / デザインシステム tokens をアップロード、AI がパレット・フォント・レイアウトを抽出。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: 'デザインシステム設定',
+          text: 'Figma Tokens (色・字サイズ・間隔・角丸・影) を入力、生成はデザインシステムに厳密準拠し再作業を不要に。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: 'コンセプト生成学習',
+          text: 'ブランドの過去ヒットポスター / Logo でコンセプトモデルを学習、AI が 3-5 のクリエイティブ方向を自動生成。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: 'スケッチ → コード',
+          text: '手描き UI スケッチをアップロード、Agent がコンポーネント構造を認識して React + Tailwind コードを生成 (精度 85%+)。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: 'レビュールール設定',
+          text: 'アクセシビリティ (a11y) / ブランド一貫性 / レスポンシブのルールを設定、Agent が自動でデザイン稿をレビューし修正項目をフラグ。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '協業ツール接続',
+          text: 'Figma / Sketch / 即時設計 / 藍湖 / Notion と連携、デザイナーはツール切替不要、AI がワークフローに組み込まれます。',
+        },
       ],
     },
   ],
@@ -74,12 +129,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: 'ポスター / Logo コンセプト生成', desc: 'ブランドキーワードとターゲットオーディエンスを入力、AI が 3-5 のクリエイティブ方向 (配色・レイアウト・フォント) を生成し、デザイナーが深化作業を担当することでコンセプト時間を 1 日から 1 時間に短縮。' },
-  { title: 'UI スケッチ → コード', desc: '手描き UI スケッチ (ホワイトボード・紙) をアップロード、Agent がコンポーネント構造を認識し React + Tailwind コードを生成 (精度 85%+)、可読性はチーム規範に準拠。' },
-  { title: 'ブランド資産管理', desc: 'Logo / フォント / パレット / レイアウト / アイコンを統合管理、新人が 5 分でブランドを習熟、資産再利用率は 30% から 80% に向上。' },
-  { title: 'スマートデザインレビュー', desc: 'a11y / ブランド一貫性 / レスポンシブ / コントラストのルールを設定、Agent が自動でデザイン稿をレビューし、修正項目をフラグ、フィードバック時間を 1 日から 10 分に短縮。' },
-  { title: 'デザインシステム検索', desc: '自然言語クエリ (例:「12px 角丸のカードコンポーネントを探して」) で、Agent がデザインシステムライブラリから最適な過去コンポーネントを返却。' },
-  { title: '協業ツール統合', desc: 'Figma / Sketch / 即時設計 / 藍湖 / Notion と連携、デザイナーはツール切替不要、学習コストはほぼゼロ。' },
+  {
+    title: 'ポスター / Logo コンセプト生成',
+    desc: 'ブランドキーワードとターゲットオーディエンスを入力、AI が 3-5 のクリエイティブ方向 (配色・レイアウト・フォント) を生成し、デザイナーが深化作業を担当することでコンセプト時間を 1 日から 1 時間に短縮。',
+  },
+  {
+    title: 'UI スケッチ → コード',
+    desc: '手描き UI スケッチ (ホワイトボード・紙) をアップロード、Agent がコンポーネント構造を認識し React + Tailwind コードを生成 (精度 85%+)、可読性はチーム規範に準拠。',
+  },
+  {
+    title: 'ブランド資産管理',
+    desc: 'Logo / フォント / パレット / レイアウト / アイコンを統合管理、新人が 5 分でブランドを習熟、資産再利用率は 30% から 80% に向上。',
+  },
+  {
+    title: 'スマートデザインレビュー',
+    desc: 'a11y / ブランド一貫性 / レスポンシブ / コントラストのルールを設定、Agent が自動でデザイン稿をレビューし、修正項目をフラグ、フィードバック時間を 1 日から 10 分に短縮。',
+  },
+  {
+    title: 'デザインシステム検索',
+    desc: '自然言語クエリ (例:「12px 角丸のカードコンポーネントを探して」) で、Agent がデザインシステムライブラリから最適な過去コンポーネントを返却。',
+  },
+  {
+    title: '協業ツール統合',
+    desc: 'Figma / Sketch / 即時設計 / 藍湖 / Notion と連携、デザイナーはツール切替不要、学習コストはほぼゼロ。',
+  },
 ]
 
 const cases = [
@@ -98,9 +171,15 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web エンドのデザイン協業ワークベンチとデザインシステム管理' },
+  {
+    name: 'Next.js 15 + React 19',
+    purpose: 'Web エンドのデザイン協業ワークベンチとデザインシステム管理',
+  },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API エンドのデザイン資産保存とバージョン管理' },
-  { name: 'FastAPI + LangGraph + LiteLLM', purpose: 'スケッチ認識 + コード生成 + デザインレビュー' },
+  {
+    name: 'FastAPI + LangGraph + LiteLLM',
+    purpose: 'スケッチ認識 + コード生成 + デザインレビュー',
+  },
   { name: 'MCP ツールプロトコル', purpose: 'Figma / Sketch / 即時設計 / 藍湖 のデザインアダプタ' },
   { name: 'Tauri 2 デスクトップ', purpose: 'ローカルデザイン資産キャッシュ + オフライン注釈' },
   { name: 'WXT ブラウザ拡張', purpose: 'Figma / ウェブで参考素材をワンクリック取得' },
@@ -118,7 +197,10 @@ const metrics = [
 export default function AiDesignPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +212,18 @@ export default function AiDesignPage() {
             AI デザイン協業:スケッチ → コードとブランド資産の一元管理
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0 オープンソース、オンプレ対応、Figma / 即時設計 と深く連携。
+            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0
+            オープンソース、オンプレ対応、Figma / 即時設計 と深く連携。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +233,16 @@ export default function AiDesignPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">デザインチームの協業課題</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              デザインチームの協業課題
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +252,9 @@ export default function AiDesignPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 つのコア能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 つのコア能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +270,9 @@ export default function AiDesignPage() {
 
         {/* 事例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">導入事例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            導入事例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +287,14 @@ export default function AiDesignPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術スタックとツールチェーン</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術スタックとツールチェーン
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイントでソース統一、核心コンポーネントはすべてオープンソース、Figma / 即時設計 と深く連携。
+            IHUI AI フルスタック AI OS 上で構築、8
+            エンドポイントでソース統一、核心コンポーネントはすべてオープンソース、Figma / 即時設計
+            と深く連携。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +309,12 @@ export default function AiDesignPage() {
         {/* お問い合わせ / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI デザイン協業アシスタントの構築を始めましょう</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI デザイン協業アシスタントの構築を始めましょう
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            登録で 1000 クレジット進呈、デザイン協業シナリオテンプレートからワンクリック fork、30 分でスケッチ → コードを体験。
+            登録で 1000 クレジット進呈、デザイン協業シナリオテンプレートからワンクリック fork、30
+            分でスケッチ → コードを体験。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +331,18 @@ export default function AiDesignPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> デザイン相談 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> デザインアカデミー 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> ブランドカスタム 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Figma プラグイン 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> デザイン相談 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> デザインアカデミー 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> ブランドカスタム 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Figma プラグイン 8809
+            </span>
           </div>
         </section>
       </main>

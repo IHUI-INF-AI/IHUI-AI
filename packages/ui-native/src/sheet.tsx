@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import {
-  Animated,
-  Dimensions,
-  Modal,
-  PanResponder,
-  Pressable,
-  View,
-} from 'react-native'
+import { Animated, Dimensions, Modal, PanResponder, Pressable, View } from 'react-native'
 import { cn } from '@ihui/design-tokens'
 
 export interface SheetProps {

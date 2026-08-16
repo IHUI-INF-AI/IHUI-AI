@@ -30,11 +30,7 @@ const SIDE_PLACEHOLDER_WIDTH = 32
 const toRpx = (px: number): string => `${px * 2}rpx`
 
 const viewStyles = {
-  container: (
-    tk: RnThemeTokens,
-    transparent: boolean,
-    statusBarHeight: number,
-  ): CSSProperties => ({
+  container: (tk: RnThemeTokens, transparent: boolean, statusBarHeight: number): CSSProperties => ({
     width: '100%',
     backgroundColor: transparent ? 'transparent' : tk.surface.card,
     borderBottomWidth: transparent ? 0 : 1,

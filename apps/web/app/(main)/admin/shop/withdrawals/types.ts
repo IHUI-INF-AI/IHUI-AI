@@ -33,7 +33,11 @@ export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
 }
-export const FLOW_STATUS: Record<number, string> = { 0: 'withdrawals.flowStatus.processing', 1: 'withdrawals.flowStatus.success', 2: 'withdrawals.flowStatus.failed' }
+export const FLOW_STATUS: Record<number, string> = {
+  0: 'withdrawals.flowStatus.processing',
+  1: 'withdrawals.flowStatus.success',
+  2: 'withdrawals.flowStatus.failed',
+}
 export const FLOW_STATUS_STYLE: Record<number, string> = {
   0: 'bg-amber-500/10 text-amber-600',
   1: 'bg-emerald-500/10 text-emerald-600',

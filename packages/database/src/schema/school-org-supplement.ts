@@ -18,45 +18,36 @@ import { pgTable, bigserial, varchar, integer, timestamp, index } from 'drizzle-
 /**
  * 学校表(D3 edu Java: t_school)
  */
-export const tSchool = pgTable(
-  't_school',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    name: varchar('name', { length: 200 }).notNull(),
-    logo: varchar('logo', { length: 512 }),
-    address: varchar('address', { length: 500 }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-)
+export const tSchool = pgTable('t_school', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  name: varchar('name', { length: 200 }).notNull(),
+  logo: varchar('logo', { length: 512 }),
+  address: varchar('address', { length: 500 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 /**
  * 年级表(D3 edu Java: t_grade)
  */
-export const tGrade = pgTable(
-  't_grade',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    name: varchar('name', { length: 100 }).notNull(),
-    sort: integer('sort').default(0).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-)
+export const tGrade = pgTable('t_grade', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  sort: integer('sort').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 /**
  * 学科表(D3 edu Java: t_subject)
  */
-export const tSubject = pgTable(
-  't_subject',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    name: varchar('name', { length: 100 }).notNull(),
-    sort: integer('sort').default(0).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-)
+export const tSubject = pgTable('t_subject', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  sort: integer('sort').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 /**
  * 班级表(D3 edu Java: t_clazz)
@@ -66,8 +57,12 @@ export const tClazz = pgTable(
   't_clazz',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
-    schoolId: bigserial('school_id', { mode: 'number' }).references(() => tSchool.id, { onDelete: 'cascade' }),
-    gradeId: bigserial('grade_id', { mode: 'number' }).references(() => tGrade.id, { onDelete: 'cascade' }),
+    schoolId: bigserial('school_id', { mode: 'number' }).references(() => tSchool.id, {
+      onDelete: 'cascade',
+    }),
+    gradeId: bigserial('grade_id', { mode: 'number' }).references(() => tGrade.id, {
+      onDelete: 'cascade',
+    }),
     name: varchar('name', { length: 200 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

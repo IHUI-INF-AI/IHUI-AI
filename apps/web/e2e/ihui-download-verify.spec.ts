@@ -23,12 +23,16 @@ test.describe('下载功能验证', () => {
 
     // 找到下载按钮(tooltip 含"下载"或"client")
     // 侧边栏底部的下载按钮,用 tooltip 属性定位
-    const downloadBtn = page.locator('[aria-label*="下载"], [title*="下载"], [data-tooltip*="下载"]').first()
+    const downloadBtn = page
+      .locator('[aria-label*="下载"], [title*="下载"], [data-tooltip*="下载"]')
+      .first()
     await downloadBtn.waitFor({ state: 'visible', timeout: 10000 })
     await downloadBtn.click()
 
     // 等待 popover 内容出现
-    const popover = page.locator('[role="dialog"], .popover-content, [data-radix-popper-content-wrapper]').last()
+    const popover = page
+      .locator('[role="dialog"], .popover-content, [data-radix-popper-content-wrapper]')
+      .last()
     await popover.waitFor({ state: 'visible', timeout: 5000 })
 
     // 截图:默认态

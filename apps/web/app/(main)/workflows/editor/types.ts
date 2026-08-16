@@ -1,7 +1,8 @@
 'use client'
 
 /** 工作流步骤类型(引擎支持的 type 字段) */
-export type StepType = 'trigger' | 'echo' | 'skill' | 'llm' | 'condition' | 'delay' | 'loop' | 'parallel' | 'tool'
+export type StepType =
+  'trigger' | 'echo' | 'skill' | 'llm' | 'condition' | 'delay' | 'loop' | 'parallel' | 'tool'
 
 /** 工作流单步定义 */
 export interface WorkflowStep {

@@ -335,16 +335,7 @@ export function useRegisterForm(options: UseRegisterFormOptions): UseRegisterFor
     } finally {
       setSendingCode(false)
     }
-  }, [
-    sendCodeApi,
-    countdown,
-    sendingCode,
-    type,
-    values,
-    phoneRegex,
-    emailRegex,
-    startCountdown,
-  ])
+  }, [sendCodeApi, countdown, sendingCode, type, values, phoneRegex, emailRegex, startCountdown])
 
   return {
     values,

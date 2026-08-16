@@ -14,7 +14,7 @@ services:
       - key: NEXT_PUBLIC_APP_NAME
         value: IHUI AI
       - key: NEXT_TELEMETRY_DISABLED
-        value: "1"
+        value: '1'
     healthCheckPath: /api/health
 
   - type: web
@@ -27,7 +27,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "8802"
+        value: '8802'
       - key: HOST
         value: 0.0.0.0
       - key: DATABASE_URL

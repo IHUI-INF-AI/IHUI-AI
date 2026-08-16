@@ -37,9 +37,7 @@ function sseResponse(events: Array<{ event: string; data: unknown }>): Response 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const e of events) {
-        controller.enqueue(
-          encoder.encode(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`),
-        )
+        controller.enqueue(encoder.encode(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`))
       }
       controller.close()
     },
@@ -187,9 +185,7 @@ describe('agent-runtime endpoints — /api/agent-runtime/*', () => {
   })
 
   it('getAgentRuntimeSession — 返回 session 对象', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ id: 'sess_9', botId: 'default', status: 'running' }),
-    )
+    fetchMock.mockResolvedValue(jsonResponse({ id: 'sess_9', botId: 'default', status: 'running' }))
     const result = await getAgentRuntimeSession('sess_9')
     expect(result).toEqual({ id: 'sess_9', botId: 'default', status: 'running' })
     const url = String(fetchMock.mock.calls[0]![0])
@@ -197,9 +193,7 @@ describe('agent-runtime endpoints — /api/agent-runtime/*', () => {
   })
 
   it('resumeAgentRuntimeSession — 返回 sessionId + status', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ sessionId: 'sess_r', status: 'running' }),
-    )
+    fetchMock.mockResolvedValue(jsonResponse({ sessionId: 'sess_r', status: 'running' }))
     const result = await resumeAgentRuntimeSession('sess_r')
     expect(result).toEqual({ sessionId: 'sess_r', status: 'running' })
     const call = fetchMock.mock.calls[0]!
@@ -220,9 +214,7 @@ describe('agent-runtime endpoints — /api/agent-runtime/*', () => {
   })
 
   it('cancelAgentRuntime — 返回 cancelled 状态', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ sessionId: 'sess_c', status: 'cancelled' }),
-    )
+    fetchMock.mockResolvedValue(jsonResponse({ sessionId: 'sess_c', status: 'cancelled' }))
     const result = await cancelAgentRuntime('sess_c')
     expect(result).toEqual({ sessionId: 'sess_c', status: 'cancelled' })
     const call = fetchMock.mock.calls[0]!

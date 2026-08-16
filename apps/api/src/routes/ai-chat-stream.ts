@@ -1,7 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
-import { compressContextIfNeeded, estimateMessagesTokens, type ChatMessage } from '@ihui/context-compaction'
+import {
+  compressContextIfNeeded,
+  estimateMessagesTokens,
+  type ChatMessage,
+} from '@ihui/context-compaction'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
@@ -260,6 +264,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     '/chat/stream',
     {
       config: {
+        compression: false,
         rateLimit: {
           max: 20,
           timeWindow: '1 minute',
@@ -300,14 +305,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (contextLimit && contextLimit > 0) {
-        console.log('[Compaction] before compress:', {
+        console.warn('[Compaction] before compress:', {
           contextLimit,
           messageCount: messages.length,
           tokens: Math.floor(estimateMessagesTokens(messages)),
           triggerThreshold: Math.floor(contextLimit * 0.88),
         })
         const result = compressContextIfNeeded(messages, { contextLimit })
-        console.log('[Compaction] result:', {
+        console.warn('[Compaction] result:', {
           compressed: result.compressed,
           trigger: result.trigger,
           originalTokens: result.originalTokens,
@@ -378,6 +383,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     '/chat/answer',
     {
       config: {
+        compression: false,
         rateLimit: {
           max: 20,
           timeWindow: '1 minute',

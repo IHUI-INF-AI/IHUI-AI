@@ -6,7 +6,19 @@
 
 import * as React from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
-import { Button, Card, CardContent, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '@ihui/ui-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from '@ihui/ui-react'
 import { fetchPlaygroundModels } from '@/lib/playground-api'
 import type { PlaygroundParams } from './PlaygroundTypes'
 
@@ -150,9 +162,7 @@ export function ParameterPanel({
               className="h-8 text-xs"
             />
           )}
-          {modelsError && (
-            <p className="text-[11px] text-destructive">{modelsError}</p>
-          )}
+          {modelsError && <p className="text-[11px] text-destructive">{modelsError}</p>}
         </div>
 
         {/* temperature */}

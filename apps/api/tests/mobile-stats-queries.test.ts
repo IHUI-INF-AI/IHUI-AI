@@ -26,9 +26,7 @@ describe('getCrashRate', () => {
   })
 
   it('崩溃 5 / 会话 100 → 5', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 5 }])
-      .mockResolvedValueOnce([{ count: 100 }])
+    mockExecute.mockResolvedValueOnce([{ count: 5 }]).mockResolvedValueOnce([{ count: 100 }])
     const rate = await getCrashRate(new Date('2026-08-06T00:00:00Z'))
     expect(rate).toBe(5)
     // 两次 execute:一次崩溃数、一次会话数
@@ -36,23 +34,17 @@ describe('getCrashRate', () => {
   })
 
   it('崩溃 1 / 会话 3 → 33.33(四舍五入 2 位小数)', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ count: 3 }])
+    mockExecute.mockResolvedValueOnce([{ count: 1 }]).mockResolvedValueOnce([{ count: 3 }])
     expect(await getCrashRate(new Date())).toBe(33.33)
   })
 
   it('崩溃 1 / 会话 6 → 16.67', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ count: 6 }])
+    mockExecute.mockResolvedValueOnce([{ count: 1 }]).mockResolvedValueOnce([{ count: 6 }])
     expect(await getCrashRate(new Date())).toBe(16.67)
   })
 
   it('无会话(0)→ null', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 10 }])
-      .mockResolvedValueOnce([{ count: 0 }])
+    mockExecute.mockResolvedValueOnce([{ count: 10 }]).mockResolvedValueOnce([{ count: 0 }])
     expect(await getCrashRate(new Date())).toBeNull()
   })
 
@@ -62,9 +54,7 @@ describe('getCrashRate', () => {
   })
 
   it('有会话但无崩溃 → 0', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([{ count: 50 }])
+    mockExecute.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([{ count: 50 }])
     expect(await getCrashRate(new Date())).toBe(0)
   })
 
@@ -76,9 +66,7 @@ describe('getCrashRate', () => {
   })
 
   it('SQL 查询命中 crash_reports 与 visit_logs 两张表', async () => {
-    mockExecute
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ count: 10 }])
+    mockExecute.mockResolvedValueOnce([{ count: 1 }]).mockResolvedValueOnce([{ count: 10 }])
     await getCrashRate(new Date('2026-08-06T08:00:00Z'))
     // drizzle sql 对象:表名文本在 queryChunks 中,JSON 序列化可见
     const sqlTexts = mockExecute.mock.calls.map((c) => JSON.stringify(c[0]))

@@ -52,7 +52,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
       }
       if (e.key === 'Tab' && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         )
         if (focusable.length === 0) return
         const first = focusable[0]!
@@ -81,7 +81,10 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
       <div
         ref={dialogRef}
@@ -143,8 +146,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
                 <div className="flex items-center gap-2">
                   {signal.trendTag === 'rising' ? (
                     <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <TrendingUp className="h-3 w-3" />
-                      +{signal.growthPct?.toFixed(0)}%
+                      <TrendingUp className="h-3 w-3" />+{signal.growthPct?.toFixed(0)}%
                     </span>
                   ) : signal.trendTag === 'cooling' ? (
                     <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
@@ -159,7 +161,8 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
                   )}
                   {signal.rankDelta !== null ? (
                     <span className="text-[10px] text-muted-foreground">
-                      {t('trendChart.rankDelta')}: {signal.rankDelta > 0 ? '+' : ''}{signal.rankDelta}
+                      {t('trendChart.rankDelta')}: {signal.rankDelta > 0 ? '+' : ''}
+                      {signal.rankDelta}
                     </span>
                   ) : null}
                 </div>
@@ -176,7 +179,11 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
 }
 
 /** 简易 SVG 折线图(热度曲线),不引入 chart 库 */
-function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hotValue: number | null }> }) {
+function SimpleLineChart({
+  points,
+}: {
+  points: Array<{ snapshotDate: string; hotValue: number | null }>
+}) {
   const t = useTranslations('aiNews')
   const locale = getLocale()
   const W = 440
@@ -199,21 +206,44 @@ function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hot
     val: Number(p.hotValue),
   }))
 
-  const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ')
+  const pathD = coords
+    .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
+    .join(' ')
 
   return (
     <div className="space-y-1">
-      <div className="text-[10px] font-medium text-muted-foreground">{t('trendChart.hotValue')}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet" role="img" aria-label={t('trendChart.hotValue')}>
+      <div className="text-[10px] font-medium text-muted-foreground">
+        {t('trendChart.hotValue')}
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label={t('trendChart.hotValue')}
+      >
         {/* 横轴 */}
-        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} className="stroke-muted" strokeWidth={0.5} />
+        <line
+          x1={PAD}
+          y1={H - PAD}
+          x2={W - PAD}
+          y2={H - PAD}
+          className="stroke-muted"
+          strokeWidth={0.5}
+        />
         {/* 折线 */}
         <path d={pathD} fill="none" className="stroke-primary" strokeWidth={1.5} />
         {/* 数据点 + X 轴日期。小屏(<375px)隐藏日期文字避免不可读 */}
         {coords.map((c, i) => (
           <g key={i}>
             <circle cx={c.x} cy={c.y} r={2.5} className="fill-primary" />
-            <text x={c.x} y={H - PAD + 12} textAnchor="middle" className="fill-muted-foreground max-[374px]:hidden" fontSize={7}>
+            <text
+              x={c.x}
+              y={H - PAD + 12}
+              textAnchor="middle"
+              className="fill-muted-foreground max-[374px]:hidden"
+              fontSize={7}
+            >
               {c.date.slice(5)}
             </text>
           </g>
@@ -222,7 +252,13 @@ function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hot
         <text x={PAD - 5} y={PAD} textAnchor="end" className="fill-muted-foreground" fontSize={7}>
           {formatCompact(maxVal, locale) || maxVal}
         </text>
-        <text x={PAD - 5} y={H - PAD} textAnchor="end" className="fill-muted-foreground" fontSize={7}>
+        <text
+          x={PAD - 5}
+          y={H - PAD}
+          textAnchor="end"
+          className="fill-muted-foreground"
+          fontSize={7}
+        >
           {formatCompact(minVal, locale) || minVal}
         </text>
       </svg>

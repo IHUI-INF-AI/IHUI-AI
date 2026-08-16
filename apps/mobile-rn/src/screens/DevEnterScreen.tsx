@@ -45,7 +45,10 @@ export default function DevEnterScreen() {
         <Text className="text-lg font-semibold text-foreground">开发者入驻</Text>
         <Text className="mt-1 text-xs text-tertiary">填写资料,申请成为开发者</Text>
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
         <Text className="text-[13px] font-semibold text-body mt-4 mb-2">开发者类型</Text>
         <View className="flex-row gap-3">
           {(
@@ -62,13 +65,17 @@ export default function DevEnterScreen() {
                 onPress={() => setDevType(t.id)}
                 activeOpacity={0.8}
               >
-                <Text className={`text-sm ${active ? 'text-purple font-semibold' : 'text-body'}`}>{t.label}</Text>
+                <Text className={`text-sm ${active ? 'text-purple font-semibold' : 'text-body'}`}>
+                  {t.label}
+                </Text>
               </TouchableOpacity>
             )
           })}
         </View>
 
-        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">{devType === 'personal' ? '姓名' : '企业名称'}</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">
+          {devType === 'personal' ? '姓名' : '企业名称'}
+        </Text>
         <Input
           className="rounded-lg bg-card py-2.5"
           value={name}
@@ -98,7 +105,11 @@ export default function DevEnterScreen() {
                 onPress={() => setField(f.id)}
                 activeOpacity={0.8}
               >
-                <Text className={`text-[13px] ${active ? 'text-purple font-semibold' : 'text-body'}`}>{f.label}</Text>
+                <Text
+                  className={`text-[13px] ${active ? 'text-purple font-semibold' : 'text-body'}`}
+                >
+                  {f.label}
+                </Text>
               </TouchableOpacity>
             )
           })}
@@ -121,7 +132,9 @@ export default function DevEnterScreen() {
           onPress={() => setAgreed((v) => !v)}
           activeOpacity={0.8}
         >
-          <View className={`w-4 h-4 rounded border ${agreed ? 'bg-purple border-purple' : 'border-line bg-card'}`} />
+          <View
+            className={`w-4 h-4 rounded border ${agreed ? 'bg-purple border-purple' : 'border-line bg-card'}`}
+          />
           <Text className="flex-1 text-xs text-muted-foreground">
             我已阅读并同意《开发者服务协议》《隐私政策》
           </Text>
@@ -133,7 +146,9 @@ export default function DevEnterScreen() {
           disabled={submitting}
           activeOpacity={0.8}
         >
-          <Text className="text-[15px] font-semibold text-white">{submitting ? '提交中...' : '提交申请'}</Text>
+          <Text className="text-[15px] font-semibold text-white">
+            {submitting ? '提交中...' : '提交申请'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

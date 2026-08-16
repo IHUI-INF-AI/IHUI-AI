@@ -162,7 +162,11 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
   test('有已保存凭据时自动填充 + 复选框默认勾选', async ({ page }) => {
     await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify({ account: 'saveduser', password: 'SavedPass1' }))))
+      const data = btoa(
+        unescape(
+          encodeURIComponent(JSON.stringify({ account: 'saveduser', password: 'SavedPass1' })),
+        ),
+      )
       localStorage.setItem('ihui-remember-credentials', data)
     })
 
@@ -179,7 +183,9 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
   test('账号历史下拉:双击账号输入框弹出历史', async ({ page }) => {
     await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['user1@example.com', 'user2', 'admin']))))
+      const data = btoa(
+        unescape(encodeURIComponent(JSON.stringify(['user1@example.com', 'user2', 'admin']))),
+      )
       localStorage.setItem('ihui-login-history', data)
     })
 
@@ -216,16 +222,19 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     // 用 page.mouse.click(clickCount:2) 触发 dblclick 打开历史下拉
     const acctBox = await page.locator('#account').boundingBox()
     if (acctBox) {
-      await page.mouse.click(
-        acctBox.x + acctBox.width / 2,
-        acctBox.y + acctBox.height / 2,
-        { clickCount: 2 },
-      )
+      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
+        clickCount: 2,
+      })
     }
-    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+    await page.waitForSelector(
+      '[data-account-history-container] > .absolute.top-full [data-history-index]',
+      { timeout: 5000 },
+    )
 
     // 用 page.mouse 点击历史条目(偏移到左侧 30% 处避免点到右侧删除按钮)
-    const historyItem = page.locator('[data-account-history-container] > .absolute.top-full [data-history-index]').first()
+    const historyItem = page
+      .locator('[data-account-history-container] > .absolute.top-full [data-history-index]')
+      .first()
     const hbox = await historyItem.boundingBox()
     if (hbox) {
       await page.mouse.move(hbox.x + hbox.width * 0.3, hbox.y + hbox.height / 2)
@@ -238,7 +247,9 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
   test('账号历史:删除单个历史账号', async ({ page }) => {
     await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['deluser1', 'deluser2', 'deluser3']))))
+      const data = btoa(
+        unescape(encodeURIComponent(JSON.stringify(['deluser1', 'deluser2', 'deluser3']))),
+      )
       localStorage.setItem('ihui-login-history', data)
     })
 
@@ -248,16 +259,19 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     // 双击打开历史下拉
     const acctBox = await page.locator('#account').boundingBox()
     if (acctBox) {
-      await page.mouse.click(
-        acctBox.x + acctBox.width / 2,
-        acctBox.y + acctBox.height / 2,
-        { clickCount: 2 },
-      )
+      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
+        clickCount: 2,
+      })
     }
-    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+    await page.waitForSelector(
+      '[data-account-history-container] > .absolute.top-full [data-history-index]',
+      { timeout: 5000 },
+    )
 
     // 点击第一个条目的删除按钮
-    const deleteBtn = page.locator('[data-account-history-container] > .absolute.top-full [aria-label="删除该账号"]').first()
+    const deleteBtn = page
+      .locator('[data-account-history-container] > .absolute.top-full [aria-label="删除该账号"]')
+      .first()
     const dbox = await deleteBtn.boundingBox()
     if (dbox) {
       await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
@@ -266,9 +280,15 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     }
 
     // deluser1 应该消失,deluser2 和 deluser3 仍在
-    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).not.toContainText('deluser1', { timeout: 3000 })
-    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('deluser2')
-    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('deluser3')
+    await expect(
+      page.locator('[data-account-history-container] > .absolute.top-full'),
+    ).not.toContainText('deluser1', { timeout: 3000 })
+    await expect(
+      page.locator('[data-account-history-container] > .absolute.top-full'),
+    ).toContainText('deluser2')
+    await expect(
+      page.locator('[data-account-history-container] > .absolute.top-full'),
+    ).toContainText('deluser3')
   })
 
   test('账号历史:清空全部历史', async ({ page }) => {
@@ -283,16 +303,19 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     // 双击打开历史下拉
     const acctBox = await page.locator('#account').boundingBox()
     if (acctBox) {
-      await page.mouse.click(
-        acctBox.x + acctBox.width / 2,
-        acctBox.y + acctBox.height / 2,
-        { clickCount: 2 },
-      )
+      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
+        clickCount: 2,
+      })
     }
-    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+    await page.waitForSelector(
+      '[data-account-history-container] > .absolute.top-full [data-history-index]',
+      { timeout: 5000 },
+    )
 
     // 点击"清空历史记录"按钮(文本匹配)
-    const clearBtn = page.locator('[data-account-history-container] > .absolute.top-full').getByText('清空历史记录')
+    const clearBtn = page
+      .locator('[data-account-history-container] > .absolute.top-full')
+      .getByText('清空历史记录')
     const cbox = await clearBtn.boundingBox()
     if (cbox) {
       await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2)
@@ -301,17 +324,19 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     }
 
     // 下拉应关闭
-    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).not.toBeVisible({ timeout: 3000 })
+    await expect(
+      page.locator('[data-account-history-container] > .absolute.top-full'),
+    ).not.toBeVisible({ timeout: 3000 })
 
     // 重新打开下拉,应显示"暂无历史记录"
     if (acctBox) {
-      await page.mouse.click(
-        acctBox.x + acctBox.width / 2,
-        acctBox.y + acctBox.height / 2,
-        { clickCount: 2 },
-      )
+      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
+        clickCount: 2,
+      })
     }
-    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('暂无历史记录', { timeout: 3000 })
+    await expect(
+      page.locator('[data-account-history-container] > .absolute.top-full'),
+    ).toContainText('暂无历史记录', { timeout: 3000 })
   })
 
   test('账号历史:键盘导航(ArrowDown + Enter 选中)', async ({ page }) => {
@@ -326,19 +351,22 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     // 双击打开历史下拉
     const acctBox = await page.locator('#account').boundingBox()
     if (acctBox) {
-      await page.mouse.click(
-        acctBox.x + acctBox.width / 2,
-        acctBox.y + acctBox.height / 2,
-        { clickCount: 2 },
-      )
+      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
+        clickCount: 2,
+      })
     }
-    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+    await page.waitForSelector(
+      '[data-account-history-container] > .absolute.top-full [data-history-index]',
+      { timeout: 5000 },
+    )
 
     // 按 ArrowDown 高亮第一项
     await page.locator('#account').press('ArrowDown')
 
     // 第一项应有 bg-accent 类(选中态)
-    const firstItem = page.locator('[data-account-history-container] > .absolute.top-full [data-history-index="0"]')
+    const firstItem = page.locator(
+      '[data-account-history-container] > .absolute.top-full [data-history-index="0"]',
+    )
     await expect(firstItem).toHaveClass(/bg-accent/)
 
     // 按 Enter 选中

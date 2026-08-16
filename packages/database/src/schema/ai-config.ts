@@ -145,7 +145,9 @@ export const aiModelConfigModels = pgTable(
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     // --- 积分消耗倍数(2026-07-31 立,用户规则:平台内置模型积分消耗倍数) ---
     /** 积分消耗倍数(1.00=基准,0=免费,10=高级,30=旗舰)。扣分=token/1000×倍数。见 POINTS_MULTIPLIER_TIERS */
-    pointsMultiplier: numeric('points_multiplier', { precision: 5, scale: 2 }).default('1.00').notNull(),
+    pointsMultiplier: numeric('points_multiplier', { precision: 5, scale: 2 })
+      .default('1.00')
+      .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -174,14 +176,15 @@ export const aiModelConfigModels = pgTable(
  * 兜底:积分不足时降级到 zero_cost 模型(类似 Cursor slow request)
  */
 export const POINTS_MULTIPLIER_TIERS = {
-  FREE: 0,        // 免费模型(本地/zero_cost)
-  ECONOMY: 1,     // 经济模型(mini/flash)
-  STANDARD: 3,    // 标准模型
-  PREMIUM: 10,    // 高级模型(pro/max)
-  FLAGSHIP: 30,   // 旗舰模型(opus/thinking)
+  FREE: 0, // 免费模型(本地/zero_cost)
+  ECONOMY: 1, // 经济模型(mini/flash)
+  STANDARD: 3, // 标准模型
+  PREMIUM: 10, // 高级模型(pro/max)
+  FLAGSHIP: 30, // 旗舰模型(opus/thinking)
 } as const
 
-export type PointsMultiplierTier = typeof POINTS_MULTIPLIER_TIERS[keyof typeof POINTS_MULTIPLIER_TIERS]
+export type PointsMultiplierTier =
+  (typeof POINTS_MULTIPLIER_TIERS)[keyof typeof POINTS_MULTIPLIER_TIERS]
 
 /**
  * AI 模型配置 - 用户自定义分组表(Phase 1,2026-07-22)

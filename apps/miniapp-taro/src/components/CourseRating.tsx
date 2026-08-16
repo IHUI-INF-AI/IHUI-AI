@@ -25,7 +25,17 @@ export default function CourseRating({
   if (!visible) return null
 
   const ratingLabels = tList('course.ratingLabels')
-  const labels = ratingLabels.length > 0 ? ratingLabels : ['', tt('course.rating1', '很差'), tt('course.rating2', '较差'), tt('course.rating3', '一般'), tt('course.rating4', '不错'), tt('course.rating5', '很好')]
+  const labels =
+    ratingLabels.length > 0
+      ? ratingLabels
+      : [
+          '',
+          tt('course.rating1', '很差'),
+          tt('course.rating2', '较差'),
+          tt('course.rating3', '一般'),
+          tt('course.rating4', '不错'),
+          tt('course.rating5', '很好'),
+        ]
 
   return (
     <View
@@ -37,7 +47,9 @@ export default function CourseRating({
         className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        <Text className="block text-base font-medium text-foreground mb-3 text-center">{tt('course.ratingTitle', '评价课程')}</Text>
+        <Text className="block text-base font-medium text-foreground mb-3 text-center">
+          {tt('course.ratingTitle', '评价课程')}
+        </Text>
 
         <View className="flex justify-center mb-2">
           {[1, 2, 3, 4, 5].map((star) => (
@@ -59,7 +71,9 @@ export default function CourseRating({
         </Text>
 
         <View className="bg-muted rounded-lg px-3 py-2 mb-4">
-          <Text className="block text-xs text-muted-foreground mb-1">{tt('course.ratingDescLabel', '写下你的评价')}</Text>
+          <Text className="block text-xs text-muted-foreground mb-1">
+            {tt('course.ratingDescLabel', '写下你的评价')}
+          </Text>
           <Input
             className="w-full text-sm"
             placeholder={tt('course.ratingInputPlaceholder', '课程怎么样?分享你的感受...')}

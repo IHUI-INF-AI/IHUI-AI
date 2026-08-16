@@ -31,7 +31,16 @@ import {
 } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
-import { BookOpen, KeyRound, Loader2, PackagePlus, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react'
+import {
+  BookOpen,
+  KeyRound,
+  Loader2,
+  PackagePlus,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  Wand2,
+} from 'lucide-react'
 
 import { GroupSidebar } from './GroupSidebar'
 import { ProviderCardV2 } from './ProviderCardV2'
@@ -218,7 +227,12 @@ export default function UserLlmConfigsPage() {
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2">
-          <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline" className="shrink-0 whitespace-nowrap">
+          <Button
+            onClick={() => setBulkOpen(true)}
+            size="sm"
+            variant="outline"
+            className="shrink-0 whitespace-nowrap"
+          >
             <PackagePlus className="mr-1.5 h-4 w-4 shrink-0" />
             {tV2('bulk.title')}
           </Button>
@@ -271,7 +285,12 @@ export default function UserLlmConfigsPage() {
               {tV2('listCount', { total, enabledCount })}
             </p>
             {visibleProviders.length > 0 && (
-              <Button onClick={openCreateProvider} size="sm" variant="outline" className="shrink-0 whitespace-nowrap">
+              <Button
+                onClick={openCreateProvider}
+                size="sm"
+                variant="outline"
+                className="shrink-0 whitespace-nowrap"
+              >
                 <Sparkles className="mr-1.5 h-4 w-4 shrink-0" />
                 {tV2('newProvider')}
               </Button>
@@ -293,7 +312,12 @@ export default function UserLlmConfigsPage() {
                   <p className="text-sm font-medium">{tV2('emptyTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{tV2('emptyDesc')}</p>
                 </div>
-                <Button onClick={openCreateProvider} variant="outline" size="sm" className="shrink-0 whitespace-nowrap">
+                <Button
+                  onClick={openCreateProvider}
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap"
+                >
                   <Sparkles className="mr-1.5 h-4 w-4 shrink-0" />
                   {tV2('firstProvider')}
                 </Button>
@@ -432,19 +456,25 @@ export default function UserLlmConfigsPage() {
                 <Card className="rounded-md">
                   <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">GitHub Models</p>
-                    <p className="text-[11px] text-muted-foreground">github/ · 免费,用 GitHub token</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      github/ · 免费,用 GitHub token
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
                   <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">HuggingFace</p>
-                    <p className="text-[11px] text-muted-foreground">huggingface/ · 免费,用 HF token</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      huggingface/ · 免费,用 HF token
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
                   <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
                     <p className="text-xs font-medium">Pollinations</p>
-                    <p className="text-[11px] text-muted-foreground">pollinations/ · 免费,无需 API Key</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      pollinations/ · 免费,无需 API Key
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md min-[640px]:col-span-2">
@@ -473,7 +503,11 @@ export default function UserLlmConfigsPage() {
           </div>
 
           <DialogFooter className="border-t p-4">
-            <Button onClick={dismissOnboarding} size="sm" className="w-full shrink-0 whitespace-nowrap min-[640px]:w-auto">
+            <Button
+              onClick={dismissOnboarding}
+              size="sm"
+              className="w-full shrink-0 whitespace-nowrap min-[640px]:w-auto"
+            >
               <span className="whitespace-nowrap">知道了</span>
             </Button>
           </DialogFooter>

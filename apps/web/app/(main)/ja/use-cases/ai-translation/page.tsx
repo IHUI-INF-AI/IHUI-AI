@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, Languages, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  Languages,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ja/use-cases/ai-translation#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 翻訳', item: 'https://aizhs.top/ja/use-cases/ai-translation' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'ユースケース',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 翻訳',
+          item: 'https://aizhs.top/ja/use-cases/ai-translation',
+        },
       ],
     },
     {
@@ -34,18 +54,53 @@ const jsonLd = {
       inLanguage: ['ja', 'zh-CN', 'zh-TW', 'en', 'ko'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: '用語集 / 翻訳メモリ / ブランドトーン文書 / 対象言語リスト' }],
+      supply: [
+        {
+          '@type': 'HowToSupply',
+          name: '用語集 / 翻訳メモリ / ブランドトーン文書 / 対象言語リスト',
+        },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI 多言語翻訳エンジン' },
         { '@type': 'HowToTool', name: 'IHUI AI 用語集管理モジュール' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '用語集構築', text: '製品・ブランド・業界用語を 50+ 言語で登録、Agent が用語一貫性を厳格に守り、訳語の分散を防止。' },
-        { '@type': 'HowToStep', position: 2, name: '翻訳メモリアップロード', text: '過去の高品質対訳ドキュメントをアップロード、Agent がチーム文体を学習し AI 出力と人間の過去訳スタイルを一致させます。' },
-        { '@type': 'HowToStep', position: 3, name: '対象言語設定', text: '50+ の主要言語 (繁体字/簡体字の地域変種など) を選択、一括翻訳をワンクリックで開始。' },
-        { '@type': 'HowToStep', position: 4, name: '文化適応学習', text: 'ターゲット市場の文化習慣 (日本語の敬語、アラビア語の RTL、スペインのラ米 vs スペイン変種) に応じて翻訳を微調整、文化摩擦を回避。' },
-        { '@type': 'HowToStep', position: 5, name: 'レビュールール設定', text: '用語一貫性 / 数値形式 / 日付形式 / 単位換算 / 機微語 のルールを設定、Agent が自動で疑わしい訳文をフラグ。' },
-        { '@type': 'HowToStep', position: 6, name: 'ワークフロー接続', text: 'Git / CMS / Confluence / Notion / Figma などのコンテンツソースと連携、翻訳更新を自動同期、人間は重要コンテンツのみ最終レビュー。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '用語集構築',
+          text: '製品・ブランド・業界用語を 50+ 言語で登録、Agent が用語一貫性を厳格に守り、訳語の分散を防止。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '翻訳メモリアップロード',
+          text: '過去の高品質対訳ドキュメントをアップロード、Agent がチーム文体を学習し AI 出力と人間の過去訳スタイルを一致させます。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '対象言語設定',
+          text: '50+ の主要言語 (繁体字/簡体字の地域変種など) を選択、一括翻訳をワンクリックで開始。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '文化適応学習',
+          text: 'ターゲット市場の文化習慣 (日本語の敬語、アラビア語の RTL、スペインのラ米 vs スペイン変種) に応じて翻訳を微調整、文化摩擦を回避。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: 'レビュールール設定',
+          text: '用語一貫性 / 数値形式 / 日付形式 / 単位換算 / 機微語 のルールを設定、Agent が自動で疑わしい訳文をフラグ。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: 'ワークフロー接続',
+          text: 'Git / CMS / Confluence / Notion / Figma などのコンテンツソースと連携、翻訳更新を自動同期、人間は重要コンテンツのみ最終レビュー。',
+        },
       ],
     },
   ],
@@ -74,12 +129,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '50+ 言語ドキュメント翻訳', desc: '50+ の主要言語 (中・英・日・韓・仏・独・西・露・アラビア・葡・意・繁簡) をサポート、Word / PDF / Markdown / JSON / CSV などを一括翻訳、用語一貫性 99%。' },
-  { title: 'ローカライズワークフロー', desc: 'Git / CMS / Confluence / Notion などのコンテンツソースと連携、ソース更新で自動翻訳起動、人間は重要コンテンツのみ最終レビュー。' },
-  { title: '用語集管理', desc: '多言語用語集を構築し AI が用語一貫性を厳格に遵守、ブランド名 / 製品名 / 技術用語の誤訳ゼロ、翻訳メモリ (TM) をプロジェクト横断で再利用。' },
-  { title: 'スマート翻訳レビュー', desc: '用語一貫性 / 数値形式 / 日付形式 / 単位換算 / 機微語 のルールを設定、Agent が自動で疑わしい訳文をフラグ、人間のレビュー工数を 75% 削減。' },
-  { title: '文化適応', desc: 'ターゲット市場の文化習慣 (日本語の敬語階層、アラビア語の RTL、スペインのラ米 vs スペイン変種) に応じて自動的に表現を調整し、文化摩擦を回避、ローカライズ品質を向上。' },
-  { title: '字幕翻訳', desc: '映像字幕の SRT / VTT ファイルを解析して翻訳、タイムラインを自動整列し多言語字幕版をエクスポート、字幕翻訳効率 8 倍。' },
+  {
+    title: '50+ 言語ドキュメント翻訳',
+    desc: '50+ の主要言語 (中・英・日・韓・仏・独・西・露・アラビア・葡・意・繁簡) をサポート、Word / PDF / Markdown / JSON / CSV などを一括翻訳、用語一貫性 99%。',
+  },
+  {
+    title: 'ローカライズワークフロー',
+    desc: 'Git / CMS / Confluence / Notion などのコンテンツソースと連携、ソース更新で自動翻訳起動、人間は重要コンテンツのみ最終レビュー。',
+  },
+  {
+    title: '用語集管理',
+    desc: '多言語用語集を構築し AI が用語一貫性を厳格に遵守、ブランド名 / 製品名 / 技術用語の誤訳ゼロ、翻訳メモリ (TM) をプロジェクト横断で再利用。',
+  },
+  {
+    title: 'スマート翻訳レビュー',
+    desc: '用語一貫性 / 数値形式 / 日付形式 / 単位換算 / 機微語 のルールを設定、Agent が自動で疑わしい訳文をフラグ、人間のレビュー工数を 75% 削減。',
+  },
+  {
+    title: '文化適応',
+    desc: 'ターゲット市場の文化習慣 (日本語の敬語階層、アラビア語の RTL、スペインのラ米 vs スペイン変種) に応じて自動的に表現を調整し、文化摩擦を回避、ローカライズ品質を向上。',
+  },
+  {
+    title: '字幕翻訳',
+    desc: '映像字幕の SRT / VTT ファイルを解析して翻訳、タイムラインを自動整列し多言語字幕版をエクスポート、字幕翻訳効率 8 倍。',
+  },
 ]
 
 const cases = [
@@ -99,9 +172,18 @@ const cases = [
 
 const toolchain = [
   { name: 'Next.js 15 + React 19', purpose: 'Web エンドの翻訳ワークベンチと用語集管理' },
-  { name: 'Fastify 5 + Drizzle ORM', purpose: 'API エンドの翻訳メモリ (TM) とプロジェクトバージョン管理' },
-  { name: 'FastAPI + LangGraph + LiteLLM', purpose: '多言語翻訳 + 文化適応 + レビュールールエンジン' },
-  { name: 'MCP ツールプロトコル', purpose: 'Git / CMS / Confluence / Notion / Figma などのコンテンツソースアダプタ' },
+  {
+    name: 'Fastify 5 + Drizzle ORM',
+    purpose: 'API エンドの翻訳メモリ (TM) とプロジェクトバージョン管理',
+  },
+  {
+    name: 'FastAPI + LangGraph + LiteLLM',
+    purpose: '多言語翻訳 + 文化適応 + レビュールールエンジン',
+  },
+  {
+    name: 'MCP ツールプロトコル',
+    purpose: 'Git / CMS / Confluence / Notion / Figma などのコンテンツソースアダプタ',
+  },
   { name: 'Tauri 2 デスクトップ', purpose: 'ローカルドキュメント翻訳 + オフライン用語集' },
   { name: 'WXT ブラウザ拡張', purpose: 'ウェブのワンクリック翻訳と用語ハイライト' },
   { name: 'Taro 4 ミニプログラム', purpose: 'モバイルドキュメントの写真翻訳' },
@@ -118,7 +200,10 @@ const metrics = [
 export default function AiTranslationPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +215,18 @@ export default function AiTranslationPage() {
             AI 多言語翻訳:50+ 言語でローカライズ、コスト 70% 削減
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0 オープンソース、オンプレ対応、用語集 + 文化適応で訳文品質を保証。
+            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0
+            オープンソース、オンプレ対応、用語集 + 文化適応で訳文品質を保証。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +236,16 @@ export default function AiTranslationPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">海外展開チームのローカライズ課題</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              海外展開チームのローカライズ課題
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +255,9 @@ export default function AiTranslationPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 つのコア能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 つのコア能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +273,9 @@ export default function AiTranslationPage() {
 
         {/* 事例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">導入事例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            導入事例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +290,14 @@ export default function AiTranslationPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術スタックとツールチェーン</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術スタックとツールチェーン
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイントでソース統一、核心コンポーネントはすべてオープンソース、Git / CMS / Confluence / Notion と深く連携。
+            IHUI AI フルスタック AI OS 上で構築、8
+            エンドポイントでソース統一、核心コンポーネントはすべてオープンソース、Git / CMS /
+            Confluence / Notion と深く連携。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +312,12 @@ export default function AiTranslationPage() {
         {/* お問い合わせ / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI 多言語翻訳アシスタントの構築を始めましょう</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI 多言語翻訳アシスタントの構築を始めましょう
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            登録で 1000 クレジット進呈、翻訳シナリオテンプレートからワンクリック fork、30 分で多言語一括翻訳を体験。
+            登録で 1000 クレジット進呈、翻訳シナリオテンプレートからワンクリック fork、30
+            分で多言語一括翻訳を体験。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +334,18 @@ export default function AiTranslationPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 翻訳相談 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 用語集研修 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> オンプレ導入 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 言語拡張 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 翻訳相談 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 用語集研修 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> オンプレ導入 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 言語拡張 8809
+            </span>
           </div>
         </section>
       </main>

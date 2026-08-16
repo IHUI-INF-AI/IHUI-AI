@@ -197,7 +197,10 @@ describe('/api/admin/tool/gen', () => {
       payload: {
         type: 'list',
         name: 'user',
-        fields: [{ name: 'id', type: 'string' }, { name: 'name', type: 'string' }],
+        fields: [
+          { name: 'id', type: 'string' },
+          { name: 'name', type: 'string' },
+        ],
       },
     })
     expect(res.statusCode).toBe(200)
@@ -253,7 +256,9 @@ describe('/api/admin/tool/gen', () => {
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
     expect(body.data.files).toHaveLength(2)
-    expect(body.data.files.some((f: { path: string }) => f.path.includes('form-schemas'))).toBe(true)
+    expect(body.data.files.some((f: { path: string }) => f.path.includes('form-schemas'))).toBe(
+      true,
+    )
   })
 
   it('POST 400 missing type', async () => {

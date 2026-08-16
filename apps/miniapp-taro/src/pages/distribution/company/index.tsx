@@ -72,30 +72,22 @@ export default function CompanyPage() {
         <View className="cp-stats">
           <View className="cp-stat">
             <Text className="cp-stat-num">¥{info.totalCommission}</Text>
-            <Text className="cp-stat-label">
-              {t('distribution.company.totalEarnings')}
-            </Text>
+            <Text className="cp-stat-label">{t('distribution.company.totalEarnings')}</Text>
           </View>
           <View className="cp-stat">
             <Text className="cp-stat-num">¥{info.available}</Text>
-            <Text className="cp-stat-label">
-              {t('distribution.company.available')}
-            </Text>
+            <Text className="cp-stat-label">{t('distribution.company.available')}</Text>
           </View>
           <View className="cp-stat">
             <Text className="cp-stat-num">{info.teamCount}</Text>
-            <Text className="cp-stat-label">
-              {t('distribution.company.teamMembers')}
-            </Text>
+            <Text className="cp-stat-label">{t('distribution.company.teamMembers')}</Text>
           </View>
         </View>
       </View>
 
       <View className="cp-team-card">
         <View className="cp-team-header">
-          <Text className="cp-team-title">
-            {t('distribution.company.teamMembers')}
-          </Text>
+          <Text className="cp-team-title">{t('distribution.company.teamMembers')}</Text>
           <Text className="cp-team-count">
             {t('distribution.company.memberCount', { n: members.length })}
           </Text>
@@ -121,11 +113,7 @@ export default function CompanyPage() {
               onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
             >
               {m.avatar ? (
-                <Image
-                  className="cp-member-avatar"
-                  src={m.avatar}
-                  mode="aspectFill"
-                />
+                <Image className="cp-member-avatar" src={m.avatar} mode="aspectFill" />
               ) : (
                 <View className="cp-member-avatar">
                   <Text>{m.nickname.charAt(0)}</Text>
@@ -145,10 +133,7 @@ export default function CompanyPage() {
 
       <View className="cp-menu-card">
         <View className="cp-menu-grid">
-          <View
-            className="cp-menu-item"
-            onClick={() => navigateTo('/pages/distribution/team')}
-          >
+          <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/team')}>
             <Text className="cp-menu-icon">👥</Text>
             <Text className="cp-menu-label">{t('distribution.company.menuTeam')}</Text>
           </View>
@@ -157,18 +142,11 @@ export default function CompanyPage() {
             onClick={() => navigateTo('/pages/distribution/commission')}
           >
             <Text className="cp-menu-icon">💰</Text>
-            <Text className="cp-menu-label">
-              {t('distribution.company.menuCommission')}
-            </Text>
+            <Text className="cp-menu-label">{t('distribution.company.menuCommission')}</Text>
           </View>
-          <View
-            className="cp-menu-item"
-            onClick={() => navigateTo('/pages/distribution/withdraw')}
-          >
+          <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/withdraw')}>
             <Text className="cp-menu-icon">💸</Text>
-            <Text className="cp-menu-label">
-              {t('distribution.company.menuWithdraw')}
-            </Text>
+            <Text className="cp-menu-label">{t('distribution.company.menuWithdraw')}</Text>
           </View>
         </View>
       </View>

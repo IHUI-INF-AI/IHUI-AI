@@ -148,12 +148,19 @@ export default function PlazaCover() {
       {/* 未开发者入口引导(entry) */}
       {!isDev ? (
         <View className="bg-card rounded-2xl py-[40rpx] px-[32rpx] mb-[24rpx]">
-          <Text className="block text-[34rpx] font-semibold text-foreground mb-[12rpx]">{tt('plaza.cover.entryTitle', '成为开发者')}</Text>
+          <Text className="block text-[34rpx] font-semibold text-foreground mb-[12rpx]">
+            {tt('plaza.cover.entryTitle', '成为开发者')}
+          </Text>
           <Text className="block text-[26rpx] text-muted-foreground leading-[1.5] mb-[32rpx]">
             {tt('plaza.cover.entryDesc', '开通专属开发者空间,上架智能体获取收益')}
           </Text>
-          <View className="flex items-center justify-center h-[80rpx] bg-primary rounded-lg" onClick={toPay}>
-            <Text className="text-[28rpx] text-primary-foreground">{tt('plaza.cover.becomeDeveloper', '立即成为开发者')}</Text>
+          <View
+            className="flex items-center justify-center h-[80rpx] bg-primary rounded-lg"
+            onClick={toPay}
+          >
+            <Text className="text-[28rpx] text-primary-foreground">
+              {tt('plaza.cover.becomeDeveloper', '立即成为开发者')}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -166,30 +173,45 @@ export default function PlazaCover() {
           mode="aspectFill"
         />
         <View className="flex-1 flex flex-col gap-[8rpx]">
-          <Text className="text-[32rpx] font-semibold text-foreground">{profile?.nickname || tt('plaza.cover.guest', '游客')}</Text>
+          <Text className="text-[32rpx] font-semibold text-foreground">
+            {profile?.nickname || tt('plaza.cover.guest', '游客')}
+          </Text>
           {waitting ? (
             <Text className="text-[24rpx] text-warning">
               {tt('plaza.cover.opening', '专属开发者空间开通中…')}
             </Text>
           ) : isDev ? (
-            <Text className="text-[24rpx] text-success">{tt('plaza.cover.opened', '开发者空间已开通')}</Text>
+            <Text className="text-[24rpx] text-success">
+              {tt('plaza.cover.opened', '开发者空间已开通')}
+            </Text>
           ) : (
-            <Text className="text-[24rpx] text-muted-foreground">{tt('plaza.cover.notOpened', '未开通')}</Text>
+            <Text className="text-[24rpx] text-muted-foreground">
+              {tt('plaza.cover.notOpened', '未开通')}
+            </Text>
           )}
         </View>
       </View>
 
       {/* 成为开发者按钮(未开通且无 developerLink 时) */}
       {!isDev && !devInfo.developerLink ? (
-        <View className="flex items-center justify-center h-[88rpx] bg-primary rounded-xl mb-[24rpx]" onClick={toPay}>
-          <Text className="text-[30rpx] text-primary-foreground">{tt('plaza.cover.toPay', '成为开发者')}</Text>
+        <View
+          className="flex items-center justify-center h-[88rpx] bg-primary rounded-xl mb-[24rpx]"
+          onClick={toPay}
+        >
+          <Text className="text-[30rpx] text-primary-foreground">
+            {tt('plaza.cover.toPay', '成为开发者')}
+          </Text>
         </View>
       ) : null}
 
       {/* 三个入口卡片(dev_list) */}
       <View className="bg-card rounded-2xl overflow-hidden mb-[24rpx]">
         {DEV_ENTRIES.map((e) => (
-          <View key={e.key} className="flex items-center gap-[20rpx] p-[32rpx]" onClick={() => toEntry(e.target)}>
+          <View
+            key={e.key}
+            className="flex items-center gap-[20rpx] p-[32rpx]"
+            onClick={() => toEntry(e.target)}
+          >
             <Text className="text-[40rpx] leading-none">{e.icon}</Text>
             <Text className="flex-1 text-[30rpx] text-foreground">{tt(e.titleKey, e.titleFb)}</Text>
             <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
@@ -200,32 +222,62 @@ export default function PlazaCover() {
       {/* 开发者信息卡(developer_info_body) */}
       {isDev ? (
         <View className="bg-card rounded-2xl p-[32rpx] mb-[24rpx]">
-          <Text className="block text-[30rpx] font-semibold text-foreground mb-[24rpx]">{tt('plaza.cover.devInfoTitle', '开发者账号信息')}</Text>
+          <Text className="block text-[30rpx] font-semibold text-foreground mb-[24rpx]">
+            {tt('plaza.cover.devInfoTitle', '开发者账号信息')}
+          </Text>
           <View className="flex items-center gap-[16rpx] py-[20rpx]">
-            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">{tt('plaza.cover.account', '账号')}</Text>
-            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{devInfo.signNickname || '-'}</Text>
-            <Text className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0" onClick={() => copy(devInfo.signNickname || '')}>
+            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">
+              {tt('plaza.cover.account', '账号')}
+            </Text>
+            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+              {devInfo.signNickname || '-'}
+            </Text>
+            <Text
+              className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0"
+              onClick={() => copy(devInfo.signNickname || '')}
+            >
               {tt('plaza.cover.copy', '复制')}
             </Text>
           </View>
           <View className="flex items-center gap-[16rpx] py-[20rpx]">
-            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">{tt('plaza.cover.password', '密码')}</Text>
-            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{devInfo.signPassword || '-'}</Text>
-            <Text className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0" onClick={() => copy(devInfo.signPassword || '')}>
+            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">
+              {tt('plaza.cover.password', '密码')}
+            </Text>
+            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+              {devInfo.signPassword || '-'}
+            </Text>
+            <Text
+              className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0"
+              onClick={() => copy(devInfo.signPassword || '')}
+            >
               {tt('plaza.cover.copy', '复制')}
             </Text>
           </View>
           <View className="flex items-center gap-[16rpx] py-[20rpx]">
-            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">{tt('plaza.cover.url', '网址')}</Text>
-            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{devInfo.address || '-'}</Text>
-            <Text className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0" onClick={() => copy(devInfo.address || '')}>
+            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">
+              {tt('plaza.cover.url', '网址')}
+            </Text>
+            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+              {devInfo.address || '-'}
+            </Text>
+            <Text
+              className="text-[24rpx] text-primary px-[20rpx] py-[8rpx] bg-background rounded-lg shrink-0"
+              onClick={() => copy(devInfo.address || '')}
+            >
               {tt('plaza.cover.copy', '复制')}
             </Text>
           </View>
           <View className="flex items-center gap-[16rpx] py-[20rpx]">
-            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">{tt('plaza.cover.expire', '到期')}</Text>
-            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{expiresAtStr}</Text>
-            <Text className="text-[24rpx] text-primary-foreground px-[20rpx] py-[8rpx] bg-primary rounded-lg shrink-0" onClick={toPay}>
+            <Text className="w-[96rpx] text-[26rpx] text-muted-foreground shrink-0">
+              {tt('plaza.cover.expire', '到期')}
+            </Text>
+            <Text className="flex-1 text-[26rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+              {expiresAtStr}
+            </Text>
+            <Text
+              className="text-[24rpx] text-primary-foreground px-[20rpx] py-[8rpx] bg-primary rounded-lg shrink-0"
+              onClick={toPay}
+            >
               {tt('plaza.cover.renew', '续费')}
             </Text>
           </View>
@@ -234,18 +286,31 @@ export default function PlazaCover() {
 
       {/* 继续接单按钮(to_plaza) */}
       {isDev ? (
-        <View className="flex items-center justify-center h-[88rpx] bg-card rounded-xl mb-[24rpx]" onClick={toPlaza}>
-          <Text className="text-[30rpx] text-primary">{tt('plaza.cover.continueOrder', '继续接单')}</Text>
+        <View
+          className="flex items-center justify-center h-[88rpx] bg-card rounded-xl mb-[24rpx]"
+          onClick={toPlaza}
+        >
+          <Text className="text-[30rpx] text-primary">
+            {tt('plaza.cover.continueOrder', '继续接单')}
+          </Text>
         </View>
       ) : null}
 
       {/* 未开发者问答列表(un_developer) */}
       {!isDev ? (
         <View className="bg-card rounded-2xl overflow-hidden">
-          <Text className="block text-[30rpx] font-semibold text-foreground pt-[32rpx] px-[32rpx] pb-[8rpx]">{tt('plaza.cover.qaTitle', '常见问题')}</Text>
+          <Text className="block text-[30rpx] font-semibold text-foreground pt-[32rpx] px-[32rpx] pb-[8rpx]">
+            {tt('plaza.cover.qaTitle', '常见问题')}
+          </Text>
           {QA_FALLBACK.map((qa, i) => (
-            <View key={i} className="flex items-center gap-[16rpx] px-[32rpx] py-[28rpx]" onClick={() => toWeb(qa.url)}>
-              <Text className="flex-1 text-[28rpx] text-foreground">{tt(QA_KEYS[i] ?? 'plaza.cover.qa0', qa.title)}</Text>
+            <View
+              key={i}
+              className="flex items-center gap-[16rpx] px-[32rpx] py-[28rpx]"
+              onClick={() => toWeb(qa.url)}
+            >
+              <Text className="flex-1 text-[28rpx] text-foreground">
+                {tt(QA_KEYS[i] ?? 'plaza.cover.qa0', qa.title)}
+              </Text>
               <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
             </View>
           ))}

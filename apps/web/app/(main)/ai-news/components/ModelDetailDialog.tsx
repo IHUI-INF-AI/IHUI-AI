@@ -23,13 +23,18 @@ interface Props {
 function extractCapabilityTags(entry: LeaderboardEntry): Array<{ key: string; label: string }> {
   const tags: Array<{ key: string; label: string }> = []
   const ctx = parseNumeric(entry.contextWindow)
-  if (ctx !== null && ctx >= CAPABILITY_THRESHOLDS.longContext) tags.push({ key: 'tagLongContext', label: 'tagLongContext' })
+  if (ctx !== null && ctx >= CAPABILITY_THRESHOLDS.longContext)
+    tags.push({ key: 'tagLongContext', label: 'tagLongContext' })
   const out = parseNumeric(entry.maxOutput)
-  if (out !== null && out >= CAPABILITY_THRESHOLDS.largeOutput) tags.push({ key: 'tagLargeOutput', label: 'tagLargeOutput' })
+  if (out !== null && out >= CAPABILITY_THRESHOLDS.largeOutput)
+    tags.push({ key: 'tagLargeOutput', label: 'tagLargeOutput' })
   const inPrice = parseNumeric(entry.inputPrice)
-  if (inPrice !== null && inPrice < CAPABILITY_THRESHOLDS.lowCost) tags.push({ key: 'tagLowCost', label: 'tagLowCost' })
-  if (entry.winRate !== null && entry.winRate > CAPABILITY_THRESHOLDS.highWinRate) tags.push({ key: 'tagHighWinRate', label: 'tagHighWinRate' })
-  if (entry.arenaScore !== null && entry.arenaScore > CAPABILITY_THRESHOLDS.topTier) tags.push({ key: 'tagTopTier', label: 'tagTopTier' })
+  if (inPrice !== null && inPrice < CAPABILITY_THRESHOLDS.lowCost)
+    tags.push({ key: 'tagLowCost', label: 'tagLowCost' })
+  if (entry.winRate !== null && entry.winRate > CAPABILITY_THRESHOLDS.highWinRate)
+    tags.push({ key: 'tagHighWinRate', label: 'tagHighWinRate' })
+  if (entry.arenaScore !== null && entry.arenaScore > CAPABILITY_THRESHOLDS.topTier)
+    tags.push({ key: 'tagTopTier', label: 'tagTopTier' })
   if (entry.category === 'multimodal') tags.push({ key: 'tagMultimodal', label: 'tagMultimodal' })
   return tags
 }
@@ -57,9 +62,24 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
   const platform = getVendorPlatform(entry.vendor)
 
   const paramRows = [
-    { label: t('arenaScore'), value: entry.arenaScore ? `${entry.arenaScore}${entry.scoreCi ? ` ±${entry.scoreCi}` : ''}` : null },
+    {
+      label: t('arenaScore'),
+      value: entry.arenaScore
+        ? `${entry.arenaScore}${entry.scoreCi ? ` ±${entry.scoreCi}` : ''}`
+        : null,
+    },
     { label: t('rank'), value: entry.arenaRank ? `#${entry.arenaRank}` : null },
-    { label: t('rankDelta'), value: rankDelta !== null ? (rankDelta > 0 ? `↑${rankDelta}` : rankDelta < 0 ? `↓${Math.abs(rankDelta)}` : t('stable')) : null },
+    {
+      label: t('rankDelta'),
+      value:
+        rankDelta !== null
+          ? rankDelta > 0
+            ? `↑${rankDelta}`
+            : rankDelta < 0
+              ? `↓${Math.abs(rankDelta)}`
+              : t('stable')
+          : null,
+    },
     { label: t('winRate'), value: entry.winRate ? `${entry.winRate.toFixed(1)}%` : null },
     { label: t('voteCount'), value: entry.voteCount ? entry.voteCount.toLocaleString() : null },
     { label: t('contextWindow'), value: entry.contextWindow },
@@ -127,18 +147,23 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
         <div className="flex items-start gap-3 bg-muted/30 px-5 py-4">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold leading-tight">{highlight(entry.modelName, searchQuery)}</h3>
+              <h3 className="text-base font-semibold leading-tight">
+                {highlight(entry.modelName, searchQuery)}
+              </h3>
               {rankDelta !== null && rankDelta > 0 ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
-                  <TrendingUp className="h-2.5 w-2.5" />{rankDelta}
+                  <TrendingUp className="h-2.5 w-2.5" />
+                  {rankDelta}
                 </span>
               ) : rankDelta !== null && rankDelta < 0 ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">
-                  <TrendingDown className="h-2.5 w-2.5" />{Math.abs(rankDelta)}
+                  <TrendingDown className="h-2.5 w-2.5" />
+                  {Math.abs(rankDelta)}
                 </span>
               ) : rankDelta === 0 ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  <Minus className="h-2.5 w-2.5" />{t('stable')}
+                  <Minus className="h-2.5 w-2.5" />
+                  {t('stable')}
                 </span>
               ) : null}
             </div>
@@ -149,7 +174,10 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
               {entry.arenaScore ? (
                 <>
                   <span>·</span>
-                  <span className="font-medium text-foreground">{entry.arenaScore}{entry.scoreCi ? ` ±${entry.scoreCi}` : ''}</span>
+                  <span className="font-medium text-foreground">
+                    {entry.arenaScore}
+                    {entry.scoreCi ? ` ±${entry.scoreCi}` : ''}
+                  </span>
                 </>
               ) : null}
             </div>
@@ -216,7 +244,9 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
           <div className="mx-5 mb-5 rounded-lg border bg-muted/20 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 space-y-1.5">
-                <h4 className="text-xs font-semibold text-muted-foreground">{t('officialResources')}</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground">
+                  {t('officialResources')}
+                </h4>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   {platform.officialKeyUrl ? (
                     <a
@@ -243,30 +273,32 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                   {platform.defaultBaseUrl ? (
                     <>
                       <Tooltip content={platform.defaultBaseUrl}>
-                      <button
-                        type="button"
-                        onClick={handleCopyBaseUrl}
-                        className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <span>{t('copyBaseUrl')}</span>
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </Tooltip>
-                    <Tooltip content={platform.defaultBaseUrl}>
-                      <button
-                        type="button"
-                        onClick={handleCopyAndImport}
-                        className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
-                      >
-                        <span>{t('copyAndImport')}</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </button>
-                    </Tooltip>
+                        <button
+                          type="button"
+                          onClick={handleCopyBaseUrl}
+                          className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <span>{t('copyBaseUrl')}</span>
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content={platform.defaultBaseUrl}>
+                        <button
+                          type="button"
+                          onClick={handleCopyAndImport}
+                          className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
+                        >
+                          <span>{t('copyAndImport')}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
                     </>
                   ) : null}
                 </div>
                 {platform.note ? (
-                  <p className="text-[10px] leading-relaxed text-muted-foreground">{platform.note}</p>
+                  <p className="text-[10px] leading-relaxed text-muted-foreground">
+                    {platform.note}
+                  </p>
                 ) : null}
               </div>
               {platform.defaultBaseUrl ? (

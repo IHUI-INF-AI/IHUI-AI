@@ -22,9 +22,18 @@ const createAgentTaskSchema = z.object({
   priority: z.number().int().optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
   result: z.record(z.string(), z.unknown()).optional(),
-  scheduledAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
-  startedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
-  completedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+  scheduledAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
+  startedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
+  completedAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
   errorMessage: z.string().optional(),
 })
 const updateAgentTaskSchema = createAgentTaskSchema.partial()

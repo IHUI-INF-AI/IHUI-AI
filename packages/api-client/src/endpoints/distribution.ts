@@ -88,7 +88,9 @@ export async function getCommissionList(
 export async function getWithdrawList(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<CommissionWithdrawRecord>>> {
-  return fetchApi<PageData<CommissionWithdrawRecord>>(`/distribution/withdraw-list${buildQs(query)}`)
+  return fetchApi<PageData<CommissionWithdrawRecord>>(
+    `/distribution/withdraw-list${buildQs(query)}`,
+  )
 }
 
 export async function requestWithdraw(input: {

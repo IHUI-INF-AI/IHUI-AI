@@ -59,13 +59,7 @@ const CONTENT_PADDING_H = 20
 const CONTENT_PADDING_B = 16
 const MASK_COLOR = 'rgba(0,0,0,0.5)'
 
-export function BottomPops({
-  visible,
-  onClose,
-  children,
-  title,
-  height,
-}: BottomPopsProps) {
+export function BottomPops({ visible, onClose, children, title, height }: BottomPopsProps) {
   const insets = useSafeAreaInsets()
   const [rendered, setRendered] = useState(visible)
   const translateY = useRef(new Animated.Value(SHEET_HIDDEN_OFFSET)).current
@@ -114,8 +108,7 @@ export function BottomPops({
   // 遮罩 / 标题栏下拉关闭(增强交互,对齐现代底部弹出层体验)
   const headerPanResponder = useRef<PanResponderInstance>(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_e, g) =>
-        g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
+      onMoveShouldSetPanResponder: (_e, g) => g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
       onPanResponderMove: (_e, g) => {
         translateY.setValue(Math.max(0, g.dy))
       },
@@ -175,10 +168,7 @@ export function BottomPops({
     >
       <View style={styles.root}>
         {/* 半透明遮罩(点击关闭) */}
-        <Animated.View
-          pointerEvents="auto"
-          style={[styles.mask, { opacity: maskOpacity }]}
-        >
+        <Animated.View pointerEvents="auto" style={[styles.mask, { opacity: maskOpacity }]}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={handleClose}
@@ -188,17 +178,10 @@ export function BottomPops({
 
         {/* 底部内容卡片 */}
         <Animated.View
-          style={[
-            styles.sheet,
-            { transform: [{ translateY }] },
-            { paddingBottom: insets.bottom },
-          ]}
+          style={[styles.sheet, { transform: [{ translateY }] }, { paddingBottom: insets.bottom }]}
         >
           {/* 标题栏(item-center:space-between,标题 + 关闭按钮) */}
-          <View
-            style={styles.header}
-            {...headerPanResponder.panHandlers}
-          >
+          <View style={styles.header} {...headerPanResponder.panHandlers}>
             <Text style={styles.title} numberOfLines={1}>
               {title ?? ''}
             </Text>

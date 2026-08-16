@@ -258,9 +258,7 @@ export function createAuthStore<TUser = AuthUser>(
   // - .getState()/.setState()/.subscribe() → 转发到 storeApi
   // storeApi 的方法基于闭包 state(非 this),作为引用赋值给 useBoundStore 后仍正确工作。
   const useBoundStore = Object.assign(
-    function useAuthStoreHook<U>(
-      selector?: (state: AuthStoreState<TUser>) => U,
-    ): U {
+    function useAuthStoreHook<U>(selector?: (state: AuthStoreState<TUser>) => U): U {
       return useStore(storeApi, selector as (state: AuthStoreState<TUser>) => U)
     } as UseBoundStore<StoreApi<AuthStoreState<TUser>>>,
     {

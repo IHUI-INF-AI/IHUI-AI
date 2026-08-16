@@ -1,11 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto'
 
 /**
  * 创建新的 token family ID（用于 refresh token 重放检测）。
  * 每次 login / register 时生成新的 family_id，refresh 轮转时保持同 family。
  */
 export function createFamilyId(): string {
-  return randomUUID();
+  return randomUUID()
 }
 
 /**
@@ -13,11 +13,11 @@ export function createFamilyId(): string {
  */
 export function validateFamilyId(familyId: string): boolean {
   if (!familyId || typeof familyId !== 'string') {
-    return false;
+    return false
   }
   // UUID v4 基本格式校验
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(familyId);
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(familyId)
 }
 
 /**
@@ -38,7 +38,7 @@ export function validateFamilyId(familyId: string): boolean {
  */
 export interface FamilyRevoker {
   /** 撤销指定 family 下所有未吊销的 refresh token */
-  revoke(familyId: string): Promise<void>;
+  revoke(familyId: string): Promise<void>
 }
 
 /** No-op 实现(默认,保持向后兼容) */
@@ -46,4 +46,4 @@ export const noopFamilyRevoker: FamilyRevoker = {
   async revoke() {
     // no-op:调用方未注入 revoker 时不做 family 撤销
   },
-};
+}

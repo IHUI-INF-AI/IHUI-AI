@@ -29,13 +29,7 @@ interface TruncatedTextProps {
   style?: React.CSSProperties
 }
 
-export function TruncatedText({
-  value,
-  className,
-  mono,
-  side = 'top',
-  style,
-}: TruncatedTextProps) {
+export function TruncatedText({ value, className, mono, side = 'top', style }: TruncatedTextProps) {
   const ref = React.useRef<HTMLDivElement | null>(null)
   const [truncated, setTruncated] = React.useState(false)
 
@@ -51,15 +45,7 @@ export function TruncatedText({
   }, [value])
 
   const inner = (
-    <div
-      ref={ref}
-      style={style}
-      className={cn(
-        'truncate',
-        mono && 'font-mono',
-        className,
-      )}
-    >
+    <div ref={ref} style={style} className={cn('truncate', mono && 'font-mono', className)}>
       {value}
     </div>
   )

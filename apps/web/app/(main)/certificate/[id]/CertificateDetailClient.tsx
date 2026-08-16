@@ -34,9 +34,7 @@ export default function CertificateDetailClient() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['certificates', 'detail', id],
     queryFn: async (): Promise<CertificateDetail | null> => {
-      const r = await fetchApi<{ certificate: CertificateDetail }>(
-        `/api/certificates/${id}`,
-      )
+      const r = await fetchApi<{ certificate: CertificateDetail }>(`/api/certificates/${id}`)
       if (!r.success) throw new Error(r.error)
       return r.data.certificate
     },
@@ -132,7 +130,10 @@ export default function CertificateDetailClient() {
           />
           <div className="grid grid-cols-1 gap-3 text-sm text-muted-foreground min-[640px]:grid-cols-2 print:hidden">
             <MetaRow label={t('certNo')} value={data.certificateNo} />
-            <MetaRow label={t('issueDate')} value={data.issuedAt ? formatDate(data.issuedAt) : '-'} />
+            <MetaRow
+              label={t('issueDate')}
+              value={data.issuedAt ? formatDate(data.issuedAt) : '-'}
+            />
             {data.source && <MetaRow label={t('source')} value={data.source} />}
             {data.templateName && <MetaRow label={t('template')} value={data.templateName} />}
             <MetaRow

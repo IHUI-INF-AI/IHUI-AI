@@ -80,20 +80,35 @@ function buildPrompt(fn: AiFunction, content: string, platform: string): string 
 }
 
 function parseTags(raw: string): string[] {
-  return raw.split(/[,，、\n]/).map((s) => s.trim().replace(/^#/, '')).filter(Boolean).slice(0, 10)
+  return raw
+    .split(/[,，、\n]/)
+    .map((s) => s.trim().replace(/^#/, ''))
+    .filter(Boolean)
+    .slice(0, 10)
 }
 
 function parseTitles(raw: string): string[] {
-  return raw.split('\n').map((s) => s.trim().replace(/^\d+[.、)]\s*/, '')).filter(Boolean).slice(0, 5)
+  return raw
+    .split('\n')
+    .map((s) => s.trim().replace(/^\d+[.、)]\s*/, ''))
+    .filter(Boolean)
+    .slice(0, 5)
 }
 
 /** 从正文第一行提取标题(用于 seo/analyzeAll 端点入参) */
 function extractTitle(content: string): string {
-  const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0)
+  const firstLine = content
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0)
   return firstLine ? firstLine.slice(0, 100) : ''
 }
 
-const AI_FUNCTIONS: readonly { fn: AiFunction; icon: React.ComponentType<{ className?: string }>; labelKey: string }[] = [
+const AI_FUNCTIONS: readonly {
+  fn: AiFunction
+  icon: React.ComponentType<{ className?: string }>
+  labelKey: string
+}[] = [
   { fn: 'titles', icon: Sparkles, labelKey: 'ai.generateTitles' },
   { fn: 'polish', icon: Wand2, labelKey: 'ai.polishContent' },
   { fn: 'tags', icon: Tag, labelKey: 'ai.recommendTags' },
@@ -115,104 +130,137 @@ export function AiWritingAssistant({
   const model = useChatStore((s) => s.currentModel)
   const abortRef = React.useRef<AbortController | null>(null)
   const [states, setStates] = React.useState<Record<AiFunction, AiState>>({
-    titles: INITIAL_STATE, polish: INITIAL_STATE, tags: INITIAL_STATE,
-    summary: INITIAL_STATE, seo: INITIAL_STATE, cover: INITIAL_STATE,
+    titles: INITIAL_STATE,
+    polish: INITIAL_STATE,
+    tags: INITIAL_STATE,
+    summary: INITIAL_STATE,
+    seo: INITIAL_STATE,
+    cover: INITIAL_STATE,
     analyzeAll: INITIAL_STATE,
   })
   const [openFn, setOpenFn] = React.useState<AiFunction | null>(null)
 
-  const runAi = React.useCallback(async (fn: AiFunction) => {
-    if (!content.trim()) return
-    if (abortRef.current) abortRef.current.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+  const runAi = React.useCallback(
+    async (fn: AiFunction) => {
+      if (!content.trim()) return
+      if (abortRef.current) abortRef.current.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
 
-    setStates((prev) => ({ ...prev, [fn]: { loading: true, result: '', error: '', data: undefined } }))
-    setOpenFn(fn)
+      setStates((prev) => ({
+        ...prev,
+        [fn]: { loading: true, result: '', error: '', data: undefined },
+      }))
+      setOpenFn(fn)
 
-    let raw = ''
-    try {
-      await streamChat({
-        model: model || 'gpt-4o-mini',
-        messages: [{ role: 'user', content: buildPrompt(fn, content, platform ?? '') }],
-        signal: controller.signal,
-        onDelta: (delta) => {
-          raw += delta
-          setStates((prev) => ({ ...prev, [fn]: { loading: true, result: raw, error: '' } }))
-        },
-        onDone: () => {
-          setStates((prev) => ({ ...prev, [fn]: { loading: false, result: raw, error: '' } }))
-        },
-        onError: (errMsg) => {
-          setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: errMsg } }))
-        },
-      })
-    } catch (e) {
-      setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: (e as Error).message } }))
-    }
-  }, [content, platform, model])
-
-  const runAiEndpoint = React.useCallback(async (fn: AiFunction) => {
-    if (!content.trim()) return
-    setStates((prev) => ({ ...prev, [fn]: { loading: true, result: '', error: '', data: undefined } }))
-    setOpenFn(fn)
-    try {
-      const title = extractTitle(content)
-      const plat = platform ?? ''
-      let data: AiEndpointData | undefined
-      if (fn === 'seo') {
-        const res = await analyzePublishSeo(title, content, plat)
-        if (!res.success) throw new Error(res.error)
-        data = res.data.seo
-      } else if (fn === 'cover') {
-        const res = await suggestPublishCovers(content)
-        if (!res.success) throw new Error(res.error)
-        data = res.data.covers
-      } else if (fn === 'analyzeAll') {
-        const res = await analyzePublishAll(content, title, plat)
-        if (!res.success) throw new Error(res.error)
-        data = res.data
+      let raw = ''
+      try {
+        await streamChat({
+          model: model || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: buildPrompt(fn, content, platform ?? '') }],
+          signal: controller.signal,
+          // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+          stream: true,
+          onDelta: (delta) => {
+            raw += delta
+            setStates((prev) => ({ ...prev, [fn]: { loading: true, result: raw, error: '' } }))
+          },
+          onDone: () => {
+            setStates((prev) => ({ ...prev, [fn]: { loading: false, result: raw, error: '' } }))
+          },
+          onError: (errMsg) => {
+            setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: errMsg } }))
+          },
+        })
+      } catch (e) {
+        setStates((prev) => ({
+          ...prev,
+          [fn]: { loading: false, result: '', error: (e as Error).message },
+        }))
       }
-      setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: '', data } }))
-    } catch (e) {
-      setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: (e as Error).message } }))
-    }
-  }, [content, platform])
+    },
+    [content, platform, model],
+  )
 
-  const applyResult = React.useCallback((fn: AiFunction, result: string) => {
-    switch (fn) {
-      case 'titles': {
-        const titles = parseTitles(result)
-        if (titles[0]) onApplyTitle(titles[0])
-        break
+  const runAiEndpoint = React.useCallback(
+    async (fn: AiFunction) => {
+      if (!content.trim()) return
+      setStates((prev) => ({
+        ...prev,
+        [fn]: { loading: true, result: '', error: '', data: undefined },
+      }))
+      setOpenFn(fn)
+      try {
+        const title = extractTitle(content)
+        const plat = platform ?? ''
+        let data: AiEndpointData | undefined
+        if (fn === 'seo') {
+          const res = await analyzePublishSeo(title, content, plat)
+          if (!res.success) throw new Error(res.error)
+          data = res.data.seo
+        } else if (fn === 'cover') {
+          const res = await suggestPublishCovers(content)
+          if (!res.success) throw new Error(res.error)
+          data = res.data.covers
+        } else if (fn === 'analyzeAll') {
+          const res = await analyzePublishAll(content, title, plat)
+          if (!res.success) throw new Error(res.error)
+          data = res.data
+        }
+        setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: '', data } }))
+      } catch (e) {
+        setStates((prev) => ({
+          ...prev,
+          [fn]: { loading: false, result: '', error: (e as Error).message },
+        }))
       }
-      case 'polish':
-        onApplyContent(result)
-        break
-      case 'tags':
-        onApplyTags(parseTags(result))
-        break
-      case 'summary':
-        onApplySummary(result.trim())
-        break
-    }
-  }, [onApplyTitle, onApplyContent, onApplyTags, onApplySummary])
+    },
+    [content, platform],
+  )
+
+  const applyResult = React.useCallback(
+    (fn: AiFunction, result: string) => {
+      switch (fn) {
+        case 'titles': {
+          const titles = parseTitles(result)
+          if (titles[0]) onApplyTitle(titles[0])
+          break
+        }
+        case 'polish':
+          onApplyContent(result)
+          break
+        case 'tags':
+          onApplyTags(parseTags(result))
+          break
+        case 'summary':
+          onApplySummary(result.trim())
+          break
+      }
+    },
+    [onApplyTitle, onApplyContent, onApplyTags, onApplySummary],
+  )
 
   /** 批量分析结果一键应用:标题[0] + 标签 + 摘要 */
-  const applyAnalyzeAll = React.useCallback((data: AiAnalyzeAllResult) => {
-    if (data.titles[0]) onApplyTitle(data.titles[0])
-    if (data.tags.length > 0) onApplyTags(data.tags)
-    if (data.summary) onApplySummary(data.summary)
-  }, [onApplyTitle, onApplyTags, onApplySummary])
+  const applyAnalyzeAll = React.useCallback(
+    (data: AiAnalyzeAllResult) => {
+      if (data.titles[0]) onApplyTitle(data.titles[0])
+      if (data.tags.length > 0) onApplyTags(data.tags)
+      if (data.summary) onApplySummary(data.summary)
+    },
+    [onApplyTitle, onApplyTags, onApplySummary],
+  )
 
-  const triggerFn = React.useCallback((fn: AiFunction, hasResult: boolean) => {
-    if (hasResult) {
-      setOpenFn(fn)
-      return
-    }
-    if (STREAM_FNS.has(fn)) void runAi(fn)
-    else void runAiEndpoint(fn)
-  }, [runAi, runAiEndpoint])
+  const triggerFn = React.useCallback(
+    (fn: AiFunction, hasResult: boolean) => {
+      if (hasResult) {
+        setOpenFn(fn)
+        return
+      }
+      if (STREAM_FNS.has(fn)) void runAi(fn)
+      else void runAiEndpoint(fn)
+    },
+    [runAi, runAiEndpoint],
+  )
 
   return (
     <div className="space-y-1.5">
@@ -247,9 +295,11 @@ export function AiWritingAssistant({
                   ) : (
                     <>
                       {isStream ? (
-                        <pre className={cn(
-                          'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 text-[11px] leading-relaxed',
-                        )}>
+                        <pre
+                          className={cn(
+                            'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 text-[11px] leading-relaxed',
+                          )}
+                        >
                           {state.result || t('ai.thinking')}
                         </pre>
                       ) : (
@@ -257,18 +307,19 @@ export function AiWritingAssistant({
                       )}
                       {hasResult && !state.loading && (
                         <div className="flex flex-wrap items-center gap-1">
-                          {fn === 'titles' && parseTitles(state.result).map((title, i) => (
-                            <Button
-                              key={i}
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-[10px]"
-                              onClick={() => onApplyTitle(title)}
-                            >
-                              {t('ai.apply')} {i + 1}
-                            </Button>
-                          ))}
+                          {fn === 'titles' &&
+                            parseTitles(state.result).map((title, i) => (
+                              <Button
+                                key={i}
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => onApplyTitle(title)}
+                              >
+                                {t('ai.apply')} {i + 1}
+                              </Button>
+                            ))}
                           {isStream && fn !== 'titles' && (
                             <Button
                               type="button"
@@ -346,17 +397,21 @@ function EndpointResult({
         </div>
         {Object.keys(seo.keywordDensity).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {Object.entries(seo.keywordDensity).slice(0, 6).map(([kw, pct]) => (
-              <span key={kw} className="rounded bg-background px-1.5 py-0.5 text-[10px]">
-                {kw} {pct}%
-              </span>
-            ))}
+            {Object.entries(seo.keywordDensity)
+              .slice(0, 6)
+              .map(([kw, pct]) => (
+                <span key={kw} className="rounded bg-background px-1.5 py-0.5 text-[10px]">
+                  {kw} {pct}%
+                </span>
+              ))}
           </div>
         )}
         {seo.suggestions.length > 0 && (
           <ul className="space-y-0.5 pl-4 text-[10px] text-muted-foreground">
             {seo.suggestions.slice(0, 5).map((s, i) => (
-              <li key={i} className="list-disc">{s}</li>
+              <li key={i} className="list-disc">
+                {s}
+              </li>
             ))}
           </ul>
         )}
@@ -369,7 +424,9 @@ function EndpointResult({
     return (
       <ul className="space-y-0.5 rounded bg-muted/40 p-2 text-[11px] leading-relaxed">
         {covers.map((c, i) => (
-          <li key={i} className="list-disc pl-3">{c}</li>
+          <li key={i} className="list-disc pl-3">
+            {c}
+          </li>
         ))}
       </ul>
     )
@@ -381,10 +438,14 @@ function EndpointResult({
     <div className="space-y-1.5 rounded bg-muted/40 p-2 text-[11px]">
       {all.titles.length > 0 && (
         <div>
-          <div className="mb-0.5 text-[10px] font-medium text-muted-foreground">{t('ai.generateTitles')}</div>
+          <div className="mb-0.5 text-[10px] font-medium text-muted-foreground">
+            {t('ai.generateTitles')}
+          </div>
           <ul className="space-y-0.5 pl-4">
             {all.titles.slice(0, 3).map((tt, i) => (
-              <li key={i} className="list-disc">{tt}</li>
+              <li key={i} className="list-disc">
+                {tt}
+              </li>
             ))}
           </ul>
         </div>
@@ -392,13 +453,13 @@ function EndpointResult({
       {all.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {all.tags.slice(0, 8).map((tg) => (
-            <span key={tg} className="rounded bg-background px-1.5 py-0.5 text-[10px]">#{tg}</span>
+            <span key={tg} className="rounded bg-background px-1.5 py-0.5 text-[10px]">
+              #{tg}
+            </span>
           ))}
         </div>
       )}
-      {all.summary && (
-        <p className="text-[10px] text-muted-foreground">{all.summary}</p>
-      )}
+      {all.summary && <p className="text-[10px] text-muted-foreground">{all.summary}</p>}
       {all.seo && (
         <div className="flex items-center gap-1.5 text-[10px]">
           <span className="text-muted-foreground">{t('ai.seoScore')}</span>
@@ -409,7 +470,9 @@ function EndpointResult({
       {all.covers.length > 0 && (
         <ul className="space-y-0.5 pl-4 text-[10px]">
           {all.covers.slice(0, 3).map((cv, i) => (
-            <li key={i} className="list-disc">{cv}</li>
+            <li key={i} className="list-disc">
+              {cv}
+            </li>
           ))}
         </ul>
       )}

@@ -61,33 +61,33 @@ asyncio.run(main())
 
 `create_client()` / `create_async_client()` 接受字典配置:
 
-| 键 | 说明 | 默认值 |
-|---|---|---|
-| `apiKey` | API Key(必需,格式 `ihui_xxx`) | — |
-| `secret` | API Secret(可选) | — |
-| `baseUrl` | 基础 URL | `http://localhost:8802` |
-| `timeout` | 请求超时(秒) | `30` |
-| `maxRetries` | 最大重试次数(网络错误和 5xx 自动重试) | `2` |
+| 键           | 说明                                  | 默认值                  |
+| ------------ | ------------------------------------- | ----------------------- |
+| `apiKey`     | API Key(必需,格式 `ihui_xxx`)         | —                       |
+| `secret`     | API Secret(可选)                      | —                       |
+| `baseUrl`    | 基础 URL                              | `http://localhost:8802` |
+| `timeout`    | 请求超时(秒)                          | `30`                    |
+| `maxRetries` | 最大重试次数(网络错误和 5xx 自动重试) | `2`                     |
 
 同时接受 Python 风格(snake_case)键名: `api_key` / `base_url` / `max_retries`。
 
 ## 模块概览
 
-| 模块 | 属性名 | 端点数 | 说明 |
-|---|---|---|---|
-| AI 核心 | `.ai` | 13 | Chat Completions / Embeddings / Models / MoA |
-| Agent | `.agents` | 12 | 列表 / 调用 / 高级执行 / Pipeline / 并行 / 分解 |
-| 音频 | `.audio` | 8 | TTS / ASR / 语音对话 / 声纹 / 音乐 |
-| 图像 | `.images` | 6 | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| 视频 | `.videos` | 3 | 生成 / 任务查询 / 编排 |
-| 3D | `.threed` | 1 | 3D 模型生成 |
-| 生成队列 | `.generation` | 3 | 入队 / 状态查询 / 取消 |
-| 知识库 | `.knowledge` | 13 | 文档管理 / RAG 检索 / 知识图谱 |
-| 工具 | `.tools` | 16 | MCP 工具 / 资源 / 提示词 / 技能 / 人格 / 搜索 / 截图 |
-| 记忆 | `.memory` | 8 | 保存 / 召回 / 搜索 / Dream / 遗忘 / 分类记忆 |
-| 消息 | `.messages` | 4 | 发布 / 订阅 / 状态 |
-| 文件 | `.files` | 9 | 列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传 |
-| 用户 | `.user` | 9 | 用户信息 / 项目 / 工作流 / 用量统计 |
+| 模块     | 属性名        | 端点数 | 说明                                                 |
+| -------- | ------------- | ------ | ---------------------------------------------------- |
+| AI 核心  | `.ai`         | 13     | Chat Completions / Embeddings / Models / MoA         |
+| Agent    | `.agents`     | 12     | 列表 / 调用 / 高级执行 / Pipeline / 并行 / 分解      |
+| 音频     | `.audio`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐                   |
+| 图像     | `.images`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景    |
+| 视频     | `.videos`     | 3      | 生成 / 任务查询 / 编排                               |
+| 3D       | `.threed`     | 1      | 3D 模型生成                                          |
+| 生成队列 | `.generation` | 3      | 入队 / 状态查询 / 取消                               |
+| 知识库   | `.knowledge`  | 13     | 文档管理 / RAG 检索 / 知识图谱                       |
+| 工具     | `.tools`      | 16     | MCP 工具 / 资源 / 提示词 / 技能 / 人格 / 搜索 / 截图 |
+| 记忆     | `.memory`     | 8      | 保存 / 召回 / 搜索 / Dream / 遗忘 / 分类记忆         |
+| 消息     | `.messages`   | 4      | 发布 / 订阅 / 状态                                   |
+| 文件     | `.files`      | 9      | 列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传   |
+| 用户     | `.user`       | 9      | 用户信息 / 项目 / 工作流 / 用量统计                  |
 
 ## 详细用法
 

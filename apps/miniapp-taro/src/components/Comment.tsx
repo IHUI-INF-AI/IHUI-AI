@@ -43,7 +43,9 @@ export default function Comment({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{tt('comment.loading', '加载中...')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('comment.loading', '加载中...')}
+            </Text>
           </View>
         ) : comments.length === 0 ? (
           <EmptyState text={tt('comment.empty', '暂无评论,快来抢沙发')} />

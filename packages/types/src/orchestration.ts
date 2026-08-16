@@ -83,12 +83,7 @@ export interface EmitEventRequest {
 
 /** 编排决策状态 */
 export type DecisionStatus =
-  | 'pending'
-  | 'executing'
-  | 'completed'
-  | 'partially_failed'
-  | 'failed'
-  | 'skipped'
+  'pending' | 'executing' | 'completed' | 'partially_failed' | 'failed' | 'skipped'
 
 /** 编排决策 */
 export interface OrchestrationDecision {

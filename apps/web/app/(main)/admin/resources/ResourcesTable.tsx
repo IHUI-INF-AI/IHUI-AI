@@ -157,11 +157,7 @@ export function ResourcesTable({
                         </span>
                       </Tooltip>
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(res)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(res)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

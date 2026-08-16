@@ -6,13 +6,18 @@
 
 import * as React from 'react'
 import { Clock, Hash, Coins, History, Trash2, RotateCcw } from 'lucide-react'
-import { Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent, CodeBlock, Button } from '@ihui/ui-react'
-import { MarkdownViewer } from '@/components/media/MarkdownViewer'
 import {
-  generateCurlCode,
-  generateNodejsCode,
-  generatePythonCode,
-} from '@/lib/playground-api'
+  Card,
+  CardContent,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  CodeBlock,
+  Button,
+} from '@ihui/ui-react'
+import { MarkdownViewer } from '@/components/media/MarkdownViewer'
+import { generateCurlCode, generateNodejsCode, generatePythonCode } from '@/lib/playground-api'
 import type {
   CodeLanguage,
   PlaygroundHistoryItem,
@@ -56,7 +61,7 @@ export function ResponseViewer({
 }: ResponseViewerProps) {
   const [codeLang, setCodeLang] = React.useState<CodeLanguage>('curl')
 
-  const displayContent = isStreaming ? streamingContent : response?.content ?? ''
+  const displayContent = isStreaming ? streamingContent : (response?.content ?? '')
   const maskedKey = apiKey ? `${apiKey.slice(0, 6)}…${apiKey.slice(-4)}` : 'YOUR_API_KEY'
 
   const code = React.useMemo(() => {
@@ -71,8 +76,12 @@ export function ResponseViewer({
       <CardContent className="flex h-full flex-col p-4">
         <Tabs defaultValue="response" className="flex h-full flex-col">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="response" className="text-xs">响应</TabsTrigger>
-            <TabsTrigger value="code" className="text-xs">代码</TabsTrigger>
+            <TabsTrigger value="response" className="text-xs">
+              响应
+            </TabsTrigger>
+            <TabsTrigger value="code" className="text-xs">
+              代码
+            </TabsTrigger>
             <TabsTrigger value="history" className="text-xs">
               历史({history.length})
             </TabsTrigger>
@@ -100,9 +109,21 @@ export function ResponseViewer({
             {/* 统计信息 */}
             {response && !isStreaming && (
               <div className="mt-4 grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
-                <StatChip icon={<Hash className="h-3 w-3" />} label="prompt" value={String(response.promptTokens)} />
-                <StatChip icon={<Hash className="h-3 w-3" />} label="completion" value={String(response.completionTokens)} />
-                <StatChip icon={<Clock className="h-3 w-3" />} label="耗时" value={`${response.latencyMs}ms`} />
+                <StatChip
+                  icon={<Hash className="h-3 w-3" />}
+                  label="prompt"
+                  value={String(response.promptTokens)}
+                />
+                <StatChip
+                  icon={<Hash className="h-3 w-3" />}
+                  label="completion"
+                  value={String(response.completionTokens)}
+                />
+                <StatChip
+                  icon={<Clock className="h-3 w-3" />}
+                  label="耗时"
+                  value={`${response.latencyMs}ms`}
+                />
                 <StatChip
                   icon={<Coins className="h-3 w-3" />}
                   label="成本"
@@ -131,7 +152,12 @@ export function ResponseViewer({
               <p className="text-[11px] text-muted-foreground">
                 API Key 显示为 <code className="rounded bg-muted px-1 py-0.5">{maskedKey}</code>
               </p>
-              <CodeBlock code={code} language={codeLang === 'nodejs' ? 'javascript' : codeLang === 'python' ? 'python' : 'bash'} />
+              <CodeBlock
+                code={code}
+                language={
+                  codeLang === 'nodejs' ? 'javascript' : codeLang === 'python' ? 'python' : 'bash'
+                }
+              />
             </div>
           </TabsContent>
 
@@ -161,7 +187,9 @@ export function ResponseViewer({
                     className="space-y-1 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/50"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-medium">{item.params.model || '未知模型'}</span>
+                      <span className="truncate text-xs font-medium">
+                        {item.params.model || '未知模型'}
+                      </span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"

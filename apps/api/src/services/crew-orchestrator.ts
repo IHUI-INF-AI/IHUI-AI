@@ -138,7 +138,10 @@ class CrewOrchestrator {
   /** G7: 累计 LLM 调用 usage */
   private accUsage(
     sessionId: string,
-    r: { usage: { promptTokens: number; completionTokens: number; totalTokens: number }; modelUsed: string },
+    r: {
+      usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+      modelUsed: string
+    },
   ): void {
     const u = this._sessionUsage.get(sessionId)
     if (!u) return

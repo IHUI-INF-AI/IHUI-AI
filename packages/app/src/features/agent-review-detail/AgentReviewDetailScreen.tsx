@@ -89,7 +89,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 16 },
+    center: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      paddingHorizontal: 16,
+    },
     muted: { fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: { marginTop: 12 },

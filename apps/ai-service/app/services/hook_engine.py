@@ -338,21 +338,21 @@ class HookEngine:
         # 是否已从 Redis 加载配置(惰性,首次 emit 时触发)
         self._loaded = False
         # L5-9(2026-08-12):SSE 实时订阅器(单进程内存实现,event → [Queue])
-        self._subscribers: dict[str, list[asyncio.Queue]] = {}
+        self._subscribers: dict[str, list[asyncio.Queue[Any]]] = {}
 
     # ---------- L5-9 SSE 实时订阅器(2026-08-12 立) ----------
 
-    def subscribe(self, event: str) -> asyncio.Queue:
+    def subscribe(self, event: str) -> asyncio.Queue[Any]:
         """订阅事件,返回 Queue(SSE 端点消费)。
 
         单进程内存实现(多实例需换 Redis pub/sub)。emit() 时向订阅者
         广播 context 载荷,队列满时丢弃最旧(防慢消费者阻塞)。
         """
-        q: asyncio.Queue = asyncio.Queue(maxsize=500)
+        q: asyncio.Queue[Any] = asyncio.Queue(maxsize=500)
         self._subscribers.setdefault(event, []).append(q)
         return q
 
-    def unsubscribe(self, event: str, q: asyncio.Queue) -> None:
+    def unsubscribe(self, event: str, q: asyncio.Queue[Any]) -> None:
         """取消订阅(SSE 断开时清理)。"""
         subs = self._subscribers.get(event)
         if subs and q in subs:

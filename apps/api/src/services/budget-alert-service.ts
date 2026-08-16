@@ -20,61 +20,61 @@
  *    供前端展示 + 未来 i18n-loader 接入。
  */
 
-import { and, eq, gte, sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
-import { db } from '../db/index.js';
-import { aiBudgets, aiCostRecords, notifications, users } from '@ihui/database';
-import { sendEmail } from './email-service.js';
+import { and, eq, gte, sql } from 'drizzle-orm'
+import type { FastifyInstance } from 'fastify'
+import { db } from '../db/index.js'
+import { aiBudgets, aiCostRecords, notifications, users } from '@ihui/database'
+import { sendEmail } from './email-service.js'
 
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
 
 /** 告警阈值: 80% warning / 100% critical */
-const WARNING_THRESHOLD = 0.8;
-const CRITICAL_THRESHOLD = 1.0;
+const WARNING_THRESHOLD = 0.8
+const CRITICAL_THRESHOLD = 1.0
 
 /** cooldown 时长: 同一 user + severity 6 小时内不重复告警 */
-const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const COOLDOWN_MS = 6 * 60 * 60 * 1000
 
 /** notification.type 标识 */
-const ALERT_TYPE = 'BUDGET_ALERT';
+const ALERT_TYPE = 'BUDGET_ALERT'
 
 // ---------------------------------------------------------------------------
 // 类型定义
 // ---------------------------------------------------------------------------
 
-export type AlertSeverity = 'warning' | 'critical';
+export type AlertSeverity = 'warning' | 'critical'
 
 export interface BudgetAlertCheckResult {
-  scanned: number;
-  warningCount: number;
-  criticalCount: number;
-  errors: string[];
+  scanned: number
+  warningCount: number
+  criticalCount: number
+  errors: string[]
 }
 
 interface BudgetAggregate {
-  budgetId: string;
-  userId: string;
-  scopeKey: string;
-  dailyTokenLimit: number;
-  monthlyCostLimit: string; // numeric → string (drizzle 默认)
-  dailyTokens: number;
-  monthlyCost: string;
+  budgetId: string
+  userId: string
+  scopeKey: string
+  dailyTokenLimit: number
+  monthlyCostLimit: string // numeric → string (drizzle 默认)
+  dailyTokens: number
+  monthlyCost: string
 }
 
 interface AlertPayload {
-  severity: AlertSeverity;
-  userId: string;
-  budgetId: string;
-  dailyPercent: number;
-  monthlyPercent: number;
-  dailyUsed: number;
-  dailyLimit: number;
-  monthlyUsed: number;
-  monthlyLimit: number;
-  email: string | null;
-  nickname: string | null;
+  severity: AlertSeverity
+  userId: string
+  budgetId: string
+  dailyPercent: number
+  monthlyPercent: number
+  dailyUsed: number
+  dailyLimit: number
+  monthlyUsed: number
+  monthlyLimit: number
+  email: string | null
+  nickname: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -82,15 +82,15 @@ interface AlertPayload {
 // ---------------------------------------------------------------------------
 
 interface AlertTemplates {
-  subject: (severity: AlertSeverity) => string;
+  subject: (severity: AlertSeverity) => string
   body: (vars: {
-    dailyPercent: number;
-    monthlyPercent: number;
-    dailyUsed: number;
-    dailyLimit: number;
-    monthlyUsed: number;
-    monthlyLimit: number;
-  }) => string;
+    dailyPercent: number
+    monthlyPercent: number
+    dailyUsed: number
+    dailyLimit: number
+    monthlyUsed: number
+    monthlyLimit: number
+  }) => string
 }
 
 /**
@@ -107,39 +107,39 @@ const TEMPLATES_ZH_CN: AlertTemplates = {
     `• 今日 Token: ${dailyUsed} / ${dailyLimit} (${(dailyPercent * 100).toFixed(1)}%)\n` +
     `• 本月成本: $${monthlyUsed} / $${monthlyLimit} (${(monthlyPercent * 100).toFixed(1)}%)\n` +
     `请及时调整用量或联系管理员提升额度。`,
-};
+}
 
 // ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
 
 function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 function startOfMonth(): Date {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const d = new Date()
+  d.setDate(1)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 function toNumber(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0;
-  const n = typeof value === 'string' ? Number.parseFloat(value) : value;
-  return Number.isFinite(n) ? n : 0;
+  if (value === null || value === undefined) return 0
+  const n = typeof value === 'string' ? Number.parseFloat(value) : value
+  return Number.isFinite(n) ? n : 0
 }
 
 function severityFor(percent: number): AlertSeverity | null {
-  if (percent >= CRITICAL_THRESHOLD) return 'critical';
-  if (percent >= WARNING_THRESHOLD) return 'warning';
-  return null;
+  if (percent >= CRITICAL_THRESHOLD) return 'critical'
+  if (percent >= WARNING_THRESHOLD) return 'warning'
+  return null
 }
 
 function pickMaxPercent(daily: number, monthly: number): number {
-  return Math.max(daily, monthly);
+  return Math.max(daily, monthly)
 }
 
 // ---------------------------------------------------------------------------
@@ -155,65 +155,60 @@ function pickMaxPercent(daily: number, monthly: number): number {
  *   criticalCount - 新发出的 critical 告警数
  *   errors        - 单 budget 循环失败错误信息列表(整体不中断)
  */
-export async function checkBudgetAlerts(
-  server: FastifyInstance,
-): Promise<BudgetAlertCheckResult> {
+export async function checkBudgetAlerts(server: FastifyInstance): Promise<BudgetAlertCheckResult> {
   const result: BudgetAlertCheckResult = {
     scanned: 0,
     warningCount: 0,
     criticalCount: 0,
     errors: [],
-  };
+  }
 
   // 1. 拉取所有 user 维度预算
-  const budgets = await db
-    .select()
-    .from(aiBudgets)
-    .where(eq(aiBudgets.scope, 'user'));
+  const budgets = await db.select().from(aiBudgets).where(eq(aiBudgets.scope, 'user'))
 
   if (budgets.length === 0) {
-    return result;
+    return result
   }
-  result.scanned = budgets.length;
+  result.scanned = budgets.length
 
   // 2. 一次性聚合所有相关 user 的今日 token / 本月成本
-  const aggregates = await aggregateUsageForUsers(budgets.map((b) => b.scopeKey));
-  const aggregateMap = new Map(aggregates.map((a) => [a.userId, a]));
+  const aggregates = await aggregateUsageForUsers(budgets.map((b) => b.scopeKey))
+  const aggregateMap = new Map(aggregates.map((a) => [a.userId, a]))
 
   // 3. 逐个 budget 判断是否需要告警 + cooldown
   for (const budget of budgets) {
     try {
-      const agg = aggregateMap.get(budget.scopeKey);
-      if (!agg) continue;
+      const agg = aggregateMap.get(budget.scopeKey)
+      if (!agg) continue
 
-      const dailyTokens = toNumber(agg.dailyTokens);
-      const monthlyCost = toNumber(agg.monthlyCost);
-      const dailyLimit = budget.dailyTokenLimit;
-      const monthlyLimit = toNumber(budget.monthlyCostLimit);
+      const dailyTokens = toNumber(agg.dailyTokens)
+      const monthlyCost = toNumber(agg.monthlyCost)
+      const dailyLimit = budget.dailyTokenLimit
+      const monthlyLimit = toNumber(budget.monthlyCostLimit)
 
       // 防止除零: limit 为 0 直接跳过
-      if (dailyLimit <= 0 && monthlyLimit <= 0) continue;
+      if (dailyLimit <= 0 && monthlyLimit <= 0) continue
 
-      const dailyPercent = dailyLimit > 0 ? dailyTokens / dailyLimit : 0;
-      const monthlyPercent = monthlyLimit > 0 ? monthlyCost / monthlyLimit : 0;
-      const maxPercent = pickMaxPercent(dailyPercent, monthlyPercent);
+      const dailyPercent = dailyLimit > 0 ? dailyTokens / dailyLimit : 0
+      const monthlyPercent = monthlyLimit > 0 ? monthlyCost / monthlyLimit : 0
+      const maxPercent = pickMaxPercent(dailyPercent, monthlyPercent)
 
-      const severity = severityFor(maxPercent);
-      if (!severity) continue;
+      const severity = severityFor(maxPercent)
+      if (!severity) continue
 
       // 6h cooldown 检查(同 user + 同 severity 跳过)
-      const inCooldown = await isInCooldown(budget.scopeKey, severity);
-      if (inCooldown) continue;
+      const inCooldown = await isInCooldown(budget.scopeKey, severity)
+      if (inCooldown) continue
 
       // 取用户联系信息(简化分两次查, 避免和上面 LEFT JOIN 复杂化)
       const user = await db
         .select({ email: users.email, nickname: users.nickname })
         .from(users)
         .where(eq(users.id, budget.scopeKey))
-        .limit(1);
+        .limit(1)
 
-      const email = user[0]?.email ?? null;
-      const nickname = user[0]?.nickname ?? null;
+      const email = user[0]?.email ?? null
+      const nickname = user[0]?.nickname ?? null
 
       const payload: AlertPayload = {
         severity,
@@ -227,20 +222,20 @@ export async function checkBudgetAlerts(
         monthlyLimit,
         email,
         nickname,
-      };
+      }
 
-      await dispatchAlert(server, payload);
-      if (severity === 'critical') result.criticalCount += 1;
-      else result.warningCount += 1;
+      await dispatchAlert(server, payload)
+      if (severity === 'critical') result.criticalCount += 1
+      else result.warningCount += 1
     } catch (err) {
       result.errors.push(
         `budget=${budget.id} user=${budget.scopeKey}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      )
       // 单 budget 失败不影响整体
     }
   }
 
-  return result;
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -251,13 +246,11 @@ export async function checkBudgetAlerts(
  * 一次性聚合给定 users 的今日 token 用量 + 本月成本。
  * 使用 SQL 子查询替代 N+1, 性能: O(1) round trip。
  */
-async function aggregateUsageForUsers(
-  userIds: string[],
-): Promise<BudgetAggregate[]> {
-  if (userIds.length === 0) return [];
+async function aggregateUsageForUsers(userIds: string[]): Promise<BudgetAggregate[]> {
+  if (userIds.length === 0) return []
 
-  const todayStart = startOfToday();
-  const monthStart = startOfMonth();
+  const todayStart = startOfToday()
+  const monthStart = startOfMonth()
 
   // 单次 SQL 同时拉出 daily_tokens / monthly_cost
   // 字段来源: aiCostRecords.totalTokens (integer) + cost (numeric)
@@ -269,7 +262,7 @@ async function aggregateUsageForUsers(
     })
     .from(aiCostRecords)
     .where(inArrayUserIds(userIds))
-    .groupBy(aiCostRecords.userId);
+    .groupBy(aiCostRecords.userId)
 
   return rows.map((r) => ({
     budgetId: '',
@@ -279,7 +272,7 @@ async function aggregateUsageForUsers(
     monthlyCostLimit: '0',
     dailyTokens: r.dailyTokens,
     monthlyCost: r.monthlyCost,
-  }));
+  }))
 }
 
 /**
@@ -288,8 +281,11 @@ async function aggregateUsageForUsers(
 function inArrayUserIds(userIds: string[]) {
   return and(
     sql`${aiCostRecords.userId} IS NOT NULL`,
-    sql`${aiCostRecords.userId} IN (${sql.join(userIds.map((u) => sql`${u}`), sql`, `)})`,
-  );
+    sql`${aiCostRecords.userId} IN (${sql.join(
+      userIds.map((u) => sql`${u}`),
+      sql`, `,
+    )})`,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -305,7 +301,7 @@ function inArrayUserIds(userIds: string[]) {
  * 这里直接用 jsonb 路径匹配; 如 schema 漂移可降级用 title 模糊匹配。
  */
 async function isInCooldown(userId: string, severity: AlertSeverity): Promise<boolean> {
-  const cutoff = new Date(Date.now() - COOLDOWN_MS);
+  const cutoff = new Date(Date.now() - COOLDOWN_MS)
   try {
     const recent = await db
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -317,11 +313,11 @@ async function isInCooldown(userId: string, severity: AlertSeverity): Promise<bo
           gte(notifications.createdAt, cutoff),
           sql`${notifications.data}->>'severity' = ${severity}`,
         ),
-      );
-    return (recent[0]?.count ?? 0) > 0;
+      )
+    return (recent[0]?.count ?? 0) > 0
   } catch {
     // 降级: 不阻塞告警, 默认不在 cooldown
-    return false;
+    return false
   }
 }
 
@@ -335,8 +331,8 @@ async function isInCooldown(userId: string, severity: AlertSeverity): Promise<bo
  * 这里只需把 email 字段填好即可让 worker 触发 sendEmail。
  */
 async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Promise<void> {
-  const tpl = TEMPLATES_ZH_CN;
-  const title = tpl.subject(payload.severity);
+  const tpl = TEMPLATES_ZH_CN
+  const title = tpl.subject(payload.severity)
   const content = tpl.body({
     dailyPercent: payload.dailyPercent,
     monthlyPercent: payload.monthlyPercent,
@@ -344,7 +340,7 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
     dailyLimit: payload.dailyLimit,
     monthlyUsed: payload.monthlyUsed,
     monthlyLimit: payload.monthlyLimit,
-  });
+  })
 
   // 1. notificationQueue 入队(worker 自动 DB 落库 + WebSocket + 邮件)
   //    若队列不可用, 降级为同步 createNotification + sendEmail
@@ -354,7 +350,7 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
         add: (name: string, data: unknown) => Promise<unknown>
       }
     }
-  ).notificationQueue;
+  ).notificationQueue
 
   if (queue) {
     await queue.add('notification', {
@@ -373,7 +369,7 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
       },
       email: payload.email ?? undefined,
       userName: payload.nickname ?? payload.email ?? '',
-    });
+    })
   } else {
     // 降级: 同步插入 + 邮件
     await db.insert(notifications).values({
@@ -386,7 +382,7 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
         dailyPercent: payload.dailyPercent,
         monthlyPercent: payload.monthlyPercent,
       },
-    });
+    })
     if (payload.email) {
       try {
         await sendEmail({
@@ -394,12 +390,9 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
           subject: title,
           html: `<h2>${title}</h2><pre>${content}</pre>`,
           text: content,
-        });
+        })
       } catch (err) {
-        server.log.warn(
-          { err, userId: payload.userId },
-          'budget alert email fallback failed',
-        );
+        server.log.warn({ err, userId: payload.userId }, 'budget alert email fallback failed')
       }
     }
   }
@@ -412,5 +405,5 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
       monthlyPercent: payload.monthlyPercent,
     },
     'budget alert dispatched',
-  );
+  )
 }

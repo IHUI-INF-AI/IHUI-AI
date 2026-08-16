@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, integer, timestamp, text } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, integer, timestamp, text } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 工作空间项目表。
@@ -15,7 +15,7 @@ export const projects = pgTable('projects', {
   status: integer('status').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 项目成员表。
@@ -31,9 +31,9 @@ export const projectMembers = pgTable('project_members', {
     .notNull(),
   role: varchar('role', { length: 32 }).default('member').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Project = typeof projects.$inferSelect;
-export type NewProject = typeof projects.$inferInsert;
-export type ProjectMember = typeof projectMembers.$inferSelect;
-export type NewProjectMember = typeof projectMembers.$inferInsert;
+export type Project = typeof projects.$inferSelect
+export type NewProject = typeof projects.$inferInsert
+export type ProjectMember = typeof projectMembers.$inferSelect
+export type NewProjectMember = typeof projectMembers.$inferInsert

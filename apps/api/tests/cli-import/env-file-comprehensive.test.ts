@@ -64,7 +64,9 @@ describe('env-file 全参数综合测试', () => {
     it('Azure OpenAI: 无默认 baseUrl → 需显式提供或 warning', async () => {
       // 有显式 baseUrl
       const res1 = await parseEnvFile(
-        makeText('AZURE_OPENAI_API_KEY=sk-azure\nAZURE_OPENAI_BASE_URL=https://myorg.openai.azure.com'),
+        makeText(
+          'AZURE_OPENAI_API_KEY=sk-azure\nAZURE_OPENAI_BASE_URL=https://myorg.openai.azure.com',
+        ),
       )
       expect(res1.providers).toHaveLength(1)
       expect(res1.providers[0]!.providerCode).toBe('azure')
@@ -156,9 +158,7 @@ describe('env-file 全参数综合测试', () => {
   // ===========================================================================
   describe('变量后缀组合', () => {
     it('_MODEL 后缀: modelIdForTest 正确读取', async () => {
-      const res = await parseEnvFile(
-        makeText('OPENAI_API_KEY=sk-x\nOPENAI_MODEL=gpt-4o'),
-      )
+      const res = await parseEnvFile(makeText('OPENAI_API_KEY=sk-x\nOPENAI_MODEL=gpt-4o'))
       expect(res.providers[0]!.modelIdForTest).toBe('gpt-4o')
       expect(res.providers[0]!.meta?.models).toEqual(['gpt-4o'])
     })
@@ -260,25 +260,19 @@ describe('env-file 全参数综合测试', () => {
     })
 
     it('重复 key: 后者覆盖前者', async () => {
-      const res = await parseEnvFile(
-        makeText('OPENAI_API_KEY=sk-first\nOPENAI_API_KEY=sk-second'),
-      )
+      const res = await parseEnvFile(makeText('OPENAI_API_KEY=sk-first\nOPENAI_API_KEY=sk-second'))
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.apiKey).toBe('sk-second')
     })
 
     it('只有注释和空行 → warning', async () => {
-      const res = await parseEnvFile(
-        makeText('# comment line\n\n   \n# another comment'),
-      )
+      const res = await parseEnvFile(makeText('# comment line\n\n   \n# another comment'))
       expect(res.providers).toHaveLength(0)
       expect(res.globalWarnings.length).toBeGreaterThan(0)
     })
 
     it('注释行 # 不在行首(带前导空格)也被忽略', async () => {
-      const res = await parseEnvFile(
-        makeText('   # indented comment\nOPENAI_API_KEY=sk-x'),
-      )
+      const res = await parseEnvFile(makeText('   # indented comment\nOPENAI_API_KEY=sk-x'))
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.apiKey).toBe('sk-x')
     })
@@ -289,9 +283,7 @@ describe('env-file 全参数综合测试', () => {
     })
 
     it('只有 BASE_URL 无 API_KEY → 不创建 provider', async () => {
-      const res = await parseEnvFile(
-        makeText('OPENAI_BASE_URL=https://api.openai.com/v1'),
-      )
+      const res = await parseEnvFile(makeText('OPENAI_BASE_URL=https://api.openai.com/v1'))
       expect(res.providers).toHaveLength(0)
       expect(res.globalWarnings.length).toBeGreaterThan(0)
     })
@@ -364,11 +356,9 @@ describe('env-file 全参数综合测试', () => {
   // ===========================================================================
   describe('isCurrent 逻辑', () => {
     it('第一个 provider isCurrent=true,其余 false', async () => {
-      const env = [
-        'OPENAI_API_KEY=sk-1',
-        'ANTHROPIC_API_KEY=sk-2',
-        'DEEPSEEK_API_KEY=sk-3',
-      ].join('\n')
+      const env = ['OPENAI_API_KEY=sk-1', 'ANTHROPIC_API_KEY=sk-2', 'DEEPSEEK_API_KEY=sk-3'].join(
+        '\n',
+      )
       const res = await parseEnvFile(makeText(env))
       expect(res.providers).toHaveLength(3)
       expect(res.providers[0]!.isCurrent).toBe(true)
@@ -377,9 +367,7 @@ describe('env-file 全参数综合测试', () => {
     })
 
     it('自定义前缀作为首个 provider 时 isCurrent=true', async () => {
-      const res = await parseEnvFile(
-        makeText('CUSTOM_API_KEY=sk-x\nCUSTOM_BASE_URL=https://x.com'),
-      )
+      const res = await parseEnvFile(makeText('CUSTOM_API_KEY=sk-x\nCUSTOM_BASE_URL=https://x.com'))
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.isCurrent).toBe(true)
     })
@@ -390,9 +378,7 @@ describe('env-file 全参数综合测试', () => {
   // ===========================================================================
   describe('别名前缀优先级', () => {
     it('GEMINI_ 和 GOOGLE_ 同时存在: 只创建一个 google provider(去重)', async () => {
-      const res = await parseEnvFile(
-        makeText('GEMINI_API_KEY=AIza-1\nGOOGLE_API_KEY=AIza-2'),
-      )
+      const res = await parseEnvFile(makeText('GEMINI_API_KEY=AIza-1\nGOOGLE_API_KEY=AIza-2'))
       // PROVIDER_SPECS 中 GEMINI 在前,先匹配 GEMINI_API_KEY
       // 但 GOOGLE_ 也匹配同一 spec,pickByPrefixes 返回第一个匹配
       // spec.prefixes = ['GEMINI', 'GOOGLE'],先查 GEMINI_API_KEY
@@ -403,18 +389,14 @@ describe('env-file 全参数综合测试', () => {
     })
 
     it('ZHIPU_ 和 GLM_ 同时存在: 只创建一个 zhipu provider', async () => {
-      const res = await parseEnvFile(
-        makeText('ZHIPU_API_KEY=sk-1\nGLM_API_KEY=sk-2'),
-      )
+      const res = await parseEnvFile(makeText('ZHIPU_API_KEY=sk-1\nGLM_API_KEY=sk-2'))
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.providerCode).toBe('zhipu')
       expect(res.providers[0]!.apiKey).toBe('sk-1')
     })
 
     it('BAIDU_ 和 QIANFAN_ 同时存在: 只创建一个 baidu provider', async () => {
-      const res = await parseEnvFile(
-        makeText('BAIDU_API_KEY=sk-1\nQIANFAN_API_KEY=sk-2'),
-      )
+      const res = await parseEnvFile(makeText('BAIDU_API_KEY=sk-1\nQIANFAN_API_KEY=sk-2'))
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.providerCode).toBe('baidu')
       expect(res.providers[0]!.apiKey).toBe('sk-1')

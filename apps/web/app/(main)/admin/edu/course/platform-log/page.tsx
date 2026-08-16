@@ -49,7 +49,10 @@ export default function EduCoursePlatformLogPage() {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : eduApi(`/api/admin/zhs-legacy/platform-logs`, { method: 'POST', body: JSON.stringify(body) })
+        : eduApi(`/api/admin/zhs-legacy/platform-logs`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+          })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))

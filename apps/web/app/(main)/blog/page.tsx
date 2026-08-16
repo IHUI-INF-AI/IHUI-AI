@@ -11,8 +11,7 @@ import { BackButton } from '@/components/common'
 
 export const metadata: Metadata = {
   title: '技术博客',
-  description:
-    'IHUI AI 团队分享 AI Agent / LLM / RAG / MCP / 多端架构 / 开源商业化等深度技术文章',
+  description: 'IHUI AI 团队分享 AI Agent / LLM / RAG / MCP / 多端架构 / 开源商业化等深度技术文章',
 }
 
 export default async function BlogIndexPage() {
@@ -33,12 +32,12 @@ export default async function BlogIndexPage() {
       <header className="space-y-3 text-center min-[768px]:text-left">
         <div className="flex items-center justify-center gap-2 min-[768px]:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+            {t('title')}
+          </h1>
         </div>
         <p className="text-base text-muted-foreground min-[768px]:text-lg">{t('subtitle')}</p>
-        <p className="text-xs text-muted-foreground">
-          {t('stats', { count: posts.length })}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('stats', { count: posts.length })}</p>
       </header>
 
       {categories.length > 0 && (
@@ -57,9 +56,7 @@ export default async function BlogIndexPage() {
 
       {posts.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            {t('empty')}
-          </CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">{t('empty')}</CardContent>
         </Card>
       ) : (
         <ul className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">

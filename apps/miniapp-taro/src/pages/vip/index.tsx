@@ -34,18 +34,59 @@ export default function VipIndexPage() {
   const { t } = useI18n()
   const tt = useTt()
 
-  const defaultPlans = useMemo<PriceOption[]>(() => [
-    { id: 'monthly', name: tt('vip.plan.monthly', '月度会员'), price: 30, period: tt('vip.plan.monthlyPeriod', '30天') },
-    { id: 'quarterly', name: tt('vip.plan.quarterly', '季度会员'), price: 88, period: tt('vip.plan.quarterlyPeriod', '90天') },
-    { id: 'yearly', name: tt('vip.plan.yearly', '年度会员'), price: 299, period: tt('vip.plan.yearlyPeriod', '365天') },
-  ], [tt])
+  const defaultPlans = useMemo<PriceOption[]>(
+    () => [
+      {
+        id: 'monthly',
+        name: tt('vip.plan.monthly', '月度会员'),
+        price: 30,
+        period: tt('vip.plan.monthlyPeriod', '30天'),
+      },
+      {
+        id: 'quarterly',
+        name: tt('vip.plan.quarterly', '季度会员'),
+        price: 88,
+        period: tt('vip.plan.quarterlyPeriod', '90天'),
+      },
+      {
+        id: 'yearly',
+        name: tt('vip.plan.yearly', '年度会员'),
+        price: 299,
+        period: tt('vip.plan.yearlyPeriod', '365天'),
+      },
+    ],
+    [tt],
+  )
 
-  const features = useMemo<ReadonlyArray<VipFeature>>(() => [
-    { id: 'ai_copywriting', icon: '✍️', title: tt('vip.feature.aiCopywriting', 'AI营销文案'), desc: tt('vip.feature.aiCopywritingDesc', '智能生成各类营销文案') },
-    { id: 'ai_chat', icon: '💬', title: tt('vip.feature.aiChat', 'AI智能对话'), desc: tt('vip.feature.aiChatDesc', '智能助手解答各类问题') },
-    { id: 'ai_analysis', icon: '📊', title: tt('vip.feature.aiAnalysis', 'AI数据分析'), desc: tt('vip.feature.aiAnalysisDesc', '智能分析各类数据报表') },
-    { id: 'ai_design', icon: '🎨', title: tt('vip.feature.aiDesign', 'AI智能设计'), desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计') },
-  ], [tt])
+  const features = useMemo<ReadonlyArray<VipFeature>>(
+    () => [
+      {
+        id: 'ai_copywriting',
+        icon: '✍️',
+        title: tt('vip.feature.aiCopywriting', 'AI营销文案'),
+        desc: tt('vip.feature.aiCopywritingDesc', '智能生成各类营销文案'),
+      },
+      {
+        id: 'ai_chat',
+        icon: '💬',
+        title: tt('vip.feature.aiChat', 'AI智能对话'),
+        desc: tt('vip.feature.aiChatDesc', '智能助手解答各类问题'),
+      },
+      {
+        id: 'ai_analysis',
+        icon: '📊',
+        title: tt('vip.feature.aiAnalysis', 'AI数据分析'),
+        desc: tt('vip.feature.aiAnalysisDesc', '智能分析各类数据报表'),
+      },
+      {
+        id: 'ai_design',
+        icon: '🎨',
+        title: tt('vip.feature.aiDesign', 'AI智能设计'),
+        desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计'),
+      },
+    ],
+    [tt],
+  )
 
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
@@ -63,30 +104,33 @@ export default function VipIndexPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [noticeAgreed, setNoticeAgreed] = useState(false)
 
-  const dispatchVipPay = useCallback((payInfo: VipPayInfo, orderNo: string, amount: number, planName: string) => {
-    const successUrl = `/pages/vip/success?orderNo=${orderNo}&amount=${amount}&planName=${encodeURIComponent(planName)}`
-    if (
-      payInfo.method === 'jsapi' &&
-      payInfo.timeStamp &&
-      payInfo.nonceStr &&
-      payInfo.package &&
-      payInfo.signType &&
-      payInfo.paySign
-    ) {
-      requestWxPayment(payInfo as AnyPayParams)
-        .then(() => Taro.redirectTo({ url: successUrl }))
-        .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
-      return
-    }
-    if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
-      window.location.href = payInfo.h5Url
-      return
-    }
-    if (payInfo.mock && payInfo.error) {
-      Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
-    }
-    Taro.redirectTo({ url: successUrl })
-  }, [t])
+  const dispatchVipPay = useCallback(
+    (payInfo: VipPayInfo, orderNo: string, amount: number, planName: string) => {
+      const successUrl = `/pages/vip/success?orderNo=${orderNo}&amount=${amount}&planName=${encodeURIComponent(planName)}`
+      if (
+        payInfo.method === 'jsapi' &&
+        payInfo.timeStamp &&
+        payInfo.nonceStr &&
+        payInfo.package &&
+        payInfo.signType &&
+        payInfo.paySign
+      ) {
+        requestWxPayment(payInfo as AnyPayParams)
+          .then(() => Taro.redirectTo({ url: successUrl }))
+          .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+        return
+      }
+      if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
+        window.location.href = payInfo.h5Url
+        return
+      }
+      if (payInfo.mock && payInfo.error) {
+        Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
+      }
+      Taro.redirectTo({ url: successUrl })
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
     Taro.showLoading({ title: t('common.loading'), mask: true })
@@ -206,7 +250,9 @@ export default function VipIndexPage() {
       {/* 状态行:等级 + 等级介绍入口 */}
       <View className="status-bar">
         <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
-        <Text className="intro-link" onClick={onIntroduceClick}>{t('vip.index.introduce')}</Text>
+        <Text className="intro-link" onClick={onIntroduceClick}>
+          {t('vip.index.introduce')}
+        </Text>
       </View>
       {info.expireTime ? (
         <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
@@ -266,7 +312,9 @@ export default function VipIndexPage() {
             <Text className="number">{currentPrice}</Text>
           </View>
         </View>
-        <Button className="buy-btn" onClick={onUpgradeClick}>{t('vip.subscribe')}</Button>
+        <Button className="buy-btn" onClick={onUpgradeClick}>
+          {t('vip.subscribe')}
+        </Button>
       </View>
 
       <VipBenefitsPopup
@@ -298,7 +346,9 @@ export default function VipIndexPage() {
             <View className="pp-body">
               <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
             </View>
-            <Button className="pp-btn" onClick={onIntroduceSubscribe}>{t('vip.subscribe')}</Button>
+            <Button className="pp-btn" onClick={onIntroduceSubscribe}>
+              {t('vip.subscribe')}
+            </Button>
           </View>
         </View>
       ) : null}
@@ -339,7 +389,9 @@ export default function VipIndexPage() {
                 <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
               </View>
             </View>
-            <Button className="pp-btn" onClick={onNoticeAgree}>{t('vip.index.continuePay')}</Button>
+            <Button className="pp-btn" onClick={onNoticeAgree}>
+              {t('vip.index.continuePay')}
+            </Button>
           </View>
         </View>
       ) : null}
@@ -367,7 +419,9 @@ export default function VipIndexPage() {
                 <Text className="pp-pay-check">{payMethod === 'alipay' ? '✓' : ''}</Text>
               </View>
             </View>
-            <Button className="pp-btn" onClick={onPayMethodConfirm}>{t('vip.index.confirmPay')}</Button>
+            <Button className="pp-btn" onClick={onPayMethodConfirm}>
+              {t('vip.index.confirmPay')}
+            </Button>
           </View>
         </View>
       ) : null}
@@ -381,7 +435,9 @@ export default function VipIndexPage() {
             <View className="pp-body">
               <Text className="pp-text">{t('vip.index.successDesc')}</Text>
             </View>
-            <Button className="pp-btn" onClick={onSuccessViewBenefits}>{t('vip.index.viewBenefits')}</Button>
+            <Button className="pp-btn" onClick={onSuccessViewBenefits}>
+              {t('vip.index.viewBenefits')}
+            </Button>
           </View>
         </View>
       ) : null}

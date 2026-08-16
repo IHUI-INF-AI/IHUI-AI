@@ -14,7 +14,10 @@ function mockMatchMedia(matches: boolean) {
       if (i >= 0) listeners.splice(i, 1)
     },
   }
-  vi.stubGlobal('matchMedia', vi.fn(() => mql))
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => mql),
+  )
   return { mql, listeners }
 }
 

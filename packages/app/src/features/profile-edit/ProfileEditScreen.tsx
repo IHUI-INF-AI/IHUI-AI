@@ -77,7 +77,11 @@ export function ProfileEditScreen({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 14, gap: 12 }} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: 14, gap: 12 }}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={styles.backText}>{t('common.back')}</Text>
@@ -202,14 +206,21 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.muted },
     centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 8 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+    },
     backBtn: { marginRight: 12 },
     backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light },
     avatarFallback: {
-      width: 48, height: 48, borderRadius: 24,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',

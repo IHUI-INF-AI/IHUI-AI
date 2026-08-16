@@ -220,17 +220,21 @@ describe('payment gateway routes', () => {
     mockIsWechatPayConfigured.mockReturnValue(false)
     mockIsAlipayConfigured.mockReturnValue(false)
     // 重置 idempotency 默认值
-    ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 'new' })
+    ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: 'new',
+    })
     ;(app.paymentIdempotency.complete as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     ;(app.paymentIdempotency.fail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
   })
 
   function authAs(userId = 'user-001', roleId = 0) {
-    mockAuthenticate.mockImplementation((request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
-      request.userId = userId
-      request.jwtPayload = { userId, roleId }
-      return Promise.resolve(request.jwtPayload)
-    })
+    mockAuthenticate.mockImplementation(
+      (request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
+        request.userId = userId
+        request.jwtPayload = { userId, roleId }
+        return Promise.resolve(request.jwtPayload)
+      },
+    )
   }
 
   function authAsAdmin(userId = 'admin-001') {
@@ -506,7 +510,9 @@ describe('payment gateway routes', () => {
     it('paid 订单退款成功返回 200', async () => {
       authAs()
       mockIsWechatPayConfigured.mockReturnValue(true)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
+      )
       mockWxRefund.mockResolvedValueOnce(undefined)
       mockRefundOrder.mockResolvedValueOnce({ success: true })
       const res = await app.inject({

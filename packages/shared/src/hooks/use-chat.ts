@@ -219,7 +219,11 @@ export interface UseChatReturn<TMessage extends ChatMessage = ChatMessage> {
 export function useChat<TMessage extends ChatMessage = ChatMessage>(
   options: UseChatOptions,
 ): UseChatReturn<TMessage> {
-  const { streamRunner, formatError = (err) => String(err), clearAssistantOnError = false } = options
+  const {
+    streamRunner,
+    formatError = (err) => String(err),
+    clearAssistantOnError = false,
+  } = options
 
   const [messages, setMessages] = React.useState<TMessage[]>([])
   const [isStreaming, setIsStreaming] = React.useState(false)

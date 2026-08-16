@@ -59,9 +59,7 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">{it.label}</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {isLoading ? '—' : it.value}
-                </p>
+                <p className="text-2xl font-semibold tabular-nums">{isLoading ? '—' : it.value}</p>
               </div>
               <Icon className={`h-5 w-5 ${it.iconClass}`} />
             </div>

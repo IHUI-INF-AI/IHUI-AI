@@ -46,7 +46,9 @@ export default function UserMessages({
           className="block w-full px-4 py-3 text-left hover:bg-muted/50"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className={cn('min-w-0 flex-1 truncate text-sm', !m.read && 'font-medium')}>{m.title}</span>
+            <span className={cn('min-w-0 flex-1 truncate text-sm', !m.read && 'font-medium')}>
+              {m.title}
+            </span>
             {m.createdAt && (
               <span className="shrink-0 text-xs text-muted-foreground">{m.createdAt}</span>
             )}

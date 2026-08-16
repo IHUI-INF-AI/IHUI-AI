@@ -11,15 +11,15 @@
  * 3. 通知消息: 保留 30 天，超期已读消息删除
  */
 
-import { and, lt, eq } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { auditLogs, messages, notifications } from '@ihui/database';
+import { and, lt, eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { auditLogs, messages, notifications } from '@ihui/database'
 
 export interface ArchiveResult {
-  auditLogsArchived: number;
-  messagesArchived: number;
-  notificationsArchived: number;
-  errors: string[];
+  auditLogsArchived: number
+  messagesArchived: number
+  notificationsArchived: number
+  errors: string[]
 }
 
 /**
@@ -28,27 +28,27 @@ export interface ArchiveResult {
  * 归档前数据已被 OTel/ELK/Grafana 消费，无需单独归档表。
  */
 export async function archiveDailyData(): Promise<ArchiveResult> {
-  const errors: string[] = [];
-  const now = new Date();
+  const errors: string[] = []
+  const now = new Date()
 
   // 阈值计算
-  const auditThreshold = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); // 90 天前
-  const messageThreshold = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000); // 180 天前
-  const notifThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 天前
+  const auditThreshold = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) // 90 天前
+  const messageThreshold = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000) // 180 天前
+  const notifThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 天前
 
-  let auditLogsArchived = 0;
-  let messagesArchived = 0;
-  let notificationsArchived = 0;
+  let auditLogsArchived = 0
+  let messagesArchived = 0
+  let notificationsArchived = 0
 
   try {
     // 归档 audit_logs（90 天前）
     const auditResult = await db
       .delete(auditLogs)
       .where(lt(auditLogs.createdAt, auditThreshold))
-      .returning({ id: auditLogs.id });
-    auditLogsArchived = auditResult.length;
+      .returning({ id: auditLogs.id })
+    auditLogsArchived = auditResult.length
   } catch (err) {
-    errors.push(`audit_logs archive failed: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`audit_logs archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   try {
@@ -56,26 +56,21 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     const msgResult = await db
       .delete(messages)
       .where(lt(messages.createdAt, messageThreshold))
-      .returning({ id: messages.id });
-    messagesArchived = msgResult.length;
+      .returning({ id: messages.id })
+    messagesArchived = msgResult.length
   } catch (err) {
-    errors.push(`messages archive failed: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`messages archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   try {
     // 归档已读通知（30 天前，仅删除已读的）
     const notifResult = await db
       .delete(notifications)
-      .where(
-        and(
-          lt(notifications.createdAt, notifThreshold),
-          eq(notifications.isRead, true),
-        ),
-      )
-      .returning({ id: notifications.id });
-    notificationsArchived = notifResult.length;
+      .where(and(lt(notifications.createdAt, notifThreshold), eq(notifications.isRead, true)))
+      .returning({ id: notifications.id })
+    notificationsArchived = notifResult.length
   } catch (err) {
-    errors.push(`notifications archive failed: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`notifications archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   return {
@@ -83,5 +78,5 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     messagesArchived,
     notificationsArchived,
     errors,
-  };
+  }
 }

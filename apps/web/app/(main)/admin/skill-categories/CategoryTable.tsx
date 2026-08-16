@@ -52,7 +52,9 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
 
   function renderIcon(iconName: string | null | undefined) {
     const name = iconName ?? 'Tag'
-    const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[name]
+    const Icon = (
+      LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>
+    )[name]
     if (!Icon) return <Tag className="h-3.5 w-3.5" />
     return <Icon className="h-3.5 w-3.5" />
   }

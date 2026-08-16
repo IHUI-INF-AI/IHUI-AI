@@ -45,14 +45,22 @@ export function MenuTable({
       key: 'icon',
       title: t('colIcon'),
       render: (m) => (
-        <TruncatedText value={m.icon || '-'} className="max-w-[200px] font-mono text-xs text-muted-foreground" mono />
+        <TruncatedText
+          value={m.icon || '-'}
+          className="max-w-[200px] font-mono text-xs text-muted-foreground"
+          mono
+        />
       ),
     },
     {
       key: 'path',
       title: t('colPath'),
       render: (m) => (
-        <TruncatedText value={m.path || '-'} className="max-w-[200px] font-mono text-xs text-muted-foreground" mono />
+        <TruncatedText
+          value={m.path || '-'}
+          className="max-w-[200px] font-mono text-xs text-muted-foreground"
+          mono
+        />
       ),
     },
     {

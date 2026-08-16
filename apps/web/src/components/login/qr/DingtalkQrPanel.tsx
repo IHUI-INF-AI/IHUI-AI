@@ -20,7 +20,9 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const containerId = React.useId().replace(/[:]/g, '')
   const frameRef = React.useRef<DingtalkFrameInstance | null>(null)
-  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>('loading')
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>(
+    'loading',
+  )
   const [errorMsg, setErrorMsg] = React.useState('')
 
   React.useEffect(() => {

@@ -2,13 +2,7 @@
 
 import * as React from 'react'
 import { X } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Button,
-} from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 import { computeDiff } from './helpers'
 import type { SkillVersion, DiffLine } from './types'
 
@@ -19,7 +13,12 @@ interface VersionDiffDialogProps {
   newVersion: SkillVersion | null
 }
 
-export function VersionDiffDialog({ open, onClose, oldVersion, newVersion }: VersionDiffDialogProps) {
+export function VersionDiffDialog({
+  open,
+  onClose,
+  oldVersion,
+  newVersion,
+}: VersionDiffDialogProps) {
   const diffLines = React.useMemo<DiffLine[]>(() => {
     if (!oldVersion || !newVersion) return []
     return computeDiff(oldVersion.content ?? '', newVersion.content ?? '')
@@ -28,18 +27,16 @@ export function VersionDiffDialog({ open, onClose, oldVersion, newVersion }: Ver
   if (!oldVersion || !newVersion) return null
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
+    >
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>
-            版本对比: {oldVersion.name}
-          </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4"
-            onClick={onClose}
-          >
+          <DialogTitle>版本对比: {oldVersion.name}</DialogTitle>
+          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>

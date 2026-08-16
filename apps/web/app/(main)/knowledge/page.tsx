@@ -41,9 +41,7 @@ export default function KnowledgePage() {
         <Brain className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold">知识库</h1>
       </div>
-      <p className="text-sm text-muted-foreground">
-        通过语义搜索检索记忆库中的知识内容
-      </p>
+      <p className="text-sm text-muted-foreground">通过语义搜索检索记忆库中的知识内容</p>
 
       {!searched ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">

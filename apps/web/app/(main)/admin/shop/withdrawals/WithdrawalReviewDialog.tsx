@@ -52,7 +52,8 @@ export function WithdrawalReviewDialog(props: Props) {
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="font-medium">{reviewForm.user ?? reviewForm.userName ?? '-'}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                ¥{(reviewForm.amount / 100).toFixed(2)} · {t(CHANNEL_LABEL[reviewForm.channel] ?? '')}
+                ¥{(reviewForm.amount / 100).toFixed(2)} ·{' '}
+                {t(CHANNEL_LABEL[reviewForm.channel] ?? '')}
               </div>
             </div>
             <div className="space-y-2">
@@ -90,7 +91,11 @@ export function WithdrawalReviewDialog(props: Props) {
           >
             <span className="whitespace-nowrap">{t('withdrawals.review.return')}</span>
           </Button>
-          <Button disabled={reviewMut.isPending} onClick={() => submitReview('approve')} className="shrink-0">
+          <Button
+            disabled={reviewMut.isPending}
+            onClick={() => submitReview('approve')}
+            className="shrink-0"
+          >
             {reviewMut.isPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
             <span className="whitespace-nowrap">{t('withdrawals.review.approve')}</span>
           </Button>

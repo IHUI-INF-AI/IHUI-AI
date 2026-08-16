@@ -46,6 +46,7 @@ export const chatMessages = pgTable('chat_messages', {
   tokens: integer('tokens'),
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  reasoning: text('reasoning'),
 })
 
 /**

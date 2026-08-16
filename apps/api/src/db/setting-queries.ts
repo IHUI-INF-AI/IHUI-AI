@@ -276,7 +276,10 @@ export async function importEduSettings(
     const conds = validPairs.map((p) =>
       and(eq(eduSettings.group, p.group), eq(eduSettings.key, p.key)),
     )
-    const existingList = await db.select().from(eduSettings).where(or(...conds))
+    const existingList = await db
+      .select()
+      .from(eduSettings)
+      .where(or(...conds))
     for (const e of existingList) {
       const decrypted = decryptSettingCredentials(e)
       if (decrypted) existingMap.set(`${e.group}:${e.key}`, decrypted)

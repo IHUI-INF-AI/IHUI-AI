@@ -13,10 +13,7 @@
  * 否则 `'window' in` 仍返回 true。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  createLocalStorageTransport,
-  createSSRSafeWebTransport,
-} from '../storage-adapter'
+import { createLocalStorageTransport, createSSRSafeWebTransport } from '../storage-adapter'
 
 describe('storage-adapter', () => {
   beforeEach(() => {

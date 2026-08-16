@@ -136,7 +136,11 @@ describe('createChromeStorageTransport 边界值', () => {
     await t.setItem('json', json)
     expect(await t.getItem('json')).toBe(json)
     // 反向 parse 验证完整性
-    expect(JSON.parse((await t.getItem('json')) as string)).toEqual({ a: 1, b: [2, 3], c: { d: 'x' } })
+    expect(JSON.parse((await t.getItem('json')) as string)).toEqual({
+      a: 1,
+      b: [2, 3],
+      c: { d: 'x' },
+    })
   })
 })
 

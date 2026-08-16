@@ -13,9 +13,7 @@ import { pgTable, varchar, numeric, timestamp } from 'drizzle-orm/pg-core'
 export const userTokenBalance = pgTable('user_token_balance', {
   userUuid: varchar('user_uuid', { length: 64 }).primaryKey(),
   balance: numeric('balance', { precision: 20, scale: 4 }).default('0').notNull(),
-  frozenBalance: numeric('frozen_balance', { precision: 20, scale: 4 })
-    .default('0')
-    .notNull(),
+  frozenBalance: numeric('frozen_balance', { precision: 20, scale: 4 }).default('0').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

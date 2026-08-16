@@ -97,7 +97,9 @@ export function ContactContent({
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('badge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('title')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('subtitle')}
         </p>

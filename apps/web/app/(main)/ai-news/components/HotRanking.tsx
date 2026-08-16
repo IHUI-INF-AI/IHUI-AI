@@ -6,7 +6,15 @@ import { Flame, ExternalLink } from 'lucide-react'
 import { EmptyState } from './EmptyState'
 
 interface Props {
-  items: Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; currentRank: number | null; url: string | null; llmCategory: string | null }>
+  items: Array<{
+    id: string
+    title: string
+    sourceCode: string
+    currentHot: number | null
+    currentRank: number | null
+    url: string | null
+    llmCategory: string | null
+  }>
   sources: Array<{ sourceCode: string; sourceName: string; color: string | null }>
 }
 
@@ -55,7 +63,9 @@ export function HotRanking({ items, sources }: Props) {
       <div className="flex items-center gap-2 bg-orange-500/5 px-5 py-3">
         <Flame className="h-4 w-4 text-orange-500" />
         <h2 className="text-sm font-semibold">{t('hotRanking.title')}</h2>
-        <span className="ml-auto text-[10px] text-muted-foreground">{t('hotRanking.subtitle')}</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {t('hotRanking.subtitle')}
+        </span>
       </div>
       <div className="flex flex-col gap-px bg-muted/30">
         {items.map((it, idx) => {
@@ -71,7 +81,9 @@ export function HotRanking({ items, sources }: Props) {
               rel={it.url ? 'noopener noreferrer' : undefined}
               className="group flex items-center gap-3 bg-card px-5 py-2.5 transition duration-200 hover:bg-accent/40 hover:-translate-y-0.5"
             >
-              <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${rankColor(idx)}`}>
+              <span
+                className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${rankColor(idx)}`}
+              >
                 {idx + 1}
               </span>
               <span className="min-w-0 flex-1 truncate text-xs font-medium leading-tight transition-colors group-hover:text-primary">
@@ -87,8 +99,7 @@ export function HotRanking({ items, sources }: Props) {
                 </span>
               ) : rank !== null && rank > 0 ? (
                 <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-                  #
-                  {rank}
+                  #{rank}
                 </span>
               ) : null}
               {it.url ? (

@@ -34,8 +34,12 @@ export default function StudyRank() {
   return (
     <View className="min-h-screen bg-background">
       <View className="p-6 text-center bg-primary">
-        <Text className="block text-primary-foreground text-lg font-bold">{t('study.rankPage.title')}</Text>
-        <Text className="block text-primary-foreground/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
+        <Text className="block text-primary-foreground text-lg font-bold">
+          {t('study.rankPage.title')}
+        </Text>
+        <Text className="block text-primary-foreground/90 text-xs mt-1">
+          {t('study.rankPage.subtitle')}
+        </Text>
       </View>
 
       {/* 排名奖牌金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#ffd700/#c0c0c0/#cd7f32) */}

@@ -8,14 +8,14 @@
 
 ## 钩子文件清单
 
-| 钩子 | 触发时机 | 作用 |
-|------|----------|------|
-| `pre-commit` | `git commit` 之前 | 22 项硬性门禁(API key / i18n / 路由 / dist / safeParse 等) |
-| `commit-msg` | `git commit` 消息写入时 | commit message 格式校验(Verified-DOM 等 trailer) |
-| `post-commit` | `git commit` 之后 | git-push-guard 自动 push(local ahead → 自动 push) |
-| `pre-push` | `git push` 之前 | typecheck:full 闸门(10 包) |
-| `post-merge` | `git merge` 之后 | 清理 lock / 重新生成 dep |
-| `post-checkout` | `git checkout` 切换分支 | 提醒 dev server 状态 |
+| 钩子            | 触发时机                | 作用                                                       |
+| --------------- | ----------------------- | ---------------------------------------------------------- |
+| `pre-commit`    | `git commit` 之前       | 22 项硬性门禁(API key / i18n / 路由 / dist / safeParse 等) |
+| `commit-msg`    | `git commit` 消息写入时 | commit message 格式校验(Verified-DOM 等 trailer)           |
+| `post-commit`   | `git commit` 之后       | git-push-guard 自动 push(local ahead → 自动 push)          |
+| `pre-push`      | `git push` 之前         | typecheck:full 闸门(10 包)                                 |
+| `post-merge`    | `git merge` 之后        | 清理 lock / 重新生成 dep                                   |
+| `post-checkout` | `git checkout` 切换分支 | 提醒 dev server 状态                                       |
 
 ## pre-commit 检查项(22 项)
 
@@ -23,33 +23,33 @@
 
 1. `scripts/check-api-key-leak.mjs` — API key 泄露检测
 2. `scripts/check-i18n-keys.mjs` — i18n 键完整性
-2b. `scripts/scan-i18n-zh-residue.mjs zh-TW` — 繁体中文简体字残留
-2c. `scripts/scan-i18n-zh-residue.mjs ko` — 韩语中文残留
-2d. `scripts/scan-i18n-zh-residue.mjs ja` — 日语中文残留(warn-only)
-2e. `scripts/check-i18n-broken-en.mjs` — 英文破碎机翻检测
+   2b. `scripts/scan-i18n-zh-residue.mjs zh-TW` — 繁体中文简体字残留
+   2c. `scripts/scan-i18n-zh-residue.mjs ko` — 韩语中文残留
+   2d. `scripts/scan-i18n-zh-residue.mjs ja` — 日语中文残留(warn-only)
+   2e. `scripts/check-i18n-broken-en.mjs` — 英文破碎机翻检测
 3. `scripts/check-db-schema-drift.mjs` — schema drift 检测
 4. `scripts/check-stale-dist.mjs` — 陈旧 dist 检测
-4b. `scripts/check-dist-encoding.mjs` — UTF-8 BOM 守门
-4c. `scripts/check-api-client-utf8.mjs` — api-client UTF-8 完整性
+   4b. `scripts/check-dist-encoding.mjs` — UTF-8 BOM 守门
+   4c. `scripts/check-api-client-utf8.mjs` — api-client UTF-8 完整性
 5. `lint-staged` — ESLint + Prettier
 6. `scripts/check-sanitizer-bypass.mjs` — XSS sanitizer 绕过
 7. `scripts/check-dedupe.mjs` — 依赖碎片化
 8. `scripts/check-api-routes.mjs` — 前后端路由一致性
 9. `scripts/check-safe-parse.mjs` — safeParse 静默忽略(warn-only)
-11. `scripts/check-rounded-full.mjs` — 容器圆角违规
-12. `scripts/check-delivery-report-consistency.mjs` — 交付报告一致性
-13. `scripts/check-grokbuild-integration-completeness.mjs` — grok-build 整合完整性
-13b. `scripts/check-project-plan-size.mjs` — PROJECT_PLAN.md 体积 < 50KB
-13c. `scripts/check-project-plan-archive.mjs` — 已完成任务条目防误删
-15. `scripts/check-api-migration-completeness.mjs` — 迁移完整性
-17. `scripts/check-input-border-var.mjs` — CSS 颜色 token 嵌套
-18. `scripts/check-native-title-tooltip.mjs` — 原生 title tooltip 违规
-19. `scripts/check-staged-pollution.mjs` — staged 污染预警(warn-only)
-20. `scripts/check-tailwind-class-conflict.mjs` — Tailwind class 冲突
-21. `scripts/check-multi-end-sync.mjs` — 多端同步守门(warn-only)
+10. `scripts/check-rounded-full.mjs` — 容器圆角违规
+11. `scripts/check-delivery-report-consistency.mjs` — 交付报告一致性
+12. `scripts/check-grokbuild-integration-completeness.mjs` — grok-build 整合完整性
+    13b. `scripts/check-project-plan-size.mjs` — PROJECT_PLAN.md 体积 < 50KB
+    13c. `scripts/check-project-plan-archive.mjs` — 已完成任务条目防误删
+13. `scripts/check-api-migration-completeness.mjs` — 迁移完整性
+14. `scripts/check-input-border-var.mjs` — CSS 颜色 token 嵌套
+15. `scripts/check-native-title-tooltip.mjs` — 原生 title tooltip 违规
+16. `scripts/check-staged-pollution.mjs` — staged 污染预警(warn-only)
+17. `scripts/check-tailwind-class-conflict.mjs` — Tailwind class 冲突
+18. `scripts/check-multi-end-sync.mjs` — 多端同步守门(warn-only)
 
-+ 条件 `typecheck` (apps/web staged 时)
-+ 条件 `database build` (packages/database/src staged 时)
+- 条件 `typecheck` (apps/web staged 时)
+- 条件 `database build` (packages/database/src staged 时)
 
 ## 钩子执行流程
 

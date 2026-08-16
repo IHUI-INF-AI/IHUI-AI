@@ -19,16 +19,12 @@ import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
  */
 
 export type WebViewMode = 'iframe' | 'screenshot' | 'external'
-export type WebViewStatus =
-  | 'idle'
-  | 'loading'
-  | 'loaded'
-  | 'screenshot'
-  | 'failed'
-  | 'blocked'
+export type WebViewStatus = 'idle' | 'loading' | 'loaded' | 'screenshot' | 'failed' | 'blocked'
 
-export interface WebViewFrameProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onLoad' | 'onError'> {
+export interface WebViewFrameProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'onLoad' | 'onError'
+> {
   /** 当前 URL */
   url: string
   /** 嵌入模式 */
@@ -230,9 +226,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
               </p>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <p className="max-w-xs truncate text-xs text-muted-foreground">
-                    {url}
-                  </p>
+                  <p className="max-w-xs truncate text-xs text-muted-foreground">{url}</p>
                 </TooltipTrigger>
                 <TooltipContent>{url}</TooltipContent>
               </Tooltip>

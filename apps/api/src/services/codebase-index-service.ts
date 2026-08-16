@@ -65,7 +65,10 @@ class CodebaseIndexService {
    * 注意:调用方(ai-service codebase_indexer)也可自行生成 embedding 后传入,
    * 此时本服务跳过 embedding 生成步骤(以调用方传入为准)。
    */
-  async indexChunks(repoId: string, chunks: ChunkInput[]): Promise<{
+  async indexChunks(
+    repoId: string,
+    chunks: ChunkInput[],
+  ): Promise<{
     indexed: number
     vectorized: number
   }> {
@@ -76,19 +79,12 @@ class CodebaseIndexService {
     for (const filePath of filePaths) {
       await db
         .delete(codebaseChunks)
-        .where(
-          and(
-            eq(codebaseChunks.repoId, repoId),
-            eq(codebaseChunks.filePath, filePath),
-          ),
-        )
+        .where(and(eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)))
     }
 
     // 2. 为缺少 embedding 的切片批量生成向量
     const provider = getEmbeddingProvider()
-    const needEmbedding = chunks.filter(
-      (c) => !c.embedding || c.embedding.length !== 1536,
-    )
+    const needEmbedding = chunks.filter((c) => !c.embedding || c.embedding.length !== 1536)
     let vectorized = 0
     if (provider && needEmbedding.length > 0) {
       try {
@@ -107,7 +103,7 @@ class CodebaseIndexService {
       } catch (e) {
         logger.warn(
           '[codebase-index-service.indexChunks] batch embedding failed, chunks stored without vector:',
-          { err: e as Error }
+          { err: e as Error },
         )
       }
     }
@@ -119,8 +115,7 @@ class CodebaseIndexService {
       lineStart: c.lineStart,
       lineEnd: c.lineEnd,
       content: c.content,
-      embedding:
-        c.embedding && c.embedding.length === 1536 ? c.embedding : null,
+      embedding: c.embedding && c.embedding.length === 1536 ? c.embedding : null,
       language: c.language ?? null,
       symbolName: c.symbolName ?? null,
       symbolType: c.symbolType ?? null,
@@ -156,13 +151,7 @@ class CodebaseIndexService {
     topK?: number
     scoreThreshold?: number
   }): Promise<SearchResult[]> {
-    const {
-      query,
-      repoId,
-      language,
-      topK = 10,
-      scoreThreshold = 0,
-    } = opts
+    const { query, repoId, language, topK = 10, scoreThreshold = 0 } = opts
 
     const queryEmbedding = await this._getEmbedding(query)
     if (!queryEmbedding || queryEmbedding.length !== 1536) {
@@ -222,10 +211,7 @@ class CodebaseIndexService {
       }
       return results.slice(0, topK)
     } catch (e) {
-      logger.warn(
-        '[codebase-index-service.search] pgvector query failed:',
-        { err: e as Error },
-      )
+      logger.warn('[codebase-index-service.search] pgvector query failed:', { err: e as Error })
       return []
     }
   }
@@ -243,21 +229,14 @@ class CodebaseIndexService {
   async deleteByFile(repoId: string, filePath: string): Promise<number> {
     const result = await db
       .delete(codebaseChunks)
-      .where(
-        and(
-          eq(codebaseChunks.repoId, repoId),
-          eq(codebaseChunks.filePath, filePath),
-        ),
-      )
+      .where(and(eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)))
       .returning({ id: codebaseChunks.id })
     return result.length
   }
 
   /** 索引统计 */
   async getStats(repoId?: string): Promise<IndexStats> {
-    const whereCondition = repoId
-      ? sql`WHERE "repo_id" = ${repoId}`
-      : sql``
+    const whereCondition = repoId ? sql`WHERE "repo_id" = ${repoId}` : sql``
     const rows = (await db.execute(sql`
       SELECT
         COUNT(*) AS "total",
