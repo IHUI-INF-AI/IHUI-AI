@@ -80,28 +80,28 @@ export function RefundDetailScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    body: { padding: 16 },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 14 },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.surface.card,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tk.border.light,
     },
-    label: { fontSize: 13, color: tk.text.secondary },
+    label: { fontSize: 14, color: tk.text.secondary },
     value: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.primary,
       fontWeight: '500',
       flexShrink: 1,
@@ -109,9 +109,9 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'right',
     },
     valueSuccess: { color: tk.success.DEFAULT },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, textAlign: 'center' },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     backBtn: { marginTop: 12 },
   })
 }

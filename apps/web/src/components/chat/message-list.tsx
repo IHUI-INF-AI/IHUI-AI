@@ -7,7 +7,6 @@ import {
   Copy,
   Check,
   RefreshCw,
-  ArrowDown,
   Search,
   Star,
   Share2,
@@ -61,82 +60,30 @@ function TypingIndicator({
   reasoning?: string
   toolCalls?: ChatMessage['toolCalls']
 }) {
-  // 2026-08-14:去掉隐藏风险的渐变文字,改为直接可见的状态小字。
-  // 按当前进度动态显示:正在调用工具:xxx / 正在思考:[内容摘要] / 正在等待模型响应…
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
-  const baseClass = 'bg-clip-text text-xs font-medium text-transparent'
-  const shimmerStyle: React.CSSProperties = {
-    backgroundImage:
-      'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
-    backgroundSize: '200% 100%',
-    animation: 'shimmer 2.2s linear infinite',
-    WebkitBackgroundClip: 'text',
-  }
-  if (runningTool) {
-    return (
-      <div className="flex items-center gap-2 py-1">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-3.5 w-3.5 text-muted-foreground"
-        >
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-        </svg>
-        <span className={baseClass} style={shimmerStyle}>
-          正在调用工具:{runningTool.toolName}
-        </span>
-      </div>
-    )
-  }
 
-  if (reasoning && reasoning.length > 0) {
+  let label: string
+  if (runningTool) {
+    label = `正在调用工具:${runningTool.toolName}`
+  } else if (reasoning && reasoning.length > 0) {
     const preview = reasoning.length > 40 ? `${reasoning.slice(0, 40)}…` : reasoning
-    return (
-      <div className="flex items-center gap-2 py-1">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-3.5 w-3.5 text-muted-foreground"
-        >
-          <path d="M12 2a5 5 0 0 1 5 5c0 1.68-.72 3.18-1.86 4.18.3.75.46 1.56.46 2.42 0 3.56-2.83 6.4-6.6 6.4S2.4 15.6 2.4 12c0-.86.16-1.67.46-2.42A4.99 4.99 0 0 1 7 7a5 5 0 0 1 5-5z" />
-          <path d="M9 14h.01" />
-          <path d="M15 14h.01" />
-          <path d="M9.5 17.5c.6.4 1.4.5 2.5.5s1.9-.1 2.5-.5" />
-        </svg>
-        <span className={baseClass} style={shimmerStyle}>
-          正在思考: {preview}
-        </span>
-      </div>
-    )
+    label = `正在思考: ${preview}`
+  } else {
+    label = '正在等待模型响应…'
   }
 
   return (
     <div className="flex items-center gap-2 py-1">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-3.5 w-3.5 text-muted-foreground"
+      <span
+        className="animate-shimmer bg-clip-text text-xs font-medium text-transparent"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
+          backgroundSize: '200% 100%',
+          WebkitBackgroundClip: 'text',
+        }}
       >
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 6v6l4 2" />
-      </svg>
-      <span className={baseClass} style={shimmerStyle}>
-        正在等待模型响应…
+        {label}
       </span>
     </div>
   )
@@ -254,6 +201,13 @@ const MessageItem = React.memo(function MessageItem({
     window.addEventListener('ihui:toggle-reasoning', onToggle as EventListener)
     return () => window.removeEventListener('ihui:toggle-reasoning', onToggle as EventListener)
   }, [m.id, m.reasoning])
+
+  // 流式输出时自动展开思考过程(仅在用户未手动折叠时生效)
+  React.useEffect(() => {
+    if (streamingThis && m.reasoning && !reasoningExpanded) {
+      setReasoningExpanded(true)
+    }
+  }, [streamingThis, m.reasoning, reasoningExpanded])
 
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -389,7 +343,7 @@ const MessageItem = React.memo(function MessageItem({
   const handleToggleMetadata = React.useCallback(() => {
     setMetadataExpanded((prev) => !prev)
   }, [])
-  const hasMetadata = Boolean(m.meta?.usage) && typeof m.meta?.usage === 'object'
+  const hasMetadata = Boolean(m.meta) && typeof m.meta === 'object' && 'usage' in (m.meta as Record<string, unknown>)
 
   // 4. 发布到社区(Megaphone)— 原项目 publishToCommunity
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false)
@@ -430,21 +384,18 @@ const MessageItem = React.memo(function MessageItem({
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
 
-  const timestampLabel = formatMessageTimestamp(m.createdAt)
-  // 2026-07-31 立(深度对标 Codex/Trae Work):时间戳常驻显示在气泡底部,
-  // 让对话流自带时间感知,无需 hover 才可见。用户需求"对话流里显示时间"。
-  const showTimestamp = Boolean(timestampLabel)
+  // 时间戳移到按钮区内部，这里不再常驻计算
 
   // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
-  const copyLabel = t('copy') === 'copy' ? 'Copy' : t('copy')
-  if (copyLabel === 'copy') {
-    console.warn('[i18n] Missing translation for key: chat.copy')
+  const copyLabel = t('message.copy') === 'message.copy' ? '复制' : t('message.copy')
+  if (copyLabel === 'message.copy') {
+    console.warn('[i18n] Missing translation for key: chat.message.copy')
   }
 
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-1 px-1',
+        'group/msg relative flex w-full flex-col gap-0 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
         isFocused && 'ring-1 ring-ring/40',
@@ -497,6 +448,7 @@ const MessageItem = React.memo(function MessageItem({
                 currentNode={null}
                 isStreaming={streamingThis}
                 expanded={reasoningExpanded}
+                onToggle={() => setReasoningExpanded((prev) => !prev)}
               />
             )}
             {m.toolCalls?.map((tc) => {
@@ -609,184 +561,203 @@ const MessageItem = React.memo(function MessageItem({
           - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply + Token(条件)
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
+        <div className="flex flex-col gap-0">
+          {/* 常驻元数据区(Token + 时间戳) */}
+          {!isUser && (() => {
+            const timestampLabel = formatMessageTimestamp(m.createdAt)
+            return (
+              <div className="mt-0.5 flex items-center gap-1">
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                  data-testid={`message-token-${m.id}`}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                  <span className="font-medium">
+                    {(m.meta?.usage as { totalTokens?: number })?.totalTokens ?? 0} tokens
+                  </span>
+                </span>
+                {timestampLabel && (
+                  <span
+                    className="text-xs text-muted-foreground"
+                    data-testid={`message-timestamp-${m.id}`}
+                  >
+                    {timestampLabel}
+                  </span>
+                )}
+              </div>
+            )
+          })()}
+          {/* 按钮区(hover 显示) */}
           <div
-            // 2026-08-06:默认隐藏,仅 hover 消息时显示(触屏常显,animations.css .msg-hover-reveal)
-            className="msg-hover-reveal flex items-center gap-2 mt-1"
+            className="-mt-0.5 flex items-center gap-1"
             data-testid={`message-actions-${m.id}`}
           >
-            {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
-            {!isUser && (
-              <Tooltip content={contentVisible ? 'Hide content' : 'Show content'}>
+            <div
+              className="msg-hover-reveal flex items-center gap-1"
+            >
+              {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
+              {!isUser && (
+                <Tooltip content={contentVisible ? t('message.hideContent') : t('message.showContent')}>
+                  <button
+                    type="button"
+                    onClick={handleToggleVisibility}
+                    data-testid={`message-visibility-${m.id}`}
+                    aria-label={contentVisible ? t('message.hideContent') : t('message.showContent')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    {contentVisible ? (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
+              {!isUser && (
+                <Tooltip content={t('message.like')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleLike}
+                    data-testid={`message-like-${m.id}`}
+                    aria-label={t('message.like')}
+                    className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
+                  >
+                    <Star className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
+              <Tooltip content={copyLabel} side="top">
                 <button
                   type="button"
-                  onClick={handleToggleVisibility}
-                  data-testid={`message-visibility-${m.id}`}
-                  aria-label={contentVisible ? 'Hide content' : 'Show content'}
+                  onClick={handleCopy}
+                  data-testid={`message-copy-${m.id}`}
+                  aria-label={copyLabel}
                   className={ACTION_BTN_CLASS}
                 >
-                  {contentVisible ? (
-                    <Eye className="h-4 w-4" aria-hidden />
+                  {copied ? (
+                    <Check className="h-4 w-4" aria-hidden />
                   ) : (
-                    <EyeOff className="h-4 w-4" aria-hidden />
+                    <Copy className="h-4 w-4" aria-hidden />
                   )}
                 </button>
               </Tooltip>
-            )}
-            {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
-            {!isUser && (
-              <Tooltip content="Like" side="top">
+              {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
+              {!isUser && messageImages.length > 0 && (
+                <Tooltip content={t('message.downloadImages')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleDownloadImages}
+                    data-testid={`message-download-${m.id}`}
+                    aria-label={t('message.downloadImages')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
+              {!isUser && (
+                <Tooltip content={t('message.share')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    data-testid={`message-share-${m.id}`}
+                    aria-label={t('message.share')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
+              {!isUser && hasMetadata && (
+                <Tooltip content={t('message.toggleMetadata')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleToggleMetadata}
+                    data-testid={`message-metadata-${m.id}`}
+                    aria-label={t('message.toggleMetadata')}
+                    className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
+                  >
+                    <Code className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
+              {!isUser && (
+                <Tooltip content={t('message.regenerate')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={streamingThis}
+                    data-testid={`message-regenerate-${m.id}`}
+                    aria-label={t('message.regenerate')}
+                    className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
+              {!isUser && (
+                <Tooltip content={t('message.publishToCommunity')} side="top">
+                  <button
+                    type="button"
+                    onClick={() => setPublishDialogOpen(true)}
+                    data-testid={`message-publish-${m.id}`}
+                    aria-label={t('message.publishToCommunity')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Megaphone className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
+              {isUser && (
+                <Tooltip content={t('message.edit')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    data-testid={`message-edit-${m.id}`}
+                    aria-label={t('message.edit')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
+              <Tooltip content={t('message.reply')} side="top">
                 <button
                   type="button"
-                  onClick={handleLike}
-                  data-testid={`message-like-${m.id}`}
-                  aria-label="Like"
-                  className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
-                >
-                  <Star className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
-            <Tooltip content={copyLabel} side="top">
-              <button
-                type="button"
-                onClick={handleCopy}
-                data-testid={`message-copy-${m.id}`}
-                aria-label={copyLabel}
-                className={ACTION_BTN_CLASS}
-              >
-                {copied ? (
-                  <Check className="h-4 w-4" aria-hidden />
-                ) : (
-                  <Copy className="h-4 w-4" aria-hidden />
-                )}
-              </button>
-            </Tooltip>
-            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
-            {!isUser && messageImages.length > 0 && (
-              <Tooltip content="Download images" side="top">
-                <button
-                  type="button"
-                  onClick={handleDownloadImages}
-                  data-testid={`message-download-${m.id}`}
-                  aria-label="Download images"
+                  onClick={handleReply}
+                  data-testid={`message-reply-${m.id}`}
+                  aria-label={t('message.reply')}
                   className={ACTION_BTN_CLASS}
                 >
-                  <Download className="h-4 w-4" aria-hidden />
+                  <MessageCircle className="h-4 w-4" aria-hidden />
                 </button>
               </Tooltip>
-            )}
-            {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
-            {!isUser && (
-              <Tooltip content="Share" side="top">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  data-testid={`message-share-${m.id}`}
-                  aria-label="Share"
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Share2 className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
-            {!isUser && hasMetadata && (
-              <Tooltip content="Toggle metadata" side="top">
-                <button
-                  type="button"
-                  onClick={handleToggleMetadata}
-                  data-testid={`message-metadata-${m.id}`}
-                  aria-label="Toggle metadata"
-                  className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
-                >
-                  <Code className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
-            {!isUser && (
-              <Tooltip content="Regenerate" side="top">
-                <button
-                  type="button"
-                  onClick={handleRegenerate}
-                  disabled={streamingThis}
-                  data-testid={`message-regenerate-${m.id}`}
-                  aria-label="Regenerate"
-                  className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
-            {!isUser && (
-              <Tooltip content="Publish to community" side="top">
-                <button
-                  type="button"
-                  onClick={() => setPublishDialogOpen(true)}
-                  data-testid={`message-publish-${m.id}`}
-                  aria-label="Publish to community"
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Megaphone className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
-            {isUser && (
-              <Tooltip content="Edit" side="top">
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  data-testid={`message-edit-${m.id}`}
-                  aria-label="Edit"
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
-            <Tooltip content="Reply" side="top">
-              <button
-                type="button"
-                onClick={handleReply}
-                data-testid={`message-reply-${m.id}`}
-                aria-label="Reply"
-                className={ACTION_BTN_CLASS}
-              >
-                <MessageCircle className="h-4 w-4" aria-hidden />
-              </button>
-            </Tooltip>
-            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
-            {isUser && (
-              <Tooltip content="Delete" side="top">
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  data-testid={`message-delete-${m.id}`}
-                  aria-label="Delete"
-                  className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Token 计数(条件显示)— 原项目 .token-usage,有 metadata.usage 时渲染 */}
-            {!isUser && hasMetadata && 'totalTokens' in (m.meta?.usage as object) && (
-              <span
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-2"
-                data-testid={`message-token-${m.id}`}
-              >
-                <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                <span className="font-medium">
-                  {(m.meta?.usage as { totalTokens: number }).totalTokens} tokens
-                </span>
-              </span>
-            )}
+              {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
+              {isUser && (
+                <Tooltip content={t('message.delete')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    data-testid={`message-delete-${m.id}`}
+                    aria-label={t('message.delete')}
+                    className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
           </div>
-        )}
+        </div>
+      )}
         {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
             展示 promptTokens / completionTokens / totalTokens 细分 */}
         {!isUser && hasMetadata && metadataExpanded && (
@@ -797,18 +768,7 @@ const MessageItem = React.memo(function MessageItem({
             <UsageBreakdown usage={m.meta?.usage} />
           </div>
         )}
-      {showTimestamp && (
-        <div
-          className={cn(
-            // 2026-08-06:时间戳默认隐藏,仅 hover 消息时显示(触屏常显)
-            'msg-hover-reveal flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
-            isUser ? 'justify-end' : 'justify-start',
-          )}
-          data-testid={`message-timestamp-${m.id}`}
-        >
-          <span>{timestampLabel}</span>
-        </div>
-      )}
+
       {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
             用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
       {m.error && (
@@ -817,7 +777,7 @@ const MessageItem = React.memo(function MessageItem({
           onClick={handleRetry}
           data-testid={`message-retry-${m.id}`}
           className={cn(
-            'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
+            'mt-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
             'text-[11px] text-muted-foreground transition-colors',
             'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
@@ -915,9 +875,8 @@ export function MessageList({
   // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
   // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
   // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
-  const [userScrolledUp, setUserScrolledUp] = React.useState(false)
-  // state 镜像 ref(2026-07-28 立):handleScroll 闭包内对比最新 state 镜像,避免 useCallback 依赖 state
-  const userScrolledUpMirrorRef = React.useRef(false)
+  const userScrolledUp = useChatStore((s) => s.userScrolledUp)
+  const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
@@ -998,22 +957,14 @@ export function MessageList({
     // - 70~120px 之间保持当前状态,用户在边界附近微小滚动不会触发按钮频繁显隐
     const UPPER_THRESHOLD = 120
     const LOWER_THRESHOLD = 70
-    const currentlyScrolledUp = userScrolledUpMirrorRef.current
+    const currentlyScrolledUp = userScrolledUp
     const scrolledUp = currentlyScrolledUp
       ? distanceFromBottom > LOWER_THRESHOLD
       : distanceFromBottom > UPPER_THRESHOLD
     userScrolledUpRef.current = scrolledUp
-    // 同步到 state 镜像(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
-    // 用 ref 镜像对比避免 handleScroll 依赖 state(useCallback 才能保持稳定引用)
-    if (scrolledUp !== userScrolledUpMirrorRef.current) {
-      userScrolledUpMirrorRef.current = scrolledUp
-      if (!scrollDirtyRef.current) {
-        scrollDirtyRef.current = true
-        requestAnimationFrame(() => {
-          scrollDirtyRef.current = false
-          setUserScrolledUp(userScrolledUpMirrorRef.current)
-        })
-      }
+    // 同步到 store(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
+    if (scrolledUp !== userScrolledUp) {
+      setUserScrolledUp(scrolledUp)
     }
 
     // #8 滚动到顶部触发加载更多历史
@@ -1089,6 +1040,8 @@ export function MessageList({
     onLoadMoreHistory,
     hasMoreHistory,
     loadingMoreHistory,
+    userScrolledUp,
+    setUserScrolledUp,
   ])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
@@ -1183,18 +1136,13 @@ export function MessageList({
       completedPlanStepsRef.current.clear()
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
       userScrolledUpRef.current = false
-      userScrolledUpMirrorRef.current = false
       setUserScrolledUp(false)
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
+    // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length])
-
-  // 2026-07-28 立:userScrolledUp state → mirror ref 同步,
-  // 让 handleScroll 闭包能拿到最新值(否则 setUserScrolledUp 后下次 scroll 对比会失败)
-  React.useEffect(() => {
-    userScrolledUpMirrorRef.current = userScrolledUp
-  }, [userScrolledUp])
 
   // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 Trae Work)
   // - scrollIntoView 到 bottomRef(平滑)
@@ -1204,12 +1152,20 @@ export function MessageList({
     const el = bottomRef.current
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     userScrolledUpRef.current = false
-    userScrolledUpMirrorRef.current = false
     setUserScrolledUp(false)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
     }
-  }, [])
+  }, [setUserScrolledUp])
+
+  // 2026-08-16 立:监听外部 jump-to-latest 请求(由 MessageInput 中的按钮触发)
+  React.useEffect(() => {
+    const onJumpToLatest = () => {
+      handleJumpToLatest()
+    }
+    window.addEventListener('ihui:jump-to-latest', onJumpToLatest)
+    return () => window.removeEventListener('ihui:jump-to-latest', onJumpToLatest)
+  }, [handleJumpToLatest])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
@@ -1934,40 +1890,6 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
-      {/* 2026-07-28 立(深度对标 Trae Work):Scroll-to-bottom 浮动按钮
-        - 当 userScrolledUp 为 true(用户已向上滚动超过 120px)时显示
-        - 点击 → scrollIntoView 到 bottomRef + 重置 userScrolledUp
-        - 浮在 message list 容器右下角,固定定位(不随消息滚动)
-        - 与 streaming 联动:有未读新消息时显示红点徽章 */}
-      {userScrolledUp && (
-        <Tooltip
-          content={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-        >
-          <button
-            type="button"
-            onClick={handleJumpToLatest}
-            data-testid="message-list-jump-latest"
-            aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-            className={cn(
-              'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-md',
-              'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
-              'transition-all duration-150 hover:bg-accent hover:shadow-lg',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'animate-in fade-in-0 slide-in-from-bottom-2',
-            )}
-          >
-            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          <span>{t('latest') === 'latest' ? 'Latest' : t('latest')}</span>
-          {isStreaming && (
-            <span
-              className="ml-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
-              aria-hidden
-              data-testid="message-list-jump-latest-dot"
-            />
-          )}
-        </button>
-        </Tooltip>
-      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}

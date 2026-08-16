@@ -125,7 +125,7 @@ function Separator(): React.ReactElement {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 4,
   },
   listBody: {
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: 40,
-    height: 40,
-    borderRadius: 8,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: tokens.border.light,
     alignItems: 'center',
     justifyContent: 'center',
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   nickname: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: tokens.text.primary,
   },

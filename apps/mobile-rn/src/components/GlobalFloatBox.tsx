@@ -9,7 +9,8 @@
  * - 自动隐藏:App 切到后台(onHide)收起,切回前台(onShow)展开
  *
  * 内聚管理:expanded 状态 + AppState 监听在组件内部,对外只暴露 3 个回调。
- * 实际跳转是后续任务,本组件用 console.info + Alert.alert 兜底。
+ * 跳转由调用方(App.tsx)通过 navigationRef 注入 onPromote/onConsult/onMore 实现,
+ * 未传回调时降级为 Alert 兜底(仅作为开发期占位)。
  */
 import { useCallback, useEffect, useState } from 'react'
 import {

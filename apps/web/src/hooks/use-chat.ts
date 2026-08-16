@@ -15,7 +15,7 @@ import {
 } from '@ihui/api-client'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, type ChatMessage, type ChatRole } from '@/stores/chat'
 import type { ToolCall } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -29,6 +29,7 @@ import {
   createConversation,
   sendMessage as persistMessage,
   persistQuestion,
+  getMessages,
 } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -42,7 +43,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { useTimelineStore } from '@/stores/timeline-store'
-import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
+import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 
@@ -1290,6 +1291,13 @@ export function useChat(): UseChatReturn {
         })
       }
       try {
+        // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+
+        // 2026-08-16 立:强制传 contextLimit,后端根据该值判断是否触发 88% 自动压缩。
+        const resolvedContextLimit = getModelContextCapacity(effectiveModel)
+        console.log('[Compaction] sendMessage contextLimit=', resolvedContextLimit, 'model=', effectiveModel)
+
         await streamChat({
           model: effectiveModel,
           messages: [...history, { role: 'user', content: text }],
@@ -1308,12 +1316,70 @@ export function useChat(): UseChatReturn {
           workspacePath,
           workspaceContext,
           // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
-          contextLimit: getModelContextCapacity(effectiveModel),
-          onCompaction: (info) => {
-            // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
-            toast.success('上下文已自动压缩', {
-              description: `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+          contextLimit: resolvedContextLimit,
+          onCompaction: async (info) => {
+            // 显示底部压缩状态栏(2026-08-16 立)
+            useChatStore.getState().setCompactionStatus({
+              phase: 'done',
+              tokensBefore: info.tokensBefore,
+              tokensAfter: info.tokensAfter,
+              removedCount: info.removedCount,
             })
+
+            // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
+            const compressedMessages = info.compressedMessages as
+              | Array<{ role: ChatRole; content: string }>
+              | undefined
+            if (compressedMessages && compressedMessages.length > 0) {
+              const localMessages = useChatStore.getState().messages
+              const lastLocal = localMessages[localMessages.length - 1]
+              const hasLocalAssistant =
+                lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+              const converted: ChatMessage[] = compressedMessages.map((m) => ({
+                id: crypto.randomUUID(),
+                role: m.role,
+                content: m.content,
+                createdAt: Date.now(),
+                model: '',
+              }))
+              const finalMessages = hasLocalAssistant ? [...converted, lastLocal] : converted
+              useChatStore.getState().setMessages(finalMessages)
+              return
+            }
+
+            // 兜底:旧版本后端未携带 compressedMessages 时,仍从后端重新加载
+            const currentConversationId = useChatStore.getState().conversationId
+            if (!currentConversationId) return
+
+            try {
+              const result = await getMessages(currentConversationId, { pageSize: 100 })
+              if (!result.success || !result.data) return
+              const remoteMessages = result.data.messages
+
+              // 保留前端本地当前 assistant 消息(流式输出中,后端可能尚未持久化)
+              const localMessages = useChatStore.getState().messages
+              const lastLocal = localMessages[localMessages.length - 1]
+              const hasLocalAssistant =
+                lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+              const remoteIds = new Set(remoteMessages.map((m) => m.id))
+              const keepLocalAssistant = hasLocalAssistant && !remoteIds.has(assistantId)
+
+              const converted: ChatMessage[] = remoteMessages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+                model: '',
+              }))
+
+              const finalMessages = keepLocalAssistant
+                ? [...converted, lastLocal]
+                : converted
+
+              useChatStore.getState().setMessages(finalMessages)
+            } catch (e) {
+              console.error('压缩后同步消息失败:', e)
+            }
           },
           onQuestion: (q) => {
             // AI 主动提问:挂起对话,弹窗阻塞输入,等用户回答后 sendAnswer 续流
@@ -1354,8 +1420,18 @@ export function useChat(): UseChatReturn {
           // 2026-07-27 修复:response 已到达即清除"完全冷启动"超时(timeout15s),
           // 避免"response 到达但首 token 未到达"时误 abort 导致 net::ERR_ABORTED。
           // 保留 timeout60s(防止 reasoning 模型长时间只产 reasoning 不产 content)。
+          // 2026-08-16 立:收到响应后立即清除压缩中状态(无论是否触发压缩)
           onResponse: () => {
             clearTimeout(timeout15sId)
+            const status = useChatStore.getState().compactionStatus
+            if (status?.phase === 'compacting') {
+              useChatStore.getState().setCompactionStatus(null)
+            }
+          },
+          onUsage: (usage) => {
+            // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
+            // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
+            useChatStore.getState().updateMessageMeta(assistantId, { usage })
           },
           onDelta: (delta) => {
             if (!firstContentTokenReceived) {
@@ -1690,6 +1766,12 @@ export function useChat(): UseChatReturn {
         })
       }
       try {
+        // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+
+        const answerContextLimit = getModelContextCapacity(effectiveModel)
+        console.log('[Compaction] sendAnswer contextLimit=', answerContextLimit, 'model=', effectiveModel, 'history=', history.length)
+
         await streamChat({
           model: effectiveModel,
           messages: history,
@@ -1707,9 +1789,75 @@ export function useChat(): UseChatReturn {
             userId,
             messageId: assistantId,
           },
+          // 2026-08-15 立:显式声明流式,后端 detectStreamUsage 依赖 stream===true 才启用 usage chunk。
+          stream: true,
           workspacePath,
           workspaceContext,
-          contextLimit: getModelContextCapacity(effectiveModel),
+          contextLimit: answerContextLimit,
+          onCompaction: async (info) => {
+            // 显示底部压缩状态栏(2026-08-16 立)
+            useChatStore.getState().setCompactionStatus({
+              phase: 'done',
+              tokensBefore: info.tokensBefore,
+              tokensAfter: info.tokensAfter,
+              removedCount: info.removedCount,
+            })
+
+            // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
+            const compressedMessages = info.compressedMessages as
+              | Array<{ role: ChatRole; content: string }>
+              | undefined
+            if (compressedMessages && compressedMessages.length > 0) {
+              const localMessages = useChatStore.getState().messages
+              const lastLocal = localMessages[localMessages.length - 1]
+              const hasLocalAssistant =
+                lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+              const converted: ChatMessage[] = compressedMessages.map((m) => ({
+                id: crypto.randomUUID(),
+                role: m.role,
+                content: m.content,
+                createdAt: Date.now(),
+                model: '',
+              }))
+              const finalMessages = hasLocalAssistant ? [...converted, lastLocal] : converted
+              useChatStore.getState().setMessages(finalMessages)
+              return
+            }
+
+            // 兜底:旧版本后端未携带 compressedMessages 时,仍从后端重新加载
+            const currentConversationId = useChatStore.getState().conversationId
+            if (!currentConversationId) return
+
+            try {
+              const result = await getMessages(currentConversationId, { pageSize: 100 })
+              if (!result.success || !result.data) return
+              const remoteMessages = result.data.messages
+
+              // 保留前端本地当前 assistant 消息(流式输出中,后端可能尚未持久化)
+              const localMessages = useChatStore.getState().messages
+              const lastLocal = localMessages[localMessages.length - 1]
+              const hasLocalAssistant =
+                lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+              const remoteIds = new Set(remoteMessages.map((m) => m.id))
+              const keepLocalAssistant = hasLocalAssistant && !remoteIds.has(assistantId)
+
+              const converted: ChatMessage[] = remoteMessages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+                model: '',
+              }))
+
+              const finalMessages = keepLocalAssistant
+                ? [...converted, lastLocal]
+                : converted
+
+              useChatStore.getState().setMessages(finalMessages)
+            } catch (e) {
+              console.error('压缩后同步消息失败:', e)
+            }
+          },
           // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
           onFallback: (event) => setFallbackNotice(event),
           // P1 重连提示(2026-08-02 立,与 sendMessage 对称):streamChat 自动重连时 toast 通知用户
@@ -1724,8 +1872,18 @@ export function useChat(): UseChatReturn {
             toast.info(reconnectingMsg, { description: attemptMsg })
           },
           // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
+          // 2026-08-16 立:与 sendMessage 对称,收到响应后立即清除压缩中状态(无论是否触发压缩)
           onResponse: () => {
             clearTimeout(timeout15sId)
+            const status = useChatStore.getState().compactionStatus
+            if (status?.phase === 'compacting') {
+              useChatStore.getState().setCompactionStatus(null)
+            }
+          },
+          onUsage: (usage) => {
+            // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
+            // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
+            useChatStore.getState().updateMessageMeta(assistantId, { usage })
           },
           onDelta: (delta) => {
             if (!firstContentTokenReceived) {

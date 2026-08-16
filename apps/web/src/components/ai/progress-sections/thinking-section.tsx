@@ -46,6 +46,8 @@ interface ThinkingSectionProps {
    * 不传则走非受控模式(内部 state + localStorage 持久化)。
    */
   expanded?: boolean
+  /** 受控模式下的 toggle 回调 */
+  onToggle?: () => void
 }
 
 /**
@@ -75,6 +77,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   currentNode,
   isStreaming,
   expanded: controlledExpanded,
+  onToggle,
 }: ThinkingSectionProps) {
   const t = useTranslations('ai.pane')
 
@@ -93,13 +96,16 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   // Phase 22: 非受控模式 toggle 时持久化到 localStorage
   const handleToggle = React.useCallback(() => {
-    if (isControlled) return
+    if (isControlled) {
+      onToggle?.()
+      return
+    }
     setInternalExpanded((prev) => {
       const next = !prev
       saveExpandedToStorage(next)
       return next
     })
-  }, [isControlled])
+  }, [isControlled, onToggle])
 
   // v2: 思考耗时(从 mount 开始累积,流式时每秒 tick)
   const startTimeRef = React.useRef<number>(Date.now())
@@ -121,6 +127,23 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   // v2: 复制状态
   const [copied, setCopied] = React.useState<boolean>(false)
+  const preRef = React.useRef<HTMLPreElement>(null)
+
+  // 流式输出时自动展开 + 自动滚动到底部
+  React.useEffect(() => {
+    if (isStreaming && !isControlled) {
+      setInternalExpanded(true)
+    }
+  }, [isStreaming, isControlled])
+
+  React.useEffect(() => {
+    if (!isStreaming || !expanded) return
+    const el = preRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [content, isStreaming, expanded])
+
   const onCopy = React.useCallback(async () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -140,7 +163,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   return (
     <div
-      className="mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 transition-colors"
+      className="mt-1.5 rounded-sm border border-border/30 bg-muted/15 transition-colors"
       data-testid="thinking-section"
       data-thinking-state={isStreaming ? 'streaming' : 'idle'}
       data-thinking-expanded={expanded ? 'true' : 'false'}
@@ -223,7 +246,8 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           <div className="relative">
             {content && (
               <pre
-                className="max-h-40 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-[10.5px] leading-relaxed text-foreground/70"
+                ref={preRef}
+                className="max-h-28 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-[10.5px] leading-relaxed text-foreground/70"
                 aria-live={isStreaming ? 'polite' : undefined}
                 aria-atomic={isStreaming ? 'false' : undefined}
                 data-testid="thinking-content"

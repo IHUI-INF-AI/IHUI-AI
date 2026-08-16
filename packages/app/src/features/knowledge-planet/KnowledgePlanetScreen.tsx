@@ -110,13 +110,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium } as TextStyle,
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     flex: { flex: 1 } as ViewStyle,
     centerWrap: {
       flex: 1,
@@ -125,9 +125,9 @@ function createStyles(tk: AppThemeTokens) {
       padding: 24,
       gap: 12,
     } as ViewStyle,
-    loadingText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
+    loadingText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
     errorText: {
-      fontSize: 14,
+      fontSize: 16,
       lineHeight: 18,
       color: tk.error.text,
       textAlign: 'center',
@@ -135,12 +135,12 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
-    retryText: { fontSize: 13, fontWeight: '600', color: tk.surface.light } as TextStyle,
+    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
     list: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingBottom: 24,
       gap: 12,
     } as ViewStyle,
@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       borderRadius: 12,
       overflow: 'hidden',
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
       gap: 12,
     } as ViewStyle,
     itemCover: {
@@ -165,9 +165,9 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     itemCoverEmoji: { fontSize: 32 } as TextStyle,
     itemBody: { flex: 1, padding: 12, gap: 6, justifyContent: 'space-between' } as ViewStyle,
-    itemTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    itemSummary: { fontSize: 12, color: tk.text.secondary } as TextStyle,
+    itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary } as TextStyle,
+    itemSummary: { fontSize: 14, color: tk.text.secondary } as TextStyle,
     itemDate: { fontSize: 11, color: tk.text.tertiary } as TextStyle,
-    emptyText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
+    emptyText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
   })
 }

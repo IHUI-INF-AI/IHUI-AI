@@ -411,23 +411,23 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
     searchBar: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     } as ViewStyle,
     searchInput: {
-      height: 36,
-      borderRadius: 8,
+      height: 50,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: '#f5f5f5',
     } as TextStyle,
     // 赛道分类 chip 切换
     scrollTitleWrap: {
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
       paddingVertical: 8,
     } as ViewStyle,
     chipRow: {
@@ -448,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brand.DEFAULT,
     } as ViewStyle,
     chipText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
@@ -460,7 +460,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     } as ViewStyle,
     indexContent: {
-      padding: 16,
+      padding: 14,
       paddingBottom: 96,
     } as ViewStyle,
     // 预览区块
@@ -478,11 +478,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     previewIcon: {
-      fontSize: 18,
-      marginRight: 6,
+      fontSize: 20,
+      marginRight: 8,
     } as TextStyle,
     previewTitle: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
@@ -491,13 +491,13 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     previewMoreText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     previewMoreArrow: {
-      fontSize: 18,
+      fontSize: 20,
       color: tk.text.secondary,
-      marginLeft: 2,
+      marginLeft: 8,
       lineHeight: 18,
     } as TextStyle,
     // 模型预览行
@@ -507,37 +507,37 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 10,
       paddingHorizontal: 12,
       gap: 12,
-      backgroundColor: tk.surface.card,
-      borderRadius: 8,
-      marginBottom: 6,
+      backgroundColor: tk.surface.light,
+      borderRadius: 12,
+      marginBottom: 8,
     } as ViewStyle,
     previewModelIcon: {
       width: 36,
       height: 36,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
     previewModelEmoji: {
-      fontSize: 18,
+      fontSize: 20,
     } as TextStyle,
     previewModelBody: {
       flex: 1,
     } as ViewStyle,
     previewModelName: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     previewModelDesc: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
-      marginTop: 2,
+      marginTop: 8,
     } as TextStyle,
     previewBadge: {
       paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingVertical: 4,
       borderRadius: 4,
     } as ViewStyle,
     previewBadgeFree: {
@@ -556,7 +556,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.warning.amberText,
     } as TextStyle,
     previewEmpty: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.tertiary,
       textAlign: 'center',
       paddingVertical: 16,
@@ -572,7 +572,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     // 视频列表(双列网格)
     listContent: {
-      padding: 16,
+      padding: 14,
       paddingBottom: 96,
     } as ViewStyle,
     gridRow: {
@@ -580,7 +580,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     gridCard: {
       flex: 1,
-      marginHorizontal: 2,
+      marginHorizontal: 8,
       marginBottom: 8,
     } as ViewStyle,
     gridCardPressed: {
@@ -593,13 +593,13 @@ function createStyles(tk: AppThemeTokens) {
     gridCover: {
       width: '100%',
       height: GRID_COVER_HEIGHT,
-      borderRadius: 7,
+      borderRadius: 12,
       backgroundColor: '#000',
     } as ImageStyle,
     gridCoverPlaceholder: {
       width: '100%',
       height: GRID_COVER_HEIGHT,
-      borderRadius: 7,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -628,14 +628,14 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 9,
       fontWeight: '700',
       color: '#FFFFFF',
-      marginLeft: 4,
+      marginLeft: 8,
     } as TextStyle,
     // 下方课程名
     gridTitle: {
-      fontSize: 12,
+      fontSize: 14,
       color: '#3D3D3D',
-      marginTop: 4,
-      marginBottom: 4,
+      marginTop: 8,
+      marginBottom: 8,
     } as TextStyle,
     gridAuthorRow: {
       flexDirection: 'row',
@@ -645,7 +645,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 12,
       height: 12,
       borderRadius: 4,
-      marginRight: 2,
+      marginRight: 8,
     } as ImageStyle,
     gridAuthor: {
       fontSize: 9,
@@ -656,21 +656,21 @@ function createStyles(tk: AppThemeTokens) {
     // Tip 提示横幅
     tipOuter: {
       backgroundColor: '#d9e6fd',
-      padding: 1,
-      borderRadius: 7,
+      padding: 4,
+      borderRadius: 12,
       marginBottom: 9,
     } as ViewStyle,
     tipInner: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: '#eee',
-      borderRadius: 7,
-      paddingVertical: 2,
-      paddingHorizontal: 3,
+      borderRadius: 12,
+      paddingVertical: 4,
+      paddingHorizontal: 6,
     } as ViewStyle,
     tipIcon: {
-      fontSize: 18,
-      marginRight: 6,
+      fontSize: 20,
+      marginRight: 8,
     } as TextStyle,
     tipScrollContainer: {
       flex: 1,
@@ -682,7 +682,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     tipText: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '700',
       color: '#666666',
       paddingRight: 10,
@@ -690,16 +690,16 @@ function createStyles(tk: AppThemeTokens) {
     tipMyModel: {
       width: 72,
       height: 28,
-      borderRadius: 6,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: '#518dfd',
       backgroundColor: '#d9e6fd',
       alignItems: 'center',
       justifyContent: 'center',
-      marginLeft: 4,
+      marginLeft: 8,
     } as ViewStyle,
     tipMyModelText: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
       color: '#000',
     } as TextStyle,
@@ -719,7 +719,7 @@ function createStyles(tk: AppThemeTokens) {
     noMoreText: {
       marginHorizontal: 10,
       color: '#767676',
-      fontSize: 12,
+      fontSize: 14,
     } as TextStyle,
     centerWrap: {
       flex: 1,
@@ -729,28 +729,28 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     } as ViewStyle,
     errorText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.error.text,
       textAlign: 'center',
     } as TextStyle,
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.surface.light,
     } as TextStyle,
     emptyText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,
     loadingText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
       marginTop: 8,
     } as TextStyle,
@@ -762,7 +762,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
     } as ViewStyle,
     footerText: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.tertiary,
     } as TextStyle,
   })

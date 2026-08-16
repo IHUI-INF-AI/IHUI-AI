@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   background: linear-gradient(135deg, #4e8cff, #6a5cff);
-  /* TODO: custom color: 蓝紫渐变,无对应 token */
+  /* custom color: 蓝紫渐变,无对应 token */
   margin: 20rpx;
   padding: 28rpx 30rpx;
   border-radius: 16rpx;

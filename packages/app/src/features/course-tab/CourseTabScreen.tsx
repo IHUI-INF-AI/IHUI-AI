@@ -384,13 +384,13 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 4,
     } as TextStyle,
     progressLabel: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
 
     // 区块
     section: {
-      padding: 16,
+      padding: 14,
       marginBottom: 8,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -401,12 +401,12 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12,
     } as ViewStyle,
     sectionTitle: {
-      fontSize: 16,
+      fontSize: 20,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     moreLink: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
 
@@ -437,7 +437,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     pathTitle: {
       marginTop: 8,
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.primary,
       textAlign: 'center',
     } as TextStyle,
@@ -453,12 +453,14 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingVertical: 12,
       gap: 8,
+      borderRadius: 12,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     categoryIcon: {
       fontSize: 32,
     } as TextStyle,
     categoryName: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.primary,
     } as TextStyle,
 
@@ -470,7 +472,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     popularCard: {
       width: '48%',
-      borderRadius: 12,
+      borderRadius: 16,
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     } as ViewStyle,
@@ -504,12 +506,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: 4,
     } as ViewStyle,
     popularTitle: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     popularMeta: {
-      fontSize: 11,
+      fontSize: 12,
       color: tk.text.secondary,
     } as TextStyle,
     popularFooter: {
@@ -519,12 +521,12 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 4,
     } as ViewStyle,
     popularPrice: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.success.DEFAULT,
     } as TextStyle,
     popularStudents: {
-      fontSize: 11,
+      fontSize: 12,
       color: tk.text.secondary,
     } as TextStyle,
 
@@ -535,8 +537,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 14,
+      height: 50,
+      fontSize: 16,
       color: tk.text.primary,
       marginBottom: 12,
     } as TextStyle,
@@ -546,7 +548,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 16,
     } as ViewStyle,
     errorText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.danger.DEFAULT,
       textAlign: 'center',
     } as TextStyle,
@@ -555,7 +557,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 48,
     } as ViewStyle,
     loadingText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
     } as TextStyle,
     emptyWrap: {
@@ -563,7 +565,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 48,
     } as ViewStyle,
     emptyText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     courseList: {
@@ -571,7 +573,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
-      borderRadius: 12,
+      borderRadius: 16,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -581,6 +583,7 @@ function createStyles(tk: AppThemeTokens) {
     courseImage: {
       width: 110,
       height: 110,
+      borderRadius: 12,
       backgroundColor: tk.border.light,
     } as ImageStyle,
     courseImageFallback: {
@@ -596,12 +599,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
     } as ViewStyle,
     courseTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     courseDesc: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     courseMeta: {
@@ -613,24 +616,26 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 6,
-      backgroundColor: tk.purple.light,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tk.border.medium,
     } as ViewStyle,
     levelText: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '600',
-      color: tk.purple.DEFAULT,
+      color: tk.text.primary,
     } as TextStyle,
     metaText: {
-      fontSize: 11,
+      fontSize: 12,
       color: tk.text.secondary,
     } as TextStyle,
     priceFree: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.success.DEFAULT,
     } as TextStyle,
     pricePaid: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -641,7 +646,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
     } as ViewStyle,
     pageBtn: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.primary,
     } as TextStyle,
     pageBtnDisabled: {

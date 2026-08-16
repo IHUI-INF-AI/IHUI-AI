@@ -42,7 +42,7 @@ export function SettingsScreen({
   const [changingPwd, setChangingPwd] = useState(false)
 
   const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
 
   const openPwdModal = () => {
     setOldPwd('')
@@ -286,9 +286,21 @@ function PwdInput({
   )
 }
 
-function createStyles(tk: AppThemeTokens) {
+function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
+  // 页面背景:浅色 #f5f5f5(对齐 D 盘 Ai-WXMiniVue 设置页),深色沿用 surface.bg
+  const pageBg = colorScheme === 'dark' ? tk.surface.bg : '#f5f5f5'
+  // 卡片表面:浅色纯白 #fff(对齐 uniapp section-card),深色沿用 surface.muted
+  const cardBg = colorScheme === 'dark' ? tk.surface.muted : '#ffffff'
+  // 分隔线:浅色 #f0f0f0(对齐 uniapp border-bottom),深色沿用 border.light
+  const divider = colorScheme === 'dark' ? tk.border.light : '#f0f0f0'
+  // cell 标签文字:浅色 #333(对齐 uniapp item-label),深色沿用 text.primary
+  const rowLabelColor = colorScheme === 'dark' ? tk.text.primary : '#333333'
+  // 箭头:浅色 #999(对齐 uniapp arrow-icon),深色沿用 text.tertiary
+  const arrowColor = colorScheme === 'dark' ? tk.text.tertiary : '#999999'
+  // 分组标题:浅色 #999(对齐 uniapp section-title),深色沿用 text.secondary
+  const sectionTitleColor = colorScheme === 'dark' ? tk.text.secondary : '#999999'
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg },
+    container: { flex: 1, backgroundColor: pageBg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -296,13 +308,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 16, gap: 12 },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    body: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 24, gap: 16 },
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 16,
+      padding: 14,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
       gap: 12,
@@ -317,59 +329,75 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
     userMeta: { flex: 1, gap: 2 },
-    nickname: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    subText: { fontSize: 12, color: tk.text.secondary },
-    arrow: { fontSize: 18, color: tk.text.tertiary },
+    nickname: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    subText: { fontSize: 14, color: tk.text.secondary },
+    arrow: { fontSize: 20, color: arrowColor },
     section: { gap: 8 },
-    sectionTitle: { fontSize: 13, fontWeight: '600', color: tk.text.medium },
-    sectionCard: { borderRadius: 8, backgroundColor: tk.surface.muted, padding: 4 },
+    sectionTitle: { fontSize: 14, color: sectionTitleColor },
+    sectionCard: {
+      borderRadius: 8,
+      backgroundColor: divider,
+      overflow: 'hidden',
+      gap: StyleSheet.hairlineWidth,
+    },
     plainRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 12,
+      minHeight: 60,
+      paddingVertical: 14,
       paddingHorizontal: 12,
+      backgroundColor: cardBg,
     },
-    rowLabel: { fontSize: 14, color: tk.text.primary },
+    rowLabel: { fontSize: 16, color: rowLabelColor },
     checkMark: { fontSize: 16, color: tk.brand.DEFAULT, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 10,
+      minHeight: 60,
+      paddingVertical: 14,
       paddingHorizontal: 12,
+      backgroundColor: cardBg,
     },
     logoutBtn: {
       marginTop: 8,
-      padding: 14,
+      height: 50,
       borderRadius: 8,
-      backgroundColor: tk.error.bg,
+      backgroundColor: cardBg,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    logoutText: { fontSize: 14, fontWeight: '600', color: tk.error.text },
-    versionText: { textAlign: 'center', fontSize: 11, color: tk.text.tertiary, marginTop: 4 },
+    logoutText: { fontSize: 16, fontWeight: '600', color: '#e64340' },
+    versionText: { textAlign: 'center', fontSize: 12, color: tk.text.tertiary, marginTop: 4 },
     modalOverlay: {
       flex: 1,
       backgroundColor: tk.overlay.modal,
       justifyContent: 'center',
       padding: 24,
     },
-    modalCard: { backgroundColor: tk.surface.bg, borderRadius: 12, padding: 20, gap: 10 },
-    modalTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
+    modalCard: { backgroundColor: tk.surface.bg, borderRadius: 12, padding: 14, gap: 10 },
+    modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
     pwdInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: 8,
       paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 14,
+      height: 50,
+      fontSize: 16,
       color: tk.text.primary,
     },
     modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
-    modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+    modalBtn: {
+      flex: 1,
+      height: 50,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     modalBtnSecondary: { backgroundColor: tk.surface.card },
-    modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: tk.text.medium },
+    modalBtnSecondaryText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
     modalBtnPrimary: { backgroundColor: tk.brand.DEFAULT },
-    modalBtnPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
   })
 }

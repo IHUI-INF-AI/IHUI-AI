@@ -319,7 +319,9 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
   const throttleRef = React.useRef<number>(50)
   React.useEffect(() => {
     const len = content.length
-    throttleRef.current = len < 2000 ? 50 : len < 5000 ? 150 : 400
+    if (len < 2000) throttleRef.current = 50
+    else if (len < 5000) throttleRef.current = 150
+    else throttleRef.current = 400
   }, [content.length])
 
   const [throttledContent, setThrottledContent] = React.useState(content)

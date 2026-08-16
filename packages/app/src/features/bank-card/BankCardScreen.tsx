@@ -83,20 +83,20 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    error: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, color: tk.danger.DEFAULT },
-    listBody: { padding: 16 },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    error: { paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: tk.danger.DEFAULT },
+    listBody: { padding: 10 },
     separator: { height: 12 },
     center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 12, color: tk.text.secondary },
+    muted: { fontSize: 14, color: tk.text.secondary },
     card: {
-      padding: 14,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     },
     cardHeader: {
@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    bankName: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    bankName: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     badge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
@@ -114,11 +114,11 @@ function createStyles(tk: AppThemeTokens) {
     badgeText: { fontSize: 10, color: tk.surface.light },
     cardNumber: {
       marginTop: 10,
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '600',
       color: tk.surface.light,
       letterSpacing: 1,
     },
-    holder: { marginTop: 6, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
+    holder: { marginTop: 8, fontSize: 14, color: 'rgba(255,255,255,0.85)' },
   })
 }
