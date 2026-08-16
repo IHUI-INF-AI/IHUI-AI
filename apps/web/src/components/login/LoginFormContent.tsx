@@ -43,13 +43,13 @@ function TwoFactorPanel({
   onSubmit: (code: string) => void
   onCancel: () => void
 }) {
-  const t = useTranslations('auth')
+  const tAuth = useTranslations('auth')
   const [code, setCode] = React.useState('')
   const [err, setErr] = React.useState('')
   const handleSubmit = () => {
     const v = code.trim()
     if (v.length < 6) {
-      setErr(t('twoFactorError'))
+      setErr(tAuth('twoFactorError'))
       return
     }
     onSubmit(v)
@@ -57,8 +57,8 @@ function TwoFactorPanel({
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-medium text-foreground">{t('twoFactorTitle')}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t('twoFactorHint')}</p>
+        <p className="text-sm font-medium text-foreground">{tAuth('twoFactorTitle')}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{tAuth('twoFactorHint')}</p>
       </div>
       <input
         value={code}
@@ -66,7 +66,7 @@ function TwoFactorPanel({
           setCode(e.target.value)
           setErr('')
         }}
-        placeholder={t('twoFactorPlaceholder')}
+        placeholder={tAuth('twoFactorPlaceholder')}
         // eslint-disable-next-line jsx-a11y/no-autofocus -- 两步验证码输入框需要自动聚焦，提升用户体验
         autoFocus
         className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
@@ -80,14 +80,14 @@ function TwoFactorPanel({
           disabled={!code.trim()}
           className="h-9 flex-1 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {t('twoFactorSubmit')}
+          {tAuth('twoFactorSubmit')}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="h-9 rounded-md border border-border px-4 text-sm text-muted-foreground hover:bg-muted/50"
         >
-          {t('twoFactorCancel')}
+          {tAuth('twoFactorCancel')}
         </button>
       </div>
     </div>
@@ -266,7 +266,7 @@ function QrCodeLoginEmbedded({
 export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   // 共享 @ihui/ui-react.LoginForm 内部调用完整路径的 auth 键,
   // 必须用无命名空间的 useTranslations() 让 t 能解析完整路径;
-  // 若用 useTranslations('auth'),t('auth.emailLogin') 会查找 auth.auth.emailLogin 失败并回退显示 key 名。
+  // 若用 useTranslations('auth'),键路径会变成 auth.auth.emailLogin 失败并回退显示 key 名。
   const t = useTranslations()
   const qc = useQueryClient()
   const setToken = useAuthStore((s) => s.setToken)
