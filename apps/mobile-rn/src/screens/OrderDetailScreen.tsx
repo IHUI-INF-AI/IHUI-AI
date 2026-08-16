@@ -174,24 +174,52 @@ export function OrderDetailScreen() {
     })
     if (status === 'pending' || status === 'unpaid') {
       return [
-        wrap('cancel', () => { void callOrderAction('cancel') }),
-        { ...wrap('pay', () => { void handlePay() }), label: '立即支付', primary: true },
+        wrap('cancel', () => {
+          void callOrderAction('cancel')
+        }),
+        {
+          ...wrap('pay', () => {
+            void handlePay()
+          }),
+          label: '立即支付',
+          primary: true,
+        },
       ]
     }
     if (status === 'paid' || status === 'shipped') {
       return [
-        wrap('refund', () => { void callOrderAction('refund') }),
-        { ...wrap('contact', () => { handleContact() }), label: '联系卖家', primary: true },
+        wrap('refund', () => {
+          void callOrderAction('refund')
+        }),
+        {
+          ...wrap('contact', () => {
+            handleContact()
+          }),
+          label: '联系卖家',
+          primary: true,
+        },
       ]
     }
     if (status === 'completed') {
       return [
-        { ...wrap('rebuy', () => { handleRebuy() }), label: '再次购买', primary: true },
+        {
+          ...wrap('rebuy', () => {
+            handleRebuy()
+          }),
+          label: '再次购买',
+          primary: true,
+        },
       ]
     }
     if (status === 'cancelled') {
       return [
-        { ...wrap('rebuy', () => { handleRebuy() }), label: '再次购买', primary: true },
+        {
+          ...wrap('rebuy', () => {
+            handleRebuy()
+          }),
+          label: '再次购买',
+          primary: true,
+        },
       ]
     }
     return []
@@ -213,8 +241,11 @@ export function OrderDetailScreen() {
         visible={noticeVisible}
         title="购买成功"
         subtitle="请仔细阅读购买须知,享受您的权益"
-        icon="🎉"
-        bullets={['订单已支付成功,请妥善保管凭证', '如需退款请在 7 天内申请', '专属客服 24 小时在线服务']}
+        bullets={[
+          '订单已支付成功,请妥善保管凭证',
+          '如需退款请在 7 天内申请',
+          '专属客服 24 小时在线服务',
+        ]}
         primaryLabel="我知道了"
         onClose={() => setNoticeVisible(false)}
         onPrimary={() => setNoticeVisible(false)}
