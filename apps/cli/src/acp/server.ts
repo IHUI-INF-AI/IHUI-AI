@@ -514,7 +514,7 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
 
 export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
   const input = Writable.toWeb(process.stdout);
-  const output = Readable.toWeb(process.stdin);
+  const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = acp.ndJsonStream(input, output);
   return createAcpAgent(opts).connect(stream);
 }
