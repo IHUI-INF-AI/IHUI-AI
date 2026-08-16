@@ -8,10 +8,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import {
-  DistributionScreen as SharedDistributionScreen,
-  type DistributionInfo,
-} from '@ihui/rn-app'
+import { DistributionScreen as SharedDistributionScreen, type DistributionInfo } from '@ihui/rn-app'
 import EarningsStatisticsCard from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
@@ -56,9 +53,7 @@ export function DistributionScreen() {
   }, [])
   // 邀请链接 = 域名/register?inviteCode=user.inviteCode(对齐 Uniapp 分销页分享链接)
   const inviteCode = user?.inviteCode
-  const inviteLink = inviteCode
-    ? `${INVITE_BASE_URL}/register?inviteCode=${inviteCode}`
-    : ''
+  const inviteLink = inviteCode ? `${INVITE_BASE_URL}/register?inviteCode=${inviteCode}` : ''
 
   /** 复制邀请链接到剪贴板(对齐 Uniapp 分销页 copyInviteLink,非阻断 Toast 反馈) */
   const handleCopyInviteLink = useCallback(() => {
@@ -134,18 +129,21 @@ export function DistributionScreen() {
     { id: 'commission', title: '分佣计划', icon: '💰', description: '了解分佣规则与收益' },
   ]
 
-  const onBlockPress = useCallback((id: string) => {
-    const routeMap: Record<string, string> = {
-      withdraw: 'Withdraw',
-      bankcard: 'BankCard',
-      realname: 'RealNameAuth',
-      income: 'Income',
-      orders: 'DistributionOrderList',
-      commission: 'EarnCommission',
-    }
-    const route = routeMap[id]
-    if (route) navigation.navigate(route as never)
-  }, [navigation])
+  const onBlockPress = useCallback(
+    (id: string) => {
+      const routeMap: Record<string, string> = {
+        withdraw: 'Withdraw',
+        bankcard: 'BankCard',
+        realname: 'RealNameAuth',
+        income: 'Income',
+        orders: 'DistributionOrderList',
+        commission: 'EarnCommission',
+      }
+      const route = routeMap[id]
+      if (route) navigation.navigate(route as never)
+    },
+    [navigation],
+  )
 
   const load = useCallback(
     async (refresh = false) => {
@@ -255,15 +253,9 @@ export function DistributionScreen() {
         onClose={() => setWithdrawDetailVisible(false)}
       >
         <View style={shellStyles.withdrawDetailContent}>
-          <Text style={shellStyles.withdrawDetailText}>
-            可提现金额:¥{info?.pending ?? 0}
-          </Text>
-          <Text style={shellStyles.withdrawDetailText}>
-            已提现金额:¥{info?.withdrawn ?? 0}
-          </Text>
-          <Text style={shellStyles.withdrawDetailText}>
-            最低提现:¥{info?.withdrawMin ?? 0}
-          </Text>
+          <Text style={shellStyles.withdrawDetailText}>可提现金额:¥{info?.pending ?? 0}</Text>
+          <Text style={shellStyles.withdrawDetailText}>已提现金额:¥{info?.withdrawn ?? 0}</Text>
+          <Text style={shellStyles.withdrawDetailText}>最低提现:¥{info?.withdrawMin ?? 0}</Text>
         </View>
       </HandPlatePops>
       {/* BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层) */}
@@ -275,11 +267,7 @@ export function DistributionScreen() {
         <View style={shellStyles.qrContent}>
           {inviteLink ? (
             <>
-              <View
-                ref={qrRef}
-                collapsable={false}
-                style={shellStyles.qrCodeBox}
-              >
+              <View ref={qrRef} collapsable={false} style={shellStyles.qrCodeBox}>
                 <QRCode
                   value={inviteLink}
                   size={176}
@@ -314,15 +302,10 @@ export function DistributionScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="保存到相册"
               >
-                <Text style={shellStyles.saveBtnText}>
-                  {savingQr ? '保存中...' : '保存到相册'}
-                </Text>
+                <Text style={shellStyles.saveBtnText}>{savingQr ? '保存中...' : '保存到相册'}</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [
-                  shellStyles.copyBtn,
-                  pressed ? shellStyles.pressed : null,
-                ]}
+                style={({ pressed }) => [shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}
                 onPress={handleShareToFriend}
                 accessibilityRole="button"
                 accessibilityLabel="分享给好友"
@@ -330,10 +313,7 @@ export function DistributionScreen() {
                 <Text style={shellStyles.copyBtnText}>分享给好友</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [
-                  shellStyles.copyBtn,
-                  pressed ? shellStyles.pressed : null,
-                ]}
+                style={({ pressed }) => [shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
                 accessibilityLabel="复制邀请链接"
