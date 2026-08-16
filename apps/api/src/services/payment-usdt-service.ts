@@ -6,7 +6,7 @@
  * 2. createUsdtPayment: 创建充值订单(TRC20/ERC20),生成/复用充值地址,30 分钟过期
  * 3. checkUsdtPaymentStatus: 查询区块链 API(TronGrid for TRC20, Etherscan for ERC20)确认到账
  * 4. confirmUsdtPayment: 确认到账 + 更新 wallet 余额 + 记录流水(事务 + 幂等)
- * 5. pollPendingUsdtPayments: 批量轮询 pending 订单(供 BullMQ Worker 调用,TODO)
+ * 5. pollPendingUsdtPayments: 批量轮询 pending 订单(供 BullMQ Worker 调用,)
  * 6. listUserUsdtPayments / getUsdtPaymentDetail: 用户查询自己的订单
  * 7. listAllUsdtPayments: admin 查所有订单(支持筛选)
  *
@@ -597,7 +597,7 @@ export async function confirmUsdtPayment(
  * 3. 若 detected=true,调 confirmUsdtPayment
  * 4. 返回统计
  *
- * TODO:接入 BullMQ Worker 定时调用(cron 每 1 分钟)。
+ * 接入 BullMQ Worker 定时调用(cron 每 1 分钟)。
  */
 export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResult> {
   const now = new Date()

@@ -926,6 +926,20 @@
     "searchNext": "Next",
     "searchPrev": "Previous",
     "searchClose": "Close Search",
+    "message": {
+      "hideContent": "Hide content",
+      "showContent": "Show content",
+      "like": "Like",
+      "copy": "Copy",
+      "downloadImages": "Download images",
+      "share": "Share",
+      "toggleMetadata": "Toggle metadata",
+      "regenerate": "Regenerate",
+      "publishToCommunity": "Publish to community",
+      "edit": "Edit",
+      "reply": "Reply",
+      "delete": "Delete"
+    },
     "plan": {
       "title": "Execution Plan",
       "ariaLabel": "Execution plan steps",
@@ -10863,7 +10877,21 @@
     "exportName": "Developer Links",
     "total": "{total} records in total",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "message": {
+      "hideContent": "Hide content",
+      "showContent": "Show content",
+      "like": "Like",
+      "copy": "Copy",
+      "downloadImages": "Download images",
+      "share": "Share",
+      "toggleMetadata": "Toggle metadata",
+      "regenerate": "Regenerate",
+      "publishToCommunity": "Publish to community",
+      "edit": "Edit",
+      "reply": "Reply",
+      "delete": "Delete"
+    }
   },
   "adminApiApps": {
     "title": "API Application Management",

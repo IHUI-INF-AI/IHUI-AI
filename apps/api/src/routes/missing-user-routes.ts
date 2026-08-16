@@ -31,12 +31,12 @@
  * 仍为空桩的端点(user/ 子目录已全部实装真实 CRUD)。剩余真正空桩均在受影响
  * 清单外的文件,无法在本任务处理:
  *
- *   // TODO: progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
+ *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
  *   - miniapp-compat-routes.ts(49 个空桩,小程序兼容桩,被 apps/miniapp-taro
  *     调用,如 /study/groups、/learn/group/:id、/agents/list、/distribution/*、
  *     /messages/aggregate 等;设计为空桩消除 404,后续按需逐个实装真实 CRUD)
  *
- *   // TODO: progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
+ *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
  *   - miniapp-public-fallback-routes.ts(4 个空桩,/content/home、
  *     /content/banner/list、/content/course/list、/study/info,公开 fallback
  *     兜底未登录首页骨架;真实数据走鉴权路由)

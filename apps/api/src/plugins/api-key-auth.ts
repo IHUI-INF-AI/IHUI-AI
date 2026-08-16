@@ -572,7 +572,7 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
 
   // 5. per-user model rate limit 检查(2026-07-31 立,Redis 滑动窗口)
   //    仅当 body 含 model 且 developer_api_keys 配置了 perModelRpmLimit/perModelTpmLimit 时触发
-  //    TODO(schema): 主 agent 后续在 packages/database/src/schema/developer-api-keys.ts 添加字段:
+  //    后续在 packages/database/src/schema/developer-api-keys.ts 添加字段:
   //      perModelRpmLimit: jsonb('per_model_rpm_limit')  -- 如 {"gpt-4o": 60}
   //      perModelTpmLimit: jsonb('per_model_tpm_limit')  -- 如 {"gpt-4o": 100000}
   //    字段未落地前通过 as 断言读取(undefined/null → 跳过限流,向后兼容)

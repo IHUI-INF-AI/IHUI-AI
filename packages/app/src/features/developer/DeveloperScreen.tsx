@@ -129,21 +129,21 @@ export function DeveloperScreen({
 }
 
 function createStyles(tk: AppThemeTokens) {
-  const primary = tk.purple.DEFAULT
-  const primaryLight = tk.purple.light
+  const primary = tk.brand.DEFAULT
+  const primaryLight = tk.surface.muted
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
-    header: { paddingHorizontal: 16, paddingVertical: 12 },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    scrollContent: { padding: 16, paddingBottom: 32 },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: { paddingHorizontal: 10, paddingVertical: 12 },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    scrollContent: { padding: 14, paddingBottom: 32 },
     heroCard: {
       backgroundColor: primaryLight,
       borderRadius: 12,
-      padding: 16,
+      padding: 14,
       marginBottom: 20,
     },
     heroTitle: { fontSize: 20, fontWeight: '700', color: primary },
-    heroSubtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
+    heroSubtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     featureGrid: {
       marginTop: 14,
       flexDirection: 'row',
@@ -152,20 +152,20 @@ function createStyles(tk: AppThemeTokens) {
     },
     featureItem: {
       width: '47%',
-      backgroundColor: tk.surface.card,
-      borderRadius: 8,
+      backgroundColor: tk.surface.light,
+      borderRadius: 12,
       padding: 10,
     },
-    featureTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    featureDesc: { marginTop: 2, fontSize: 11, color: tk.text.tertiary },
+    featureTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    featureDesc: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     sectionTitle: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.secondary,
       marginBottom: 12,
     },
     stateWrap: { paddingVertical: 32, alignItems: 'center' },
-    stateText: { marginTop: 6, fontSize: 13, color: tk.text.tertiary },
+    stateText: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
     planRow: { flexDirection: 'row', gap: 12 },
     planCard: {
       flex: 1,
@@ -173,31 +173,31 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: 12,
       padding: 14,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
     planCardActive: {
       borderColor: primary,
       backgroundColor: tk.surface.light,
     },
-    planLabel: { fontSize: 14, fontWeight: '600', color: tk.text.secondary },
+    planLabel: { fontSize: 16, fontWeight: '600', color: tk.text.secondary },
     planLabelActive: { color: primary },
     planPrice: { marginTop: 8 },
     planPriceActive: { marginTop: 8 },
     planPriceNumber: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    planPriceUnit: { fontSize: 12, color: tk.text.tertiary },
+    planPriceUnit: { fontSize: 14, color: tk.text.tertiary },
     perkList: { marginTop: 10, gap: 4 },
     perkText: { fontSize: 11, color: tk.text.tertiary },
     perkTextActive: { color: primary },
     submitBtn: {
       marginTop: 24,
-      height: 46,
-      borderRadius: 12,
+      height: 50,
+      borderRadius: 15,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 15, fontWeight: '600', color: tk.surface.light },
+    submitText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     agreementHint: {
       marginTop: 12,
       textAlign: 'center',

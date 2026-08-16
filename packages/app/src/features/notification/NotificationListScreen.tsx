@@ -94,15 +94,15 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 16, fontSize: 12, color: tk.danger.DEFAULT },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
-    listBody: { padding: 16 },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    listBody: { padding: 10 },
   })
 }

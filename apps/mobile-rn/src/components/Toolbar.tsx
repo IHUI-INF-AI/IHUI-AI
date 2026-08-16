@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
     gap: 4,
   },
   rowItem: {
