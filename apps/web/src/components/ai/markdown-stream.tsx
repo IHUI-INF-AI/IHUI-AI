@@ -14,12 +14,18 @@ import { useWorkPanelStore } from '@/stores/work-panel'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 // 移除主题中的 background / backgroundColor,避免每行被主题样式强制染色
-function stripBackground(style: Record<string, React.CSSProperties>): Record<string, React.CSSProperties> {
+function stripBackground(
+  style: Record<string, React.CSSProperties>,
+): Record<string, React.CSSProperties> {
   const next: Record<string, React.CSSProperties> = {}
   for (const key of Object.keys(style)) {
     const value = style[key]
     if (value && typeof value === 'object') {
-      const { background: _background, backgroundColor: _backgroundColor, ...rest } = value as React.CSSProperties
+      const {
+        background: _background,
+        backgroundColor: _backgroundColor,
+        ...rest
+      } = value as React.CSSProperties
       next[key] = { ...rest, background: 'transparent', backgroundColor: 'transparent' }
       continue
     }
@@ -230,7 +236,12 @@ const CodeBlock = React.memo(CodeBlockImpl)
  * 不放在 CodeBlock 内部:React.memo 会因 props 未变而跳过重渲染,
  * 把 syntaxStyle 提升为 prop 后,memo 能在引用变化时正常触发更新。
  */
-function ThemedCodeBlock(props: { language?: string; code: string; isStreaming?: boolean; collapseLines?: number }) {
+function ThemedCodeBlock(props: {
+  language?: string
+  code: string
+  isStreaming?: boolean
+  collapseLines?: number
+}) {
   const { resolvedTheme } = useTheme()
   const syntaxStyle = resolvedTheme === 'dark' ? ONE_DARK : ONE_LIGHT
   return <CodeBlock {...props} syntaxStyle={syntaxStyle} />
@@ -491,10 +502,9 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
       td({ children }) {
         return <td className="border border-border px-3 py-1.5">{children}</td>
       },
-      // 分隔线:用低对比度样式(符合 §4 禁止分割线规则 - 容器完整描边允许,纯线条用 border 替代)
-      // hr 在 markdown 语义里是必需的(用户明确要求支持分隔线),样式用 bg-muted 替代纯线条
+      // 分隔线:已移除,不需要
       hr() {
-        return <div className="my-0 h-px bg-border" role="separator" aria-hidden />
+        return null
       },
       // 删除线:GFM ~~text~~
       del({ children }) {
@@ -562,7 +572,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
       p({ children }) {
         // 过滤掉由 markdown 多余空行产生的空段落(<br>)和纯空白段落
         const childrenArray = React.Children.toArray(children)
-        const hasRealContent = childrenArray.some(child => {
+        const hasRealContent = childrenArray.some((child) => {
           if (typeof child === 'string') return child.trim().length > 0
           if (typeof child === 'number') return true
           // <br> 视为空内容(由 markdown 多余空行产生)
