@@ -949,7 +949,6 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
-      compression: false,
     },
     async (request, reply) => {
       const parsed = chatCompletionSchema.safeParse(request.body)

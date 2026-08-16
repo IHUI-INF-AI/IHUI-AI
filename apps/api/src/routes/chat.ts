@@ -803,8 +803,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   // 迁移自 coze_zhs_py/api/chat.py stream_generator
   server.post(
     '/coze/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
