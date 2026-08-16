@@ -66,7 +66,7 @@ export function FinanceScreen({
   ]
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 10 }}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>{t('common.back')}</Text>
@@ -96,21 +96,21 @@ function createStyles(tk: AppThemeTokens) {
     },
     header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 12 },
     backBtn: { marginTop: 12 },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
-      padding: 16,
+      padding: 12,
       marginBottom: 12,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.light,
     },
-    label: { fontSize: 12, color: tk.text.secondary },
-    value: { marginTop: 4, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    label: { fontSize: 14, color: tk.text.secondary },
+    value: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     valuePrimary: { color: tk.success.DEFAULT },
-    muted: { fontSize: 13, color: tk.text.secondary },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8 },
-    link: { fontSize: 13, color: tk.success.DEFAULT },
+    muted: { fontSize: 14, color: tk.text.secondary },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
+    link: { fontSize: 14, color: tk.success.DEFAULT },
   })
 }

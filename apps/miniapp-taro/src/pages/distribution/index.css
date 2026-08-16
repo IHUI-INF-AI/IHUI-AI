@@ -192,7 +192,7 @@
   width: 400rpx;
   height: 400rpx;
   margin: 0 auto;
-  /* TODO: custom color: #ffffff 二维码背景需始终保持白色以确保可扫描,无对应 token */
+  /* custom color: #ffffff 二维码背景需始终保持白色以确保可扫描,无对应 token */
   background: #ffffff;
   border-radius: 12rpx;
 }

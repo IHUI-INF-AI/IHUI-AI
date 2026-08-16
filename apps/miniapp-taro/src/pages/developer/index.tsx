@@ -223,7 +223,7 @@ export default function DeveloperIndex() {
       <View className="px-[30rpx] py-[20rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">{tt('developer.index.myAgents', '我的智能体')}</Text>
       </View>
-      {/* TODO: custom color: 蓝紫渐变 bg-[linear-gradient(135deg,#4e8cff,#6a5cff)],无对应 token */}
+
       <View
         className="flex items-center bg-[linear-gradient(135deg,#4e8cff,#6a5cff)] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
         onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}

@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   chipTextActive: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.surface.light,
     fontWeight: '500',
   },
   chipTextInactive: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
   },
   gridContent: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: tokens.surface.card,
     borderWidth: 1,

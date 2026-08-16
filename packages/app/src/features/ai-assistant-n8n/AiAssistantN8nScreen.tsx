@@ -242,14 +242,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     listContent: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
       paddingBottom: 16,
     } as ViewStyle,
     // 消息气泡
     messageRow: {
       flexDirection: 'row',
-      marginVertical: 4,
+      marginVertical: 8,
     } as ViewStyle,
     messageRowUser: {
       justifyContent: 'flex-end',
@@ -261,7 +261,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: '78%',
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
     } as ViewStyle,
     messageBubbleUser: {
       backgroundColor: tk.brand.DEFAULT,
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     messageText: {
-      fontSize: 14,
+      fontSize: 16,
       lineHeight: 20,
     } as TextStyle,
     messageTextUser: {
@@ -287,13 +287,13 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
     } as ViewStyle,
     imageItem: {
-      marginRight: 6,
-      marginBottom: 6,
+      marginRight: 8,
+      marginBottom: 8,
     } as ViewStyle,
     chatImage: {
       width: 120,
       height: 120,
-      borderRadius: 6,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
     } as ImageStyle,
     // 快捷操作区
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     } as ViewStyle,
     quickChipText: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     // 模型选择条
@@ -332,28 +332,28 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     modelBarLabel: {
       flex: 1,
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     modelConfigBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: 4,
       paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
+      paddingVertical: 4,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     modelConfigBtnText: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     modelConfigBtnLabel: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     modelBarArrow: {
-      fontSize: 18,
+      fontSize: 20,
       color: tk.text.tertiary,
       marginLeft: 8,
     } as TextStyle,
@@ -369,25 +369,25 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     input: {
       flex: 1,
-      height: 40,
+      height: 50,
       paddingHorizontal: 12,
-      borderRadius: 8,
-      backgroundColor: tk.surface.muted,
+      borderRadius: 12,
+      backgroundColor: '#f5f5f5',
       color: tk.text.primary,
-      fontSize: 14,
+      fontSize: 16,
     } as ViewStyle,
     sendBtn: {
       marginLeft: 8,
       paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 8,
+      height: 50,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
     sendBtnText: {
       color: tk.surface.light,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
     } as TextStyle,
     // 流式状态条
@@ -400,7 +400,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     streamingText: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.tertiary,
     } as TextStyle,
     // 空态/加载态
@@ -412,12 +412,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     } as ViewStyle,
     emptyText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,
     loadingText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
       marginTop: 8,
     } as TextStyle,
@@ -429,7 +429,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
     } as ViewStyle,
     footerText: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.tertiary,
     } as TextStyle,
   })

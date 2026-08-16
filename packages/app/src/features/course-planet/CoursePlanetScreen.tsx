@@ -169,13 +169,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingTop: 48,
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     centerWrap: {
       flex: 1,
@@ -183,33 +183,33 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: 24,
     },
-    loadingText: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
+    loadingText: { fontSize: 16, color: tk.text.secondary },
+    errorText: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: {
       marginTop: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     },
-    retryText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
+    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     typeTabsRow: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 8,
     },
     typeTab: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.surface.card,
     },
     typeTabActive: {
       backgroundColor: tk.brand.DEFAULT,
     },
     typeTabText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     },
     typeTabTextActive: {
@@ -217,11 +217,11 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     },
     section: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       marginBottom: 16,
     },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: 12,
@@ -235,9 +235,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseCard: {
       width: 140,
-      borderRadius: 12,
+      borderRadius: 16,
       overflow: 'hidden',
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
     courseCover: {
       width: '100%',
@@ -253,20 +253,20 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseCoverEmoji: { fontSize: 32 },
     courseInfo: {
-      padding: 10,
+      padding: 12,
       gap: 6,
     },
     courseTitle: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 18,
     },
     coursePrice: {
-      fontSize: 13,
+      fontSize: 16,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
     },
-    emptyText: { fontSize: 14, color: tk.text.secondary },
+    emptyText: { fontSize: 16, color: tk.text.secondary },
   })
 }

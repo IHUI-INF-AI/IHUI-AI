@@ -346,7 +346,7 @@ const CLOSE_CODE = {
 /**
  * 校验 API Key 是否有效(developer_api_keys 表,status=active)。
  *
- * TODO: 主 agent 后续替换为共享 api-key-auth(requireApiKeyAuth),
+ * 后续替换为共享 api-key-auth(requireApiKeyAuth),
  * 以复用 P0-7 安全粒度检查(expiresAt / allowedIps / allowedModels 等)。
  */
 async function validateApiKey(apiKey: string): Promise<boolean> {

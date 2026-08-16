@@ -48,13 +48,12 @@ interface BindUserParams {
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 const statusBarHeight = menuButton.top
 
-// TODO: 提取到 packages/shared/src/utils/icon-utils.ts(共享层优先,AGENTS.md §3)
+
 // 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
 function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
-// TODO: 提取到 packages/shared/src/utils/icon-utils.ts(renderIcon 返回 JSX,需评估改为 shared component)
 // 统一渲染 icon:图片路径 → <Image>,emoji → <Text>
 function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
   if (isImagePath(iconStr)) {
@@ -84,7 +83,7 @@ const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: s
   { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: '建立专属知识库' },
 ]
 
-// TODO: 提取到 packages/shared/src/utils/format-utils.ts(共享层优先,AGENTS.md §3)
+
 // 格式化音频时间（秒 → mm:ss）
 function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
