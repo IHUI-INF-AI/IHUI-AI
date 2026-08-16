@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     gap: 6,
   } as ViewStyle,
   levelText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
   } as TextStyle,
   expireText: {
@@ -122,14 +122,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   } as ViewStyle,
   benefitIconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   upgradeBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

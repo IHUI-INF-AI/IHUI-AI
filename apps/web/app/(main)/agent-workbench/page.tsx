@@ -96,7 +96,7 @@ export default function AgentWorkbenchPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   React.useEffect(() => {
     void loadAgents()

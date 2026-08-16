@@ -49,7 +49,7 @@ const viewStyles = {
     paddingTop: 8,
     paddingBottom: 8,
     backgroundColor: tk.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
     gap: 4,
   }),
   rowItem: (): CSSProperties => ({
@@ -63,20 +63,20 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 12,
   }),
   toolInactive: (): CSSProperties => ({
     backgroundColor: 'transparent',
   }),
   toolActive: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    backgroundColor: tk.surface.card,
+    backgroundColor: tk.surface.light,
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
     boxShadow: '0 1px 1px rgba(0,0,0,0.05)',
   }),
   toolPressed: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    backgroundColor: tk.surface.card,
+    backgroundColor: tk.surface.light,
   }),
   icon: (): CSSProperties => ({
     width: 18,

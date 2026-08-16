@@ -439,7 +439,7 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-/* TODO: custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝/#ffffff 白字(在 .pp-pay-icon 中),无对应 token,保留原值 */
+/* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝/#ffffff 白字(在 .pp-pay-icon 中),无对应 token,保留原值 */
 .pp-pay-icon.wechat {
   background: #09bb07;
 }

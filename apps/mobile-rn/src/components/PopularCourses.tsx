@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: tokens.surface.light,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   thumb: {
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: VIP_BADGE_PADDING * 2,
     paddingVertical: VIP_BADGE_PADDING,
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   vipBadgeText: {
     fontSize: 10,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.border.light,
     alignItems: 'center',
     justifyContent: 'center',

@@ -20,6 +20,7 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+import { CompactionStatusBar } from '@/components/chat/compaction-status-bar'
 import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
@@ -1079,6 +1080,9 @@ export function AISidePanel() {
           {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
             历史:此区域之前独立在 AI 面板底部,但 Trae Work 的 subagent 卡片是 inline 在对话流中。
             为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
+
+          {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
+          <CompactionStatusBar />
 
           {/* 输入区 */}
           <MessageInput

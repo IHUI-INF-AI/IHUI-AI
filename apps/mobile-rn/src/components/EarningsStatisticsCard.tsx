@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.secondary,
     textTransform: 'uppercase',
