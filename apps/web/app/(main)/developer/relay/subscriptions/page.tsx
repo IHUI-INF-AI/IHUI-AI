@@ -85,7 +85,11 @@ export default function RelaySubscriptionsPage() {
               <span className="text-sm font-medium">{activePlan.name}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              剩余 <span className="font-semibold tabular-nums">{formatTokens(status?.remainingTokens ?? 0)}</span> token
+              剩余{' '}
+              <span className="font-semibold tabular-nums">
+                {formatTokens(status?.remainingTokens ?? 0)}
+              </span>{' '}
+              token
             </div>
           </CardContent>
         </Card>
@@ -115,12 +119,16 @@ export default function RelaySubscriptionsPage() {
                     <div className="rounded-md bg-muted p-1.5">{planIcon(plan.name)}</div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{plan.name}</p>
-                      <p className="text-xs text-muted-foreground">{plan.billingPeriod === 'month' ? '月付' : plan.billingPeriod}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {plan.billingPeriod === 'month' ? '月付' : plan.billingPeriod}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold tabular-nums">{formatPrice(plan.price)}</span>
+                    <span className="text-2xl font-bold tabular-nums">
+                      {formatPrice(plan.price)}
+                    </span>
                     <span className="text-xs text-muted-foreground">/月</span>
                   </div>
 

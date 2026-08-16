@@ -6,10 +6,7 @@ import {
   SubscriptionsScreen as SharedSubscriptionsScreen,
   type SubscriptionsItem,
 } from '@ihui/rn-app'
-import {
-  cancelSubscription,
-  getSubscriptions,
-} from '../api/social'
+import { cancelSubscription, getSubscriptions } from '../api/social'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -41,33 +38,38 @@ export function SubscriptionsScreen() {
 
   // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
   const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) =>
-      UNIAPP_TEXT[key] ?? t(key, params),
+    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
     [t],
   )
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<SubscriptionsItem>(
-      useCallback(async (query) => {
-        const res = await getSubscriptions(query)
-        if (res.success && res.data) {
-          return {
-            success: true as const,
-            data: {
-              list: res.data.list.map((raw) => ({
-                id: raw.id,
-                targetType: raw.targetType,
-                targetId: raw.targetId,
-                createdAt: formatShortDateWithYear(raw.createdAt),
-              })) as SubscriptionsItem[],
-              total: res.data.total,
-              page: res.data.page,
-              pageSize: res.data.pageSize,
-            },
+      useCallback(
+        async (query) => {
+          const res = await getSubscriptions(query)
+          if (res.success && res.data) {
+            return {
+              success: true as const,
+              data: {
+                list: res.data.list.map((raw) => ({
+                  id: raw.id,
+                  targetType: raw.targetType,
+                  targetId: raw.targetId,
+                  createdAt: formatShortDateWithYear(raw.createdAt),
+                })) as SubscriptionsItem[],
+                total: res.data.total,
+                page: res.data.page,
+                pageSize: res.data.pageSize,
+              },
+            }
           }
-        }
-        return { success: false as const, error: res.error || uniappT('subscriptions.loadFailed') }
-      }, [uniappT]),
+          return {
+            success: false as const,
+            error: res.error || uniappT('subscriptions.loadFailed'),
+          }
+        },
+        [uniappT],
+      ),
       PAGE_SIZE,
     )
 

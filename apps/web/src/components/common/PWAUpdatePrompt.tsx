@@ -38,7 +38,10 @@ export function PWAUpdatePrompt({ onUpdate, className }: PWAUpdatePromptProps) {
       >
         更新
       </button>
-      <button onClick={() => setVisible(false)} className="text-muted-foreground hover:text-foreground">
+      <button
+        onClick={() => setVisible(false)}
+        className="text-muted-foreground hover:text-foreground"
+      >
         <X className="h-4 w-4" />
       </button>
     </div>

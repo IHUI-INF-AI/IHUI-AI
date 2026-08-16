@@ -179,9 +179,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [desktopPermission, setDesktopPermission] = useState<DesktopPermission>(() =>
     getDesktopPermission(),
   )
-  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() =>
-    isSoundNotificationEnabled(),
-  )
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => isSoundNotificationEnabled())
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
 

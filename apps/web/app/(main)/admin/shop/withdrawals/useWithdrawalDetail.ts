@@ -6,7 +6,10 @@ import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_DETAIL, type ListData, type WithdrawalItem } from './types'
 
-export function useWithdrawalDetail(enabled: boolean, t: (key: string, params?: Record<string, string | number>) => string) {
+export function useWithdrawalDetail(
+  enabled: boolean,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
   const qc = useQueryClient()
 
   const [dStatus, setDStatus] = React.useState('all')
@@ -67,7 +70,9 @@ export function useWithdrawalDetail(enabled: boolean, t: (key: string, params?: 
         : api('/api/admin/shop/withdrawals', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(dEditing ? t('withdrawals.detail.toast.updated') : t('withdrawals.detail.toast.created'))
+      toast.success(
+        dEditing ? t('withdrawals.detail.toast.updated') : t('withdrawals.detail.toast.created'),
+      )
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawals'] })
       closeDetail()
     },

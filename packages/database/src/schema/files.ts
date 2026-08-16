@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, bigint, timestamp } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { projects } from './projects.js';
+import { pgTable, uuid, varchar, bigint, timestamp } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { projects } from './projects.js'
 
 /**
  * 项目文件表。
@@ -15,13 +15,12 @@ export const files = pgTable('files', {
   path: varchar('path', { length: 512 }).notNull(),
   size: bigint('size', { mode: 'number' }).default(0).notNull(),
   mimeType: varchar('mime_type', { length: 128 }).notNull(),
-  uploadedBy: uuid('uploaded_by')
-    .references(() => users.id, { onDelete: 'set null' }),
+  uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   // 软删除（回收站）：deletedAt 非空表示已移入回收站
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
-});
+})
 
-export type File = typeof files.$inferSelect;
-export type NewFile = typeof files.$inferInsert;
+export type File = typeof files.$inferSelect
+export type NewFile = typeof files.$inferInsert

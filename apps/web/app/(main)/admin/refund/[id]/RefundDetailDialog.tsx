@@ -69,7 +69,8 @@ export function RefundDetailDialog({
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="font-mono text-xs">{refund.orderNo}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                {currencyFmt.format(Number(refund.refundAmount))} · {t(STATUS_KEY[refund.status] ?? 'status_unknown')}
+                {currencyFmt.format(Number(refund.refundAmount))} ·{' '}
+                {t(STATUS_KEY[refund.status] ?? 'status_unknown')}
               </div>
             </div>
           )}
@@ -88,7 +89,13 @@ export function RefundDetailDialog({
             <div className="flex items-center gap-2">
               {action === 'audit' ? (
                 <>
-                  <Button type="button" variant="outline" onClick={onClose} disabled={isAuditPending} className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={isAuditPending}
+                    className="shrink-0"
+                  >
                     <span className="whitespace-nowrap">{tc('cancel')}</span>
                   </Button>
                   <Button
@@ -104,7 +111,12 @@ export function RefundDetailDialog({
                     <Check className="mr-1 h-4 w-4 shrink-0" />
                     <span className="whitespace-nowrap">{t('approve')}</span>
                   </Button>
-                  <Button type="submit" variant="destructive" disabled={isAuditPending} className="shrink-0">
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={isAuditPending}
+                    className="shrink-0"
+                  >
                     {isAuditPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
                     <X className="mr-1 h-4 w-4 shrink-0" />
                     <span className="whitespace-nowrap">{t('reject')}</span>
@@ -121,7 +133,12 @@ export function RefundDetailDialog({
                   >
                     <span className="whitespace-nowrap">{tc('cancel')}</span>
                   </Button>
-                  <Button type="submit" variant="destructive" disabled={isRejectPending} className="shrink-0">
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={isRejectPending}
+                    className="shrink-0"
+                  >
                     {isRejectPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
                     <span className="whitespace-nowrap">{t('reject')}</span>
                   </Button>

@@ -48,7 +48,20 @@ const VENDOR_RULES: VendorRule[] = [
   { vendor: 'google', label: 'Google Gemini', prefixes: ['gemini-', 'gemma-', 'vertex/gemini-'] },
   { vendor: 'vertex', label: 'Google Vertex AI', prefixes: ['vertex/'] },
   { vendor: 'deepseek', label: 'DeepSeek', prefixes: ['deepseek-', 'siliconcloud/deepseek-ai/'] },
-  { vendor: 'qwen', label: '通义千问', prefixes: ['qwen-', 'qwen2.', 'qwen3.', 'bailian/qwen-', 'featherless/qwen/', 'modelscope/Qwen/', 'ppio/qwen/', 'siliconcloud/Qwen/'] },
+  {
+    vendor: 'qwen',
+    label: '通义千问',
+    prefixes: [
+      'qwen-',
+      'qwen2.',
+      'qwen3.',
+      'bailian/qwen-',
+      'featherless/qwen/',
+      'modelscope/Qwen/',
+      'ppio/qwen/',
+      'siliconcloud/Qwen/',
+    ],
+  },
   { vendor: 'zhipu', label: '智谱', prefixes: ['glm-'] },
   { vendor: 'moonshot', label: '月之暗面', prefixes: ['moonshot-', 'kimi-'] },
   { vendor: 'doubao', label: '字节豆包', prefixes: ['doubao-', 'volcengine/doubao-', 'dreamina-'] },
@@ -62,7 +75,11 @@ const VENDOR_RULES: VendorRule[] = [
   { vendor: 'internlm', label: '上海AI实验室', prefixes: ['internlm'] },
   { vendor: 'kunlun', label: '昆仑万维天工', prefixes: ['skywork-'] },
   { vendor: 'iflytek', label: '科大讯飞星火', prefixes: ['spark-'] },
-  { vendor: 'mistral', label: 'Mistral', prefixes: ['mistral-', 'codestral-', 'pixtral-', 'open-mixtral-'] },
+  {
+    vendor: 'mistral',
+    label: 'Mistral',
+    prefixes: ['mistral-', 'codestral-', 'pixtral-', 'open-mixtral-'],
+  },
   { vendor: 'meta', label: 'Meta Llama', prefixes: ['llama-', 'meta-llama'] },
   { vendor: 'xai', label: 'xAI Grok', prefixes: ['grok-'] },
   { vendor: 'cohere', label: 'Cohere', prefixes: ['command-', 'cohere-embed-'] },
@@ -151,8 +168,7 @@ const aiPricingRoutes: FastifyPluginAsync = async (server) => {
       const rule = VENDOR_RULES.find((r) => r.vendor === vendor)
       if (rule) {
         const orClauses = rule.prefixes.map((p) => ilike(aiPricing.modelId, `${p}%`))
-        const vendorWhere =
-          orClauses.length === 1 ? orClauses[0] : or(...orClauses)
+        const vendorWhere = orClauses.length === 1 ? orClauses[0] : or(...orClauses)
         if (vendorWhere) whereClauses.push(vendorWhere)
       }
     }

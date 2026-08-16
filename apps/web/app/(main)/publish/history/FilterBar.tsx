@@ -10,13 +10,32 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ihui/ui-react'
+import {
+  Card,
+  CardContent,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@ihui/ui-react'
 import { PLATFORM_KEY } from '../helpers'
 
 const PLATFORMS = [
-  'wordpress', 'medium', 'youtube', 'bilibili', 'wechat', 'toutiao',
-  'douyin', 'kuaishou', 'weibo', 'zhihu', 'csdn', 'juejin',
-  'xiaohongshu', 'shipinhao',
+  'wordpress',
+  'medium',
+  'youtube',
+  'bilibili',
+  'wechat',
+  'toutiao',
+  'douyin',
+  'kuaishou',
+  'weibo',
+  'zhihu',
+  'csdn',
+  'juejin',
+  'xiaohongshu',
+  'shipinhao',
 ] as const
 
 export interface FilterBarProps {

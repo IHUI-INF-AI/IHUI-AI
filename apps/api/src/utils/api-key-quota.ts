@@ -170,15 +170,22 @@ export class ApiKeyQuota {
       const hourlyRemaining = latest.hourlyLimit - latest.hourlyUsed
       const dailyRemaining = latest.dailyLimit - latest.dailyUsed
       if (hourlyRemaining < cost) {
-        return { allowed: false, remaining: Math.max(0, hourlyRemaining), resetAt: latest.resetAt, reason: 'hourly_exceeded' }
+        return {
+          allowed: false,
+          remaining: Math.max(0, hourlyRemaining),
+          resetAt: latest.resetAt,
+          reason: 'hourly_exceeded',
+        }
       }
-      return { allowed: false, remaining: Math.max(0, dailyRemaining), resetAt: nextDayReset(now), reason: 'daily_exceeded' }
+      return {
+        allowed: false,
+        remaining: Math.max(0, dailyRemaining),
+        resetAt: nextDayReset(now),
+        reason: 'daily_exceeded',
+      }
     }
 
-    const remaining = Math.min(
-      row.hourlyLimit - row.hourlyUsed,
-      row.dailyLimit - row.dailyUsed,
-    )
+    const remaining = Math.min(row.hourlyLimit - row.hourlyUsed, row.dailyLimit - row.dailyUsed)
     return { allowed: true, remaining: Math.max(0, remaining), resetAt: row.resetAt }
   }
 

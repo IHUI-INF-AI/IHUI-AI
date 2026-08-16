@@ -142,7 +142,9 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
         <select
           id="nd-msgtype"
           value={form.msgType}
-          onChange={(e) => onChange({ ...form, msgType: e.target.value as DispatchForm['msgType'] })}
+          onChange={(e) =>
+            onChange({ ...form, msgType: e.target.value as DispatchForm['msgType'] })
+          }
           className={selectClass}
         >
           {MSG_TYPES.map((m) => (

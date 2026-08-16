@@ -80,9 +80,12 @@ export const useTagsViewStore = create<TagsViewState>((set, get) => ({
     set((s) => {
       // 保留 pinned 标签(Chrome 风格,closeAll 不关 pinned)
       const tags = s.tags.filter((t) => s.pinnedPaths.has(t.path))
-      const activePath = tags.length > 0
-        ? (tags.some((t) => t.path === s.activePath) ? s.activePath : (tags[tags.length - 1]?.path ?? null))
-        : null
+      const activePath =
+        tags.length > 0
+          ? tags.some((t) => t.path === s.activePath)
+            ? s.activePath
+            : (tags[tags.length - 1]?.path ?? null)
+          : null
       const survivorPaths = new Set(tags.map((t) => t.path))
       const dirtyPaths = new Set<string>()
       s.dirtyPaths.forEach((p) => {

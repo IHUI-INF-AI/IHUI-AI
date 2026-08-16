@@ -80,7 +80,9 @@ export default async function OpenClawPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {steps.map((s) => (
               <div key={s.num} className="relative">
-                <div className="text-2xl min-[768px]:text-3xl font-bold text-primary/20">{s.num}</div>
+                <div className="text-2xl min-[768px]:text-3xl font-bold text-primary/20">
+                  {s.num}
+                </div>
                 <h3 className="mt-1 text-sm font-semibold">{s.title}</h3>
                 <p className="mt-1 text-xs text-muted-foreground">{s.desc}</p>
               </div>

@@ -41,10 +41,7 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
-import {
-  earningsRoutes,
-  isFreeProviderModel,
-} from '../src/routes/earnings-routes.js'
+import { earningsRoutes, isFreeProviderModel } from '../src/routes/earnings-routes.js'
 
 // =============================================================================
 // 工具:构建 mock Fastify server + request/reply(对齐 publish-routes.test.ts)
@@ -253,7 +250,9 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       const reply = makeReply()
       await handler(makeRequest({ roleId: 1 }), reply)
 
-      const payload = reply.sentPayload as { data: { todayIncomeTrend: number; referralTrend: number } }
+      const payload = reply.sentPayload as {
+        data: { todayIncomeTrend: number; referralTrend: number }
+      }
       // yesterday=0 + today>0 → 100%
       expect(payload.data.todayIncomeTrend).toBe(100)
       expect(payload.data.referralTrend).toBe(100)

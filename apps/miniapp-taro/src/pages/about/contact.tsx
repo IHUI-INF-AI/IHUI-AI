@@ -50,36 +50,45 @@ export default function ContactPage() {
     }
   }, [tt])
 
-  const call = useCallback((phone: string) => {
-    if (!phone) {
-      Taro.showToast({ title: tt('about.contact.noPhone', '暂无电话'), icon: 'none' })
-      return
-    }
-    Taro.makePhoneCall({ phoneNumber: phone })
-  }, [tt])
+  const call = useCallback(
+    (phone: string) => {
+      if (!phone) {
+        Taro.showToast({ title: tt('about.contact.noPhone', '暂无电话'), icon: 'none' })
+        return
+      }
+      Taro.makePhoneCall({ phoneNumber: phone })
+    },
+    [tt],
+  )
 
-  const copy = useCallback((text: string, label: string) => {
-    if (!text) {
-      Taro.showToast({ title: tt('about.contact.empty', '内容为空'), icon: 'none' })
-      return
-    }
-    Taro.setClipboardData({
-      data: text,
-      success: () => {
-        Taro.showToast({ title: `${label}${tt('about.contact.copied', '已复制')}`, icon: 'none' })
-      },
-    })
-  }, [tt])
+  const copy = useCallback(
+    (text: string, label: string) => {
+      if (!text) {
+        Taro.showToast({ title: tt('about.contact.empty', '内容为空'), icon: 'none' })
+        return
+      }
+      Taro.setClipboardData({
+        data: text,
+        success: () => {
+          Taro.showToast({ title: `${label}${tt('about.contact.copied', '已复制')}`, icon: 'none' })
+        },
+      })
+    },
+    [tt],
+  )
 
-  const openLocation = useCallback((address: string) => {
-    if (!address) return
-    Taro.setClipboardData({
-      data: address,
-      success: () => {
-        Taro.showToast({ title: tt('about.contact.addressCopied', '地址已复制'), icon: 'none' })
-      },
-    })
-  }, [tt])
+  const openLocation = useCallback(
+    (address: string) => {
+      if (!address) return
+      Taro.setClipboardData({
+        data: address,
+        success: () => {
+          Taro.showToast({ title: tt('about.contact.addressCopied', '地址已复制'), icon: 'none' })
+        },
+      })
+    },
+    [tt],
+  )
 
   const contactItems = useMemo<ContactItem[]>(() => {
     const items: ContactItem[] = [
@@ -120,8 +129,12 @@ export default function ContactPage() {
   return (
     <View className="min-h-screen bg-background pb-[60rpx]">
       <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
-        <Text className="block text-[36rpx] font-semibold text-foreground">{tt('about.contact.title', '联系我们')}</Text>
-        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">{tt('about.contact.headerSub', '我们随时为您提供帮助')}</Text>
+        <Text className="block text-[36rpx] font-semibold text-foreground">
+          {tt('about.contact.title', '联系我们')}
+        </Text>
+        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
+          {tt('about.contact.headerSub', '我们随时为您提供帮助')}
+        </Text>
       </View>
 
       {contactItems.length > 0 ? (
@@ -131,15 +144,23 @@ export default function ContactPage() {
               key={item.key}
               className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
               onClick={() =>
-                item.actionType === 'call'
-                  ? call(item.value)
-                  : copy(item.value, item.label)
+                item.actionType === 'call' ? call(item.value) : copy(item.value, item.label)
               }
             >
-              {isImagePath(item.icon) ? <Image src={item.icon} className="w-[40rpx] h-[40rpx] flex-shrink-0" mode="aspectFit" /> : <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>}
+              {isImagePath(item.icon) ? (
+                <Image
+                  src={item.icon}
+                  className="w-[40rpx] h-[40rpx] flex-shrink-0"
+                  mode="aspectFit"
+                />
+              ) : (
+                <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
+              )}
               <View className="flex-1 ml-[24rpx] mr-[16rpx]">
                 <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
-                <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{item.value}</Text>
+                <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
+                  {item.value}
+                </Text>
               </View>
               <Text className="text-[24rpx] text-primary flex-shrink-0">
                 {item.actionType === 'call'
@@ -153,26 +174,43 @@ export default function ContactPage() {
 
       {info.address ? (
         <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          <View className="flex items-center p-[32rpx] active:bg-background" onClick={() => openLocation(info.address)}>
-            <Image src={gongsiIcon} className="w-[40rpx] h-[40rpx] flex-shrink-0" mode="aspectFit" />
+          <View
+            className="flex items-center p-[32rpx] active:bg-background"
+            onClick={() => openLocation(info.address)}
+          >
+            <Image
+              src={gongsiIcon}
+              className="w-[40rpx] h-[40rpx] flex-shrink-0"
+              mode="aspectFit"
+            />
             <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-              <Text className="block text-[22rpx] text-muted-foreground">{tt('about.contact.address', '地址')}</Text>
-              <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{info.address}</Text>
+              <Text className="block text-[22rpx] text-muted-foreground">
+                {tt('about.contact.address', '地址')}
+              </Text>
+              <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
+                {info.address}
+              </Text>
             </View>
-            <Text className="text-[24rpx] text-primary flex-shrink-0">{tt('about.contact.copyBtn', '复制')}</Text>
+            <Text className="text-[24rpx] text-primary flex-shrink-0">
+              {tt('about.contact.copyBtn', '复制')}
+            </Text>
           </View>
         </View>
       ) : null}
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         <View className="flex justify-between items-center py-[28rpx] px-[32rpx]">
-          <Text className="text-[28rpx] text-foreground">{tt('about.contact.workTimeLabel', '工作时间')}</Text>
+          <Text className="text-[28rpx] text-foreground">
+            {tt('about.contact.workTimeLabel', '工作时间')}
+          </Text>
           <Text className="text-[26rpx] text-muted-foreground text-right">
             {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
           </Text>
         </View>
         <View className="flex justify-between items-center py-[28rpx] px-[32rpx] mt-[16rpx]">
-          <Text className="text-[28rpx] text-foreground">{tt('about.contact.responseLabel', '响应时间')}</Text>
+          <Text className="text-[28rpx] text-foreground">
+            {tt('about.contact.responseLabel', '响应时间')}
+          </Text>
           <Text className="text-[26rpx] text-muted-foreground text-right">
             {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
           </Text>
@@ -181,14 +219,19 @@ export default function ContactPage() {
 
       {info.phone ? (
         <View className="pt-[32rpx] px-[24rpx] pb-[16rpx]">
-          <Button className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0" onClick={() => call(info.phone)}>
+          <Button
+            className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0"
+            onClick={() => call(info.phone)}
+          >
             {tt('about.contact.callNow', '立即拨打客服')}
           </Button>
         </View>
       ) : null}
 
       <View className="text-center p-[32rpx]">
-        <Text className="text-[22rpx] text-muted-foreground">{tt('about.contact.footer', '感谢您选择智汇 AI')}</Text>
+        <Text className="text-[22rpx] text-muted-foreground">
+          {tt('about.contact.footer', '感谢您选择智汇 AI')}
+        </Text>
       </View>
     </View>
   )

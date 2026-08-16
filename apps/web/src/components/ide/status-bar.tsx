@@ -1,7 +1,17 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { GitBranch, RefreshCw, AlertCircle, AlertTriangle, Bell, Sun, Moon, ChevronUp, Check } from 'lucide-react'
+import {
+  GitBranch,
+  RefreshCw,
+  AlertCircle,
+  AlertTriangle,
+  Bell,
+  Sun,
+  Moon,
+  ChevronUp,
+  Check,
+} from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
@@ -61,8 +71,13 @@ export function StatusBar() {
         </button>
       </div>
 
-      <div className="ml-auto flex items-center gap-3 transition-opacity duration-300" style={{ opacity: themeAnim ? 0.5 : 1 }}>
-        <span>{cursor.line}:{cursor.col}</span>
+      <div
+        className="ml-auto flex items-center gap-3 transition-opacity duration-300"
+        style={{ opacity: themeAnim ? 0.5 : 1 }}
+      >
+        <span>
+          {cursor.line}:{cursor.col}
+        </span>
         {selection > 0 && (
           <span className="flex items-center gap-0.5">
             <ChevronUp className="h-3 w-3" />

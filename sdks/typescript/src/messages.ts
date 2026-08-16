@@ -68,7 +68,8 @@ export interface MessagesModule {
 export function createMessagesModule(client: BaseClient): MessagesModule {
   return {
     publish: (req) => client.request<V1PublishMessageResponse>('POST', '/messages', req),
-    subscribe: (req) => client.request<V1SubscribeMessageResponse>('POST', '/messages/subscribe', req),
+    subscribe: (req) =>
+      client.request<V1SubscribeMessageResponse>('POST', '/messages/subscribe', req),
     unsubscribe: (subscriptionId) =>
       client.request<V1UnsubscribeResponse>(
         'DELETE',

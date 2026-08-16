@@ -47,7 +47,10 @@ export function AnimatedNumber({
   return (
     <span className={className}>
       {prefix}
-      {display.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+      {display.toLocaleString('zh-CN', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
       {suffix}
     </span>
   )

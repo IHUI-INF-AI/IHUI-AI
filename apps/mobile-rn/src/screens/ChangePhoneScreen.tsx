@@ -193,12 +193,7 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
           />
         </View>
       </View>
-      <FloatBox
-        visible={toastVisible}
-        type={toastType}
-        message={toastMessage}
-        onHide={hideToast}
-      />
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
   )
 }

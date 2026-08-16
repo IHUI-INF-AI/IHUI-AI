@@ -245,7 +245,11 @@ async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeed
     author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
     currentRank: idx + 1,
     currentHot: null,
-    publishTime: item.isoDate ? new Date(item.isoDate) : item.pubDate ? new Date(item.pubDate) : null,
+    publishTime: item.isoDate
+      ? new Date(item.isoDate)
+      : item.pubDate
+        ? new Date(item.pubDate)
+        : null,
   }))
 }
 
@@ -288,23 +292,23 @@ async function callLlm(
         logger.warn(`LLM 调用失败 status=${res.status}`, { url: `${baseUrl}/api/llm/complete` })
         return null
       }
-    // ai-service /llm/complete 返回 {content, model, usage, stub, error?, error_message?}
-    const json = (await res.json()) as {
-      content?: string
-      error?: boolean
-      error_message?: string
-      stub?: boolean
-    }
-    if (json.error) {
-      logger.warn(`LLM 调用返回错误: ${json.error_message ?? 'unknown'}`)
-      return null
-    }
-    if (json.stub) {
-      logger.warn(`LLM stub 模式返回(无真实 API key),跳过`)
-      return null
-    }
-    const text = json.content ?? ''
-    return text.trim() || null
+      // ai-service /llm/complete 返回 {content, model, usage, stub, error?, error_message?}
+      const json = (await res.json()) as {
+        content?: string
+        error?: boolean
+        error_message?: string
+        stub?: boolean
+      }
+      if (json.error) {
+        logger.warn(`LLM 调用返回错误: ${json.error_message ?? 'unknown'}`)
+        return null
+      }
+      if (json.stub) {
+        logger.warn(`LLM stub 模式返回(无真实 API key),跳过`)
+        return null
+      }
+      const text = json.content ?? ''
+      return text.trim() || null
     } finally {
       clearTimeout(timer)
     }
@@ -1132,7 +1136,9 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
     FROM ai_feed_snapshot
     WHERE snapshot_date = CURRENT_DATE
   `)
-  const countRows = Array.isArray(countRes) ? countRes : (countRes as { rows?: unknown[] }).rows ?? []
+  const countRows = Array.isArray(countRes)
+    ? countRes
+    : ((countRes as { rows?: unknown[] }).rows ?? [])
   const insertedRows = (countRows[0] as { cnt?: number } | undefined)?.cnt ?? 0
   logger.info('ai-feed snapshot generated', {
     insertedRows,

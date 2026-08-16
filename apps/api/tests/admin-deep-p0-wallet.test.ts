@@ -263,9 +263,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
   it('POST /adjust 充值 opType=0 amount=100 margin 存在 → update 路径', async () => {
     txSelectResult.mockResolvedValueOnce([{ tokenQuantity: 100, userId: TARGET_USER }])
     txUpdateReturning.mockResolvedValueOnce([{ tokenQuantity: 200, userId: TARGET_USER }])
-    txInsertReturning.mockResolvedValueOnce([
-      { balanceAfter: 200, opType: 0, quantity: 100 },
-    ])
+    txInsertReturning.mockResolvedValueOnce([{ balanceAfter: 200, opType: 0, quantity: 100 }])
 
     const res = await server.inject({
       method: 'POST',
@@ -284,9 +282,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
   it('POST /adjust 管理员调整 opType=5 amount=-50 margin 存在余额足够 → update 路径', async () => {
     txSelectResult.mockResolvedValueOnce([{ tokenQuantity: 100, userId: TARGET_USER }])
     txUpdateReturning.mockResolvedValueOnce([{ tokenQuantity: 50, userId: TARGET_USER }])
-    txInsertReturning.mockResolvedValueOnce([
-      { balanceAfter: 50, opType: 5, quantity: -50 },
-    ])
+    txInsertReturning.mockResolvedValueOnce([{ balanceAfter: 50, opType: 5, quantity: -50 }])
 
     const res = await server.inject({
       method: 'POST',
@@ -387,9 +383,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
   it('POST /adjust 成功后 logAction 被调用 — action/resourceType/resourceId/details 正确', async () => {
     txSelectResult.mockResolvedValueOnce([{ tokenQuantity: 100, userId: TARGET_USER }])
     txUpdateReturning.mockResolvedValueOnce([{ tokenQuantity: 200, userId: TARGET_USER }])
-    txInsertReturning.mockResolvedValueOnce([
-      { balanceAfter: 200, opType: 0, quantity: 100 },
-    ])
+    txInsertReturning.mockResolvedValueOnce([{ balanceAfter: 200, opType: 0, quantity: 100 }])
 
     const res = await server.inject({
       method: 'POST',
@@ -418,9 +412,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
   it('POST /adjust 验证 operatorId = request.userId (ADMIN_USER) 写入 flowValues', async () => {
     txSelectResult.mockResolvedValueOnce([{ tokenQuantity: 100, userId: TARGET_USER }])
     txUpdateReturning.mockResolvedValueOnce([{ tokenQuantity: 200, userId: TARGET_USER }])
-    txInsertReturning.mockResolvedValueOnce([
-      { balanceAfter: 200, opType: 0, quantity: 100 },
-    ])
+    txInsertReturning.mockResolvedValueOnce([{ balanceAfter: 200, opType: 0, quantity: 100 }])
 
     const res = await server.inject({
       method: 'POST',

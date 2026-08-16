@@ -17,9 +17,9 @@ export interface UseRefundMachineReturn {
 
 export function useRefundMachine(): UseRefundMachineReturn {
   const [snapshot, send, canType] = useWorkflowMachine(refundMachine)
-  const state = (typeof snapshot?.value === 'string'
-    ? snapshot.value
-    : String(snapshot?.value ?? 'pending')) as RefundState
+  const state = (
+    typeof snapshot?.value === 'string' ? snapshot.value : String(snapshot?.value ?? 'pending')
+  ) as RefundState
   const context = (snapshot?.context ?? { retryCount: 0 }) as RefundContext
 
   return {

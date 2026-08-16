@@ -55,14 +55,7 @@ export interface PageShellProps {
  * 滚动:外层 h-screen overflow-hidden 锁定视口,sidebar/main 各自独立 overflow-y-auto
  * 分隔:用 bg-card(header/sidebar/footer)vs bg-background(主体)背景色对比,无分割线
  */
-export function PageShell({
-  title,
-  header,
-  sidebar,
-  footer,
-  children,
-  className,
-}: PageShellProps) {
+export function PageShell({ title, header, sidebar, footer, children, className }: PageShellProps) {
   const hasHeader = Boolean(title || header)
   return (
     <div
@@ -74,22 +67,20 @@ export function PageShell({
       {hasHeader && (
         <header className="flex shrink-0 items-center gap-3 bg-card px-4 py-3 min-[768px]:px-6">
           {title && (
-            <h1 className="shrink-0 text-lg font-semibold leading-none tracking-tight">
-              {title}
-            </h1>
+            <h1 className="shrink-0 text-lg font-semibold leading-none tracking-tight">{title}</h1>
           )}
           {header && <div className="flex flex-1 items-center gap-2">{header}</div>}
         </header>
       )}
       <div className="flex flex-1 overflow-hidden">
         {sidebar && (
-          <aside className="w-56 shrink-0 overflow-y-auto bg-card min-[768px]:w-64">{sidebar}</aside>
+          <aside className="w-56 shrink-0 overflow-y-auto bg-card min-[768px]:w-64">
+            {sidebar}
+          </aside>
         )}
         <main className="flex-1 overflow-y-auto p-4 min-[768px]:p-6">{children}</main>
       </div>
-      {footer && (
-        <footer className="shrink-0 bg-card px-4 py-3 min-[768px]:px-6">{footer}</footer>
-      )}
+      {footer && <footer className="shrink-0 bg-card px-4 py-3 min-[768px]:px-6">{footer}</footer>}
     </div>
   )
 }

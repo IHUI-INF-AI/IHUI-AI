@@ -89,7 +89,9 @@ export default function HelpPage() {
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate text-left">{t('allArticles')}</span>
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{articles.length}</span>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              {articles.length}
+            </span>
           </button>
           {cats.map((c) => (
             <button
@@ -101,7 +103,9 @@ export default function HelpPage() {
               <HelpCircle className="h-4 w-4 shrink-0" />
               <TruncatedText value={c.name} className="min-w-0 flex-1 text-left" />
               {typeof c.articleCount === 'number' && (
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{c.articleCount}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  {c.articleCount}
+                </span>
               )}
             </button>
           ))}

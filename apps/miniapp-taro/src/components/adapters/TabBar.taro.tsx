@@ -110,10 +110,7 @@ export function TabBar({
   const list: readonly TabBarItemConfig[] = items ?? DEFAULT_TABS
 
   return (
-    <View
-      className={className}
-      style={viewStyles.container(tk, safeAreaBottom)}
-    >
+    <View className={className} style={viewStyles.container(tk, safeAreaBottom)}>
       {list.map((tab) => {
         const isActive = tab.key === activeTab
         const labelColor = isActive ? tk.brand.DEFAULT : tk.text.tertiary
@@ -124,7 +121,12 @@ export function TabBar({
             hoverClass="opacity-60"
             style={viewStyles.item()}
           >
-            <TabBarIcon tab={tab} isActive={isActive} activeColor={tk.brand.DEFAULT} inactiveColor={tk.text.tertiary} />
+            <TabBarIcon
+              tab={tab}
+              isActive={isActive}
+              activeColor={tk.brand.DEFAULT}
+              inactiveColor={tk.text.tertiary}
+            />
             <Text style={textStyles.label(labelColor)}>{tab.label}</Text>
           </View>
         )

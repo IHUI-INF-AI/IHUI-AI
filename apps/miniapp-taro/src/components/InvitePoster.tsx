@@ -44,16 +44,18 @@ export default function InvitePoster({
 
         {inviteCode && (
           <View className="flex items-center justify-center mb-3">
-            <Text className="text-xs text-muted-foreground mr-2">{tt('invite.code', '邀请码:')}</Text>
-            <Text className="text-base font-bold text-primary tracking-widest">
-              {inviteCode}
+            <Text className="text-xs text-muted-foreground mr-2">
+              {tt('invite.code', '邀请码:')}
             </Text>
+            <Text className="text-base font-bold text-primary tracking-widest">{inviteCode}</Text>
           </View>
         )}
 
         {inviteUrl && (
           <View className="bg-muted rounded-lg px-3 py-2 mb-4">
-            <Text className="block text-xs text-muted-foreground text-center truncate">{inviteUrl}</Text>
+            <Text className="block text-xs text-muted-foreground text-center truncate">
+              {inviteUrl}
+            </Text>
           </View>
         )}
 
@@ -70,7 +72,9 @@ export default function InvitePoster({
             style={{ background: 'var(--color-accent)' }}
             onClick={onShare}
           >
-            <Text className="text-sm text-accent-foreground">{tt('invite.shareNow', '立即分享')}</Text>
+            <Text className="text-sm text-accent-foreground">
+              {tt('invite.shareNow', '立即分享')}
+            </Text>
           </View>
         </View>
       </View>

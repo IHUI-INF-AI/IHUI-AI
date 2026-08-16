@@ -74,15 +74,7 @@ export interface SummaryStat {
 // ═══════════════════════════════════════════════════════════
 
 export type BehaviorTargetType =
-  | 'article'
-  | 'lesson'
-  | 'answer'
-  | 'question'
-  | 'comment'
-  | 'live'
-  | 'channel'
-  | 'circle'
-  | string
+  'article' | 'lesson' | 'answer' | 'question' | 'comment' | 'live' | 'channel' | 'circle' | string
 
 export interface LikeRecord {
   id: number

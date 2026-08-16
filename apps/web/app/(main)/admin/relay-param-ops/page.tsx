@@ -55,7 +55,9 @@ interface DryRunResult {
 const fmtTime = (iso?: string): string => {
   if (!iso) return '-'
   try {
-    return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso))
+    return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(
+      new Date(iso),
+    )
   } catch {
     return iso
   }
@@ -81,7 +83,12 @@ export default function AdminRelayParamOpsPage() {
   const [sampleBody, setSampleBody] = React.useState('{\n  "model": "gpt-4",\n  "messages": []\n}')
   const [dryRunResult, setDryRunResult] = React.useState<DryRunResult | null>(null)
 
-  const { data: rules, isLoading, error, refetch } = useQuery({
+  const {
+    data: rules,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey,
     queryFn: async () => {
       const r = await fetchApi<ParamOpRule[]>('/api/admin/relay-param-ops')
@@ -132,9 +139,12 @@ export default function AdminRelayParamOpsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetchApi<{ id: string }>(`/api/admin/relay-param-ops/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      })
+      const r = await fetchApi<{ id: string }>(
+        `/api/admin/relay-param-ops/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        },
+      )
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -171,7 +181,15 @@ export default function AdminRelayParamOpsPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ name: '', priority: 0, enabled: true, model: '', channelId: '', global: false, opsText: '[]' })
+    setForm({
+      name: '',
+      priority: 0,
+      enabled: true,
+      model: '',
+      channelId: '',
+      global: false,
+      opsText: '[]',
+    })
     setEditOpen(true)
   }
 
@@ -225,7 +243,9 @@ export default function AdminRelayParamOpsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive" />
-            <div className="text-sm text-muted-foreground">{(error as Error).message || t('loadFailed')}</div>
+            <div className="text-sm text-muted-foreground">
+              {(error as Error).message || t('loadFailed')}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -288,13 +308,25 @@ export default function AdminRelayParamOpsPage() {
                           {r.enabled ? t('enabled') : t('disabled')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{fmtTime(r.updatedAt ?? r.createdAt)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {fmtTime(r.updatedAt ?? r.createdAt)}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-9 px-3" onClick={() => openEdit(r)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-3"
+                            onClick={() => openEdit(r)}
+                          >
                             <Pencil className="h-3 w-3" /> {t('edit')}
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-9 px-3" onClick={() => openDryRun(r)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-3"
+                            onClick={() => openDryRun(r)}
+                          >
                             <Play className="h-3 w-3" /> {t('dryRun')}
                           </Button>
                           <Button
@@ -302,7 +334,8 @@ export default function AdminRelayParamOpsPage() {
                             size="sm"
                             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                             onClick={() => {
-                              if (confirm(t('deleteConfirm', { name: r.name }))) deleteMut.mutate(r.id)
+                              if (confirm(t('deleteConfirm', { name: r.name })))
+                                deleteMut.mutate(r.id)
                             }}
                             aria-label={t('delete')}
                           >
@@ -342,7 +375,9 @@ export default function AdminRelayParamOpsPage() {
                 <Input
                   type="number"
                   value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, priority: Number(e.target.value) || 0 }))
+                  }
                   className="h-8"
                 />
               </div>
@@ -406,8 +441,15 @@ export default function AdminRelayParamOpsPage() {
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               {t('cancel')}
             </Button>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !form.name.trim()}>
-              {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button
+              onClick={() => saveMut.mutate()}
+              disabled={saveMut.isPending || !form.name.trim()}
+            >
+              {saveMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               {t('save')}
             </Button>
           </DialogFooter>
@@ -432,7 +474,11 @@ export default function AdminRelayParamOpsPage() {
               />
             </div>
             <Button size="sm" onClick={() => dryRunMut.mutate()} disabled={dryRunMut.isPending}>
-              {dryRunMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+              {dryRunMut.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
               {t('dryRunRun')}
             </Button>
             {dryRunResult && (

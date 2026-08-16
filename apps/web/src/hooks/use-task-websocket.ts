@@ -112,10 +112,7 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
         // 2026-07-22 P0 Round 4:断线指数退避重连,达 MAX_RECONNECT_ATTEMPTS 停止
         if (!closedByUnmountRef.current && token && currentTaskIdRef.current === taskId) {
           if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
-            const delay = Math.min(
-              1000 * 2 ** reconnectAttemptRef.current,
-              MAX_RECONNECT_DELAY_MS,
-            )
+            const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, MAX_RECONNECT_DELAY_MS)
             reconnectAttemptRef.current += 1
             reconnectTimerRef.current = setTimeout(() => connect(taskId), delay)
           } else {

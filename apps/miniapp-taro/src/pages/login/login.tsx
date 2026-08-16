@@ -41,7 +41,10 @@ export default function Login() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const codeBtnText = useMemo(
-    () => (countdown > 0 ? `${countdown}${tt('login.codeCountdownSuffix', '秒后重新获取')}` : tt('login.sendCode', '发送验证码')),
+    () =>
+      countdown > 0
+        ? `${countdown}${tt('login.codeCountdownSuffix', '秒后重新获取')}`
+        : tt('login.sendCode', '发送验证码'),
     [countdown, tt],
   )
   const codeBtnDisabled = useMemo(() => countdown > 0 || phone.length !== 11, [countdown, phone])
@@ -208,8 +211,16 @@ export default function Login() {
               <Image className="logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
             </View>
             <View className="titlebox">
-              <Image className="titlebox-image" src="/static/images/loginengtexta.png" mode="aspectFit" />
-              <Image className="titlebox-image1" src="/static/images/loginzhtext.png" mode="aspectFit" />
+              <Image
+                className="titlebox-image"
+                src="/static/images/loginengtexta.png"
+                mode="aspectFit"
+              />
+              <Image
+                className="titlebox-image1"
+                src="/static/images/loginzhtext.png"
+                mode="aspectFit"
+              />
             </View>
           </View>
 
@@ -351,7 +362,9 @@ export default function Login() {
           <View className="bottom-section">
             <View className="bottom_box">
               <AuthButton onClick={handleLoginClick} disabled={isLogging}>
-                {isLogging ? tt('login.loading', '登录中…') : tt('login.loginOrRegister', '登录/注册')}
+                {isLogging
+                  ? tt('login.loading', '登录中…')
+                  : tt('login.loginOrRegister', '登录/注册')}
               </AuthButton>
 
               {/* 快捷登录分割线(三段式) */}
@@ -364,21 +377,13 @@ export default function Login() {
               {/* 第三方登录图标:wx + alipay 占位 + google */}
               <View className="icon-all">
                 <View className="icon-all-box" onClick={handleWechatLogin}>
-                  <Image
-                    className="third-icon"
-                    src="/static/images/wx.svg"
-                    mode="aspectFit"
-                  />
+                  <Image className="third-icon" src="/static/images/wx.svg" mode="aspectFit" />
                 </View>
                 <View className="icon-all-box" onClick={handleWechatLogin}>
                   <View className="third-icon" />
                 </View>
                 <View className="icon-all-box" onClick={handleSsoLogin}>
-                  <Image
-                    className="third-icon"
-                    src="/static/images/google.svg"
-                    mode="aspectFit"
-                  />
+                  <Image className="third-icon" src="/static/images/google.svg" mode="aspectFit" />
                 </View>
               </View>
             </View>

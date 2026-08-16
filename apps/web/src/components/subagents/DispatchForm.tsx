@@ -106,7 +106,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor={`${fid}-goal`} className={labelClass}>任务目标 *</label>
+        <label htmlFor={`${fid}-goal`} className={labelClass}>
+          任务目标 *
+        </label>
         <textarea
           id={`${fid}-goal`}
           className={textareaClass}
@@ -119,7 +121,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <div>
-          <label htmlFor={`${fid}-affected`} className={labelClass}>受影响文件(每行一个)*</label>
+          <label htmlFor={`${fid}-affected`} className={labelClass}>
+            受影响文件(每行一个)*
+          </label>
           <textarea
             id={`${fid}-affected`}
             className={textareaClass}
@@ -130,7 +134,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           />
         </div>
         <div>
-          <label htmlFor={`${fid}-forbidden`} className={labelClass}>禁止修改(每行一个)</label>
+          <label htmlFor={`${fid}-forbidden`} className={labelClass}>
+            禁止修改(每行一个)
+          </label>
           <textarea
             id={`${fid}-forbidden`}
             className={textareaClass}
@@ -140,7 +146,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           />
         </div>
         <div>
-          <label htmlFor={`${fid}-verify`} className={labelClass}>验证命令(每行一个)</label>
+          <label htmlFor={`${fid}-verify`} className={labelClass}>
+            验证命令(每行一个)
+          </label>
           <textarea
             id={`${fid}-verify`}
             className={textareaClass}
@@ -150,7 +158,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           />
         </div>
         <div>
-          <label htmlFor={`${fid}-constraints`} className={labelClass}>约束边界 *</label>
+          <label htmlFor={`${fid}-constraints`} className={labelClass}>
+            约束边界 *
+          </label>
           <textarea
             id={`${fid}-constraints`}
             className={textareaClass}
@@ -163,7 +173,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       </div>
 
       <div>
-        <label htmlFor={`${fid}-deliverables`} className={labelClass}>交付物 *</label>
+        <label htmlFor={`${fid}-deliverables`} className={labelClass}>
+          交付物 *
+        </label>
         <textarea
           id={`${fid}-deliverables`}
           className={textareaClass}
@@ -176,7 +188,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         <div>
-          <label htmlFor={`${fid}-role`} className={labelClass}>Agent 角色</label>
+          <label htmlFor={`${fid}-role`} className={labelClass}>
+            Agent 角色
+          </label>
           <select
             id={`${fid}-role`}
             className={selectClass}
@@ -192,7 +206,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </select>
         </div>
         <div>
-          <label htmlFor={`${fid}-orch`} className={labelClass}>编排模式</label>
+          <label htmlFor={`${fid}-orch`} className={labelClass}>
+            编排模式
+          </label>
           <select
             id={`${fid}-orch`}
             className={selectClass}
@@ -208,7 +224,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </select>
         </div>
         <div>
-          <label htmlFor={`${fid}-priority`} className={labelClass}>优先级</label>
+          <label htmlFor={`${fid}-priority`} className={labelClass}>
+            优先级
+          </label>
           <select
             id={`${fid}-priority`}
             className={selectClass}
@@ -232,24 +250,66 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
         </summary>
         <div className="grid grid-cols-1 gap-3 p-3 min-[768px]:grid-cols-5">
           <div>
-            <label htmlFor={`${fid}-retryMax`} className={labelClass}>重试次数</label>
-            <Input id={`${fid}-retryMax`} type="number" min={1} max={3} value={retryMax} onChange={(e) => setRetryMax(e.target.value)} />
+            <label htmlFor={`${fid}-retryMax`} className={labelClass}>
+              重试次数
+            </label>
+            <Input
+              id={`${fid}-retryMax`}
+              type="number"
+              min={1}
+              max={3}
+              value={retryMax}
+              onChange={(e) => setRetryMax(e.target.value)}
+            />
           </div>
           <div>
-            <label htmlFor={`${fid}-retryDelay`} className={labelClass}>重试延迟(ms)</label>
-            <Input id={`${fid}-retryDelay`} type="number" min={0} value={retryDelay} onChange={(e) => setRetryDelay(e.target.value)} />
+            <label htmlFor={`${fid}-retryDelay`} className={labelClass}>
+              重试延迟(ms)
+            </label>
+            <Input
+              id={`${fid}-retryDelay`}
+              type="number"
+              min={0}
+              value={retryDelay}
+              onChange={(e) => setRetryDelay(e.target.value)}
+            />
           </div>
           <div>
-            <label htmlFor={`${fid}-quotaTimeout`} className={labelClass}>超时(ms)</label>
-            <Input id={`${fid}-quotaTimeout`} type="number" min={1000} value={quotaTimeout} onChange={(e) => setQuotaTimeout(e.target.value)} />
+            <label htmlFor={`${fid}-quotaTimeout`} className={labelClass}>
+              超时(ms)
+            </label>
+            <Input
+              id={`${fid}-quotaTimeout`}
+              type="number"
+              min={1000}
+              value={quotaTimeout}
+              onChange={(e) => setQuotaTimeout(e.target.value)}
+            />
           </div>
           <div>
-            <label htmlFor={`${fid}-quotaTokens`} className={labelClass}>Token 配额</label>
-            <Input id={`${fid}-quotaTokens`} type="number" min={1000} value={quotaTokens} onChange={(e) => setQuotaTokens(e.target.value)} />
+            <label htmlFor={`${fid}-quotaTokens`} className={labelClass}>
+              Token 配额
+            </label>
+            <Input
+              id={`${fid}-quotaTokens`}
+              type="number"
+              min={1000}
+              value={quotaTokens}
+              onChange={(e) => setQuotaTokens(e.target.value)}
+            />
           </div>
           <div>
-            <label htmlFor={`${fid}-quotaRetries`} className={labelClass}>最大重试</label>
-            <Input id={`${fid}-quotaRetries`} type="number" min={0} max={3} value={quotaRetries} onChange={(e) => setQuotaRetries(e.target.value)} />
+            <label htmlFor={`${fid}-quotaRetries`} className={labelClass}>
+              最大重试
+            </label>
+            <Input
+              id={`${fid}-quotaRetries`}
+              type="number"
+              min={0}
+              max={3}
+              value={quotaRetries}
+              onChange={(e) => setQuotaRetries(e.target.value)}
+            />
           </div>
         </div>
       </details>
@@ -279,7 +339,10 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
               </Button>
             </div>
             {dagNodes.map((node, idx) => (
-              <div key={idx} className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]">
+              <div
+                key={idx}
+                className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]"
+              >
                 <Input
                   placeholder="id"
                   value={node.id}
@@ -339,7 +402,10 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
               </Button>
             </div>
             {dagEdges.map((edge, idx) => (
-              <div key={idx} className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]">
+              <div
+                key={idx}
+                className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]"
+              >
                 <Input
                   placeholder="from"
                   value={edge.from}
@@ -383,7 +449,9 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
       {error && (
         <Card className="border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950">
-          <CardContent className="p-3 text-sm text-rose-700 dark:text-rose-300 min-[640px]:p-3">{error}</CardContent>
+          <CardContent className="p-3 text-sm text-rose-700 dark:text-rose-300 min-[640px]:p-3">
+            {error}
+          </CardContent>
         </Card>
       )}
 

@@ -44,14 +44,7 @@ export type SmsScene = 'register' | 'login' | 'reset' | 'phone-binding'
 
 /** OAuth 平台枚举(对齐后端 apps/api/src/routes/auth-extended.ts 第 2047 行 8 平台回调) */
 export type OAuthPlatform =
-  | 'google'
-  | 'apple'
-  | 'dingtalk'
-  | 'enterpriseWechat'
-  | 'wechat'
-  | 'feishu'
-  | 'github'
-  | 'alipay'
+  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'feishu' | 'github' | 'alipay'
 
 /** 各 OAuth 平台配置状态(GET /auth/oauth-status 返回体) */
 export interface OAuthStatus {

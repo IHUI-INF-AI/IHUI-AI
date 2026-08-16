@@ -74,7 +74,9 @@ export async function withBypassRls<T>(
     throw new Error('[rls] withBypassRls 必须提供 reason 参数')
   }
   if (!BYPASS_RLS_REASON_WHITELIST.has(reason)) {
-    throw new Error(`[rls] withBypassRls reason 不在白名单: ${reason}(允许: ${[...BYPASS_RLS_REASON_WHITELIST].join(', ')})`)
+    throw new Error(
+      `[rls] withBypassRls reason 不在白名单: ${reason}(允许: ${[...BYPASS_RLS_REASON_WHITELIST].join(', ')})`,
+    )
   }
   // 生产环境守卫:只允许 migration / seed / cleanup(防测试代码误用)
   if (process.env.NODE_ENV === 'production' && reason === 'test-cleanup') {

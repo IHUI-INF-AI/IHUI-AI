@@ -51,7 +51,9 @@ function MetricCell({ label, value, danger }: MetricItem) {
   return (
     <div className="rounded-md border border-border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 text-xl font-semibold tabular-nums', danger && 'text-red-600')}>{value}</p>
+      <p className={cn('mt-1 text-xl font-semibold tabular-nums', danger && 'text-red-600')}>
+        {value}
+      </p>
     </div>
   )
 }
@@ -70,11 +72,15 @@ export default function AiMetricsPage() {
     try {
       const [sseData, costData, vipData] = await Promise.all([
         api<SseMetrics>('/api/ai/admin/ai/chat/metrics'),
-        api<{ promptCacheMetrics?: PromptCacheMetrics }>('/api/admin/ai/cost/dashboard?startDate=&endDate='),
+        api<{ promptCacheMetrics?: PromptCacheMetrics }>(
+          '/api/admin/ai/cost/dashboard?startDate=&endDate=',
+        ),
         api<VipMetrics>('/api/admin/token-balance/metrics'),
       ])
       setSse(sseData)
-      setPc(costData.promptCacheMetrics ?? { hits: 0, misses: 0, l2Hits: 0, l2Misses: 0, errors: 0 })
+      setPc(
+        costData.promptCacheMetrics ?? { hits: 0, misses: 0, l2Hits: 0, l2Misses: 0, errors: 0 },
+      )
       setVip(vipData)
       setError(false)
       setLastRefresh(new Date())
@@ -100,10 +106,22 @@ export default function AiMetricsPage() {
   const sseCards: MetricItem[] = sse
     ? [
         { label: t('sseTimeouts'), value: fmtNum(sse.timeouts ?? 0), danger: sse.timeouts > 0 },
-        { label: t('sseRateLimitHits'), value: fmtNum(sse.rateLimitHits ?? 0), danger: sse.rateLimitHits > 0 },
-        { label: t('sseBudgetRejects'), value: fmtNum(sse.budgetRejects ?? 0), danger: sse.budgetRejects > 0 },
+        {
+          label: t('sseRateLimitHits'),
+          value: fmtNum(sse.rateLimitHits ?? 0),
+          danger: sse.rateLimitHits > 0,
+        },
+        {
+          label: t('sseBudgetRejects'),
+          value: fmtNum(sse.budgetRejects ?? 0),
+          danger: sse.budgetRejects > 0,
+        },
         { label: t('sseRetryAfterSent'), value: fmtNum(sse.retryAfterSent ?? 0) },
-        { label: t('sseUpstreamErrors'), value: fmtNum(sse.upstreamErrors ?? 0), danger: sse.upstreamErrors > 0 },
+        {
+          label: t('sseUpstreamErrors'),
+          value: fmtNum(sse.upstreamErrors ?? 0),
+          danger: sse.upstreamErrors > 0,
+        },
       ]
     : []
 
@@ -209,7 +227,10 @@ export default function AiMetricsPage() {
             <CardContent>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
                 <MetricCell label={t('vipApplies')} value={fmtNum(vip?.applies ?? 0)} />
-                <MetricCell label={t('vipTotalDiscounted')} value={fmtNum(vip?.totalDiscounted ?? 0)} />
+                <MetricCell
+                  label={t('vipTotalDiscounted')}
+                  value={fmtNum(vip?.totalDiscounted ?? 0)}
+                />
                 {vipLevels.map(([level, count]) => (
                   <MetricCell
                     key={level}

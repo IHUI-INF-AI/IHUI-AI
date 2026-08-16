@@ -59,9 +59,7 @@ export function SortableSection({ section, index, onToggle }: SortableSectionPro
       </button>
 
       {/* 序号 */}
-      <span className="w-6 text-center text-xs font-medium text-muted-foreground">
-        {index + 1}
-      </span>
+      <span className="w-6 text-center text-xs font-medium text-muted-foreground">{index + 1}</span>
 
       {/* section 名称 + 组件类型 */}
       <div className="flex flex-1 items-center gap-2">

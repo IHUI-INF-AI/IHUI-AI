@@ -159,23 +159,20 @@ export function usePublishAccounts() {
 
   const [batchVerifying, setBatchVerifying] = React.useState(false)
 
-  const batchVerify = React.useCallback(
-    async (): Promise<boolean> => {
-      setBatchVerifying(true)
-      try {
-        await api('/api/publish/accounts/batch-verify', { method: 'POST' })
-        toast.success('批量验证完成')
-        await load()
-        return true
-      } catch (e) {
-        reportError(toast, e)
-        return false
-      } finally {
-        setBatchVerifying(false)
-      }
-    },
-    [toast, load],
-  )
+  const batchVerify = React.useCallback(async (): Promise<boolean> => {
+    setBatchVerifying(true)
+    try {
+      await api('/api/publish/accounts/batch-verify', { method: 'POST' })
+      toast.success('批量验证完成')
+      await load()
+      return true
+    } catch (e) {
+      reportError(toast, e)
+      return false
+    } finally {
+      setBatchVerifying(false)
+    }
+  }, [toast, load])
 
   React.useEffect(() => {
     void load()
@@ -244,20 +241,23 @@ export function useContentTemplates() {
     setCustomTemplates(loadCustomTemplates())
   }, [])
 
-  const saveTemplate = React.useCallback((template: Omit<ContentTemplate, 'id' | 'preset'>): boolean => {
-    if (!template.content.trim()) return false
-    const tpl: ContentTemplate = {
-      ...template,
-      id: `custom-${Date.now()}`,
-      preset: false,
-    }
-    setCustomTemplates((prev) => {
-      const next = [tpl, ...prev].slice(0, MAX_CUSTOM_TEMPLATES)
-      persistCustomTemplates(next)
-      return next
-    })
-    return true
-  }, [])
+  const saveTemplate = React.useCallback(
+    (template: Omit<ContentTemplate, 'id' | 'preset'>): boolean => {
+      if (!template.content.trim()) return false
+      const tpl: ContentTemplate = {
+        ...template,
+        id: `custom-${Date.now()}`,
+        preset: false,
+      }
+      setCustomTemplates((prev) => {
+        const next = [tpl, ...prev].slice(0, MAX_CUSTOM_TEMPLATES)
+        persistCustomTemplates(next)
+        return next
+      })
+      return true
+    },
+    [],
+  )
 
   const removeTemplate = React.useCallback((id: string): void => {
     setCustomTemplates((prev) => {

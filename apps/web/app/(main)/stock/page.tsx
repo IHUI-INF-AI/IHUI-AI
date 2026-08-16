@@ -3,15 +3,7 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  LineChart,
-  TrendingUp,
-  Loader2,
-  History,
-  Coins,
-  Clock,
-  ChevronRight,
-} from 'lucide-react'
+import { LineChart, TrendingUp, Loader2, History, Coins, Clock, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {

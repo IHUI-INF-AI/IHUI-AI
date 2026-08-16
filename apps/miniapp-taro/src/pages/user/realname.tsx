@@ -154,14 +154,15 @@ export default function Realname() {
   return (
     <View className="rn-page">
       <View className="rn-intro">
-        <Text className="rn-intro-title">
-          {tt('user.realname.title', '实名认证')}
-        </Text>
+        <Text className="rn-intro-title">{tt('user.realname.title', '实名认证')}</Text>
         <Text className="rn-intro-line">
           {tt('user.realname.desc', '为保障账户安全与合规,部分功能需完成实名认证后使用')}
         </Text>
         <Text className="rn-intro-line rn-intro-muted">
-          {tt('user.realname.privacyPromise', '您的身份信息仅用于实名核验,平台将严格保密,不会用于其他用途')}
+          {tt(
+            'user.realname.privacyPromise',
+            '您的身份信息仅用于实名核验,平台将严格保密,不会用于其他用途',
+          )}
         </Text>
       </View>
 
@@ -174,9 +175,7 @@ export default function Realname() {
       )}
       {status === 'rejected' && (
         <View className="rn-status rn-status-rejected">
-          <Text className="rn-status-text">
-            {tt('user.realname.rejected', '认证未通过')}
-          </Text>
+          <Text className="rn-status-text">{tt('user.realname.rejected', '认证未通过')}</Text>
           {rejectReason ? <Text className="rn-status-reason">{rejectReason}</Text> : null}
         </View>
       )}
@@ -207,9 +206,7 @@ export default function Realname() {
 
       <View className="rn-card">
         <View className="rn-photo-head">
-          <Text className="rn-label">
-            {tt('user.realname.idCardPhotos', '身份证照片')}
-          </Text>
+          <Text className="rn-label">{tt('user.realname.idCardPhotos', '身份证照片')}</Text>
         </View>
         <View className="rn-photo-row">
           <View className="rn-photo-box" onClick={() => pickPhoto('front')}>
@@ -218,9 +215,7 @@ export default function Realname() {
             ) : (
               <View className="rn-photo-placeholder">
                 <Text className="rn-photo-plus">+</Text>
-                <Text className="rn-photo-tip">
-                  {tt('user.realname.frontPhoto', '人像面')}
-                </Text>
+                <Text className="rn-photo-tip">{tt('user.realname.frontPhoto', '人像面')}</Text>
               </View>
             )}
             {frontUploading ? (
@@ -233,9 +228,7 @@ export default function Realname() {
             ) : (
               <View className="rn-photo-placeholder">
                 <Text className="rn-photo-plus">+</Text>
-                <Text className="rn-photo-tip">
-                  {tt('user.realname.backPhoto', '国徽面')}
-                </Text>
+                <Text className="rn-photo-tip">{tt('user.realname.backPhoto', '国徽面')}</Text>
               </View>
             )}
             {backUploading ? (

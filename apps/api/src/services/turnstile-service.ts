@@ -92,9 +92,7 @@ export async function verifyTurnstile(
       return {
         success: data.success === true,
         errorCodes:
-          data['error-codes'] && data['error-codes'].length > 0
-            ? data['error-codes']
-            : undefined,
+          data['error-codes'] && data['error-codes'].length > 0 ? data['error-codes'] : undefined,
       }
     } finally {
       clearTimeout(timer)

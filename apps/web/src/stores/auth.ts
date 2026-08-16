@@ -22,11 +22,7 @@ interface AuthState {
   user: AuthUser | null
   setToken: (token: string | null, refreshOrPair?: string | TokenPair | null) => void
   /** 带 autoLogin 偏好的 setToken:autoLogin=true 时 refreshToken cookie max-age=30d */
-  setTokenWithPrefs: (
-    token: string,
-    refreshOrPair: string | TokenPair,
-    autoLogin: boolean,
-  ) => void
+  setTokenWithPrefs: (token: string, refreshOrPair: string | TokenPair, autoLogin: boolean) => void
   setUser: (user: AuthUser | null) => void
   /** 从 cookie 恢复 refreshToken(页面刷新后调用,实现"记住 30 天") */
   hydrateRefreshToken: () => void

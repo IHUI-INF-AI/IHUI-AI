@@ -120,10 +120,7 @@ export async function getEventStats(
   request: FastifyRequest,
   windowHours = 24,
 ): Promise<Record<string, unknown> | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/events/stats?window_hours=${windowHours}`,
-  )
+  return callOrchestration(request, `/api/orchestration/events/stats?window_hours=${windowHours}`)
 }
 
 export async function getPlaybooks(
@@ -137,24 +134,17 @@ export async function togglePlaybook(
   playbookId: string,
   enabled: boolean,
 ): Promise<{ success: boolean } | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/playbooks/${playbookId}/toggle`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ enabled }),
-    },
-  )
+  return callOrchestration(request, `/api/orchestration/playbooks/${playbookId}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  })
 }
 
 export async function getDecisions(
   request: FastifyRequest,
   limit = 50,
 ): Promise<OrchestrationDecision[] | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/decisions?limit=${limit}`,
-  )
+  return callOrchestration(request, `/api/orchestration/decisions?limit=${limit}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -193,41 +183,30 @@ export async function getBudgetSummary(
   request: FastifyRequest,
   period = 'today',
 ): Promise<UsageSummary | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/budget/summary?period=${period}`,
-  )
+  return callOrchestration(request, `/api/orchestration/budget/summary?period=${period}`)
 }
 
 export async function getBudgetTrend(
   request: FastifyRequest,
   days = 7,
 ): Promise<UsageTrendItem[] | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/budget/trend?days=${days}`,
-  )
+  return callOrchestration(request, `/api/orchestration/budget/trend?days=${days}`)
 }
 
 export async function getPillarBudget(
   request: FastifyRequest,
   pillar: string,
 ): Promise<PillarBudget | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/budget/pillar/${pillar}`,
-  )
+  return callOrchestration(request, `/api/orchestration/budget/pillar/${pillar}`)
 }
 
 export async function resetPillarDegradation(
   request: FastifyRequest,
   pillar: string,
 ): Promise<{ success: boolean } | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/budget/pillar/${pillar}/reset`,
-    { method: 'POST' },
-  )
+  return callOrchestration(request, `/api/orchestration/budget/pillar/${pillar}/reset`, {
+    method: 'POST',
+  })
 }
 
 export async function updateBudgetConfig(
@@ -244,10 +223,7 @@ export async function getCostBreakdown(
   request: FastifyRequest,
   period = 'today',
 ): Promise<CostBreakdown | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/budget/cost-breakdown?period=${period}`,
-  )
+  return callOrchestration(request, `/api/orchestration/budget/cost-breakdown?period=${period}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -258,10 +234,7 @@ export async function getMetrics(
   request: FastifyRequest,
   format = 'json',
 ): Promise<Record<string, unknown> | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/telemetry/metrics?format=${format}`,
-  )
+  return callOrchestration(request, `/api/orchestration/telemetry/metrics?format=${format}`)
 }
 
 export async function getTelemetryHealth(
@@ -280,18 +253,12 @@ export async function getRecentTraces(
   request: FastifyRequest,
   limit = 20,
 ): Promise<TraceSpan[] | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/telemetry/traces?limit=${limit}`,
-  )
+  return callOrchestration(request, `/api/orchestration/telemetry/traces?limit=${limit}`)
 }
 
 export async function getTraceDetail(
   request: FastifyRequest,
   traceId: string,
 ): Promise<TraceSpan[] | null> {
-  return callOrchestration(
-    request,
-    `/api/orchestration/telemetry/traces/${traceId}`,
-  )
+  return callOrchestration(request, `/api/orchestration/telemetry/traces/${traceId}`)
 }

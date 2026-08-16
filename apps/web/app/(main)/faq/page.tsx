@@ -125,7 +125,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: '常见问题 — 智汇 AI',
-    description: '12 个高频问题,30 秒找到答案。关于智汇 AI 的平台介绍、价格、部署、API、数据安全的完整 FAQ。',
+    description:
+      '12 个高频问题,30 秒找到答案。关于智汇 AI 的平台介绍、价格、部署、API、数据安全的完整 FAQ。',
     url: 'https://aizhs.top/faq',
     type: 'website',
   },

@@ -3,12 +3,7 @@
  * 配合 @ihui/api-client/endpoints/admin-tenants 使用
  */
 
-export type TenantState =
-  | 'active'
-  | 'paused'
-  | 'creating'
-  | 'not-found'
-  | 'destroyed'
+export type TenantState = 'active' | 'paused' | 'creating' | 'not-found' | 'destroyed'
 
 export interface Tenant {
   slug: string

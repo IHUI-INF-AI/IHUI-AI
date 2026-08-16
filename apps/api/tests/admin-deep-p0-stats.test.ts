@@ -58,10 +58,12 @@ const USER_PREFIX = '/api'
 const ADMIN_USER = '00000000-0000-4000-8000-000000000001'
 
 function mockAdmin() {
-  mockAuthenticate.mockImplementation(async (request: { userId?: string; jwtPayload?: unknown }) => {
-    request.userId = ADMIN_USER
-    request.jwtPayload = { userId: ADMIN_USER, roleId: 1 }
-  })
+  mockAuthenticate.mockImplementation(
+    async (request: { userId?: string; jwtPayload?: unknown }) => {
+      request.userId = ADMIN_USER
+      request.jwtPayload = { userId: ADMIN_USER, roleId: 1 }
+    },
+  )
 }
 
 function enqueue(...results: unknown[][]) {
@@ -112,13 +114,7 @@ describe('admin deep P0 stats — orders / refunds / users aggregation', () => {
   })
 
   it('orders/stats 单条 paid 订单 — total/paid/revenue 正确', async () => {
-    enqueue(
-      [{ status: 'paid', count: 1 }],
-      [{ total: '100.00' }],
-      [{ total: '0' }],
-      [],
-      [],
-    )
+    enqueue([{ status: 'paid', count: 1 }], [{ total: '100.00' }], [{ total: '0' }], [], [])
     const res = await server.inject({ method: 'GET', url: `${ADMIN_PREFIX}/orders/stats` })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -169,13 +165,7 @@ describe('admin deep P0 stats — orders / refunds / users aggregation', () => {
       { id: 'ord-2', orderNo: 'O002', targetTitle: '课程2', payAmount: '200.00', status: 'paid' },
       { id: 'ord-1', orderNo: 'O001', targetTitle: '课程1', payAmount: '100.00', status: 'paid' },
     ]
-    enqueue(
-      [{ status: 'paid', count: 5 }],
-      [{ total: '1500.00' }],
-      [],
-      [],
-      top5Data,
-    )
+    enqueue([{ status: 'paid', count: 5 }], [{ total: '1500.00' }], [], [], top5Data)
     const res = await server.inject({ method: 'GET', url: `${ADMIN_PREFIX}/orders/stats` })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -214,11 +204,7 @@ describe('admin deep P0 stats — orders / refunds / users aggregation', () => {
   })
 
   it('refunds/stats 单条 pending — totalCount + byStatus 正确', async () => {
-    enqueue(
-      [{ status: 'pending', count: 1, totalAmount: '50.00' }],
-      [],
-      [],
-    )
+    enqueue([{ status: 'pending', count: 1, totalAmount: '50.00' }], [], [])
     const res = await server.inject({ method: 'GET', url: `${ADMIN_PREFIX}/refunds/stats` })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -383,17 +369,7 @@ describe('admin deep P0 stats — orders / refunds / users aggregation', () => {
   })
 
   it('users/stats todayNew/weekNew/monthNew — 时间过滤值透传', async () => {
-    enqueue(
-      [{ count: 100 }],
-      [{ count: 5 }],
-      [{ count: 20 }],
-      [{ count: 50 }],
-      [],
-      [],
-      [],
-      [],
-      [],
-    )
+    enqueue([{ count: 100 }], [{ count: 5 }], [{ count: 20 }], [{ count: 50 }], [], [], [], [], [])
     const res = await server.inject({ method: 'GET', url: `${USER_PREFIX}/admin/users/stats` })
     expect(res.statusCode).toBe(200)
     const body = res.json()

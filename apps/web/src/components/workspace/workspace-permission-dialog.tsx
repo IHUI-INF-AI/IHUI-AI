@@ -271,9 +271,16 @@ export function WorkspacePermissionDialog({
           >
             <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saveMutation.isPending} className="shrink-0">
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="shrink-0"
+          >
             {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
-            <span className="whitespace-nowrap">{saveMutation.isPending ? t('saving') : t('saveAndOpen')}</span>
+            <span className="whitespace-nowrap">
+              {saveMutation.isPending ? t('saving') : t('saveAndOpen')}
+            </span>
           </Button>
         </DialogFooter>
       </DialogContent>

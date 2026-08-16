@@ -16,10 +16,7 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
     <div className={cn('w-full', className)}>
       <div className="flex items-end gap-1" style={{ height }}>
         {data.map((v, i) => (
-          <Tooltip
-            key={`bar-${i}`}
-            content={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}
-          >
+          <Tooltip key={`bar-${i}`} content={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}>
             <div className="group relative flex-1">
               <div
                 className="absolute bottom-0 w-full rounded-sm bg-primary/70 transition-colors group-hover:bg-primary"

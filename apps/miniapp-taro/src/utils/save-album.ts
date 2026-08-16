@@ -4,28 +4,28 @@ import { t } from '@/i18n'
 export function saveImageToPhotosAlbum(filePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     Taro.saveImageToPhotosAlbum({
-    filePath,
-    success: () => {
-      Taro.showToast({ title: t('album.saveSuccess'), icon: 'success' })
-      resolve()
-    },
-    fail: (err) => {
-      const msg = String(err?.errMsg || '')
-      if (msg.includes('auth') || msg.includes('deny')) {
-        Taro.showModal({
-          title: t('album.authTitle'),
-          content: t('album.authContent'),
-          confirmText: t('common.goSettings'),
-          success: (res) => {
-            if (res.confirm) Taro.openSetting()
-          },
-        })
-      } else {
-        Taro.showToast({ title: t('album.saveFailed'), icon: 'none' })
-      }
-      reject(err)
-    },
-  })
+      filePath,
+      success: () => {
+        Taro.showToast({ title: t('album.saveSuccess'), icon: 'success' })
+        resolve()
+      },
+      fail: (err) => {
+        const msg = String(err?.errMsg || '')
+        if (msg.includes('auth') || msg.includes('deny')) {
+          Taro.showModal({
+            title: t('album.authTitle'),
+            content: t('album.authContent'),
+            confirmText: t('common.goSettings'),
+            success: (res) => {
+              if (res.confirm) Taro.openSetting()
+            },
+          })
+        } else {
+          Taro.showToast({ title: t('album.saveFailed'), icon: 'none' })
+        }
+        reject(err)
+      },
+    })
   })
 }
 

@@ -225,7 +225,11 @@ export function ProviderCardV2({
 
         {/* Info line: baseUrl · test status · usage stats */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          <TruncatedText value={provider.baseUrl} mono className="font-mono text-muted-foreground" />
+          <TruncatedText
+            value={provider.baseUrl}
+            mono
+            className="font-mono text-muted-foreground"
+          />
           <span className="shrink-0 text-muted-foreground/40">·</span>
           <span
             className={

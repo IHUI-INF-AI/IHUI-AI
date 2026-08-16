@@ -39,8 +39,7 @@ export function MessageCenterScreen() {
 
   // t 包装:Uniapp 对齐文案优先,其余回落 i18n
   const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) =>
-      UNIAPP_TEXT[key] ?? t(key, params),
+    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
     [t],
   )
 

@@ -131,9 +131,7 @@ export function buildFeedForLang(lang: Lang) {
     _i18n: {
       current: lang,
       supported: SUPPORTED_LANGS,
-      switch: Object.fromEntries(
-        SUPPORTED_LANGS.map((l) => [l, `${SITE_URL}/rss.xml?lang=${l}`]),
-      ),
+      switch: Object.fromEntries(SUPPORTED_LANGS.map((l) => [l, `${SITE_URL}/rss.xml?lang=${l}`])),
     },
     items: feedItems,
   }

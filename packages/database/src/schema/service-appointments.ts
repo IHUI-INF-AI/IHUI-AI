@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  integer,
-  timestamp,
-  index,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, timestamp, index } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -18,7 +10,9 @@ export const serviceAppointments = pgTable(
   'service_appointments',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
     serviceType: varchar('service_type', { length: 50 }).notNull(),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),

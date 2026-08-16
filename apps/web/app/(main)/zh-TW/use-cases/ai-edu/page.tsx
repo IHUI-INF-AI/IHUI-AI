@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, GraduationCap, AlertTriangle, Wrench, MessageSquare, Palette, Globe, Lightbulb } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  GraduationCap,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  Palette,
+  Globe,
+  Lightbulb,
+} from 'lucide-react'
 import { BackButton } from '@/components/common'
 
 const jsonLd = {
@@ -23,7 +33,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 智慧教育', item: 'https://aizhs.top/zh-TW/use-cases/ai-edu' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 智慧教育',
+          item: 'https://aizhs.top/zh-TW/use-cases/ai-edu',
+        },
       ],
     },
     {
@@ -41,12 +56,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 智慧題庫模組' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '配置學情資料', text: '匯入學生歷史成績/作業資料/學習行為日誌,AI 自動建構學情畫像,識別每個學生的強項與薄弱點。' },
-        { '@type': 'HowToStep', position: 2, name: '訓練學習路徑', text: '基於知識圖譜與歷史資料訓練個性化學習路徑模型,為每個學生產生動態學習計畫(每日/每週)。' },
-        { '@type': 'HowToStep', position: 3, name: '接入題庫', text: '對接學校自有題庫/區域共用題庫/第三方題庫(K12/語言/職業資格),AI 自動組卷,難度匹配學生程度。' },
-        { '@type': 'HowToStep', position: 4, name: '設定批改規則', text: '配置客觀題(單選/多選/填空)與主觀題(作文/解答)批改規則,Agent 24/7 自動批改,主觀題準確率 85%+。' },
-        { '@type': 'HowToStep', position: 5, name: '啟用資料分析', text: '聚合班級/年级/學科多維資料,自動產生學情報告,識別共性薄弱點,輔助教研決策。' },
-        { '@type': 'HowToStep', position: 6, name: '家校溝通', text: '對接微信/釘釘/企微家長端,自動推送學情週報/作業完成情況/進步亮點,家校共育零延遲。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '配置學情資料',
+          text: '匯入學生歷史成績/作業資料/學習行為日誌,AI 自動建構學情畫像,識別每個學生的強項與薄弱點。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '訓練學習路徑',
+          text: '基於知識圖譜與歷史資料訓練個性化學習路徑模型,為每個學生產生動態學習計畫(每日/每週)。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '接入題庫',
+          text: '對接學校自有題庫/區域共用題庫/第三方題庫(K12/語言/職業資格),AI 自動組卷,難度匹配學生程度。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '設定批改規則',
+          text: '配置客觀題(單選/多選/填空)與主觀題(作文/解答)批改規則,Agent 24/7 自動批改,主觀題準確率 85%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '啟用資料分析',
+          text: '聚合班級/年级/學科多維資料,自動產生學情報告,識別共性薄弱點,輔助教研決策。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '家校溝通',
+          text: '對接微信/釘釘/企微家長端,自動推送學情週報/作業完成情況/進步亮點,家校共育零延遲。',
+        },
       ],
     },
   ],
@@ -75,12 +120,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '個性化學習路徑', desc: '基於知識圖譜與學情畫像,為每個學生產生動態學習計畫(每日/每週),精準匹配難度,優等生拓展/後進生補強,因材施教規模化。' },
-  { title: '7×24 智慧答疑', desc: 'AI 答疑 Agent 7×24 在線,基於學科知識圖譜 + 歷史答疑庫回答學生疑問,30 秒內回應,準確率 92%,覆蓋 K12 全學科。' },
-  { title: '智慧出題與批改', desc: '對接題庫自動組卷,難度匹配學生程度,客觀題秒級批改,主觀題(作文/解答) AI 批改準確率 85%+,教師工作量減少 70%。' },
-  { title: '學習資料分析', desc: '聚合班級/年级/學科多維資料,自動產生學情報告,識別共性薄弱點,輔助教研決策,精準教學從經驗驅動轉向資料驅動。' },
-  { title: '教研協作', desc: '統一管理教案/課件/試題/教學反思,支援跨校/跨區共用,優質資源複用率從 30% 提升到 75%,教研效率顯著提升。' },
-  { title: '家校溝通', desc: '對接微信/釘釘/企微家長端,自動推送學情週報/作業完成情況/進步亮點,家校共育零延遲,家長滿意度提升 60%。' },
+  {
+    title: '個性化學習路徑',
+    desc: '基於知識圖譜與學情畫像,為每個學生產生動態學習計畫(每日/每週),精準匹配難度,優等生拓展/後進生補強,因材施教規模化。',
+  },
+  {
+    title: '7×24 智慧答疑',
+    desc: 'AI 答疑 Agent 7×24 在線,基於學科知識圖譜 + 歷史答疑庫回答學生疑問,30 秒內回應,準確率 92%,覆蓋 K12 全學科。',
+  },
+  {
+    title: '智慧出題與批改',
+    desc: '對接題庫自動組卷,難度匹配學生程度,客觀題秒級批改,主觀題(作文/解答) AI 批改準確率 85%+,教師工作量減少 70%。',
+  },
+  {
+    title: '學習資料分析',
+    desc: '聚合班級/年级/學科多維資料,自動產生學情報告,識別共性薄弱點,輔助教研決策,精準教學從經驗驅動轉向資料驅動。',
+  },
+  {
+    title: '教研協作',
+    desc: '統一管理教案/課件/試題/教學反思,支援跨校/跨區共用,優質資源複用率從 30% 提升到 75%,教研效率顯著提升。',
+  },
+  {
+    title: '家校溝通',
+    desc: '對接微信/釘釘/企微家長端,自動推送學情週報/作業完成情況/進步亮點,家校共育零延遲,家長滿意度提升 60%。',
+  },
 ]
 
 const cases = [
@@ -119,7 +182,10 @@ const metrics = [
 export default function AiEduPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         {/* Hero */}
@@ -132,13 +198,18 @@ export default function AiEduPage() {
             AI 智慧教育:讓每個學生都擁有個性化學習路徑
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0 開源,支援私有化部署,覆蓋 K12/高校/職業訓練全場景。
+            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0 開源,支援私有化部署,覆蓋
+            K12/高校/職業訓練全場景。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -148,11 +219,16 @@ export default function AiEduPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">教育工作者面臨的真實挑戰</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              教育工作者面臨的真實挑戰
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -162,7 +238,9 @@ export default function AiEduPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -178,7 +256,9 @@ export default function AiEduPage() {
 
         {/* 案例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">客戶落地案例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            客戶落地案例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -193,7 +273,9 @@ export default function AiEduPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術棧與工具鏈</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術棧與工具鏈
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源,K12/高校/職業訓練全場景覆蓋。
@@ -211,7 +293,9 @@ export default function AiEduPage() {
         {/* 聯絡/CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">開始搭建你的 AI 智慧教育助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            開始搭建你的 AI 智慧教育助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             註冊即得 1000 積分,從智慧教育場景模板一鍵 fork,30 分鐘體驗個性化學習。
           </p>
@@ -230,10 +314,18 @@ export default function AiEduPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 教育諮詢 8801</span>
-            <span className="flex items-center gap-1.5"><Lightbulb className="h-3.5 w-3.5" /> 教研培訓 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 校園部署 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 區域教育局方案 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 教育諮詢 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> 教研培訓 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 校園部署 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 區域教育局方案 8809
+            </span>
           </div>
         </section>
       </main>

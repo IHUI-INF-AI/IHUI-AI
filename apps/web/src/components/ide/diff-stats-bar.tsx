@@ -36,7 +36,9 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           onClick={() => setDiffViewMode('split')}
           className={cn(
             'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
-            diffViewMode === 'split' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+            diffViewMode === 'split'
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Columns2 className="h-3.5 w-3.5" />
@@ -46,7 +48,9 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           onClick={() => setDiffViewMode('unified')}
           className={cn(
             'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
-            diffViewMode === 'unified' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+            diffViewMode === 'unified'
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Rows2 className="h-3.5 w-3.5" />
@@ -59,13 +63,17 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
       </div>
       <div className="flex items-center gap-2">
         <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-          <Plus className="h-3 w-3" />{totalAdd}
+          <Plus className="h-3 w-3" />
+          {totalAdd}
         </span>
         <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
-          <Minus className="h-3 w-3" />{totalDel}
+          <Minus className="h-3 w-3" />
+          {totalDel}
         </span>
       </div>
-      <span className="text-muted-foreground">{t('diffStats.fileCount', { count: diffFiles.length })}</span>
+      <span className="text-muted-foreground">
+        {t('diffStats.fileCount', { count: diffFiles.length })}
+      </span>
       {onFilterChange && (
         <div className="flex items-center gap-0.5">
           {FILTER_OPTIONS.map((opt) => (
@@ -74,7 +82,9 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
               onClick={() => onFilterChange(opt.value)}
               className={cn(
                 'rounded px-1.5 py-0.5 transition-colors',
-                filter === opt.value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+                filter === opt.value
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <span>{t(opt.labelKey)}</span>

@@ -58,9 +58,7 @@ export const downloadsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/track', async (request, reply) => {
     const parsed = trackBodySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     let userId: string | null = null
@@ -87,30 +85,24 @@ export const downloadsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // GET /stats - 管理员查询下载统计
   // -------------------------------------------------------------------------
-  server.get(
-    '/stats',
-    { preHandler: requireAdmin },
-    async (request, reply) => {
-      const parsed = statsQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+  server.get('/stats', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = statsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const query: StatsQuery = {
-        platform: parsed.data.platform,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-      }
+    const query: StatsQuery = {
+      platform: parsed.data.platform,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+    }
 
-      try {
-        const stats = await getStats(query)
-        return reply.send(success(stats))
-      } catch (e) {
-        console.error('[downloads] getStats failed:', e)
-        return reply.status(500).send(error(500, '服务器错误'))
-      }
-    },
-  )
+    try {
+      const stats = await getStats(query)
+      return reply.send(success(stats))
+    } catch (e) {
+      console.error('[downloads] getStats failed:', e)
+      return reply.status(500).send(error(500, '服务器错误'))
+    }
+  })
 }

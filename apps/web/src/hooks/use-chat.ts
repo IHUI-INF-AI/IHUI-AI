@@ -1026,8 +1026,9 @@ async function persistMessageSafe(
   content: string,
   role: 'user' | 'assistant',
   metadata?: { questionId?: string; isAnswer?: boolean; [key: string]: unknown },
+  reasoning?: string,
 ) {
-  const res = await persistMessage(conversationId, content, role, metadata)
+  const res = await persistMessage(conversationId, content, role, metadata, reasoning)
   if (!res.success) {
     logger.error(`[chat] persist ${role} message failed:`, res.error)
     // 用户可见提示(非阻塞 toast),让用户知道消息未保存到服务端
@@ -1208,7 +1209,7 @@ export function useChat(): UseChatReturn {
           .getState()
           .messages.findLast((mm) => mm.role === 'assistant' && mm.content)
         if (lastAssistant) {
-          void persistMessageSafe(slashCid, lastAssistant.content, 'assistant')
+          void persistMessageSafe(slashCid, lastAssistant.content, 'assistant', undefined, lastAssistant.reasoning)
         }
         sendInFlightRef.current = false
         return true
@@ -1377,6 +1378,9 @@ export function useChat(): UseChatReturn {
           workspaceContext,
           // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
           contextLimit: resolvedContextLimit,
+          // 2026-08-16 修复:显式声明流式,与 sendAnswer 保持一致,
+          // 避免某些后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+          stream: true,
           onCompaction: async (info) => {
             // 显示底部压缩状态栏(2026-08-16 立)
             useChatStore.getState().setCompactionStatus({
@@ -1429,6 +1433,7 @@ export function useChat(): UseChatReturn {
                 content: m.content,
                 createdAt: new Date(m.createdAt).getTime(),
                 model: '',
+                reasoning: m.reasoning,
               }))
 
               const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
@@ -1714,6 +1719,13 @@ export function useChat(): UseChatReturn {
         contentBatcher.flush()
         reasoningBatcher.flush()
         agentBatcher.flushAll()
+        // P2: 流式完成后持久化 assistant 消息(含 reasoning),后台 fire-and-forget 不阻塞
+        ;(async () => {
+          const finalMsg = useChatStore.getState().messages.find((m) => m.id === assistantId)
+          if (finalMsg && finalMsg.content) {
+            void persistMessageSafe(conversationId, finalMsg.content, 'assistant', undefined, finalMsg.reasoning)
+          }
+        })()
         contentBatcher.cancel()
         reasoningBatcher.cancel()
         agentBatcher.cancelAll()
@@ -1910,6 +1922,7 @@ export function useChat(): UseChatReturn {
                 content: m.content,
                 createdAt: new Date(m.createdAt).getTime(),
                 model: '',
+                reasoning: m.reasoning,
               }))
 
               const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
@@ -2164,6 +2177,13 @@ export function useChat(): UseChatReturn {
         contentBatcher.flush()
         reasoningBatcher.flush()
         agentBatcher.flushAll()
+        // P2: 流式完成后持久化 assistant 消息(含 reasoning),后台 fire-and-forget 不阻塞
+        ;(async () => {
+          const finalMsg = useChatStore.getState().messages.find((m) => m.id === assistantId)
+          if (finalMsg && finalMsg.content && store.conversationId) {
+            void persistMessageSafe(store.conversationId, finalMsg.content, 'assistant', undefined, finalMsg.reasoning)
+          }
+        })()
         contentBatcher.cancel()
         reasoningBatcher.cancel()
         agentBatcher.cancelAll()

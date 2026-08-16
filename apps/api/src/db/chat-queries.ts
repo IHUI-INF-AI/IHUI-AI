@@ -371,6 +371,7 @@ export interface CreateMessageInput {
   conversationId: string
   role?: string
   content: string
+  reasoning?: string
   tokens?: number
   metadata?: unknown
 }
@@ -387,6 +388,7 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
         conversationId: input.conversationId,
         role: input.role ?? 'user',
         content: input.content,
+        reasoning: input.reasoning,
         tokens: input.tokens,
         metadata: input.metadata as Record<string, unknown> | null,
       })
@@ -426,7 +428,7 @@ export async function findMessageById(id: string): Promise<ChatMessage | undefin
 export async function updateMessage(
   id: string,
   userId: string,
-  patch: { content: string; tokens?: number; metadata?: unknown },
+  patch: { content: string; reasoning?: string; tokens?: number; metadata?: unknown },
 ): Promise<ChatMessage | undefined> {
   // 先校验消息所属会话属于该用户(通过 join conversations)
   const target = await db
@@ -448,6 +450,7 @@ export async function updateMessage(
     .update(chatMessages)
     .set({
       content: patch.content,
+      ...(patch.reasoning !== undefined && { reasoning: patch.reasoning }),
       tokens: patch.tokens ?? null,
       metadata: patch.metadata as Record<string, unknown> | null,
     })
@@ -484,6 +487,7 @@ export async function replaceMessages(
     id?: string
     role: string
     content: string
+    reasoning?: string | null
     createdAt?: Date | string
     tokens?: number | null
     metadata?: Record<string, unknown> | null
@@ -498,6 +502,7 @@ export async function replaceMessages(
           conversationId,
           role: m.role,
           content: m.content,
+          reasoning: m.reasoning ?? undefined,
           tokens: m.tokens ?? null,
           metadata: m.metadata ?? null,
           createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),

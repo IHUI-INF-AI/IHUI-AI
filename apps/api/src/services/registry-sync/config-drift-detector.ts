@@ -11,11 +11,7 @@
 import { existsSync } from 'node:fs'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type {
-  ConfigDriftDetectResponse,
-  ConfigDriftReport,
-  ConfigFileType,
-} from '@ihui/types'
+import type { ConfigDriftDetectResponse, ConfigDriftReport, ConfigFileType } from '@ihui/types'
 
 /**
  * 项目根目录解析:cwd 可能是 monorepo 根(根目录运行)或 apps/api(turbo 包内运行)。
@@ -230,9 +226,7 @@ export async function detectDrift(fileType: ConfigFileType): Promise<ConfigDrift
   const drifted = !!baseEntry && currentHash !== upstreamHash
 
   const currentKeys = parseKeys(fileType, currentContent)
-  const baselineKeys = new Map<string, string>(
-    Object.entries(baseEntry?.keys ?? {}),
-  )
+  const baselineKeys = new Map<string, string>(Object.entries(baseEntry?.keys ?? {}))
 
   const addedKeys: string[] = []
   const removedKeys: string[] = []

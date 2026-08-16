@@ -26,14 +26,7 @@ interface Props {
   onSubmit: () => void
 }
 
-export function CreateKeyDialog({
-  open,
-  form,
-  isPending,
-  onFormChange,
-  onClose,
-  onSubmit,
-}: Props) {
+export function CreateKeyDialog({ open, form, isPending, onFormChange, onClose, onSubmit }: Props) {
   const tc = useTranslations('common')
 
   return (

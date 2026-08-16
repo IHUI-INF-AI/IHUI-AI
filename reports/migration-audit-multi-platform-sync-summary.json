@@ -95,37 +95,27 @@
   "newSchemaGroups": [
     {
       "group": "social-supplement",
-      "files": [
-        "social-supplement.ts"
-      ],
+      "files": ["social-supplement.ts"],
       "tables": 6
     },
     {
       "group": "live-supplement",
-      "files": [
-        "live-supplement.ts"
-      ],
+      "files": ["live-supplement.ts"],
       "tables": 4
     },
     {
       "group": "learn-homework",
-      "files": [
-        "learn-homework.ts"
-      ],
+      "files": ["learn-homework.ts"],
       "tables": 5
     },
     {
       "group": "resource-download",
-      "files": [
-        "resource-download.ts"
-      ],
+      "files": ["resource-download.ts"],
       "tables": 4
     },
     {
       "group": "admin-extended",
-      "files": [
-        "admin-extended.ts"
-      ],
+      "files": ["admin-extended.ts"],
       "tables": 8
     }
   ],

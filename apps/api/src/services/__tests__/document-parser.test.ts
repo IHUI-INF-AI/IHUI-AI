@@ -21,12 +21,8 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-const {
-  parseDocument,
-  UnsupportedFormatError,
-  FileTooLargeError,
-  MAX_FILE_SIZE,
-} = await import('../document-parser.js')
+const { parseDocument, UnsupportedFormatError, FileTooLargeError, MAX_FILE_SIZE } =
+  await import('../document-parser.js')
 
 describe('parseDocument — 5 个核心场景', () => {
   it('纯文本(txt) → 返回原文 utf8', async () => {
@@ -96,9 +92,9 @@ describe('parseDocument — 5 个核心场景', () => {
     ).rejects.toBeInstanceOf(UnsupportedFormatError)
 
     // 也覆盖:既无 MIME 也无识别后缀
-    await expect(
-      parseDocument({ buffer, filename: 'noext' }),
-    ).rejects.toBeInstanceOf(UnsupportedFormatError)
+    await expect(parseDocument({ buffer, filename: 'noext' })).rejects.toBeInstanceOf(
+      UnsupportedFormatError,
+    )
   })
 
   it('超大文件(> 20MB) → 抛 FileTooLargeError', async () => {

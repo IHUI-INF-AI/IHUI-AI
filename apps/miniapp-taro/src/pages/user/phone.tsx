@@ -20,10 +20,13 @@ export default function Phone() {
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const tt = useCallback((k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }, [t])
+  const tt = useCallback(
+    (k: string, fb: string) => {
+      const v = t(k)
+      return v === k ? fb : v
+    },
+    [t],
+  )
 
   const maskedPhone = (() => {
     const p = (currentPhone || '').trim()
@@ -105,13 +108,19 @@ export default function Phone() {
       return
     }
     if (phone === currentPhone) {
-      Taro.showToast({ title: tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'), icon: 'none' })
+      Taro.showToast({
+        title: tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'),
+        icon: 'none',
+      })
       return
     }
     try {
       const exist = await pwdExist(phone)
       if (exist) {
-        Taro.showToast({ title: tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), icon: 'none' })
+        Taro.showToast({
+          title: tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'),
+          icon: 'none',
+        })
         return
       }
     } catch (e) {
@@ -158,13 +167,17 @@ export default function Phone() {
       {step === 1 ? (
         <View className="p-[24rpx] pb-[32rpx]">
           <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-            <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.step1Title', '验证当前手机号')}</Text>
+            <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+              {tt('user.phone.step1Title', '验证当前手机号')}
+            </Text>
             <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
               {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
             </Text>
           </View>
           <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-            <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.code', '验证码')}</Text>
+            <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
+              {tt('user.phone.code', '验证码')}
+            </Text>
             <View className="flex items-center gap-[16rpx]">
               <Input
                 className="flex-1 h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
@@ -193,14 +206,18 @@ export default function Phone() {
         <View className="p-[24rpx] pb-[32rpx]">
           {currentPhone ? (
             <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-              <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.step2Title', '绑定新手机号')}</Text>
+              <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+                {tt('user.phone.step2Title', '绑定新手机号')}
+              </Text>
               <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
                 {tt('user.phone.verifiedTip', '当前手机号已通过验证')}: {maskedPhone}
               </Text>
             </View>
           ) : (
             <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-              <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.bindTitle', '绑定手机号')}</Text>
+              <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+                {tt('user.phone.bindTitle', '绑定手机号')}
+              </Text>
               <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
                 {tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
               </Text>
@@ -208,7 +225,9 @@ export default function Phone() {
           )}
           <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx] flex flex-col gap-[24rpx]">
             <View>
-              <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.phone', '手机号')}</Text>
+              <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
+                {tt('user.phone.phone', '手机号')}
+              </Text>
               <Input
                 className="w-full h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
                 type="number"
@@ -219,7 +238,9 @@ export default function Phone() {
               />
             </View>
             <View>
-              <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">{tt('user.phone.code', '验证码')}</Text>
+              <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
+                {tt('user.phone.code', '验证码')}
+              </Text>
               <View className="flex items-center gap-[16rpx]">
                 <Input
                   className="flex-1 h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
@@ -242,12 +263,19 @@ export default function Phone() {
             className={`h-[88rpx] flex items-center justify-center bg-primary text-primary-foreground text-[30rpx] rounded-[12rpx] ${/^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting ? '' : 'opacity-50'}`}
             onClick={onSubmit}
           >
-            <Text>{submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}</Text>
+            <Text>
+              {submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}
+            </Text>
           </View>
           <View className="mt-[24rpx] bg-muted rounded-[16rpx] p-[28rpx]">
-            <Text className="block text-[28rpx] font-semibold text-primary mb-[12rpx]">{tt('user.phone.noticeTitle', '【更换后影响】')}</Text>
+            <Text className="block text-[28rpx] font-semibold text-primary mb-[12rpx]">
+              {tt('user.phone.noticeTitle', '【更换后影响】')}
+            </Text>
             <Text className="block text-[26rpx] text-foreground leading-[1.6]">
-              {tt('user.phone.noticeDesc', '更换成功后,登录、找回密码、消息通知等将使用新手机号;旧手机号将无法再用于本账号登录,请确认后再操作。')}
+              {tt(
+                'user.phone.noticeDesc',
+                '更换成功后,登录、找回密码、消息通知等将使用新手机号;旧手机号将无法再用于本账号登录,请确认后再操作。',
+              )}
             </Text>
           </View>
         </View>

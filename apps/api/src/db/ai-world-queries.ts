@@ -22,7 +22,9 @@ export async function findAiWorldCategories(): Promise<AiWorldCategory[]> {
     .orderBy(asc(aiWorldCategories.sort), asc(aiWorldCategories.id))
 }
 
-export async function findAiWorldCategoryBySlug(slug: string): Promise<AiWorldCategory | undefined> {
+export async function findAiWorldCategoryBySlug(
+  slug: string,
+): Promise<AiWorldCategory | undefined> {
   const rows = await db
     .select()
     .from(aiWorldCategories)
@@ -68,13 +70,14 @@ export async function listAiWorldItems(opts: ListItemsOptions = {}): Promise<AiW
   // 2026-08-06 修复:latest 按发布时间(COALESCE published_at, fetched_at)排序。
   // 此前按 fetched_at(入库时间)排序 → 每日同步刷新旧条目入库时间(如 venturebeat
   // 1 月旧闻 fetched_at=今天)把真实新新闻(8/5 techcrunch)挤下去 → 页面显示旧数据。
-  const order = opts.orderBy === 'hot'
-    ? desc(aiWorldItems.likeCount)
-    : opts.orderBy === 'published'
-      ? desc(aiWorldItems.publishedAt)
-      : opts.orderBy === 'trending'
-        ? desc(aiWorldItems.trendingScore)
-        : sql`COALESCE(${aiWorldItems.publishedAt}, ${aiWorldItems.fetchedAt}) DESC`
+  const order =
+    opts.orderBy === 'hot'
+      ? desc(aiWorldItems.likeCount)
+      : opts.orderBy === 'published'
+        ? desc(aiWorldItems.publishedAt)
+        : opts.orderBy === 'trending'
+          ? desc(aiWorldItems.trendingScore)
+          : sql`COALESCE(${aiWorldItems.publishedAt}, ${aiWorldItems.fetchedAt}) DESC`
 
   return db
     .select()
@@ -85,7 +88,9 @@ export async function listAiWorldItems(opts: ListItemsOptions = {}): Promise<AiW
     .offset(offset)
 }
 
-export async function countAiWorldItems(opts: Pick<ListItemsOptions, 'kind' | 'categorySlug' | 'search'> = {}): Promise<number> {
+export async function countAiWorldItems(
+  opts: Pick<ListItemsOptions, 'kind' | 'categorySlug' | 'search'> = {},
+): Promise<number> {
   const conditions = [eq(aiWorldItems.status, 1)]
   if (opts.kind) conditions.push(eq(aiWorldItems.kind, opts.kind))
   if (opts.categorySlug) {
@@ -109,16 +114,16 @@ export async function findAiWorldHotItems(kind: ItemKind, limit = 10): Promise<A
     .select()
     .from(aiWorldItems)
     .where(and(eq(aiWorldItems.kind, kind), eq(aiWorldItems.status, 1)))
-    .orderBy(desc(aiWorldItems.likeCount), desc(aiWorldItems.viewCount), desc(aiWorldItems.fetchedAt))
+    .orderBy(
+      desc(aiWorldItems.likeCount),
+      desc(aiWorldItems.viewCount),
+      desc(aiWorldItems.fetchedAt),
+    )
     .limit(limit)
 }
 
 export async function findRecentSyncLogs(limit = 20): Promise<SyncLogRow[]> {
-  return db
-    .select()
-    .from(aiWorldSyncLog)
-    .orderBy(desc(aiWorldSyncLog.startedAt))
-    .limit(limit)
+  return db.select().from(aiWorldSyncLog).orderBy(desc(aiWorldSyncLog.startedAt)).limit(limit)
 }
 
 /** 增加浏览数(详情页调用) */
@@ -139,7 +144,9 @@ export interface ListRankingsOptions {
 }
 
 /** 查询排行榜列表(按 rank asc 排序) */
-export async function listAiWorldRankings(opts: ListRankingsOptions = {}): Promise<AiWorldRanking[]> {
+export async function listAiWorldRankings(
+  opts: ListRankingsOptions = {},
+): Promise<AiWorldRanking[]> {
   const limit = Math.min(opts.limit ?? 30, 100)
   const offset = Math.max(opts.offset ?? 0, 0)
   const conditions = []
@@ -150,7 +157,11 @@ export async function listAiWorldRankings(opts: ListRankingsOptions = {}): Promi
   const query = db
     .select()
     .from(aiWorldRankings)
-    .orderBy(asc(aiWorldRankings.leaderboard), asc(aiWorldRankings.category), asc(aiWorldRankings.rank))
+    .orderBy(
+      asc(aiWorldRankings.leaderboard),
+      asc(aiWorldRankings.category),
+      asc(aiWorldRankings.rank),
+    )
     .limit(limit)
     .offset(offset)
 
@@ -163,16 +174,16 @@ export async function countAiWorldRankings(opts: ListRankingsOptions = {}): Prom
   if (opts.leaderboard) conditions.push(eq(aiWorldRankings.leaderboard, opts.leaderboard))
   if (opts.category) conditions.push(eq(aiWorldRankings.category, opts.category))
 
-  const query = db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(aiWorldRankings)
+  const query = db.select({ count: sql<number>`count(*)::int` }).from(aiWorldRankings)
 
   const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query
   return rows[0]?.count ?? 0
 }
 
 /** 可用榜单列表(去重 leaderboard 字段,聚合 categories) */
-export async function listLeaderboards(): Promise<Array<{ leaderboard: string; categories: string[] }>> {
+export async function listLeaderboards(): Promise<
+  Array<{ leaderboard: string; categories: string[] }>
+> {
   const rows = await db
     .select({
       leaderboard: aiWorldRankings.leaderboard,
@@ -224,7 +235,6 @@ export async function countTrendingItems(opts: ListTrendingOptions = {}): Promis
   return rows[0]?.count ?? 0
 }
 
-
 /**
  * 查询用户收藏的 ai-world 条目(关联 aiWorldItems 取标题/封面,2026-08-06 立)。
  * 收藏记录存 userFavorites(resourceType='aiworld'),经 aiWorldItems 关联取展示字段。
@@ -252,12 +262,7 @@ export async function findAiWorldFavorites(userId: string): Promise<AiWorldFavor
       })
       .from(userFavorites)
       .innerJoin(aiWorldItems, eq(aiWorldItems.id, userFavorites.resourceId))
-      .where(
-        and(
-          eq(userFavorites.userId, userId),
-          eq(userFavorites.resourceType, 'aiworld'),
-        ),
-      )
+      .where(and(eq(userFavorites.userId, userId), eq(userFavorites.resourceType, 'aiworld')))
       .orderBy(desc(userFavorites.createdAt))
     return rows
   } catch {

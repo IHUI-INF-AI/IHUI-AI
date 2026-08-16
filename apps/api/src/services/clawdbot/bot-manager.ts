@@ -117,11 +117,7 @@ export class BotManager extends EventEmitter {
     if (patch.temperature !== undefined) set.temperature = patch.temperature.toString()
     if (patch.maxTokens !== undefined) set.maxTokens = patch.maxTokens
 
-    const [row] = await db
-      .update(clawdbotBots)
-      .set(set)
-      .where(eq(clawdbotBots.id, id))
-      .returning()
+    const [row] = await db.update(clawdbotBots).set(set).where(eq(clawdbotBots.id, id)).returning()
     if (!row) throw new BotManagerError(`Bot 不存在: ${id}`, 'not_found')
     const config = dbRowToConfig(row)
     logger.info({ botId: id }, '[BotManager] Bot updated')

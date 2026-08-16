@@ -81,7 +81,10 @@ DrawerBody.displayName = 'DrawerBody'
 
 const DrawerFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse gap-2 p-4 min-[640px]:flex-row min-[640px]:justify-end', className)}
+    className={cn(
+      'flex flex-col-reverse gap-2 p-4 min-[640px]:flex-row min-[640px]:justify-end',
+      className,
+    )}
     {...props}
   />
 )

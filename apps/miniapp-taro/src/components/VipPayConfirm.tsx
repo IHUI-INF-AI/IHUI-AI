@@ -34,7 +34,9 @@ export default function VipPayConfirm({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-foreground">{tt('pay.confirmOrder', '确认订单')}</Text>
+          <Text className="text-base font-medium text-foreground">
+            {tt('pay.confirmOrder', '确认订单')}
+          </Text>
           <Text className="text-sm text-muted-foreground" onClick={onCancel}>
             ×
           </Text>
@@ -47,13 +49,17 @@ export default function VipPayConfirm({
           </View>
           {originalPrice && (
             <View className="flex justify-between items-center">
-              <Text className="text-xs text-muted-foreground">{tt('pay.originalPrice', '原价')}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {tt('pay.originalPrice', '原价')}
+              </Text>
               <Text className="text-xs text-muted-foreground line-through">¥{originalPrice}</Text>
             </View>
           )}
         </View>
 
-        <Text className="block text-sm text-foreground mb-2">{tt('pay.paymentMethod', '支付方式')}</Text>
+        <Text className="block text-sm text-foreground mb-2">
+          {tt('pay.paymentMethod', '支付方式')}
+        </Text>
         <View className="flex space-x-3 mb-4">
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -72,7 +78,6 @@ export default function VipPayConfirm({
             <Text className="text-sm text-foreground">💙 {tt('pay.alipay', '支付宝')}</Text>
           </View>
         </View>
-
 
         <View
           className="w-full py-3 rounded-md text-center"

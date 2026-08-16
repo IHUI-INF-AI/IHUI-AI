@@ -66,7 +66,10 @@ export default function CouponListPage() {
       ) : error ? (
         <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
-          <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary" onClick={load}>
+          <Text
+            className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary"
+            onClick={load}
+          >
             {t('common.retry')}
           </Text>
         </View>
@@ -77,9 +80,13 @@ export default function CouponListPage() {
               <View className="w-[200rpx] bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white flex flex-col items-center justify-center py-[24rpx]">
                 <View className="flex items-baseline">
                   <Text className="text-[60rpx] font-bold">{c.amount}</Text>
-                  <Text className="text-[26rpx] ml-[4rpx]">{tt('member.couponList.unit', '元')}</Text>
+                  <Text className="text-[26rpx] ml-[4rpx]">
+                    {tt('member.couponList.unit', '元')}
+                  </Text>
                 </View>
-                <Text className="mt-[8rpx] text-[22rpx] opacity-90">{tt('member.couponList.coupon', '优惠券')}</Text>
+                <Text className="mt-[8rpx] text-[22rpx] opacity-90">
+                  {tt('member.couponList.coupon', '优惠券')}
+                </Text>
               </View>
               <View className="flex-1 p-[24rpx] flex flex-col justify-between">
                 <Text className="block text-[30rpx] text-foreground font-semibold">{c.title}</Text>
@@ -91,7 +98,10 @@ export default function CouponListPage() {
                 <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">
                   {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                 </Text>
-                <Button className="self-end mt-[16rpx] text-[24rpx] text-white bg-primary rounded-[28rpx] px-[28rpx] leading-[56rpx]" onClick={() => onReceive(c.id)}>
+                <Button
+                  className="self-end mt-[16rpx] text-[24rpx] text-white bg-primary rounded-[28rpx] px-[28rpx] leading-[56rpx]"
+                  onClick={() => onReceive(c.id)}
+                >
                   {tt('member.couponList.receive', '立即领取')}
                 </Button>
               </View>

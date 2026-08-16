@@ -20,8 +20,7 @@ interface Item {
 }
 
 type Res =
-  | { success: true; data: { list: Item[]; total: number } }
-  | { success: false; error?: string }
+  { success: true; data: { list: Item[]; total: number } } | { success: false; error?: string }
 
 function makeFetcher(pages: Record<number, { list: Item[]; total: number }>) {
   return vi.fn(async ({ page }: { page: number; pageSize: number }): Promise<Res> => {

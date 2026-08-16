@@ -86,7 +86,9 @@ export function ContractManager() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{t('planName')}</span>
-                    <Badge variant={statusVariant(c.status)}>{t(STATUS_KEY[c.status ?? 'unknown'] ?? 'status.unknown')}</Badge>
+                    <Badge variant={statusVariant(c.status)}>
+                      {t(STATUS_KEY[c.status ?? 'unknown'] ?? 'status.unknown')}
+                    </Badge>
                   </div>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <dt>{t('fields.nextCharge')}</dt>
@@ -114,9 +116,7 @@ export function ContractManager() {
       <ConfirmDialog
         open={cancelTarget !== null}
         title={t('cancelDialog.title')}
-        content={
-          <p className="text-sm text-muted-foreground">{t('cancelDialog.content')}</p>
-        }
+        content={<p className="text-sm text-muted-foreground">{t('cancelDialog.content')}</p>}
         confirmText={t('cancelDialog.confirmText')}
         cancelText={t('cancelDialog.cancelText')}
         variant="danger"

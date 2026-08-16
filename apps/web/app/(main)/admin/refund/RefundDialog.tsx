@@ -91,7 +91,13 @@ export function RefundDialog({
           </div>
           <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={disabled} className="shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={disabled}
+                className="shrink-0"
+              >
                 <span className="whitespace-nowrap">{tc('cancel')}</span>
               </Button>
               {action?.mode === 'audit' ? (

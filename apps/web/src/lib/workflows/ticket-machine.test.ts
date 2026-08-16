@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createActor } from 'xstate'
 import { ticketMachine } from './ticket-machine'
 
-const getStateValue = (snap: ReturnType<ReturnType<typeof createActor<typeof ticketMachine>>['getSnapshot']>) =>
-  typeof snap.value === 'string' ? snap.value : String(snap.value)
+const getStateValue = (
+  snap: ReturnType<ReturnType<typeof createActor<typeof ticketMachine>>['getSnapshot']>,
+) => (typeof snap.value === 'string' ? snap.value : String(snap.value))
 
 describe('ticketMachine', () => {
   it('初始状态为 open,reopenCount = 0', () => {

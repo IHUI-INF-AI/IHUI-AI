@@ -31,7 +31,9 @@ export default function Catalog({
   if (loading) {
     return (
       <View className="py-8 text-center">
-        <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+        <Text className="text-sm text-muted-foreground">
+          {tt('common.loadingShort', '加载中...')}
+        </Text>
       </View>
     )
   }
@@ -70,7 +72,9 @@ export default function Catalog({
                 className="flex items-center justify-center mr-3 rounded bg-muted"
                 style={{ width: '120px', height: '68px' }}
               >
-                <Text className="text-xs text-muted-foreground">{tt('catalog.noCover', '无封面')}</Text>
+                <Text className="text-xs text-muted-foreground">
+                  {tt('catalog.noCover', '无封面')}
+                </Text>
               </View>
             )}
             <View className="flex-1 min-w-0">
@@ -86,8 +90,14 @@ export default function Catalog({
                 {chapter.duration && (
                   <Text className="text-xs text-muted-foreground mr-2">{chapter.duration}</Text>
                 )}
-                {chapter.watched && <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>}
-                {active && <Text className="text-xs text-primary ml-auto">{tt('catalog.playing', '播放中')}</Text>}
+                {chapter.watched && (
+                  <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>
+                )}
+                {active && (
+                  <Text className="text-xs text-primary ml-auto">
+                    {tt('catalog.playing', '播放中')}
+                  </Text>
+                )}
               </View>
             </View>
           </View>

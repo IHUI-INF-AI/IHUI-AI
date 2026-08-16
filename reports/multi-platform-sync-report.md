@@ -9,16 +9,16 @@
 
 ## 1. 8 端目录存在性
 
-| # | 平台 | 目录 | 语言 | 存在 | 平台独占豁免(§9) |
-|---|------|------|------|------|------------------|
-| 1 | web          | `apps/web`          | ts/tsx | ✅ | — |
-| 2 | api          | `apps/api`          | ts     | ✅ | — |
-| 3 | ai-service   | `apps/ai-service`   | python | ✅ | — |
-| 4 | desktop      | `apps/desktop`      | ts/tsx | ✅ | 系统托盘(Tauri 原生集成) |
-| 5 | extension    | `apps/extension`    | ts/tsx | ✅ | 浏览器上下文菜单(WXT) |
-| 6 | mobile-rn    | `apps/mobile-rn`    | ts/tsx | ✅ | — |
-| 7 | miniapp-taro | `apps/miniapp-taro` | ts/tsx | ✅ | 微信支付(小程序原生) |
-| 8 | cli          | `apps/cli`          | ts     | ✅ | 终端集成(ACP/REPL) |
+| #   | 平台         | 目录                | 语言   | 存在 | 平台独占豁免(§9)         |
+| --- | ------------ | ------------------- | ------ | ---- | ------------------------ |
+| 1   | web          | `apps/web`          | ts/tsx | ✅   | —                        |
+| 2   | api          | `apps/api`          | ts     | ✅   | —                        |
+| 3   | ai-service   | `apps/ai-service`   | python | ✅   | —                        |
+| 4   | desktop      | `apps/desktop`      | ts/tsx | ✅   | 系统托盘(Tauri 原生集成) |
+| 5   | extension    | `apps/extension`    | ts/tsx | ✅   | 浏览器上下文菜单(WXT)    |
+| 6   | mobile-rn    | `apps/mobile-rn`    | ts/tsx | ✅   | —                        |
+| 7   | miniapp-taro | `apps/miniapp-taro` | ts/tsx | ✅   | 微信支付(小程序原生)     |
+| 8   | cli          | `apps/cli`          | ts     | ✅   | 终端集成(ACP/REPL)       |
 
 **结论**:8/8 端目录全部存在。4 端命中平台独占豁免(desktop / extension / miniapp-taro / cli)。
 
@@ -28,31 +28,32 @@
 
 新增端点(API 实现端,server.ts:943-954 注册):
 
-| 端点 | 端点数 | 描述 |
-|------|--------|------|
-| `/api/private-letters` | 7 | 私信管理 |
-| `/api/wrong-questions` | 3 | 错题本 |
-| `/api/check-in`        | 2+2 | 每日签到 + 状态 + rules + stats |
-| `/api/mail`            | 2 | 邮件发送(纯文本 / HTML) |
-| `/api/auth-codes`      | 2 | 验证码发送 + 校验 |
-| `/api/exam-marking`    | 1 | 阅卷评分 |
+| 端点                   | 端点数 | 描述                            |
+| ---------------------- | ------ | ------------------------------- |
+| `/api/private-letters` | 7      | 私信管理                        |
+| `/api/wrong-questions` | 3      | 错题本                          |
+| `/api/check-in`        | 2+2    | 每日签到 + 状态 + rules + stats |
+| `/api/mail`            | 2      | 邮件发送(纯文本 / HTML)         |
+| `/api/auth-codes`      | 2      | 验证码发送 + 校验               |
+| `/api/exam-marking`    | 1      | 阅卷评分                        |
 
 ### 2.1 顶级路径调用矩阵(`/api/xxx` 直接调用)
 
-| 端点 \ 端 | web | api | ai-service | desktop | extension | mobile-rn | miniapp-taro | cli |
-|-----------|-----|-----|------------|---------|-----------|-----------|--------------|-----|
-| `/api/private-letters` | 0(旧路径 2) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/wrong-questions` | 0(旧路径 3) | 1✅ | 0 | 0 | 0 | 0 | 0(旧路径 1) | 0 |
-| `/api/check-in`        | 0(旧路径 2) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/mail`            | 0          | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/auth-codes`      | 0          | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
-| `/api/exam-marking`    | 0(走 exam/records) | 1✅ | 0 | 0 | 0 | 0 | 0 | 0 |
+| 端点 \ 端              | web                | api | ai-service | desktop | extension | mobile-rn | miniapp-taro | cli |
+| ---------------------- | ------------------ | --- | ---------- | ------- | --------- | --------- | ------------ | --- |
+| `/api/private-letters` | 0(旧路径 2)        | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/wrong-questions` | 0(旧路径 3)        | 1✅ | 0          | 0       | 0         | 0         | 0(旧路径 1)  | 0   |
+| `/api/check-in`        | 0(旧路径 2)        | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/mail`            | 0                  | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/auth-codes`      | 0                  | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
+| `/api/exam-marking`    | 0(走 exam/records) | 1✅ | 0          | 0       | 0         | 0         | 0            | 0   |
 
 > `1✅` = 实现端注册顶级路径;`0(旧路径 N)` = 调用方使用等价旧路径(`/api/admin/xxx` / `/api/exam/xxx` / `/api/user/check-in`)
 
 ### 2.2 等价旧路径调用样本
 
 **web 端**(已有等价旧路径调用,需评估迁移):
+
 - `apps/web/app/(main)/admin/message-overview/page.tsx` → `/api/admin/private-letters?pageSize=100`
 - `apps/web/app/(main)/admin/private-letters/page.tsx` → `/api/admin/private-letters`
 - `apps/web/app/(main)/exam/wrong-questions/page.tsx` → `/api/exam/wrong-questions/stats` / `/api/exam/wrong-questions` / `/api/exam/wrong-questions/{id}/resolve`
@@ -60,33 +61,34 @@
 - `apps/web/app/(main)/admin/exam-marking/page.tsx` → `/api/exam/records/pending-marks` + `/api/admin/exam/records/{id}/grade`(走 exam records 旧路径,非 `/api/exam-marking`)
 
 **miniapp-taro 端**:
+
 - `apps/miniapp-taro/src/api/index.ts:683` → `del('/exam/wrong-questions/${id}')`(走 exam 旧路径)
 
 ---
 
 ## 3. 27 张新表 schema 多端依赖扫描
 
-| schema 文件 | 表数 | 调用端 |
-|-------------|------|--------|
-| `packages/database/src/schema/social-supplement.ts`  | 6 | 仅 api |
-| `packages/database/src/schema/live-supplement.ts`    | 4 | 仅 api |
-| `packages/database/src/schema/learn-homework.ts`     | 5 | 仅 api |
-| `packages/database/src/schema/resource-download.ts`  | 4 | 仅 api |
-| `packages/database/src/schema/admin-extended.ts`     | 8 | 仅 api |
-| **合计** | **27** | |
+| schema 文件                                         | 表数   | 调用端 |
+| --------------------------------------------------- | ------ | ------ |
+| `packages/database/src/schema/social-supplement.ts` | 6      | 仅 api |
+| `packages/database/src/schema/live-supplement.ts`   | 4      | 仅 api |
+| `packages/database/src/schema/learn-homework.ts`    | 5      | 仅 api |
+| `packages/database/src/schema/resource-download.ts` | 4      | 仅 api |
+| `packages/database/src/schema/admin-extended.ts`    | 8      | 仅 api |
+| **合计**                                            | **27** |        |
 
 ### schema import 依赖矩阵
 
-| 端 | imports `@ihui/database` | references 新 schema 文件 | 评估 |
-|----|--------------------------|---------------------------|------|
-| web          | 0 | 0 | 仅通过 API 端点间接消费 |
-| api          | 340 | 6 | 直接消费 schema(API 路由 + DB 查询) |
-| ai-service   | 0 | 0 | Python 服务,通过 HTTP/SQL 间接消费,不直接 import TS schema |
-| desktop      | 0 | 0 | 仅通过 API 端点间接消费 |
-| extension    | 0 | 0 | 仅通过 API 端点间接消费 |
-| mobile-rn    | 0 | 0 | 仅通过 API 端点间接消费 |
-| miniapp-taro | 0 | 0 | 仅通过 API 端点间接消费 |
-| cli          | 0 | 0 | 仅通过 API 端点间接消费 |
+| 端           | imports `@ihui/database` | references 新 schema 文件 | 评估                                                       |
+| ------------ | ------------------------ | ------------------------- | ---------------------------------------------------------- |
+| web          | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
+| api          | 340                      | 6                         | 直接消费 schema(API 路由 + DB 查询)                        |
+| ai-service   | 0                        | 0                         | Python 服务,通过 HTTP/SQL 间接消费,不直接 import TS schema |
+| desktop      | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
+| extension    | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
+| mobile-rn    | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
+| miniapp-taro | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
+| cli          | 0                        | 0                         | 仅通过 API 端点间接消费                                    |
 
 **结论**:27 张新表 schema 仅 `packages/database/src/schema/` 中定义,API 端直接消费,其他 7 端不直接 import,**无需多端同步**。
 
@@ -94,16 +96,16 @@
 
 ## 4. 各端同步需求评估
 
-| 端 | review 数 | 评估结论 |
-|----|-----------|----------|
-| **api**          | 0 | ✅ 实现端,已注册 6 个新端点,无需同步 |
-| **ai-service**   | 0 | ✅ Python 服务,不通过 HTTP 调用本仓库 API 端点,无需同步 |
-| **desktop**      | 0 | ✅ 平台独占豁免(系统托盘),无业务需求,无需同步 |
-| **extension**    | 0 | ✅ 平台独占豁免(浏览器上下文菜单),无业务需求,无需同步 |
-| **cli**          | 0 | ✅ 平台独占豁免(终端集成),无业务需求,无需同步 |
-| **web**          | 6 | ⚠️ 需评估:3 个端点(/api/private-letters / /api/wrong-questions / /api/check-in)已通过等价旧路径调用,建议评估是否迁移至新顶级路径;3 个端点(/api/mail / /api/auth-codes / /api/exam-marking)无任何调用方,需评估是否需要补开发 UI 调用方(若功能在 web 端需要) |
-| **mobile-rn**    | 6 | ⚠️ 需评估:6 个端点均无调用方,需评估是否需要补开发(若功能在本端需要) |
-| **miniapp-taro** | 1 | ⚠️ 需评估:1 个端点(/api/wrong-questions)已通过等价旧路径(`/exam/wrong-questions/{id}`)调用,建议评估是否迁移至新顶级路径 |
+| 端               | review 数 | 评估结论                                                                                                                                                                                                                                                   |
+| ---------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **api**          | 0         | ✅ 实现端,已注册 6 个新端点,无需同步                                                                                                                                                                                                                       |
+| **ai-service**   | 0         | ✅ Python 服务,不通过 HTTP 调用本仓库 API 端点,无需同步                                                                                                                                                                                                    |
+| **desktop**      | 0         | ✅ 平台独占豁免(系统托盘),无业务需求,无需同步                                                                                                                                                                                                              |
+| **extension**    | 0         | ✅ 平台独占豁免(浏览器上下文菜单),无业务需求,无需同步                                                                                                                                                                                                      |
+| **cli**          | 0         | ✅ 平台独占豁免(终端集成),无业务需求,无需同步                                                                                                                                                                                                              |
+| **web**          | 6         | ⚠️ 需评估:3 个端点(/api/private-letters / /api/wrong-questions / /api/check-in)已通过等价旧路径调用,建议评估是否迁移至新顶级路径;3 个端点(/api/mail / /api/auth-codes / /api/exam-marking)无任何调用方,需评估是否需要补开发 UI 调用方(若功能在 web 端需要) |
+| **mobile-rn**    | 6         | ⚠️ 需评估:6 个端点均无调用方,需评估是否需要补开发(若功能在本端需要)                                                                                                                                                                                        |
+| **miniapp-taro** | 1         | ⚠️ 需评估:1 个端点(/api/wrong-questions)已通过等价旧路径(`/exam/wrong-questions/{id}`)调用,建议评估是否迁移至新顶级路径                                                                                                                                    |
 
 ### 统计
 
@@ -119,37 +121,37 @@
 
 ### 5.1 web 端(6 个 review)
 
-| 端点 | 现状 | 建议动作 |
-|------|------|----------|
-| `/api/private-letters`   | 已通过 `/api/admin/private-letters` 调用(2 处) | 评估是否迁移至新顶级路径(`/api/private-letters`)— admin 子路径可能继续作为管理后台专用,建议保留 |
-| `/api/wrong-questions`   | 已通过 `/api/exam/wrong-questions` 调用(3 处) | 评估是否迁移至新顶级路径(`/api/wrong-questions`) |
-| `/api/check-in`          | 已通过 `/api/user/check-in` 调用(2 处) | 评估是否迁移至新顶级路径(`/api/check-in`) |
-| `/api/mail`              | 无调用方 | 评估是否需要补开发邮件发送 UI(若功能在 web 端需要) |
-| `/api/auth-codes`        | 无调用方 | 评估是否需要补开发验证码 UI(若功能在 web 端需要) |
-| `/api/exam-marking`      | 无调用方(走 `/api/exam/records` 旧路径) | 评估是否迁移至新顶级路径(`/api/exam-marking`) |
+| 端点                   | 现状                                           | 建议动作                                                                                        |
+| ---------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/api/private-letters` | 已通过 `/api/admin/private-letters` 调用(2 处) | 评估是否迁移至新顶级路径(`/api/private-letters`)— admin 子路径可能继续作为管理后台专用,建议保留 |
+| `/api/wrong-questions` | 已通过 `/api/exam/wrong-questions` 调用(3 处)  | 评估是否迁移至新顶级路径(`/api/wrong-questions`)                                                |
+| `/api/check-in`        | 已通过 `/api/user/check-in` 调用(2 处)         | 评估是否迁移至新顶级路径(`/api/check-in`)                                                       |
+| `/api/mail`            | 无调用方                                       | 评估是否需要补开发邮件发送 UI(若功能在 web 端需要)                                              |
+| `/api/auth-codes`      | 无调用方                                       | 评估是否需要补开发验证码 UI(若功能在 web 端需要)                                                |
+| `/api/exam-marking`    | 无调用方(走 `/api/exam/records` 旧路径)        | 评估是否迁移至新顶级路径(`/api/exam-marking`)                                                   |
 
 ### 5.2 mobile-rn 端(6 个 review)
 
-| 端点 | 现状 | 建议动作 |
-|------|------|----------|
+| 端点          | 现状     | 建议动作                                                                                         |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------ |
 | 全部 6 个端点 | 无调用方 | 评估各端点对应功能是否在 RN App 端需要(目前 RN 端仅接入 social/orders/courses/wallet 等通用功能) |
 
 ### 5.3 miniapp-taro 端(1 个 review)
 
-| 端点 | 现状 | 建议动作 |
-|------|------|----------|
-| `/api/wrong-questions`   | 已通过 `/exam/wrong-questions/{id}` DELETE 调用(1 处) | 评估是否迁移至新顶级路径(`/api/wrong-questions/{id}`) |
+| 端点                   | 现状                                                  | 建议动作                                              |
+| ---------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| `/api/wrong-questions` | 已通过 `/exam/wrong-questions/{id}` DELETE 调用(1 处) | 评估是否迁移至新顶级路径(`/api/wrong-questions/{id}`) |
 
 ### 5.4 共享层 packages/api-client(关键缺口)
 
-| 端点 | api-client 函数 | 调用方 | 建议 |
-|------|-----------------|--------|------|
-| `/api/private-letters`   | ❌ 缺失 | — | 建议补开发 |
-| `/api/wrong-questions`   | ❌ 缺失 | — | 建议补开发 |
-| `/api/check-in`          | ✅ 9 个 CRUD 函数(listCheckins/getCheckin/createCheckin/...) | ❌ 无调用方 | 建议接入 web/mobile-rn 等端调用方 |
-| `/api/mail`              | ❌ 缺失 | — | 建议补开发 |
-| `/api/auth-codes`        | ❌ 缺失 | — | 建议补开发 |
-| `/api/exam-marking`      | ❌ 缺失 | — | 建议补开发 |
+| 端点                   | api-client 函数                                              | 调用方      | 建议                              |
+| ---------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
+| `/api/private-letters` | ❌ 缺失                                                      | —           | 建议补开发                        |
+| `/api/wrong-questions` | ❌ 缺失                                                      | —           | 建议补开发                        |
+| `/api/check-in`        | ✅ 9 个 CRUD 函数(listCheckins/getCheckin/createCheckin/...) | ❌ 无调用方 | 建议接入 web/mobile-rn 等端调用方 |
+| `/api/mail`            | ❌ 缺失                                                      | —           | 建议补开发                        |
+| `/api/auth-codes`      | ❌ 缺失                                                      | —           | 建议补开发                        |
+| `/api/exam-marking`    | ❌ 缺失                                                      | —           | 建议补开发                        |
 
 **建议**:补开发 6 个新端点的 api-client 共享函数,作为多端同步对接的统一入口(避免 web/mobile-rn/miniapp-taro 各端重复实现 fetch 逻辑)。
 
@@ -157,12 +159,12 @@
 
 ## 6. 平台独占豁免项(AGENTS.md §9)
 
-| 端 | 豁免范围 |
-|----|----------|
+| 端           | 豁免范围                 |
+| ------------ | ------------------------ |
 | desktop      | 系统托盘(Tauri 原生集成) |
-| extension    | 浏览器上下文菜单(WXT) |
-| miniapp-taro | 微信支付(小程序原生) |
-| cli          | 终端集成(ACP/REPL) |
+| extension    | 浏览器上下文菜单(WXT)    |
+| miniapp-taro | 微信支付(小程序原生)     |
+| cli          | 终端集成(ACP/REPL)       |
 
 > 豁免范围仅限平台独占功能。本次审计的 6 个新 API 端点均为业务功能(私信/错题/签到/邮件/验证码/阅卷),非平台独占。4 端命中豁免是因当前无业务需求调用,而非因端点属平台独占。
 

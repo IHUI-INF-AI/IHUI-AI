@@ -11,8 +11,7 @@ export const PRIVACY_POLICY_TITLE = '隐私政策'
 export const PRIVACY_POLICY_COMPANY = '吉林省爱智汇人工智能科技有限公司'
 export const PRIVACY_POLICY_EMAIL = '502319984@qq.com'
 export const PRIVACY_POLICY_PHONE = '19944894487'
-export const PRIVACY_POLICY_ADDRESS =
-  '吉林省长春市高新区益田硅谷公馆二期(益田罗堤悦府)B9栋1801室'
+export const PRIVACY_POLICY_ADDRESS = '吉林省长春市高新区益田硅谷公馆二期(益田罗堤悦府)B9栋1801室'
 export const PRIVACY_POLICY_EFFECTIVE_DATE = '2025-06-20'
 
 /** AsyncStorage 持久化 key(与任务约定一致) */

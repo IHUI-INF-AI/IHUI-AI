@@ -53,9 +53,12 @@ function providerIcon(providerId: string): { letter: string; bg: string } {
 }
 
 /** 类型徽章配色(对齐 uniapp model-plaza:图像粉 / 音视频绿 / 文本蓝,语义区分非主色) */
-function typeBadge(
-  type: ModelPlazaModelType,
-): { text: string; color: string; bg: string; labelKey: string } {
+function typeBadge(type: ModelPlazaModelType): {
+  text: string
+  color: string
+  bg: string
+  labelKey: string
+} {
   if (type === 'image') {
     return {
       text: '',

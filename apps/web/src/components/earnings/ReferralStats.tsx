@@ -42,43 +42,41 @@ export function ReferralStats({ data, loading }: Props) {
         </div>
 
         <div className="mt-4 space-y-3">
-          {loading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
-                <div className="h-6 w-full animate-pulse rounded bg-muted" />
-              </div>
-            ))
-          ) : (
-            data.map((c) => {
-              const meta = CHANNEL_META[c.channel]
-              const Icon = meta.icon
-              const pct = (c.count / max) * 100
-              const labelKey =
-                c.channel === 'free-model'
-                  ? 'channelFree'
-                  : c.channel === 'publish'
-                    ? 'channelPublish'
-                    : 'channelDirect'
-              return (
-                <div key={c.channel} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Icon className="h-3.5 w-3.5" />
-                      {t(labelKey)}
-                    </span>
-                    <span className="font-medium">{c.count}</span>
-                  </div>
-                  <div className="h-2 w-full rounded-sm bg-muted/60">
-                    <div
-                      className={`h-full rounded-sm ${meta.cls}`}
-                      style={{ width: `${Math.max(3, pct)}%` }}
-                    />
-                  </div>
+          {loading
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                  <div className="h-6 w-full animate-pulse rounded bg-muted" />
                 </div>
-              )
-            })
-          )}
+              ))
+            : data.map((c) => {
+                const meta = CHANNEL_META[c.channel]
+                const Icon = meta.icon
+                const pct = (c.count / max) * 100
+                const labelKey =
+                  c.channel === 'free-model'
+                    ? 'channelFree'
+                    : c.channel === 'publish'
+                      ? 'channelPublish'
+                      : 'channelDirect'
+                return (
+                  <div key={c.channel} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Icon className="h-3.5 w-3.5" />
+                        {t(labelKey)}
+                      </span>
+                      <span className="font-medium">{c.count}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-sm bg-muted/60">
+                      <div
+                        className={`h-full rounded-sm ${meta.cls}`}
+                        style={{ width: `${Math.max(3, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
         </div>
       </CardContent>
     </Card>

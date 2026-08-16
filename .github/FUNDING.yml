@@ -3,4 +3,8 @@
 # 参考: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
 
 ko_fi: ihuiai
-custom: ['https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD', 'https://ko-fi.com/ihuiai']
+custom:
+  [
+    'https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD',
+    'https://ko-fi.com/ihuiai',
+  ]

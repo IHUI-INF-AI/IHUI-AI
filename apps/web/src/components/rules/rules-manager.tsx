@@ -833,7 +833,9 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                   >
                     {conflictTypeLabel(conflict.type)}
                   </span>
-                  <span className="flex-1 min-w-0 text-xs text-muted-foreground">{conflict.detail}</span>
+                  <span className="flex-1 min-w-0 text-xs text-muted-foreground">
+                    {conflict.detail}
+                  </span>
                   {conflict.ruleIds.length >= 2 && (
                     <button
                       type="button"

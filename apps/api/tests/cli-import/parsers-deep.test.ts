@@ -49,11 +49,15 @@ describe('env-file parser', () => {
     expect(res.providers[0]!.providerCode).toBe('zhipu')
   })
   it('多 provider 同时解析', async () => {
-    const res = await parseEnvFile(makeText('OPENAI_API_KEY=sk-a\nANTHROPIC_API_KEY=sk-b\nGEMINI_API_KEY=AIza-c'))
+    const res = await parseEnvFile(
+      makeText('OPENAI_API_KEY=sk-a\nANTHROPIC_API_KEY=sk-b\nGEMINI_API_KEY=AIza-c'),
+    )
     expect(res.providers).toHaveLength(3)
   })
   it('自定义前缀(MY_API_KEY + MY_BASE_URL)', async () => {
-    const res = await parseEnvFile(makeText('MY_API_KEY=sk-xxx\nMY_BASE_URL=https://api.custom.com/v1'))
+    const res = await parseEnvFile(
+      makeText('MY_API_KEY=sk-xxx\nMY_BASE_URL=https://api.custom.com/v1'),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.baseUrl).toBe('https://api.custom.com/v1')
   })
@@ -79,20 +83,28 @@ describe('cursor parser', () => {
     expect(res.globalWarnings.length).toBeGreaterThan(0)
   })
   it('有 baseUrl + apiKey → 正常解析', async () => {
-    const res = await parseCursor(makeText(JSON.stringify({
-      'cursor.ai.apiKey': 'sk-xxx',
-      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
-      'cursor.ai.model': 'gpt-4o',
-    })))
+    const res = await parseCursor(
+      makeText(
+        JSON.stringify({
+          'cursor.ai.apiKey': 'sk-xxx',
+          'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+          'cursor.ai.model': 'gpt-4o',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
     expect(res.providers[0]!.modelIdForTest).toBe('gpt-4o')
   })
   it('Anthropic URL → anthropic_messages', async () => {
-    const res = await parseCursor(makeText(JSON.stringify({
-      'cursor.ai.apiKey': 'sk-ant-xxx',
-      'cursor.ai.baseUrl': 'https://api.anthropic.com',
-    })))
+    const res = await parseCursor(
+      makeText(
+        JSON.stringify({
+          'cursor.ai.apiKey': 'sk-ant-xxx',
+          'cursor.ai.baseUrl': 'https://api.anthropic.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
   it('非 JSON 抛异常', async () => {
@@ -107,11 +119,15 @@ describe('windsurf parser', () => {
     expect(res.globalWarnings.length).toBeGreaterThan(0)
   })
   it('有完整配置 → 正常解析', async () => {
-    const res = await parseWindsurf(makeText(JSON.stringify({
-      'windsurf.ai.apiKey': 'sk-xxx',
-      'windsurf.ai.baseUrl': 'https://api.deepseek.com',
-      'windsurf.ai.model': 'deepseek-coder',
-    })))
+    const res = await parseWindsurf(
+      makeText(
+        JSON.stringify({
+          'windsurf.ai.apiKey': 'sk-xxx',
+          'windsurf.ai.baseUrl': 'https://api.deepseek.com',
+          'windsurf.ai.model': 'deepseek-coder',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
@@ -119,27 +135,39 @@ describe('windsurf parser', () => {
 
 describe('cline parser', () => {
   it('apiProvider=anthropic → anthropic_messages', async () => {
-    const res = await parseCline(makeText(JSON.stringify({
-      'cline.apiProvider': 'anthropic',
-      'cline.apiKey': 'sk-ant-xxx',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-      'cline.openAiModelId': 'claude-3-opus',
-    })))
+    const res = await parseCline(
+      makeText(
+        JSON.stringify({
+          'cline.apiProvider': 'anthropic',
+          'cline.apiKey': 'sk-ant-xxx',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+          'cline.openAiModelId': 'claude-3-opus',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
   it('apiProvider=gemini → gemini_native', async () => {
-    const res = await parseCline(makeText(JSON.stringify({
-      'cline.apiProvider': 'gemini',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
-    })))
+    const res = await parseCline(
+      makeText(
+        JSON.stringify({
+          'cline.apiProvider': 'gemini',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
   it('无 baseUrl → warning', async () => {
-    const res = await parseCline(makeText(JSON.stringify({
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-    })))
+    const res = await parseCline(
+      makeText(
+        JSON.stringify({
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
     expect(res.globalWarnings.length).toBeGreaterThan(0)
   })
@@ -147,13 +175,17 @@ describe('cline parser', () => {
 
 describe('aider parser', () => {
   it('OpenAI + Anthropic 双 provider', async () => {
-    const res = await parseAider(makeText([
-      'model: claude-3-opus',
-      'openai-api-key: sk-openai',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-ant-xxx',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: claude-3-opus',
+          'openai-api-key: sk-openai',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-ant-xxx',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers).toHaveLength(2)
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
@@ -175,18 +207,24 @@ describe('aider parser', () => {
     expect(res.globalWarnings.length).toBeGreaterThan(0)
   })
   it('model=gpt-4 → OpenAI isCurrent', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4',
-      'openai-api-key: sk-a',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-b',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: gpt-4',
+          'openai-api-key: sk-a',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-b',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     expect(openai?.isCurrent).toBe(true)
   })
   it('YAML 引号格式', async () => {
-    const res = await parseAider(makeText('openai-api-key: "sk-quoted"\nopenai-api-base: "https://api.openai.com/v1"'))
+    const res = await parseAider(
+      makeText('openai-api-key: "sk-quoted"\nopenai-api-base: "https://api.openai.com/v1"'),
+    )
     expect(res.providers[0]!.apiKey).toBe('sk-quoted')
   })
 })

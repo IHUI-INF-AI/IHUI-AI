@@ -365,8 +365,7 @@ export default function EduAiLearnMapPage() {
                   )}
                   {topic.price && Number(topic.price) > 0 && (
                     <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 shadow-sm backdrop-blur-sm dark:text-amber-300">
-                      <Sparkles className="h-3 w-3" />
-                      ¥{topic.price}
+                      <Sparkles className="h-3 w-3" />¥{topic.price}
                     </span>
                   )}
                 </div>
@@ -374,7 +373,9 @@ export default function EduAiLearnMapPage() {
                   <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-xs text-muted-foreground">
-                  {topic.description && <p className="line-clamp-2 break-words">{topic.description}</p>}
+                  {topic.description && (
+                    <p className="line-clamp-2 break-words">{topic.description}</p>
+                  )}
                   <span className="flex items-center gap-1 text-primary">
                     {t('viewDetail')}
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -387,7 +388,9 @@ export default function EduAiLearnMapPage() {
 
         {topicTotal > PAGE_SIZE && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('page', { page, total: totalPages })}</span>
+            <span className="text-sm text-muted-foreground">
+              {t('page', { page, total: totalPages })}
+            </span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -466,7 +469,10 @@ export default function EduAiLearnMapPage() {
                   </h3>
                   <ol className="space-y-2">
                     {extractNodes(mapDetail.content).map((node, idx) => (
-                      <li key={node.id ?? `${idx}-${node.title ?? ''}`} className="flex items-start gap-2">
+                      <li
+                        key={node.id ?? `${idx}-${node.title ?? ''}`}
+                        className="flex items-start gap-2"
+                      >
                         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-medium text-primary">
                           {idx + 1}
                         </span>
@@ -521,14 +527,15 @@ export default function EduAiLearnMapPage() {
                 </span>
                 {topicDetail.price && Number(topicDetail.price) > 0 ? (
                   <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    ¥{topicDetail.price}
+                    <Sparkles className="h-3.5 w-3.5" />¥{topicDetail.price}
                   </span>
                 ) : null}
               </div>
 
               {topicDetail.description && (
-                <p className="whitespace-pre-line text-muted-foreground">{topicDetail.description}</p>
+                <p className="whitespace-pre-line text-muted-foreground">
+                  {topicDetail.description}
+                </p>
               )}
 
               {/* 关联课程 */}
@@ -544,7 +551,10 @@ export default function EduAiLearnMapPage() {
                     {t('loading')}
                   </div>
                 ) : topicLessonsQuery.isError ? (
-                  <Alert variant="danger" description={(topicLessonsQuery.error as Error).message} />
+                  <Alert
+                    variant="danger"
+                    description={(topicLessonsQuery.error as Error).message}
+                  />
                 ) : topicLessons.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-6">
                     <Info className="h-6 w-6 text-muted-foreground" />
@@ -572,7 +582,9 @@ export default function EduAiLearnMapPage() {
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-1 text-sm font-medium">{lesson.title}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            {lesson.lecturerName && <span className="line-clamp-1">{lesson.lecturerName}</span>}
+                            {lesson.lecturerName && (
+                              <span className="line-clamp-1">{lesson.lecturerName}</span>
+                            )}
                             {typeof lesson.lessonCount === 'number' && lesson.lessonCount > 0 && (
                               <span className="flex items-center gap-0.5">
                                 <BookOpen className="h-3 w-3" />

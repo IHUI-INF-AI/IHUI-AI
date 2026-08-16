@@ -111,7 +111,11 @@ describe('ws-chat IDOR 防护 - HTTP 端点鉴权', () => {
     authenticateMock.mockReset()
     // 默认 authenticate 行为:无 Authorization header 抛 401;有 Bearer token 注入 user-test-id + roleId=0
     authenticateMock.mockImplementation(async (request: unknown) => {
-      const req = request as { headers: { authorization?: string }; userId?: string; jwtPayload?: unknown }
+      const req = request as {
+        headers: { authorization?: string }
+        userId?: string
+        jwtPayload?: unknown
+      }
       const header = req.headers.authorization
       if (!header || !header.startsWith('Bearer ')) {
         const err = new Error('Authentication required') as Error & { statusCode: number }
@@ -239,9 +243,7 @@ describe('ws-chat IDOR 防护 - HTTP 端点鉴权', () => {
 
   it('DELETE /chat-room/messages/:id 作者本人返回 200', async () => {
     mockRedis.smembers.mockResolvedValue(['room-1'])
-    mockRedis.lrange.mockResolvedValue([
-      JSON.stringify({ id: 'msg-1', from: USER_ID, text: 'hi' }),
-    ])
+    mockRedis.lrange.mockResolvedValue([JSON.stringify({ id: 'msg-1', from: USER_ID, text: 'hi' })])
     const res = await app.inject({
       method: 'DELETE',
       url: '/chat-room/messages/msg-1',

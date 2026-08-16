@@ -24,10 +24,16 @@ export function VipLevelScreen() {
       const r = await fetchApi<VipLevelItem>(`/vip-level/${id}`)
       if (!r.success) throw new Error()
       setItem(r.data ?? null)
-    } catch { setError(t('vipLevel.loadFailed')) } finally { setLoading(false) }
+    } catch {
+      setError(t('vipLevel.loadFailed'))
+    } finally {
+      setLoading(false)
+    }
   }, [id, t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
     <SharedVipLevelScreen

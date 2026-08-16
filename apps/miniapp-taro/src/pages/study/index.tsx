@@ -97,7 +97,11 @@ export default function StudyIndex() {
       <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
         {entries.map((e) => (
           <View key={e.url} className="flex items-center p-3" onClick={() => navigate(e.url)}>
-            {isImagePath(e.icon) ? <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" /> : <Text>{e.icon}</Text>}
+            {isImagePath(e.icon) ? (
+              <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
+            ) : (
+              <Text>{e.icon}</Text>
+            )}
             <Text className="flex-1 ml-3 text-sm text-foreground">{t(e.labelKey)}</Text>
             <Text className="text-muted-foreground">›</Text>
           </View>

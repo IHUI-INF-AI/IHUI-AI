@@ -48,7 +48,10 @@ export default function ExamDetail() {
       const [paperRes, questionsRes, recordsRes] = await Promise.all([
         getExamPaper(id),
         getExamQuestions(id),
-        getExamRecords({ page: 1, pageSize: 5 }).catch(() => ({ list: [] as ExamRecord[], total: 0 })),
+        getExamRecords({ page: 1, pageSize: 5 }).catch(() => ({
+          list: [] as ExamRecord[],
+          total: 0,
+        })),
       ])
       const paper = paperRes.paper
       const related = (recordsRes.list || []).filter((r) => r.paperId === id)
@@ -152,17 +155,13 @@ export default function ExamDetail() {
             <View className="exam-detail-card">
               <View className="exam-detail-participant-row">
                 <View className="exam-detail-participant-item">
-                  <Text className="exam-detail-participant-num">
-                    {exam.participantCount}
-                  </Text>
+                  <Text className="exam-detail-participant-num">{exam.participantCount}</Text>
                   <Text className="exam-detail-participant-label">
                     {tt('exam.detail.participants', '参与人数')}
                   </Text>
                 </View>
                 <View className="exam-detail-participant-item">
-                  <Text className="exam-detail-participant-num passed">
-                    {exam.passedCount}
-                  </Text>
+                  <Text className="exam-detail-participant-num passed">{exam.passedCount}</Text>
                   <Text className="exam-detail-participant-label">
                     {tt('exam.detail.passedCount', '已通过')}
                   </Text>
@@ -226,9 +225,7 @@ export default function ExamDetail() {
             <Text className="exam-detail-error-text">
               {tt('exam.detail.loadFailed', '考试加载失败')}
             </Text>
-            <Text className="exam-detail-error-retry">
-              {tt('exam.detail.retry', '点击重试')}
-            </Text>
+            <Text className="exam-detail-error-retry">{tt('exam.detail.retry', '点击重试')}</Text>
           </View>
         ) : null}
       </ScrollView>

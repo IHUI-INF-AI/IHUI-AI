@@ -5,23 +5,23 @@
  * 本接口仅保留向后兼容,勿再扩展。
  */
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
 }
 
 export interface ChatRequest {
-  model: string;
-  messages: ChatMessage[];
-  stream?: boolean;
-  temperature?: number;
-  maxTokens?: number;
+  model: string
+  messages: ChatMessage[]
+  stream?: boolean
+  temperature?: number
+  maxTokens?: number
 }
 
 export interface AgentTask {
-  id: string;
-  goal: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: string;
+  id: string
+  goal: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  result?: string
 }
 
 // ==================== AI 对话可视化深度接入(2026-07-31 立) ====================

@@ -27,10 +27,7 @@ export default function AdminLoading() {
         </div>
         {/* 数据行 */}
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-4 gap-4 px-4 py-3 last:border-b-0"
-          >
+          <div key={i} className="grid grid-cols-4 gap-4 px-4 py-3 last:border-b-0">
             {Array.from({ length: 4 }).map((_, j) => (
               <div key={j} className="skeleton h-4 rounded" />
             ))}

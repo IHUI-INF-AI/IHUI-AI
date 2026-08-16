@@ -19,7 +19,6 @@ import {
   LogIn,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
 import {
@@ -403,28 +402,26 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Tooltip content={tc('actions.menu')}>
-              <button
-                type="button"
-                onClick={(e) => e.stopPropagation()}
-                disabled={busyId === item.id}
-                aria-label={tc('actions.menu')}
-                data-testid="conversation-more-menu"
-                className={cn(
-                  'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
-                  'text-muted-foreground opacity-0 group-hover:opacity-100',
-                  'hover:bg-accent hover:text-accent-foreground',
-                  'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                  'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
-                )}
-              >
-                {busyId === item.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <MoreVertical className="h-3 w-3" />
-                )}
-              </button>
-            </Tooltip>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              disabled={busyId === item.id}
+              aria-label={tc('actions.menu')}
+              data-testid="conversation-more-menu"
+              className={cn(
+                'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
+                'text-muted-foreground opacity-0 group-hover:opacity-100',
+                'hover:bg-accent hover:text-accent-foreground',
+                'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
+              )}
+            >
+              {busyId === item.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <MoreVertical className="h-3 w-3" />
+              )}
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem

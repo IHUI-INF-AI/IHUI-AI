@@ -74,63 +74,63 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-4 px-4 py-6">
-        <BackButton />
-        <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
-          <TabsList>
-            <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>
-            <TabsTrigger value="invoices">{t('billingInvoices')}</TabsTrigger>
-          </TabsList>
+      <BackButton />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
+        <TabsList>
+          <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>
+          <TabsTrigger value="invoices">{t('billingInvoices')}</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="orders" className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ShoppingCart className="h-4 w-4" />
-                  {t('billingOrders')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <OrdersTab
-                  t={t}
-                  list={ordersQuery.data?.list ?? []}
-                  isLoading={ordersQuery.isLoading}
-                  error={ordersQuery.error as Error | null}
-                  page={orderPage}
-                  total={ordersQuery.data?.total ?? 0}
-                  pageSize={PAGE_SIZE}
-                  currencyFmt={currencyFmt}
-                  dateFmt={dateFmt}
-                  onPageChange={setOrderPage}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <TabsContent value="orders" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShoppingCart className="h-4 w-4" />
+                {t('billingOrders')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OrdersTab
+                t={t}
+                list={ordersQuery.data?.list ?? []}
+                isLoading={ordersQuery.isLoading}
+                error={ordersQuery.error as Error | null}
+                page={orderPage}
+                total={ordersQuery.data?.total ?? 0}
+                pageSize={PAGE_SIZE}
+                currencyFmt={currencyFmt}
+                dateFmt={dateFmt}
+                onPageChange={setOrderPage}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="invoices" className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Receipt className="h-4 w-4" />
-                  {t('billingInvoices')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InvoicesTab
-                  t={t}
-                  list={invoicesQuery.data?.list ?? []}
-                  isLoading={invoicesQuery.isLoading}
-                  error={invoicesQuery.error as Error | null}
-                  page={invoicePage}
-                  total={invoicesQuery.data?.total ?? 0}
-                  pageSize={PAGE_SIZE}
-                  currencyFmt={currencyFmt}
-                  dateFmt={dateFmt}
-                  onPageChange={setInvoicePage}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <TabsContent value="invoices" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Receipt className="h-4 w-4" />
+                {t('billingInvoices')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InvoicesTab
+                t={t}
+                list={invoicesQuery.data?.list ?? []}
+                isLoading={invoicesQuery.isLoading}
+                error={invoicesQuery.error as Error | null}
+                page={invoicePage}
+                total={invoicesQuery.data?.total ?? 0}
+                pageSize={PAGE_SIZE}
+                currencyFmt={currencyFmt}
+                dateFmt={dateFmt}
+                onPageChange={setInvoicePage}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

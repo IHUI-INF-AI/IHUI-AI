@@ -46,20 +46,33 @@ export function inferPointsMultiplier(modelId: string): number {
   // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
   if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
   // 旗舰(30x)
-  if (['opus', 'thinking', 'o1-preview', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
+  if (['opus', 'thinking', 'o1-preview', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k)))
+    return 30
   // 高级(10x)
   if (
-    ['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro', 'o1-mini', 'o3-mini', 'qwen-max-longcontext'].some(
-      (k) => mid.includes(k),
-    )
+    [
+      'gpt-4-turbo',
+      'gpt-4.5',
+      'claude-3-opus',
+      'gemini-pro',
+      'o1-mini',
+      'o3-mini',
+      'qwen-max-longcontext',
+    ].some((k) => mid.includes(k))
   )
     return 10
   // 标准(3x)
-  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k))) return 3
+  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k)))
+    return 3
   // 经济(1x)
   if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
   // 免费(0x)
-  if (['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) => mid.includes(k))) return 0
+  if (
+    ['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) =>
+      mid.includes(k),
+    )
+  )
+    return 0
   // 默认经济(1x)
   return 1
 }

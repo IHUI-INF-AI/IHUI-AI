@@ -11,8 +11,14 @@ import { describe, it, expect, vi } from 'vitest'
 
 // Mock 依赖模块(避免实际 DB 连接)
 vi.mock('../src/db/index.js', () => ({
-  db: { update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => ({ catch: vi.fn() })) })) })) },
-  dbRead: { select: vi.fn(() => ({ from: vi.fn(() => ({ where: vi.fn(() => ({ limit: vi.fn(() => []) })) })) })) },
+  db: {
+    update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => ({ catch: vi.fn() })) })) })),
+  },
+  dbRead: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(() => ({ limit: vi.fn(() => []) })) })),
+    })),
+  },
 }))
 
 vi.mock('@ihui/database', () => ({

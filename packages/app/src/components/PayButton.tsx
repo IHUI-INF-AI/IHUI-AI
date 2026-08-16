@@ -275,7 +275,9 @@ export function PayButton({
     if (cfg.showPurchasePopup) {
       setPopupVisible(true)
       if (onFetchPrice && agentId) {
-        onFetchPrice(agentId).then(setPrice).catch(() => setPrice(DEFAULT_PRICE))
+        onFetchPrice(agentId)
+          .then(setPrice)
+          .catch(() => setPrice(DEFAULT_PRICE))
       }
       return
     }

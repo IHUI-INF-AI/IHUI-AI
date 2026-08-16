@@ -6,12 +6,12 @@
 
 ## 1. 补齐的 4 个 key
 
-| key | zh-CN | zh-TW | en | ja | ko |
-| --- | --- | --- | --- | --- | --- |
-| `common.systemTip` | 系统提示 | 系統提示 | System Tip | システムヒント | 시스템 팁 |
-| `common.serialNumber` | 序号 | 序號 | Serial Number | シリアル番号 | 일련 번호 |
-| `common.dataItem` | 数据项 | 資料項 | Data Item | データ項目 | 데이터 항목 |
-| `common.modifySuccess` | 修改成功 | 修改成功 | Modified Successfully | 変更成功 | 수정 성공 |
+| key                    | zh-CN    | zh-TW    | en                    | ja             | ko          |
+| ---------------------- | -------- | -------- | --------------------- | -------------- | ----------- |
+| `common.systemTip`     | 系统提示 | 系統提示 | System Tip            | システムヒント | 시스템 팁   |
+| `common.serialNumber`  | 序号     | 序號     | Serial Number         | シリアル番号   | 일련 번호   |
+| `common.dataItem`      | 数据项   | 資料項   | Data Item             | データ項目     | 데이터 항목 |
+| `common.modifySuccess` | 修改成功 | 修改成功 | Modified Successfully | 変更成功       | 수정 성공   |
 
 ## 2. 受影响文件
 
@@ -22,6 +22,7 @@
 - `apps/web/messages/ko.json`(第 309-313 行追加)
 
 每个文件均:
+
 - 在 `common` 命名空间最后 1 个 key `"empty"` 后追加逗号
 - 4 个新 key 4 空格缩进,与现有键风格一致
 - 末尾不带逗号,关闭 `}` 紧随其后
@@ -50,6 +51,7 @@ node scripts/check-i18n-keys.mjs
 结果:exit 1,但**与本任务 4 个 common key 无关**。脚本输出查找 `common.(systemTip|serialNumber|dataItem|modifySuccess)` **0 命中**,证明 4 个新 key 在 5 语言间 parity 完全一致。
 
 预先存在的 parity 问题(非本任务范围,不在受影响文件清单内):
+
 - en/ja/ko/zh-TW 各有 537 个 `admin.nav.group.*` / `admin.logininfor.*` 等键 zh-CN 缺失
 - 250 个 `admin.*` 命名空间缺失键(logininfor / menuPermission / newsCategory / notice / online / operlog / paperTemplate / questionCategory / questionImport / sensitiveWord / signinRule / wallet / withdrawal 等 admin 页面)
 - 1166 处未翻译键(多为品牌名 iOS / Android APK / Google / Apple / GitHub / OpenAI / Grok 等有意保留英文 fallback)
@@ -79,6 +81,7 @@ node scripts/scan-i18n-zh-residue.mjs ja
 ```
 
 结果:exit 0(warn-only,不阻塞)。新追加的 4 个 key 中:
+
 - `システムヒント` / `シリアル番号` / `データ項目` / `変更成功` 均为合法日文(含日文汉字词与片假名),未触发新警告。
 
 ### 4.5 第 2e 项 — `check-i18n-broken-en.mjs`(破碎英文)
@@ -104,15 +107,15 @@ pnpm --filter @ihui/web typecheck
 
 ## 6. 验证总结
 
-| 验证项 | 命令 | 结果 |
-| --- | --- | --- |
-| JSON 有效性(5 文件) | `node -e "JSON.parse(...)"` | ✅ 全 OK |
+| 验证项                        | 命令                                                                | 结果                      |
+| ----------------------------- | ------------------------------------------------------------------- | ------------------------- |
+| JSON 有效性(5 文件)           | `node -e "JSON.parse(...)"`                                         | ✅ 全 OK                  |
 | i18n key parity(本任务 4 key) | `findstr common.(systemTip\|serialNumber\|dataItem\|modifySuccess)` | ✅ 0 命中(无 parity 问题) |
-| zh-TW 简体残留 | `scan-i18n-zh-residue.mjs zh-TW` | ✅ exit 0 |
-| ko 中文残留 | `scan-i18n-zh-residue.mjs ko` | ✅ exit 0 |
-| ja 中文残留 | `scan-i18n-zh-residue.mjs ja` | ✅ exit 0(warn-only) |
-| en 破碎英文 | `check-i18n-broken-en.mjs` | ✅ exit 0 |
-| web typecheck | `pnpm --filter @ihui/web typecheck` | ✅ exit 0 |
+| zh-TW 简体残留                | `scan-i18n-zh-residue.mjs zh-TW`                                    | ✅ exit 0                 |
+| ko 中文残留                   | `scan-i18n-zh-residue.mjs ko`                                       | ✅ exit 0                 |
+| ja 中文残留                   | `scan-i18n-zh-residue.mjs ja`                                       | ✅ exit 0(warn-only)      |
+| en 破碎英文                   | `check-i18n-broken-en.mjs`                                          | ✅ exit 0                 |
+| web typecheck                 | `pnpm --filter @ihui/web typecheck`                                 | ✅ exit 0                 |
 
 ## 7. 后续建议(可选,非本任务范围)
 

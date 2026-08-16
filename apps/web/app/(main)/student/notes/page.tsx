@@ -74,7 +74,12 @@ export default function MyNotesPage() {
   }
   function openEdit(note: Note) {
     setEditing(note)
-    setForm({ title: note.title, content: note.content, isPublic: note.isPublic, attachments: note.attachments ?? [] })
+    setForm({
+      title: note.title,
+      content: note.content,
+      isPublic: note.isPublic,
+      attachments: note.attachments ?? [],
+    })
     setErr(null)
     setOpen(true)
   }

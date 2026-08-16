@@ -37,7 +37,10 @@ const SKIP_PATHS = new Set(['/api/health', '/api/ready'])
 // P2 修复(2026-08-06):GET 请求采样率默认 0.1(仅 10% GET 有审计记录)→ 1.0(全量)。
 // 审计日志要求完整留痕,原默认 90% GET 审计事件缺失属合规盲区。
 // 需要降量时可设 AUDIT_LOG_GET_SAMPLE_RATE(0~1)显式调低,钳制到 [0,1]。
-const GET_SAMPLE_RATE = Math.min(Math.max(Number(process.env.AUDIT_LOG_GET_SAMPLE_RATE ?? '1'), 0), 1)
+const GET_SAMPLE_RATE = Math.min(
+  Math.max(Number(process.env.AUDIT_LOG_GET_SAMPLE_RATE ?? '1'), 0),
+  1,
+)
 
 declare module 'fastify' {
   interface FastifyRequest {

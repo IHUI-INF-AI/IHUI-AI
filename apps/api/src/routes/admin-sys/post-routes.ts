@@ -2,7 +2,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { parseNum, parseStr } from './_shared.js'
-import { findPostList, findPostById, createPost, updatePost, deletePostsBatch } from '../../db/admin-sys-queries.js'
+import {
+  findPostList,
+  findPostById,
+  createPost,
+  updatePost,
+  deletePostsBatch,
+} from '../../db/admin-sys-queries.js'
 
 // post_router (prefix=/post)
 const postBodySchema = z.object({

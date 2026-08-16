@@ -116,9 +116,7 @@ export default function NotificationsPage() {
               {n.content ? (
                 <div className="text-xs text-muted-foreground mt-1 break-words">{n.content}</div>
               ) : null}
-              <div className="text-[11px] text-muted-foreground mt-1.5">
-                {fmtDate(n.createdAt)}
-              </div>
+              <div className="text-[11px] text-muted-foreground mt-1.5">{fmtDate(n.createdAt)}</div>
             </CardContent>
           </Card>
         ))

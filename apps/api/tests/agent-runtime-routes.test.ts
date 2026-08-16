@@ -189,9 +189,7 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
   it('POST /execute/stream permission 事件 toolName=Read + dangerLevel=read + mode=default → decision=allow', async () => {
     mockAuthed()
     mockFetch.mockResolvedValueOnce(
-      buildSseResponse([
-        { event: 'permission', data: { toolName: 'Read', dangerLevel: 'read' } },
-      ]),
+      buildSseResponse([{ event: 'permission', data: { toolName: 'Read', dangerLevel: 'read' } }]),
     )
     const res = await server.inject({
       method: 'POST',

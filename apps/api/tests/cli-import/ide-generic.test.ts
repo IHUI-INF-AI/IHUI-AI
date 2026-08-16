@@ -5,9 +5,18 @@ import { describe, it, expect } from 'vitest'
 
 import type { ParserInput } from '../../src/services/cli-import/parsers/types.js'
 import {
-  parseTrae, parseTraeWork, parseQoder, parseQoderWork,
-  parseCodexDesktop, parseClaudeCodeDesktop,
-  parseGithubCopilot, parseAmazonQ, parseContinue, parseTabnine, parseCody, parseZed,
+  parseTrae,
+  parseTraeWork,
+  parseQoder,
+  parseQoderWork,
+  parseCodexDesktop,
+  parseClaudeCodeDesktop,
+  parseGithubCopilot,
+  parseAmazonQ,
+  parseContinue,
+  parseTabnine,
+  parseCody,
+  parseZed,
   parseAntigravity,
 } from '../../src/services/cli-import/parsers/ide-generic.js'
 
@@ -25,7 +34,9 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       expect(res.providers[0]!.baseUrl).toContain('generativelanguage.googleapis.com')
     })
     it('支持嵌套 JSON', async () => {
-      const res = await parseAntigravity(makeInput({ antigravity: { apiKey: 'AIza-xxx', model: 'gemini-3-pro' } }))
+      const res = await parseAntigravity(
+        makeInput({ antigravity: { apiKey: 'AIza-xxx', model: 'gemini-3-pro' } }),
+      )
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.apiFormat).toBe('gemini_native')
       expect(res.providers[0]!.modelIdForTest).toBe('gemini-3-pro')
@@ -65,7 +76,9 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       expect(res.globalWarnings.length).toBeGreaterThan(0)
     })
     it('Trae: 有 apiKey + baseUrl → 正常解析', async () => {
-      const res = await parseTrae(makeInput({ 'trae.ai.apiKey': 'sk-xxx', 'trae.ai.baseUrl': 'https://api.deepseek.com/v1' }))
+      const res = await parseTrae(
+        makeInput({ 'trae.ai.apiKey': 'sk-xxx', 'trae.ai.baseUrl': 'https://api.deepseek.com/v1' }),
+      )
       expect(res.providers).toHaveLength(1)
       expect(res.providers[0]!.baseUrl).toBe('https://api.deepseek.com/v1')
       expect(res.providers[0]!.apiFormat).toBe('openai_chat')
@@ -76,11 +89,15 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       expect(res.globalWarnings.length).toBeGreaterThan(0)
     })
     it('Zed: 有完整配置 → 正常解析', async () => {
-      const res = await parseZed(makeInput({ 'zed.apiKey': 'sk-xxx', 'zed.baseUrl': 'https://api.openai.com/v1' }))
+      const res = await parseZed(
+        makeInput({ 'zed.apiKey': 'sk-xxx', 'zed.baseUrl': 'https://api.openai.com/v1' }),
+      )
       expect(res.providers).toHaveLength(1)
     })
     it('Continue: 嵌套 JSON', async () => {
-      const res = await parseContinue(makeInput({ continue: { apiKey: 'sk-xxx', baseUrl: 'https://api.openai.com/v1' } }))
+      const res = await parseContinue(
+        makeInput({ continue: { apiKey: 'sk-xxx', baseUrl: 'https://api.openai.com/v1' } }),
+      )
       expect(res.providers).toHaveLength(1)
     })
     it('Tabnine: 无 baseUrl → warning', async () => {
@@ -114,14 +131,31 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       expect(res.providers[0]!.apiFormat).not.toBe('gemini_native')
     })
     it('Trae Work 与 Trae key 前缀不混', async () => {
-      const resTrae = await parseTrae(makeInput({ 'trae.ai.apiKey': 'sk-trae', 'trae.ai.baseUrl': 'https://api.openai.com/v1' }))
-      const resTraeWork = await parseTraeWork(makeInput({ 'trae.work.ai.apiKey': 'sk-trae-work', 'trae.work.ai.baseUrl': 'https://api.openai.com/v1' }))
+      const resTrae = await parseTrae(
+        makeInput({ 'trae.ai.apiKey': 'sk-trae', 'trae.ai.baseUrl': 'https://api.openai.com/v1' }),
+      )
+      const resTraeWork = await parseTraeWork(
+        makeInput({
+          'trae.work.ai.apiKey': 'sk-trae-work',
+          'trae.work.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      )
       expect(resTrae.providers[0]!.apiKey).toBe('sk-trae')
       expect(resTraeWork.providers[0]!.apiKey).toBe('sk-trae-work')
     })
     it('Qoder Work 与 Qoder key 前缀不混', async () => {
-      const resQoder = await parseQoder(makeInput({ 'qoder.ai.apiKey': 'sk-qoder', 'qoder.ai.baseUrl': 'https://api.openai.com/v1' }))
-      const resQoderWork = await parseQoderWork(makeInput({ 'qoder.work.ai.apiKey': 'sk-qoder-work', 'qoder.work.ai.baseUrl': 'https://api.openai.com/v1' }))
+      const resQoder = await parseQoder(
+        makeInput({
+          'qoder.ai.apiKey': 'sk-qoder',
+          'qoder.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      )
+      const resQoderWork = await parseQoderWork(
+        makeInput({
+          'qoder.work.ai.apiKey': 'sk-qoder-work',
+          'qoder.work.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      )
       expect(resQoder.providers[0]!.apiKey).toBe('sk-qoder')
       expect(resQoderWork.providers[0]!.apiKey).toBe('sk-qoder-work')
     })

@@ -121,7 +121,9 @@ export default function VerifyCodeModal({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-base font-medium text-foreground">{tt('verify.getCode', '获取验证码')}</Text>
+          <Text className="text-base font-medium text-foreground">
+            {tt('verify.getCode', '获取验证码')}
+          </Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>

@@ -8,12 +8,13 @@
 
 ## 1. 端点路径映射(Java → IHUI-AI)
 
-| # | Java 原路径(D 盘 AliAIController) | HTTP 方法 | IHUI-AI 新路径 | HTTP 方法 | 路由前缀 |
-| --- | --- | --- | --- | --- | --- |
-| 1 | `/ali/get/digital/{type}` | GET | `/api/ai/alibaba/digital/get` | POST | `/api/ai`(由 `aiVendorRoutes` 注册) |
-| 2 | `/ali/video/to/digital` | POST | `/api/ai/alibaba/digital/video-to-digital` | POST | `/api/ai` |
+| #   | Java 原路径(D 盘 AliAIController) | HTTP 方法 | IHUI-AI 新路径                             | HTTP 方法 | 路由前缀                            |
+| --- | --------------------------------- | --------- | ------------------------------------------ | --------- | ----------------------------------- |
+| 1   | `/ali/get/digital/{type}`         | GET       | `/api/ai/alibaba/digital/get`              | POST      | `/api/ai`(由 `aiVendorRoutes` 注册) |
+| 2   | `/ali/video/to/digital`           | POST      | `/api/ai/alibaba/digital/video-to-digital` | POST      | `/api/ai`                           |
 
 **说明**:
+
 - Java 原端点 1 使用 path 参数 `{type}`;IHUI-AI 改为 POST + body 字段 `param`(支持 type 数字字符串或 digitalId),便于统一鉴权与请求体校验。
 - 路由通过 `apps/api/src/routes/ai-vendors.ts` 的 `aiVendorRoutes` 聚合,经 `apps/api/src/server.ts` 第 648 行 `server.register(aiVendorRoutes, { prefix: '/api/ai' })` 注册,**无需修改 server.ts**。
 
@@ -24,13 +25,15 @@
 ### 端点 1:数字人获取 `POST /api/ai/alibaba/digital/get`
 
 **请求体**(`digitalGetBody`,定义于 `_shared.ts`):
+
 ```typescript
 {
-  param: string  // 必填,数字人 type(0-4)或 digitalId
+  param: string // 必填,数字人 type(0-4)或 digitalId
 }
 ```
 
 **响应**:
+
 ```typescript
 {
   code: 0,
@@ -44,6 +47,7 @@
 ```
 
 **`DigitalHuman` 实体**(对齐 Java `ZhsUserAgentImage`):
+
 ```typescript
 {
   digitalId: string
@@ -65,6 +69,7 @@
 ### 端点 2:视频转数字人 `POST /api/ai/alibaba/digital/video-to-digital`
 
 **请求体**(`videoToDigitalBody`,定义于 `_shared.ts`):
+
 ```typescript
 {
   videoUrl: string     // 必填,视频 URL
@@ -74,6 +79,7 @@
 ```
 
 **响应**:
+
 ```typescript
 {
   code: 0,
@@ -94,13 +100,13 @@
 
 按 `progress` 分支处理(D 盘 `AliAIServiceImpl.java` 第 320-410 行):
 
-| type | 含义 | Java 行为 | IHUI-AI TS 实现 |
-| --- | --- | --- | --- |
-| 0 | 提交音频 | `mcpResourceService.videoToAudio(videoUrl)` 提取音频 + `saveAudioImage` 保存 | 写入 `digitalHumanStore`,标记 `audioUrl` 占位;若配置 AK/SK 则调用阿里云 Avatar `SubmitAvatarTask` 异步处理 |
-| 1 | 提交图像 | `minioUploader.extractAndUploadFirstFrame(videoUrl, "jpg", 5)` 提取首帧 | 写入 `digitalHumanStore`,标记 `imageUrl` 占位;同上调用 Avatar |
-| 2 | 提交视频 | 直接 `imageMapper.addOrUpdate` 保存 videoUrl | 写入 `digitalHumanStore`,仅记录 `videoUrl` |
-| 3 | 提交全部 | 0+1+2 三者都做 | 写入 `digitalHumanStore`,同时标记 `audioUrl` + `imageUrl` |
-| 4 | 图片路径 | 直接将 videoUrl 当作图片路径写入 type=1 记录 | 写入 `digitalHumanStore`,仅记录 `imageUrl` |
+| type | 含义     | Java 行为                                                                    | IHUI-AI TS 实现                                                                                            |
+| ---- | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 0    | 提交音频 | `mcpResourceService.videoToAudio(videoUrl)` 提取音频 + `saveAudioImage` 保存 | 写入 `digitalHumanStore`,标记 `audioUrl` 占位;若配置 AK/SK 则调用阿里云 Avatar `SubmitAvatarTask` 异步处理 |
+| 1    | 提交图像 | `minioUploader.extractAndUploadFirstFrame(videoUrl, "jpg", 5)` 提取首帧      | 写入 `digitalHumanStore`,标记 `imageUrl` 占位;同上调用 Avatar                                              |
+| 2    | 提交视频 | 直接 `imageMapper.addOrUpdate` 保存 videoUrl                                 | 写入 `digitalHumanStore`,仅记录 `videoUrl`                                                                 |
+| 3    | 提交全部 | 0+1+2 三者都做                                                               | 写入 `digitalHumanStore`,同时标记 `audioUrl` + `imageUrl`                                                  |
+| 4    | 图片路径 | 直接将 videoUrl 当作图片路径写入 type=1 记录                                 | 写入 `digitalHumanStore`,仅记录 `imageUrl`                                                                 |
 
 **鉴权前置**:Java 在 `progress != 3 && progress != 4` 时调用 `checkPay(userUuid, progress, null)` 校验付费;IHUI-AI 改为统一 `requireAuth`(authenticate),付费校验延后到上层业务(避免与现有 `packages/auth` 解耦破坏)。
 
@@ -111,6 +117,7 @@
 - 其他 type 直接返回 list
 
 **IHUI-AI TS 实现**:
+
 - 从 `digitalHumanStore` 按 `userId + type` 过滤
 - `param` 为 digitalId 时直接返回该记录
 - `param` 为非数字字符串时返回当前用户全部数字人
@@ -152,9 +159,9 @@ export function buildAlibabaCloudHeaders(
 
 ### 调用端点
 
-| Action | 用途 | 调用位置 |
-| --- | --- | --- |
-| `QueryAvatar` | 拉取远端数字人形象列表 | `proxy-extended.ts` `POST /alibaba/digital/get` |
+| Action             | 用途                     | 调用位置                                                     |
+| ------------------ | ------------------------ | ------------------------------------------------------------ |
+| `QueryAvatar`      | 拉取远端数字人形象列表   | `proxy-extended.ts` `POST /alibaba/digital/get`              |
 | `SubmitAvatarTask` | 提交视频转数字人异步任务 | `proxy-extended.ts` `POST /alibaba/digital/video-to-digital` |
 
 ### 调用示例
@@ -167,7 +174,11 @@ const signed = buildAlibabaCloudHeaders(
   akId,
   akSecret,
 )
-const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 60_000)
+const resp = await fetchWithTimeout(
+  signed.url,
+  { method: 'POST', headers: signed.headers, body: signed.body },
+  60_000,
+)
 ```
 
 ---
@@ -190,10 +201,10 @@ const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signe
 
 ## 6. 环境变量需求
 
-| 变量名 | 用途 | 必填 | 默认 |
-| --- | --- | --- | --- |
-| `ALIBABA_CLOUD_ACCESS_KEY_ID` | 阿里云 AK,用于 ACS3 签名 | 否(未配置时仅本地存储) | — |
-| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 阿里云 SK,用于 ACS3 签名 | 否(未配置时仅本地存储) | — |
+| 变量名                            | 用途                     | 必填                   | 默认 |
+| --------------------------------- | ------------------------ | ---------------------- | ---- |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID`     | 阿里云 AK,用于 ACS3 签名 | 否(未配置时仅本地存储) | —    |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 阿里云 SK,用于 ACS3 签名 | 否(未配置时仅本地存储) | —    |
 
 **降级行为**:若 AK/SK 未配置,2 个端点仍可正常工作,仅本地 `digitalHumanStore` 读写,`remote`/`alibabaTaskId` 字段为 `null`/`undefined`。这保证开发环境零配置可启动,生产环境配置 AK/SK 后自动启用阿里云 Avatar 调用。
 
@@ -201,12 +212,12 @@ const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signe
 
 ## 7. 受影响文件清单
 
-| 文件(绝对路径) | 改动类型 | 说明 |
-| --- | --- | --- |
-| `g:\IHUI-AI\apps\api\src\routes\ai-vendors\_shared.ts` | 扩展 | 新增 `alibaba` vendor 配置、`DigitalHuman` 接口、`digitalHumanStore`、`buildAlibabaCloudHeaders` 函数、`digitalGetBody`/`videoToDigitalBody`/`digitalIdParam` schema |
-| `g:\IHUI-AI\apps\api\src\routes\ai-vendors\proxy-extended.ts` | 扩展 | 新增 section 14「Alibaba 数字人」2 端点,导入新 symbols |
-| `g:\IHUI-AI\apps\api\src\server.ts` | **未修改** | 路由已通过 `aiVendorRoutes` 间接注册,无需改动 |
-| `g:\IHUI-AI\reports\digital-human-endpoints-supplement-2026-07-19T23-24-58.md` | 新建 | 本报告 |
+| 文件(绝对路径)                                                                 | 改动类型   | 说明                                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `g:\IHUI-AI\apps\api\src\routes\ai-vendors\_shared.ts`                         | 扩展       | 新增 `alibaba` vendor 配置、`DigitalHuman` 接口、`digitalHumanStore`、`buildAlibabaCloudHeaders` 函数、`digitalGetBody`/`videoToDigitalBody`/`digitalIdParam` schema |
+| `g:\IHUI-AI\apps\api\src\routes\ai-vendors\proxy-extended.ts`                  | 扩展       | 新增 section 14「Alibaba 数字人」2 端点,导入新 symbols                                                                                                               |
+| `g:\IHUI-AI\apps\api\src\server.ts`                                            | **未修改** | 路由已通过 `aiVendorRoutes` 间接注册,无需改动                                                                                                                        |
+| `g:\IHUI-AI\reports\digital-human-endpoints-supplement-2026-07-19T23-24-58.md` | 新建       | 本报告                                                                                                                                                               |
 
 ---
 
@@ -221,6 +232,7 @@ pnpm --filter @ihui/api typecheck
 **结果**:exit code 0(全绿,无 TS 错误)
 
 输出:
+
 ```
 > @ihui/api@0.0.0 typecheck G:\IHUI-AI\apps\api
 > tsc --noEmit

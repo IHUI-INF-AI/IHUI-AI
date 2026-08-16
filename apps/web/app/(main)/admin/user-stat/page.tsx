@@ -55,17 +55,57 @@ export default function UserStatPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
-        <StatCard title="用户总数" value={numFmt.format(stats.overview.totalUsers)} icon={Users} loading={isLoading} />
-        <StatCard title="今日新增" value={numFmt.format(stats.overview.todayNew)} icon={UserPlus} loading={isLoading} />
-        <StatCard title="本周新增" value={numFmt.format(stats.overview.weekNew)} icon={UserPlus} loading={isLoading} />
-        <StatCard title="本月新增" value={numFmt.format(stats.overview.monthNew)} icon={UserPlus} loading={isLoading} />
+        <StatCard
+          title="用户总数"
+          value={numFmt.format(stats.overview.totalUsers)}
+          icon={Users}
+          loading={isLoading}
+        />
+        <StatCard
+          title="今日新增"
+          value={numFmt.format(stats.overview.todayNew)}
+          icon={UserPlus}
+          loading={isLoading}
+        />
+        <StatCard
+          title="本周新增"
+          value={numFmt.format(stats.overview.weekNew)}
+          icon={UserPlus}
+          loading={isLoading}
+        />
+        <StatCard
+          title="本月新增"
+          value={numFmt.format(stats.overview.monthNew)}
+          icon={UserPlus}
+          loading={isLoading}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
-        <StatCard title="日活跃" value={numFmt.format(stats.overview.dau)} icon={Activity} loading={isLoading} />
-        <StatCard title="月活跃" value={numFmt.format(stats.overview.mau)} icon={Activity} loading={isLoading} />
-        <StatCard title="7 日留存" value={`${stats.overview.retention7d}%`} icon={UserCheck} loading={isLoading} />
-        <StatCard title="30 日留存" value={`${stats.overview.retention30d}%`} icon={UserCheck} loading={isLoading} />
+        <StatCard
+          title="日活跃"
+          value={numFmt.format(stats.overview.dau)}
+          icon={Activity}
+          loading={isLoading}
+        />
+        <StatCard
+          title="月活跃"
+          value={numFmt.format(stats.overview.mau)}
+          icon={Activity}
+          loading={isLoading}
+        />
+        <StatCard
+          title="7 日留存"
+          value={`${stats.overview.retention7d}%`}
+          icon={UserCheck}
+          loading={isLoading}
+        />
+        <StatCard
+          title="30 日留存"
+          value={`${stats.overview.retention30d}%`}
+          icon={UserCheck}
+          loading={isLoading}
+        />
       </div>
 
       <section className="space-y-3 rounded-lg border p-4">
@@ -83,7 +123,9 @@ export default function UserStatPage() {
             ))}
           </div>
         ) : stats.growth.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">暂无数据</div>
+          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+            暂无数据
+          </div>
         ) : (
           <div className="grid grid-cols-7 gap-2">
             {stats.growth.map((p) => (
@@ -94,8 +136,12 @@ export default function UserStatPage() {
                     style={{ height: `${(p.newUsers / peak) * 100}%` }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground tabular-nums">{p.date.slice(5)}</span>
-                <span className="text-xs font-semibold tabular-nums">{numFmt.format(p.newUsers)}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {p.date.slice(5)}
+                </span>
+                <span className="text-xs font-semibold tabular-nums">
+                  {numFmt.format(p.newUsers)}
+                </span>
               </div>
             ))}
           </div>
@@ -109,7 +155,9 @@ export default function UserStatPage() {
             角色分布
           </h2>
           {stats.byRole.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无数据</div>
+            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              暂无数据
+            </div>
           ) : (
             <div className="space-y-2">
               {stats.byRole.map((r) => {
@@ -118,9 +166,14 @@ export default function UserStatPage() {
                   <div key={r.role} className="flex items-center gap-2 text-sm">
                     <span className="w-20 shrink-0 truncate text-muted-foreground">{r.role}</span>
                     <div className="relative h-4 flex-1 overflow-hidden rounded bg-muted/40">
-                      <div className="h-full rounded-md bg-primary/70" style={{ width: `${(r.count / total) * 100}%` }} />
+                      <div
+                        className="h-full rounded-md bg-primary/70"
+                        style={{ width: `${(r.count / total) * 100}%` }}
+                      />
                     </div>
-                    <span className="w-16 shrink-0 text-right tabular-nums">{numFmt.format(r.count)}</span>
+                    <span className="w-16 shrink-0 text-right tabular-nums">
+                      {numFmt.format(r.count)}
+                    </span>
                   </div>
                 )
               })}
@@ -134,7 +187,9 @@ export default function UserStatPage() {
             地域分布 Top
           </h2>
           {stats.byRegion.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无数据</div>
+            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              暂无数据
+            </div>
           ) : (
             <div className="space-y-2">
               {stats.byRegion.slice(0, 8).map((r) => (
@@ -146,7 +201,9 @@ export default function UserStatPage() {
                       style={{ width: `${(r.count / totalRegion) * 100}%` }}
                     />
                   </div>
-                  <span className="w-16 shrink-0 text-right tabular-nums">{numFmt.format(r.count)}</span>
+                  <span className="w-16 shrink-0 text-right tabular-nums">
+                    {numFmt.format(r.count)}
+                  </span>
                 </div>
               ))}
             </div>

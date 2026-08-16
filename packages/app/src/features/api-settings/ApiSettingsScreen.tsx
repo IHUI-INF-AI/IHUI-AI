@@ -1,18 +1,7 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  ApiSettingsConfig,
-  ApiSettingsScreenProps,
-  ApiSettingsTestState,
-} from '../../types'
+import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -147,21 +136,15 @@ export function ApiSettingsScreen({
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             <Text style={styles.testBtnText}>
-              {testing === 'testing'
-                ? t('common.loading')
-                : t('apiSettings.test')}
+              {testing === 'testing' ? t('common.loading') : t('apiSettings.test')}
             </Text>
           </TouchableOpacity>
         </View>
         {testing === 'success' ? (
-          <Text style={styles.statusOk}>
-            ✓ {testMsg || t('apiSettings.testSuccess')}
-          </Text>
+          <Text style={styles.statusOk}>✓ {testMsg || t('apiSettings.testSuccess')}</Text>
         ) : null}
         {testing === 'failed' ? (
-          <Text style={styles.statusErr}>
-            ✗ {testMsg || t('apiSettings.testFailed')}
-          </Text>
+          <Text style={styles.statusErr}>✗ {testMsg || t('apiSettings.testFailed')}</Text>
         ) : null}
       </View>
 

@@ -105,7 +105,10 @@ export class LiveChatRoom {
 export class LiveChatServer {
   private rooms = new Map<string, LiveChatRoom>()
   // P2 修复(2026-08-06):per-user 消息频率限制(60 条/分钟,滑动窗口)
-  private readonly messageRateLimiter = new WsRateLimiter(MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS)
+  private readonly messageRateLimiter = new WsRateLimiter(
+    MESSAGE_RATE_LIMIT,
+    MESSAGE_RATE_WINDOW_MS,
+  )
 
   join(roomId: string, ws: WebSocket): LiveChatRoom {
     let room = this.rooms.get(roomId)
@@ -157,7 +160,12 @@ export class LiveChatServer {
    * - history: 读最近 N 条发回请求者
    * - ping: 响应 pong
    */
-  async handleMessage(room: LiveChatRoom, ws: WebSocket, raw: string, userId: string): Promise<void> {
+  async handleMessage(
+    room: LiveChatRoom,
+    ws: WebSocket,
+    raw: string,
+    userId: string,
+  ): Promise<void> {
     let msg: ClientMessage
     try {
       msg = JSON.parse(raw) as ClientMessage
@@ -207,7 +215,9 @@ export class LiveChatServer {
       // 广播与历史读取均从 DB 取转义后值,杜绝 XSS 注入。
       const safeContent = escapeHtml(content)
       const safeUserName =
-        msg.userName !== undefined && msg.userName !== null ? escapeHtml(String(msg.userName)) : null
+        msg.userName !== undefined && msg.userName !== null
+          ? escapeHtml(String(msg.userName))
+          : null
       const safeUserAvatar =
         msg.userAvatar !== undefined && msg.userAvatar !== null
           ? escapeHtml(String(msg.userAvatar))
@@ -229,7 +239,10 @@ export class LiveChatServer {
       return
     }
 
-    room.sendTo(ws, JSON.stringify({ type: 'error', code: 400, message: `未知消息类型: ${msg.type}` }))
+    room.sendTo(
+      ws,
+      JSON.stringify({ type: 'error', code: 400, message: `未知消息类型: ${msg.type}` }),
+    )
   }
 
   /** 拉取历史(最近 N 条,按时间倒序返回时按时间正序) */

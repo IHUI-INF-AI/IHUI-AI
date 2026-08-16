@@ -189,7 +189,10 @@ function groupByModelAndDate(conversations: DrawerConversationItem[]): ModelGrou
   const now = Date.now()
   const todayStart = getStartOfToday(now)
 
-  const modelMap = new Map<string, { name: string; icon?: string; items: DrawerConversationItem[] }>()
+  const modelMap = new Map<
+    string,
+    { name: string; icon?: string; items: DrawerConversationItem[] }
+  >()
   for (const conv of conversations) {
     const name = conv.modelConfig?.name ?? '默认模型'
     const icon = conv.modelConfig?.icon
@@ -278,7 +281,7 @@ function SwipeableConversationItem({ item, isOpen, onOpen, onSelect, onDelete }:
           }).start()
         },
       }),
-    [item.id, onOpen, translateX]
+    [item.id, onOpen, translateX],
   )
 
   // 外部强制关闭(当 openSwipeId 切换到其他 item 时,本 item 收起)
@@ -463,7 +466,10 @@ export function Drawer(props: DrawerProps) {
             >
               {/* 1. 顶部用户区:头像 + 昵称 + 等级标识 + 关闭按钮 */}
               {/* 头部横向 padding 14dp(对齐 Uniapp 28rpx)/ 底部 12dp(对齐 Uniapp 25rpx≈12.5dp) */}
-              <View className="pt-3 pb-3 flex-row items-center gap-3" style={{ paddingHorizontal: 14 }}>
+              <View
+                className="pt-3 pb-3 flex-row items-center gap-3"
+                style={{ paddingHorizontal: 14 }}
+              >
                 <View className="relative">
                   {user.avatar ? (
                     <Image
@@ -513,7 +519,10 @@ export function Drawer(props: DrawerProps) {
               </View>
 
               {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu;容器 padding 8dp 对齐 Uniapp 15rpx≈7.5dp) */}
-              <View className="py-2 flex-row items-start justify-between" style={{ paddingHorizontal: 14 }}>
+              <View
+                className="py-2 flex-row items-start justify-between"
+                style={{ paddingHorizontal: 14 }}
+              >
                 {MAIN_MENUS.map(({ key, label, Icon }) => (
                   <Pressable
                     key={key}
@@ -521,7 +530,10 @@ export function Drawer(props: DrawerProps) {
                     onPress={() => handleNavigate(key)}
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
-                    <View className="rounded-xl items-center justify-center bg-gray-50 mb-1" style={{ width: 30, height: 30 }}>
+                    <View
+                      className="rounded-xl items-center justify-center bg-gray-50 mb-1"
+                      style={{ width: 30, height: 30 }}
+                    >
                       <Icon size={22} color={tokens.text.primary} />
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
@@ -530,7 +542,10 @@ export function Drawer(props: DrawerProps) {
               </View>
 
               {/* 2b. 5 扩展菜单(横向等分,对齐 Uniapp 隐藏菜单 + label_content 入口;emoji 图标对齐 GlobalFloatBox 风格) */}
-              <View className="py-2 flex-row items-start justify-between" style={{ paddingHorizontal: 14 }}>
+              <View
+                className="py-2 flex-row items-start justify-between"
+                style={{ paddingHorizontal: 14 }}
+              >
                 {EXTRA_MENUS.map(({ key, label, emoji }) => (
                   <Pressable
                     key={key}
@@ -538,7 +553,10 @@ export function Drawer(props: DrawerProps) {
                     onPress={() => handleNavigateExtra(key)}
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
-                    <View className="rounded-xl items-center justify-center bg-gray-50 mb-1" style={{ width: 30, height: 30 }}>
+                    <View
+                      className="rounded-xl items-center justify-center bg-gray-50 mb-1"
+                      style={{ width: 30, height: 30 }}
+                    >
                       <Text className="text-[22px] leading-none">{emoji}</Text>
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>

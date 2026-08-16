@@ -129,9 +129,7 @@ export default function MemberCouponsPage() {
                   {t('validUntil', { date: dateFmt.format(new Date(c.expiresAt)) })}
                 </p>
                 <Tooltip content={c.code}>
-                  <p className="truncate font-mono text-xs text-muted-foreground">
-                    CODE: {c.code}
-                  </p>
+                  <p className="truncate font-mono text-xs text-muted-foreground">CODE: {c.code}</p>
                 </Tooltip>
               </div>
             </div>

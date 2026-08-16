@@ -17,12 +17,7 @@
  * - 本插件消费评分 → 自动封禁 → 后续请求被 isIpBlocked 拦截
  */
 
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
 import { getIpReputationService, isPrivateIp } from '../services/ip-reputation.js'
@@ -39,19 +34,14 @@ const SKIP_PRIVATE_IP = true
 
 /** 递增封禁时长(秒),按 bad event 计数递增 */
 const PROGRESSIVE_BLOCK_DURATIONS = [
-  3600,        // 1st: 1 小时
-  86400,       // 2nd: 24 小时
-  7 * 86400,   // 3rd: 7 天
-  30 * 86400,  // 4th+: 30 天
+  3600, // 1st: 1 小时
+  86400, // 2nd: 24 小时
+  7 * 86400, // 3rd: 7 天
+  30 * 86400, // 4th+: 30 天
 ]
 
 /** 健康检查 / 监控路径白名单 */
-const SKIP_PATHS = new Set([
-  '/api/health',
-  '/api/ready',
-  '/api/metrics',
-  '/business-metrics',
-])
+const SKIP_PATHS = new Set(['/api/health', '/api/ready', '/api/metrics', '/business-metrics'])
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -210,9 +200,15 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
   })
 
   server.decorate('threatDetector', {
-    get totalChecks() { return totalChecks },
-    get totalAutoBlocks() { return totalAutoBlocks },
-    get totalWarnings() { return totalWarnings },
+    get totalChecks() {
+      return totalChecks
+    },
+    get totalAutoBlocks() {
+      return totalAutoBlocks
+    },
+    get totalWarnings() {
+      return totalWarnings
+    },
     getStats(): ThreatStats {
       return {
         totalChecks,
