@@ -38,32 +38,29 @@ export function useAiFeed(): UseAiFeedReturn {
   const requestSeqRef = React.useRef(0)
   const [hasMore, setHasMore] = React.useState(true)
 
-  const fetchItems = React.useCallback(
-    async (reset = false) => {
-      const seq = ++requestSeqRef.current
-      const nextPage = reset ? 1 : pageRef.current
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetchApi<{ list: AiFeedItem[]; total: number }>(
-          `/api/ai-ext/ai-feed/items?page=${nextPage}&pageSize=${PAGE_SIZE}`,
-        )
-        // 已有更新的请求发起,丢弃本次结果
-        if (seq !== requestSeqRef.current) return
-        if (res.success) {
-          const list = res.data.list ?? []
-          setItems((prev) => (reset ? list : [...prev, ...list]))
-          setHasMore(list.length === PAGE_SIZE)
-          pageRef.current = nextPage + 1
-        } else {
-          setError(res.error)
-        }
-      } finally {
-        if (seq === requestSeqRef.current) setLoading(false)
+  const fetchItems = React.useCallback(async (reset = false) => {
+    const seq = ++requestSeqRef.current
+    const nextPage = reset ? 1 : pageRef.current
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetchApi<{ list: AiFeedItem[]; total: number }>(
+        `/api/ai-ext/ai-feed/items?page=${nextPage}&pageSize=${PAGE_SIZE}`,
+      )
+      // 已有更新的请求发起,丢弃本次结果
+      if (seq !== requestSeqRef.current) return
+      if (res.success) {
+        const list = res.data.list ?? []
+        setItems((prev) => (reset ? list : [...prev, ...list]))
+        setHasMore(list.length === PAGE_SIZE)
+        pageRef.current = nextPage + 1
+      } else {
+        setError(res.error)
       }
-    },
-    [],
-  )
+    } finally {
+      if (seq === requestSeqRef.current) setLoading(false)
+    }
+  }, [])
 
   return { items, loading, error, hasMore, page: pageRef.current, fetchItems }
 }

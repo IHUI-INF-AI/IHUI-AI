@@ -138,7 +138,10 @@ export default function OrderDetailPage() {
 
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <TruncatedText value={order.orderNo} className="max-w-full font-mono text-sm text-muted-foreground" />
+        <TruncatedText
+          value={order.orderNo}
+          className="max-w-full font-mono text-sm text-muted-foreground"
+        />
       </div>
 
       <div

@@ -67,18 +67,14 @@ export default function AssistantScreen() {
     Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }))
 
   const handleOffline = (a: AssistantItem) =>
-    Alert.alert(
-      t('assistant.offline.title'),
-      t('assistant.offline.message', { name: a.name }),
-      [
-        { text: t('common.cancel') },
-        {
-          text: t('assistant.offline.confirmBtn'),
-          style: 'destructive',
-          onPress: () => Alert.alert(t('assistant.offline.done')),
-        },
-      ],
-    )
+    Alert.alert(t('assistant.offline.title'), t('assistant.offline.message', { name: a.name }), [
+      { text: t('common.cancel') },
+      {
+        text: t('assistant.offline.confirmBtn'),
+        style: 'destructive',
+        onPress: () => Alert.alert(t('assistant.offline.done')),
+      },
+    ])
 
   // 派生 MaterialList 数据(每个 Agent 作为一条 doc 类素材)
   const materialItems = useMemo<MaterialItem[]>(
@@ -117,9 +113,7 @@ export default function AssistantScreen() {
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            AI 素材
-          </Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>AI 素材</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>
@@ -142,7 +136,10 @@ export default function AssistantScreen() {
           />
         ) : (
           <MaterialList
-            categories={[{ key: 'all', label: '全部' }, { key: 'doc', label: 'AI 助手素材' }]}
+            categories={[
+              { key: 'all', label: '全部' },
+              { key: 'doc', label: 'AI 助手素材' },
+            ]}
             activeCategory={materialCategory}
             onCategoryChange={setMaterialCategory}
             items={filteredMaterialItems}

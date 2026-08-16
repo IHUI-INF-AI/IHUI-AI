@@ -35,9 +35,16 @@ export function highlight(text: string, query: string): React.ReactNode {
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
   if (parts.length === 1) return text
   return parts.map((part, i) =>
-    part.toLowerCase() === q.toLowerCase()
-      ? <mark key={i} className="rounded-sm bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30">{part}</mark>
-      : part
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark
+        key={i}
+        className="rounded-sm bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
   )
 }
 

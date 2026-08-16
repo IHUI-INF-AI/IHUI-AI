@@ -32,7 +32,9 @@ const listQuerySchema = paginationSchema.extend({
   /** 最大耗时毫秒 */
   maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
-  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
+  httpStatus: z
+    .transform(emptyToUndefined)
+    .pipe(z.coerce.number().int().min(100).max(599).optional()),
   /** 最小成本分 */
   minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大成本分 */

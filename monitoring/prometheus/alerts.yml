@@ -10,8 +10,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "API 服务宕机"
-          description: "API 服务 {{ $labels.instance }} 已宕机超过 1 分钟"
+          summary: 'API 服务宕机'
+          description: 'API 服务 {{ $labels.instance }} 已宕机超过 1 分钟'
 
       # API 高错误率(5xx 占比 > 5%)
       - alert: ApiHighErrorRate
@@ -24,8 +24,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "API 错误率过高"
-          description: "API 5xx 错误率 {{ $value | humanizePercentage }} 超过 5% 持续 5 分钟"
+          summary: 'API 错误率过高'
+          description: 'API 5xx 错误率 {{ $value | humanizePercentage }} 超过 5% 持续 5 分钟'
 
       # API 响应时间过长(P95 > 1s)
       - alert: ApiSlowResponse
@@ -37,8 +37,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "API 响应时间过长"
-          description: "API P95 响应时间 {{ $value }}ms 超过 1s 持续 5 分钟"
+          summary: 'API 响应时间过长'
+          description: 'API P95 响应时间 {{ $value }}ms 超过 1s 持续 5 分钟'
 
   - name: ai-service-alerts
     rules:
@@ -49,8 +49,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "AI 服务宕机"
-          description: "AI 服务已宕机超过 1 分钟"
+          summary: 'AI 服务宕机'
+          description: 'AI 服务已宕机超过 1 分钟'
 
   - name: infrastructure-alerts
     rules:
@@ -65,8 +65,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "磁盘空间不足"
-          description: "{{ $labels.mountpoint }} 剩余空间不足 10%"
+          summary: '磁盘空间不足'
+          description: '{{ $labels.mountpoint }} 剩余空间不足 10%'
 
       # 主机内存不足(< 10%)
       - alert: MemoryLow
@@ -79,5 +79,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "内存不足"
-          description: "可用内存不足 10%"
+          summary: '内存不足'
+          description: '可用内存不足 10%'

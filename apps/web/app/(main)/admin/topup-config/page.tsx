@@ -226,9 +226,16 @@ export default function AdminTopupConfigPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <CardTitle className="text-base">阶梯折扣规则</CardTitle>
-              <CardDescription className="line-clamp-2">充值满额自动赠送,按 minAmount 降序匹配命中第一档</CardDescription>
+              <CardDescription className="line-clamp-2">
+                充值满额自动赠送,按 minAmount 降序匹配命中第一档
+              </CardDescription>
             </div>
-            <Button size="sm" variant="outline" onClick={addTier} className="shrink-0 whitespace-nowrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={addTier}
+              className="shrink-0 whitespace-nowrap"
+            >
               <Plus className="h-3 w-3" /> 添加规则
             </Button>
           </div>
@@ -314,7 +321,9 @@ export default function AdminTopupConfigPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">自定义充值选项</CardTitle>
-          <CardDescription className="line-clamp-2 break-words">用户充值页面展示的快捷金额选项</CardDescription>
+          <CardDescription className="line-clamp-2 break-words">
+            用户充值页面展示的快捷金额选项
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -355,7 +364,9 @@ export default function AdminTopupConfigPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">各支付方式最低充值额</CardTitle>
-          <CardDescription className="line-clamp-2 break-words">未配置的支付方式会被拒绝(防止绕过最低额限制)</CardDescription>
+          <CardDescription className="line-clamp-2 break-words">
+            未配置的支付方式会被拒绝(防止绕过最低额限制)
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
@@ -364,7 +375,9 @@ export default function AdminTopupConfigPage() {
             ) : (
               Object.entries(minTopupByMethod).map(([key, val]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-mono">{key}</Badge>
+                  <Badge variant="outline" className="font-mono">
+                    {key}
+                  </Badge>
                   <Input
                     type="number"
                     min={0}
@@ -413,7 +426,9 @@ export default function AdminTopupConfigPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">到账预览</CardTitle>
-          <CardDescription className="line-clamp-2 break-words">输入金额与支付方式,实时预览折扣后实际到账</CardDescription>
+          <CardDescription className="line-clamp-2 break-words">
+            输入金额与支付方式,实时预览折扣后实际到账
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -435,7 +450,9 @@ export default function AdminTopupConfigPage() {
                 <option value="alipay">alipay</option>
               ) : (
                 Object.keys(minTopupByMethod).map((k) => (
-                  <option key={k} value={k}>{k}</option>
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
                 ))
               )}
             </select>

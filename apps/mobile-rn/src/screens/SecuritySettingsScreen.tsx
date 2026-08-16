@@ -37,12 +37,9 @@ export function SecuritySettingsScreen() {
     }
   }, [t])
 
-  const handleToggle = useCallback(
-    (key: keyof SecuritySettingsItem, value: boolean) => {
-      setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
-    },
-    [],
-  )
+  const handleToggle = useCallback((key: keyof SecuritySettingsItem, value: boolean) => {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }, [])
 
   return (
     <SharedSecuritySettingsScreen

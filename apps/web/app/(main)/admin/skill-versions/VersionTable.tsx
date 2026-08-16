@@ -86,9 +86,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
   }
 
   if (skills.length === 0) {
-    return (
-      <div className="py-8 text-center text-xs text-muted-foreground">暂无技能版本数据</div>
-    )
+    return <div className="py-8 text-center text-xs text-muted-foreground">暂无技能版本数据</div>
   }
 
   return (
@@ -127,8 +125,10 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                       </div>
                     )}
                     {skill.versions.map((v) => {
-                      const isSelectedA = selectedA?.version === v.version && selectedA?.name === v.name
-                      const isSelectedB = selectedB?.version === v.version && selectedB?.name === v.name
+                      const isSelectedA =
+                        selectedA?.version === v.version && selectedA?.name === v.name
+                      const isSelectedB =
+                        selectedB?.version === v.version && selectedB?.name === v.name
                       const canCompare = skill.versions.length >= 2
                       const isCompareTarget = isSelectedA || isSelectedB
 
@@ -136,7 +136,9 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                         <div
                           key={v.version}
                           className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs transition-colors ${
-                            isCompareTarget ? 'border-primary/50 bg-primary/5' : 'border-transparent bg-muted/20'
+                            isCompareTarget
+                              ? 'border-primary/50 bg-primary/5'
+                              : 'border-transparent bg-muted/20'
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -157,7 +159,11 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                     setSelectedB(null)
                                   } else if (!selectedA) {
                                     setSelectedA(v)
-                                  } else if (!selectedB && selectedA.name === v.name && selectedA.version !== v.version) {
+                                  } else if (
+                                    !selectedB &&
+                                    selectedA.name === v.name &&
+                                    selectedA.version !== v.version
+                                  ) {
                                     setSelectedB(v)
                                   } else {
                                     setSelectedA(v)
@@ -206,7 +212,9 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                       disabled={rollbackMut.isPending}
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        if (window.confirm(`确定回滚到 ${v.name}@${v.version} 吗？`)) {
+                                        if (
+                                          window.confirm(`确定回滚到 ${v.name}@${v.version} 吗？`)
+                                        ) {
                                           rollbackMut.mutate({ name: v.name, content: v.content! })
                                         }
                                       }}

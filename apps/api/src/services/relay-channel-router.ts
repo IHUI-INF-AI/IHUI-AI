@@ -573,10 +573,9 @@ export async function selectChannelKey(
     // fallback 渠道同样需检查配额
     const quotaResult = await checkQuota(keyData.id)
     if (!quotaResult.allowed) {
-      console.warn(
-        `[relay-router] fallback channel quota exceeded, skip key ${keyData.id}`,
-        { reason: quotaResult.reason ?? 'unknown' },
-      )
+      console.warn(`[relay-router] fallback channel quota exceeded, skip key ${keyData.id}`, {
+        reason: quotaResult.reason ?? 'unknown',
+      })
       fallbackItems = fallbackItems.filter((i) => i.keyPoolId !== fallbackSelected.keyPoolId)
       continue
     }

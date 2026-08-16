@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { orders } from './billing.js';
+import { pgTable, uuid, varchar, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { orders } from './billing.js'
 
 /**
  * 佣金流水表。
@@ -18,8 +18,7 @@ export const commissionFlows = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     beneficiaryId: uuid('beneficiary_id').references(() => users.id, { onDelete: 'set null' }),
-    invitedUserId: uuid('invited_user_id')
-      .references(() => users.id, { onDelete: 'set null' }),
+    invitedUserId: uuid('invited_user_id').references(() => users.id, { onDelete: 'set null' }),
     orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
     amount: integer('amount').default(0).notNull(), // 佣金金额（分）
     token: integer('token').default(0).notNull(), // 赚取 token
@@ -36,7 +35,7 @@ export const commissionFlows = pgTable(
     invitedIdx: index('commission_flows_invited_idx').on(t.invitedUserId),
     statusIdx: index('commission_flows_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 提现流水表。
@@ -71,7 +70,7 @@ export const withdrawalFlows = pgTable(
     userIdx: index('withdrawal_flows_user_idx').on(t.userId),
     statusIdx: index('withdrawal_flows_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 分销比例配置表。
@@ -102,11 +101,11 @@ export const identityProportions = pgTable('identity_proportions', {
   grandTraderProportion: integer('grand_trader_proportion').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type CommissionFlow = typeof commissionFlows.$inferSelect;
-export type NewCommissionFlow = typeof commissionFlows.$inferInsert;
-export type WithdrawalFlow = typeof withdrawalFlows.$inferSelect;
-export type NewWithdrawalFlow = typeof withdrawalFlows.$inferInsert;
-export type IdentityProportion = typeof identityProportions.$inferSelect;
-export type NewIdentityProportion = typeof identityProportions.$inferInsert;
+export type CommissionFlow = typeof commissionFlows.$inferSelect
+export type NewCommissionFlow = typeof commissionFlows.$inferInsert
+export type WithdrawalFlow = typeof withdrawalFlows.$inferSelect
+export type NewWithdrawalFlow = typeof withdrawalFlows.$inferInsert
+export type IdentityProportion = typeof identityProportions.$inferSelect
+export type NewIdentityProportion = typeof identityProportions.$inferInsert

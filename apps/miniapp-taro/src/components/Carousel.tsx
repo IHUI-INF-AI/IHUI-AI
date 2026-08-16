@@ -98,7 +98,14 @@ export default function Carousel({
               <View
                 key={index}
                 id={`carousel-item-${index}`}
-                className={hasImg ? 'relative' : `relative carousel-fallback carousel-fallback-$(fbIndex)`.replace('$(fbIndex)', String(fbIndex))}
+                className={
+                  hasImg
+                    ? 'relative'
+                    : `relative carousel-fallback carousel-fallback-$(fbIndex)`.replace(
+                        '$(fbIndex)',
+                        String(fbIndex),
+                      )
+                }
                 style={{
                   width: `${100 / total}%`,
                   // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
@@ -116,9 +123,7 @@ export default function Carousel({
                   <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
                 ) : null}
                 {!hasImg && (item.title || item.subtitle) ? (
-                  <View
-                    className="absolute inset-0 flex flex-col items-center justify-center p-4"
-                  >
+                  <View className="absolute inset-0 flex flex-col items-center justify-center p-4">
                     {item.title ? (
                       <Text className="text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] text-center mb-2">
                         {item.title}

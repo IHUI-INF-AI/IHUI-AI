@@ -17,7 +17,9 @@ const FEATURES: DeveloperFeature[] = [
 
 function buildPlans(priceData: { price: number; [key: string]: unknown }): DeveloperPlan[] {
   const monthPrice =
-    typeof priceData.monthPrice === 'number' ? priceData.monthPrice : Math.round(priceData.price / 10)
+    typeof priceData.monthPrice === 'number'
+      ? priceData.monthPrice
+      : Math.round(priceData.price / 10)
   const yearPrice = typeof priceData.yearPrice === 'number' ? priceData.yearPrice : priceData.price
   return [
     {

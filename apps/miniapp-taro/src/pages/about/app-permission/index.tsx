@@ -91,38 +91,56 @@ export default function AppPermission() {
     [statusMap, tt],
   )
 
-  const statusClass = useCallback((scope: string): string => {
-    const s = statusMap[scope]
-    const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] ml-auto'
-    if (s === 'granted') return `${base} text-success bg-[rgba(16,185,129,0.1)]`
-    if (s === 'denied') return `${base} text-destructive bg-[rgba(239,68,68,0.1)]`
-    return `${base} text-muted-foreground bg-background`
-  }, [statusMap])
+  const statusClass = useCallback(
+    (scope: string): string => {
+      const s = statusMap[scope]
+      const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] ml-auto'
+      if (s === 'granted') return `${base} text-success bg-[rgba(16,185,129,0.1)]`
+      if (s === 'denied') return `${base} text-destructive bg-[rgba(239,68,68,0.1)]`
+      return `${base} text-muted-foreground bg-background`
+    },
+    [statusMap],
+  )
 
   useDidShow(() => load())
 
   return (
     <View className="min-h-screen bg-background pb-[60rpx]">
       <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
-        <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">{t('about.appPermission.intro')}</Text>
+        <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">
+          {t('about.appPermission.intro')}
+        </Text>
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {permissions.map((p, idx) => (
-          <View key={p.scope} className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}>
+          <View
+            key={p.scope}
+            className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
+          >
             <View className="flex-1 mr-[16rpx]">
               <View className="flex items-center flex-wrap gap-[12rpx]">
                 <Text className="text-[28rpx] text-foreground font-medium">{p.name}</Text>
                 {p.required ? (
-                  <Text className="text-[20rpx] text-white bg-destructive py-[2rpx] px-[12rpx] rounded-[6rpx]">{t('about.appPermission.required')}</Text>
+                  <Text className="text-[20rpx] text-white bg-destructive py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                    {t('about.appPermission.required')}
+                  </Text>
                 ) : (
-                  <Text className="text-[20rpx] text-white bg-muted py-[2rpx] px-[12rpx] rounded-[6rpx]">{t('about.appPermission.optional')}</Text>
+                  <Text className="text-[20rpx] text-white bg-muted py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                    {t('about.appPermission.optional')}
+                  </Text>
                 )}
                 <Text className={statusClass(p.scope)}>{statusText(p.scope)}</Text>
               </View>
-              <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] leading-[1.6]">{p.desc}</Text>
+              <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] leading-[1.6]">
+                {p.desc}
+              </Text>
             </View>
-            <Button className="flex-shrink-0 text-[24rpx] bg-primary text-white rounded-[8rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0" size="mini" onClick={onOpenSetting}>
+            <Button
+              className="flex-shrink-0 text-[24rpx] bg-primary text-white rounded-[8rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0"
+              size="mini"
+              onClick={onOpenSetting}
+            >
               {tt('about.appPermission.goSetting', '去设置')}
             </Button>
           </View>
@@ -130,14 +148,21 @@ export default function AppPermission() {
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex items-center py-[28rpx] px-[32rpx] active:bg-background" onClick={onOpenSetting}>
-          <Text className="text-[28rpx] text-foreground">{tt('about.appPermission.openAllSetting', '打开系统设置')}</Text>
+        <View
+          className="flex items-center py-[28rpx] px-[32rpx] active:bg-background"
+          onClick={onOpenSetting}
+        >
+          <Text className="text-[28rpx] text-foreground">
+            {tt('about.appPermission.openAllSetting', '打开系统设置')}
+          </Text>
           <Text className="text-muted-foreground text-[32rpx] ml-auto">›</Text>
         </View>
       </View>
 
       <View className="text-center p-[32rpx]">
-        <Text className="text-[22rpx] text-muted-foreground">{t('about.appPermission.footer')}</Text>
+        <Text className="text-[22rpx] text-muted-foreground">
+          {t('about.appPermission.footer')}
+        </Text>
       </View>
     </View>
   )

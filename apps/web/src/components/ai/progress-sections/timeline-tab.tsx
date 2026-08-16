@@ -395,10 +395,7 @@ export const TimelineTab = React.memo(function TimelineTab({
 
       {/* Search row(只在有事件时显示) */}
       {events.length > 0 && (
-        <div
-          className="relative shrink-0 bg-muted/20 px-2 py-1"
-          data-testid="timeline-search-row"
-        >
+        <div className="relative shrink-0 bg-muted/20 px-2 py-1" data-testid="timeline-search-row">
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/60"
             aria-hidden

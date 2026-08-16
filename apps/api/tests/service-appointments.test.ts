@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
-const {
-  mockAuthenticate,
-  mockSelectResult,
-  mockUpdateReturning,
-} = vi.hoisted(() => ({
+const { mockAuthenticate, mockSelectResult, mockUpdateReturning } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
   mockSelectResult: vi.fn().mockResolvedValue([]),
   mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
@@ -136,7 +132,10 @@ describe('service-appointment routes', () => {
     mockSelectResult.mockResolvedValueOnce([makeAppointment({ status: 'pending' })])
     mockUpdateReturning.mockResolvedValueOnce([makeAppointment({ status: 'cancelled' })])
 
-    const res = await server.inject({ method: 'GET', url: `/service-appointment/${APPT_ID}/cancel` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/service-appointment/${APPT_ID}/cancel`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
@@ -149,7 +148,10 @@ describe('service-appointment routes', () => {
     mockSelectResult.mockResolvedValueOnce([makeAppointment({ status: 'pending' })])
     mockUpdateReturning.mockResolvedValueOnce([makeAppointment({ status: 'confirmed' })])
 
-    const res = await server.inject({ method: 'GET', url: `/service-appointment/${APPT_ID}/confirm` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/service-appointment/${APPT_ID}/confirm`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.data.status).toBe('confirmed')
@@ -160,7 +162,10 @@ describe('service-appointment routes', () => {
     mockSelectResult.mockResolvedValueOnce([makeAppointment({ status: 'confirmed' })])
     mockUpdateReturning.mockResolvedValueOnce([makeAppointment({ status: 'completed' })])
 
-    const res = await server.inject({ method: 'GET', url: `/service-appointment/${APPT_ID}/complete` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/service-appointment/${APPT_ID}/complete`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.data.status).toBe('completed')
@@ -170,7 +175,10 @@ describe('service-appointment routes', () => {
     mockAuthUser()
     mockSelectResult.mockResolvedValueOnce([makeAppointment({ status: 'completed' })])
 
-    const res = await server.inject({ method: 'GET', url: `/service-appointment/${APPT_ID}/confirm` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/service-appointment/${APPT_ID}/confirm`,
+    })
     expect(res.statusCode).toBe(409)
     const body = res.json()
     expect(body.code).toBe(409)
@@ -181,7 +189,10 @@ describe('service-appointment routes', () => {
     mockAuthUser()
     mockSelectResult.mockResolvedValueOnce([makeAppointment({ status: 'completed' })])
 
-    const res = await server.inject({ method: 'GET', url: `/service-appointment/${APPT_ID}/cancel` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/service-appointment/${APPT_ID}/cancel`,
+    })
     expect(res.statusCode).toBe(409)
     expect(mockUpdateReturning).not.toHaveBeenCalled()
   })

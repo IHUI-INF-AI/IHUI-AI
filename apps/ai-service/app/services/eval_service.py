@@ -63,8 +63,8 @@ class EvalService:
         self._dataset_metadata: dict[str, dict[str, str]] = {}
 
     def create_dataset(
-        self, name: str, items: list[dict], description: str = ""
-    ) -> dict:
+        self, name: str, items: list[dict[str, Any]], description: str = ""
+    ) -> dict[str, Any]:
         """创建评估数据集。"""
         if name in self._datasets:
             raise ValueError(f"数据集已存在: {name}")
@@ -80,7 +80,7 @@ class EvalService:
             "item_count": len(eval_items),
         }
 
-    def get_dataset(self, name: str) -> dict | None:
+    def get_dataset(self, name: str) -> dict[str, Any] | None:
         """获取数据集详情。"""
         items = self._datasets.get(name)
         if items is None:
@@ -96,7 +96,7 @@ class EvalService:
             "item_count": len(items),
         }
 
-    def list_datasets(self) -> list[dict]:
+    def list_datasets(self) -> list[dict[str, Any]]:
         """列出所有数据集。"""
         return [
             {
@@ -175,7 +175,7 @@ class EvalService:
         self._runs.append(run)
         return run
 
-    def compare_runs(self, run_ids: list[str]) -> dict:
+    def compare_runs(self, run_ids: list[str]) -> dict[str, Any]:
         """对比多次评估运行的结果。"""
         runs = [r for r in self._runs if r.id in run_ids]
         if not runs:
@@ -211,7 +211,7 @@ class EvalService:
                 return r
         return None
 
-    def list_runs(self) -> list[dict]:
+    def list_runs(self) -> list[dict[str, Any]]:
         """列出所有评估运行。"""
         return [
             {

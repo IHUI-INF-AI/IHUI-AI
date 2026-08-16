@@ -28,7 +28,9 @@ export default function ConfirmDialog({
         className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        <Text className="block text-base font-medium text-foreground mb-2 text-center">{title}</Text>
+        <Text className="block text-base font-medium text-foreground mb-2 text-center">
+          {title}
+        </Text>
         {content && (
           <Text className="block text-sm text-muted-foreground mb-4 text-center leading-relaxed">
             {content}

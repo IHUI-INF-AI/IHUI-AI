@@ -109,7 +109,6 @@ export default function TitleSwitchScrollTitle({
             onChange={subChange}
             className="w-[calc(100vw-60px)] box-border h-[120rpx]"
           >
-
             {subList.map((item, index) => (
               <SwiperItem
                 key={index}

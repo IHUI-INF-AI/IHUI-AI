@@ -56,10 +56,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
                 <td className="px-4 py-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <Avatar src={u.avatar ?? undefined} name={u.nickname ?? 'U'} size="xs" />
-                    <TruncatedText
-                      value={u.nickname}
-                      className="max-w-[140px] font-medium"
-                    />
+                    <TruncatedText value={u.nickname} className="max-w-[140px] font-medium" />
                     {u.isMe && (
                       <span className="shrink-0 whitespace-nowrap text-xs text-primary">
                         ({t('you')})

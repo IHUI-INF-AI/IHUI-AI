@@ -13,7 +13,15 @@ interface StatCardProps {
   className?: string
 }
 
-export function StatCard({ title, value, icon: Icon, trend, trendLabel, loading = false, className }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  trendLabel,
+  loading = false,
+  className,
+}: StatCardProps) {
   const positive = (trend ?? 0) >= 0
   return (
     <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
@@ -29,20 +37,28 @@ export function StatCard({ title, value, icon: Icon, trend, trendLabel, loading 
         )}
       </div>
       <div className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
-        {loading ? <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" /> : value}
+        {loading ? (
+          <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
+        ) : (
+          value
+        )}
       </div>
       {trend !== undefined && !loading && (
         <div className="mt-1 flex flex-nowrap items-center gap-1 text-xs">
           <span
             className={cn(
               'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium',
-              positive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500',
+              positive
+                ? 'text-emerald-600 dark:text-emerald-500'
+                : 'text-red-600 dark:text-red-500',
             )}
           >
             {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(trend).toFixed(1)}%
           </span>
-          {trendLabel && <span className="min-w-0 flex-1 truncate text-muted-foreground">{trendLabel}</span>}
+          {trendLabel && (
+            <span className="min-w-0 flex-1 truncate text-muted-foreground">{trendLabel}</span>
+          )}
         </div>
       )}
     </div>

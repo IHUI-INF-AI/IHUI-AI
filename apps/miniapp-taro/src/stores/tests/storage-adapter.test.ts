@@ -228,13 +228,10 @@ describe('createTaroStorageTransport + zustand persist 集成', () => {
     // 第 2 步:新 store 用同一个 transport key hydrate,count 应恢复
     const transport2 = createTaroStorageTransport() // 新 transport 实例,但共享 Taro.storage 后端
     const useStore2 = create<{ count: number; inc: () => void }>()(
-      persist(
-        () => ({ count: 0, inc: () => {} }),
-        {
-          name: 'demo-count',
-          storage: createJSONStorage(() => transport2 as PersistTransport),
-        },
-      ),
+      persist(() => ({ count: 0, inc: () => {} }), {
+        name: 'demo-count',
+        storage: createJSONStorage(() => transport2 as PersistTransport),
+      }),
     )
     // zustand persist 在 store 创建时同步 hydrate(createJSONStorage 默认 sync 行为,
     // 即使 base transport 是 sync,getItem 也可同步返回)

@@ -49,7 +49,7 @@ async def list_prompts() -> dict[str, Any]:
 @router.get("/prompts/{name}", summary="获取 prompt 详情(含版本列表)")
 async def get_prompt(name: str) -> dict[str, Any]:
     """获取指定 prompt 的详情，包含所有版本信息。"""
-    entry = prompt_registry._prompts.get(name)  # type: ignore[attr-defined]
+    entry = prompt_registry._prompts.get(name)
     if not entry:
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     return {
@@ -90,7 +90,7 @@ async def get_prompt_content(name: str, version: int | None = None) -> dict[str,
         "message": "success",
         "data": {
             "name": name,
-            "version": version or prompt_registry._prompts[name].latest_version,  # type: ignore[attr-defined]
+            "version": version or prompt_registry._prompts[name].latest_version,
             "content": content,
         },
     }
@@ -99,7 +99,7 @@ async def get_prompt_content(name: str, version: int | None = None) -> dict[str,
 @router.post("/prompts", summary="创建新 prompt", status_code=201)
 async def create_prompt(req: CreatePromptRequest) -> dict[str, Any]:
     """创建新 prompt。"""
-    if prompt_registry._prompts.get(req.name):  # type: ignore[attr-defined]
+    if prompt_registry._prompts.get(req.name):
         raise HTTPException(status_code=409, detail=f"Prompt 已存在: {req.name}")
     entry = prompt_registry.create(req.name, req.content, req.description)
     return {
@@ -117,7 +117,7 @@ async def create_prompt(req: CreatePromptRequest) -> dict[str, Any]:
 @router.put("/prompts/{name}", summary="更新 prompt(创建新版本)")
 async def update_prompt(name: str, req: UpdatePromptRequest) -> dict[str, Any]:
     """更新 prompt，创建新版本。"""
-    if not prompt_registry._prompts.get(name):  # type: ignore[attr-defined]
+    if not prompt_registry._prompts.get(name):
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     entry = prompt_registry.update(name, req.content, req.description)
     return {
@@ -134,7 +134,7 @@ async def update_prompt(name: str, req: UpdatePromptRequest) -> dict[str, Any]:
 @router.post("/prompts/{name}/rollback", summary="回滚到指定版本")
 async def rollback_prompt(name: str, req: RollbackRequest) -> dict[str, Any]:
     """回滚 prompt 到指定版本(创建新版本，内容为目标版本)。"""
-    if not prompt_registry._prompts.get(name):  # type: ignore[attr-defined]
+    if not prompt_registry._prompts.get(name):
         raise HTTPException(status_code=404, detail=f"Prompt 不存在: {name}")
     try:
         entry = prompt_registry.rollback(name, req.target_version)

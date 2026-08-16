@@ -33,7 +33,9 @@ const mockUser: AuthUser = {
   email: 'test@aizhs.top',
 } as unknown as AuthUser
 
-function createMockTokenStore(initial: { token?: string | null; refreshToken?: string | null } = {}): TokenStore & {
+function createMockTokenStore(
+  initial: { token?: string | null; refreshToken?: string | null } = {},
+): TokenStore & {
   _setToken: (t: string | null) => void
   _setRefreshToken: (t: string | null) => void
 } {

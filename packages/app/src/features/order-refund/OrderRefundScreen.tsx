@@ -253,7 +253,13 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: '#f5f5f5',
     },
     formActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    formBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    formBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     formPrimaryBtn: { backgroundColor: tk.brand.DEFAULT, height: 50 },
     formPrimaryBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     formOutlineBtn: {

@@ -186,191 +186,191 @@ const nextConfig: NextConfig = {
     // - 2026-08-04 生产切换:服务端模式(next build + next start)同样需要此代理,
     //   否则生产环境前端 /api/* 请求 404。因此移除 NODE_ENV 条件,始终启用(静态导出时 rewrites 本身不生效,无副作用)。
     return [
-        // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
-        // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
-        // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
-        // invoke 调用(POST /api/ai-skills/{id}/invoke)。
-        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
-        // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
-        {
-          source: '/api/ai-skills/:path*',
-          destination: 'http://localhost:8803/api/ai-skills/:path*',
-        },
-        // 2026-07-29 新增:publish 多平台分发路由转发到 ai-service 8803
-        // 原因:publish.py 注册在 ai-service(prefix="/publish",应用挂载 /api 前缀),
-        // 完整路径是 /api/publish/*。若不显式转发会被 /api/:path* 通配符转发到 8802(api server),
-        // 而 api server 没有注册 /api/publish 路由 → 404。
-        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
-        {
-          source: '/api/publish/:path*',
-          destination: 'http://localhost:8803/api/publish/:path*',
-        },
-        // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
-        // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
-        // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
-        // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
-        // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
-        // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
-        // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
-        // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
-        // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
-        {
-          source: '/api/llm/:path*',
-          destination: 'http://localhost:8803/api/llm/:path*',
-        },
-        // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
-        // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
-        // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
-        // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
-        {
-          source: '/api/mcp/:path*',
-          destination: 'http://localhost:8803/api/mcp/:path*',
-        },
-        // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
-        // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
-        // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/agent/:path*',
-          destination: 'http://localhost:8803/api/agent/:path*',
-        },
-        // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
-        // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
-        // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
-        // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
-        {
-          source: '/api/a2a/:path*',
-          destination: 'http://localhost:8803/api/a2a/:path*',
-        },
-        // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
-        // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
-        // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
-        // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
-        // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
-        // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
-        {
-          source: '/api/agents/execute/stream',
-          destination: 'http://localhost:8803/api/agents/execute/stream',
-        },
-        {
-          source: '/api/agents/execute',
-          destination: 'http://localhost:8803/api/agents/execute',
-        },
-        {
-          source: '/api/agents/running',
-          destination: 'http://localhost:8803/api/agents/running',
-        },
-        {
-          source: '/api/agents/sessions/:path*',
-          destination: 'http://localhost:8803/api/agents/sessions/:path*',
-        },
-        {
-          source: '/api/agents/memory/search',
-          destination: 'http://localhost:8803/api/agents/memory/search',
-        },
-        {
-          source: '/api/agents/:taskId/status',
-          destination: 'http://localhost:8803/api/agents/:taskId/status',
-        },
-        {
-          source: '/api/agents/:taskId/cancel',
-          destination: 'http://localhost:8803/api/agents/:taskId/cancel',
-        },
-        {
-          source: '/api/agents/skill-evolution',
-          destination: 'http://localhost:8803/api/agents/skill-evolution',
-        },
-        {
-          source: '/api/agents/debate',
-          destination: 'http://localhost:8803/api/agents/debate',
-        },
-        // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
-        // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
-        // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
-        // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
-        // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
-        // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
-        {
-          source: '/api/browser/sessions/:path*',
-          destination: 'http://localhost:8803/api/browser/sessions/:path*',
-        },
-        // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
-        // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/admin/meta-learner/:path*',
-          destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
-        },
-        // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
-        // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
-        // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
-        {
-          source: '/api/agents/tasks/stream',
-          destination: 'http://localhost:8803/api/agents/tasks/stream',
-        },
-        // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
-        // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
-        // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
-        // 数组顺序匹配,与 :agentId/stream 无冲突。
-        {
-          source: '/api/agents/:agentId/stream',
-          destination: 'http://localhost:8803/api/agents/:agentId/stream',
-        },
-        // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
-        // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
-        // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
-        {
-          source: '/api/agents/:agentId/tool-calls',
-          destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
-        },
-        {
-          source: '/api/agents/:agentId/errors',
-          destination: 'http://localhost:8803/api/agents/:agentId/errors',
-        },
-        // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
-        // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
-        // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
-        // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
-        {
-          source: '/api/agents/:agentId/sessions',
-          destination: 'http://localhost:8803/api/agents/:agentId/sessions',
-        },
-        {
-          source: '/api/agents/:agentId/token-usage',
-          destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
-        },
-        // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
-        // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/v1/ai/usage/:path*',
-          destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
-        },
-        // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
-        // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/v1/ai/eval/:path*',
-          destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
-        },
-        // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
-        // 原因:prompts router 注册在 ai-service(prefix="/api"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/prompts/:path*',
-          destination: 'http://localhost:8803/api/prompts/:path*',
-        },
-        // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
-        // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/admin/news/:path*',
-          destination: 'http://localhost:8803/api/admin/news/:path*',
-        },
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:8802/api/:path*',
-        },
-      ]
+      // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
+      // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
+      // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
+      // invoke 调用(POST /api/ai-skills/{id}/invoke)。
+      // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+      // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
+      {
+        source: '/api/ai-skills/:path*',
+        destination: 'http://localhost:8803/api/ai-skills/:path*',
+      },
+      // 2026-07-29 新增:publish 多平台分发路由转发到 ai-service 8803
+      // 原因:publish.py 注册在 ai-service(prefix="/publish",应用挂载 /api 前缀),
+      // 完整路径是 /api/publish/*。若不显式转发会被 /api/:path* 通配符转发到 8802(api server),
+      // 而 api server 没有注册 /api/publish 路由 → 404。
+      // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+      {
+        source: '/api/publish/:path*',
+        destination: 'http://localhost:8803/api/publish/:path*',
+      },
+      // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
+      // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
+      // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
+      // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
+      // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
+      // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
+      // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
+      // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
+      // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
+      {
+        source: '/api/llm/:path*',
+        destination: 'http://localhost:8803/api/llm/:path*',
+      },
+      // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
+      // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
+      // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
+      // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
+      {
+        source: '/api/mcp/:path*',
+        destination: 'http://localhost:8803/api/mcp/:path*',
+      },
+      // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
+      // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
+      // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/agent/:path*',
+        destination: 'http://localhost:8803/api/agent/:path*',
+      },
+      // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
+      // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
+      // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
+      // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
+      {
+        source: '/api/a2a/:path*',
+        destination: 'http://localhost:8803/api/a2a/:path*',
+      },
+      // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
+      // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
+      // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
+      // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
+      // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
+      // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
+      {
+        source: '/api/agents/execute/stream',
+        destination: 'http://localhost:8803/api/agents/execute/stream',
+      },
+      {
+        source: '/api/agents/execute',
+        destination: 'http://localhost:8803/api/agents/execute',
+      },
+      {
+        source: '/api/agents/running',
+        destination: 'http://localhost:8803/api/agents/running',
+      },
+      {
+        source: '/api/agents/sessions/:path*',
+        destination: 'http://localhost:8803/api/agents/sessions/:path*',
+      },
+      {
+        source: '/api/agents/memory/search',
+        destination: 'http://localhost:8803/api/agents/memory/search',
+      },
+      {
+        source: '/api/agents/:taskId/status',
+        destination: 'http://localhost:8803/api/agents/:taskId/status',
+      },
+      {
+        source: '/api/agents/:taskId/cancel',
+        destination: 'http://localhost:8803/api/agents/:taskId/cancel',
+      },
+      {
+        source: '/api/agents/skill-evolution',
+        destination: 'http://localhost:8803/api/agents/skill-evolution',
+      },
+      {
+        source: '/api/agents/debate',
+        destination: 'http://localhost:8803/api/agents/debate',
+      },
+      // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
+      // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
+      // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
+      // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
+      // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
+      // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
+      {
+        source: '/api/browser/sessions/:path*',
+        destination: 'http://localhost:8803/api/browser/sessions/:path*',
+      },
+      // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
+      // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
+      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/admin/meta-learner/:path*',
+        destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
+      },
+      // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
+      // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
+      // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
+      {
+        source: '/api/agents/tasks/stream',
+        destination: 'http://localhost:8803/api/agents/tasks/stream',
+      },
+      // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
+      // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
+      // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
+      // 数组顺序匹配,与 :agentId/stream 无冲突。
+      {
+        source: '/api/agents/:agentId/stream',
+        destination: 'http://localhost:8803/api/agents/:agentId/stream',
+      },
+      // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
+      // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
+      // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
+      {
+        source: '/api/agents/:agentId/tool-calls',
+        destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
+      },
+      {
+        source: '/api/agents/:agentId/errors',
+        destination: 'http://localhost:8803/api/agents/:agentId/errors',
+      },
+      // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
+      // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
+      // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
+      // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
+      {
+        source: '/api/agents/:agentId/sessions',
+        destination: 'http://localhost:8803/api/agents/:agentId/sessions',
+      },
+      {
+        source: '/api/agents/:agentId/token-usage',
+        destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
+      },
+      // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
+      // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
+      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/v1/ai/usage/:path*',
+        destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
+      },
+      // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
+      // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
+      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/v1/ai/eval/:path*',
+        destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
+      },
+      // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
+      // 原因:prompts router 注册在 ai-service(prefix="/api"),
+      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/prompts/:path*',
+        destination: 'http://localhost:8803/api/prompts/:path*',
+      },
+      // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
+      // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
+      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+      {
+        source: '/api/admin/news/:path*',
+        destination: 'http://localhost:8803/api/admin/news/:path*',
+      },
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8802/api/:path*',
+      },
+    ]
   },
   // 2026-07-24 安全加固:HTTP 安全响应头(CSP/HSTS/X-Frame-Options 等)
   // 注意:output:'export' 模式下 headers() 不生效(静态文件由 CDN/nginx 托管);

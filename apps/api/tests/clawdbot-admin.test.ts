@@ -41,7 +41,9 @@ vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn(() => createChainableMock()),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: mockInsertReturning })) })),
-    update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })) })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
+    })),
     delete: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockDeleteReturning })) })),
     transaction: vi.fn(),
     execute: vi.fn().mockResolvedValue([]),

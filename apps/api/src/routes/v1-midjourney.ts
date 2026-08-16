@@ -19,6 +19,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import type { AuthenticatedApiKey } from '@ihui/types'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { success, error } from '../utils/response.js'
 import { recordCall } from '../services/relay-billing-service.js'

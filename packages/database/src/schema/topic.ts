@@ -8,7 +8,7 @@ import {
   timestamp,
   jsonb,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 课程专题表。
@@ -34,10 +34,10 @@ export const eduLessonTopics = pgTable(
     pubIdx: index('edu_lesson_topics_published_idx').on(t.isPublished),
     statusIdx: index('edu_lesson_topics_status_idx').on(t.status),
   }),
-);
+)
 
-export type EduLessonTopic = typeof eduLessonTopics.$inferSelect;
-export type NewEduLessonTopic = typeof eduLessonTopics.$inferInsert;
+export type EduLessonTopic = typeof eduLessonTopics.$inferSelect
+export type NewEduLessonTopic = typeof eduLessonTopics.$inferInsert
 
 /**
  * 学习专题分类表(对齐 D 盘 t_learn_topic_category)。
@@ -58,7 +58,7 @@ export const eduLessonTopicCategories = pgTable(
     statusIdx: index('edu_lesson_topic_categories_status_idx').on(t.status),
     sortIdx: index('edu_lesson_topic_categories_sort_idx').on(t.sort),
   }),
-);
+)
 
-export type EduLessonTopicCategory = typeof eduLessonTopicCategories.$inferSelect;
-export type NewEduLessonTopicCategory = typeof eduLessonTopicCategories.$inferInsert;
+export type EduLessonTopicCategory = typeof eduLessonTopicCategories.$inferSelect
+export type NewEduLessonTopicCategory = typeof eduLessonTopicCategories.$inferInsert

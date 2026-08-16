@@ -6,7 +6,6 @@ import backDefaultSvg from '@/static/images/add/back_default.svg'
 import jiantouSvg from '@/static/images/add/jiantou.svg'
 import { rpx } from '@/utils/rpx'
 
-
 export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
 
 /**
@@ -47,10 +46,7 @@ export default function ModelTypeButton({
   if (variant === 'wide') {
     // ===== wide 模式:对齐原项目 .model-type-btn(200rpx×60rpx + btn-bg + btn-content + btn-arrow)=====
     return (
-      <View
-        className="ai-model-type-btn"
-        onClick={() => onClick?.(type)}
-      >
+      <View className="ai-model-type-btn" onClick={() => onClick?.(type)}>
         {/* btn-bg 背景层(absolute 填充,选中态切换 SVG)*/}
         <Image
           className="absolute top-0 left-0"
@@ -59,16 +55,9 @@ export default function ModelTypeButton({
           mode="aspectFill"
         />
         {/* btn-content-wrapper 内容层(z-index 3,横向布局)*/}
-        <View
-          className="relative flex items-center justify-center"
-          style={{ zIndex: 3 }}
-        >
+        <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
           {/* btn-content 图标 100rpx×36rpx(减到原 140rpx×50rpx 的~70%)*/}
-          <Image
-            src={icon}
-            style={{ width: rpx(100), height: rpx(36) }}
-            mode="aspectFit"
-          />
+          <Image src={icon} style={{ width: rpx(100), height: rpx(36) }} mode="aspectFit" />
           {/* btn-arrow 箭头 20rpx×20rpx(选中时 rotate 180deg)*/}
           <Image
             src={arrowIcon || jiantouSvg}

@@ -24,13 +24,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Hand, ShieldCheck, ShieldAlert, Info, X } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 

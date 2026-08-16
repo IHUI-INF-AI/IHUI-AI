@@ -127,7 +127,9 @@ export default function MemoryListPage() {
               key={entry.id}
               entry={entry}
               onDelete={handleDelete}
-              onEdit={(e) => { router.push(`/memory/${e.id}`) }}
+              onEdit={(e) => {
+                router.push(`/memory/${e.id}`)
+              }}
               deleting={deletingId === entry.id}
             />
           ))}

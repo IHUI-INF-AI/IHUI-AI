@@ -57,9 +57,7 @@ vi.mock('../src/lib/sso', () => ssoMocks)
 import { AuthProvider, useAuth } from '../src/context/AuthContext'
 import { rnAuthStore } from '../src/stores/auth-store'
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider>{children}</AuthProvider>
-)
+const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>
 
 function renderAuth() {
   return renderHook(() => useAuth(), { wrapper })

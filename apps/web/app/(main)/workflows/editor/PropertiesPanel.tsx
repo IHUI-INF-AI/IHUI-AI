@@ -3,7 +3,15 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
-import { Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
 import type { Node } from '@xyflow/react'
 import type { StepNodeData, WorkflowStep } from './types'
 
@@ -104,7 +112,10 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
           <>
             <div className="space-y-1">
               <Label>{t('editor.skill')}</Label>
-              <Select value={step.skill ?? 'text-summary'} onValueChange={(v) => setStr('skill', v)}>
+              <Select
+                value={step.skill ?? 'text-summary'}
+                onValueChange={(v) => setStr('skill', v)}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,9 +152,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               className="h-8 text-xs font-mono"
               placeholder='例如: status == "success"'
             />
-            <p className="text-[10px] text-muted-foreground">
-              支持: true / false / field==value
-            </p>
+            <p className="text-[10px] text-muted-foreground">支持: true / false / field==value</p>
           </div>
         )}
 

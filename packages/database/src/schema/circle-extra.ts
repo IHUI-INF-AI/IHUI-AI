@@ -8,9 +8,9 @@ import {
   timestamp,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { circles, circlePosts } from './community.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { circles, circlePosts } from './community.js'
 
 /**
  * 圈子分类表。
@@ -33,7 +33,7 @@ export const circleCategories = pgTable(
   (t) => ({
     pidIdx: index('circle_categories_pid_idx').on(t.pid),
   }),
-);
+)
 
 /**
  * 圈子成员表。
@@ -61,7 +61,7 @@ export const circleMembers = pgTable(
     statusIdx: index('circle_members_status_idx').on(t.status),
     uniq: unique('circle_member_user_uniq').on(t.circleId, t.userId),
   }),
-);
+)
 
 /**
  * 圈子帖子点赞表。
@@ -83,7 +83,7 @@ export const circlePostLikes = pgTable(
     userIdx: index('circle_post_likes_user_idx').on(t.userId),
     uniq: unique('circle_post_like_uniq').on(t.postId, t.userId),
   }),
-);
+)
 
 /**
  * 圈子帖子评论表。
@@ -113,13 +113,13 @@ export const circlePostComments = pgTable(
     userIdx: index('circle_post_comments_user_idx').on(t.userId),
     pidIdx: index('circle_post_comments_pid_idx').on(t.pid),
   }),
-);
+)
 
-export type CircleCategory = typeof circleCategories.$inferSelect;
-export type NewCircleCategory = typeof circleCategories.$inferInsert;
-export type CircleMember = typeof circleMembers.$inferSelect;
-export type NewCircleMember = typeof circleMembers.$inferInsert;
-export type CirclePostLike = typeof circlePostLikes.$inferSelect;
-export type NewCirclePostLike = typeof circlePostLikes.$inferInsert;
-export type CirclePostComment = typeof circlePostComments.$inferSelect;
-export type NewCirclePostComment = typeof circlePostComments.$inferInsert;
+export type CircleCategory = typeof circleCategories.$inferSelect
+export type NewCircleCategory = typeof circleCategories.$inferInsert
+export type CircleMember = typeof circleMembers.$inferSelect
+export type NewCircleMember = typeof circleMembers.$inferInsert
+export type CirclePostLike = typeof circlePostLikes.$inferSelect
+export type NewCirclePostLike = typeof circlePostLikes.$inferInsert
+export type CirclePostComment = typeof circlePostComments.$inferSelect
+export type NewCirclePostComment = typeof circlePostComments.$inferInsert

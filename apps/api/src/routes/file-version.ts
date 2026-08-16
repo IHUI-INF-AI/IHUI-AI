@@ -98,7 +98,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
     const originalExt = extractExt(file.name ?? '')
     if (ALLOWED_EXTENSIONS.includes(uploadExt)) {
       const declaredMime = data.mimetype ?? 'application/octet-stream'
-      const validation = validateUploadFile(buffer, uploadFilename, declaredMime, MAX_MULTIPART_UPLOAD_SIZE)
+      const validation = validateUploadFile(
+        buffer,
+        uploadFilename,
+        declaredMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
       if (!validation.ok) {
         return reply.status(400).send(error(400, validation.reason))
       }

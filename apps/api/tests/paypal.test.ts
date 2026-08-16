@@ -306,14 +306,12 @@ describe('paypal service', () => {
     it('成功获取 token 后缓存命中,第二次不调 fetch', async () => {
       process.env.PAYPAL_CLIENT_ID = 'id'
       process.env.PAYPAL_CLIENT_SECRET = 'secret'
-      const mockFetch = vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ access_token: 'cached-token', expires_in: 32400 }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }),
-        )
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ access_token: 'cached-token', expires_in: 32400 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
       global.fetch = mockFetch
 
       const t1 = await getAccessToken()

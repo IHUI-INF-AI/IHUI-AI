@@ -13,10 +13,7 @@ const compareJsonLd = {
         'Manus 是单任务自主 AI Agent(2025 现象级产品,跑一次性研究任务);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,支持可复用 Agent + Agent 市场 + 跨端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
-      about: [
-        { '@id': 'https://aizhs.top/#organization' },
-        { '@type': 'Thing', name: 'Manus AI' },
-      ],
+      about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Manus AI' }],
     },
     {
       '@type': 'BreadcrumbList',
@@ -24,7 +21,12 @@ const compareJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Manus', item: 'https://aizhs.top/compare/ihui-vs-manus' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs Manus',
+          item: 'https://aizhs.top/compare/ihui-vs-manus',
+        },
       ],
     },
   ],

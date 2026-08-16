@@ -28,11 +28,7 @@ const KIND_LABEL: Record<SymbolResult['kind'], string> = {
   constant: 'const',
 }
 
-export function SymbolSearchResult({
-  symbol,
-  selected,
-  onSelect,
-}: SymbolSearchResultProps) {
+export function SymbolSearchResult({ symbol, selected, onSelect }: SymbolSearchResultProps) {
   return (
     <button
       type="button"

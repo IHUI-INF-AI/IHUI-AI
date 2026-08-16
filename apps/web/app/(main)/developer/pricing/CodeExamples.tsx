@@ -95,9 +95,7 @@ export function CodeExamples(): React.JSX.Element {
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          {t('examplesTip')}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('examplesTip')}</p>
       </CardContent>
     </Card>
   )

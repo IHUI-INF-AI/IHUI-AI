@@ -45,7 +45,6 @@ export default function ImageGenPage() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-     
   }, [])
 
   const pollTask = async (taskId: string, attempt = 0) => {

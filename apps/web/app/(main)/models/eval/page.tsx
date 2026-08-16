@@ -211,11 +211,7 @@ export default function EvalPage() {
                       ? datasetsQ.error.message
                       : t('eval.datasets.messages.createFailed')}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => datasetsQ.refetch()}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => datasetsQ.refetch()}>
                     {t('retry')}
                   </Button>
                 </div>
@@ -223,7 +219,12 @@ export default function EvalPage() {
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
                   <Database className="h-8 w-8 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">{t('eval.datasets.empty')}</p>
-                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => setCreateOpen(true)}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                     {t('eval.datasets.create')}
                   </Button>
@@ -234,10 +235,16 @@ export default function EvalPage() {
                     <thead>
                       <tr className="text-left text-xs text-muted-foreground">
                         <th className="px-4 py-2 font-medium">{t('eval.datasets.table.name')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.datasets.table.description')}</th>
+                        <th className="px-4 py-2 font-medium">
+                          {t('eval.datasets.table.description')}
+                        </th>
                         <th className="px-4 py-2 font-medium">{t('eval.datasets.table.items')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.datasets.table.createdAt')}</th>
-                        <th className="px-4 py-2 text-right font-medium">{t('eval.datasets.table.actions')}</th>
+                        <th className="px-4 py-2 font-medium">
+                          {t('eval.datasets.table.createdAt')}
+                        </th>
+                        <th className="px-4 py-2 text-right font-medium">
+                          {t('eval.datasets.table.actions')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -247,7 +254,9 @@ export default function EvalPage() {
                           <td className="px-4 py-2.5 text-muted-foreground">
                             {ds.description || '—'}
                           </td>
-                          <td className="px-4 py-2.5 tabular-nums">{ds.item_count ?? ds.items.length}</td>
+                          <td className="px-4 py-2.5 tabular-nums">
+                            {ds.item_count ?? ds.items.length}
+                          </td>
                           <td className="px-4 py-2.5 text-muted-foreground">
                             {ds.created_at ? timeFmt(ds.created_at) : '—'}
                           </td>
@@ -315,7 +324,12 @@ export default function EvalPage() {
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
                   <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">{t('eval.runs.empty')}</p>
-                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCreateRunOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => setCreateRunOpen(true)}
+                  >
                     <Play className="h-3.5 w-3.5" />
                     {t('eval.runs.create')}
                   </Button>
@@ -332,7 +346,9 @@ export default function EvalPage() {
                         <th className="px-4 py-2 font-medium">{t('eval.runs.table.avgScore')}</th>
                         <th className="px-4 py-2 font-medium">{t('eval.runs.table.duration')}</th>
                         <th className="px-4 py-2 font-medium">{t('eval.runs.table.createdAt')}</th>
-                        <th className="px-4 py-2 text-right font-medium">{t('eval.runs.table.actions')}</th>
+                        <th className="px-4 py-2 text-right font-medium">
+                          {t('eval.runs.table.actions')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -382,17 +398,10 @@ export default function EvalPage() {
       </Tabs>
 
       {/* ========== CREATE DATASET DIALOG ========== */}
-      <CreateDatasetDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSuccess={invalidate}
-      />
+      <CreateDatasetDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={invalidate} />
 
       {/* ========== VIEW DATASET DIALOG ========== */}
-      <Dialog
-        open={viewDataset !== null}
-        onOpenChange={(v) => !v && setViewDataset(null)}
-      >
+      <Dialog open={viewDataset !== null} onOpenChange={(v) => !v && setViewDataset(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -405,9 +414,7 @@ export default function EvalPage() {
               <div>
                 <p className="text-sm font-medium">{viewDataset.name}</p>
                 {viewDataset.description && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {viewDataset.description}
-                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{viewDataset.description}</p>
                 )}
               </div>
               <div className="max-h-80 space-y-2 overflow-y-auto">
@@ -417,7 +424,9 @@ export default function EvalPage() {
                       {t('eval.datasets.detail.item', { index: i + 1 })}
                     </p>
                     <p className="mb-1">
-                      <span className="text-muted-foreground">{t('eval.datasets.detail.input')}:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {t('eval.datasets.detail.input')}:
+                      </span>{' '}
                       {item.input}
                     </p>
                     {item.expected_output && (
@@ -434,12 +443,7 @@ export default function EvalPage() {
             </div>
           )}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setViewDataset(null)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setViewDataset(null)}>
               {t('eval.datasets.detail.close')}
             </Button>
           </DialogFooter>
@@ -447,17 +451,12 @@ export default function EvalPage() {
       </Dialog>
 
       {/* ========== DELETE CONFIRM DIALOG ========== */}
-      <Dialog
-        open={deleteName !== null}
-        onOpenChange={(v) => !v && setDeleteName(null)}
-      >
+      <Dialog open={deleteName !== null} onOpenChange={(v) => !v && setDeleteName(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>{t('eval.datasets.delete')}</DialogTitle>
             <DialogDescription>
-              {deleteName
-                ? t('eval.datasets.messages.deleteConfirm', { name: deleteName })
-                : ''}
+              {deleteName ? t('eval.datasets.messages.deleteConfirm', { name: deleteName }) : ''}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -477,9 +476,7 @@ export default function EvalPage() {
               disabled={deleteMut.isPending}
               onClick={() => deleteName && deleteMut.mutate(deleteName)}
             >
-              {deleteMut.isPending
-                ? t('eval.datasets.loading')
-                : t('eval.datasets.delete')}
+              {deleteMut.isPending ? t('eval.datasets.loading') : t('eval.datasets.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -494,10 +491,7 @@ export default function EvalPage() {
       />
 
       {/* ========== VIEW RUN DETAIL DIALOG ========== */}
-      <RunDetailDialog
-        run={viewRun}
-        onClose={() => setViewRun(null)}
-      />
+      <RunDetailDialog run={viewRun} onClose={() => setViewRun(null)} />
     </div>
   )
 }

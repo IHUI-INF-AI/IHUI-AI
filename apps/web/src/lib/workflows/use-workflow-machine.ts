@@ -70,7 +70,16 @@ export function useWorkflowMachine<M extends AnyStateMachine>(
         return false
       }
       // 从 machine config 直接探测状态转移表(忽略 guard)
-      const machineConfig = (machine as unknown as { config?: { states?: Record<string, { on?: Record<string, unknown> | ((...args: unknown[]) => unknown) }> } }).config
+      const machineConfig = (
+        machine as unknown as {
+          config?: {
+            states?: Record<
+              string,
+              { on?: Record<string, unknown> | ((...args: unknown[]) => unknown) }
+            >
+          }
+        }
+      ).config
       const stateConfig = machineConfig?.states?.[stateValue]
       if (!stateConfig) return false
       const on = stateConfig.on
@@ -81,9 +90,5 @@ export function useWorkflowMachine<M extends AnyStateMachine>(
     [machine],
   )
 
-  return [
-    (snapshot ?? ({} as SnapshotFrom<M>)),
-    send,
-    can,
-  ]
+  return [snapshot ?? ({} as SnapshotFrom<M>), send, can]
 }

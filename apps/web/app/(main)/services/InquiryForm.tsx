@@ -64,11 +64,13 @@ export function InquiryForm(): React.JSX.Element {
     const e: Record<string, string> = {}
     if (!form.name.trim()) e.name = t('inquiry.errors.nameRequired')
     if (!form.email.trim()) e.email = t('inquiry.errors.emailRequired')
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t('inquiry.errors.emailInvalid')
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      e.email = t('inquiry.errors.emailInvalid')
     if (!form.serviceType) e.serviceType = t('inquiry.errors.serviceTypeRequired')
     if (!form.budget) e.budget = t('inquiry.errors.budgetRequired')
     if (!form.description.trim()) e.description = t('inquiry.errors.descriptionRequired')
-    else if (form.description.trim().length < 50) e.description = t('inquiry.errors.descriptionTooShort')
+    else if (form.description.trim().length < 50)
+      e.description = t('inquiry.errors.descriptionTooShort')
     if (!form.timeline) e.timeline = t('inquiry.errors.timelineRequired')
     if (!form.agreeTerms) e.agreeTerms = t('inquiry.errors.agreeRequired')
     setErrors(e)
@@ -99,9 +101,15 @@ export function InquiryForm(): React.JSX.Element {
     }
   }
 
-  const serviceOptions = SERVICE_KEYS.map((k) => ({ label: t(`inquiry.serviceTypes.${k}`), value: k }))
+  const serviceOptions = SERVICE_KEYS.map((k) => ({
+    label: t(`inquiry.serviceTypes.${k}`),
+    value: k,
+  }))
   const budgetOptions = BUDGET_KEYS.map((k) => ({ label: t(`inquiry.budgets.${k}`), value: k }))
-  const timelineOptions = TIMELINE_KEYS.map((k) => ({ label: t(`inquiry.timelines.${k}`), value: k }))
+  const timelineOptions = TIMELINE_KEYS.map((k) => ({
+    label: t(`inquiry.timelines.${k}`),
+    value: k,
+  }))
 
   if (submitted) {
     return (

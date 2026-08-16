@@ -19,7 +19,9 @@ export function Pagination({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">{t('total', { total })}</span>
+      <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+        {t('total', { total })}
+      </span>
       <div className="flex shrink-0 items-center gap-2">
         <Button
           className="shrink-0"

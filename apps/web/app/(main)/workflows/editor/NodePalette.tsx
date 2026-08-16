@@ -2,7 +2,17 @@
 
 import { useCallback } from 'react'
 import { useTranslations } from 'next-intl'
-import { type LucideIcon, Terminal, Bot, Brain, GitFork, Clock, Repeat, Layers, Wrench } from 'lucide-react'
+import {
+  type LucideIcon,
+  Terminal,
+  Bot,
+  Brain,
+  GitFork,
+  Clock,
+  Repeat,
+  Layers,
+  Wrench,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { StepType } from './types'
 
@@ -65,7 +75,9 @@ export function NodePalette({ onDragStart }: Props) {
             >
               <Icon className="h-3.5 w-3.5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="font-medium">{t(`editor.types.${item.type}`, { defaultValue: item.type })}</div>
+                <div className="font-medium">
+                  {t(`editor.types.${item.type}`, { defaultValue: item.type })}
+                </div>
                 <div className="truncate text-[10px] text-muted-foreground">{item.desc}</div>
               </div>
             </div>

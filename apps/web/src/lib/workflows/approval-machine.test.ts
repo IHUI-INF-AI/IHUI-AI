@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createActor } from 'xstate'
 import { approvalMachine } from './approval-machine'
 
-const getStateValue = (snap: ReturnType<ReturnType<typeof createActor<typeof approvalMachine>>['getSnapshot']>) =>
-  typeof snap.value === 'string' ? snap.value : String(snap.value)
+const getStateValue = (
+  snap: ReturnType<ReturnType<typeof createActor<typeof approvalMachine>>['getSnapshot']>,
+) => (typeof snap.value === 'string' ? snap.value : String(snap.value))
 
 describe('approvalMachine', () => {
   it('初始状态为 draft', () => {

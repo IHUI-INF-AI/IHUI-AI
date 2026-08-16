@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { PAGE_SIZE, STATUS_CLS, STATUS_LABEL, fmtYuan } from './types'
 import type { Order } from './types'
@@ -62,10 +70,16 @@ export function OrdersTable({
                   <TableCell className="px-4 py-2.5 font-medium">
                     {it.orderNo ?? it.orderId ?? it.id}
                   </TableCell>
-                  <TableCell className="max-w-[140px] truncate px-4 py-2.5 text-muted-foreground" title={it.userNickname ?? String(it.userId ?? '')}>
+                  <TableCell
+                    className="max-w-[140px] truncate px-4 py-2.5 text-muted-foreground"
+                    title={it.userNickname ?? String(it.userId ?? '')}
+                  >
                     {it.userNickname ?? it.userId ?? '-'}
                   </TableCell>
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 text-muted-foreground" title={it.productName ?? ''}>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 text-muted-foreground"
+                    title={it.productName ?? ''}
+                  >
                     {it.productName ?? '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

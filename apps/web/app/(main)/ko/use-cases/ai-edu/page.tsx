@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, GraduationCap, AlertTriangle, Wrench, MessageSquare, Palette, Globe, Lightbulb } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  GraduationCap,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  Palette,
+  Globe,
+  Lightbulb,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ko/use-cases/ai-edu#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 교육', item: 'https://aizhs.top/ko/use-cases/ai-edu' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: '사용 사례',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 교육',
+          item: 'https://aizhs.top/ko/use-cases/ai-edu',
+        },
       ],
     },
     {
@@ -40,12 +60,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 스마트 문제집 모듈' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '학생 데이터 설정', text: '과거 성적/과제/학습 행동을 임포트, AI가 학생 프로필과 강점/약점을 파악합니다.' },
-        { '@type': 'HowToStep', position: 2, name: '학습 경로 학습', text: '지식 그래프와 과거 데이터로 개인화 경로 모델 학습, 학생별 일/주간 계획을 자동 생성합니다.' },
-        { '@type': 'HowToStep', position: 3, name: '문제집 통합', text: '학교/지역/타 문제집(K12/어학/직업 훈련)을 연결, AI가 학생 레벨에 맞는 테스트를 자동 생성합니다.' },
-        { '@type': 'HowToStep', position: 4, name: '채점 규칙 설정', text: '객관식/주관식(작문/자유 기술) 규칙 설정, Agent가 24시간 채점, 주관식 85% 이상 정확도.' },
-        { '@type': 'HowToStep', position: 5, name: '분석 활성화', text: '반/학년/과목 데이터 집계, 학습 리포트 자동 생성, 공통 약점 발견으로 교무를 지원합니다.' },
-        { '@type': 'HowToStep', position: 6, name: '가정보校 소통', text: 'WeChat/DingTalk/WeCom 학부모 앱 연결, 주간 리포트/과제/진도 하이라이트 자동 전송.' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '학생 데이터 설정',
+          text: '과거 성적/과제/학습 행동을 임포트, AI가 학생 프로필과 강점/약점을 파악합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '학습 경로 학습',
+          text: '지식 그래프와 과거 데이터로 개인화 경로 모델 학습, 학생별 일/주간 계획을 자동 생성합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '문제집 통합',
+          text: '학교/지역/타 문제집(K12/어학/직업 훈련)을 연결, AI가 학생 레벨에 맞는 테스트를 자동 생성합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '채점 규칙 설정',
+          text: '객관식/주관식(작문/자유 기술) 규칙 설정, Agent가 24시간 채점, 주관식 85% 이상 정확도.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '분석 활성화',
+          text: '반/학년/과목 데이터 집계, 학습 리포트 자동 생성, 공통 약점 발견으로 교무를 지원합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '가정보校 소통',
+          text: 'WeChat/DingTalk/WeCom 학부모 앱 연결, 주간 리포트/과제/진도 하이라이트 자동 전송.',
+        },
       ],
     },
   ],
@@ -74,12 +124,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '개인화 학습 경로', desc: '지식 그래프와 학생 프로필로 일/주간 계획을 동적 생성, 빠른 학생은 확장 문제, 느린 학생은 집중 보충, 차별화 교수를 스케일화.' },
-  { title: '24시간 지능형 Q&A', desc: 'AI Q&A Agent가 교과 지식 그래프와 과거 Q&A로 상시 응답, 30초 이내 답변, K12 92% 정확도로 주요 과목 커버.' },
-  { title: '스마트 문제 생성/채점', desc: '문제집 통합으로 학생 레벨에 맞는 테스트 자동 생성, 객관식은 즉시 채점, 주관식(작문/기술) 85% 이상 정확도 채점, 교사 업무 70% 절감.' },
-  { title: '학습 데이터 분석', desc: '반/학년/과목 데이터 집계, 학습 리포트 자동 생성, 공통 약점 발견, 데이터 기반 교무 지원.' },
-  { title: '교무 협업', desc: '교안/슬라이드/문제/성찰 일원화 관리, 학교/지역 간 공유로 고품질 자원 재사용률을 30%에서 75%로 향상.' },
-  { title: '가정보校 소통', desc: 'WeChat/DingTalk/WeCom 학부모 앱 연결, 주간 리포트/과제/진도 자동 전송, 학부모 만족도 60% 향상.' },
+  {
+    title: '개인화 학습 경로',
+    desc: '지식 그래프와 학생 프로필로 일/주간 계획을 동적 생성, 빠른 학생은 확장 문제, 느린 학생은 집중 보충, 차별화 교수를 스케일화.',
+  },
+  {
+    title: '24시간 지능형 Q&A',
+    desc: 'AI Q&A Agent가 교과 지식 그래프와 과거 Q&A로 상시 응답, 30초 이내 답변, K12 92% 정확도로 주요 과목 커버.',
+  },
+  {
+    title: '스마트 문제 생성/채점',
+    desc: '문제집 통합으로 학생 레벨에 맞는 테스트 자동 생성, 객관식은 즉시 채점, 주관식(작문/기술) 85% 이상 정확도 채점, 교사 업무 70% 절감.',
+  },
+  {
+    title: '학습 데이터 분석',
+    desc: '반/학년/과목 데이터 집계, 학습 리포트 자동 생성, 공통 약점 발견, 데이터 기반 교무 지원.',
+  },
+  {
+    title: '교무 협업',
+    desc: '교안/슬라이드/문제/성찰 일원화 관리, 학교/지역 간 공유로 고품질 자원 재사용률을 30%에서 75%로 향상.',
+  },
+  {
+    title: '가정보校 소통',
+    desc: 'WeChat/DingTalk/WeCom 학부모 앱 연결, 주간 리포트/과제/진도 자동 전송, 학부모 만족도 60% 향상.',
+  },
 ]
 
 const cases = [
@@ -118,7 +186,10 @@ const metrics = [
 export default function AiEduPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +201,18 @@ export default function AiEduPage() {
             AI 스마트 교육:모든 학생을 위한 개인화 학습 경로
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원, K12/고등교육/직업 훈련 시나리오 커버.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원,
+            K12/고등교육/직업 훈련 시나리오 커버.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +222,16 @@ export default function AiEduPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">교육 현장이 직면한 과제</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              교육 현장이 직면한 과제
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +241,9 @@ export default function AiEduPage() {
 
         {/* 능력 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6대 핵심 능력</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6대 핵심 능력
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +259,9 @@ export default function AiEduPage() {
 
         {/* 사례 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">고객 도입 사례</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            고객 도입 사례
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +276,13 @@ export default function AiEduPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">기술 스택과 툴체인</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              기술 스택과 툴체인
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스, K12/고등교육/직업 훈련 시나리오 커버.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스,
+            K12/고등교육/직업 훈련 시나리오 커버.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +297,12 @@ export default function AiEduPage() {
         {/* 문의 / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI 스마트 교육 어시스턴트 구축을 시작하세요</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI 스마트 교육 어시스턴트 구축을 시작하세요
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            가입 시 1000 크레딧 증정, 스마트 교육 시나리오 템플릿에서 원클릭 fork, 30분 만에 개인화 학습을 체험.
+            가입 시 1000 크레딧 증정, 스마트 교육 시나리오 템플릿에서 원클릭 fork, 30분 만에 개인화
+            학습을 체험.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +319,19 @@ export default function AiEduPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 교육 상담 8801</span>
-            <span className="flex items-center gap-1.5"><Lightbulb className="h-3.5 w-3.5" /> 교무 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" />校内 도입 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 지역 솔루션 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 교육 상담 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> 교무 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" />
+              校内 도입 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 지역 솔루션 8809
+            </span>
           </div>
         </section>
       </main>

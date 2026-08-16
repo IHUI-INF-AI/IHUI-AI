@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointsMallItem, PointsMallScreenProps } from '../../types'
 
@@ -39,7 +32,11 @@ export function PointsMallScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('pointsMall.title')}</Text>
@@ -85,12 +82,16 @@ export function PointsMallScreen({
                 <View style={styles.coverPlaceholder}>
                   <Text style={styles.coverEmoji}>🎁</Text>
                 </View>
-                <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-                <Text style={styles.productDesc} numberOfLines={1}>{item.description}</Text>
-                <Text style={styles.pointsCost}>{item.pointsCost} {t('pointsMall.pointsUnit')}</Text>
-                <Text style={styles.stockText}>
-                  {t('pointsMall.stock', { count: item.stock })}
+                <Text style={styles.productName} numberOfLines={2}>
+                  {item.name}
                 </Text>
+                <Text style={styles.productDesc} numberOfLines={1}>
+                  {item.description}
+                </Text>
+                <Text style={styles.pointsCost}>
+                  {item.pointsCost} {t('pointsMall.pointsUnit')}
+                </Text>
+                <Text style={styles.stockText}>{t('pointsMall.stock', { count: item.stock })}</Text>
                 <TouchableOpacity
                   style={[styles.redeemBtn, !canRedeem && styles.redeemBtnDisabled]}
                   onPress={() => onRedeem(item)}
@@ -157,7 +158,13 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     coverEmoji: { fontSize: 32 },
-    productName: { marginTop: 8, fontSize: 14, fontWeight: '600', color: tk.text.primary, minHeight: 36 },
+    productName: {
+      marginTop: 8,
+      fontSize: 14,
+      fontWeight: '600',
+      color: tk.text.primary,
+      minHeight: 36,
+    },
     productDesc: { fontSize: 11, color: tk.text.tertiary, marginTop: 8 },
     pointsCost: { marginTop: 8, fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
     stockText: { fontSize: 10, color: tk.text.tertiary, marginTop: 8 },

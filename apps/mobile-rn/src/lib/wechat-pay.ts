@@ -13,7 +13,7 @@ import type * as WeChatMod from 'react-native-wechat-lib'
 
 // 动态 require + try-catch:react-native-wechat-lib 入口顶层执行
 // `wrapRegisterApp(WeChat.registerApp)`,Expo Go 中 NativeModules.WeChat 为 undefined,
- // 顶层访问即抛 TypeError,导致整个 bundle 红屏。用 try-catch 降级为 null,运行时再判断。
+// 顶层访问即抛 TypeError,导致整个 bundle 红屏。用 try-catch 降级为 null,运行时再判断。
 let WeChat: typeof WeChatMod | null = null
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

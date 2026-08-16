@@ -120,12 +120,7 @@ export function McpDataStructure({ data, name }: McpDataStructureProps) {
           <span className={cn('text-xs', typeColor(type))}>{type}</span>
         </div>
         <Tooltip content={t('copy')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            onClick={handleCopy}
-          >
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleCopy}>
             {copied ? (
               <Check className="h-3.5 w-3.5 text-emerald-500" />
             ) : (

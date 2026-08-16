@@ -189,9 +189,7 @@ export default function SettingsScreen() {
         onChangePassword={onChangePassword}
         onAlert={onAlert}
         onConfirm={onConfirm}
-        onLogout={() =>
-          onConfirm(t('common.logout'), '确认退出当前账号？', () => void logout())
-        }
+        onLogout={() => onConfirm(t('common.logout'), '确认退出当前账号？', () => void logout())}
         menuItems={menuItems}
         onMenuPress={onMenuPress}
         appVersion={APP_VERSION}

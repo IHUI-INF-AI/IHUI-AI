@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  helpSchema,
-  EMPTY_HELP_FORM,
-  HELP_CATEGORY_VALUES,
-  type HelpFormValues,
-} from './help'
+import { helpSchema, EMPTY_HELP_FORM, HELP_CATEGORY_VALUES, type HelpFormValues } from './help'
 
 describe('helpSchema', () => {
   it('合法值通过校验', () => {
@@ -28,7 +23,9 @@ describe('helpSchema', () => {
     })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('title') && i.message === 'required')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('title') && i.message === 'required')).toBe(
+        true,
+      )
     }
   })
 
@@ -97,7 +94,9 @@ describe('helpSchema', () => {
     })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('slug') && i.message === 'pattern')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('slug') && i.message === 'pattern')).toBe(
+        true,
+      )
     }
   })
 
@@ -125,11 +124,19 @@ describe('helpSchema', () => {
 
   it('isPublished 布尔字段通过', () => {
     const r1 = helpSchema.safeParse({
-      title: 't', slug: '', category: 'account', content: 'c', isPublished: true,
+      title: 't',
+      slug: '',
+      category: 'account',
+      content: 'c',
+      isPublished: true,
     })
     expect(r1.success).toBe(true)
     const r2 = helpSchema.safeParse({
-      title: 't', slug: '', category: 'account', content: 'c', isPublished: false,
+      title: 't',
+      slug: '',
+      category: 'account',
+      content: 'c',
+      isPublished: false,
     })
     expect(r2.success).toBe(true)
   })

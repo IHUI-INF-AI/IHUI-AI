@@ -45,9 +45,7 @@ import DrawerComponent, {
 } from '@/components/DrawerComponent'
 import ModelList, { type ModelItem } from '@/components/ModelList'
 import type { ModelType } from '@/components/ModelTypeButton'
-import BottomActionBar, {
-  type ToggleButtonItem,
-} from '@/components/BottomActionBar'
+import BottomActionBar, { type ToggleButtonItem } from '@/components/BottomActionBar'
 import ModelConfigDialog from '@/components/ModelConfigDialog'
 import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
@@ -69,30 +67,133 @@ const QRCODE_IMG = '/static/images/qewm.png'
 
 // 本地 mock 模型列表(对齐原项目 modelList 数据源)
 const MOCK_MODELS: ModelItem[] = [
-  { id: 'step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 128000, input_price: 0 },
+  {
+    id: 'step-3.7-flash',
+    name: 'Step 3.7 Flash',
+    provider: 'stepfun',
+    context_length: 128000,
+    input_price: 0,
+  },
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_length: 128000, input_price: 0 },
-  { id: 'claude-3.5', name: 'Claude 3.5', provider: 'anthropic', context_length: 200000, input_price: 0 },
+  {
+    id: 'claude-3.5',
+    name: 'Claude 3.5',
+    provider: 'anthropic',
+    context_length: 200000,
+    input_price: 0,
+  },
 ]
 
 // 本地 mock 智能体列表(对齐原项目 agentList 数据源)
 const MOCK_AGENTS: AgentInfo[] = [
-  { id: 'agent-1', name: 'AI 写作助手', description: '帮你撰写高质量文章、报告和文案', avatar: '', useCount: 1234, category: '写作' },
-  { id: 'agent-2', name: '编程助手', description: '代码编写、调试和优化建议', avatar: '', useCount: 2341, category: '开发' },
-  { id: 'agent-3', name: '数据分析师', description: '数据可视化和分析洞察', avatar: '', useCount: 987, category: '分析' },
-  { id: 'agent-4', name: '设计创意师', description: '创意设计和视觉方案', avatar: '', useCount: 876, category: '设计' },
-  { id: 'agent-5', name: '翻译达人', description: '多语言翻译和本地化', avatar: '', useCount: 765, category: '工具' },
+  {
+    id: 'agent-1',
+    name: 'AI 写作助手',
+    description: '帮你撰写高质量文章、报告和文案',
+    avatar: '',
+    useCount: 1234,
+    category: '写作',
+  },
+  {
+    id: 'agent-2',
+    name: '编程助手',
+    description: '代码编写、调试和优化建议',
+    avatar: '',
+    useCount: 2341,
+    category: '开发',
+  },
+  {
+    id: 'agent-3',
+    name: '数据分析师',
+    description: '数据可视化和分析洞察',
+    avatar: '',
+    useCount: 987,
+    category: '分析',
+  },
+  {
+    id: 'agent-4',
+    name: '设计创意师',
+    description: '创意设计和视觉方案',
+    avatar: '',
+    useCount: 876,
+    category: '设计',
+  },
+  {
+    id: 'agent-5',
+    name: '翻译达人',
+    description: '多语言翻译和本地化',
+    avatar: '',
+    useCount: 765,
+    category: '工具',
+  },
 ]
 
 // 本地 mock 技能列表(对齐原项目 skillsPopup 数据源)
 const MOCK_SKILLS: AgentItem[] = [
-  { id: 'skill-1', name: '文本生成', description: '高质量文本内容生成', avatar: '', useCount: 5678, category: 'text' },
-  { id: 'skill-2', name: '图片生成', description: 'AI 绘画和图片创作', avatar: '', useCount: 4321, category: 'image' },
-  { id: 'skill-3', name: '视频制作', description: 'AI 视频生成和编辑', avatar: '', useCount: 2345, category: 'video' },
-  { id: 'skill-4', name: '音频处理', description: '语音合成和音频编辑', avatar: '', useCount: 1234, category: 'audio' },
-  { id: 'skill-5', name: '代码生成', description: '多语言代码自动生成', avatar: '', useCount: 3456, category: 'text' },
-  { id: 'skill-6', name: '数据分析', description: '数据分析和可视化', avatar: '', useCount: 2100, category: 'text' },
-  { id: 'skill-7', name: 'AI 绘画', description: '文生图和图生图创作', avatar: '', useCount: 5432, category: 'image' },
-  { id: 'skill-8', name: '视频剪辑', description: '智能视频剪辑和特效', avatar: '', useCount: 1876, category: 'video' },
+  {
+    id: 'skill-1',
+    name: '文本生成',
+    description: '高质量文本内容生成',
+    avatar: '',
+    useCount: 5678,
+    category: 'text',
+  },
+  {
+    id: 'skill-2',
+    name: '图片生成',
+    description: 'AI 绘画和图片创作',
+    avatar: '',
+    useCount: 4321,
+    category: 'image',
+  },
+  {
+    id: 'skill-3',
+    name: '视频制作',
+    description: 'AI 视频生成和编辑',
+    avatar: '',
+    useCount: 2345,
+    category: 'video',
+  },
+  {
+    id: 'skill-4',
+    name: '音频处理',
+    description: '语音合成和音频编辑',
+    avatar: '',
+    useCount: 1234,
+    category: 'audio',
+  },
+  {
+    id: 'skill-5',
+    name: '代码生成',
+    description: '多语言代码自动生成',
+    avatar: '',
+    useCount: 3456,
+    category: 'text',
+  },
+  {
+    id: 'skill-6',
+    name: '数据分析',
+    description: '数据分析和可视化',
+    avatar: '',
+    useCount: 2100,
+    category: 'text',
+  },
+  {
+    id: 'skill-7',
+    name: 'AI 绘画',
+    description: '文生图和图生图创作',
+    avatar: '',
+    useCount: 5432,
+    category: 'image',
+  },
+  {
+    id: 'skill-8',
+    name: '视频剪辑',
+    description: '智能视频剪辑和特效',
+    avatar: '',
+    useCount: 1876,
+    category: 'video',
+  },
 ]
 
 // ===== 素材库数据类型 =====
@@ -122,27 +223,89 @@ interface MaterialCard {
 
 // 素材库 Mock 数据(对齐原项目 getMyCreation API 响应格式)
 const MOCK_MATERIAL_TEXT: MaterialItem[] = [
-  { id: 't1', title: 'AI 绘画入门指南', content: '本文详细介绍 AI 绘画的基础知识和常用工具...', time: '2026-08-10' },
-  { id: 't2', title: '深度学习模型优化技巧', content: '如何优化深度学习模型的训练速度和准确率...', time: '2026-08-09' },
-  { id: 't3', title: 'Prompt 工程最佳实践', content: '掌握 Prompt 工程的核心技巧,提升 AI 输出质量...', time: '2026-08-08' },
-  { id: 't4', title: '多模态 AI 应用场景', content: '探索多模态 AI 在医疗、教育、金融等领域的应用...', time: '2026-08-07' },
+  {
+    id: 't1',
+    title: 'AI 绘画入门指南',
+    content: '本文详细介绍 AI 绘画的基础知识和常用工具...',
+    time: '2026-08-10',
+  },
+  {
+    id: 't2',
+    title: '深度学习模型优化技巧',
+    content: '如何优化深度学习模型的训练速度和准确率...',
+    time: '2026-08-09',
+  },
+  {
+    id: 't3',
+    title: 'Prompt 工程最佳实践',
+    content: '掌握 Prompt 工程的核心技巧,提升 AI 输出质量...',
+    time: '2026-08-08',
+  },
+  {
+    id: 't4',
+    title: '多模态 AI 应用场景',
+    content: '探索多模态 AI 在医疗、教育、金融等领域的应用...',
+    time: '2026-08-07',
+  },
 ]
 
 const MOCK_MATERIAL_IMAGE: MaterialItem[] = [
-  { id: 'i1', title: '山水风景画', imageList: ['https://picsum.photos/seed/img1/300/300'], time: '2026-08-10' },
-  { id: 'i2', title: '城市夜景', imageList: ['https://picsum.photos/seed/img2/300/300'], time: '2026-08-09' },
-  { id: 'i3', title: '抽象艺术作品', imageList: ['https://picsum.photos/seed/img3/300/300'], time: '2026-08-08' },
+  {
+    id: 'i1',
+    title: '山水风景画',
+    imageList: ['https://picsum.photos/seed/img1/300/300'],
+    time: '2026-08-10',
+  },
+  {
+    id: 'i2',
+    title: '城市夜景',
+    imageList: ['https://picsum.photos/seed/img2/300/300'],
+    time: '2026-08-09',
+  },
+  {
+    id: 'i3',
+    title: '抽象艺术作品',
+    imageList: ['https://picsum.photos/seed/img3/300/300'],
+    time: '2026-08-08',
+  },
 ]
 
 const MOCK_MATERIAL_VIDEO: MaterialItem[] = [
-  { id: 'v1', title: 'AI 视频生成教程', videoUrl: 'https://example.com/video1.mp4', posterUrl: 'https://picsum.photos/seed/vid1/300/200', time: '2026-08-10' },
-  { id: 'v2', title: '数字人直播演示', videoUrl: 'https://example.com/video2.mp4', posterUrl: 'https://picsum.photos/seed/vid2/300/200', time: '2026-08-09' },
+  {
+    id: 'v1',
+    title: 'AI 视频生成教程',
+    videoUrl: 'https://example.com/video1.mp4',
+    posterUrl: 'https://picsum.photos/seed/vid1/300/200',
+    time: '2026-08-10',
+  },
+  {
+    id: 'v2',
+    title: '数字人直播演示',
+    videoUrl: 'https://example.com/video2.mp4',
+    posterUrl: 'https://picsum.photos/seed/vid2/300/200',
+    time: '2026-08-09',
+  },
 ]
 
 const MOCK_MATERIAL_AUDIO: MaterialItem[] = [
-  { id: 'a1', title: 'AI 语音合成演示', audioUrl: 'https://example.com/audio1.mp3', time: '2026-08-10' },
-  { id: 'a2', title: 'TTS 音色对比', audioUrl: 'https://example.com/audio2.mp3', time: '2026-08-09' },
-  { id: 'a3', title: '语音克隆效果', audioUrl: 'https://example.com/audio3.mp3', time: '2026-08-08' },
+  {
+    id: 'a1',
+    title: 'AI 语音合成演示',
+    audioUrl: 'https://example.com/audio1.mp3',
+    time: '2026-08-10',
+  },
+  {
+    id: 'a2',
+    title: 'TTS 音色对比',
+    audioUrl: 'https://example.com/audio2.mp3',
+    time: '2026-08-09',
+  },
+  {
+    id: 'a3',
+    title: '语音克隆效果',
+    audioUrl: 'https://example.com/audio3.mp3',
+    time: '2026-08-08',
+  },
 ]
 
 // 素材库 tab 配置
@@ -201,7 +364,7 @@ interface AiHomeState {
   isStreaming: boolean
   streamingContent: string
   sessionId: string
-  }
+}
 
 /**
  * PushNotification 推送通知(对齐原项目 PushNotification.vue L4 + L3646-3653)
@@ -233,49 +396,152 @@ function PushNotification() {
 }
 
 // ===== MaterialCards 子组件(提取自主组件,减少嵌套,对齐"做减法"原则)=====
-function MaterialCards({ cards, onRemove, tt }: {
+function MaterialCards({
+  cards,
+  onRemove,
+  tt,
+}: {
   cards: MaterialCard[]
   onRemove: (index: number) => void
   tt: (key: string, fallback: string) => string
 }) {
   if (cards.length === 0) return null
   return (
-    <View className="material-cards-wrap" style={{ background: 'var(--color-card-subtle, #fafafa)' }}>
+    <View
+      className="material-cards-wrap"
+      style={{ background: 'var(--color-card-subtle, #fafafa)' }}
+    >
       <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
-        <View className="material-cards-list" style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}>
+        <View
+          className="material-cards-list"
+          style={{ display: 'flex', flexDirection: 'row', padding: '10rpx 20rpx' }}
+        >
           {cards.map((card, index) => (
-            <View key={`mc-${card.id || index}-${index}`} className="material-card-item" style={{ marginRight: rpx(16) }}>
+            <View
+              key={`mc-${card.id || index}-${index}`}
+              className="material-card-item"
+              style={{ marginRight: rpx(16) }}
+            >
               <Image
                 src={closeInputPng}
                 mode="widthFix"
                 className="material-card-close"
-                style={{ width: rpx(32), height: rpx(32), position: 'absolute', top: rpx(-8), right: rpx(-8), zIndex: 2 }}
+                style={{
+                  width: rpx(32),
+                  height: rpx(32),
+                  position: 'absolute',
+                  top: rpx(-8),
+                  right: rpx(-8),
+                  zIndex: 2,
+                }}
                 onClick={() => onRemove(index)}
               />
               {card.type === 1 && (
-                <View className="material-card-body material-card-text" style={{ width: rpx(200), height: rpx(160), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16) }}>
-                  <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}>{card.title}</Text>
-                  <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888' }}>
-                    {(card.content || '').slice(0, 20)}{(card.content && card.content.length > 20) ? '...' : ''}
+                <View
+                  className="material-card-body material-card-text"
+                  style={{
+                    width: rpx(200),
+                    height: rpx(160),
+                    padding: rpx(12),
+                    background: 'var(--color-card)',
+                    borderRadius: rpx(16),
+                  }}
+                >
+                  <Text
+                    className="material-card-title"
+                    style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}
+                  >
+                    {card.title}
+                  </Text>
+                  <Text
+                    className="material-card-preview"
+                    style={{ fontSize: rpx(20), color: '#888' }}
+                  >
+                    {(card.content || '').slice(0, 20)}
+                    {card.content && card.content.length > 20 ? '...' : ''}
                   </Text>
                 </View>
               )}
               {card.type === 2 && card.imageList && card.imageList[0] && (
-                <View className="material-card-body material-card-img" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                  <Image src={card.imageList[0]} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                  <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                <View
+                  className="material-card-body material-card-img"
+                  style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}
+                >
+                  <Image
+                    src={card.imageList[0]}
+                    mode="aspectFill"
+                    style={{ width: rpx(200), height: rpx(140) }}
+                  />
+                  <Text
+                    className="material-card-title"
+                    style={{
+                      fontSize: rpx(22),
+                      padding: rpx(6),
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                    }}
+                  >
+                    {card.title}
+                  </Text>
                 </View>
               )}
               {card.type === 3 && (
-                <View className="material-card-body material-card-video" style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}>
-                  <Image src={card.posterUrl || card.videoUrl || ''} mode="aspectFill" style={{ width: rpx(200), height: rpx(140) }} />
-                  <Text className="material-card-title" style={{ fontSize: rpx(22), padding: rpx(6), background: 'rgba(0,0,0,0.5)', color: '#fff', position: 'absolute', bottom: 0, left: 0, right: 0 }}>{card.title}</Text>
+                <View
+                  className="material-card-body material-card-video"
+                  style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}
+                >
+                  <Image
+                    src={card.posterUrl || card.videoUrl || ''}
+                    mode="aspectFill"
+                    style={{ width: rpx(200), height: rpx(140) }}
+                  />
+                  <Text
+                    className="material-card-title"
+                    style={{
+                      fontSize: rpx(22),
+                      padding: rpx(6),
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                    }}
+                  >
+                    {card.title}
+                  </Text>
                 </View>
               )}
               {card.type === 4 && (
-                <View className="material-card-body material-card-audio" style={{ width: rpx(200), height: rpx(140), padding: rpx(12), background: 'var(--color-card)', borderRadius: rpx(16), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text className="material-card-title" style={{ fontSize: rpx(24), fontWeight: 'bold' }}>{card.title}</Text>
-                  <Text className="material-card-preview" style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}>{tt('index.material.audio', '音频')}</Text>
+                <View
+                  className="material-card-body material-card-audio"
+                  style={{
+                    width: rpx(200),
+                    height: rpx(140),
+                    padding: rpx(12),
+                    background: 'var(--color-card)',
+                    borderRadius: rpx(16),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    className="material-card-title"
+                    style={{ fontSize: rpx(24), fontWeight: 'bold' }}
+                  >
+                    {card.title}
+                  </Text>
+                  <Text
+                    className="material-card-preview"
+                    style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}
+                  >
+                    {tt('index.material.audio', '音频')}
+                  </Text>
                 </View>
               )}
             </View>
@@ -318,7 +584,10 @@ function VoiceAnimationOverlay({
       <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', marginBottom: rpx(20) }}>
         {tt('index.voice.listening', '正在聆听...')}
       </Text>
-      <View className="voice-wave-container" style={{ display: 'flex', alignItems: 'center', gap: rpx(8), height: rpx(80) }}>
+      <View
+        className="voice-wave-container"
+        style={{ display: 'flex', alignItems: 'center', gap: rpx(8), height: rpx(80) }}
+      >
         {[1, 2, 3, 4, 5].map((i) => (
           <View
             key={i}
@@ -360,7 +629,11 @@ export default function Index() {
       { key: 'superAgent', label: tt('index.feature.superAgent', '深度思考'), active: false },
       { key: 'mcp', label: tt('index.feature.mcp', '联网'), active: false },
       { key: 'knowledgeBase', label: tt('index.feature.knowledgeBase', '知识库'), active: false },
-      { key: 'permanentMemory', label: tt('index.feature.permanentMemory', '永久记忆'), active: false },
+      {
+        key: 'permanentMemory',
+        label: tt('index.feature.permanentMemory', '永久记忆'),
+        active: false,
+      },
     ],
     groupedData: [
       {
@@ -369,8 +642,16 @@ export default function Index() {
           {
             date: tt('index.mock.today', '今天'),
             chats: [
-              { id: 1, title: tt('index.mock.post1Title', '如何使用 React Hooks?'), date: tt('index.mock.today', '今天') },
-              { id: 2, title: tt('index.mock.post2Title', 'TypeScript 类型推断'), date: tt('index.mock.today', '今天') },
+              {
+                id: 1,
+                title: tt('index.mock.post1Title', '如何使用 React Hooks?'),
+                date: tt('index.mock.today', '今天'),
+              },
+              {
+                id: 2,
+                title: tt('index.mock.post2Title', 'TypeScript 类型推断'),
+                date: tt('index.mock.today', '今天'),
+              },
             ],
           },
         ],
@@ -381,7 +662,11 @@ export default function Index() {
           {
             date: tt('index.mock.yesterday', '昨天'),
             chats: [
-              { id: 3, title: tt('index.mock.post3Title', '设计模式讨论'), date: tt('index.mock.yesterday', '昨天') },
+              {
+                id: 3,
+                title: tt('index.mock.post3Title', '设计模式讨论'),
+                date: tt('index.mock.yesterday', '昨天'),
+              },
             ],
           },
         ],
@@ -427,7 +712,7 @@ export default function Index() {
     isStreaming: false,
     streamingContent: '',
     sessionId: '',
-    }))
+  }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
@@ -567,7 +852,8 @@ export default function Index() {
   // 点击容器空白处关闭所有弹出层(由内层组件自行 stopPropagation)
   const handleContainerClick = useCallback(() => {
     setState((s) => {
-      if (!s.showModelList && !s.showAgentList && !s.showSkillsPopup && !s.showMaterialList) return s
+      if (!s.showModelList && !s.showAgentList && !s.showSkillsPopup && !s.showMaterialList)
+        return s
       return {
         ...s,
         showModelList: false,
@@ -782,7 +1068,9 @@ export default function Index() {
     const card: MaterialCard = {
       type,
       id: item.id,
-      title: item.title || (type === 1 ? '文本内容' : type === 2 ? '图片内容' : type === 3 ? '视频内容' : '音频内容'),
+      title:
+        item.title ||
+        (type === 1 ? '文本内容' : type === 2 ? '图片内容' : type === 3 ? '视频内容' : '音频内容'),
       content: item.content,
       imageList: item.imageList,
       videoUrl: item.videoUrl,
@@ -853,7 +1141,11 @@ export default function Index() {
 
   // ===== 当前类型模型列表(对齐原项目根据 currentModelType 过滤)=====
   const filteredModels = useMemo(() => {
-    if (!state.currentModelType || state.currentModelType === 'skills' || state.currentModelType === 'sck') {
+    if (
+      !state.currentModelType ||
+      state.currentModelType === 'skills' ||
+      state.currentModelType === 'sck'
+    ) {
       return models
     }
     return models
@@ -862,16 +1154,31 @@ export default function Index() {
   // ===== 获取当前 tab 的素材列表 =====
   const currentMaterialList = useMemo(() => {
     switch (state.materialTab) {
-      case 1: return state.materialTextList
-      case 2: return state.materialImageList
-      case 3: return state.materialVideoList
-      case 4: return state.materialAudioList
-      default: return state.materialTextList
+      case 1:
+        return state.materialTextList
+      case 2:
+        return state.materialImageList
+      case 3:
+        return state.materialVideoList
+      case 4:
+        return state.materialAudioList
+      default:
+        return state.materialTextList
     }
-  }, [state.materialTab, state.materialTextList, state.materialImageList, state.materialVideoList, state.materialAudioList])
+  }, [
+    state.materialTab,
+    state.materialTextList,
+    state.materialImageList,
+    state.materialVideoList,
+    state.materialAudioList,
+  ])
 
   return (
-    <View className="ai-home-page min-h-screen" style={{ background: 'var(--color-background)' }} onClick={handleContainerClick}>
+    <View
+      className="ai-home-page min-h-screen"
+      style={{ background: 'var(--color-background)' }}
+      onClick={handleContainerClick}
+    >
       {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
       <PushNotification />
 
@@ -915,7 +1222,15 @@ export default function Index() {
           }}
         >
           {/* 顶部 share-image(缩小为右上角小图标,对齐原项目 titlebox-right)*/}
-          <View className="titlebox" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}>
+          <View
+            className="titlebox"
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: rpx(10),
+            }}
+          >
             <View className="titlebox-right">
               <Image
                 className="share-image"
@@ -944,8 +1259,17 @@ export default function Index() {
             onScrollToLower={() => {}}
           >
             {state.conversationMessages.length === 0 && !state.isStreaming ? (
-              <View className="flex flex-col items-center justify-center" style={{ paddingTop: rpx(200) }}>
-                <Text style={{ fontSize: rpx(32), color: 'var(--color-muted-foreground)', marginBottom: rpx(16) }}>
+              <View
+                className="flex flex-col items-center justify-center"
+                style={{ paddingTop: rpx(200) }}
+              >
+                <Text
+                  style={{
+                    fontSize: rpx(32),
+                    color: 'var(--color-muted-foreground)',
+                    marginBottom: rpx(16),
+                  }}
+                >
                   {tt('index.welcome', '欢迎使用智汇AI社区')}
                 </Text>
                 <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date, #888)' }}>
@@ -968,7 +1292,10 @@ export default function Index() {
                     maxWidth: '80%',
                     padding: `${rpx(16)} ${rpx(20)}`,
                     borderRadius: rpx(16),
-                    background: msg.role === 'user' ? 'var(--color-brand-cyan, #93d2f3)' : 'var(--color-card)',
+                    background:
+                      msg.role === 'user'
+                        ? 'var(--color-brand-cyan, #93d2f3)'
+                        : 'var(--color-card)',
                     color: msg.role === 'user' ? '#000' : 'var(--color-foreground)',
                     fontSize: rpx(28),
                     lineHeight: 1.6,
@@ -1001,15 +1328,36 @@ export default function Index() {
                   }}
                 >
                   <Text>{state.streamingContent}</Text>
-                  <Text style={{ display: 'inline-block', width: rpx(8), height: rpx(28), background: 'var(--color-brand-cyan, #93d2f3)', marginLeft: rpx(4), animation: 'blink 1s infinite' }}>|</Text>
+                  <Text
+                    style={{
+                      display: 'inline-block',
+                      width: rpx(8),
+                      height: rpx(28),
+                      background: 'var(--color-brand-cyan, #93d2f3)',
+                      marginLeft: rpx(4),
+                      animation: 'blink 1s infinite',
+                    }}
+                  >
+                    |
+                  </Text>
                 </View>
               </View>
             ) : null}
             {/* loading 占位(流式刚开始,onChunk 还未到)*/}
             {state.isStreaming && !state.streamingContent ? (
-              <View style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: rpx(16) }}>
-                <View style={{ padding: `${rpx(16)} ${rpx(20)}`, borderRadius: rpx(16), background: 'var(--color-card)' }}>
-                  <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>{tt('index.thinking', '思考中...')}</Text>
+              <View
+                style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: rpx(16) }}
+              >
+                <View
+                  style={{
+                    padding: `${rpx(16)} ${rpx(20)}`,
+                    borderRadius: rpx(16),
+                    background: 'var(--color-card)',
+                  }}
+                >
+                  <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
+                    {tt('index.thinking', '思考中...')}
+                  </Text>
                 </View>
               </View>
             ) : null}
@@ -1032,7 +1380,10 @@ export default function Index() {
             {/* ModelList/AgentList/MaterialList 区域(对齐原项目 padding 0 20rpx) */}
             <View style={{ padding: '0 20rpx' }}>
               {/* ModelList 模型列表 */}
-              {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
+              {state.showModelList &&
+              state.currentModelType &&
+              state.currentModelType !== 'skills' &&
+              state.currentModelType !== 'sck' ? (
                 <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
                   <ModelList
                     variant="popup"
@@ -1072,7 +1423,10 @@ export default function Index() {
               ) : null}
               {/* MaterialList 素材库弹窗(对齐原项目 MaterialList) */}
               {state.showMaterialList ? (
-                <View className="material-list-container" onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                <View
+                  className="material-list-container"
+                  onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+                >
                   {/* Tab 栏:文本/图片/视频/音频 */}
                   <View className="material-tabs">
                     {MATERIAL_TABS.map((tab) => (
@@ -1113,7 +1467,8 @@ export default function Index() {
                               <Text className="material-item-title">{item.title}</Text>
                               {item.content && (
                                 <Text className="material-item-preview">
-                                  {(item.content || '').slice(0, 40)}{(item.content && item.content.length > 40) ? '...' : ''}
+                                  {(item.content || '').slice(0, 40)}
+                                  {item.content && item.content.length > 40 ? '...' : ''}
                                 </Text>
                               )}
                             </View>
@@ -1146,7 +1501,9 @@ export default function Index() {
                           {state.materialTab === 4 && (
                             <View className="material-item-audio">
                               <Text className="material-item-title">{item.title}</Text>
-                              <Text className="material-item-preview">{tt('index.material.audio', '音频')}</Text>
+                              <Text className="material-item-preview">
+                                {tt('index.material.audio', '音频')}
+                              </Text>
                             </View>
                           )}
                         </View>
@@ -1225,7 +1582,14 @@ export default function Index() {
       <VoiceAnimationOverlay
         visible={state.isVoiceAnimationActive}
         tt={tt}
-        onClose={() => setState((s) => ({ ...s, isVoiceAnimationActive: false, isVoiceInput: false, isRecording: false }))}
+        onClose={() =>
+          setState((s) => ({
+            ...s,
+            isVoiceAnimationActive: false,
+            isVoiceInput: false,
+            isRecording: false,
+          }))
+        }
       />
 
       {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if,在 input_box_content 之外) ===== */}
@@ -1239,11 +1603,7 @@ export default function Index() {
             className="ai-flip-in relative z-10 flex flex-col items-center"
             onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
-            <Image
-              src={SHARE_ZHZ_IMG}
-              style={{ width: rpx(440) }}
-              mode="widthFix"
-            />
+            <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
             {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
             <Button
               openType="share"
@@ -1291,16 +1651,28 @@ export default function Index() {
                 }).catch(() => {})
               }}
             />
-            <Text style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}>
+            <Text
+              style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}
+            >
               {tt('index.qrCodeHint', '扫描二维码加入社区')}
             </Text>
             {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
             <View
               className="ai-close-btn"
-              style={{ top: rpx(10), right: rpx(10), width: rpx(60), height: rpx(60), border: '1px solid #000' }}
+              style={{
+                top: rpx(10),
+                right: rpx(10),
+                width: rpx(60),
+                height: rpx(60),
+                border: '1px solid #000',
+              }}
               onClick={handleQrCodeClose}
             >
-              <Text style={{ fontSize: rpx(60), lineHeight: rpx(60), color: 'var(--color-foreground)' }}>×</Text>
+              <Text
+                style={{ fontSize: rpx(60), lineHeight: rpx(60), color: 'var(--color-foreground)' }}
+              >
+                ×
+              </Text>
             </View>
           </View>
         </View>

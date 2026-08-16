@@ -62,7 +62,9 @@ export const aiTutorRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       // 2026-08-06 修复:必须 return reply,防止 handler 在未认证时继续执行
-      return reply.status(statusCode).send(error(statusCode, toUserFriendlyMessage(e) || '需要登录'))
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, toUserFriendlyMessage(e) || '需要登录'))
     }
   })
 

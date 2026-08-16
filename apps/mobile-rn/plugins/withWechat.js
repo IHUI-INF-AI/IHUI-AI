@@ -14,7 +14,12 @@
  *   - universalLink  iOS UniversalLink(需与 associatedDomains 的 applinks: 域名一致)
  *   - androidPackage Android applicationId(= config.android.package)
  */
-const { withInfoPlist, withAndroidManifest, withDangerousMod, withAppDelegate } = require('expo/config-plugins')
+const {
+  withInfoPlist,
+  withAndroidManifest,
+  withDangerousMod,
+  withAppDelegate,
+} = require('expo/config-plugins')
 const fs = require('fs')
 const path = require('path')
 

@@ -74,15 +74,7 @@ function TypingIndicator({
 
   return (
     <div className="flex items-center gap-2 py-1">
-      <span
-        className="animate-shimmer bg-clip-text text-xs font-medium text-transparent"
-        style={{
-          backgroundImage:
-            'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
-          backgroundSize: '200% 100%',
-          WebkitBackgroundClip: 'text',
-        }}
-      >
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
     </div>
@@ -162,6 +154,8 @@ interface MessageItemProps {
   isSearchMatch?: boolean
   /** Phase 23: 搜索当前定位的消息(ring-2 ring-yellow-400) */
   isSearchCurrent?: boolean
+  /** 代码块默认折叠行数,<=0 表示不折叠 */
+  codeCollapseLines?: number
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -177,6 +171,7 @@ const MessageItem = React.memo(function MessageItem({
   onMessageHover,
   isSearchMatch = false,
   isSearchCurrent = false,
+  codeCollapseLines,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
@@ -437,7 +432,7 @@ const MessageItem = React.memo(function MessageItem({
         ) : (
           <div
             className={cn(
-              'space-y-2 animate-in fade-in-0 duration-150 fill-mode-both',
+              'space-y-0 animate-in fade-in-0 duration-150 fill-mode-both',
               // 2026-08-02:内容可见性切换(Eye/EyeOff)— 折叠时限高,仅显示前几行
               !contentVisible && 'max-h-20 overflow-hidden',
             )}
@@ -516,7 +511,7 @@ const MessageItem = React.memo(function MessageItem({
                 />
               )
             })}
-            <MarkdownStream content={m.content} isStreaming={streamingThis} />
+            <MarkdownStream content={m.content} isStreaming={streamingThis} collapseLines={codeCollapseLines} />
             {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
                 - 优先用 SSE tool-summary 事件聚合结果(m.toolCallSummary)
                 - 缺失时降级从 m.toolCalls 本地聚合
@@ -829,6 +824,8 @@ interface MessageListProps {
   subAgentActivities?: SubAgentActivity[]
   /** Phase 18.4: step budget 显示(从 store 派生,目前用固定 60 上限) */
   stepBudget?: { used: number; total: number }
+  /** 代码块默认折叠行数，<=0 表示不折叠 */
+  codeCollapseLines?: number
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -859,6 +856,7 @@ export function MessageList({
   onClearFallbackNotice,
   subAgentActivities: subAgentActivitiesProp,
   stepBudget: _stepBudget,
+  codeCollapseLines,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -1045,14 +1043,19 @@ export function MessageList({
   ])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
-  // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
-  // - 新消息到达(messages.length 增加)时强制滚到底
+  // - 流式输出时强制滚到底(保持最新内容可见)
+  // - 新消息到达时强制滚到底
+  // - 非流式 + 用户向上滚动时暂停自动滚动(避免打断阅读)
   // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
   React.useEffect(() => {
     const newLen = messages.length
     const isNewMessage = newLen > prevMessagesLenRef.current
     prevMessagesLenRef.current = newLen
-    if (!isNewMessage && userScrolledUpRef.current) return
+    // 2026-08-16 修复:流式输出也尊重用户上翻——此前 isStreaming 恒强制滚底,
+    // 用户在流式生成时翻看历史会被拉回底部(打断阅读)。
+    // 新消息到达仍强制滚底;流式 token 仅在用户未上翻时跟随滚底。
+    const shouldForceScroll = isNewMessage || (!userScrolledUpRef.current && isStreaming)
+    if (!shouldForceScroll && userScrolledUpRef.current) return
 
     const doScroll = () => {
       const el = bottomRef.current
@@ -1773,6 +1776,9 @@ export function MessageList({
     ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
+  // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
+  // lint error),且 console.log 为调试残留——删除,虚拟滚动 padding 信息无需打印。
+
   // 单一整合对话流视图(2026-07-31 立,彻底整合,对标 Trae/Codex 单一对话流)
   // - 移除 tablist 切换(对话流/时间线/全部 三 tab)
   // - 移除独立时间线面板(对话流已内联工具调用/子代理/计划等,时间线是冗余汇总)
@@ -1786,7 +1792,7 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-0 px-4 py-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
@@ -1855,6 +1861,7 @@ export function MessageList({
                     contextMenu.setData(m)
                     contextMenu.contextMenuHandlers.onContextMenu(e)
                   }}
+                  codeCollapseLines={codeCollapseLines}
                 />
                 {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
                   2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
@@ -1865,7 +1872,12 @@ export function MessageList({
           )
         })}
         {/* #7 虚拟滚动底部占位 */}
-        {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
+        {paddingBottom > 0 && (
+          <div
+            style={{ height: paddingBottom, flexShrink: 0 }}
+            data-testid="virtual-scroll-padding-bottom"
+          />
+        )}
         {/* 2026-07-31 立,AI 对话可视化深度接入:TimelineTab inline 到对话底部
           - 显示完整时间线事件流(plan/subagent/tool/thinking/question/reference)
           - 实时刷新(useTimelineStore 响应式)

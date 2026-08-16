@@ -80,9 +80,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         )}
       </button>
       {language && (
-        <div className="bg-muted/80 px-3 py-1 text-xs text-muted-foreground">
-          {language}
-        </div>
+        <div className="bg-muted/80 px-3 py-1 text-xs text-muted-foreground">{language}</div>
       )}
       <pre className="overflow-auto p-3 text-xs">
         <code>{code}</code>

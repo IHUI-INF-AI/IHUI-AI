@@ -11,7 +11,6 @@ import otherIcon from '../assets/images/add/other.svg'
 import sckIcon from '../assets/images/add/sck.svg'
 import { rpx } from '@/utils/rpx'
 
-
 export interface ModelTypeConfig {
   type: ModelType
   label: string
@@ -66,15 +65,9 @@ export default function ModelTypeButtonGroup({
   if (variant === 'wide') {
     // ===== wide 模式:对齐原项目 ai_index.vue 8 个 model-type-btn(scroll-x 横向滚动)=====
     return (
-      <View
-        className="flex flex-row justify-center"
-        style={{ marginBottom: rpx(10) }}
-      >
+      <View className="flex flex-row justify-center" style={{ marginBottom: rpx(10) }}>
         <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
-          <View
-            className="inline-flex flex-row items-center"
-            style={{ padding: '0 20rpx' }}
-          >
+          <View className="inline-flex flex-row items-center" style={{ padding: '0 20rpx' }}>
             {types.map((cfg) => (
               <ModelTypeButton
                 key={cfg.type}

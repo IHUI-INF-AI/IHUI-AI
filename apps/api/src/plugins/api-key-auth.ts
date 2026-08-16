@@ -468,15 +468,14 @@ async function authenticateShareToken(
   // P2-3 修复(2026-08-06):原预估只用 max_tokens(输出上限),低估真实消耗。
   // 增加输入估算:prompt 字符数 / 4(约 4 字符 ≈ 1 token,中文更密),与输出上限求和。
   const bodyAny = body as { messages?: unknown; max_tokens?: number }
-  const promptText =
-    Array.isArray(bodyAny.messages)
-      ? bodyAny.messages
-          .map((m) => {
-            const mm = m as { content?: unknown }
-            return typeof mm?.content === 'string' ? mm.content : ''
-          })
-          .join('')
-      : ''
+  const promptText = Array.isArray(bodyAny.messages)
+    ? bodyAny.messages
+        .map((m) => {
+          const mm = m as { content?: unknown }
+          return typeof mm?.content === 'string' ? mm.content : ''
+        })
+        .join('')
+    : ''
   const promptEstimate = Math.ceil(promptText.length / 4)
   const maxTokens = typeof bodyAny.max_tokens === 'number' ? bodyAny.max_tokens : 1000
   const estimatedTokens = promptEstimate + maxTokens

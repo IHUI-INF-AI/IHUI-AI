@@ -40,7 +40,6 @@ export default function VipUpgradeToast({
 
   return (
     <View className="fixed top-4 left-0 right-0 z-40 flex justify-center px-4">
-
       <View
         className="flex items-center px-4 py-2.5 rounded-md shadow-lg"
         style={{ background: 'linear-gradient(90deg, #fef3c7, #fde68a)' }}

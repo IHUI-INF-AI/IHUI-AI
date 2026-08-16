@@ -73,7 +73,9 @@ export default function CustomerServiceFloat({
   const [dragging, setDragging] = useState(false)
 
   const screenSize = useRef({ width: 375, height: 667 })
-  const dragStart = useRef<{ touchX: number; touchY: number; posX: number; posY: number } | null>(null)
+  const dragStart = useRef<{ touchX: number; touchY: number; posX: number; posY: number } | null>(
+    null,
+  )
   const moved = useRef(false)
 
   useEffect(() => {
@@ -170,9 +172,7 @@ export default function CustomerServiceFloat({
     const midX = screenSize.current.width / 2
     setPos((prev) => {
       const snappedX =
-        prev.x + FLOAT_BTN_SIZE / 2 > midX
-          ? screenSize.current.width - FLOAT_BTN_SIZE
-          : 0
+        prev.x + FLOAT_BTN_SIZE / 2 > midX ? screenSize.current.width - FLOAT_BTN_SIZE : 0
       const next = { x: snappedX, y: prev.y }
       try {
         Taro.setStorageSync(posKey, JSON.stringify(next))

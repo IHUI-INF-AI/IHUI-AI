@@ -2,7 +2,13 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { X509Certificate, createPrivateKey, randomBytes, createSign, createVerify } from 'node:crypto'
+import {
+  X509Certificate,
+  createPrivateKey,
+  randomBytes,
+  createSign,
+  createVerify,
+} from 'node:crypto'
 
 /**
  * 真实微信支付证书 fixtures 测试(2026-07-18 证书激活)

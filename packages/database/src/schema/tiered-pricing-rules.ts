@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, integer, numeric, boolean, timestamp, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  numeric,
+  boolean,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 阶梯计价规则表(2026-08-01 立,用得越多越便宜)。

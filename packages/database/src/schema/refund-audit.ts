@@ -1,13 +1,7 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  index,
-} from 'drizzle-orm/pg-core';
-import { eduOrders } from './order.js';
-import { eduRefunds } from './order.js';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core'
+import { eduOrders } from './order.js'
+import { eduRefunds } from './order.js'
+import { users } from './users.js'
 
 /**
  * 退款审核记录表。
@@ -35,7 +29,7 @@ export const refundAuditRecords = pgTable(
     refundIdx: index('refund_audit_records_refund_idx').on(t.refundId),
     auditorIdx: index('refund_audit_records_auditor_idx').on(t.auditorId),
   }),
-);
+)
 
-export type RefundAuditRecord = typeof refundAuditRecords.$inferSelect;
-export type NewRefundAuditRecord = typeof refundAuditRecords.$inferInsert;
+export type RefundAuditRecord = typeof refundAuditRecords.$inferSelect
+export type NewRefundAuditRecord = typeof refundAuditRecords.$inferInsert

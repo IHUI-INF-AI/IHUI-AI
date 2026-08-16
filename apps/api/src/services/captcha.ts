@@ -4,28 +4,28 @@
  * 主存储 Redis（code-store 复用），fallback 到 DB captchas 表。
  */
 
-import { randomBytes, randomInt } from 'node:crypto';
-import { env } from 'node:process';
+import { randomBytes, randomInt } from 'node:crypto'
+import { env } from 'node:process'
 
-const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
 
 export interface CaptchaResult {
-  captchaKey: string;
-  img: string;
-  code: string;
+  captchaKey: string
+  img: string
+  code: string
 }
 
 export function generateCaptchaKey(): string {
-  return randomBytes(16).toString('hex');
+  return randomBytes(16).toString('hex')
 }
 
 export function generateCaptchaCode(): string {
-  let code = '';
-  const rand = randomBytes(4);
+  let code = ''
+  const rand = randomBytes(4)
   for (let i = 0; i < 4; i++) {
-    code += CHARS[(rand[i] ?? 0) % CHARS.length] ?? '';
+    code += CHARS[(rand[i] ?? 0) % CHARS.length] ?? ''
   }
-  return code;
+  return code
 }
 
 /**
@@ -37,32 +37,30 @@ export function generateCaptchaCode(): string {
  * (虽然仅影响视觉,但消除 CWE-330 可预测随机残留,保持代码基线一致)
  */
 export function generateCaptchaImage(code: string): string {
-  const rand = randomBytes(64);
-  let offset = 0;
+  const rand = randomBytes(64)
+  let offset = 0
   // SVG 图片，4 位字符，120x40，带噪点
-  const chars = code.split('');
+  const chars = code.split('')
   const noise = Array.from({ length: 10 }, () => {
-    const x = randomInt(0, 120);
-    const y = randomInt(0, 40);
-    const colorBytes = rand.subarray(offset, offset + 3);
-    offset = (offset + 3) % rand.length;
-    const color = `00000${(colorBytes[0]! * 0x010101 & 0xffffff).toString(16)}`.slice(-6);
-    return `<circle cx="${x}" cy="${y}" r="1" fill="#${color}" opacity="0.4"/>`;
-  }).join('');
+    const x = randomInt(0, 120)
+    const y = randomInt(0, 40)
+    const colorBytes = rand.subarray(offset, offset + 3)
+    offset = (offset + 3) % rand.length
+    const color = `00000${((colorBytes[0]! * 0x010101) & 0xffffff).toString(16)}`.slice(-6)
+    return `<circle cx="${x}" cy="${y}" r="1" fill="#${color}" opacity="0.4"/>`
+  }).join('')
   const text = chars
-    .map(
-      (c, i) => {
-        const colorBytes = rand.subarray(offset, offset + 3);
-        offset = (offset + 3) % rand.length;
-        const colorValue = 0x333333 + (colorBytes[0]! * 0x333 & 0x666666);
-        const color = `00000${colorValue.toString(16)}`.slice(-6);
-        const rotate = randomInt(-10, 11);
-        return `<text x="${15 + i * 28}" y="28" font-size="24" font-family="monospace" fill="#${color}" transform="rotate(${rotate} ${15 + i * 28} 20)">${c}</text>`;
-      },
-    )
-    .join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">${noise}${text}</svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+    .map((c, i) => {
+      const colorBytes = rand.subarray(offset, offset + 3)
+      offset = (offset + 3) % rand.length
+      const colorValue = 0x333333 + ((colorBytes[0]! * 0x333) & 0x666666)
+      const color = `00000${colorValue.toString(16)}`.slice(-6)
+      const rotate = randomInt(-10, 11)
+      return `<text x="${15 + i * 28}" y="28" font-size="24" font-family="monospace" fill="#${color}" transform="rotate(${rotate} ${15 + i * 28} 20)">${c}</text>`
+    })
+    .join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">${noise}${text}</svg>`
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
 
 /**
@@ -70,12 +68,12 @@ export function generateCaptchaImage(code: string): string {
  * 调用方负责从 Redis/DB 取出 code 后调用此函数。
  */
 export function verifyCaptcha(storedCode: string, inputCode: string): boolean {
-  return storedCode.toLowerCase() === inputCode.toLowerCase();
+  return storedCode.toLowerCase() === inputCode.toLowerCase()
 }
 
 /**
  * 判断验证码服务是否启用（DEV 环境可关闭）。
  */
 export function isCaptchaEnabled(): boolean {
-  return env.CAPTCHA_DISABLED !== 'true';
+  return env.CAPTCHA_DISABLED !== 'true'
 }

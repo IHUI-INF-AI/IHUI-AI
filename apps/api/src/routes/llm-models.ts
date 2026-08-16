@@ -34,9 +34,7 @@ const RESTRICTED_MODEL_IDS = new Set([
 ])
 
 function isRestrictedModel(id: string): boolean {
-  return (
-    RESTRICTED_MODEL_IDS.has(id) || RESTRICTED_PREFIXES.some((p) => id.startsWith(p))
-  )
+  return RESTRICTED_MODEL_IDS.has(id) || RESTRICTED_PREFIXES.some((p) => id.startsWith(p))
 }
 
 /**

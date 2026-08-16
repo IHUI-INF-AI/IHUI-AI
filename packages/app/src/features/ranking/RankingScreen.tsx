@@ -205,7 +205,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     podiumFirst: { backgroundColor: tk.warning.amberLight },
     podiumAvatar: {
-      width: 48, height: 48, borderRadius: 24,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -232,7 +234,9 @@ function createStyles(tk: AppThemeTokens) {
     cardMe: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     rankText: { width: 36, fontSize: 16, fontWeight: '700' },
     listAvatar: {
-      width: 44, height: 44, borderRadius: 22,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',

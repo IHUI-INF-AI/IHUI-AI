@@ -33,14 +33,7 @@ interface Props {
   onClose: () => void
 }
 
-export function AskDialog({
-  open,
-  editing,
-  defaultValues,
-  savePending,
-  onValid,
-  onClose,
-}: Props) {
+export function AskDialog({ open, editing, defaultValues, savePending, onValid, onClose }: Props) {
   const t = useTranslations('admin.asks')
   const { form } = useZodForm<AskFormValues>({
     schema: askSchema,
@@ -63,11 +56,7 @@ export function AskDialog({
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="ask-title">{t('fieldTitle')}</Label>
-            <Input
-              id="ask-title"
-              {...form.register('title')}
-              placeholder={t('titlePlaceholder')}
-            />
+            <Input id="ask-title" {...form.register('title')} placeholder={t('titlePlaceholder')} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="ask-content">{t('fieldContent')}</Label>
@@ -81,18 +70,18 @@ export function AskDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="ask-tags">{t('fieldTags')}</Label>
-            <Input
-              id="ask-tags"
-              {...form.register('tags')}
-              placeholder={t('tagsPlaceholder')}
-            />
+            <Input id="ask-tags" {...form.register('tags')} placeholder={t('tagsPlaceholder')} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="ask-status">{t('fieldStatus')}</Label>
               <Select
                 value={String(form.watch('status'))}
-                onValueChange={(v) => form.setValue('status', Number(v) as AskFormValues['status'], { shouldDirty: true })}
+                onValueChange={(v) =>
+                  form.setValue('status', Number(v) as AskFormValues['status'], {
+                    shouldDirty: true,
+                  })
+                }
               >
                 <SelectTrigger className={selectClass} id="ask-status">
                   <SelectValue />
@@ -109,7 +98,9 @@ export function AskDialog({
                 <input
                   type="checkbox"
                   checked={form.watch('isResolved')}
-                  onChange={(e) => form.setValue('isResolved', e.target.checked, { shouldDirty: true })}
+                  onChange={(e) =>
+                    form.setValue('isResolved', e.target.checked, { shouldDirty: true })
+                  }
                   className="h-4 w-4 accent-primary"
                 />
                 {t('fieldResolved')}

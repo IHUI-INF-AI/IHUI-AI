@@ -42,7 +42,8 @@ function shanghaiDayStartUtc(daysAgo = 0): Date {
       shanghaiNow.getUTCFullYear(),
       shanghaiNow.getUTCMonth(),
       shanghaiNow.getUTCDate() - daysAgo,
-    ) - 8 * 3600 * 1000,
+    ) -
+      8 * 3600 * 1000,
   )
 }
 

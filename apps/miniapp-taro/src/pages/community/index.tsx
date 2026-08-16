@@ -298,8 +298,7 @@ export default function Community() {
     void loadCategories()
     try {
       const userData = Taro.getStorageSync('data') as
-        | { avatar?: string; userName?: string; nickname?: string }
-        | undefined
+        { avatar?: string; userName?: string; nickname?: string } | undefined
       if (userData) {
         setDrawerUserinfo({
           avatar: userData.avatar || '',
@@ -355,8 +354,7 @@ export default function Community() {
     } else {
       setAgentList(
         fullAgentList.filter(
-          (a) =>
-            a.agentName.includes(keyword) || a.agentDescription.includes(keyword),
+          (a) => a.agentName.includes(keyword) || a.agentDescription.includes(keyword),
         ),
       )
     }
@@ -370,9 +368,7 @@ export default function Community() {
       setAgentList(fullAgentList)
     } else {
       const catName = categories.find((c) => c.id === catId)?.name || ''
-      setAgentList(
-        fullAgentList.filter((a) => a.agentMainCategory.some((c) => c.name === catName)),
-      )
+      setAgentList(fullAgentList.filter((a) => a.agentMainCategory.some((c) => c.name === catName)))
     }
   }
 
@@ -404,12 +400,14 @@ export default function Community() {
   const handlePurchase = useCallback(async (agent: AgentInfo) => {
     purchasingAgentRef.current = agent
     try {
-      const res = (await api.getChargeInfoById(agent.id)) as {
-        price?: number
-        discountPrice?: number
-        duration?: string
-        agentName?: string
-      } | undefined
+      const res = (await api.getChargeInfoById(agent.id)) as
+        | {
+            price?: number
+            discountPrice?: number
+            duration?: string
+            agentName?: string
+          }
+        | undefined
       const info: PayInfo = {
         title: res?.agentName || agent.name,
         amount: res?.price ?? 0,
@@ -438,7 +436,11 @@ export default function Community() {
       setAgentList((prev) =>
         prev.map((a) =>
           a.id === id
-            ? { ...a, isCollect: a.isCollect ? 0 : 1, collectCount: a.collectCount + (a.isCollect ? -1 : 1) }
+            ? {
+                ...a,
+                isCollect: a.isCollect ? 0 : 1,
+                collectCount: a.collectCount + (a.isCollect ? -1 : 1),
+              }
             : a,
         ),
       )
@@ -475,11 +477,11 @@ export default function Community() {
   function handleDrawerGoPage(item: { key: string }) {
     setShowDrawer(false)
     const routeMap: Record<string, string> = {
-      appStore: '/pages/index/index',        // 对齐原项目 gopage: 跳首页 AI 对话
-      demand: '/pages/ranking/index',        // 对齐原项目 square: 跳需求广场
-      inspiration: '/pages/aigc/list',       // 对齐原项目 aigc: 跳 AIGC 创作列表
-      dynamic: '/pages/share/index',         // 对齐原项目 share: 跳 AI 资讯
-      course: '/pages/course/list',          // 对齐原项目 studyindex: 跳课程
+      appStore: '/pages/index/index', // 对齐原项目 gopage: 跳首页 AI 对话
+      demand: '/pages/ranking/index', // 对齐原项目 square: 跳需求广场
+      inspiration: '/pages/aigc/list', // 对齐原项目 aigc: 跳 AIGC 创作列表
+      dynamic: '/pages/share/index', // 对齐原项目 share: 跳 AI 资讯
+      course: '/pages/course/list', // 对齐原项目 studyindex: 跳课程
     }
     const url = routeMap[item.key]
     if (url) {
@@ -496,16 +498,24 @@ export default function Community() {
     setShowDrawer(false)
     if (item.key === 'newChat') {
       // 对齐原项目 addNewChat:跳首页 AI 对话
-      Taro.switchTab({ url: '/pages/index/index', fail: () => Taro.navigateTo({ url: '/pages/ai/chat' }) })
+      Taro.switchTab({
+        url: '/pages/index/index',
+        fail: () => Taro.navigateTo({ url: '/pages/ai/chat' }),
+      })
     } else if (item.key === 'company') {
       // 对齐原项目 gotocompany:跳分销页
-      Taro.navigateTo({ url: '/pages/distribution/index', fail: () => Taro.navigateTo({ url: '/pages/company/index' }) })
+      Taro.navigateTo({
+        url: '/pages/distribution/index',
+        fail: () => Taro.navigateTo({ url: '/pages/company/index' }),
+      })
     } else if (item.key === 'freebie') {
       // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
-      const feishuUrl = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
+      const feishuUrl =
+        'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
       Taro.setClipboardData({
         data: feishuUrl,
-        success: () => Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
+        success: () =>
+          Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
         fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
       })
     }
@@ -708,7 +718,6 @@ export default function Community() {
                 style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
                 onClick={() => {
                   Taro.showToast({ title: '语音搜索开发中', icon: 'none' })
-
                 }}
               >
                 🎤
@@ -760,9 +769,7 @@ export default function Community() {
               onSelect={onAgentListSelect}
               onPurchase={handlePurchase}
             />
-            {!loading && agentList.length === 0 ? (
-              <EmptyState text="暂无智能体" />
-            ) : null}
+            {!loading && agentList.length === 0 ? <EmptyState text="暂无智能体" /> : null}
             {!loading && !hasMore && agentList.length > 0 ? (
               <View className="community-no-more">
                 <Text className="community-no-more-text">没有更多了</Text>

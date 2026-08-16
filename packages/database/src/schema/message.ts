@@ -7,8 +7,8 @@ import {
   boolean,
   timestamp,
   index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 教育平台公告表。
@@ -35,7 +35,7 @@ export const eduAnnouncements = pgTable(
     pubIdx: index('edu_announcements_published_idx').on(t.isPublished),
     statusIdx: index('edu_announcements_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 教育平台站内消息表（与通用 notifications/messages 区分）。
@@ -64,9 +64,9 @@ export const eduMessages = pgTable(
     memberIdx: index('edu_messages_member_idx').on(t.memberId),
     memberReadIdx: index('edu_messages_member_read_idx').on(t.memberId, t.isRead),
   }),
-);
+)
 
-export type EduAnnouncement = typeof eduAnnouncements.$inferSelect;
-export type NewEduAnnouncement = typeof eduAnnouncements.$inferInsert;
-export type EduMessage = typeof eduMessages.$inferSelect;
-export type NewEduMessage = typeof eduMessages.$inferInsert;
+export type EduAnnouncement = typeof eduAnnouncements.$inferSelect
+export type NewEduAnnouncement = typeof eduAnnouncements.$inferInsert
+export type EduMessage = typeof eduMessages.$inferSelect
+export type NewEduMessage = typeof eduMessages.$inferInsert

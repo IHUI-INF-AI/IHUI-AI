@@ -152,19 +152,19 @@ export default function RankingIndex() {
       {/* 文件类型筛选 tab */}
       <ScrollView scrollX className="whitespace-nowrap bg-card">
         <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
-        {FILE_TABS.map((tab) => (
-          <View
-            key={tab.key}
-            className={`inline-flex items-center justify-center py-[12rpx] px-[32rpx] mr-[16rpx] bg-background border border-border rounded-[8rpx] ${fileType === tab.key ? 'bg-primary border-primary' : ''}`}
-            onClick={() => onTabChange(tab.key)}
-          >
-            <Text
-              className={`text-[26rpx] ${fileType === tab.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+          {FILE_TABS.map((tab) => (
+            <View
+              key={tab.key}
+              className={`inline-flex items-center justify-center py-[12rpx] px-[32rpx] mr-[16rpx] bg-background border border-border rounded-[8rpx] ${fileType === tab.key ? 'bg-primary border-primary' : ''}`}
+              onClick={() => onTabChange(tab.key)}
             >
-              {tt(tab.labelKey, tab.fallback)}
-            </Text>
-          </View>
-        ))}
+              <Text
+                className={`text-[26rpx] ${fileType === tab.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+              >
+                {tt(tab.labelKey, tab.fallback)}
+              </Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
 

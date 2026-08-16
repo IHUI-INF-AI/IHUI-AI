@@ -133,8 +133,7 @@ export function useEarnings(): UseEarningsReturn {
     overviewQ.isLoading || trendQ.isLoading || referralQ.isLoading || funnelQ.isLoading
 
   // 优先返回 overview 错误,其次其他端点
-  const error =
-    overviewQ.error ?? trendQ.error ?? referralQ.error ?? funnelQ.error ?? null
+  const error = overviewQ.error ?? trendQ.error ?? referralQ.error ?? funnelQ.error ?? null
 
   return {
     overview: overviewQ.data ?? null,

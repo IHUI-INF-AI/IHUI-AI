@@ -74,7 +74,13 @@ export default function AdminSystemMonitorPage() {
 
   const cards = [
     { label: t('monitor.cpu'), value: metrics?.cpu ?? 0, unit: '%', icon: Cpu, max: 100 },
-    { label: t('monitor.memory'), value: metrics?.memory ?? 0, unit: '%', icon: Activity, max: 100 },
+    {
+      label: t('monitor.memory'),
+      value: metrics?.memory ?? 0,
+      unit: '%',
+      icon: Activity,
+      max: 100,
+    },
     { label: t('monitor.disk'), value: metrics?.disk ?? 0, unit: '%', icon: HardDrive, max: 100 },
     {
       label: t('monitor.processes'),

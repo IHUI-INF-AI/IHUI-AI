@@ -213,7 +213,9 @@ function DetailsContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl min-[768px]:text-3xl font-bold">{formatCNY(level.price)}</span>
+                <span className="text-2xl min-[768px]:text-3xl font-bold">
+                  {formatCNY(level.price)}
+                </span>
                 <span className="text-sm text-muted-foreground">
                   {t('durationDays', { days: level.durationDays })}
                 </span>

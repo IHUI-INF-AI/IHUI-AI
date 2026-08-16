@@ -60,7 +60,9 @@ vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn(() => createChainableMock()),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: mockInsertReturning })) })),
-    update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })) })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
+    })),
     delete: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockDeleteReturning })) })),
     transaction: mockTransaction,
     execute: vi.fn().mockResolvedValue([]),
@@ -392,7 +394,9 @@ describe('themes admin routes — /api/admin/themes/*', () => {
 
   it('POST /admin/themes/fonts 创建字体 201', async () => {
     mockAdmin()
-    mockInsertReturning.mockResolvedValueOnce([{ id: 'f1', name: 'Inter', family: 'Inter, sans-serif' }])
+    mockInsertReturning.mockResolvedValueOnce([
+      { id: 'f1', name: 'Inter', family: 'Inter, sans-serif' },
+    ])
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/admin/themes/fonts`,
@@ -443,7 +447,9 @@ describe('themes admin routes — /api/admin/themes/*', () => {
 
   it('POST /admin/themes/assets 创建资源 201', async () => {
     mockAdmin()
-    mockInsertReturning.mockResolvedValueOnce([{ id: 'a1', type: 'logo', url: 'https://example.com/logo.png' }])
+    mockInsertReturning.mockResolvedValueOnce([
+      { id: 'a1', type: 'logo', url: 'https://example.com/logo.png' },
+    ])
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/admin/themes/assets`,

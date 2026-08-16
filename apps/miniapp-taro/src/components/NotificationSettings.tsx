@@ -18,18 +18,20 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
   return (
     <View className="bg-card">
       <View className="px-4 pt-3 pb-2">
-        <Text className="text-xs text-muted-foreground">{tt('notification.settings', '通知设置')}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {tt('notification.settings', '通知设置')}
+        </Text>
       </View>
       {items.map((item, idx) => (
         <View
           key={item.key}
-          className={`flex items-center px-4 py-3 ${
-            idx !== items.length - 1 ? 'mb-1.5' : ''
-          }`}
+          className={`flex items-center px-4 py-3 ${idx !== items.length - 1 ? 'mb-1.5' : ''}`}
         >
           <View className="flex-1 min-w-0">
             <Text className="text-sm text-foreground">{item.label}</Text>
-            {item.desc && <Text className="block text-xs text-muted-foreground mt-0.5">{item.desc}</Text>}
+            {item.desc && (
+              <Text className="block text-xs text-muted-foreground mt-0.5">{item.desc}</Text>
+            )}
           </View>
           <Switch
             checked={item.enabled}

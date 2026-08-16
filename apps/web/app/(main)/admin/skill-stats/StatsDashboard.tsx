@@ -3,13 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Puzzle,
-  CheckCircle2,
-  MousePointerClick,
-  Star,
-  RefreshCw,
-} from 'lucide-react'
+import { Puzzle, CheckCircle2, MousePointerClick, Star, RefreshCw } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -37,12 +31,14 @@ function formatNumber(n: number): string {
   return String(n)
 }
 
-function computeStats(market: Awaited<ReturnType<typeof fetchMarketSkills>>, user: Awaited<ReturnType<typeof fetchUserSkills>>): SkillStatsData {
+function computeStats(
+  market: Awaited<ReturnType<typeof fetchMarketSkills>>,
+  user: Awaited<ReturnType<typeof fetchUserSkills>>,
+): SkillStatsData {
   const totalInstallCount = market.reduce((s, e) => s + e.installCount, 0)
   const ratings = market.filter((e) => e.ratingCount > 0)
-  const avgRating = ratings.length > 0
-    ? ratings.reduce((s, e) => s + e.rating, 0) / ratings.length
-    : 0
+  const avgRating =
+    ratings.length > 0 ? ratings.reduce((s, e) => s + e.rating, 0) / ratings.length : 0
 
   const sorted = [...market].sort((a, b) => b.installCount - a.installCount).slice(0, 10)
 
@@ -71,7 +67,10 @@ function computeStats(market: Awaited<ReturnType<typeof fetchMarketSkills>>, use
   }
 }
 
-function generateTrendData(market: Awaited<ReturnType<typeof fetchMarketSkills>>, range: TrendRange): TrendDataPoint[] {
+function generateTrendData(
+  market: Awaited<ReturnType<typeof fetchMarketSkills>>,
+  range: TrendRange,
+): TrendDataPoint[] {
   const dayCount = range === 'week' ? 7 : range === 'month' ? 30 : 90
   const totalInstall = market.reduce((s, e) => s + e.installCount, 0)
   const now = Date.now()
@@ -81,9 +80,10 @@ function generateTrendData(market: Awaited<ReturnType<typeof fetchMarketSkills>>
   const points: TrendDataPoint[] = []
   for (let i = dayCount - 1; i >= 0; i--) {
     const date = new Date(now - i * dayMs)
-    const label = range === 'week'
-      ? (['日', '一', '二', '三', '四', '五', '六'][date.getDay()] ?? '')
-      : `${date.getMonth() + 1}/${date.getDate()}`
+    const label =
+      range === 'week'
+        ? (['日', '一', '二', '三', '四', '五', '六'][date.getDay()] ?? '')
+        : `${date.getMonth() + 1}/${date.getDate()}`
     // Simulate daily distribution with some variation
     const base = totalInstall / dayCount
     const variance = Math.sin(i * 1.5) * base * 0.3 + Math.cos(i * 0.7) * base * 0.2
@@ -102,9 +102,7 @@ function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
   }
 
   if (data.length === 0) {
-    return (
-      <div className="py-8 text-center text-xs text-muted-foreground">{t('noData')}</div>
-    )
+    return <div className="py-8 text-center text-xs text-muted-foreground">{t('noData')}</div>
   }
 
   return (
@@ -179,9 +177,7 @@ export default function StatsDashboard() {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={refetchAll} disabled={marketQ.isFetching}>
-          <RefreshCw
-            className={`mr-1.5 h-3.5 w-3.5 ${marketQ.isFetching ? 'animate-spin' : ''}`}
-          />
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${marketQ.isFetching ? 'animate-spin' : ''}`} />
           {t('refresh')}
         </Button>
       </div>
@@ -211,7 +207,9 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalSkills')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">{formatNumber(total!.totalSkills)}</span>
+                  <span className="text-xl font-semibold tabular-nums">
+                    {formatNumber(total!.totalSkills)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -224,7 +222,9 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('onlineCount')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">{formatNumber(total!.onlineCount)}</span>
+                  <span className="text-xl font-semibold tabular-nums">
+                    {formatNumber(total!.onlineCount)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -237,7 +237,9 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalInstallCount')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">{formatNumber(total!.totalInstallCount)}</span>
+                  <span className="text-xl font-semibold tabular-nums">
+                    {formatNumber(total!.totalInstallCount)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -277,7 +279,10 @@ export default function StatsDashboard() {
                   <TableBody>
                     {topSkills.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
+                        <TableCell
+                          colSpan={5}
+                          className="py-8 text-center text-xs text-muted-foreground"
+                        >
                           {t('noData')}
                         </TableCell>
                       </TableRow>
@@ -288,7 +293,9 @@ export default function StatsDashboard() {
                           {idx + 1}
                         </TableCell>
                         <TableCell className="font-medium">{skill.name}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(skill.installCount)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(skill.installCount)}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {skill.ratingCount > 0 ? skill.rating.toFixed(1) : '-'}
                         </TableCell>
@@ -319,11 +326,7 @@ export default function StatsDashboard() {
                   <CardTitle className="text-sm font-medium">{t('trendTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TrendChart
-                    data={trendData}
-                    range={trendRange}
-                    onRangeChange={setTrendRange}
-                  />
+                  <TrendChart data={trendData} range={trendRange} onRangeChange={setTrendRange} />
                 </CardContent>
               </Card>
 
@@ -353,7 +356,12 @@ export default function StatsDashboard() {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {t('pctOfTotal', { pct: totalCount > 0 ? ((successRate!.available / totalCount) * 100).toFixed(1) : 0 })}
+                          {t('pctOfTotal', {
+                            pct:
+                              totalCount > 0
+                                ? ((successRate!.available / totalCount) * 100).toFixed(1)
+                                : 0,
+                          })}
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -366,7 +374,12 @@ export default function StatsDashboard() {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {t('pctOfTotal', { pct: totalCount > 0 ? ((successRate!.placeholder / totalCount) * 100).toFixed(1) : 0 })}
+                          {t('pctOfTotal', {
+                            pct:
+                              totalCount > 0
+                                ? ((successRate!.placeholder / totalCount) * 100).toFixed(1)
+                                : 0,
+                          })}
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -374,7 +387,10 @@ export default function StatsDashboard() {
                       <div
                         className="h-2 rounded-sm bg-green-500/70 transition-all"
                         style={{
-                          width: totalCount > 0 ? `${(successRate!.available / totalCount) * 100}%` : '0%',
+                          width:
+                            totalCount > 0
+                              ? `${(successRate!.available / totalCount) * 100}%`
+                              : '0%',
                         }}
                       />
                     </div>

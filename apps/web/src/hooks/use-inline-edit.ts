@@ -76,6 +76,8 @@ export function useInlineEdit() {
           userId,
         },
         workspacePath,
+        // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+        stream: true,
         onDelta: (delta) => {
           raw += delta
           // 实时更新 store(展示流式输出)

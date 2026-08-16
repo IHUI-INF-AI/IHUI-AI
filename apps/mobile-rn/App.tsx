@@ -101,6 +101,15 @@ function AppContent() {
     }
   }, [])
 
+  // 浮窗跳转:目标页(赚米→推广/客服/反馈)需登录,未登录先引导到登录页
+  const goFloat = (name: 'Promote' | 'CustomerService' | 'Feedback'): void => {
+    if (rnAuthStore.getState().token) {
+      navigateTo(name)
+    } else {
+      navigateTo('Login')
+    }
+  }
+
   return (
     <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -113,12 +122,13 @@ function AppContent() {
         </I18nProvider>
         <StatusBar style="auto" />
       </SafeAreaProvider>
-      {/* 全局浮窗:推广/咨询/更多,覆盖在 RootNavigator 之上(右下角悬浮)。
-          跳转目标对齐历史 Uniapp 浮窗语义:推广→推广中心,咨询→客服,更多→任务中心 */}
+      {/* 全局浮窗:赚米/客服/反馈,覆盖在 RootNavigator 之上(右下角悬浮)。
+          对齐历史 Uniapp FloatBox.vue:靠右竖条 + 左滑展开,非箭头按钮显隐。
+          未登录时这三个功能页不在导航器里(token 条件分支),先引导到登录页。 */}
       <GlobalFloatBox
-        onPromote={() => navigateTo('Promote')}
-        onConsult={() => navigateTo('CustomerService')}
-        onMore={() => navigateTo('TaskCenter')}
+        onPromote={() => goFloat('Promote')}
+        onConsult={() => goFloat('CustomerService')}
+        onFeedback={() => goFloat('Feedback')}
       />
     </View>
   )

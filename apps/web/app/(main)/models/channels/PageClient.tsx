@@ -266,11 +266,11 @@ export default function PageClient() {
                         <td className="px-4 py-2.5 tabular-nums">{item.weight}</td>
                         <td className="px-4 py-2.5">
                           <Tooltip content={item.lastErrorMessage ?? undefined}>
-                          <span
-                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium ${h.cls}`}
-                          >
-                            {h.label}
-                          </span>
+                            <span
+                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium ${h.cls}`}
+                            >
+                              {h.label}
+                            </span>
                           </Tooltip>
                           <span className="ml-1 text-[10px] text-muted-foreground">
                             {timeFmt(item.healthCheckedAt)}

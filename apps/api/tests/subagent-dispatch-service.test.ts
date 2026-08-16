@@ -38,7 +38,10 @@ vi.mock('@ihui/database', () => ({
 import { subagentDispatchService } from '../src/services/subagent-dispatch-service'
 
 const service = subagentDispatchService as unknown as {
-  _createAgentTask: (input: Record<string, unknown>, dispatchId: string) => Promise<string | undefined>
+  _createAgentTask: (
+    input: Record<string, unknown>,
+    dispatchId: string,
+  ) => Promise<string | undefined>
   _syncAgentTask: (runtime: {
     agentTaskId?: string
     dispatch: { status: string; result?: string }
@@ -87,7 +90,8 @@ describe('_createAgentTask(派单轨迹创建)', () => {
       { agentId: 'a', orchestration: 'debate', agentRole: 'reviewer', goal: 'g' },
       'd',
     )
-    const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> }).values.mock.calls[0]![0] as Record<string, unknown>
+    const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> })
+      .values.mock.calls[0]![0] as Record<string, unknown>
     expect(captured.name).toBe('subagent:debate:reviewer')
   })
 
@@ -96,7 +100,8 @@ describe('_createAgentTask(派单轨迹创建)', () => {
       values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 't' }]) }),
     })
     await service._createAgentTask({ agentId: 'a', goal: 'g'.repeat(5000) }, 'd')
-    const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> }).values.mock.calls[0]![0] as Record<string, unknown>
+    const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> })
+      .values.mock.calls[0]![0] as Record<string, unknown>
     expect((captured.description as string).length).toBe(2000)
   })
 

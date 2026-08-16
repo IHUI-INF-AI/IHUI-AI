@@ -18,7 +18,16 @@ import { success, error } from '../utils/response.js'
 import { recordCrash, type CrashReportInput } from '../services/crash-report-service.js'
 
 const crashBodySchema = z.object({
-  platform: z.enum(['web', 'desktop', 'ios', 'android', 'mobile', 'wechat-miniapp', 'extension', 'cli']),
+  platform: z.enum([
+    'web',
+    'desktop',
+    'ios',
+    'android',
+    'mobile',
+    'wechat-miniapp',
+    'extension',
+    'cli',
+  ]),
   version: z.string().max(64).optional(),
   errorMessage: z.string().min(1).max(4000),
   stack: z.string().max(20000).optional(),
@@ -65,9 +74,7 @@ export const crashReportsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/crash-reports', async (request, reply) => {
     const parsed = crashBodySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const { platform, version, errorMessage, stack, route } = parsed.data

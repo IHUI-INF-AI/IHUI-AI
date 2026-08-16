@@ -13,8 +13,19 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
-  Bold, Italic, Heading1, Heading2, Heading3, Link2, Image as ImageIcon,
-  Code, Quote, List, ListOrdered, Table as TableIcon, Minus,
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  Heading3,
+  Link2,
+  Image as ImageIcon,
+  Code,
+  Quote,
+  List,
+  ListOrdered,
+  Table as TableIcon,
+  Minus,
 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
@@ -55,15 +66,35 @@ function htmlToMarkdown(html: string): string {
   s = s.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*')
   s = s.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
   s = s.replace(/<img[^>]*src="([^"]*)"[^>]*\/?>/gi, '![]($1)')
-  s = s.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m, c: string) => '\n' + c.split('\n').map((l: string) => '> ' + l).join('\n') + '\n')
-  s = s.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, c: string) => '\n' + c.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n'))
-  s = s.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, c: string) => '\n' + c.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '1. $1\n'))
+  s = s.replace(
+    /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
+    (_m, c: string) =>
+      '\n' +
+      c
+        .split('\n')
+        .map((l: string) => '> ' + l)
+        .join('\n') +
+      '\n',
+  )
+  s = s.replace(
+    /<ul[^>]*>([\s\S]*?)<\/ul>/gi,
+    (_m, c: string) => '\n' + c.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n'),
+  )
+  s = s.replace(
+    /<ol[^>]*>([\s\S]*?)<\/ol>/gi,
+    (_m, c: string) => '\n' + c.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '1. $1\n'),
+  )
   s = s.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '\n```\n$1\n```\n')
   s = s.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
   s = s.replace(/<br\s*\/?>/gi, '\n')
   s = s.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n')
   s = s.replace(/<[^>]+>/g, '')
-  s = s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+  s = s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
   return s.replace(/\n{3,}/g, '\n\n').trim()
 }
 
@@ -111,7 +142,11 @@ const ACTIONS: readonly ToolbarAction[] = [
   { icon: Quote, labelKey: 'editor.quote', wrap: ['\n> ', '\n'] },
   { icon: List, labelKey: 'editor.list', wrap: ['\n- ', '\n'] },
   { icon: ListOrdered, labelKey: 'editor.list', wrap: ['\n1. ', '\n'] },
-  { icon: TableIcon, labelKey: 'editor.table', wrap: ['\n| 列1 | 列2 |\n| --- | --- |\n| ', ' | |\n'] },
+  {
+    icon: TableIcon,
+    labelKey: 'editor.table',
+    wrap: ['\n| 列1 | 列2 |\n| --- | --- |\n| ', ' | |\n'],
+  },
   { icon: Minus, labelKey: 'editor.quote', wrap: ['\n---\n', ''] },
 ]
 
@@ -132,50 +167,77 @@ export function RichTextEditor({
   const stats = React.useMemo(() => countWords(value), [value])
 
   // 在 textarea 当前光标处插入 wrap
-  const applyWrap = React.useCallback((wrap: readonly [string, string]) => {
-    const ta = taRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const selected = value.slice(start, end)
-    const next = value.slice(0, start) + wrap[0] + selected + wrap[1] + value.slice(end)
-    onChange(next)
-    requestAnimationFrame(() => {
-      ta.focus()
-      ta.selectionStart = start + wrap[0].length
-      ta.selectionEnd = end + wrap[0].length
-    })
-  }, [value, onChange])
-
-  const handleKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!e.ctrlKey && !e.metaKey) return
-    const k = e.key.toLowerCase()
-    if (k === 'b') { e.preventDefault(); applyWrap(['**', '**']) }
-    else if (k === 'i') { e.preventDefault(); applyWrap(['*', '*']) }
-    else if (k === 'k') { e.preventDefault(); applyWrap(['[', '](https://)']) }
-    else if (e.shiftKey && k === 'k') { e.preventDefault(); applyWrap(['`', '`']) }
-    else if (k === '1') { e.preventDefault(); applyWrap(['\n# ', '\n']) }
-    else if (k === '2') { e.preventDefault(); applyWrap(['\n## ', '\n']) }
-    else if (k === '3') { e.preventDefault(); applyWrap(['\n### ', '\n']) }
-  }, [applyWrap])
-
-  // 富文本模式:input 事件 → Markdown
-  const handleRichInput = React.useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    const html = (e.currentTarget as HTMLDivElement).innerHTML
-    onChange(htmlToMarkdown(html))
-  }, [onChange])
-
-  const handlePaste = React.useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = e.clipboardData.getData('text/plain')
-    if (text) {
-      e.preventDefault()
-      const ta = e.currentTarget
+  const applyWrap = React.useCallback(
+    (wrap: readonly [string, string]) => {
+      const ta = taRef.current
+      if (!ta) return
       const start = ta.selectionStart
       const end = ta.selectionEnd
-      const next = value.slice(0, start) + text + value.slice(end)
+      const selected = value.slice(start, end)
+      const next = value.slice(0, start) + wrap[0] + selected + wrap[1] + value.slice(end)
       onChange(next)
-    }
-  }, [value, onChange])
+      requestAnimationFrame(() => {
+        ta.focus()
+        ta.selectionStart = start + wrap[0].length
+        ta.selectionEnd = end + wrap[0].length
+      })
+    },
+    [value, onChange],
+  )
+
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      const k = e.key.toLowerCase()
+      if (k === 'b') {
+        e.preventDefault()
+        applyWrap(['**', '**'])
+      } else if (k === 'i') {
+        e.preventDefault()
+        applyWrap(['*', '*'])
+      } else if (k === 'k') {
+        e.preventDefault()
+        applyWrap(['[', '](https://)'])
+      } else if (e.shiftKey && k === 'k') {
+        e.preventDefault()
+        applyWrap(['`', '`'])
+      } else if (k === '1') {
+        e.preventDefault()
+        applyWrap(['\n# ', '\n'])
+      } else if (k === '2') {
+        e.preventDefault()
+        applyWrap(['\n## ', '\n'])
+      } else if (k === '3') {
+        e.preventDefault()
+        applyWrap(['\n### ', '\n'])
+      }
+    },
+    [applyWrap],
+  )
+
+  // 富文本模式:input 事件 → Markdown
+  const handleRichInput = React.useCallback(
+    (e: React.FormEvent<HTMLDivElement>) => {
+      const html = (e.currentTarget as HTMLDivElement).innerHTML
+      onChange(htmlToMarkdown(html))
+    },
+    [onChange],
+  )
+
+  const handlePaste = React.useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const text = e.clipboardData.getData('text/plain')
+      if (text) {
+        e.preventDefault()
+        const ta = e.currentTarget
+        const start = ta.selectionStart
+        const end = ta.selectionEnd
+        const next = value.slice(0, start) + text + value.slice(end)
+        onChange(next)
+      }
+    },
+    [value, onChange],
+  )
 
   const handleRichPaste = React.useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -186,17 +248,20 @@ export function RichTextEditor({
   }, [])
 
   // 图片上传
-  const handleImageSelect = React.useCallback(async (file: File) => {
-    if (!onImageUpload) return
-    try {
-      const url = await onImageUpload(file)
-      applyWrap([`![${file.name}](`, ')'])
-      // 占位:用 url 替换最后一个 (https://) 占位
-      onChange((value + '').replace(/\(https:\/\/\)$/, `(${url})`))
-    } catch {
-      // 上传失败静默(由调用方 toast)
-    }
-  }, [onImageUpload, applyWrap, onChange, value])
+  const handleImageSelect = React.useCallback(
+    async (file: File) => {
+      if (!onImageUpload) return
+      try {
+        const url = await onImageUpload(file)
+        applyWrap([`![${file.name}](`, ')'])
+        // 占位:用 url 替换最后一个 (https://) 占位
+        onChange((value + '').replace(/\(https:\/\/\)$/, `(${url})`))
+      } catch {
+        // 上传失败静默(由调用方 toast)
+      }
+    },
+    [onImageUpload, applyWrap, onChange, value],
+  )
 
   // 自动保存草稿
   React.useEffect(() => {
@@ -320,7 +385,9 @@ export function RichTextEditor({
       <div className="flex items-center justify-between bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span>{t('editor.wordCount', { count: stats.chars })}</span>
         <span>{t('editor.readingTime', { minutes: stats.minutes })}</span>
-        {autoSaved && <span className="text-emerald-600 dark:text-emerald-400">{t('editor.autoSaved')}</span>}
+        {autoSaved && (
+          <span className="text-emerald-600 dark:text-emerald-400">{t('editor.autoSaved')}</span>
+        )}
       </div>
     </div>
   )

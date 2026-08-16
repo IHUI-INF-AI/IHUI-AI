@@ -218,9 +218,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = createHookSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const hook = await createHook(request, parsed.data)
     if (hook === null) {
@@ -256,9 +254,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = batchToggleSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await batchToggleHooks(request, parsed.data.hookIds, parsed.data.enabled)
     return reply.send(success(result))
@@ -306,9 +302,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = autoOrchestrateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await autoOrchestrateHooks(request, parsed.data.requirement, parsed.data.event)
     return reply.send(success(result))
@@ -320,9 +314,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = createAbTestSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await createAbTest(request, parsed.data)
     return reply.send(success(result))
@@ -380,9 +372,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     }
     const parsed = instantiateTemplateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const hook = await instantiateHookTemplate(request, params.data.id, parsed.data.overrides)
     return reply.send(success(hook))
@@ -413,9 +403,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     }
     const parsed = updateHookSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const hook = await updateHook(request, params.data.id, parsed.data)
     if (hook === null) {
@@ -449,9 +437,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     }
     const parsed = toggleHookSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const hook = await toggleHook(request, params.data.id, parsed.data.enabled)
     if (hook === null) {
@@ -470,9 +456,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     }
     const parsed = testHookSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await testHook(request, params.data.id, parsed.data)
     return reply.send(success(result))
@@ -511,9 +495,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     }
     const parsed = replayLogSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const log = await replayHookLog(request, params.data.id, parsed.data.logId)
     if (log === null) {
@@ -551,10 +533,12 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
   server.post('/hooks/:id/dlq/:entry_id/reprocess', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const params = z.object({
-      id: z.string().min(1),
-      entry_id: z.string().min(1),
-    }).safeParse(request.params)
+    const params = z
+      .object({
+        id: z.string().min(1),
+        entry_id: z.string().min(1),
+      })
+      .safeParse(request.params)
     if (!params.success) {
       return reply.status(400).send(error(400, '无效的参数'))
     }

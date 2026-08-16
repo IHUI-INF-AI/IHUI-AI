@@ -23,7 +23,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI HR 招聘', item: 'https://aizhs.top/use-cases/hr-recruiting' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI HR 招聘',
+          item: 'https://aizhs.top/use-cases/hr-recruiting',
+        },
       ],
     },
     {
@@ -41,12 +46,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI HR 系统集成器' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '接入招聘系统', text: '对接 BOSS/拉勾/Moka/Greenhouse,导入 JD 库与历史简历,建立人才画像基线。' },
-        { '@type': 'HowToStep', position: 2, name: '训练筛选 Agent', text: '上传历史录用/淘汰简历,AI 学习岗位匹配规则,自动给新简历打分排序。' },
-        { '@type': 'HowToStep', position: 3, name: '配置面试模板', text: '按岗位/级别配置面试问题库,Agent 根据简历动态生成定制化面试题与考察重点。' },
-        { '@type': 'HowToStep', position: 4, name: '集成答疑知识库', text: '上传员工手册/政策文档,Agent 7×24 回答员工关于福利/请假/报销等问题。' },
-        { '@type': 'HowToStep', position: 5, name: '设置离职预警', text: '基于考勤/绩效/IM 活跃度等信号,Agent 提前 30 天预警高离职风险员工。' },
-        { '@type': 'HowToStep', position: 6, name: '监控与优化', text: '每周生成招聘漏斗报告,识别瓶颈环节,自动给出 JD 优化与渠道调整建议。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '接入招聘系统',
+          text: '对接 BOSS/拉勾/Moka/Greenhouse,导入 JD 库与历史简历,建立人才画像基线。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '训练筛选 Agent',
+          text: '上传历史录用/淘汰简历,AI 学习岗位匹配规则,自动给新简历打分排序。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '配置面试模板',
+          text: '按岗位/级别配置面试问题库,Agent 根据简历动态生成定制化面试题与考察重点。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '集成答疑知识库',
+          text: '上传员工手册/政策文档,Agent 7×24 回答员工关于福利/请假/报销等问题。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '设置离职预警',
+          text: '基于考勤/绩效/IM 活跃度等信号,Agent 提前 30 天预警高离职风险员工。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '监控与优化',
+          text: '每周生成招聘漏斗报告,识别瓶颈环节,自动给出 JD 优化与渠道调整建议。',
+        },
       ],
     },
   ],
@@ -66,12 +101,30 @@ export const metadata: Metadata = {
 }
 
 const capabilities = [
-  { title: '简历智能筛选', desc: 'AI 解析简历并与 JD 匹配,自动给分排序,HR 只看 Top 20%,筛选时间从 3 天缩到 30 分钟。' },
-  { title: '面试问题生成', desc: '基于候选人简历动态生成定制化面试题,涵盖技术/行为/文化匹配,避免千人一面。' },
-  { title: '入职引导自动化', desc: '新员工入职 Day 1 即获得 AI 助手,回答关于流程/工具/团队的所有问题,onboarding 周期缩短 60%。' },
-  { title: '员工答疑 7×24', desc: '上传员工手册/政策文档,Agent 实时回答福利/请假/报销等问题,HR 事务性工单降低 80%。' },
-  { title: '离职预警', desc: '基于考勤/绩效/IM 活跃度多维度信号,Agent 提前 30 天预警高离职风险员工,主管主动介入。' },
-  { title: '招聘复盘', desc: '自动生成招聘漏斗报告,识别瓶颈环节(简历通过率/offer 接受率),JD 优化建议。' },
+  {
+    title: '简历智能筛选',
+    desc: 'AI 解析简历并与 JD 匹配,自动给分排序,HR 只看 Top 20%,筛选时间从 3 天缩到 30 分钟。',
+  },
+  {
+    title: '面试问题生成',
+    desc: '基于候选人简历动态生成定制化面试题,涵盖技术/行为/文化匹配,避免千人一面。',
+  },
+  {
+    title: '入职引导自动化',
+    desc: '新员工入职 Day 1 即获得 AI 助手,回答关于流程/工具/团队的所有问题,onboarding 周期缩短 60%。',
+  },
+  {
+    title: '员工答疑 7×24',
+    desc: '上传员工手册/政策文档,Agent 实时回答福利/请假/报销等问题,HR 事务性工单降低 80%。',
+  },
+  {
+    title: '离职预警',
+    desc: '基于考勤/绩效/IM 活跃度多维度信号,Agent 提前 30 天预警高离职风险员工,主管主动介入。',
+  },
+  {
+    title: '招聘复盘',
+    desc: '自动生成招聘漏斗报告,识别瓶颈环节(简历通过率/offer 接受率),JD 优化建议。',
+  },
 ]
 
 const steps = [
@@ -93,7 +146,10 @@ const metrics = [
 export default function HrRecruitingPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         <section className="space-y-5 text-center">
@@ -110,15 +166,21 @@ export default function HrRecruitingPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -133,7 +195,9 @@ export default function HrRecruitingPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 步落地</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 步落地
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
               <div key={s.step} className="rounded-2xl border bg-card p-6">
@@ -149,7 +213,9 @@ export default function HrRecruitingPage() {
 
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始构建你的 AI HR 招聘助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            开始构建你的 AI HR 招聘助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从 HR 场景模板一键 fork,30 分钟体验。
           </p>

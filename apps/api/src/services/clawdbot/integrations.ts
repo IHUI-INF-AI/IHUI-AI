@@ -94,9 +94,7 @@ export class IntegrationManager extends EventEmitter {
     this.applyAuth(headers, integration)
 
     const start = Date.now()
-    const queryString = request.query
-      ? '?' + new URLSearchParams(request.query).toString()
-      : ''
+    const queryString = request.query ? '?' + new URLSearchParams(request.query).toString() : ''
     const response = await fetch(`${url}${queryString}`, {
       method: request.method,
       headers,
@@ -116,7 +114,10 @@ export class IntegrationManager extends EventEmitter {
       duration: Date.now() - start,
     }
 
-    logger.debug({ integration: request.integrationId, status: response.status, duration: result.duration }, '[Integrations] Called')
+    logger.debug(
+      { integration: request.integrationId, status: response.status, duration: result.duration },
+      '[Integrations] Called',
+    )
     this.emit('called', { request, result })
     return result
   }
@@ -130,7 +131,8 @@ export class IntegrationManager extends EventEmitter {
         if (integration.apiKey) headers['Authorization'] = `Bearer ${integration.apiKey}`
         break
       case 'basic':
-        if (integration.apiKey) headers['Authorization'] = `Basic ${Buffer.from(integration.apiKey).toString('base64')}`
+        if (integration.apiKey)
+          headers['Authorization'] = `Basic ${Buffer.from(integration.apiKey).toString('base64')}`
         break
     }
   }

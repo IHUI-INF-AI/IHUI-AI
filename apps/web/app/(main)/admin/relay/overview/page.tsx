@@ -319,21 +319,21 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
                       <span className="text-[10px] tabular-nums text-muted-foreground">
                         {d.callCount > 0 ? numFmt.format(d.callCount) : ''}
                       </span>
-                    <div
-                      className="flex w-full items-end justify-center"
-                      style={{ height: '110px' }}
-                    >
                       <div
-                        className="w-full bg-primary/80"
-                        style={{
-                          height: `${(d.callCount / maxCall) * 100}%`,
-                          minHeight: d.callCount > 0 ? '2px' : '0',
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      {d.date.slice(5)}
-                    </span>
+                        className="flex w-full items-end justify-center"
+                        style={{ height: '110px' }}
+                      >
+                        <div
+                          className="w-full bg-primary/80"
+                          style={{
+                            height: `${(d.callCount / maxCall) * 100}%`,
+                            minHeight: d.callCount > 0 ? '2px' : '0',
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                        {d.date.slice(5)}
+                      </span>
                     </div>
                   </Tooltip>
                 ))}

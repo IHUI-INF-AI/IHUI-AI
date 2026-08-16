@@ -57,9 +57,9 @@ type MonacoEditorInstance = {
   } | null
   updateOptions(opts: Record<string, unknown>): void
   getOption<T>(id: number): T
-  onDidChangeCursorSelection(
-    cb: (e: { selection: MonacoSelection; source: string }) => void,
-  ): { dispose(): void }
+  onDidChangeCursorSelection(cb: (e: { selection: MonacoSelection; source: string }) => void): {
+    dispose(): void
+  }
   focus(): void
   layout(): void
 }
@@ -308,8 +308,10 @@ export function CodeEditor({
             },
             freeInlineCompletions() {},
           }
-          inlineProviderDisposableRef.current =
-            monacoNs.editor.registerInlineCompletionsProvider('*', provider)
+          inlineProviderDisposableRef.current = monacoNs.editor.registerInlineCompletionsProvider(
+            '*',
+            provider,
+          )
         }
       } catch {
         // 静默降级:inline completion 不可用,不影响编辑器其他功能

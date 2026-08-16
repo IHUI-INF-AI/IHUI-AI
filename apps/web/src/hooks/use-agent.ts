@@ -50,21 +50,18 @@ export function useAgent(): UseAgentReturn {
     [agents],
   )
 
-  const createAgent = React.useCallback(
-    async (data: Omit<Agent, 'id'>): Promise<boolean> => {
-      // 后端 POST /api/agents/create 返回单个 Agent
-      const res = await fetchApi<Agent>('/api/agents/create', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      })
-      if (res.success) {
-        setAgents((prev) => [...prev, res.data])
-        return true
-      }
-      return false
-    },
-    [],
-  )
+  const createAgent = React.useCallback(async (data: Omit<Agent, 'id'>): Promise<boolean> => {
+    // 后端 POST /api/agents/create 返回单个 Agent
+    const res = await fetchApi<Agent>('/api/agents/create', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (res.success) {
+      setAgents((prev) => [...prev, res.data])
+      return true
+    }
+    return false
+  }, [])
 
   return { agents, currentAgent, loading, fetchAgents, selectAgent, createAgent }
 }

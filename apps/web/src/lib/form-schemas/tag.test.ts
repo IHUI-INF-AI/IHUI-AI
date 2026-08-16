@@ -11,7 +11,9 @@ describe('tagSchema', () => {
     const r = tagSchema.safeParse({ name: '', description: '', color: '' })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('name') && i.message === 'required')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('name') && i.message === 'required')).toBe(
+        true,
+      )
     }
   })
 
@@ -39,7 +41,9 @@ describe('tagSchema', () => {
     const r = tagSchema.safeParse({ name: 'n', description: '', color: 'red' })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('color') && i.message === 'pattern')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('color') && i.message === 'pattern')).toBe(
+        true,
+      )
     }
   })
 

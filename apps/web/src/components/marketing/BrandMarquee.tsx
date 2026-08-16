@@ -80,11 +80,7 @@ function MarqueeRow({
       <div className="flex whitespace-nowrap will-change-transform animate-marquee">
         {loop.map((brand, idx) => {
           const label = t(brand.nameKey)
-          const filter = brand.mono
-            ? monoFilter
-            : brand.darkInvert
-              ? darkInvertFilter
-              : ''
+          const filter = brand.mono ? monoFilter : brand.darkInvert ? darkInvertFilter : ''
           return (
             <Tooltip key={`${loopKey}-${brand.nameKey}-${idx}`} content={label}>
               <div className={box}>

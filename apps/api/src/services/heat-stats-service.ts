@@ -6,14 +6,14 @@
  * 使用 upsert 语义：同一 agent + 同一日期只保留一行，hitCount 累加。
  */
 
-import { sql } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { agentHeatStats } from '@ihui/database';
+import { sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { agentHeatStats } from '@ihui/database'
 
 export interface HeatStatsResult {
-  dateStr: string;
-  aggregatedAgents: number;
-  totalHits: number;
+  dateStr: string
+  aggregatedAgents: number
+  totalHits: number
 }
 
 /**
@@ -28,8 +28,8 @@ export interface HeatStatsResult {
  * 做日级聚合（将同日多行合并为单行），并统计 agents 表的 usageCount 变化。
  */
 export async function aggregateHeatStats(): Promise<HeatStatsResult> {
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10) // YYYY-MM-DD
 
   // 统计 agents 表中 usageCount > 0 的 Agent 数量与总命中数
   const statsResult = await db
@@ -38,20 +38,20 @@ export async function aggregateHeatStats(): Promise<HeatStatsResult> {
       totalHits: sql<number>`coalesce(sum(${agentHeatStats.hitCount}), 0)::bigint::int`,
     })
     .from(agentHeatStats)
-    .where(sql`${agentHeatStats.dateStr} = ${dateStr}`);
+    .where(sql`${agentHeatStats.dateStr} = ${dateStr}`)
 
-  const aggregatedAgents = statsResult[0]?.agentCount ?? 0;
-  const totalHits = statsResult[0]?.totalHits ?? 0;
+  const aggregatedAgents = statsResult[0]?.agentCount ?? 0
+  const totalHits = statsResult[0]?.totalHits ?? 0
 
   // 同步 usage_count：将 agent_heat_stats 的日聚合命中数累加到 agents.usage_count
   // 迁移自旧架构 tasks/agent_sync.py
-  await syncAgentUsageCount(dateStr);
+  await syncAgentUsageCount(dateStr)
 
   return {
     dateStr,
     aggregatedAgents,
     totalHits,
-  };
+  }
 }
 
 /**
@@ -71,5 +71,5 @@ async function syncAgentUsageCount(dateStr: string): Promise<void> {
       FROM ${agentHeatStats}
       WHERE ${agentHeatStats.dateStr} = ${dateStr}
     )
-  `);
+  `)
 }

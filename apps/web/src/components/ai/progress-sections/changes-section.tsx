@@ -46,10 +46,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
   return (
     <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
-        className={cn(
-          'flex items-center gap-1.5 px-1 py-0.5',
-          hasDiff && 'cursor-pointer',
-        )}
+        className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDiff && 'cursor-pointer')}
         onClick={toggleExpand}
         role={hasDiff ? 'button' : undefined}
         aria-expanded={hasDiff ? expanded : undefined}
@@ -72,10 +69,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
         )}
         {!hasDiff && <span className="w-2 shrink-0" />}
         <Icon
-          className={cn(
-            'h-2.5 w-2.5 shrink-0',
-            isNew ? 'text-emerald-500' : 'text-amber-500',
-          )}
+          className={cn('h-2.5 w-2.5 shrink-0', isNew ? 'text-emerald-500' : 'text-amber-500')}
         />
         <Tooltip content={change.filePath}>
           <span className="flex-1 break-all font-mono text-[10px] text-muted-foreground">
@@ -139,9 +133,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
  * v11: 点击文件行展开 diff 预览(原内容 vs 新内容 + 复制按钮)
  * v10 memo:React.memo 包装,changes 引用稳定时跳过重渲染
  */
-export const ChangesSection = React.memo(function ChangesSection({
-  changes,
-}: ChangesSectionProps) {
+export const ChangesSection = React.memo(function ChangesSection({ changes }: ChangesSectionProps) {
   const t = useTranslations('ai.pane')
   if (changes.length === 0) return null
 
@@ -156,11 +148,14 @@ export const ChangesSection = React.memo(function ChangesSection({
   const recentChanges = changes.slice(-10)
 
   return (
-    <FoldableSection title={t('changes.title')} count={changes.length} icon={FileEdit} data-testid="changes-section">
+    <FoldableSection
+      title={t('changes.title')}
+      count={changes.length}
+      icon={FileEdit}
+      data-testid="changes-section"
+    >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
-        {summary && (
-          <div className="text-[10px] text-muted-foreground/60">{summary}</div>
-        )}
+        {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
         {recentChanges.map((change) => (
           <ChangeItem key={change.id} change={change} />
         ))}

@@ -148,7 +148,12 @@ export default function MemoryDetailPage() {
           {editing ? (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label htmlFor={`${fid}-editCategory`} className="text-xs font-medium text-muted-foreground">分类</label>
+                <label
+                  htmlFor={`${fid}-editCategory`}
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  分类
+                </label>
                 <Input
                   id={`${fid}-editCategory`}
                   value={editCategory}
@@ -157,7 +162,12 @@ export default function MemoryDetailPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor={`${fid}-editText`} className="text-xs font-medium text-muted-foreground">内容</label>
+                <label
+                  htmlFor={`${fid}-editText`}
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  内容
+                </label>
                 <textarea
                   id={`${fid}-editText`}
                   value={editText}
@@ -198,7 +208,11 @@ export default function MemoryDetailPage() {
                   取消
                 </Button>
                 <Button size="sm" onClick={handleSave} disabled={saving || deleting}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   保存
                 </Button>
               </>
@@ -220,7 +234,11 @@ export default function MemoryDetailPage() {
                   onClick={handleDelete}
                   disabled={deleting}
                 >
-                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {deleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                   删除
                 </Button>
               </>

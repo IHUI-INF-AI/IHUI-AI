@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, GraduationCap, AlertTriangle, Wrench, MessageSquare, Palette, Globe, Lightbulb } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  GraduationCap,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  Palette,
+  Globe,
+  Lightbulb,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ja/use-cases/ai-edu#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 教育', item: 'https://aizhs.top/ja/use-cases/ai-edu' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'ユースケース',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 教育',
+          item: 'https://aizhs.top/ja/use-cases/ai-edu',
+        },
       ],
     },
     {
@@ -40,12 +60,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI スマート問題集モジュール' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '生徒データ設定', text: '過去の成績・宿題・学習行動をインポート、AI が生徒プロファイルと弱点強みを特定します。' },
-        { '@type': 'HowToStep', position: 2, name: '学習パストレーニング', text: 'ナレッジグラフと過去データでパーソナライズパスを学習、生徒ごとの日次・週次プランを自動生成。' },
-        { '@type': 'HowToStep', position: 3, name: '問題集連携', text: '学校・地区・第三者問題集 (K12・語学・職業訓練) を連携、AI がレベル適合テストを自動生成。' },
-        { '@type': 'HowToStep', position: 4, name: '採点ルール設定', text: '客観式・主観式 (作文・自由記述) のルール設定、Agent が 24 時間採点、主観式 85% 以上の精度。' },
-        { '@type': 'HowToStep', position: 5, name: 'データ分析', text: 'クラス・学年・科目データを統合、学習レポート自動生成、共通弱点を発見し教研を支援。' },
-        { '@type': 'HowToStep', position: 6, name: '家庭・学校連絡', text: 'WeChat / DingTalk / WeCom の保護者アプリを連携、週次レポート / 宿題 / 進捗ハイライトを自動配信。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '生徒データ設定',
+          text: '過去の成績・宿題・学習行動をインポート、AI が生徒プロファイルと弱点強みを特定します。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '学習パストレーニング',
+          text: 'ナレッジグラフと過去データでパーソナライズパスを学習、生徒ごとの日次・週次プランを自動生成。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '問題集連携',
+          text: '学校・地区・第三者問題集 (K12・語学・職業訓練) を連携、AI がレベル適合テストを自動生成。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '採点ルール設定',
+          text: '客観式・主観式 (作文・自由記述) のルール設定、Agent が 24 時間採点、主観式 85% 以上の精度。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: 'データ分析',
+          text: 'クラス・学年・科目データを統合、学習レポート自動生成、共通弱点を発見し教研を支援。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '家庭・学校連絡',
+          text: 'WeChat / DingTalk / WeCom の保護者アプリを連携、週次レポート / 宿題 / 進捗ハイライトを自動配信。',
+        },
       ],
     },
   ],
@@ -74,12 +124,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: 'パーソナライズ学習パス', desc: 'ナレッジグラフと生徒プロファイルで日次・週次計画を動的生成、進度の速い生徒は発展問題、遅い生徒は重点補強、個性別指導をスケール化。' },
-  { title: '24 時間スマート答疑', desc: 'AI 答疑 Agent が教科ナレッジグラフと過去問答で常時応答、30 秒以内回答、K12 92% 精度で主要科目をカバー。' },
-  { title: 'スマート問題生成・採点', desc: '問題集連携で生徒レベル適合テスト自動生成、客観式は即時採点、主観式 (作文・記述) は 85% 以上の精度で採点、教师工数 70% 削減。' },
-  { title: '学習データ分析', desc: 'クラス・学年・科目データを集約、学習レポート自動生成、共通弱点を発見しデータ駆動の教研を支援。' },
-  { title: '教研協業', desc: '教案・スライド・問題・振り返りを一元管理、学校・地区間共有で質の高い資源の再利用率を 30% から 75% に向上。' },
-  { title: '家庭・学校連絡', desc: 'WeChat / DingTalk / WeCom の保護者アプリを連携、週次レポート / 宿題 / 進捗を自動配信、保護者満足度 60% 向上。' },
+  {
+    title: 'パーソナライズ学習パス',
+    desc: 'ナレッジグラフと生徒プロファイルで日次・週次計画を動的生成、進度の速い生徒は発展問題、遅い生徒は重点補強、個性別指導をスケール化。',
+  },
+  {
+    title: '24 時間スマート答疑',
+    desc: 'AI 答疑 Agent が教科ナレッジグラフと過去問答で常時応答、30 秒以内回答、K12 92% 精度で主要科目をカバー。',
+  },
+  {
+    title: 'スマート問題生成・採点',
+    desc: '問題集連携で生徒レベル適合テスト自動生成、客観式は即時採点、主観式 (作文・記述) は 85% 以上の精度で採点、教师工数 70% 削減。',
+  },
+  {
+    title: '学習データ分析',
+    desc: 'クラス・学年・科目データを集約、学習レポート自動生成、共通弱点を発見しデータ駆動の教研を支援。',
+  },
+  {
+    title: '教研協業',
+    desc: '教案・スライド・問題・振り返りを一元管理、学校・地区間共有で質の高い資源の再利用率を 30% から 75% に向上。',
+  },
+  {
+    title: '家庭・学校連絡',
+    desc: 'WeChat / DingTalk / WeCom の保護者アプリを連携、週次レポート / 宿題 / 進捗を自動配信、保護者満足度 60% 向上。',
+  },
 ]
 
 const cases = [
@@ -101,7 +169,10 @@ const toolchain = [
   { name: 'Next.js 15 + React 19', purpose: 'Web エンドの教学管理コンソールと学習ダッシュボード' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API エンドの生徒データ保管と権限隔離' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: 'パーソナライズ + 答疑 + 主観式採点エンジン' },
-  { name: 'MCP ツールプロトコル', purpose: '問題集・教科書・学習システム・家校連絡プラットフォームのアダプタ' },
+  {
+    name: 'MCP ツールプロトコル',
+    purpose: '問題集・教科書・学習システム・家校連絡プラットフォームのアダプタ',
+  },
   { name: 'Tauri 2 デスクトップ', purpose: '教師オフライン教案準備とローカル問題集' },
   { name: 'WXT ブラウザ拡張', purpose: '教研サイト・問題集のワンクリック収集' },
   { name: 'Taro 4 ミニプログラム', purpose: '学生写真問題検索と保護者学習レポート' },
@@ -118,7 +189,10 @@ const metrics = [
 export default function AiEduPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +204,18 @@ export default function AiEduPage() {
             AI スマート教育:全生徒にパーソナライズ学習パスを
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0 オープンソース、オンプレ対応。K12・高等教育・職業訓練を網羅。
+            IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0
+            オープンソース、オンプレ対応。K12・高等教育・職業訓練を網羅。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +225,16 @@ export default function AiEduPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">教育現場が直面する課題</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              教育現場が直面する課題
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +244,9 @@ export default function AiEduPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 つのコア能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 つのコア能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +262,9 @@ export default function AiEduPage() {
 
         {/* 事例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">導入事例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            導入事例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +279,13 @@ export default function AiEduPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術スタックとツールチェーン</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技術スタックとツールチェーン
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI フルスタック AI OS 上で構築、8 エンドポイントでソース統一、核心コンポーネントはすべてオープンソース。K12・高等教育・職業訓練のシナリオを網羅。
+            IHUI AI フルスタック AI OS 上で構築、8
+            エンドポイントでソース統一、核心コンポーネントはすべてオープンソース。K12・高等教育・職業訓練のシナリオを網羅。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +300,12 @@ export default function AiEduPage() {
         {/* お問い合わせ / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI スマート教育アシスタントの構築を始めましょう</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI スマート教育アシスタントの構築を始めましょう
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            登録で 1000 クレジット進呈、スマート教育シナリオテンプレートからワンクリック fork、30 分でパーソナライズ学習を体験。
+            登録で 1000 クレジット進呈、スマート教育シナリオテンプレートからワンクリック fork、30
+            分でパーソナライズ学習を体験。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +322,18 @@ export default function AiEduPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 教育相談 8801</span>
-            <span className="flex items-center gap-1.5"><Lightbulb className="h-3.5 w-3.5" /> 教研 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 校内導入 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 地区ソリューション 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 教育相談 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> 教研 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 校内導入 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 地区ソリューション 8809
+            </span>
           </div>
         </section>
       </main>

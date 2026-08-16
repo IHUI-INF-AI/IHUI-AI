@@ -370,7 +370,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           </Tooltip>
         )}
         {serverSource === 'mcp' && (
-          <Tooltip content={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}>
+          <Tooltip
+            content={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
+          >
             <span
               aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
               data-testid={`tool-call-source-mcp-${toolName}`}

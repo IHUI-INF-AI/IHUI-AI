@@ -97,7 +97,8 @@ export function createImagesModule(client: BaseClient): ImagesModule {
       client.request<V1ImageGenerationsResponse>('POST', '/images/generations', req),
     edits: (req) => client.request<ImageEditResponse>('POST', '/images/edits', req),
     inpaint: (req) => client.request<ImageEditResponse>('POST', '/images/inpaint', req),
-    styleTransfer: (req) => client.request<ImageEditResponse>('POST', '/images/style-transfer', req),
+    styleTransfer: (req) =>
+      client.request<ImageEditResponse>('POST', '/images/style-transfer', req),
     virtualTryOn: (req) => client.request<ImageEditResponse>('POST', '/images/virtual-try-on', req),
     background: (req) => client.request<ImageEditResponse>('POST', '/images/background', req),
   }

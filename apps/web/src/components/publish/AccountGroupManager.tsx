@@ -18,13 +18,26 @@ import * as React from 'react'
 import { Plus, Pencil, Trash2, Loader2, Users, ChevronRight, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  Button, Card, CardContent, Input, Label,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import {
-  listPublishGroups, createPublishGroup, updatePublishGroup, deletePublishGroup,
-  addToPublishGroup, removeFromPublishGroup, listPublishGroupMembers,
+  listPublishGroups,
+  createPublishGroup,
+  updatePublishGroup,
+  deletePublishGroup,
+  addToPublishGroup,
+  removeFromPublishGroup,
+  listPublishGroupMembers,
   type PublishAccountGroup,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
@@ -74,7 +87,9 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
     }
   }, [toast])
 
-  React.useEffect(() => { void loadGroups() }, [loadGroups])
+  React.useEffect(() => {
+    void loadGroups()
+  }, [loadGroups])
 
   async function toggleExpand(groupId: string) {
     if (expandedId === groupId) {
@@ -113,7 +128,10 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
     setSaving(true)
     try {
       if (editTarget) {
-        const r = await updatePublishGroup(editTarget.group_id, { name: formName, description: formDesc })
+        const r = await updatePublishGroup(editTarget.group_id, {
+          name: formName,
+          description: formDesc,
+        })
         if (r.success) {
           toast.success(t('groups.updated'))
           await loadGroups()
@@ -213,11 +231,14 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
           <Users className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{t('groups.title')}</h3>
           {groups.length > 0 && (
-            <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{groups.length}</span>
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+              {groups.length}
+            </span>
           )}
         </div>
         <Button size="sm" variant="outline" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5" />{t('groups.create')}
+          <Plus className="h-3.5 w-3.5" />
+          {t('groups.create')}
         </Button>
       </div>
 
@@ -240,11 +261,18 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     className="flex flex-1 items-center gap-2 text-left"
                     onClick={() => toggleExpand(g.group_id)}
                   >
-                    <ChevronRight className={cn('h-4 w-4 text-muted-foreground transition-transform', expandedId === g.group_id && 'rotate-90')} />
+                    <ChevronRight
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground transition-transform',
+                        expandedId === g.group_id && 'rotate-90',
+                      )}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{g.name}</div>
                       {g.description && (
-                        <div className="truncate text-xs text-muted-foreground">{g.description}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {g.description}
+                        </div>
                       )}
                     </div>
                     <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
@@ -252,13 +280,29 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     </span>
                   </button>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => openAddAccounts(g.group_id)}>
-                      <Plus className="h-3 w-3" />{t('groups.addAccount')}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => openAddAccounts(g.group_id)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      {t('groups.addAccount')}
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => openEdit(g)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => openEdit(g)}
+                    >
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteTarget(g)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTarget(g)}
+                    >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -272,13 +316,20 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                       memberIds.map((aid) => {
                         const acc = accounts.find((a) => a.id === aid)
                         return (
-                          <div key={aid} className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1">
+                          <div
+                            key={aid}
+                            className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1"
+                          >
                             <div className="flex min-w-0 items-center gap-1.5">
                               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-semibold text-primary">
                                 {(acc?.platform ?? '?').charAt(0).toUpperCase()}
                               </div>
-                              <span className="truncate text-xs">{acc?.displayName ?? `#${aid}`}</span>
-                              <span className="shrink-0 text-[10px] text-muted-foreground">{acc?.platform ?? ''}</span>
+                              <span className="truncate text-xs">
+                                {acc?.displayName ?? `#${aid}`}
+                              </span>
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                {acc?.platform ?? ''}
+                              </span>
                             </div>
                             <button
                               type="button"
@@ -309,14 +360,32 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
             </DialogHeader>
             <div className="space-y-1">
               <Label className="text-xs">{t('groups.name')}</Label>
-              <Input value={formName} onChange={(e) => setFormName(e.target.value)} required className="h-8 text-xs" placeholder={t('groups.namePlaceholder')} />
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                required
+                className="h-8 text-xs"
+                placeholder={t('groups.namePlaceholder')}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('groups.description')}</Label>
-              <Input value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="h-8 text-xs" placeholder={t('groups.descPlaceholder')} />
+              <Input
+                value={formDesc}
+                onChange={(e) => setFormDesc(e.target.value)}
+                className="h-8 text-xs"
+                placeholder={t('groups.descPlaceholder')}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={saving}
+              >
+                {tCommon('cancel')}
+              </Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editTarget ? tCommon('save') : tCommon('create')}
@@ -329,11 +398,19 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
       {/* 删除确认 */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent className="min-[640px]:max-w-sm">
-          <DialogHeader><DialogTitle>{t('groups.delete')}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">{t('groups.deleteConfirm', { name: deleteTarget?.name ?? '' })}</p>
+          <DialogHeader>
+            <DialogTitle>{t('groups.delete')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('groups.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{tCommon('cancel')}</Button>
-            <Button variant="destructive" onClick={confirmDelete}>{tCommon('confirm')}</Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              {tCommon('confirm')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -341,10 +418,14 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
       {/* 添加账号到分组 */}
       <Dialog open={!!addAccountsOpen} onOpenChange={(o) => !o && setAddAccountsOpen(null)}>
         <DialogContent className="min-[640px]:max-w-md">
-          <DialogHeader><DialogTitle>{t('groups.addAccountTitle')}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{t('groups.addAccountTitle')}</DialogTitle>
+          </DialogHeader>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {availableAccounts.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">{t('groups.noAvailableAccounts')}</p>
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t('groups.noAvailableAccounts')}
+              </p>
             ) : (
               availableAccounts.map((a) => {
                 const checked = selectedAccountIds.has(a.id)
@@ -383,8 +464,14 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
             <Button variant="outline" onClick={() => setAddAccountsOpen(null)} className="shrink-0">
               <span className="whitespace-nowrap">{tCommon('cancel')}</span>
             </Button>
-            <Button onClick={submitAddAccounts} disabled={selectedAccountIds.size === 0} className="shrink-0 min-w-0">
-              <span className="min-w-0 flex-1 truncate">{t('groups.addSelected', { count: selectedAccountIds.size })}</span>
+            <Button
+              onClick={submitAddAccounts}
+              disabled={selectedAccountIds.size === 0}
+              className="shrink-0 min-w-0"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {t('groups.addSelected', { count: selectedAccountIds.size })}
+              </span>
             </Button>
           </DialogFooter>
         </DialogContent>

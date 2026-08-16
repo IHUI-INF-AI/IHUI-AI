@@ -77,10 +77,7 @@ export default function LiveCalendar() {
     return m
   }, [groups])
 
-  const monthTotal = useMemo(
-    () => groups.reduce((n, g) => n + g.lives.length, 0),
-    [groups],
-  )
+  const monthTotal = useMemo(() => groups.reduce((n, g) => n + g.lives.length, 0), [groups])
 
   const load = useCallback(
     async (y: number, m: number) => {
@@ -132,8 +129,7 @@ export default function LiveCalendar() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   const selectedLives = liveMap.get(selected) || []
-  const goDetail = (id: string | number) =>
-    Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
+  const goDetail = (id: string | number) => Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
 
   const onAction = (live: Live) => {
     if (live.status === 'upcoming') {
@@ -214,9 +210,7 @@ export default function LiveCalendar() {
               <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
               <View className="cal-card-row">
                 <Text className="cal-card-title">{live.title}</Text>
-                <Text className={`cal-badge ${cfg.badge}`}>
-                  {tt(cfg.labelKey, cfg.labelFb)}
-                </Text>
+                <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
               </View>
               <View className="cal-card-meta">
                 {live.anchor && (
@@ -226,10 +220,7 @@ export default function LiveCalendar() {
                 )}
                 {live.startTime && <Text>{live.startTime}</Text>}
               </View>
-              <Text
-                className={`cal-action ${cfg.actionCls}`}
-                onClick={() => onAction(live)}
-              >
+              <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
                 {tt(cfg.actionKey, cfg.actionFb)}
               </Text>
             </View>

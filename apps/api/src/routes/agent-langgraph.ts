@@ -126,7 +126,10 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /:threadId/stream — SSE 流式输出(浏览器 EventSource 兼容)
   // graphInput 通过 query `input`(JSON 编码)传入;缺失时传空对象(续流场景)
-  server.get('/:threadId/stream', async (request, reply) => {
+  server.get(
+    '/:threadId/stream',
+    { compression: false },
+    async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
     const { threadId } = request.params as { threadId: string }
@@ -170,14 +173,18 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      for await (const evt of streamAgentExecution(request, threadId, graphInput, controller.signal)) {
+      for await (const evt of streamAgentExecution(
+        request,
+        threadId,
+        graphInput,
+        controller.signal,
+      )) {
         if (raw.writableEnded) break
         writeEvent(evt)
       }
     } catch (e) {
       if (!raw.writableEnded) {
-        const msg =
-          (e as Error).name === 'AbortError' ? '客户端断开' : toUserFriendlyMessage(e)
+        const msg = (e as Error).name === 'AbortError' ? '客户端断开' : toUserFriendlyMessage(e)
         writeEvent({
           type: 'error',
           threadId,

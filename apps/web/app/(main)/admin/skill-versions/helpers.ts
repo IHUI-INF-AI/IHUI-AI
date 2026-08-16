@@ -22,7 +22,10 @@ export async function rollbackSkill(name: string, content: string): Promise<void
   if (!res.success) throw new Error(res.error)
 }
 
-export function computeDiff(oldText: string, newText: string): Array<{ type: 'added' | 'removed' | 'unchanged'; text: string }> {
+export function computeDiff(
+  oldText: string,
+  newText: string,
+): Array<{ type: 'added' | 'removed' | 'unchanged'; text: string }> {
   const oldLines = oldText.split('\n')
   const newLines = newText.split('\n')
   const result: Array<{ type: 'added' | 'removed' | 'unchanged'; text: string }> = []

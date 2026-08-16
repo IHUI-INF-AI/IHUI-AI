@@ -142,7 +142,9 @@ export default function AdminShopPaymentsPage() {
               <TableHead className="text-xs uppercase">{t('payments.table.amount')}</TableHead>
               <TableHead className="text-xs uppercase">{t('payments.table.status')}</TableHead>
               <TableHead className="text-xs uppercase">{t('payments.table.time')}</TableHead>
-              <TableHead className="text-right text-xs uppercase">{t('payments.table.action')}</TableHead>
+              <TableHead className="text-right text-xs uppercase">
+                {t('payments.table.action')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

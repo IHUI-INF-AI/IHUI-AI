@@ -60,14 +60,14 @@ for await (const chunk of stream) {
 
 ### SdkConfig
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `apiKey` | `string` | — | API Key（必需，格式 `ihui_xxx`） |
-| `secret` | `string` | — | API Secret（可选，创建/轮换时返回） |
-| `baseUrl` | `string` | `http://localhost:8802` | API 基础 URL |
-| `timeout` | `number` | `30000` | 请求超时（毫秒），流式请求不超时 |
-| `maxRetries` | `number` | `2` | 最大重试次数，网络错误和 5xx 自动重试，429 不重试 |
-| `fetch` | `typeof fetch` | — | 自定义 fetch 实现（测试/拦截用） |
+| 参数         | 类型           | 默认值                  | 说明                                              |
+| ------------ | -------------- | ----------------------- | ------------------------------------------------- |
+| `apiKey`     | `string`       | —                       | API Key（必需，格式 `ihui_xxx`）                  |
+| `secret`     | `string`       | —                       | API Secret（可选，创建/轮换时返回）               |
+| `baseUrl`    | `string`       | `http://localhost:8802` | API 基础 URL                                      |
+| `timeout`    | `number`       | `30000`                 | 请求超时（毫秒），流式请求不超时                  |
+| `maxRetries` | `number`       | `2`                     | 最大重试次数，网络错误和 5xx 自动重试，429 不重试 |
+| `fetch`      | `typeof fetch` | —                       | 自定义 fetch 实现（测试/拦截用）                  |
 
 ```ts
 const client = createClient({
@@ -92,19 +92,19 @@ import { createClient } from '@ihui/sdk'
 const client = createClient({ apiKey: 'ihui_xxx' })
 
 // 每个模块是一组相关 API 的集合
-client.ai          // AI 核心
-client.agents      // Agent 编排
-client.audio       // 音频
-client.images      // 图像
-client.videos      // 视频
-client.threed      // 3D 模型
-client.generation  // 生成队列
-client.knowledge   // 知识库
-client.tools       // MCP 工具
-client.memory      // 记忆
-client.messages    // 消息
-client.files       // 文件
-client.user        // 用户
+client.ai // AI 核心
+client.agents // Agent 编排
+client.audio // 音频
+client.images // 图像
+client.videos // 视频
+client.threed // 3D 模型
+client.generation // 生成队列
+client.knowledge // 知识库
+client.tools // MCP 工具
+client.memory // 记忆
+client.messages // 消息
+client.files // 文件
+client.user // 用户
 ```
 
 ### 错误处理
@@ -118,10 +118,10 @@ try {
   await client.ai.completions({ model: 'nonexistent', messages: [] })
 } catch (e) {
   if (e instanceof SdkError) {
-    console.error(e.status)   // HTTP 状态码
-    console.error(e.code)     // 错误码，如 'model_not_found'
-    console.error(e.message)  // 错误描述
-    console.error(e.details)  // 错误详情（可选）
+    console.error(e.status) // HTTP 状态码
+    console.error(e.code) // 错误码，如 'model_not_found'
+    console.error(e.message) // 错误描述
+    console.error(e.details) // 错误详情（可选）
   }
 }
 ```
@@ -205,22 +205,22 @@ await client.ai.deleteUserModel(created.id)
 
 **端点：** 13 个
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `completions` | `POST /v1/chat/completions` | 非流式对话 |
-| `completionsStream` | `POST /v1/chat/completions` | 流式对话（AsyncGenerator） |
-| `embeddings` | `POST /v1/embeddings` | 文本向量化 |
-| `chatVision` | `POST /v1/chat/vision` | 图片理解 |
-| `chatMoa` | `POST /v1/chat/moa` | MoA 混合模型 |
-| `listModels` | `GET /v1/models` | 模型列表 |
-| `getModel` | `GET /v1/models/:id` | 模型详情 |
-| `listVendorModels` | `GET /v1/vendors/:vendor/models` | 厂商模型列表 |
-| `listMoaPresets` | `GET /v1/moa-presets` | MoA 预设列表 |
-| `createMoaPreset` | `POST /v1/moa-presets` | 创建 MoA 预设 |
-| `listUserModels` | `GET /v1/user/models` | 用户自定义模型列表 |
-| `createUserModel` | `POST /v1/user/models` | 创建用户自定义模型 |
-| `updateUserModel` | `PUT /v1/user/models/:id` | 更新用户自定义模型 |
-| `deleteUserModel` | `DELETE /v1/user/models/:id` | 删除用户自定义模型 |
+| 方法                | 路径                             | 说明                       |
+| ------------------- | -------------------------------- | -------------------------- |
+| `completions`       | `POST /v1/chat/completions`      | 非流式对话                 |
+| `completionsStream` | `POST /v1/chat/completions`      | 流式对话（AsyncGenerator） |
+| `embeddings`        | `POST /v1/embeddings`            | 文本向量化                 |
+| `chatVision`        | `POST /v1/chat/vision`           | 图片理解                   |
+| `chatMoa`           | `POST /v1/chat/moa`              | MoA 混合模型               |
+| `listModels`        | `GET /v1/models`                 | 模型列表                   |
+| `getModel`          | `GET /v1/models/:id`             | 模型详情                   |
+| `listVendorModels`  | `GET /v1/vendors/:vendor/models` | 厂商模型列表               |
+| `listMoaPresets`    | `GET /v1/moa-presets`            | MoA 预设列表               |
+| `createMoaPreset`   | `POST /v1/moa-presets`           | 创建 MoA 预设              |
+| `listUserModels`    | `GET /v1/user/models`            | 用户自定义模型列表         |
+| `createUserModel`   | `POST /v1/user/models`           | 创建用户自定义模型         |
+| `updateUserModel`   | `PUT /v1/user/models/:id`        | 更新用户自定义模型         |
+| `deleteUserModel`   | `DELETE /v1/user/models/:id`     | 删除用户自定义模型         |
 
 ---
 
@@ -669,9 +669,9 @@ for await (const chunk of client.ai.completionsStream({
   messages: [{ role: 'user', content: '写一首诗' }],
 })) {
   // ChatStreamChunk
-  console.log(chunk.id)           // 'chatcmpl-xxx'
-  console.log(chunk.choices[0]?.delta?.content)  // 增量文本
-  console.log(chunk.choices[0]?.finishReason)    // null | 'stop' | 'length'
+  console.log(chunk.id) // 'chatcmpl-xxx'
+  console.log(chunk.choices[0]?.delta?.content) // 增量文本
+  console.log(chunk.choices[0]?.finishReason) // null | 'stop' | 'length'
 }
 ```
 

@@ -10,7 +10,11 @@ import {
 
 describe('dictTypeSchema', () => {
   it('合法值通过校验', () => {
-    const r = dictTypeSchema.safeParse({ name: '订单状态', code: 'order_status', description: 'desc' })
+    const r = dictTypeSchema.safeParse({
+      name: '订单状态',
+      code: 'order_status',
+      description: 'desc',
+    })
     expect(r.success).toBe(true)
   })
 
@@ -18,7 +22,9 @@ describe('dictTypeSchema', () => {
     const r = dictTypeSchema.safeParse({ name: '', code: 'ok', description: '' })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('name') && i.message === 'required')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('name') && i.message === 'required')).toBe(
+        true,
+      )
     }
   })
 
@@ -31,7 +37,9 @@ describe('dictTypeSchema', () => {
     const r = dictTypeSchema.safeParse({ name: 'n', code: 'Order', description: '' })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('code') && i.message === 'pattern')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('code') && i.message === 'pattern')).toBe(
+        true,
+      )
     }
   })
 

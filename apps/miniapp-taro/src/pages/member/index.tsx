@@ -39,19 +39,65 @@ const readStr = (obj: Record<string, unknown>, key: string): string | undefined 
 export default function MemberIndexPage() {
   const tt = useTt()
 
-  const defaultBenefits = useMemo<BenefitItem[]>(() => [
-    { id: 'unlimited', title: tt('member.benefit.unlimited', '无限对话'), desc: tt('member.benefit.unlimitedDesc', '无限制使用 AI 对话功能'), active: true },
-    { id: 'advanced', title: tt('member.benefit.advanced', '高级模型'), desc: tt('member.benefit.advancedDesc', '使用最新的 AI 大模型'), active: true },
-    { id: 'priority', title: tt('member.benefit.priority', '优先响应'), desc: tt('member.benefit.priorityDesc', '对话请求优先处理'), active: true },
-    { id: 'community', title: tt('member.benefit.community', 'VIP 社区'), desc: tt('member.benefit.communityDesc', '加入专属 VIP 交流群'), active: true },
-  ], [tt])
+  const defaultBenefits = useMemo<BenefitItem[]>(
+    () => [
+      {
+        id: 'unlimited',
+        title: tt('member.benefit.unlimited', '无限对话'),
+        desc: tt('member.benefit.unlimitedDesc', '无限制使用 AI 对话功能'),
+        active: true,
+      },
+      {
+        id: 'advanced',
+        title: tt('member.benefit.advanced', '高级模型'),
+        desc: tt('member.benefit.advancedDesc', '使用最新的 AI 大模型'),
+        active: true,
+      },
+      {
+        id: 'priority',
+        title: tt('member.benefit.priority', '优先响应'),
+        desc: tt('member.benefit.priorityDesc', '对话请求优先处理'),
+        active: true,
+      },
+      {
+        id: 'community',
+        title: tt('member.benefit.community', 'VIP 社区'),
+        desc: tt('member.benefit.communityDesc', '加入专属 VIP 交流群'),
+        active: true,
+      },
+    ],
+    [tt],
+  )
 
-  const levelTiers = useMemo<LevelTier[]>(() => [
-    { key: 'normal', name: tt('member.level.normal', '普通会员'), threshold: tt('member.level.normalThreshold', '注册即享'), perks: tt('member.level.normalPerks', '基础对话 / 有限次数') },
-    { key: 'silver', name: tt('member.level.silver', '银卡会员'), threshold: tt('member.level.silverThreshold', '成长值 ≥ 500'), perks: tt('member.level.silverPerks', '专属折扣 / 课程试听') },
-    { key: 'gold', name: tt('member.level.gold', '金卡会员'), threshold: tt('member.level.goldThreshold', '成长值 ≥ 2000'), perks: tt('member.level.goldPerks', '免费课程 / 专属客服') },
-    { key: 'diamond', name: tt('member.level.diamond', '钻石会员'), threshold: tt('member.level.diamondThreshold', '成长值 ≥ 8000'), perks: tt('member.level.diamondPerks', '全部权益 / 私董会') },
-  ], [tt])
+  const levelTiers = useMemo<LevelTier[]>(
+    () => [
+      {
+        key: 'normal',
+        name: tt('member.level.normal', '普通会员'),
+        threshold: tt('member.level.normalThreshold', '注册即享'),
+        perks: tt('member.level.normalPerks', '基础对话 / 有限次数'),
+      },
+      {
+        key: 'silver',
+        name: tt('member.level.silver', '银卡会员'),
+        threshold: tt('member.level.silverThreshold', '成长值 ≥ 500'),
+        perks: tt('member.level.silverPerks', '专属折扣 / 课程试听'),
+      },
+      {
+        key: 'gold',
+        name: tt('member.level.gold', '金卡会员'),
+        threshold: tt('member.level.goldThreshold', '成长值 ≥ 2000'),
+        perks: tt('member.level.goldPerks', '免费课程 / 专属客服'),
+      },
+      {
+        key: 'diamond',
+        name: tt('member.level.diamond', '钻石会员'),
+        threshold: tt('member.level.diamondThreshold', '成长值 ≥ 8000'),
+        perks: tt('member.level.diamondPerks', '全部权益 / 私董会'),
+      },
+    ],
+    [tt],
+  )
 
   const [info, setInfo] = useState<MemberInfo>({} as MemberInfo)
   const [profile, setProfile] = useState<{
@@ -68,9 +114,11 @@ export default function MemberIndexPage() {
     setLoading(true)
     try {
       const [memberInfo, userProfile, benefitsRes] = await Promise.all([
-        getMemberInfo().catch(() => ({} as MemberInfo)),
+        getMemberInfo().catch(() => ({}) as MemberInfo),
         getProfile().catch(() => null),
-        getMemberBenefits().catch(() => ({ list: [] as Array<{ id: string; title: string; desc: string; icon?: string }> })),
+        getMemberBenefits().catch(() => ({
+          list: [] as Array<{ id: string; title: string; desc: string; icon?: string }>,
+        })),
       ])
       setInfo(memberInfo)
       if (userProfile) {
@@ -83,9 +131,12 @@ export default function MemberIndexPage() {
           isPermanentVip: Boolean(raw['isPermanentVip']),
         })
       }
-      const list = (benefitsRes.list || []).map(
-        (b): BenefitItem => ({ id: b.id, title: b.title, desc: b.desc, active: true }),
-      )
+      const list = (benefitsRes.list || []).map((b): BenefitItem => ({
+        id: b.id,
+        title: b.title,
+        desc: b.desc,
+        active: true,
+      }))
       if (list.length > 0) setBenefits(list)
     } catch (e) {
       logger.error('member/index', '加载会员信息', e)
@@ -123,10 +174,13 @@ export default function MemberIndexPage() {
   const isMaxLevel = currentIdx === tierOrder.length - 1
   const nextTier = !isMaxLevel ? levelTiers[currentIdx + 1] : null
   const currentThreshold = GROWTH_THRESHOLDS[currentLevelKey] ?? 0
-  const nextThreshold = !isMaxLevel && nextTier ? GROWTH_THRESHOLDS[nextTier.key] ?? 0 : growth
+  const nextThreshold = !isMaxLevel && nextTier ? (GROWTH_THRESHOLDS[nextTier.key] ?? 0) : growth
   const progressPercent = isMaxLevel
     ? 100
-    : Math.min(100, Math.max(0, ((growth - currentThreshold) / (nextThreshold - currentThreshold)) * 100))
+    : Math.min(
+        100,
+        Math.max(0, ((growth - currentThreshold) / (nextThreshold - currentThreshold)) * 100),
+      )
 
   const goToPayment = () => {
     Taro.navigateTo({ url: '/pages/vip/index' })
@@ -167,9 +221,7 @@ export default function MemberIndexPage() {
 
       {/* ===== 会员等级梯度 ===== */}
       <View className="member-card">
-        <Text className="member-card-title">
-          {tt('member.index.levelIntro', '会员等级介绍')}
-        </Text>
+        <Text className="member-card-title">{tt('member.index.levelIntro', '会员等级介绍')}</Text>
         <View className="member-level-grid">
           {levelTiers.map((tier) => (
             <View
@@ -188,9 +240,7 @@ export default function MemberIndexPage() {
 
       {/* ===== 使用统计 ===== */}
       <View className="member-card">
-        <Text className="member-card-title">
-          {tt('member.index.usageStats', '使用统计')}
-        </Text>
+        <Text className="member-card-title">{tt('member.index.usageStats', '使用统计')}</Text>
         <View className="member-stats">
           <View className="member-stat">
             <Text className="member-stat-num">{info.integral || 0}</Text>
@@ -211,30 +261,26 @@ export default function MemberIndexPage() {
           <View className="member-progress-header">
             <Text>{tt('member.index.currentLevel', '当前等级')}</Text>
             <Text className="member-progress-current">
-              {isMaxLevel
-                ? tt('member.index.maxLevel', '已满级')
-                : `${growth} / ${nextThreshold}`}
+              {isMaxLevel ? tt('member.index.maxLevel', '已满级') : `${growth} / ${nextThreshold}`}
             </Text>
           </View>
           <View className="member-progress-bar">
-            <View
-              className="member-progress-fill"
-              style={{ width: `${progressPercent}%` }}
-            />
+            <View className="member-progress-fill" style={{ width: `${progressPercent}%` }} />
           </View>
           <Text className="member-progress-hint">
             {isMaxLevel
               ? tt('member.index.maxLevelHint', '已达成最高等级')
-              : tt('member.index.nextLevelHint', `距 ${nextTier?.name ?? ''} 还差 ${nextThreshold - growth}`)}
+              : tt(
+                  'member.index.nextLevelHint',
+                  `距 ${nextTier?.name ?? ''} 还差 ${nextThreshold - growth}`,
+                )}
           </Text>
         </View>
       </View>
 
       {/* ===== 会员特权列表 ===== */}
       <View className="member-card">
-        <Text className="member-card-title">
-          {tt('member.index.privileges', '会员特权')}
-        </Text>
+        <Text className="member-card-title">{tt('member.index.privileges', '会员特权')}</Text>
         <View className="member-benefits">
           {benefits.map((b) => (
             <View key={b.id} className="member-benefit-item">
@@ -245,9 +291,7 @@ export default function MemberIndexPage() {
                 <Text className="member-benefit-title">{b.title}</Text>
                 <Text className="member-benefit-desc">{b.desc}</Text>
               </View>
-              <Text
-                className={`member-benefit-status ${isVip ? 'member-benefit-active' : ''}`}
-              >
+              <Text className={`member-benefit-status ${isVip ? 'member-benefit-active' : ''}`}>
                 {isVip
                   ? tt('member.index.opened', '已开通')
                   : tt('member.index.notOpened', '未开通')}
@@ -261,9 +305,7 @@ export default function MemberIndexPage() {
       {!isVip ? (
         <View className="member-vip-cta">
           <View className="member-vip-info">
-            <Text className="member-vip-title">
-              {tt('member.index.openVip', '开通 VIP 会员')}
-            </Text>
+            <Text className="member-vip-title">{tt('member.index.openVip', '开通 VIP 会员')}</Text>
             <Text className="member-vip-desc">
               {tt('member.index.openVipDesc', '享受更多特权,提升 AI 体验')}
             </Text>
@@ -338,9 +380,7 @@ export default function MemberIndexPage() {
 
       {/* ===== 联系客服 ===== */}
       <View className="member-contact">
-        <Text className="member-contact-title">
-          {tt('member.index.contactTitle', '遇到问题?')}
-        </Text>
+        <Text className="member-contact-title">{tt('member.index.contactTitle', '遇到问题?')}</Text>
         <Text className="member-contact-text">
           {tt('member.index.contactText', '联系客服微信:AIXHS_Service')}
         </Text>

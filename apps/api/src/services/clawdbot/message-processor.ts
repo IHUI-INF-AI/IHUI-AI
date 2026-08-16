@@ -150,7 +150,12 @@ export class MessageProcessor extends EventEmitter {
     const urlRegex = /https?:\/\/[^\s]+/g
     let match: RegExpExecArray | null
     while ((match = urlRegex.exec(content)) !== null) {
-      entities.push({ type: 'url', value: match[0], confidence: 0.95, position: { start: match.index, end: match.index + match[0].length } })
+      entities.push({
+        type: 'url',
+        value: match[0],
+        confidence: 0.95,
+        position: { start: match.index, end: match.index + match[0].length },
+      })
     }
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/g
     while ((match = emailRegex.exec(content)) !== null) {

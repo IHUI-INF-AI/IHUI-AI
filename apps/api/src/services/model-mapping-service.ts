@@ -91,7 +91,9 @@ export async function listMappings(filter: {
   const conds: SQL[] = []
   if (filter.userId !== undefined) {
     conds.push(
-      filter.userId === null ? isNull(aiModelMappings.userId) : eq(aiModelMappings.userId, filter.userId),
+      filter.userId === null
+        ? isNull(aiModelMappings.userId)
+        : eq(aiModelMappings.userId, filter.userId),
     )
   }
   if (filter.apiKeyId !== undefined) {

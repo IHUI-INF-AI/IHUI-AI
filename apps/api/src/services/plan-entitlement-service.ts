@@ -82,10 +82,7 @@ export async function getVipLevelEntitlements(vipLevelId: string): Promise<{
  * - 已存在:更新配额为 VIP 等级默认值
  * - 不存在:插入新记录
  */
-async function upsertUserAiBudget(
-  userId: string,
-  defaults: AiBudgetDefaults,
-): Promise<boolean> {
+async function upsertUserAiBudget(userId: string, defaults: AiBudgetDefaults): Promise<boolean> {
   const [existing] = await db
     .select({ id: aiBudgets.id })
     .from(aiBudgets)

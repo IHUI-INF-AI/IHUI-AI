@@ -375,11 +375,11 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-muted/30',
                     // 键盘聚焦但未选中:虚线 ring 提示(双重高亮:选中 + 聚焦)
-                    isFocused &&
-                      !isSel &&
-                      'ring-1 ring-ring/40 ring-offset-1 ring-offset-popover',
+                    isFocused && !isSel && 'ring-1 ring-ring/40 ring-offset-1 ring-offset-popover',
                     // 高风险 + 选中:琥珀色边框强化警告
-                    isSel && opt.risk === 'high' && 'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5',
+                    isSel &&
+                      opt.risk === 'high' &&
+                      'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5',
                   )}
                 >
                   <Icon

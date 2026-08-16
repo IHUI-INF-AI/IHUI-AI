@@ -124,7 +124,9 @@ export default function TokenWalletPage() {
           ) : balanceQ.error ? (
             <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
           ) : (
-            <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{balanceQ.data?.balance ?? 0}</div>
+            <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              {balanceQ.data?.balance ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>

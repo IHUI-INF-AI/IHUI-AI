@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, BookOpen, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  BookOpen,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 import { BackButton } from '@/components/common'
 
 const jsonLd = {
@@ -23,7 +33,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 学术研究', item: 'https://aizhs.top/use-cases/ai-research' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 学术研究',
+          item: 'https://aizhs.top/use-cases/ai-research',
+        },
       ],
     },
     {
@@ -35,18 +50,50 @@ const jsonLd = {
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: '研究领域关键词/既往文献 PDF/引用样式(APA/MLA/Chicago)' }],
+      supply: [
+        { '@type': 'HowToSupply', name: '研究领域关键词/既往文献 PDF/引用样式(APA/MLA/Chicago)' },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI 文献检索引擎' },
         { '@type': 'HowToTool', name: 'IHUI AI PDF 解析模块' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '接入学术数据库', text: '对接 arXiv/PubMed/IEEE/知网/万方/CNKI 等 30+ 数据库,定时抓取新发表论文。' },
-        { '@type': 'HowToStep', position: 2, name: '上传文献 PDF', text: '批量上传历史 PDF 文献,AI 自动抽取标题/作者/摘要/参考文献,构建本地文献库。' },
-        { '@type': 'HowToStep', position: 3, name: '配置引用样式', text: '选择 APA/MLA/Chicago/GB/T 7714 等主流引用样式,Agent 自动生成符合规范的参考文献。' },
-        { '@type': 'HowToStep', position: 4, name: '训练综述模型', text: 'Agent 学习团队既往综述写作风格,基于本地文献库生成符合学术规范的文献综述。' },
-        { '@type': 'HowToStep', position: 5, name: '构建知识图谱', text: '抽取论文中的实体(作者/机构/方法/数据集)与关系,生成跨学科知识图谱,支持探索性查询。' },
-        { '@type': 'HowToStep', position: 6, name: '输出趋势报告', text: '基于时间序列与主题模型,每周输出研究热点/新兴方法/潜在合作者报告。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '接入学术数据库',
+          text: '对接 arXiv/PubMed/IEEE/知网/万方/CNKI 等 30+ 数据库,定时抓取新发表论文。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '上传文献 PDF',
+          text: '批量上传历史 PDF 文献,AI 自动抽取标题/作者/摘要/参考文献,构建本地文献库。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '配置引用样式',
+          text: '选择 APA/MLA/Chicago/GB/T 7714 等主流引用样式,Agent 自动生成符合规范的参考文献。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '训练综述模型',
+          text: 'Agent 学习团队既往综述写作风格,基于本地文献库生成符合学术规范的文献综述。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '构建知识图谱',
+          text: '抽取论文中的实体(作者/机构/方法/数据集)与关系,生成跨学科知识图谱,支持探索性查询。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '输出趋势报告',
+          text: '基于时间序列与主题模型,每周输出研究热点/新兴方法/潜在合作者报告。',
+        },
       ],
     },
   ],
@@ -75,12 +122,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '30+ 数据库跨库检索', desc: '对接 arXiv/PubMed/IEEE/知网/万方/Springer/Elsevier 等学术数据库,统一检索入口,新论文每日自动入库。' },
-  { title: 'PDF 智能解析', desc: '批量解析 PDF 提取标题/作者/摘要/图表/公式/参考文献,100 篇文献解析时间从 40 小时缩短到 20 分钟。' },
-  { title: '引用样式自动生成', desc: '支持 APA/MLA/Chicago/GB/T 7714/IEEE Vancouver 等 20+ 引用样式,Agent 自动按期刊要求格式化参考文献。' },
-  { title: '文献综述生成', desc: 'Agent 学习团队既往综述写作风格,基于本地文献库生成结构化综述,人工只需润色,周期从 2 周缩到 2 天。' },
-  { title: '跨学科知识图谱', desc: '抽取论文中的实体(作者/机构/方法/数据集)与关系,生成可视化知识图谱,支持探索性查询与潜在合作者发现。' },
-  { title: '研究趋势分析', desc: '基于时间序列与主题模型,追踪研究热点/新兴方法/高被引论文,每周输出趋势报告,辅助选题决策。' },
+  {
+    title: '30+ 数据库跨库检索',
+    desc: '对接 arXiv/PubMed/IEEE/知网/万方/Springer/Elsevier 等学术数据库,统一检索入口,新论文每日自动入库。',
+  },
+  {
+    title: 'PDF 智能解析',
+    desc: '批量解析 PDF 提取标题/作者/摘要/图表/公式/参考文献,100 篇文献解析时间从 40 小时缩短到 20 分钟。',
+  },
+  {
+    title: '引用样式自动生成',
+    desc: '支持 APA/MLA/Chicago/GB/T 7714/IEEE Vancouver 等 20+ 引用样式,Agent 自动按期刊要求格式化参考文献。',
+  },
+  {
+    title: '文献综述生成',
+    desc: 'Agent 学习团队既往综述写作风格,基于本地文献库生成结构化综述,人工只需润色,周期从 2 周缩到 2 天。',
+  },
+  {
+    title: '跨学科知识图谱',
+    desc: '抽取论文中的实体(作者/机构/方法/数据集)与关系,生成可视化知识图谱,支持探索性查询与潜在合作者发现。',
+  },
+  {
+    title: '研究趋势分析',
+    desc: '基于时间序列与主题模型,追踪研究热点/新兴方法/高被引论文,每周输出趋势报告,辅助选题决策。',
+  },
 ]
 
 const cases = [
@@ -119,7 +184,10 @@ const metrics = [
 export default function AiResearchPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         {/* Hero */}
@@ -132,13 +200,19 @@ export default function AiResearchPage() {
             AI 学术研究助手:让文献调研效率提升 8 倍
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基于 IHUI AI 全栈 AI 操作系统搭建,8 端分发(Web/桌面/小程序/浏览器插件/RN/CLI/API/AI-Service),Apache 2.0 开源,支持私有化部署。
+            基于 IHUI AI 全栈 AI 操作系统搭建,8
+            端分发(Web/桌面/小程序/浏览器插件/RN/CLI/API/AI-Service),Apache 2.0
+            开源,支持私有化部署。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -148,11 +222,16 @@ export default function AiResearchPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">研究者的真实痛点</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              研究者的真实痛点
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -162,7 +241,9 @@ export default function AiResearchPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -178,7 +259,9 @@ export default function AiResearchPage() {
 
         {/* 案例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">客户落地案例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            客户落地案例
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -193,7 +276,9 @@ export default function AiResearchPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技术栈与工具链</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              技术栈与工具链
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             基于 IHUI AI 全栈 AI 操作系统,8 端同源,核心组件全部开源。
@@ -211,7 +296,9 @@ export default function AiResearchPage() {
         {/* 联系/CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始搭建你的 AI 学术研究助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            开始搭建你的 AI 学术研究助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从学术研究场景模板一键 fork,30 分钟体验。
           </p>
@@ -230,10 +317,18 @@ export default function AiResearchPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 咨询入口 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 教学版 8802</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 实验室部署 8803</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 镜像加速 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 咨询入口 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 教学版 8802
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 实验室部署 8803
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 镜像加速 8809
+            </span>
           </div>
         </section>
       </main>

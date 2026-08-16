@@ -61,16 +61,37 @@ export interface DebugSessionInfo {
   [key: string]: unknown
 }
 
-export interface LaunchResult { sessionId: string }
-export interface AttachResult { sessionId: string }
-export interface BreakpointsResult { breakpoints: unknown[] }
-export interface ContinueResult { stopped: StoppedInfo | null }
-export interface StepResult { stopped: StoppedInfo | null }
-export interface StackResult { stackFrames: StackFrame[] }
-export interface VariablesResult { variables: DebugVariable[] }
-export interface EvalResult { result: string; type?: string }
-export interface DisconnectResult { disconnected: boolean }
-export interface ListSessionsResult { sessions: DebugSessionInfo[] }
+export interface LaunchResult {
+  sessionId: string
+}
+export interface AttachResult {
+  sessionId: string
+}
+export interface BreakpointsResult {
+  breakpoints: unknown[]
+}
+export interface ContinueResult {
+  stopped: StoppedInfo | null
+}
+export interface StepResult {
+  stopped: StoppedInfo | null
+}
+export interface StackResult {
+  stackFrames: StackFrame[]
+}
+export interface VariablesResult {
+  variables: DebugVariable[]
+}
+export interface EvalResult {
+  result: string
+  type?: string
+}
+export interface DisconnectResult {
+  disconnected: boolean
+}
+export interface ListSessionsResult {
+  sessions: DebugSessionInfo[]
+}
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const r = await fetchApi<T>(url, {
@@ -108,8 +129,14 @@ export function attachDebugSession(params: AttachParams): Promise<AttachResult> 
   return postJson<AttachResult>('/api/debug/attach', params)
 }
 
-export function setBreakpoints(sessionId: string, params: SetBreakpointsParams): Promise<BreakpointsResult> {
-  return postJson<BreakpointsResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/breakpoints`, params)
+export function setBreakpoints(
+  sessionId: string,
+  params: SetBreakpointsParams,
+): Promise<BreakpointsResult> {
+  return postJson<BreakpointsResult>(
+    `/api/debug/sessions/${encodeURIComponent(sessionId)}/breakpoints`,
+    params,
+  )
 }
 
 export function continueExecution(sessionId: string): Promise<ContinueResult> {
@@ -117,7 +144,9 @@ export function continueExecution(sessionId: string): Promise<ContinueResult> {
 }
 
 export function stepExecution(sessionId: string, stepType: StepType): Promise<StepResult> {
-  return postJson<StepResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/step`, { stepType })
+  return postJson<StepResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/step`, {
+    stepType,
+  })
 }
 
 export function getStackTrace(sessionId: string): Promise<StackResult> {
@@ -135,10 +164,10 @@ export function evaluateExpression(
   expression: string,
   frameId?: number,
 ): Promise<EvalResult> {
-  return postJson<EvalResult>(
-    `/api/debug/sessions/${encodeURIComponent(sessionId)}/eval`,
-    { expression, frameId },
-  )
+  return postJson<EvalResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/eval`, {
+    expression,
+    frameId,
+  })
 }
 
 export function disconnectSession(sessionId: string): Promise<DisconnectResult> {

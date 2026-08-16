@@ -20,7 +20,14 @@ interface Props {
   onStatusChange: (v: string) => void
 }
 
-export function UserFilter({ search, onSearchChange, level, onLevelChange, status, onStatusChange }: Props) {
+export function UserFilter({
+  search,
+  onSearchChange,
+  level,
+  onLevelChange,
+  status,
+  onStatusChange,
+}: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">

@@ -50,7 +50,9 @@ export function ProductDialog({
       <DialogContent className="max-w-2xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? t('products.dialog.editTitle') : t('products.dialog.createTitle')}</DialogTitle>
+            <DialogTitle>
+              {editing ? t('products.dialog.editTitle') : t('products.dialog.createTitle')}
+            </DialogTitle>
             <DialogDescription>{t('products.dialog.description')}</DialogDescription>
           </DialogHeader>
           {err && (
@@ -145,7 +147,9 @@ export function ProductDialog({
                 checked={form.status}
                 onCheckedChange={(v) => setForm({ ...form, status: v })}
               />
-              <Label>{form.status ? t('products.toggleOnline') : t('products.toggleOffline')}</Label>
+              <Label>
+                {form.status ? t('products.toggleOnline') : t('products.toggleOffline')}
+              </Label>
             </div>
           </div>
           <div className="space-y-2">

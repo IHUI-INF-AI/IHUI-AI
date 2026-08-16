@@ -39,14 +39,7 @@ export const EMPTY_DICT_TYPE_FORM: DictTypeFormValues = {
  * - cssClass:可选
  * - remark:可选,最大 500
  */
-const LIST_CLASS_VALUES = [
-  'default',
-  'primary',
-  'success',
-  'info',
-  'warning',
-  'danger',
-] as const
+const LIST_CLASS_VALUES = ['default', 'primary', 'success', 'info', 'warning', 'danger'] as const
 
 export const dictItemSchema = z.object({
   label: z.string().min(1, 'required').max(128, 'maxLength'),

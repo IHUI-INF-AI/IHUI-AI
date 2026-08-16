@@ -13,10 +13,7 @@ const compareJsonLd = {
         'Wordware 是可读 AI 编程语言;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,零代码可视化+200+ 模板+六端分发+团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
-      about: [
-        { '@id': 'https://aizhs.top/#organization' },
-        { '@type': 'Thing', name: 'Wordware' },
-      ],
+      about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Wordware' }],
     },
     {
       '@type': 'BreadcrumbList',
@@ -24,7 +21,12 @@ const compareJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Wordware', item: 'https://aizhs.top/compare/ihui-vs-wordware' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs Wordware',
+          item: 'https://aizhs.top/compare/ihui-vs-wordware',
+        },
       ],
     },
   ],

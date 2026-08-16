@@ -227,7 +227,9 @@ function RuleDialog({
               </SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -235,22 +237,35 @@ function RuleDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>科目</Label>
-              <Input value={form.subject} onChange={(e) => update('subject', e.target.value)} placeholder="数学" />
+              <Input
+                value={form.subject}
+                onChange={(e) => update('subject', e.target.value)}
+                placeholder="数学"
+              />
             </div>
             <div className="grid gap-1.5">
               <Label>教师</Label>
-              <Input value={form.teacher} onChange={(e) => update('teacher', e.target.value)} placeholder="教师姓名" />
+              <Input
+                value={form.teacher}
+                onChange={(e) => update('teacher', e.target.value)}
+                placeholder="教师姓名"
+              />
             </div>
           </div>
           <div className="grid gap-1.5">
             <Label>星期</Label>
-            <Select value={String(form.weekday)} onValueChange={(v) => update('weekday', Number(v))}>
+            <Select
+              value={String(form.weekday)}
+              onValueChange={(v) => update('weekday', Number(v))}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {WEEKDAY_LABELS.map((label, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{label}</SelectItem>
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -258,21 +273,38 @@ function RuleDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>开始时间</Label>
-              <Input type="time" value={form.startTime} onChange={(e) => update('startTime', e.target.value)} />
+              <Input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => update('startTime', e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label>结束时间</Label>
-              <Input type="time" value={form.endTime} onChange={(e) => update('endTime', e.target.value)} />
+              <Input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => update('endTime', e.target.value)}
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>教室</Label>
-              <Input value={form.classroom} onChange={(e) => update('classroom', e.target.value)} placeholder="A101" />
+              <Input
+                value={form.classroom}
+                onChange={(e) => update('classroom', e.target.value)}
+                placeholder="A101"
+              />
             </div>
             <div className="grid gap-1.5">
               <Label>优先级</Label>
-              <Input type="number" min={1} value={form.priority} onChange={(e) => update('priority', Number(e.target.value))} />
+              <Input
+                type="number"
+                min={1}
+                value={form.priority}
+                onChange={(e) => update('priority', Number(e.target.value))}
+              />
             </div>
           </div>
         </div>
@@ -283,7 +315,10 @@ function RuleDialog({
               删除
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !form.subject.trim() || !form.teacher.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.subject.trim() || !form.teacher.trim()}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {initial ? '保存' : '添加'}
           </Button>
@@ -381,17 +416,26 @@ function TeacherScheduleDialog({
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
             <Label>教师</Label>
-            <Input value={form.teacher} onChange={(e) => update('teacher', e.target.value)} placeholder="教师姓名" />
+            <Input
+              value={form.teacher}
+              onChange={(e) => update('teacher', e.target.value)}
+              placeholder="教师姓名"
+            />
           </div>
           <div className="grid gap-1.5">
             <Label>星期</Label>
-            <Select value={String(form.weekday)} onValueChange={(v) => update('weekday', Number(v))}>
+            <Select
+              value={String(form.weekday)}
+              onValueChange={(v) => update('weekday', Number(v))}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {WEEKDAY_LABELS.map((label, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{label}</SelectItem>
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -399,11 +443,19 @@ function TeacherScheduleDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>开始时间</Label>
-              <Input type="time" value={form.startTime} onChange={(e) => update('startTime', e.target.value)} />
+              <Input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => update('startTime', e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label>结束时间</Label>
-              <Input type="time" value={form.endTime} onChange={(e) => update('endTime', e.target.value)} />
+              <Input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => update('endTime', e.target.value)}
+              />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -444,7 +496,8 @@ export default function SchedulingPage() {
   const [ruleOpen, setRuleOpen] = React.useState(false)
   const [editingRule, setEditingRule] = React.useState<SchedulingRule | null>(null)
   const [teacherScheduleOpen, setTeacherScheduleOpen] = React.useState(false)
-  const [editingTeacherSchedule, setEditingTeacherSchedule] = React.useState<TeacherSchedule | null>(null)
+  const [editingTeacherSchedule, setEditingTeacherSchedule] =
+    React.useState<TeacherSchedule | null>(null)
   const [conflictDialogOpen, setConflictDialogOpen] = React.useState(false)
   const [conflicts, setConflicts] = React.useState<string[]>([])
 
@@ -464,28 +517,38 @@ export default function SchedulingPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () => api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const { data: rulesData, isLoading: rulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'rule', selectedTermId],
-    queryFn: () => api<{ list: SchedulingRule[] }>(`/api/edu-ai-management/scheduling/rule?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: SchedulingRule[] }>(
+        `/api/edu-ai-management/scheduling/rule?termId=${selectedTermId}`,
+      ),
     enabled: !!selectedTermId,
   })
   const rules = (rulesData?.list ?? []).filter((r) => !r.deletedAt)
 
   const { data: teacherSchedulesData, isLoading: teacherSchedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'teacher-schedule', selectedTermId],
-    queryFn: () => api<{ list: TeacherSchedule[] }>(`/api/edu-ai-management/scheduling/teacher-schedule?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: TeacherSchedule[] }>(
+        `/api/edu-ai-management/scheduling/teacher-schedule?termId=${selectedTermId}`,
+      ),
     enabled: !!selectedTermId,
   })
   const teacherSchedules = (teacherSchedulesData?.list ?? []).filter((s) => !s.deletedAt)
 
   const { data: changesData, isLoading: changesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'change', selectedTermId],
-    queryFn: () => api<{ list: ScheduleChange[] }>(`/api/edu-ai-management/scheduling/change?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: ScheduleChange[] }>(
+        `/api/edu-ai-management/scheduling/change?termId=${selectedTermId}`,
+      ),
     enabled: !!selectedTermId,
   })
   const changes = (changesData?.list ?? []).filter((c) => !c.deletedAt)
@@ -521,10 +584,13 @@ export default function SchedulingPage() {
 
   const autoGenerate = useMutation({
     mutationFn: () =>
-      api<{ success: boolean; message: string }>('/api/edu-ai-management/scheduling/auto-generate', {
-        method: 'POST',
-        body: JSON.stringify({ termId: selectedTermId }),
-      }),
+      api<{ success: boolean; message: string }>(
+        '/api/edu-ai-management/scheduling/auto-generate',
+        {
+          method: 'POST',
+          body: JSON.stringify({ termId: selectedTermId }),
+        },
+      ),
     onSuccess: invalidate,
   })
 
@@ -628,7 +694,8 @@ export default function SchedulingPage() {
               <SelectContent>
                 {terms.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}{t.isCurrent ? ' (当前)' : ''}
+                    {t.name}
+                    {t.isCurrent ? ' (当前)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -657,7 +724,14 @@ export default function SchedulingPage() {
         <TabsContent value="rules" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Button size="sm" onClick={() => { setEditingRule(null); setRuleOpen(true) }} disabled={!selectedTermId}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingRule(null)
+                  setRuleOpen(true)
+                }}
+                disabled={!selectedTermId}
+              >
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 添加规则
               </Button>
@@ -716,24 +790,44 @@ export default function SchedulingPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">班级</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">科目</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">教师</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">星期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">教室</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">优先级</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          科目
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          教师
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          星期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          教室
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          优先级
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {rules.map((r) => (
                         <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs">{classMap.get(r.classId) ?? r.classId}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {classMap.get(r.classId) ?? r.classId}
+                          </td>
                           <td className="px-4 py-3 text-xs font-medium">{r.subject}</td>
                           <td className="px-4 py-3 text-xs">{r.teacher}</td>
                           <td className="px-4 py-3 text-xs">{WEEKDAY_LABELS[r.weekday - 1]}</td>
-                          <td className="px-4 py-3 text-xs">{r.startTime} - {r.endTime}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {r.startTime} - {r.endTime}
+                          </td>
                           <td className="px-4 py-3 text-xs">{r.classroom}</td>
                           <td className="px-4 py-3 text-xs">{r.priority}</td>
                           <td className="px-4 py-3 text-right">
@@ -741,7 +835,10 @@ export default function SchedulingPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => { setEditingRule(r); setRuleOpen(true) }}
+                              onClick={() => {
+                                setEditingRule(r)
+                                setRuleOpen(true)
+                              }}
                             >
                               编辑
                             </Button>
@@ -768,7 +865,14 @@ export default function SchedulingPage() {
         <TabsContent value="teachers" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Button size="sm" onClick={() => { setEditingTeacherSchedule(null); setTeacherScheduleOpen(true) }} disabled={!selectedTermId}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingTeacherSchedule(null)
+                  setTeacherScheduleOpen(true)
+                }}
+                disabled={!selectedTermId}
+              >
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 添加时间条目
               </Button>
@@ -801,11 +905,21 @@ export default function SchedulingPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">教师</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">星期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">时间段</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">是否可用</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          教师
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          星期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          时间段
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          是否可用
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -813,11 +927,16 @@ export default function SchedulingPage() {
                         <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{s.teacher}</td>
                           <td className="px-4 py-3 text-xs">{WEEKDAY_LABELS[s.weekday - 1]}</td>
-                          <td className="px-4 py-3 text-xs">{s.startTime} - {s.endTime}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {s.startTime} - {s.endTime}
+                          </td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
-                              className={cn('text-[10px] text-white', s.available ? 'bg-green-500' : 'bg-red-500')}
+                              className={cn(
+                                'text-[10px] text-white',
+                                s.available ? 'bg-green-500' : 'bg-red-500',
+                              )}
                             >
                               {s.available ? '可用' : '不可用'}
                             </Badge>
@@ -827,7 +946,10 @@ export default function SchedulingPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => { setEditingTeacherSchedule(s); setTeacherScheduleOpen(true) }}
+                              onClick={() => {
+                                setEditingTeacherSchedule(s)
+                                setTeacherScheduleOpen(true)
+                              }}
                             >
                               编辑
                             </Button>
@@ -872,13 +994,27 @@ export default function SchedulingPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">课程</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">原时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">新时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">原因</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">申请人</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          课程
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          原时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          新时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          原因
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          申请人
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -893,7 +1029,10 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
-                              className={cn('text-[10px] text-white', SCHEDULE_CHANGE_COLOR_MAP.get(c.status) ?? 'bg-gray-500')}
+                              className={cn(
+                                'text-[10px] text-white',
+                                SCHEDULE_CHANGE_COLOR_MAP.get(c.status) ?? 'bg-gray-500',
+                              )}
                             >
                               {SCHEDULE_CHANGE_STATUS_MAP.get(c.status) ?? c.status}
                             </Badge>
@@ -906,7 +1045,9 @@ export default function SchedulingPage() {
                                   variant="outline"
                                   size="sm"
                                   className="h-7 text-xs"
-                                  onClick={() => approveChange.mutateAsync({ id: c.id, status: 'approved' })}
+                                  onClick={() =>
+                                    approveChange.mutateAsync({ id: c.id, status: 'approved' })
+                                  }
                                 >
                                   <CheckCircle2 className="mr-1 h-3 w-3 text-green-500" />
                                   批准
@@ -915,7 +1056,9 @@ export default function SchedulingPage() {
                                   variant="outline"
                                   size="sm"
                                   className="h-7 text-xs"
-                                  onClick={() => approveChange.mutateAsync({ id: c.id, status: 'rejected' })}
+                                  onClick={() =>
+                                    approveChange.mutateAsync({ id: c.id, status: 'rejected' })
+                                  }
                                 >
                                   <XCircle className="mr-1 h-3 w-3 text-red-500" />
                                   驳回
@@ -968,7 +1111,10 @@ export default function SchedulingPage() {
             ) : (
               <div className="space-y-2">
                 {conflicts.map((msg, i) => (
-                  <div key={i} className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700"
+                  >
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{msg}</span>
                   </div>
