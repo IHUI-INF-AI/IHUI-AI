@@ -525,9 +525,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/deepseek/chat/stream',
     {
-      config: {
-        compression: false,
-        rateLimit: { max: 20, timeWindow: '1 minute' },
+      config: {\n        rateLimit: { max: 20, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
@@ -879,8 +877,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/qwen/chat/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -1292,8 +1289,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/coze/message/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeMessageSchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -1357,8 +1353,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/coze/workflow/run/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -1399,8 +1394,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/coze/workflow/run/resume/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowResumeSchema.safeParse(request.body)
     if (!parsed.success) {
