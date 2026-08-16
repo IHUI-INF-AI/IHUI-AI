@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
@@ -112,7 +111,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const tc = useTranslations('aiChat')
   const tCommon = useTranslations('common')
   const locale = useLocale()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const { success, error } = useToast()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -270,7 +268,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     isNavigatingRef.current = true
     useChatStore.getState().setConversationId(item.id)
     openPanel()
-    router.push(`/chat?conversationId=${encodeURIComponent(item.id)}`)
 
     setTimeout(() => {
       isNavigatingRef.current = false
