@@ -1,39 +1,31 @@
 /**
- * AgentList Agent 列表 (mobile-rn 端)
+ * AgentList Agent 选择列表 (mobile-rn 端)
  *
- * 对齐历史项目 AgentList.vue(AI 助手选择浮层):
- * - FlatList 渲染 Agent 列表,卡片化容器(垂直布局:头像在上,文字在下)。
- * - 单项:顶部头像(60×60 圆角 12)+ 操作按钮(›),下方名称(16pt)+描述(12pt)+统计。
- * - 卡片样式:borderRadius 12(rounded-xl)+ subtle shadow(iOS shadowOpacity 0.05 / Android elevation 2)。
- * - 空态:居中提示文字。
- * - 浅色优雅风,无霓虹/无渐变;颜色全部走 @ihui/design-tokens 的 rnLightTokens。
+ * 对齐历史项目 components/AgentList.vue(AI 助手选择浮层):
+ * - chu-box 底部弹出容器(白底圆角 7.5dp + slideUp 动画 + maxHeight 70vh 内部滚动)
+ * - 行:头像(20dp 圆角 4dp)+ 名称(14dp)+ isNew 徽章(右)
+ * - 选中态:黑色描边(2dp)+ 选中圆点(16dp 黑底, bounceIn 动画)
+ * - 底部:加载中... / 没有更多了
+ * - 行高 40dp,行间距 2.5dp,边框 2dp #B9B9B9
+ * - 浅色优雅风,无霓虹/无渐变;颜色走 @ihui/design-tokens 的 rnLightTokens。
  * - 类型零 any,精确标注。
- * - onItemAction 可选(收藏等),不传则不渲染按钮。
- * - 可选 RefreshControl(通过 refreshing/onRefresh props 注入)。
- * - 点赞/收藏回调可选(对齐 Uniapp tools ai-list 的 getAgentLike/getAgentCollect):
- *   onItemLike/onItemCollect 传入时在卡片底部渲染 👍/⭐ 操作按钮(带计数与选中态)。
- * - scrollEnabled 可选(默认 true):嵌套外层 ScrollView 时传 false 关闭内部滚动,由内容撑开高度。
+ *
+ * 平台特有:依赖 react-native Animated/ScrollView,不适合共享层。
  */
+import { useEffect, useRef } from 'react'
+import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import {
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from 'react-native'
 
-/** 单个 Agent 条目(对齐 Uniapp 20+ 字段契约,可选字段 API 未返回时省略) */
+/** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
 export interface AgentListItem {
   id: string
   name: string
   avatar?: string
+  /** 新智能体徽章(对齐 Uniapp isNew,true 时行右侧显示 new 徽章) */
+  isNew?: boolean
+  /** P1-3 扩展字段(与 Ai-list_b 卡片流共用契约,保留兼容) */
   description?: string
   category?: string
-  /** P1-3 扩展字段(对齐 Uniapp AgentListItem) */
   type?: string
   source?: string
   isCollect?: boolean
@@ -42,7 +34,6 @@ export interface AgentListItem {
   likeCount?: number
   usageCount?: number
   isHot?: boolean
-  isNew?: boolean
   userNickname?: string
   userAvatar?: string
   prologue?: string
@@ -51,119 +42,77 @@ export interface AgentListItem {
 export interface AgentListProps {
   items: AgentListItem[]
   onItemClick: (id: string) => void
-  /** 操作按钮回调;不传则不渲染操作按钮 */
-  onItemAction?: (id: string) => void
-  /** 点赞回调(对齐 Uniapp getAgentLike);不传则不渲染点赞按钮 */
-  onItemLike?: (id: string) => void
-  /** 收藏回调(对齐 Uniapp getAgentCollect);不传则不渲染收藏按钮 */
-  onItemCollect?: (id: string) => void
+  /** 当前选中项 id(对齐 Uniapp agentPitch) */
+  selectedId?: string
+  /** 加载中(对齐 Uniapp isLoading,底部显示"加载中...") */
+  isLoading?: boolean
+  /** 是否还有更多(对齐 Uniapp hasMore,false 且列表非空时显示"没有更多了") */
+  hasMore?: boolean
+  /** 空态文案 */
   emptyText?: string
-  /** 下拉刷新状态(可选,传入则启用 RefreshControl) */
-  refreshing?: boolean
-  /** 下拉刷新回调(可选) */
-  onRefresh?: () => void
-  /** 内部滚动开关(默认 true);嵌套外层 ScrollView 时传 false */
-  scrollEnabled?: boolean
 }
 
 function keyExtractor(item: AgentListItem): string {
   return item.id
 }
 
-function Avatar({ name, avatar }: { name: string; avatar?: string }): React.JSX.Element {
-  if (avatar) {
-    return <Image source={{ uri: avatar }} style={styles.avatar} />
-  }
-  const initial = name.trim().charAt(0).toUpperCase() || '?'
-  return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarFallbackText}>{initial}</Text>
-    </View>
-  )
-}
-
-function AgentRow({
+function Row({
   item,
-  onItemClick,
-  onItemAction,
-  onItemLike,
-  onItemCollect,
+  selected,
+  onPress,
 }: {
   item: AgentListItem
-  onItemClick: (id: string) => void
-  onItemAction?: (id: string) => void
-  onItemLike?: (id: string) => void
-  onItemCollect?: (id: string) => void
+  selected: boolean
+  onPress: () => void
 }): React.JSX.Element {
-  const hasMeta =
-    item.usageCount !== undefined || item.collectCount !== undefined || item.likeCount !== undefined
+  const scale = useRef(new Animated.Value(0.3)).current
+  useEffect(() => {
+    if (!selected) {
+      scale.setValue(0.3)
+      return
+    }
+    // bounceIn 动画(对齐 Uniapp selected-icon bounceIn 0.3s ease)
+    Animated.spring(scale, {
+      toValue: 1,
+      friction: 6,
+      tension: 90,
+      useNativeDriver: true,
+    }).start()
+  }, [selected, scale])
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => onItemClick(item.id)}>
-      <View style={styles.cardTop}>
-        <Avatar name={item.name} avatar={item.avatar} />
-        {onItemAction ? (
-          <TouchableOpacity
-            style={styles.actionBtn}
-            activeOpacity={0.6}
-            onPress={() => onItemAction(item.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.name} 操作`}
-          >
-            <Text style={styles.actionText}>{'›'}</Text>
-          </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.row, selected ? styles.rowActive : null]}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={item.name}
+    >
+      <View style={styles.rowLeft}>
+        <View style={styles.logoWrap}>
+          {item.avatar ? (
+            <Image source={{ uri: item.avatar }} style={styles.icon} resizeMode="cover" />
+          ) : (
+            <View style={[styles.icon, styles.iconFallback]}>
+              <Text style={styles.iconFallbackText}>
+                {item.name.trim().charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.text, selected ? styles.textActive : null]} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {item.isNew ? <Text style={styles.newBadge}>{'NEW'}</Text> : null}
+      </View>
+      <View style={styles.rowRight}>
+        {selected ? (
+          <Animated.View style={[styles.selectedIcon, { transform: [{ scale }] }]}>
+            <Text style={styles.selectedIconText}>✓</Text>
+          </Animated.View>
         ) : null}
       </View>
-      <Text style={styles.name} numberOfLines={1}>
-        {item.name}
-      </Text>
-      {item.description ? (
-        <Text style={styles.description} numberOfLines={2}>
-          {item.description}
-        </Text>
-      ) : null}
-      {hasMeta ? (
-        <Text style={styles.meta} numberOfLines={1}>
-          {item.usageCount !== undefined ? `使用 ${item.usageCount}` : ''}
-          {item.usageCount !== undefined && item.collectCount !== undefined ? ' · ' : ''}
-          {item.collectCount !== undefined ? `收藏 ${item.collectCount}` : ''}
-          {item.collectCount !== undefined && item.likeCount !== undefined ? ' · ' : ''}
-          {item.likeCount !== undefined ? `点赞 ${item.likeCount}` : ''}
-        </Text>
-      ) : null}
-      {/* 点赞/收藏操作行(对齐 Uniapp ai-list 卡片 👍/⭐,回调传入才渲染) */}
-      {onItemLike || onItemCollect ? (
-        <View style={styles.reactionRow}>
-          {onItemLike ? (
-            <TouchableOpacity
-              style={styles.reactionBtn}
-              activeOpacity={0.6}
-              onPress={() => onItemLike(item.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name} 点赞`}
-            >
-              <Text style={[styles.reactionText, item.isThumbs ? styles.reactionTextActive : null]}>
-                {`👍 ${item.likeCount ?? 0}`}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          {onItemCollect ? (
-            <TouchableOpacity
-              style={styles.reactionBtn}
-              activeOpacity={0.6}
-              onPress={() => onItemCollect(item.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name} 收藏`}
-            >
-              <Text
-                style={[styles.reactionText, item.isCollect ? styles.reactionTextActive : null]}
-              >
-                {`⭐ ${item.collectCount ?? 0}`}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      ) : null}
     </TouchableOpacity>
   )
 }
@@ -171,148 +120,166 @@ function AgentRow({
 export default function AgentList({
   items,
   onItemClick,
-  onItemAction,
-  onItemLike,
-  onItemCollect,
+  selectedId,
+  isLoading = false,
+  hasMore = true,
   emptyText = '暂无 Agent',
-  refreshing = false,
-  onRefresh,
-  scrollEnabled = true,
 }: AgentListProps): React.JSX.Element {
-  const renderItem: ListRenderItem<AgentListItem> = ({ item }) => (
-    <AgentRow
-      item={item}
-      onItemClick={onItemClick}
-      onItemAction={onItemAction}
-      onItemLike={onItemLike}
-      onItemCollect={onItemCollect}
-    />
-  )
+  const slide = useRef(new Animated.Value(60)).current
+  const opacity = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    // slideUp 动画(对齐 Uniapp slideUp 0.8s ease forwards)
+    Animated.parallel([
+      Animated.timing(slide, { toValue: 0, duration: 400, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+    ]).start()
+  }, [slide, opacity])
 
   return (
-    <View style={[styles.container, scrollEnabled ? null : styles.containerNested]}>
-      <FlatList<AgentListItem>
-        data={items}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listBody}
-        scrollEnabled={scrollEnabled}
-        refreshControl={
-          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
+    <Animated.View style={[styles.container, { opacity, transform: [{ translateY: slide }] }]}>
+      <View style={styles.inner}>
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
+          {items.map((item) => (
+            <Row
+              key={keyExtractor(item)}
+              item={item}
+              selected={selectedId === item.id}
+              onPress={() => onItemClick(item.id)}
+            />
+          ))}
+          {isLoading ? <Text style={styles.loadingText}>{'加载中...'}</Text> : null}
+          {!hasMore && items.length > 0 ? (
+            <Text style={styles.noMoreText}>{'没有更多了'}</Text>
+          ) : null}
+          {items.length === 0 && !isLoading ? (
             <Text style={styles.emptyText}>{emptyText}</Text>
-          </View>
-        }
-      />
-    </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: tokens.surface.bg,
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    maxHeight: '70%',
+    overflow: 'hidden',
   },
-  // 嵌套外层 ScrollView 时:取消 flex 撑开,由内容决定高度
-  containerNested: {
-    flex: 0,
-    alignSelf: 'stretch',
+  inner: {
+    width: '100%',
+    borderRadius: 7.5,
+    overflow: 'hidden',
   },
-  listBody: {
-    padding: 12,
-    gap: 12,
-  },
-  card: {
-    borderRadius: 12,
+  content: {
     backgroundColor: tokens.surface.light,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderRadius: 7.5,
+    maxHeight: '70%',
   },
-  cardTop: {
+  contentBody: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingBottom: 2,
+  },
+  row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 40,
+    borderRadius: 7.5,
+    backgroundColor: tokens.surface.light,
+    borderWidth: 2,
+    borderColor: tokens.border.medium,
+    marginVertical: 2.5,
+    paddingHorizontal: 5,
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+  rowActive: {
+    borderColor: tokens.brand.DEFAULT,
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logoWrap: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+  },
+  icon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  iconFallback: {
     backgroundColor: tokens.surface.muted,
-  },
-  avatarFallback: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarFallbackText: {
-    fontSize: 20,
+  iconFallbackText: {
+    fontSize: 10,
     fontWeight: '600',
     color: tokens.text.primary,
   },
-  actionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: tokens.surface.muted,
+  text: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    marginLeft: 10,
+    color: tokens.text.primary,
+  },
+  textActive: {
+    fontWeight: '700',
+  },
+  newBadge: {
+    fontSize: 9,
+    color: tokens.surface.light,
+    backgroundColor: tokens.danger.DEFAULT,
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    marginLeft: 6,
+    overflow: 'hidden',
+  },
+  rowRight: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  selectedIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: {
-    fontSize: 18,
-    lineHeight: 20,
-    color: tokens.text.secondary,
-  },
-  name: {
-    marginTop: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-  },
-  description: {
-    marginTop: 4,
-    fontSize: 12,
-    color: tokens.text.secondary,
-    lineHeight: 18,
-  },
-  meta: {
-    marginTop: 6,
+  selectedIconText: {
+    color: tokens.surface.light,
     fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 13,
+  },
+  loadingText: {
+    textAlign: 'center',
+    paddingVertical: 10,
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  noMoreText: {
+    textAlign: 'center',
+    paddingVertical: 10,
+    fontSize: 13,
     color: tokens.text.tertiary,
   },
-  // ── 点赞/收藏操作行(对齐 Uniapp ai-list 卡片操作按钮) ──
-  reactionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  reactionBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: tokens.surface.muted,
-  },
-  reactionText: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-  },
-  reactionTextActive: {
-    color: tokens.brand.DEFAULT,
-    fontWeight: '600',
-  },
-  empty: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
   emptyText: {
-    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 24,
+    fontSize: 13,
     color: tokens.text.tertiary,
   },
 })
