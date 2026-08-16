@@ -14,11 +14,7 @@ const MAX_HISTORY = 10
 function isHistoryItem(v: unknown): v is PlaygroundHistoryItem {
   if (typeof v !== 'object' || v === null) return false
   const o = v as Record<string, unknown>
-  return (
-    typeof o.id === 'string' &&
-    typeof o.timestamp === 'number' &&
-    Array.isArray(o.messages)
-  )
+  return typeof o.id === 'string' && typeof o.timestamp === 'number' && Array.isArray(o.messages)
 }
 
 function loadFromStorage(): PlaygroundHistoryItem[] {
@@ -39,10 +35,7 @@ function loadFromStorage(): PlaygroundHistoryItem[] {
 function saveToStorage(items: PlaygroundHistoryItem[]): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(items.slice(0, MAX_HISTORY)),
-    )
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_HISTORY)))
   } catch {
     // 配额超限静默忽略
   }

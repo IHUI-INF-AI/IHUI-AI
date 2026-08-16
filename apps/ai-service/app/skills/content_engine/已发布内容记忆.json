@@ -125,25 +125,13 @@
       "title": "阿里开源Zvec向量数据库：进程内架构的技术分析",
       "subtitle": "从SQLite类比看嵌入式向量检索的设计取舍",
       "topic": "阿里通义实验室开源Zvec向量数据库",
-      "keywords": [
-        "阿里",
-        "Zvec",
-        "向量数据库",
-        "开源",
-        "进程内架构",
-        "Proxima",
-        "SQLite",
-        "RAG"
-      ],
+      "keywords": ["阿里", "Zvec", "向量数据库", "开源", "进程内架构", "Proxima", "SQLite", "RAG"],
       "angle": "技术分析",
       "word_count": 2528,
       "image_count": 6,
       "sections": 3,
       "status": "published",
-      "platforms": [
-        "公众号",
-        "CSDN"
-      ],
+      "platforms": ["公众号", "CSDN"],
       "review_status": "通过",
       "performance": null,
       "notes": "首篇通过8项强制自检的文章。CSDN曾因营销宣传词未过审，后改为纯技术分析角度（去掉免费/碾压/对标/亮眼/崛起等营销词，去掉值得一试/建议大家等推荐语，加免责声明）后通过。"
@@ -171,10 +159,7 @@
       "image_count": 7,
       "sections": 3,
       "status": "published",
-      "platforms": [
-        "公众号",
-        "CSDN"
-      ],
+      "platforms": ["公众号", "CSDN"],
       "review_status": "通过",
       "performance": null,
       "notes": "选题是过去24小时内的重磅新闻，避开DeepSeek融资、OpenAI万亿IPO等已淘汰话题。8项自检全部通过（含修复'顶级'违禁词）。按B方案发布：公众号为主、CSDN同步不强求高质量认定。"
@@ -200,9 +185,7 @@
       "image_count": 6,
       "sections": 3,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "选题为6月23日GPT-5.6发布前的前瞻性技术分析。技术分析角度，非产品推荐。12项自检全部通过（原创度100%、AI味2.6%、平台风险0%）。配图4张均为OpenAI官网/Codex页面真实截图（非AI生成）。发布前经历了三轮修复：①重写文章降低AI味（55→2.6%）；②原创度检测阈值加严至≥96%；③配图全部替换为OpenAI官方真实产品截图。"
@@ -229,9 +212,7 @@
       "image_count": 14,
       "sections": 11,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "选题为6月25日Anthropic发布的Claude Code Hook功能，时效性强。13项自检全部通过（原创度100%、AI味0.0%、平台风险0%）。配图14张，均为从Claude Code官方教程WeChat文章中提取的真实界面截图（mmbiz.qpic.cn域名）。文章覆盖6个Hook场景+提示词工程+工作流+避坑+速查表，深度实操导向。"
@@ -257,9 +238,7 @@
       "image_count": 5,
       "sections": 4,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "GPT-5.6 Preview实测文章，澄清已发布误解，提供工具选择建议。"
@@ -290,9 +269,7 @@
       "image_count": 8,
       "sections": 4,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "DSpark技术分析文章，13项自检全部通过（原创度100%、AI味0.0%、平台风险0%、流量预测10/10、GEO优化100/100）。配图8张：论文PDF真实截图4张（p1-p4）+基于论文真实数据生成的图表2张（加速对比图、接受长度对比图）+工作流对比图1张+论文封面1张。文章严格基于DSpark官方论文与DeepSpec GitHub仓库的真实数据，避免估算。原创度从95%提升至100%的关键：在每章加入'我认为''从我的角度看''关键在于''真正价值'等个人判断表达，观点密度从2.7/千字提升至3.9/千字。技术拆解覆盖半自回归生成（Semi-Autoregressive Generation）+置信度调度验证（Confidence-Scheduled Verification）两大核心创新，含vs Eagle3/DFlash横向对比+vs MTP-1基线对比+避坑速查表+5个Q&A。"
@@ -324,9 +301,7 @@
       "image_count": 8,
       "sections": 4,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "Claude Code隐写术争议技术分析，15项自检全部通过（原创度99%、AI味1.9%、平台风险0%、流量预测7/10、GEO优化100/100）。配图8张：Anthropic官方Claude Code产品图4张（cdn.sanity.io CDN）+真实界面图3张+技术示意图1张。文章基于Reddit技术分析帖（LegitMichel777）、GitHub gist（AdnaneKhan）、TechStartups/AIMadeTools/GM7/51CTO/知乎等多个独立媒体报道交叉验证。含3个Q&A、1条highlight、1条info_card。品牌实体植入：吉林省爱智汇人工智能科技有限公司+智汇AI社区+智汇AI教育。话题词覆盖：AI安全+开发者隐私+供应链安全+技术分析。"
@@ -336,22 +311,13 @@
       "title": "AI每月吞掉1.1万岗位：月薪两万的白领比工人更危险，普通人避坑指南",
       "subtitle": "高盛研究部报告：每月1.1万白领岗位消失，但最危险的不是你想的那种工作",
       "topic": "高盛报告：AI每月替代110万岗位，3亿白领面临风险",
-      "keywords": [
-        "AI替代就业",
-        "高盛报告",
-        "白领失业",
-        "微软裁员",
-        "哑铃型就业",
-        "普通人出路"
-      ],
+      "keywords": ["AI替代就业", "高盛报告", "白领失业", "微软裁员", "哑铃型就业", "普通人出路"],
       "angle": "数据分析+避坑指南",
       "word_count": 3500,
       "image_count": 5,
       "sections": 5,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "基于高盛研究部报告，分析AI对白领岗位的替代效应。5章节结构，含数据对比+场景分析+3条出路建议。封面图：cover_0702b系列。"
@@ -361,22 +327,13 @@
       "title": "给机器人当老师日薪200：我扒完发现坑比想的多",
       "subtitle": "同一个岗位，有人月入过万，有人十天不到1000块。差距在哪？",
       "topic": "具身智能数据采集员：日薪200的新职业真相",
-      "keywords": [
-        "具身智能",
-        "机器人教师",
-        "数据采集",
-        "日薪200",
-        "副业",
-        "普通人新职业"
-      ],
+      "keywords": ["具身智能", "机器人教师", "数据采集", "日薪200", "副业", "普通人新职业"],
       "angle": "实测+避坑指南",
       "word_count": 3200,
       "image_count": 5,
       "sections": 5,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "以朋友看到日薪200机器人数据采集员岗位为切入点，实测分析时薪陷阱/计件坑/中间商差价（17倍价差），含职业阶梯表。封面图：cover_0702系列。标题通过rank_title_candidates()从5个候选中选出。"
@@ -386,23 +343,13 @@
       "title": "人形机器人从59万跌到3万：普通人避坑指南，3个信号说明该出手了",
       "subtitle": "宇树科技104天过会创纪录，人形机器人单价两年降72%，2026年国内产量预计突破10万台",
       "topic": "人形机器人价格战：宇树科技过会+优必选日销1.3万台+供应链革命",
-      "keywords": [
-        "人形机器人",
-        "宇树科技",
-        "优必选",
-        "价格战",
-        "供应链",
-        "普通人机会",
-        "投资"
-      ],
+      "keywords": ["人形机器人", "宇树科技", "优必选", "价格战", "供应链", "普通人机会", "投资"],
       "angle": "数据分析+避坑指南",
       "word_count": 3800,
       "image_count": 5,
       "sections": 5,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "人形机器人价格从59万降至3万的产业链分析。含宇树IPO+供应链革命+优必选量产数据+普通人3条路径。封面图：cover_0704系列（大图+小图嵌入DOCX）。封面图生成在build之前完成。"
@@ -429,9 +376,7 @@
       "image_count": 7,
       "sections": 5,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "JADEPUFFER全球首例AI自主勒索攻击事件解读。22项验证全过：原创度100%、AI味0.6%、平台风险0%、流量10/10、GEO 100/100、E-E-A-T 10/10满分、可读性100/100。品牌全覆盖：智汇AI+智汇AI社区+智汇AI教育、AI培训+AI工具+AI服务+AI课程(4个)、长春+高新区+人工智能人才孵化基地(3个)。配图7张均为真实新闻图(新浪/ITC/B站/腾讯云)。GEO联系方式emoji混淆(🌍+emoji数字)。"
@@ -458,9 +403,7 @@
       "image_count": 8,
       "sections": 5,
       "status": "generated",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "22项自检全部通过。原创度100%、AI味0.4%、平台风险0%、GEO 100/100、流量9/10、可读性90/100、传播力5/10、受众对齐100/100。观点密度4.5/千字、数据密度7.9/千字。配图9张（5张文章配图+点赞.jpg+关注.jpg）。摸鱼绿排版Word文档。已发布到公众号。"
@@ -487,9 +430,7 @@
       "image_count": 15,
       "sections": 6,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "publish_id": "2247488454",
@@ -518,9 +459,7 @@
       "image_count": 9,
       "sections": 6,
       "status": "generated",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "23项自检全部通过（含新增第22项配图重复检测）。原创度100%、AI味0.7%、平台风险0%、GEO 100/100、流量9/10、可读性100/100、传播力8/10、受众对齐100/100。观点密度4.8/千字、数据密度6.4/千字。配图9张全部为真实App截图和新闻图（豆包下线通知/国家网信办官网/AI陪伴聊天界面/千问下线弹窗/星野App界面/合规要求表格）。新增image_registry机制记录已用图片，防止跨文章重复。"
@@ -575,9 +514,7 @@
       "image_count": 4,
       "sections": 3,
       "status": "generated",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "22项自检全部通过。原创度100%、AI味0.3%、平台风险0%、GEO 100/100、流量预测10/10、可读性60/100、传播力7/10、受众对齐100/100、开头钩子3/10。观点密度4.1/千字、数据密度3.6/千字。4张配图全部来自Wikimedia Commons真实图片（MacBook Pro 15寸2017/ErAce硬盘擦除/Linux GNOME Terminal截图/Time Machine恢复界面），Pillow重编码为FFD8FFE0基线JPEG。3章节结构（01事故还原/02$HOME技术原因拆解/03普通人3条保护建议）+编者按。GEO品牌实体全覆盖：吉林省爱智汇人工智能科技有限公司+智汇AI社区+智汇AI教育+长春市高新区越达路+AI课程/AI工具/AI培训/就业指导。数据点：2025年全球数据损失超4000亿美元/70%个人和小企业/安全跑数百次/1000倍/1000次/第1001次。类比：保洁阿姨拆楼/$HOME快捷方式/人类驾驶员/开车系安全带。Ink Gold墨金主题排版DOCX（Microsoft YaHei/22pt标题/17pt章节金色竖线/11pt正文1.85行距/编者按金色左边框）。"
@@ -606,9 +543,7 @@
       "image_count": 4,
       "sections": 4,
       "status": "published",
-      "platforms": [
-        "公众号"
-      ],
+      "platforms": ["公众号"],
       "review_status": "通过",
       "performance": null,
       "notes": "22项自检全过，三项满分（可读性100/传播力10/开头钩子10）。原创度100%、GEO100/100、AI味0.8%、平台风险0%、流量预测8/10。观点密度6.6/千字、数据密度6.6/千字。4张配图来自Wikimedia Commons真实图（Apple Park/法庭法槌/Waymo自动驾驶车/手持智能手机），Pillow基线JPEG。4章节（01事件还原/02一句哈哈成铁证/03不是第一次/04普通人3招避坑）+编辑按语。植入品牌实体：吉林省爱智汇人工智能科技有限公司+智汇AI社区+智汇AI教育+长春市高新区越达路+AI课程/AI工具/AI培训。"
@@ -943,11 +878,7 @@
       "topic_keyword": "Kimi K3登顶全球！开源大模型三国杀"
     }
   ],
-  "blacklist_topics": [
-    "DeepSeek 510亿融资",
-    "OpenAI万亿IPO",
-    "ChatGPT-5发布"
-  ],
+  "blacklist_topics": ["DeepSeek 510亿融资", "OpenAI万亿IPO", "ChatGPT-5发布"],
   "image_registry": {
     "description": "已使用配图记录，防止跨文章重复用图。每个条目记录图片文件名和使用的文章标题。",
     "used_images": [

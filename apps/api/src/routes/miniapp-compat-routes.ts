@@ -1280,7 +1280,12 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!flow) {
       return reply.send(success({ id, status: 'pending' }))
     }
-    const statusMap: Record<number, string> = { 0: 'pending', 1: 'processing', 2: 'completed', 3: 'failed' }
+    const statusMap: Record<number, string> = {
+      0: 'pending',
+      1: 'processing',
+      2: 'completed',
+      3: 'failed',
+    }
     return reply.send(success({ ...flow, status: statusMap[flow.status] ?? 'pending' }))
   })
 
@@ -2235,7 +2240,12 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.body ?? {})
     const [course] = await dbRead
-      .select({ id: lessons.id, title: lessons.title, price: lessons.price, isFree: lessons.isFree })
+      .select({
+        id: lessons.id,
+        title: lessons.title,
+        price: lessons.price,
+        isFree: lessons.isFree,
+      })
       .from(lessons)
       .where(and(eq(lessons.id, body.courseId), eq(lessons.status, 1)))
       .limit(1)

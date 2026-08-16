@@ -13,69 +13,77 @@ import { parsePagination } from './_shared.js'
 const codeParam = z.object({ code: z.string() })
 
 const fundRoutes: FastifyPluginAsync = async (server) => {
-  server.post('/fund/ali/pay/create', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const body =
-      (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
-    if (!body.amount || body.amount <= 0) {
-      return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
-    }
-    const order = await createOrder(
-      {
-        userId: request.userId!,
-        amount: Math.round(body.amount * 100),
-        orderType: 0,
-        productId: body.productId,
-        payType: 'alipay',
-        description: body.description,
-      },
-      request.userId ?? null,
-    )
-    if (!isAlipayConfigured()) {
-      return reply.send(
-        success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+  server.post(
+    '/fund/ali/pay/create',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body =
+        (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
+      if (!body.amount || body.amount <= 0) {
+        return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+      }
+      const order = await createOrder(
+        {
+          userId: request.userId!,
+          amount: Math.round(body.amount * 100),
+          orderType: 0,
+          productId: body.productId,
+          payType: 'alipay',
+          description: body.description,
+        },
+        request.userId ?? null,
       )
-    }
-    const bizContent = {
-      out_trade_no: order.orderNo,
-      total_amount: body.amount.toFixed(2),
-      subject: body.description ?? '订单支付',
-      product_code: 'FAST_INSTANT_TRADE_PAY',
-    }
-    const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
-    return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
-  })
+      if (!isAlipayConfigured()) {
+        return reply.send(
+          success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+        )
+      }
+      const bizContent = {
+        out_trade_no: order.orderNo,
+        total_amount: body.amount.toFixed(2),
+        subject: body.description ?? '订单支付',
+        product_code: 'FAST_INSTANT_TRADE_PAY',
+      }
+      const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+      return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
+    },
+  )
 
-  server.post('/fund/ali/pay/create2', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const body =
-      (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
-    if (!body.amount || body.amount <= 0) {
-      return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
-    }
-    const order = await createOrder(
-      {
-        userId: request.userId!,
-        amount: Math.round(body.amount * 100),
-        orderType: 0,
-        productId: body.productId,
-        payType: 'alipay',
-        description: body.description,
-      },
-      request.userId ?? null,
-    )
-    if (!isAlipayConfigured()) {
-      return reply.send(
-        success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+  server.post(
+    '/fund/ali/pay/create2',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body =
+        (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
+      if (!body.amount || body.amount <= 0) {
+        return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+      }
+      const order = await createOrder(
+        {
+          userId: request.userId!,
+          amount: Math.round(body.amount * 100),
+          orderType: 0,
+          productId: body.productId,
+          payType: 'alipay',
+          description: body.description,
+        },
+        request.userId ?? null,
       )
-    }
-    const bizContent = {
-      out_trade_no: order.orderNo,
-      total_amount: body.amount.toFixed(2),
-      subject: body.description ?? '订单支付',
-      product_code: 'FAST_INSTANT_TRADE_PAY',
-    }
-    const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
-    return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
-  })
+      if (!isAlipayConfigured()) {
+        return reply.send(
+          success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+        )
+      }
+      const bizContent = {
+        out_trade_no: order.orderNo,
+        total_amount: body.amount.toFixed(2),
+        subject: body.description ?? '订单支付',
+        product_code: 'FAST_INSTANT_TRADE_PAY',
+      }
+      const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+      return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
+    },
+  )
 
   server.get('/fund/ali/pay/alipay/return', async (request, reply) => {
     const query =

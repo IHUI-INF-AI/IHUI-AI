@@ -108,11 +108,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     conflicts: z
       .array(
         z.object({
-          type: z.enum([
-            'name_conflict',
-            'semantic_duplicate',
-            'priority_collision',
-          ]),
+          type: z.enum(['name_conflict', 'semantic_duplicate', 'priority_collision']),
           ruleIds: z.array(z.string()).max(100),
           detail: z.string(),
         }),
@@ -143,9 +139,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = ruleCreateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
       const rule = await rulesService.createRule(parsed.data)
@@ -199,10 +193,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const scope = request.query.scope ?? 'global'
     try {
-      const data = await rulesService.getResolvedRules(
-        scope,
-        request.query.agentId,
-      )
+      const data = await rulesService.getResolvedRules(scope, request.query.agentId)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -227,9 +218,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = ruleAbTestSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
       const data = await rulesService.abTestRules(
@@ -251,9 +240,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = ruleAutoGenerateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
       const data = await rulesService.autoGenerateRules(parsed.data.userId)
@@ -269,9 +256,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = ruleResolveConflictsSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
       const data = await rulesService.resolveConflicts(parsed.data.conflicts)
@@ -288,9 +273,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       await requireAuth(request, reply)
       if (!request.userId) return
       try {
-        const data = await rulesService.getRulesKnowledgeGraph(
-          request.query.scope,
-        )
+        const data = await rulesService.getRulesKnowledgeGraph(request.query.scope)
         return reply.send(success(data))
       } catch (e) {
         return reply.status(502).send(error(502, (e as Error).message))
@@ -299,98 +282,73 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /rules/:id — 获取单个规则
-  server.get<{ Params: { id: string } }>(
-    '/rules/:id',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const rule = await rulesService.getRule(request.params.id)
+  server.get<{ Params: { id: string } }>('/rules/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const rule = await rulesService.getRule(request.params.id)
+    if (!rule) {
+      return reply.status(404).send(error(404, '规则不存在'))
+    }
+    return reply.send(success(rule))
+  })
+
+  // PATCH /rules/:id — 更新规则
+  server.patch<{ Params: { id: string } }>('/rules/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleUpdateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const rule = await rulesService.updateRule(request.params.id, parsed.data)
       if (!rule) {
         return reply.status(404).send(error(404, '规则不存在'))
       }
       return reply.send(success(rule))
-    },
-  )
-
-  // PATCH /rules/:id — 更新规则
-  server.patch<{ Params: { id: string } }>(
-    '/rules/:id',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = ruleUpdateSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const rule = await rulesService.updateRule(
-          request.params.id,
-          parsed.data,
-        )
-        if (!rule) {
-          return reply.status(404).send(error(404, '规则不存在'))
-        }
-        return reply.send(success(rule))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // DELETE /rules/:id — 删除规则
-  server.delete<{ Params: { id: string } }>(
-    '/rules/:id',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const deleted = await rulesService.deleteRule(request.params.id)
-      if (!deleted) {
-        return reply.status(404).send(error(404, '规则不存在'))
-      }
-      return reply.send(success({ id: request.params.id, deleted: true }))
-    },
-  )
+  server.delete<{ Params: { id: string } }>('/rules/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const deleted = await rulesService.deleteRule(request.params.id)
+    if (!deleted) {
+      return reply.status(404).send(error(404, '规则不存在'))
+    }
+    return reply.send(success({ id: request.params.id, deleted: true }))
+  })
 
   // POST /rules/:id/test — 测试规则
-  server.post<{ Params: { id: string } }>(
-    '/rules/:id/test',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = ruleTestSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const result = await rulesService.testRule(
-          request.params.id,
-          parsed.data.message,
-        )
-        return reply.send(success(result))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.post<{ Params: { id: string } }>('/rules/:id/test', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleTestSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const result = await rulesService.testRule(request.params.id, parsed.data.message)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // GET /rules/:id/history — 版本历史
-  server.get<{ Params: { id: string } }>(
-    '/rules/:id/history',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      try {
-        const data = await rulesService.getRuleHistory(request.params.id)
-        return reply.send(success(data))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.get<{ Params: { id: string } }>('/rules/:id/history', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.getRuleHistory(request.params.id)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // POST /rules/:id/rollback — 回滚到指定版本
   server.post<{
@@ -404,14 +362,9 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '缺少 version 参数'))
     }
     try {
-      const rule = await rulesService.rollbackRule(
-        request.params.id,
-        version,
-      )
+      const rule = await rulesService.rollbackRule(request.params.id, version)
       if (!rule) {
-        return reply
-          .status(404)
-          .send(error(404, '规则或版本不存在'))
+        return reply.status(404).send(error(404, '规则或版本不存在'))
       }
       return reply.send(success(rule))
     } catch (e) {
@@ -431,11 +384,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '缺少 from 或 to 参数'))
     }
     try {
-      const data = await rulesService.diffRuleVersions(
-        request.params.id,
-        from,
-        to,
-      )
+      const data = await rulesService.diffRuleVersions(request.params.id, from, to)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -443,43 +392,32 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /rules/:id/feedback — 用户反馈(thumbs_up/thumbs_down)
-  server.post<{ Params: { id: string } }>(
-    '/rules/:id/feedback',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = ruleFeedbackSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const data = await rulesService.recordFeedback(
-          request.params.id,
-          parsed.data.feedback,
-        )
-        return reply.send(success(data))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.post<{ Params: { id: string } }>('/rules/:id/feedback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleFeedbackSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.recordFeedback(request.params.id, parsed.data.feedback)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // GET /rules/:id/stats — 规则效果统计
-  server.get<{ Params: { id: string } }>(
-    '/rules/:id/stats',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      try {
-        const data = await rulesService.getRuleStats(request.params.id)
-        return reply.send(success(data))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.get<{ Params: { id: string } }>('/rules/:id/stats', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.getRuleStats(request.params.id)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // POST /rules/match — 匹配规则(供 agent loop 调用)
   server.post('/rules/match', async (request, reply) => {
@@ -487,67 +425,52 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const parsed = ruleMatchSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await rulesService.matchRules(
-      parsed.data.message,
-      parsed.data.scope,
-    )
+    const result = await rulesService.matchRules(parsed.data.message, parsed.data.scope)
     return reply.send(success(result))
   })
 
   // ── 超越创新:动态 :id 路由(在 /:id/* 同级注册)──
 
   // POST /rules/:id/predict-effect — 预测规则应用效果
-  server.post<{ Params: { id: string } }>(
-    '/rules/:id/predict-effect',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = rulePredictEffectSchema.safeParse(request.body ?? {})
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const data = await rulesService.predictRuleEffect(
-          request.params.id,
-          parsed.data.dryRunMessage,
-        )
-        return reply.send(success(data))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.post<{ Params: { id: string } }>('/rules/:id/predict-effect', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = rulePredictEffectSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.predictRuleEffect(
+        request.params.id,
+        parsed.data.dryRunMessage,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 
   // POST /rules/:id/learn-feedback — 记录对自动生成规则的反馈
-  server.post<{ Params: { id: string } }>(
-    '/rules/:id/learn-feedback',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = ruleLearnFeedbackSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const data = await rulesService.recordLearnFeedback(
-          request.params.id,
-          parsed.data.feedback,
-          parsed.data.accepted,
-        )
-        return reply.send(success(data))
-      } catch (e) {
-        return reply.status(502).send(error(502, (e as Error).message))
-      }
-    },
-  )
+  server.post<{ Params: { id: string } }>('/rules/:id/learn-feedback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleLearnFeedbackSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.recordLearnFeedback(
+        request.params.id,
+        parsed.data.feedback,
+        parsed.data.accepted,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
 }
 
 export default rulesRoutes

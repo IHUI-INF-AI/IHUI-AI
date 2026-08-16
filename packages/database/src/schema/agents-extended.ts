@@ -182,7 +182,10 @@ export const agentHeatStats = pgTable(
     totalCallsIdx: index('agent_heat_stats_total_calls_idx').on(t.totalCalls),
     successCallsIdx: index('agent_heat_stats_success_calls_idx').on(t.successCalls),
     lastCallAtIdx: index('agent_heat_stats_last_call_at_idx').on(t.lastCallAt),
-    agentLastCallAtIdx: index('agent_heat_stats_agent_last_call_at_idx').on(t.agentId, t.lastCallAt),
+    agentLastCallAtIdx: index('agent_heat_stats_agent_last_call_at_idx').on(
+      t.agentId,
+      t.lastCallAt,
+    ),
     agentDateUniq: unique('agent_heat_stats_agent_date_unique').on(t.agentId, t.dateStr),
   }),
 )

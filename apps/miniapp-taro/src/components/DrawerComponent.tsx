@@ -16,7 +16,6 @@ import mesgSvg from '@/assets/remote/images/default/mesg.svg'
 import daixaodimingPng from '@/assets/remote/images/daixaodiming.png'
 import { rpx } from '@/utils/rpx'
 
-
 /**
  * DrawerComponent 抽屉组件
  *

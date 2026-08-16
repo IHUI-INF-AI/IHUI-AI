@@ -214,7 +214,11 @@ describe('useMessageSend — 发送即清空回归', () => {
   it('submit 后应立即清空 value,不等 onSend 返回', async () => {
     const onSend = vi.fn().mockResolvedValue(true)
     const setValueMock = vi.fn((v: React.SetStateAction<string>) => v)
-    const inputCoreRef: React.RefObject<{ resize: () => void; focus: () => void; setSelectionRange: () => void }> = {
+    const inputCoreRef: React.RefObject<{
+      resize: () => void
+      focus: () => void
+      setSelectionRange: () => void
+    }> = {
       current: { resize: () => {}, focus: () => {}, setSelectionRange: () => {} },
     }
 

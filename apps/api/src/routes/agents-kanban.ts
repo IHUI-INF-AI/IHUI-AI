@@ -154,7 +154,10 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   priority: z.number().int().optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
-  scheduledAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+  scheduledAt: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
   dependencies: z.array(z.string()).max(100).optional(),
   workerId: z.string().optional(),
 })
@@ -200,7 +203,10 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/kanban/tasks/stream — SSE 实时流
   // 必须在 /:id 之前注册(Fastify radix tree 优先匹配静态路由)
-  server.get('/agents/kanban/tasks/stream', async (request, reply) => {
+  server.get(
+    '/agents/kanban/tasks/stream',
+    { compression: false },
+    async (request, reply) => {
     reply.hijack()
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')

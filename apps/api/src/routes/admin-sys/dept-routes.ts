@@ -2,7 +2,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { parseStr } from './_shared.js'
-import { findDeptList, findDeptById, createDept, deleteDept, updateDept } from '../../db/admin-sys-queries.js'
+import {
+  findDeptList,
+  findDeptById,
+  createDept,
+  deleteDept,
+  updateDept,
+} from '../../db/admin-sys-queries.js'
 
 // dept_router (prefix=/dept)
 const deptBodySchema = z.object({

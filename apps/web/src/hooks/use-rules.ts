@@ -36,8 +36,7 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
 export function useRulesList() {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: () =>
-      api<RuleListResponse>('/api/rules').then((res) => res.rules),
+    queryFn: () => api<RuleListResponse>('/api/rules').then((res) => res.rules),
   })
 }
 
@@ -72,10 +71,9 @@ export function useDeleteRule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api<{ id: string; deleted: boolean }>(
-        `/api/rules/${encodeURIComponent(id)}`,
-        { method: 'DELETE' },
-      ),
+      api<{ id: string; deleted: boolean }>(`/api/rules/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
   })
 }
@@ -108,13 +106,10 @@ export function useToggleRuleEnabled() {
 export function useTestRule() {
   return useMutation({
     mutationFn: ({ id, message }: { id: string } & RuleTestRequest) =>
-      api<RuleTestResult>(
-        `/api/rules/${encodeURIComponent(id)}/test`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ message }),
-        },
-      ),
+      api<RuleTestResult>(`/api/rules/${encodeURIComponent(id)}/test`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      }),
   })
 }
 

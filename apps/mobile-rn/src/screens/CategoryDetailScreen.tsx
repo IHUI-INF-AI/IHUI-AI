@@ -12,7 +12,9 @@ export default function CategoryDetailScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
-  const [items, setItems] = useState<{ id: string; name: string; description?: string; cover?: string }[]>([])
+  const [items, setItems] = useState<
+    { id: string; name: string; description?: string; cover?: string }[]
+  >([])
   const [activeTab, setActiveTab] = useState('推荐')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -28,7 +30,7 @@ export default function CategoryDetailScreen() {
         getAgents({ page, pageSize: 20 }),
         getCategories(),
       ])
-      const list = agentsRes.success ? agentsRes.data?.list ?? [] : []
+      const list = agentsRes.success ? (agentsRes.data?.list ?? []) : []
       setItems((prev) => (page === 1 ? list : [...prev, ...list]))
       setHasMore(list.length >= 20)
       if (categoriesRes.success && categoriesRes.data) {
@@ -53,9 +55,12 @@ export default function CategoryDetailScreen() {
     }
   }, [loading, loadingMore, hasMore])
 
-  const onAgentPress = useCallback((id: string) => {
-    navigation.navigate('AgentDetail', { id })
-  }, [navigation])
+  const onAgentPress = useCallback(
+    (id: string) => {
+      navigation.navigate('AgentDetail', { id })
+    },
+    [navigation],
+  )
 
   return (
     <SharedCategoryDetailScreen

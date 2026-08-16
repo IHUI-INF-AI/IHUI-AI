@@ -23,11 +23,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Button, Card } from '@ihui/ui-react'
-import {
-  AppleIcon,
-  AndroidIcon,
-  WechatMiniIcon,
-} from '@/lib/downloads'
+import { AppleIcon, AndroidIcon, WechatMiniIcon } from '@/lib/downloads'
 import {
   formatFileSize,
   getPlatformMeta,
@@ -78,9 +74,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
     'cli',
   ]
   const platform = (
-    validPlatforms.includes(platformParam as DownloadPlatform)
-      ? platformParam
-      : 'desktop'
+    validPlatforms.includes(platformParam as DownloadPlatform) ? platformParam : 'desktop'
   ) as DownloadPlatform
 
   const meta: PlatformMeta = getPlatformMeta(platform)
@@ -285,9 +279,7 @@ function DownloadAssetCard({
               <HardDrive className="h-2.5 w-2.5" />
               {sizeLabel}
             </span>
-            {asset.sha256 && (
-              <span className="font-mono">SHA256: {asset.sha256.slice(0, 8)}…</span>
-            )}
+            {asset.sha256 && <span className="font-mono">SHA256: {asset.sha256.slice(0, 8)}…</span>}
           </div>
         </div>
       </div>

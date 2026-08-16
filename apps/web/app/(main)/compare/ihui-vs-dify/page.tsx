@@ -18,10 +18,7 @@ const compareJsonLd = {
         'IHUI AI 和 Dify 都是开源 AI 应用平台,但定位不同:Dify 偏 LLM 应用开发(Web 端),IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + 团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
-      about: [
-        { '@id': 'https://aizhs.top/#organization' },
-        { '@type': 'Thing', name: 'Dify' },
-      ],
+      about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Dify' }],
     },
     {
       '@type': 'BreadcrumbList',

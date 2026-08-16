@@ -17,7 +17,11 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:8801'),
 
   DATABASE_URL: z.url(),
-  DATABASE_READ_REPLICA_URL: z.string().optional().transform((v) => (v === '' ? undefined : v)).pipe(z.url().optional()),
+  DATABASE_READ_REPLICA_URL: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v))
+    .pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
   JWT_SECRET: z
     .string()

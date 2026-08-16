@@ -35,43 +35,97 @@ interface IdeConfig {
 
 const CONFIGS: Record<string, IdeConfig> = {
   // ── IDE 类(从配置提取,无固定默认值)──
-  'trae': { prefix: 'trae.ai', name: 'Trae', websiteUrl: 'https://trae.ai', defaultApiFormat: 'openai_chat' },
-  'trae-work': { prefix: 'trae.work.ai', name: 'Trae Work', websiteUrl: 'https://trae.ai', defaultApiFormat: 'openai_chat' },
-  'qoder': { prefix: 'qoder.ai', name: 'Qoder', websiteUrl: 'https://qoder.com', defaultApiFormat: 'openai_chat' },
-  'qoder-work': { prefix: 'qoder.work.ai', name: 'Qoder Work', websiteUrl: 'https://qoder.com', defaultApiFormat: 'openai_chat' },
-  'continue': { prefix: 'continue', name: 'Continue', websiteUrl: 'https://continue.dev', defaultApiFormat: 'openai_chat' },
-  'tabnine': { prefix: 'tabnine', name: 'Tabnine', websiteUrl: 'https://tabnine.com', defaultApiFormat: 'openai_chat' },
-  'zed': { prefix: 'zed', name: 'Zed', websiteUrl: 'https://zed.dev', defaultApiFormat: 'openai_chat' },
+  trae: {
+    prefix: 'trae.ai',
+    name: 'Trae',
+    websiteUrl: 'https://trae.ai',
+    defaultApiFormat: 'openai_chat',
+  },
+  'trae-work': {
+    prefix: 'trae.work.ai',
+    name: 'Trae Work',
+    websiteUrl: 'https://trae.ai',
+    defaultApiFormat: 'openai_chat',
+  },
+  qoder: {
+    prefix: 'qoder.ai',
+    name: 'Qoder',
+    websiteUrl: 'https://qoder.com',
+    defaultApiFormat: 'openai_chat',
+  },
+  'qoder-work': {
+    prefix: 'qoder.work.ai',
+    name: 'Qoder Work',
+    websiteUrl: 'https://qoder.com',
+    defaultApiFormat: 'openai_chat',
+  },
+  continue: {
+    prefix: 'continue',
+    name: 'Continue',
+    websiteUrl: 'https://continue.dev',
+    defaultApiFormat: 'openai_chat',
+  },
+  tabnine: {
+    prefix: 'tabnine',
+    name: 'Tabnine',
+    websiteUrl: 'https://tabnine.com',
+    defaultApiFormat: 'openai_chat',
+  },
+  zed: {
+    prefix: 'zed',
+    name: 'Zed',
+    websiteUrl: 'https://zed.dev',
+    defaultApiFormat: 'openai_chat',
+  },
 
   // ── 桌面端(有确定 API 端点)──
   'codex-desktop': {
-    prefix: 'codex', name: 'Codex Desktop', websiteUrl: 'https://openai.com',
-    defaultBaseUrl: 'https://api.openai.com/v1', defaultProviderCode: 'openai', defaultApiFormat: 'openai_chat',
+    prefix: 'codex',
+    name: 'Codex Desktop',
+    websiteUrl: 'https://openai.com',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    defaultProviderCode: 'openai',
+    defaultApiFormat: 'openai_chat',
   },
   'claude-code-desktop': {
-    prefix: 'claude', name: 'Claude Code Desktop', websiteUrl: 'https://claude.ai',
-    defaultBaseUrl: 'https://api.anthropic.com', defaultProviderCode: 'anthropic', defaultApiFormat: 'anthropic_messages',
+    prefix: 'claude',
+    name: 'Claude Code Desktop',
+    websiteUrl: 'https://claude.ai',
+    defaultBaseUrl: 'https://api.anthropic.com',
+    defaultProviderCode: 'anthropic',
+    defaultApiFormat: 'anthropic_messages',
   },
 
   // ── 平台扩展(有确定 API 端点)──
   'github-copilot': {
-    prefix: 'github.copilot', name: 'GitHub Copilot', websiteUrl: 'https://github.com/features/copilot',
-    defaultBaseUrl: 'https://api.githubcopilot.com', defaultProviderCode: 'openai', defaultApiFormat: 'openai_chat',
-  },
-  'amazon-q': {
-    prefix: 'amazon.q', name: 'Amazon Q', websiteUrl: 'https://aws.amazon.com/q',
+    prefix: 'github.copilot',
+    name: 'GitHub Copilot',
+    websiteUrl: 'https://github.com/features/copilot',
+    defaultBaseUrl: 'https://api.githubcopilot.com',
+    defaultProviderCode: 'openai',
     defaultApiFormat: 'openai_chat',
   },
-  'cody': {
-    prefix: 'cody', name: 'Sourcegraph Cody', websiteUrl: 'https://sourcegraph.com/cody',
+  'amazon-q': {
+    prefix: 'amazon.q',
+    name: 'Amazon Q',
+    websiteUrl: 'https://aws.amazon.com/q',
+    defaultApiFormat: 'openai_chat',
+  },
+  cody: {
+    prefix: 'cody',
+    name: 'Sourcegraph Cody',
+    websiteUrl: 'https://sourcegraph.com/cody',
     defaultApiFormat: 'openai_chat',
   },
 
   // ── Google Antigravity(Gemini 系列)──
-  'antigravity': {
-    prefix: 'antigravity', name: 'Google Antigravity', websiteUrl: 'https://antigravity.google',
+  antigravity: {
+    prefix: 'antigravity',
+    name: 'Google Antigravity',
+    websiteUrl: 'https://antigravity.google',
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    defaultProviderCode: 'google', defaultApiFormat: 'gemini_native',
+    defaultProviderCode: 'google',
+    defaultApiFormat: 'gemini_native',
   },
 }
 
@@ -82,13 +136,22 @@ function str(v: unknown): string | undefined {
 function inferApiFormat(baseUrl: string, model?: string, fallback?: CliApiFormat): CliApiFormat {
   const u = baseUrl.toLowerCase()
   if (u.includes('anthropic.com') || model?.startsWith('claude-')) return 'anthropic_messages'
-  if (u.includes('googleapis.com') || u.includes('generativelanguage') || model?.startsWith('gemini-')) return 'gemini_native'
+  if (
+    u.includes('googleapis.com') ||
+    u.includes('generativelanguage') ||
+    model?.startsWith('gemini-')
+  )
+    return 'gemini_native'
   if (u.includes('openai.com') || u.includes('githubcopilot')) return 'openai_chat'
   return fallback ?? 'openai_chat'
 }
 
 /** 从扁平 dotted-key JSON 或嵌套 JSON 中提取值 */
-function extract(settings: Record<string, unknown>, prefix: string, field: string): string | undefined {
+function extract(
+  settings: Record<string, unknown>,
+  prefix: string,
+  field: string,
+): string | undefined {
   const flatKey = `${prefix}.${field}`
   const camelKey = `${prefix}.${field.charAt(0).toUpperCase()}${field.slice(1)}`
   const kebabKey = `${prefix}.${field.replace(/([A-Z])/g, '-$1').toLowerCase()}`
@@ -118,8 +181,12 @@ function createIdeParser(sourceKey: string) {
     }
 
     // 尝试提取 apiKey / baseUrl / model
-    const apiKey = extract(settings, cfg.prefix, 'apiKey') ?? extract(settings, cfg.prefix, 'api_key')
-    const baseUrl = extract(settings, cfg.prefix, 'baseUrl') ?? extract(settings, cfg.prefix, 'base_url') ?? cfg.defaultBaseUrl
+    const apiKey =
+      extract(settings, cfg.prefix, 'apiKey') ?? extract(settings, cfg.prefix, 'api_key')
+    const baseUrl =
+      extract(settings, cfg.prefix, 'baseUrl') ??
+      extract(settings, cfg.prefix, 'base_url') ??
+      cfg.defaultBaseUrl
     const model = extract(settings, cfg.prefix, 'model')
 
     if (!apiKey) {

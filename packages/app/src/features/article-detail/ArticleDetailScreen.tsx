@@ -79,7 +79,12 @@ function createStyles(tk: AppThemeTokens) {
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     back: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 6 },
+    metaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 6,
+      marginBottom: 6,
+    },
     author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
     meta: { fontSize: 11, color: tk.text.tertiary },
     statRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },

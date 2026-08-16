@@ -195,18 +195,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   updateSession: (id, patch) =>
     set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === id ? { ...sess, ...patch } : sess,
-      ),
+      sessions: s.sessions.map((sess) => (sess.id === id ? { ...sess, ...patch } : sess)),
     })),
 
   removeSession: (id) =>
     set((s) => {
       const filtered = s.sessions.filter((sess) => sess.id !== id)
-      const newActive =
-        s.activeSessionId === id
-          ? (filtered[0]?.id ?? null)
-          : s.activeSessionId
+      const newActive = s.activeSessionId === id ? (filtered[0]?.id ?? null) : s.activeSessionId
       // 清理 pane 状态
       const newPanes = { ...s.panes }
       delete newPanes[id]
@@ -270,9 +265,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   renameSession: (id, name) =>
     set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === id ? { ...sess, name } : sess,
-      ),
+      sessions: s.sessions.map((sess) => (sess.id === id ? { ...sess, name } : sess)),
     })),
 
   reset: () =>
@@ -315,29 +308,29 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   setRecordings: (recordings) => set({ recordings }),
 
-  addRecording: (recording) =>
-    set((s) => ({ recordings: [recording, ...s.recordings] })),
+  addRecording: (recording) => set((s) => ({ recordings: [recording, ...s.recordings] })),
 
-  removeRecording: (id) =>
-    set((s) => ({ recordings: s.recordings.filter((r) => r.id !== id) })),
+  removeRecording: (id) => set((s) => ({ recordings: s.recordings.filter((r) => r.id !== id) })),
 
   setActivePlaybackId: (id) => set({ activePlaybackId: id }),
 
   setCommandHistory: (entries) => set({ commandHistory: entries }),
 
   setAiSuggestOpen: (open) =>
-    set(open
-      ? { aiSuggestOpen: true }
-      : { aiSuggestOpen: false, aiSuggestions: [], aiError: null }),
+    set(
+      open ? { aiSuggestOpen: true } : { aiSuggestOpen: false, aiSuggestions: [], aiError: null },
+    ),
 
   setAiSuggestLoading: (loading) => set({ aiSuggestLoading: loading }),
 
   setAiSuggestions: (suggestions) => set({ aiSuggestions: suggestions }),
 
   setAiDiagnoseOpen: (open) =>
-    set(open
-      ? { aiDiagnoseOpen: true }
-      : { aiDiagnoseOpen: false, aiDiagnoseResult: null, aiError: null }),
+    set(
+      open
+        ? { aiDiagnoseOpen: true }
+        : { aiDiagnoseOpen: false, aiDiagnoseResult: null, aiError: null },
+    ),
 
   setAiDiagnoseLoading: (loading) => set({ aiDiagnoseLoading: loading }),
 
@@ -383,11 +376,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         delete newDirections[sessionId]
         const filteredSessions = s.sessions.filter((x) => x.id !== sessionId)
         const newActiveSession =
-          s.activeSessionId === sessionId
-            ? (filteredSessions[0]?.id ?? null)
-            : s.activeSessionId
-        const newActivePane =
-          newActiveSession ? (newPanes[newActiveSession]?.[0] ?? null) : null
+          s.activeSessionId === sessionId ? (filteredSessions[0]?.id ?? null) : s.activeSessionId
+        const newActivePane = newActiveSession ? (newPanes[newActiveSession]?.[0] ?? null) : null
         return {
           sessions: filteredSessions,
           activeSessionId: newActiveSession,
@@ -397,8 +387,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         }
       }
       // 仍有 pane:调整 activePaneId(若被移除的是 active pane,切到第一个)
-      const newActivePane =
-        s.activePaneId === paneId ? newPanesArr[0] : s.activePaneId
+      const newActivePane = s.activePaneId === paneId ? newPanesArr[0] : s.activePaneId
       return {
         panes: { ...s.panes, [sessionId]: newPanesArr },
         activePaneId: newActivePane,
@@ -409,6 +398,5 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   getPanes: (sessionId) => get().panes[sessionId] ?? [],
 
-  getSplitDirection: (sessionId) =>
-    get().splitDirections[sessionId] ?? 'vertical',
+  getSplitDirection: (sessionId) => get().splitDirections[sessionId] ?? 'vertical',
 }))

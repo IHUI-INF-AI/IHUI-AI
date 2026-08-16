@@ -33,35 +33,43 @@ const authCodeRoutes: FastifyPluginAsync = async (server) => {
   // GET / — 获取验证码(Java: GET /public-api/auth-code, query: ?mobile=)
   // 公开端点(Java 无鉴权),发送短信验证码到指定手机号
   // P0 安全修复(2026-08-02):公开短信端点无限流可被刷短信轰炸,限制 1 次/分钟/IP。
-  server.get('/', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = mobileQuery.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { mobile } = parsed.data
-    const result = await sendSmsCode(mobile)
-    if (!result.success) {
-      // 限速或发送失败:返回 429(对应 Java 抛 GlobalException 的语义)
-      return reply.status(429).send(error(429, result.msg))
-    }
-    return reply.send(success({ mobile, sent: true, message: result.msg }))
-  })
+  server.get(
+    '/',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = mobileQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { mobile } = parsed.data
+      const result = await sendSmsCode(mobile)
+      if (!result.success) {
+        // 限速或发送失败:返回 429(对应 Java 抛 GlobalException 的语义)
+        return reply.status(429).send(error(429, result.msg))
+      }
+      return reply.send(success({ mobile, sent: true, message: result.msg }))
+    },
+  )
 
   // POST /check — 校验验证码(Java: POST /public-api/auth-code/check)
   // body: { mobile, code } — 校验通过返回 true,失败返回 false
   // P0 安全修复(2026-08-02):6 位数字验证码仅 100 万种组合,无限流可暴力破解。
   // 限制每分钟 5 次校验尝试,覆盖单 IP 暴力破解场景。
-  server.post('/check', {
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-  }, async (request, reply) => {
-    const parsed = checkSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { mobile, code } = parsed.data
-    const ok = await verifyCode(mobile, code)
-    return reply.send(success({ valid: ok }))
-  })
+  server.post(
+    '/check',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = checkSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { mobile, code } = parsed.data
+      const ok = await verifyCode(mobile, code)
+      return reply.send(success({ valid: ok }))
+    },
+  )
 }
 
 export default authCodeRoutes

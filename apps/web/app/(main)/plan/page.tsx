@@ -54,7 +54,8 @@ export default function PlanListPage() {
 
       <div className="flex flex-wrap items-center gap-1">
         {FILTERS.map((f) => {
-          const count = f.value === 'all' ? plans.length : plans.filter((p) => p.status === f.value).length
+          const count =
+            f.value === 'all' ? plans.length : plans.filter((p) => p.status === f.value).length
           return (
             <button
               key={f.value}
@@ -91,9 +92,7 @@ export default function PlanListPage() {
           icon={FileText}
           title={plans.length === 0 ? '还没有任何计划' : '当前筛选下无计划'}
           description={
-            plans.length === 0
-              ? '创建第一个 Plan,开始拆解目标与步骤'
-              : '试试切换其他状态筛选'
+            plans.length === 0 ? '创建第一个 Plan,开始拆解目标与步骤' : '试试切换其他状态筛选'
           }
           action={
             plans.length === 0 ? (

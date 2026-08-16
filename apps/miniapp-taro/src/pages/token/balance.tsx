@@ -64,17 +64,14 @@ export default function TokenBalance() {
   const loadingRef = useRef(false)
   const stateRef = useRef<{ type: BarType; orderType: 0 | 1 }>({ type: 'w', orderType: 0 })
 
-  const tt = useCallback(
-    (k: string, fb: string) => (t(k) === k ? fb : t(k)),
-    [t],
-  )
+  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
   const loadBalance = useCallback(async () => {
     try {
       const uuid = getUuid()
-      const res = (await (api.getTokenBalance as unknown as (
-        p?: { uuid?: string },
-      ) => Promise<unknown>)(uuid ? { uuid } : undefined)) as BalanceInfo
+      const res = (await (
+        api.getTokenBalance as unknown as (p?: { uuid?: string }) => Promise<unknown>
+      )(uuid ? { uuid } : undefined)) as BalanceInfo
       setBalance(res)
     } catch {
       // ignore
@@ -94,12 +91,14 @@ export default function TokenBalance() {
     setLoading(true)
     try {
       const uuid = getUuid()
-      const res = (await (api.getTokenRecords as unknown as (p: {
-        type: string
-        orderType: number
-        page: number
-        uuid?: string
-      }) => Promise<unknown>)({
+      const res = (await (
+        api.getTokenRecords as unknown as (p: {
+          type: string
+          orderType: number
+          page: number
+          uuid?: string
+        }) => Promise<unknown>
+      )({
         type: curType,
         orderType: curOt,
         page: pageRef.current,
@@ -194,13 +193,10 @@ export default function TokenBalance() {
 
       <View className="records-section">
         {showEmpty ? (
-          <Text className="empty-text">
-            {tt('token.balance.empty', '暂无智汇值消耗记录')}
-          </Text>
+          <Text className="empty-text">{tt('token.balance.empty', '暂无智汇值消耗记录')}</Text>
         ) : (
           zhList.map((it, idx) => {
-            const title =
-              it.agentName || it.title || tt('token.balance.agentConsume', '智能体消耗')
+            const title = it.agentName || it.title || tt('token.balance.agentConsume', '智能体消耗')
             const time = it.create_at || it.createdAt || it.time || ''
             const tokenNum = Number(it.token ?? it.amount ?? 0)
             return (
@@ -208,11 +204,10 @@ export default function TokenBalance() {
                 <Text className="record-title">{title}</Text>
                 <View className="record-content">
                   <Text className="record-time">
-                    {tt('token.balance.costTime', '花费时间:')}{time}
+                    {tt('token.balance.costTime', '花费时间:')}
+                    {time}
                   </Text>
-                  <Text className="record-count">
-                    {tokenNum > 0 ? `-${tokenNum}` : tokenNum}
-                  </Text>
+                  <Text className="record-count">{tokenNum > 0 ? `-${tokenNum}` : tokenNum}</Text>
                 </View>
               </View>
             )

@@ -15,12 +15,7 @@
     }
   },
   "bin": "ihui.exe",
-  "shortcuts": [
-    [
-      "ihui.exe",
-      "IHUI AI CLI"
-    ]
-  ],
+  "shortcuts": [["ihui.exe", "IHUI AI CLI"]],
   "checkver": {
     "url": "https://api.github.com/repos/IHUI-INF-AI/IHUI-AI/releases/latest",
     "jsonpath": "$.tag_name",

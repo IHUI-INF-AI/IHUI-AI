@@ -85,9 +85,7 @@ export interface BatchGenerateInput {
  *
  * 返回生成的码列表(含完整 DB 行)。
  */
-export async function batchGenerateCodes(
-  input: BatchGenerateInput,
-): Promise<RedemptionCode[]> {
+export async function batchGenerateCodes(input: BatchGenerateInput): Promise<RedemptionCode[]> {
   const { count, faceValueCents, tokenAmount, expiresAt, createdBy } = input
 
   if (!Number.isInteger(count) || count < 1) {
@@ -121,10 +119,7 @@ export async function batchGenerateCodes(
     expiresAt: expiresAt ?? null,
   }))
 
-  const inserted = await db
-    .insert(redemptionCodes)
-    .values(rows)
-    .returning()
+  const inserted = await db.insert(redemptionCodes).values(rows).returning()
 
   return inserted
 }
@@ -212,7 +207,10 @@ export async function redeemCode(
         if (existing.status === 'disabled') {
           return { success: false, reason: 'disabled' }
         }
-        if (existing.status === 'expired' || (existing.expiresAt && existing.expiresAt < new Date())) {
+        if (
+          existing.status === 'expired' ||
+          (existing.expiresAt && existing.expiresAt < new Date())
+        ) {
           return { success: false, reason: 'expired' }
         }
         return { success: false, reason: 'not_unused' }
@@ -227,12 +225,7 @@ export async function redeemCode(
         const [activeKey] = await tx
           .select({ id: developerApiKeys.id })
           .from(developerApiKeys)
-          .where(
-            and(
-              eq(developerApiKeys.userId, userId),
-              eq(developerApiKeys.status, 'active'),
-            ),
-          )
+          .where(and(eq(developerApiKeys.userId, userId), eq(developerApiKeys.status, 'active')))
           .orderBy(desc(developerApiKeys.createdAt))
           .limit(1)
 
@@ -363,12 +356,7 @@ export async function disableCode(id: string): Promise<RedemptionCode> {
   const [updated] = await db
     .update(redemptionCodes)
     .set({ status: 'disabled' })
-    .where(
-      and(
-        eq(redemptionCodes.id, id),
-        ne(redemptionCodes.status, 'used'),
-      ),
-    )
+    .where(and(eq(redemptionCodes.id, id), ne(redemptionCodes.status, 'used')))
     .returning()
 
   if (!updated) {

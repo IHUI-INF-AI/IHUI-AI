@@ -10,11 +10,7 @@
  * 由 e2e(wxt dev + browser)覆盖。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  isDomAction,
-  isBackgroundAction,
-  executeBackgroundAction,
-} from '../lib/agent-control'
+import { isDomAction, isBackgroundAction, executeBackgroundAction } from '../lib/agent-control'
 
 // ===== chrome.tabs mock =====
 
@@ -134,10 +130,20 @@ describe('executeBackgroundAction', () => {
     tabsQuery.mockResolvedValue([{ id: 42, windowId: 1 }])
     tabsUpdate.mockResolvedValue(undefined)
     // 模拟 onUpdated listener 注册后立即触发 complete
-    onUpdatedListener.mockImplementation((listener: (id: number, info: { status?: string }, tab: chrome.tabs.Tab) => void) => {
-      // 异步触发,模拟 tab 加载完成
-      setTimeout(() => listener(42, { status: 'complete' }, { id: 42, url: 'https://example.com', title: 'Example' } as chrome.tabs.Tab), 10)
-    })
+    onUpdatedListener.mockImplementation(
+      (listener: (id: number, info: { status?: string }, tab: chrome.tabs.Tab) => void) => {
+        // 异步触发,模拟 tab 加载完成
+        setTimeout(
+          () =>
+            listener(42, { status: 'complete' }, {
+              id: 42,
+              url: 'https://example.com',
+              title: 'Example',
+            } as chrome.tabs.Tab),
+          10,
+        )
+      },
+    )
     const res = await executeBackgroundAction('navigate', { url: 'https://example.com' }, 1000)
     expect(tabsUpdate).toHaveBeenCalledWith(42, { url: 'https://example.com' })
     expect(res.success).toBe(true)

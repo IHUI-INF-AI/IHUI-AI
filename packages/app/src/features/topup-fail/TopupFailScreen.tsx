@@ -41,7 +41,11 @@ export function TopupFailScreen({
           <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.7} onPress={onRetry}>
             <Text style={styles.primaryText}>重试</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.7} onPress={onContactService}>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            activeOpacity={0.7}
+            onPress={onContactService}
+          >
             <Text style={styles.secondaryText}>联系客服</Text>
           </TouchableOpacity>
         </View>

@@ -118,54 +118,56 @@ export default function ThreatDashboardPage() {
                   <Eye className="h-4 w-4 text-primary" />
                   {t('watchedIpsTitle')}
                 </CardTitle>
-                <CardDescription className="line-clamp-2 break-words">{t('watchedIpsDesc')}</CardDescription>
+                <CardDescription className="line-clamp-2 break-words">
+                  {t('watchedIpsDesc')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">{t('colIp')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
-                      <th className="px-3 py-2 font-medium">{t('colReasons')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('colLastSeen')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.watchedIps.map((it, i) => (
-                      <tr key={it.ip} className={cn(i % 2 === 1 && 'bg-muted/20')}>
-                        <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
-                              <div
-                                className={cn('h-full rounded', scoreBgClass(it.score))}
-                                style={{ width: `${Math.min(100, it.score)}%` }}
-                              />
-                            </div>
-                            <span
-                              className={cn('font-semibold tabular-nums', scoreClass(it.score))}
-                            >
-                              {it.score}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-wrap gap-1">
-                            {it.reasons.map((r) => (
-                              <Badge key={r} variant="secondary" className="text-xs">
-                                {r}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
-                          {formatTime(it.lastSeen)}
-                        </td>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                        <th className="px-3 py-2 font-medium">{t('colIp')}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
+                        <th className="px-3 py-2 font-medium">{t('colReasons')}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t('colLastSeen')}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {d.watchedIps.map((it, i) => (
+                        <tr key={it.ip} className={cn(i % 2 === 1 && 'bg-muted/20')}>
+                          <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
+                                <div
+                                  className={cn('h-full rounded', scoreBgClass(it.score))}
+                                  style={{ width: `${Math.min(100, it.score)}%` }}
+                                />
+                              </div>
+                              <span
+                                className={cn('font-semibold tabular-nums', scoreClass(it.score))}
+                              >
+                                {it.score}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {it.reasons.map((r) => (
+                                <Badge key={r} variant="secondary" className="text-xs">
+                                  {r}
+                                </Badge>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                            {formatTime(it.lastSeen)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
@@ -178,53 +180,55 @@ export default function ThreatDashboardPage() {
                   <Activity className="h-4 w-4 text-primary" />
                   {t('recentBlocksTitle')}
                 </CardTitle>
-                <CardDescription className="line-clamp-2 break-words">{t('recentBlocksDesc')}</CardDescription>
+                <CardDescription className="line-clamp-2 break-words">
+                  {t('recentBlocksDesc')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">{t('colIp')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
-                      <th className="px-3 py-2 font-medium">{t('colDuration')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('colTimestamp')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.recentBlocks.map((it, i) => (
-                      <tr
-                        key={`${it.ip}-${it.timestamp}`}
-                        className={cn(i % 2 === 1 && 'bg-muted/20')}
-                      >
-                        <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
-                              <div
-                                className={cn('h-full rounded', scoreBgClass(it.score))}
-                                style={{ width: `${Math.min(100, it.score)}%` }}
-                              />
-                            </div>
-                            <span
-                              className={cn('font-semibold tabular-nums', scoreClass(it.score))}
-                            >
-                              {it.score}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant="outline" className="text-xs">
-                            {it.duration}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
-                          {formatTime(it.timestamp)}
-                        </td>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                        <th className="px-3 py-2 font-medium">{t('colIp')}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
+                        <th className="px-3 py-2 font-medium">{t('colDuration')}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t('colTimestamp')}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {d.recentBlocks.map((it, i) => (
+                        <tr
+                          key={`${it.ip}-${it.timestamp}`}
+                          className={cn(i % 2 === 1 && 'bg-muted/20')}
+                        >
+                          <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-12 overflow-hidden rounded bg-muted/40">
+                                <div
+                                  className={cn('h-full rounded', scoreBgClass(it.score))}
+                                  style={{ width: `${Math.min(100, it.score)}%` }}
+                                />
+                              </div>
+                              <span
+                                className={cn('font-semibold tabular-nums', scoreClass(it.score))}
+                              >
+                                {it.score}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge variant="outline" className="text-xs">
+                              {it.duration}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                            {formatTime(it.timestamp)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

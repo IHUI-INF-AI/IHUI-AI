@@ -61,7 +61,10 @@ export function MusicGenerator({ onGenerate }: MusicGeneratorProps) {
             label={t('durationLabel')}
             value={duration}
             onChange={setDuration}
-            options={DURATIONS.map((d) => ({ value: d, label: t(DURATION_KEY[d] ?? 'duration.unknown') }))}
+            options={DURATIONS.map((d) => ({
+              value: d,
+              label: t(DURATION_KEY[d] ?? 'duration.unknown'),
+            }))}
           />
         </div>
       }

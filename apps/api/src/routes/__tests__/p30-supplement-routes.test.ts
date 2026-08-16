@@ -91,21 +91,109 @@ describe('P30 补写路由集成测试', () => {
   })
 
   describe('鉴权:未登录请求返回 401', () => {
-    const authEndpoints: Array<{ method: 'GET' | 'POST'; url: string; payload?: unknown; prefix: string; plugin: (app: FastifyInstance) => Promise<void> }> = [
-      { method: 'POST', url: '/api/webrtc-voice/session', payload: { calleeId: 'user-2' }, prefix: 'webrtc-voice', plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }) },
-      { method: 'POST', url: '/api/webrtc-voice/offer', payload: { sessionId: 's1', offer: {} }, prefix: 'webrtc-voice', plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }) },
-      { method: 'POST', url: '/api/webrtc-voice/ice-candidate', payload: { sessionId: 's1', candidate: {} }, prefix: 'webrtc-voice', plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }) },
-      { method: 'POST', url: '/api/webrtc-voice/end', payload: { sessionId: 's1' }, prefix: 'webrtc-voice', plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }) },
-      { method: 'POST', url: '/api/outbound/campaign', payload: { name: 'c', script: 's', phoneList: ['1'] }, prefix: 'outbound', plugin: async (app) => app.register(outboundRoutes, { prefix: '/api/outbound' }) },
-      { method: 'GET', url: '/api/outbound/campaign', prefix: 'outbound', plugin: async (app) => app.register(outboundRoutes, { prefix: '/api/outbound' }) },
-      { method: 'POST', url: '/api/ai-video-compose/', payload: { prompt: 'p' }, prefix: 'ai-video-compose', plugin: async (app) => app.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' }) },
-      { method: 'GET', url: '/api/ai-video-compose/task-1', prefix: 'ai-video-compose', plugin: async (app) => app.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' }) },
-      { method: 'POST', url: '/api/langchain/chat', payload: { messages: [{ role: 'user', content: 'hi' }] }, prefix: 'langchain', plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }) },
-      { method: 'POST', url: '/api/langchain/agent', payload: { input: 'hi' }, prefix: 'langchain', plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }) },
-      { method: 'GET', url: '/api/langchain/models', prefix: 'langchain', plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }) },
-      { method: 'POST', url: '/api/ai-vendors/luyala/video', payload: { prompt: 'p' }, prefix: 'ai-vendors/luyala', plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }) },
-      { method: 'POST', url: '/api/ai-vendors/luyala/voice', payload: { text: 't' }, prefix: 'ai-vendors/luyala', plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }) },
-      { method: 'GET', url: '/api/ai-vendors/luyala/tasks/task-1', prefix: 'ai-vendors/luyala', plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }) },
+    const authEndpoints: Array<{
+      method: 'GET' | 'POST'
+      url: string
+      payload?: unknown
+      prefix: string
+      plugin: (app: FastifyInstance) => Promise<void>
+    }> = [
+      {
+        method: 'POST',
+        url: '/api/webrtc-voice/session',
+        payload: { calleeId: 'user-2' },
+        prefix: 'webrtc-voice',
+        plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/webrtc-voice/offer',
+        payload: { sessionId: 's1', offer: {} },
+        prefix: 'webrtc-voice',
+        plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/webrtc-voice/ice-candidate',
+        payload: { sessionId: 's1', candidate: {} },
+        prefix: 'webrtc-voice',
+        plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/webrtc-voice/end',
+        payload: { sessionId: 's1' },
+        prefix: 'webrtc-voice',
+        plugin: async (app) => app.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/outbound/campaign',
+        payload: { name: 'c', script: 's', phoneList: ['1'] },
+        prefix: 'outbound',
+        plugin: async (app) => app.register(outboundRoutes, { prefix: '/api/outbound' }),
+      },
+      {
+        method: 'GET',
+        url: '/api/outbound/campaign',
+        prefix: 'outbound',
+        plugin: async (app) => app.register(outboundRoutes, { prefix: '/api/outbound' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/ai-video-compose/',
+        payload: { prompt: 'p' },
+        prefix: 'ai-video-compose',
+        plugin: async (app) =>
+          app.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' }),
+      },
+      {
+        method: 'GET',
+        url: '/api/ai-video-compose/task-1',
+        prefix: 'ai-video-compose',
+        plugin: async (app) =>
+          app.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/langchain/chat',
+        payload: { messages: [{ role: 'user', content: 'hi' }] },
+        prefix: 'langchain',
+        plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/langchain/agent',
+        payload: { input: 'hi' },
+        prefix: 'langchain',
+        plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }),
+      },
+      {
+        method: 'GET',
+        url: '/api/langchain/models',
+        prefix: 'langchain',
+        plugin: async (app) => app.register(legacyLangchainRoutes, { prefix: '/api/langchain' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/ai-vendors/luyala/video',
+        payload: { prompt: 'p' },
+        prefix: 'ai-vendors/luyala',
+        plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }),
+      },
+      {
+        method: 'POST',
+        url: '/api/ai-vendors/luyala/voice',
+        payload: { text: 't' },
+        prefix: 'ai-vendors/luyala',
+        plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }),
+      },
+      {
+        method: 'GET',
+        url: '/api/ai-vendors/luyala/tasks/task-1',
+        prefix: 'ai-vendors/luyala',
+        plugin: async (app) => app.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' }),
+      },
     ]
 
     for (const { method, url, payload, plugin } of authEndpoints) {
@@ -113,7 +201,11 @@ describe('P30 补写路由集成测试', () => {
         const app = Fastify({ logger: false })
         await plugin(app)
         await app.ready()
-        const res = await app.inject({ method, url, payload: payload as Record<string, unknown> | undefined })
+        const res = await app.inject({
+          method,
+          url,
+          payload: payload as Record<string, unknown> | undefined,
+        })
         expect(res.statusCode).toBe(401)
         await app.close()
       })

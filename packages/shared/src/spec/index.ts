@@ -153,9 +153,34 @@ export const SPEC_BUILTIN_TEMPLATES: SpecTemplate[] = [
 ]
 
 /** 生命周期阶段元数据 */
-export const SPEC_LIFECYCLE_STAGES: Array<{ value: SpecLifecycleStage; label: string; description: string; color: string }> = [
-  { value: 'proposed', label: '提案', description: 'Spec 已生成,等待审批', color: 'bg-amber-100 text-amber-700' },
-  { value: 'approved', label: '审批', description: '已通过审批,可进入实现阶段', color: 'bg-blue-100 text-blue-700' },
-  { value: 'implementing', label: '实现', description: '正在按 spec 实现代码', color: 'bg-purple-100 text-purple-700' },
-  { value: 'verified', label: '验证', description: '已验证实现符合 spec', color: 'bg-emerald-100 text-emerald-700' },
+export const SPEC_LIFECYCLE_STAGES: Array<{
+  value: SpecLifecycleStage
+  label: string
+  description: string
+  color: string
+}> = [
+  {
+    value: 'proposed',
+    label: '提案',
+    description: 'Spec 已生成,等待审批',
+    color: 'bg-amber-100 text-amber-700',
+  },
+  {
+    value: 'approved',
+    label: '审批',
+    description: '已通过审批,可进入实现阶段',
+    color: 'bg-blue-100 text-blue-700',
+  },
+  {
+    value: 'implementing',
+    label: '实现',
+    description: '正在按 spec 实现代码',
+    color: 'bg-purple-100 text-purple-700',
+  },
+  {
+    value: 'verified',
+    label: '验证',
+    description: '已验证实现符合 spec',
+    color: 'bg-emerald-100 text-emerald-700',
+  },
 ]

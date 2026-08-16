@@ -23,7 +23,14 @@ export interface AvatarProps extends Omit<ComponentProps<typeof View>, 'children
   shape?: 'circle' | 'rounded'
 }
 
-export function Avatar({ source, name, size = 'md', shape = 'circle', className, ...props }: AvatarProps) {
+export function Avatar({
+  source,
+  name,
+  size = 'md',
+  shape = 'circle',
+  className,
+  ...props
+}: AvatarProps) {
   const initials = name
     ? name
         .split(' ')
@@ -51,7 +58,9 @@ export function Avatar({ source, name, size = 'md', shape = 'circle', className,
           className={cn(shape === 'circle' ? 'rounded-full' : 'rounded-lg', 'h-full w-full')}
         />
       ) : (
-        <Text className={cn('font-medium text-muted-foreground', textSizeMap[size])}>{initials}</Text>
+        <Text className={cn('font-medium text-muted-foreground', textSizeMap[size])}>
+          {initials}
+        </Text>
       )}
     </View>
   )

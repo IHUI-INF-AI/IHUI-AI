@@ -7,7 +7,7 @@ import {
   boolean,
   timestamp,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 定时任务表。
@@ -43,7 +43,7 @@ export const scheduleTasks = pgTable(
     enabledIdx: index('schedule_tasks_enabled_idx').on(t.enabled),
     priorityIdx: index('schedule_tasks_priority_idx').on(t.priority),
   }),
-);
+)
 
 /**
  * 任务执行日志表。
@@ -71,9 +71,9 @@ export const scheduleLogs = pgTable(
     taskIdx: index('schedule_logs_task_idx').on(t.taskId),
     statusIdx: index('schedule_logs_status_idx').on(t.status),
   }),
-);
+)
 
-export type ScheduleTask = typeof scheduleTasks.$inferSelect;
-export type NewScheduleTask = typeof scheduleTasks.$inferInsert;
-export type ScheduleLog = typeof scheduleLogs.$inferSelect;
-export type NewScheduleLog = typeof scheduleLogs.$inferInsert;
+export type ScheduleTask = typeof scheduleTasks.$inferSelect
+export type NewScheduleTask = typeof scheduleTasks.$inferInsert
+export type ScheduleLog = typeof scheduleLogs.$inferSelect
+export type NewScheduleLog = typeof scheduleLogs.$inferInsert

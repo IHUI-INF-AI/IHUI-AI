@@ -50,10 +50,7 @@ function extractRepoUrl(repo: NpmPackageInfo['repository']): string | null {
 }
 
 /** 查询单个包的周下载量,失败返回 0(不阻塞主流程) */
-async function fetchWeeklyDownloads(
-  packageName: string,
-  timeoutMs: number,
-): Promise<number> {
+async function fetchWeeklyDownloads(packageName: string, timeoutMs: number): Promise<number> {
   try {
     const res = await fetchWithTimeout(
       `${NPM_DOWNLOADS_API}/${encodeURIComponent(packageName)}`,
@@ -81,9 +78,7 @@ async function fetchDownloadsBatched(
   for (let i = 0; i < packageNames.length; i += batchSize) {
     const batch = packageNames.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map(name =>
-        fetchWeeklyDownloads(name, timeoutMs).then(d => [name, d] as const),
-      ),
+      batch.map((name) => fetchWeeklyDownloads(name, timeoutMs).then((d) => [name, d] as const)),
     )
     for (const [name, d] of batchResults) result.set(name, d)
   }
@@ -105,39 +100,34 @@ export const npmAdapter: RegistryAdapter = {
         timeoutMs,
       )
       if (!res.ok) {
-        throw new RegistryAdapterError(
-          `npm search API returned ${res.status}`,
-          'npm',
-        )
+        throw new RegistryAdapterError(`npm search API returned ${res.status}`, 'npm')
       }
       const data = (await res.json()) as NpmSearchResponse
-      const packages = data.objects.map(obj => obj.package)
+      const packages = data.objects.map((obj) => obj.package)
       // 分批查询周下载量,填入 meta.downloads 供热度评分消费
       const downloadsMap = await fetchDownloadsBatched(
-        packages.map(p => p.name),
+        packages.map((p) => p.name),
         timeoutMs,
       )
-      return packages.map(
-        (pkg): RawRegistryItem => ({
-          sourceType,
-          source: 'npm',
-          sourceId: pkg.name,
-          name: pkg.name,
-          description: pkg.description ?? null,
-          version: pkg.version,
-          author: extractAuthor(pkg.author),
-          homepage: pkg.homepage ?? null,
-          repoUrl: extractRepoUrl(pkg.repository),
-          downloadUrl: pkg.links?.npm ?? `https://www.npmjs.com/package/${pkg.name}`,
-          categories: [],
-          tags: pkg.keywords ?? [],
-          payload: pkg as unknown as Record<string, unknown>,
-          meta: {
-            downloads: downloadsMap.get(pkg.name) ?? 0,
-            hasDocumentation: !!pkg.description,
-          },
-        }),
-      )
+      return packages.map((pkg): RawRegistryItem => ({
+        sourceType,
+        source: 'npm',
+        sourceId: pkg.name,
+        name: pkg.name,
+        description: pkg.description ?? null,
+        version: pkg.version,
+        author: extractAuthor(pkg.author),
+        homepage: pkg.homepage ?? null,
+        repoUrl: extractRepoUrl(pkg.repository),
+        downloadUrl: pkg.links?.npm ?? `https://www.npmjs.com/package/${pkg.name}`,
+        categories: [],
+        tags: pkg.keywords ?? [],
+        payload: pkg as unknown as Record<string, unknown>,
+        meta: {
+          downloads: downloadsMap.get(pkg.name) ?? 0,
+          hasDocumentation: !!pkg.description,
+        },
+      }))
     } catch (err) {
       if (err instanceof RegistryAdapterError) throw err
       throw new RegistryAdapterError(

@@ -16,11 +16,7 @@ import { z } from 'zod'
 import { eq, and, or, ilike, desc, sql, gte, isNull, type SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { dbRead } from '../../db/index.js'
-import {
-  aiModelConfigModels,
-  aiModelConfig,
-  llmCallLogs,
-} from '@ihui/database'
+import { aiModelConfigModels, aiModelConfig, llmCallLogs } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
@@ -74,7 +70,8 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /admin/relay/models — 中转站模型列表 =====
   server.get('/admin/relay/models', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize, search, status, provider, configId } = q.data
 
     const conds: SQL[] = []
@@ -118,7 +115,11 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
           .from(aiModelConfigModels)
           .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
           .where(finalWhere)
-          .orderBy(desc(aiModelConfigModels.isRelayPublic), aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
+          .orderBy(
+            desc(aiModelConfigModels.isRelayPublic),
+            aiModelConfigModels.relaySortOrder,
+            aiModelConfigModels.modelId,
+          )
           .limit(pageSize)
           .offset((page - 1) * pageSize),
         dbRead
@@ -327,12 +328,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
         const [existing] = await tx
           .select({ id: aiModelConfig.id })
           .from(aiModelConfig)
-          .where(
-            and(
-              eq(aiModelConfig.providerCode, providerCode),
-              isNull(aiModelConfig.ownerUuid),
-            ),
-          )
+          .where(and(eq(aiModelConfig.providerCode, providerCode), isNull(aiModelConfig.ownerUuid)))
           .limit(1)
 
         if (existing) {
@@ -373,14 +369,12 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
         return { row: inserted, created: true as const }
       })
 
-      return reply
-        .status(result.created ? 201 : 200)
-        .send(
-          success({
-            providerCode: result.row.providerCode,
-            byokCommissionRate: Number(result.row.byokCommissionRate ?? '0.1000'),
-          }),
-        )
+      return reply.status(result.created ? 201 : 200).send(
+        success({
+          providerCode: result.row.providerCode,
+          byokCommissionRate: Number(result.row.byokCommissionRate ?? '0.1000'),
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '更新 BYOK 抽成率失败'))

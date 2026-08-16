@@ -32,7 +32,11 @@ export function VipLevelScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('vipLevel.empty')}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.back}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
@@ -55,7 +59,9 @@ export function VipLevelScreen({
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>{t('vipLevel.duration')}</Text>
-          <Text style={styles.value}>{item.durationDays} {t('vipLevel.days')}</Text>
+          <Text style={styles.value}>
+            {item.durationDays} {t('vipLevel.days')}
+          </Text>
         </View>
         <Text style={styles.benefitsTitle}>{t('vipLevel.benefits')}</Text>
         <Text style={styles.benefits}>{item.benefits}</Text>

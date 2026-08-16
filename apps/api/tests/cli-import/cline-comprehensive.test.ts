@@ -32,91 +32,131 @@ function makeClineJson(opts: Record<string, unknown>): string {
 
 describe('cline parser — apiProvider 主导 apiFormat', () => {
   it('apiProvider=anthropic → anthropic_messages', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'anthropic',
-      'cline.apiKey': 'sk-ant-xxx',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'anthropic',
+          'cline.apiKey': 'sk-ant-xxx',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('apiProvider=gemini → gemini_native', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'gemini',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'gemini',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
   it('apiProvider=google → gemini_native(别名)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'google',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'google',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
   it('apiProvider=openai → openai_chat', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('apiProvider=其他 → openai_chat(默认)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'deepseek',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.deepseek.com',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'deepseek',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.deepseek.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('无 apiProvider → openai_chat(默认)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('apiProvider=ANTHROPIC 大写 → anthropic_messages(不敏感)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'ANTHROPIC',
-      'cline.apiKey': 'sk-ant-xxx',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'ANTHROPIC',
+          'cline.apiKey': 'sk-ant-xxx',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('apiProvider=Anthropic 混合大小写 → anthropic_messages', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'Anthropic',
-      'cline.apiKey': 'sk-ant-xxx',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'Anthropic',
+          'cline.apiKey': 'sk-ant-xxx',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('apiProvider=GEMINI 大写 → gemini_native', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'GEMINI',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'GEMINI',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
   it('apiProvider 为空字符串 → openai_chat(默认)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': '',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': '',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 })
@@ -125,96 +165,136 @@ describe('cline parser — apiProvider 主导 providerCode(修正后一致性)',
   it('apiProvider=anthropic + baseUrl=openai → providerCode=anthropic(修正后)', async () => {
     // 修正前: providerCode=openai (与 apiFormat 不一致)
     // 修正后: providerCode=anthropic (与 apiFormat 一致)
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'anthropic',
-      'cline.apiKey': 'sk-ant-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'anthropic',
+          'cline.apiKey': 'sk-ant-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
     expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('apiProvider=gemini + baseUrl=openai → providerCode=google', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'gemini',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'gemini',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('gemini_native')
     expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('apiProvider=google + baseUrl=custom → providerCode=google', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'google',
-      'cline.apiKey': 'AIza-xxx',
-      'cline.openAiBaseUrl': 'https://api.custom.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'google',
+          'cline.apiKey': 'AIza-xxx',
+          'cline.openAiBaseUrl': 'https://api.custom.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('apiProvider=openai + baseUrl=anthropic → providerCode=anthropic(inferProviderCode 兜底)', async () => {
     // apiProvider=openai 不主导 providerCode,走 inferProviderCode
     // URL=anthropic.com → providerCode=anthropic
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('apiProvider=openai + model=claude-3 → providerCode=anthropic(model 前缀优先)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': 'claude-3-opus',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': 'claude-3-opus',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('apiProvider=openai + model=gemini- → providerCode=google', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': 'gemini-1.5-pro',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': 'gemini-1.5-pro',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('无 apiProvider + model=deepseek- → providerCode=deepseek', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.deepseek.com',
-      'cline.openAiModelId': 'deepseek-coder',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.deepseek.com',
+          'cline.openAiModelId': 'deepseek-coder',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('deepseek')
   })
 
   it('无 apiProvider + URL=api.moonshot.cn → providerCode=moonshot', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.moonshot.cn/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.moonshot.cn/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('moonshot')
   })
 
   it('无 apiProvider + 未知 URL → providerCode=custom', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.unknown-vendor.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.unknown-vendor.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('custom')
   })
 
   it('apiProvider=其他值(非 anthropic/gemini/google) + 未知 URL → custom', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 'someother',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.unknown-vendor.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 'someother',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.unknown-vendor.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('custom')
   })
 })
@@ -239,214 +319,310 @@ describe('cline parser — 空值与异常边界', () => {
   })
 
   it('有 apiKey 无 baseUrl → warning(Cline 无默认端点)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.apiProvider': 'openai',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.apiProvider': 'openai',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
     expect(res.globalWarnings[0]).toContain('cline.openAiBaseUrl')
   })
 
   it('apiKey 为空字符串 → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': '',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': '',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('apiKey 为 null → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': null,
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': null,
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('apiKey 为数字 → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 12345,
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 12345,
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('baseUrl 为空字符串 → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': '',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': '',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
     expect(res.globalWarnings[0]).toContain('cline.openAiBaseUrl')
   })
 
   it('baseUrl 为 null → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': null,
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': null,
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('baseUrl 为数字 → warning', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 12345,
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 12345,
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 })
 
 describe('cline parser — JSON 格式与字段变体', () => {
   it('嵌套 JSON 不读取(cline.* 必须扁平)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      cline: { apiProvider: 'anthropic', apiKey: 'sk-xxx' },
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          cline: { apiProvider: 'anthropic', apiKey: 'sk-xxx' },
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('其他 VSCode 字段不影响提取', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'editor.fontSize': 14,
-      'workbench.colorTheme': 'dark',
-      'cline.apiProvider': 'openai',
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': 'gpt-4o',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'editor.fontSize': 14,
+          'workbench.colorTheme': 'dark',
+          'cline.apiProvider': 'openai',
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': 'gpt-4o',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.modelIdForTest).toBe('gpt-4o')
   })
 
   it('model 为空字符串 → modelIdForTest undefined', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': '',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': '',
+        }),
+      ),
+    )
     expect(res.providers[0]!.modelIdForTest).toBeUndefined()
   })
 
   it('model 为 null → modelIdForTest undefined', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': null,
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': null,
+        }),
+      ),
+    )
     expect(res.providers[0]!.modelIdForTest).toBeUndefined()
   })
 
   it('model 为数字 → modelIdForTest undefined', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': 99,
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': 99,
+        }),
+      ),
+    )
     expect(res.providers[0]!.modelIdForTest).toBeUndefined()
   })
 
   it('apiProvider 为数字 → 走默认 openai_chat', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiProvider': 123,
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiProvider': 123,
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 })
 
 describe('cline parser — meta + name + isCurrent 验证', () => {
   it('meta.category = Cline', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.meta.category).toBe('Cline')
   })
 
   it('meta.websiteUrl = https://cline.bot', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.meta.websiteUrl).toBe('https://cline.bot')
   })
 
   it('有 model 时 meta.models = [model]', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-      'cline.openAiModelId': 'gpt-4o',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+          'cline.openAiModelId': 'gpt-4o',
+        }),
+      ),
+    )
     expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
   })
 
   it('无 model 时 meta.models undefined', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.meta.models).toBeUndefined()
   })
 
   it('sourceId = cline-default', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.sourceId).toBe('cline-default')
   })
 
   it('isCurrent = true', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('name = Cline(XSS 清洗后)', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers[0]!.name).toBe('Cline')
   })
 
   it('globalWarnings 成功时为空数组', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-xxx',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-xxx',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.globalWarnings).toEqual([])
   })
 })
 
 describe('cline parser — 跨平台不搞混', () => {
   it('不读取 cursor.ai.* 字段', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cursor.ai.apiKey': 'sk-xxx',
-      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cursor.ai.apiKey': 'sk-xxx',
+          'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('不读取 windsurf.ai.* 字段', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'windsurf.ai.apiKey': 'sk-xxx',
-      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'windsurf.ai.apiKey': 'sk-xxx',
+          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(0)
   })
 
   it('同时含 cursor + cline 字段,只解析 cline', async () => {
-    const res = await parseCline(makeText(makeClineJson({
-      'cursor.ai.apiKey': 'sk-cursor',
-      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
-      'cline.apiKey': 'sk-cline',
-      'cline.openAiBaseUrl': 'https://api.anthropic.com',
-      'cline.apiProvider': 'anthropic',
-    })))
+    const res = await parseCline(
+      makeText(
+        makeClineJson({
+          'cursor.ai.apiKey': 'sk-cursor',
+          'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+          'cline.apiKey': 'sk-cline',
+          'cline.openAiBaseUrl': 'https://api.anthropic.com',
+          'cline.apiProvider': 'anthropic',
+        }),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.apiKey).toBe('sk-cline')
     expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
@@ -454,14 +630,22 @@ describe('cline parser — 跨平台不搞混', () => {
 
   it('Cline 与 Cursor 字段语义不同(cline.openAiBaseUrl ≠ cursor.ai.baseUrl)', async () => {
     // 即使 baseUrl 相同,解析的字段名不同,数据归属平台不同
-    const clineRes = await parseCline(makeText(makeClineJson({
-      'cline.apiKey': 'sk-cline',
-      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
-    })))
-    const cursorRes = await parseCursor(makeText(makeClineJson({
-      'cursor.ai.apiKey': 'sk-cursor',
-      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
-    })))
+    const clineRes = await parseCline(
+      makeText(
+        makeClineJson({
+          'cline.apiKey': 'sk-cline',
+          'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
+    const cursorRes = await parseCursor(
+      makeText(
+        makeClineJson({
+          'cursor.ai.apiKey': 'sk-cursor',
+          'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+        }),
+      ),
+    )
     expect(clineRes.providers[0]!.sourceId).toBe('cline-default')
     expect(cursorRes.providers[0]!.sourceId).toBe('cursor-default')
     expect(clineRes.providers[0]!.name).toBe('Cline')

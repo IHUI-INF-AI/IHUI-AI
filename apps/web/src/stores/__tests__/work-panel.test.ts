@@ -351,7 +351,11 @@ describe('useWorkPanelStore - 持久化(P4-1 验证)', () => {
     useWorkPanelStore.setState((s) => ({
       tabs: s.tabs.map((t) => ({
         ...t,
-        state: { ...t.state, screenshot: 'data:image/png;base64,HUGE_PAYLOAD', status: 'screenshot' },
+        state: {
+          ...t.state,
+          screenshot: 'data:image/png;base64,HUGE_PAYLOAD',
+          status: 'screenshot',
+        },
       })),
     }))
     const raw = localStorage.getItem('ihui-work-panel')

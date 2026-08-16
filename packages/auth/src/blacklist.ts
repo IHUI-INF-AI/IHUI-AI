@@ -17,17 +17,17 @@
  *  - 单 token 黑名单:  bl:<sha256(token)>
  *  - 用户 token 集合:  user_tokens:<userId>(存 fingerprint 列表)
  */
-import { createHash } from 'node:crypto';
-import type IORedis from 'ioredis';
+import { createHash } from 'node:crypto'
+import type IORedis from 'ioredis'
 
-const BLACKLIST_PREFIX = 'bl:';
-const USER_TOKENS_PREFIX = 'user_tokens:';
+const BLACKLIST_PREFIX = 'bl:'
+const USER_TOKENS_PREFIX = 'user_tokens:'
 
 /** 用户被吊销时的兜底 TTL（当原 token 已过期，仍保留 1 天用于防御重放） */
-const REVOKED_USER_TOKEN_TTL_SECONDS = 86400;
+const REVOKED_USER_TOKEN_TTL_SECONDS = 86400
 
 function fingerprint(token: string): string {
-  return createHash('sha256').update(token, 'utf8').digest('hex');
+  return createHash('sha256').update(token, 'utf8').digest('hex')
 }
 
 export class TokenBlacklist {
@@ -39,10 +39,10 @@ export class TokenBlacklist {
    * 只存 token 摘要(SHA256),不存原始 JWT。
    */
   async add(token: string, expiresAt: Date): Promise<void> {
-    if (!token) return;
-    const ttl = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
-    if (ttl <= 0) return;
-    await this.redis.setex(`${BLACKLIST_PREFIX}${fingerprint(token)}`, ttl, '1');
+    if (!token) return
+    const ttl = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    if (ttl <= 0) return
+    await this.redis.setex(`${BLACKLIST_PREFIX}${fingerprint(token)}`, ttl, '1')
   }
 
   /**
@@ -53,13 +53,13 @@ export class TokenBlacklist {
    *                   避免已吊销 token 在 Redis 全宕机时复活)
    */
   async has(token: string, failClosed = false): Promise<boolean> {
-    if (!token) return false;
+    if (!token) return false
     try {
-      return (await this.redis.exists(`${BLACKLIST_PREFIX}${fingerprint(token)}`)) === 1;
+      return (await this.redis.exists(`${BLACKLIST_PREFIX}${fingerprint(token)}`)) === 1
     } catch {
       // fail-open: Redis 抖动不阻塞业务(has 返回 false,由调用方结合签名校验决定)
       // fail-closed: Redis 异常时假设 token 已吊销(拒绝放行),认证场景使用
-      return failClosed;
+      return failClosed
     }
   }
 
@@ -69,14 +69,14 @@ export class TokenBlacklist {
    * 完成后清理 set。
    */
   async revokeUserTokens(userId: string): Promise<void> {
-    if (!userId) return;
-    const key = `${USER_TOKENS_PREFIX}${userId}`;
-    const fingerprints = await this.redis.smembers(key);
+    if (!userId) return
+    const key = `${USER_TOKENS_PREFIX}${userId}`
+    const fingerprints = await this.redis.smembers(key)
     for (const fp of fingerprints) {
       // fp 已是摘要,直接用作 key
-      await this.redis.setex(`${BLACKLIST_PREFIX}${fp}`, REVOKED_USER_TOKEN_TTL_SECONDS, '1');
+      await this.redis.setex(`${BLACKLIST_PREFIX}${fp}`, REVOKED_USER_TOKEN_TTL_SECONDS, '1')
     }
-    await this.redis.del(key);
+    await this.redis.del(key)
   }
 
   /**
@@ -88,15 +88,15 @@ export class TokenBlacklist {
    * Redis 内存 dump / 备份文件 / 缓存穿透攻击均可导致 JWT 全文泄露。
    */
   async trackUserToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-    if (!userId || !token) return;
-    const ttl = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
-    if (ttl <= 0) return;
-    const key = `${USER_TOKENS_PREFIX}${userId}`;
-    await this.redis.sadd(key, fingerprint(token));
-    await this.redis.expire(key, ttl);
+    if (!userId || !token) return
+    const ttl = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    if (ttl <= 0) return
+    const key = `${USER_TOKENS_PREFIX}${userId}`
+    await this.redis.sadd(key, fingerprint(token))
+    await this.redis.expire(key, ttl)
   }
 }
 
 export function createBlacklist(redis: IORedis): TokenBlacklist {
-  return new TokenBlacklist(redis);
+  return new TokenBlacklist(redis)
 }

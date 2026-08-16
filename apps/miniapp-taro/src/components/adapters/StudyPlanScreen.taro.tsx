@@ -44,8 +44,7 @@ export function StudyPlanScreen({
   // i18n 三级降级:prop t > I18nContext tt > 硬编码中文(StudyPlanScreenProps.t 必填,useTt 防御性兜底)
   const tFn: TFunction =
     tProp ??
-    ((key, options) =>
-      tt(key, key, options as Record<string, string | number> | undefined))
+    ((key, options) => tt(key, key, options as Record<string, string | number> | undefined))
   /** t(key) 未命中(返回 key 原值)时降级到硬编码 fallback */
   const tr = (key: string, fallback: string): string => {
     const v = tFn(key)
@@ -65,9 +64,7 @@ export function StudyPlanScreen({
   const statusOverdueText = tr('studyPlan.status.overdue', '已逾期')
 
   /** 状态徽章配色(对齐 RN 源端 statusBadgeStyle 状态机:前景色 + 背景色) */
-  const statusBadgeColors = (
-    status: PlanStatus,
-  ): { color: string; backgroundColor: string } => {
+  const statusBadgeColors = (status: PlanStatus): { color: string; backgroundColor: string } => {
     switch (status) {
       case 'active':
         return { color: tk.success.DEFAULT, backgroundColor: tk.success.light }
@@ -131,11 +128,7 @@ export function StudyPlanScreen({
                 const clamped = Math.max(0, Math.min(100, item.progress))
                 const badge = statusBadgeColors(item.status)
                 return (
-                  <View
-                    key={item.id}
-                    style={viewStyles.card(tk)}
-                    onTap={() => onPressItem(item)}
-                  >
+                  <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
                     <View style={viewStyles.cardHead()}>
                       <View style={viewStyles.cardTitleWrap()}>
                         <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>

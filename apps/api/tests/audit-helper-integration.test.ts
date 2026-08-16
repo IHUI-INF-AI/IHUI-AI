@@ -87,10 +87,7 @@ describe('G13 端到端审计字段注入 (query → db.insert)', () => {
   })
 
   it('createOrder:系统异步任务 operatorId=null → createdBy + updatedBy 都为 null', async () => {
-    await createOrder(
-      { userId: 'user-abc', amount: 9900, orderType: 1, payType: 'alipay' },
-      null,
-    )
+    await createOrder({ userId: 'user-abc', amount: 9900, orderType: 1, payType: 'alipay' }, null)
     const values = capturedInserts[0]!.values as Record<string, unknown>
     expect(values.createdBy).toBeNull()
     expect(values.updatedBy).toBeNull()

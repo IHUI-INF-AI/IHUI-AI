@@ -1,7 +1,13 @@
 import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { createRecharge, createAlipayMiniappPayment, getActivity, getProfile, type UserInfo } from '@/api'
+import {
+  createRecharge,
+  createAlipayMiniappPayment,
+  getActivity,
+  getProfile,
+  type UserInfo,
+} from '@/api'
 import { useI18n, useTt } from '@/i18n'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import './index.css'
@@ -16,7 +22,10 @@ interface ActivityData {
   computing?: number
 }
 
-const priceFmt = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const priceFmt = new Intl.NumberFormat('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 export default function RechargePage() {
   const { t } = useI18n()
@@ -38,14 +47,13 @@ export default function RechargePage() {
   const tokenRate = activity?.computing ?? TOKEN_RATE
 
   useEffect(() => {
-    Promise.all([
-      getProfile().catch(() => null),
-      getActivity().catch(() => null),
-    ]).then(([u, a]) => {
-      if (u) setUser(u)
-      if (a && (a as ActivityData).activityRule) setActivity(a as ActivityData)
-      setLoading(false)
-    })
+    Promise.all([getProfile().catch(() => null), getActivity().catch(() => null)]).then(
+      ([u, a]) => {
+        if (u) setUser(u)
+        if (a && (a as ActivityData).activityRule) setActivity(a as ActivityData)
+        setLoading(false)
+      },
+    )
   }, [])
 
   const onSelectPreset = (v: number) => {
@@ -60,42 +68,48 @@ export default function RechargePage() {
 
   const onSelectMethod = (m: PayMethod) => setPayMethod(m)
 
-  const payOrder = useCallback(async (amount: number, method: PayMethod) => {
-    if (method === 'alipay') {
-      const res = await createAlipayMiniappPayment({ amount, subject: tt('wallet.recharge.submit', '充值') })
-      const orderNo = res.outTradeNo || ''
-      if (!res.tradeNo) {
-        Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
-        Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+  const payOrder = useCallback(
+    async (amount: number, method: PayMethod) => {
+      if (method === 'alipay') {
+        const res = await createAlipayMiniappPayment({
+          amount,
+          subject: tt('wallet.recharge.submit', '充值'),
+        })
+        const orderNo = res.outTradeNo || ''
+        if (!res.tradeNo) {
+          Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
+          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+          return
+        }
+        try {
+          await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
+          Taro.redirectTo({
+            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+          })
+        } catch {
+          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+        }
         return
       }
-      try {
-        await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
+      const res = await createRecharge(amount, method)
+      const orderNo = res.outTradeNo || ''
+      if (res.payParams) {
+        try {
+          await requestWxPayment(res.payParams as AnyPayParams)
+          Taro.redirectTo({
+            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+          })
+        } catch {
+          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+        }
+      } else {
         Taro.redirectTo({
           url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
         })
-      } catch {
-        Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
       }
-      return
-    }
-    const res = await createRecharge(amount, method)
-    const orderNo = res.outTradeNo || ''
-    if (res.payParams) {
-      try {
-        await requestWxPayment(res.payParams as AnyPayParams)
-        Taro.redirectTo({
-          url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
-        })
-      } catch {
-        Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
-      }
-    } else {
-      Taro.redirectTo({
-        url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
-      })
-    }
-  }, [tt])
+    },
+    [tt],
+  )
 
   const onSubmit = useCallback(async () => {
     if (!finalAmount || finalAmount < 1) {
@@ -156,7 +170,9 @@ export default function RechargePage() {
             </View>
           )}
           <View className="rc-user-info">
-            <Text className="rc-user-name">{user.nickname || tt('wallet.recharge.guest', '游客')}</Text>
+            <Text className="rc-user-name">
+              {user.nickname || tt('wallet.recharge.guest', '游客')}
+            </Text>
             {user.phone && <Text className="rc-user-sub">{user.phone}</Text>}
           </View>
         </View>
@@ -176,7 +192,9 @@ export default function RechargePage() {
           ))}
         </View>
         <View className="rc-custom">
-          <Text className="rc-custom-label">{tt('wallet.recharge.customAmount', '自定义金额')}</Text>
+          <Text className="rc-custom-label">
+            {tt('wallet.recharge.customAmount', '自定义金额')}
+          </Text>
           <Input
             className={`rc-input ${useCustom ? 'rc-input--active' : ''}`}
             type="digit"
@@ -185,9 +203,7 @@ export default function RechargePage() {
             onInput={onInputCustom}
           />
         </View>
-        <Text className="rc-token-tip">
-          {t('wallet.recharge.tokenRate', { n: tokenRate })}
-        </Text>
+        <Text className="rc-token-tip">{t('wallet.recharge.tokenRate', { n: tokenRate })}</Text>
       </View>
 
       {activity && (
@@ -196,7 +212,9 @@ export default function RechargePage() {
             <Image className="rc-activity-bg" src={activity.backgroundImage} mode="aspectFill" />
           )}
           <View className="rc-activity-body">
-            <Text className="rc-activity-title">{tt('wallet.recharge.activityTitle', '限时活动')}</Text>
+            <Text className="rc-activity-title">
+              {tt('wallet.recharge.activityTitle', '限时活动')}
+            </Text>
             {activity.activityRule && (
               <Text className="rc-activity-rule">{activity.activityRule}</Text>
             )}

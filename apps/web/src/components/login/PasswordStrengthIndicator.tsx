@@ -56,10 +56,7 @@ export function PasswordStrengthIndicator({ password }: { password: string }) {
 
   return (
     <div className="mt-1.5 flex items-center gap-3">
-      <div
-        data-slot="strength-track"
-        className="h-1 flex-1 overflow-hidden rounded bg-muted"
-      >
+      <div data-slot="strength-track" className="h-1 flex-1 overflow-hidden rounded bg-muted">
         <div
           className={`h-full rounded-md transition-all ${color.split(' ')[0]}`}
           style={{ width: `${width}%` }}

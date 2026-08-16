@@ -33,7 +33,9 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full bg-black"
         style={{ height: '210px' }}
       >
-        <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+        <Text className="text-sm text-muted-foreground">
+          {tt('common.loadingShort', '加载中...')}
+        </Text>
       </View>
     )
   }

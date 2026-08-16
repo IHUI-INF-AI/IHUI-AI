@@ -33,7 +33,8 @@ const toYuan = (cents: number) => ((cents || 0) / 100).toFixed(2)
 
 const normalizeStatus = (raw?: unknown, refundRaw?: unknown): RefundStatus => {
   const s = String(refundRaw ?? raw ?? '').toLowerCase()
-  if (s.includes('reject') || s === 'failed' || s === 'cancelled' || s === 'rejected') return 'rejected'
+  if (s.includes('reject') || s === 'failed' || s === 'cancelled' || s === 'rejected')
+    return 'rejected'
   if (s.includes('refund') && !s.includes('ing')) return 'refunded'
   return 'refunding'
 }
@@ -88,10 +89,20 @@ export default function RefundList() {
         title: String(u.title ?? u.productName ?? ''),
         amount: Number(u.amount ?? 0),
         status: normalizeStatus(u.status, u.refundStatus),
-        applyTime: formatDateByTemplate((u.applyTime ?? u.createTime ?? u.refundTime) as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
+        applyTime: formatDateByTemplate(
+          (u.applyTime ?? u.createTime ?? u.refundTime) as
+            string | number | Date | null | undefined,
+          'YYYY-MM-DD HH:mm',
+        ),
         reason: String(u.reason ?? u.refundReason ?? ''),
-        refundTime: formatDateByTemplate(u.refundTime as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
-        estimateTime: formatDateByTemplate((u.estimateTime ?? u.refundTime) as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
+        refundTime: formatDateByTemplate(
+          u.refundTime as string | number | Date | null | undefined,
+          'YYYY-MM-DD HH:mm',
+        ),
+        estimateTime: formatDateByTemplate(
+          (u.estimateTime ?? u.refundTime) as string | number | Date | null | undefined,
+          'YYYY-MM-DD HH:mm',
+        ),
       }))
       setRawList((prev) => (reset ? items : [...prev, ...items]))
       const more = pageRef.current * PAGE_SIZE < (res.total ?? 0)

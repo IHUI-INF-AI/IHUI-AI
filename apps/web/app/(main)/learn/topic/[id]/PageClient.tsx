@@ -106,28 +106,28 @@ export default function LearnTopicDetailPage() {
               <Layers className="h-12 w-12 text-primary/40" />
             )}
             <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
-                    aria-label={source === 'premium' ? t('premiumTopic') : t('courseTopic')}
-                  >
-                    {source === 'premium' ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
-                        <Sparkles className="h-3 w-3" />
-                        {t('premiumTopic')}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-md border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
-                        <Info className="h-3 w-3" />
-                        {t('courseTopic')}
-                      </span>
-                    )}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
-                  {source === 'premium' ? t('premiumTip') : t('courseTip')}
-                </TooltipContent>
-              </Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
+                  aria-label={source === 'premium' ? t('premiumTopic') : t('courseTopic')}
+                >
+                  {source === 'premium' ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      <Sparkles className="h-3 w-3" />
+                      {t('premiumTopic')}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                      <Info className="h-3 w-3" />
+                      {t('courseTopic')}
+                    </span>
+                  )}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
+                {source === 'premium' ? t('premiumTip') : t('courseTip')}
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="flex-1 min-w-0 space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>

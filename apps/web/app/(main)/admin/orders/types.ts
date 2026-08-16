@@ -5,7 +5,14 @@ export { type PageData } from '@ihui/api-client'
 
 export { api, selectClass, textareaClass }
 
-export type { OrderStatus, RefundStatus, InvoiceAppStatus, EduOrder, EduRefund, EduInvoiceApplication } from '@ihui/types'
+export type {
+  OrderStatus,
+  RefundStatus,
+  InvoiceAppStatus,
+  EduOrder,
+  EduRefund,
+  EduInvoiceApplication,
+} from '@ihui/types'
 
 export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
@@ -15,7 +22,10 @@ export const ORDER_STATUS_CFG: Record<OrderStatus, { cls: string; dot: string }>
   cancelled: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
   refunding: { cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-500', dot: 'bg-purple-500' },
   refunded: { cls: 'bg-primary/10 text-primary', dot: 'bg-primary' },
-  completed: { cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500', dot: 'bg-emerald-500' },
+  completed: {
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    dot: 'bg-emerald-500',
+  },
   failed: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
 }
 

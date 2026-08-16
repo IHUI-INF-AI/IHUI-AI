@@ -59,7 +59,11 @@ const logListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
-  url: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).max(512).optional()),
+  url: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.string().min(1).max(512).optional()),
   startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })

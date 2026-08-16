@@ -103,7 +103,12 @@ export function SectionHeader({
                 onMore()
               }
             }}
-            style={{ display: 'flex', alignItems: 'center', marginLeft: 8, cursor: onMore ? 'pointer' : 'default' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginLeft: 8,
+              cursor: onMore ? 'pointer' : 'default',
+            }}
           >
             <span style={textStyles.moreLabel(tk)}>{moreLabel}</span>
             <span style={textStyles.moreArrow(tk)}>{'>'}</span>

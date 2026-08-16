@@ -218,7 +218,11 @@ describe('CircuitBreaker — Sliding-window-with-min-samples', () => {
   it('执行中 fn 抛错时错误透传且计数为失败', async () => {
     const cb = new CircuitBreaker('test', { failureThreshold: 5, minSamples: 10 })
     const marker = new Error('custom-failure')
-    await expect(cb.execute(async () => { throw marker })).rejects.toBe(marker)
+    await expect(
+      cb.execute(async () => {
+        throw marker
+      }),
+    ).rejects.toBe(marker)
     const stats = cb.getStats()
     expect(stats.failures).toBe(1)
     expect(stats.successes).toBe(0)

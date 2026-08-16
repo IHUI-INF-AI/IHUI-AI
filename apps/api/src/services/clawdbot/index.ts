@@ -16,15 +16,31 @@ export type { ToolDefinition, ToolExecutionResult, ToolContext } from './tools.j
 export { getTaskExecutor } from './task-executor.js'
 export type { Task, TaskResult, TaskStep, TaskType, TaskStatus } from './task-executor.js'
 export { getSelfEvolutionEngine } from './self-evolution.js'
-export type { EvolutionTask, SkillInstallation, BehaviorPattern, CapabilityGap } from './self-evolution.js'
+export type {
+  EvolutionTask,
+  SkillInstallation,
+  BehaviorPattern,
+  CapabilityGap,
+} from './self-evolution.js'
 export { getMessageProcessor } from './message-processor.js'
-export type { ProcessedMessage, IntentAnalysis, ExtractedEntity, MessageContext, MessageIntent } from './message-processor.js'
+export type {
+  ProcessedMessage,
+  IntentAnalysis,
+  ExtractedEntity,
+  MessageContext,
+  MessageIntent,
+} from './message-processor.js'
 export { getMemoryService } from './memory.js'
 export type { MemoryItem, MemoryType, MemoryQuery } from './memory.js'
 export { getSkillManager } from './skills.js'
 export type { SkillDefinition, SkillStep, SkillExecutionResult } from './skills.js'
 export { getModelManager } from './models.js'
-export type { ModelConfig, ModelProvider, ModelCompletionRequest, ModelCompletionResponse } from './models.js'
+export type {
+  ModelConfig,
+  ModelProvider,
+  ModelCompletionRequest,
+  ModelCompletionResponse,
+} from './models.js'
 export { getSystemService } from './system.js'
 export type { SystemConfig, SystemMetrics, LogEntry } from './system.js'
 export { getCanvasService } from './canvas.js'
@@ -34,7 +50,12 @@ export type { IntegrationConfig, IntegrationRequest, IntegrationResponse } from 
 export { getMcpClient } from './mcp.js'
 export type { McpServerConfig, McpTool, McpResource, McpCallResult } from './mcp.js'
 export { getNodeExecutor } from './nodes.js'
-export type { NodeDefinition, NodeExecutionContext, NodeExecutionResult, NodeType } from './nodes.js'
+export type {
+  NodeDefinition,
+  NodeExecutionContext,
+  NodeExecutionResult,
+  NodeType,
+} from './nodes.js'
 export { getPairingService } from './pairing.js'
 export type { PairingRequest, PairingSession } from './pairing.js'
 export { getVoiceService } from './voice.js'

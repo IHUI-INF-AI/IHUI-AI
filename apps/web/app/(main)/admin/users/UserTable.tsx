@@ -163,7 +163,13 @@ function SortableUserRow({
       </td>
       <td className="px-4 py-2.5 text-right">
         <div className="flex flex-nowrap justify-end gap-0.5">
-          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onDetail(user)} aria-label={t('view')}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0"
+            onClick={() => onDetail(user)}
+            aria-label={t('view')}
+          >
             <Eye className="h-4 w-4 shrink-0" />
           </Button>
           <Button
@@ -198,7 +204,11 @@ function SortableUserRow({
             )}
             aria-label={isActive ? t('ban') : t('unban')}
           >
-            {isActive ? <Ban className="h-4 w-4 shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
+            {isActive ? (
+              <Ban className="h-4 w-4 shrink-0" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+            )}
           </Button>
           <Button
             size="sm"

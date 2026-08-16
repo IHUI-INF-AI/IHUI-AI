@@ -45,7 +45,10 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     return success({ sessionId: session.id, mode: permMode, received: message })
   })
 
-  app.post('/execute/stream', async (req, reply) => {
+  app.post(
+    '/execute/stream',
+    { config: { compression: false } },
+    async (req, reply) => {
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')
     reply.raw.setHeader('Connection', 'keep-alive')

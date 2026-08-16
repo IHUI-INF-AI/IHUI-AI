@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  askSchema,
-  EMPTY_ASK_FORM,
-  ASK_STATUS_VALUES,
-  type AskFormValues,
-} from './ask'
+import { askSchema, EMPTY_ASK_FORM, ASK_STATUS_VALUES, type AskFormValues } from './ask'
 
 describe('askSchema', () => {
   it('合法值通过校验', () => {
@@ -28,7 +23,9 @@ describe('askSchema', () => {
     })
     expect(r.success).toBe(false)
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path.includes('title') && i.message === 'required')).toBe(true)
+      expect(r.error.issues.some((i) => i.path.includes('title') && i.message === 'required')).toBe(
+        true,
+      )
     }
   })
 
@@ -68,7 +65,11 @@ describe('askSchema', () => {
   it('status 合法值 -1 / 0 / 1', () => {
     for (const s of [-1, 0, 1] as const) {
       const r = askSchema.safeParse({
-        title: 't', content: 'c', tags: '', status: s, isResolved: false,
+        title: 't',
+        content: 'c',
+        tags: '',
+        status: s,
+        isResolved: false,
       })
       expect(r.success).toBe(true)
     }
@@ -76,28 +77,44 @@ describe('askSchema', () => {
 
   it('status 非法值 (例如 2) 触发 union 错误', () => {
     const r = askSchema.safeParse({
-      title: 't', content: 'c', tags: '', status: 2 as never, isResolved: false,
+      title: 't',
+      content: 'c',
+      tags: '',
+      status: 2 as never,
+      isResolved: false,
     })
     expect(r.success).toBe(false)
   })
 
   it('tags 可选,空字符串合法', () => {
     const r = askSchema.safeParse({
-      title: 't', content: 'c', tags: '', status: 1, isResolved: false,
+      title: 't',
+      content: 'c',
+      tags: '',
+      status: 1,
+      isResolved: false,
     })
     expect(r.success).toBe(true)
   })
 
   it('tags 超过 500 触发 maxLength', () => {
     const r = askSchema.safeParse({
-      title: 't', content: 'c', tags: 'a'.repeat(501), status: 1, isResolved: false,
+      title: 't',
+      content: 'c',
+      tags: 'a'.repeat(501),
+      status: 1,
+      isResolved: false,
     })
     expect(r.success).toBe(false)
   })
 
   it('isResolved 布尔字段', () => {
     const r1 = askSchema.safeParse({
-      title: 't', content: 'c', tags: '', status: 1, isResolved: true,
+      title: 't',
+      content: 'c',
+      tags: '',
+      status: 1,
+      isResolved: true,
     })
     expect(r1.success).toBe(true)
   })

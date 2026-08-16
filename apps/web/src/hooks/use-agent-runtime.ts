@@ -143,7 +143,13 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
           setToolCallChain((prev) =>
             prev.map((c) =>
               c.id === d.id
-                ? { ...c, result: d.result, status: d.status, retryCount: d.retryCount, errorType: d.errorType }
+                ? {
+                    ...c,
+                    result: d.result,
+                    status: d.status,
+                    retryCount: d.retryCount,
+                    errorType: d.errorType,
+                  }
                 : c,
             ),
           )

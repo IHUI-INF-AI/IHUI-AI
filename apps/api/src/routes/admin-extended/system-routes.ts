@@ -34,7 +34,13 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
     if (rawStatus === 'paused') conds.push(eq(sysJobs.status, '1'))
     const where = conds.length > 0 ? and(...conds) : undefined
     const [list, countResult] = await Promise.all([
-      db.select().from(sysJobs).where(where).orderBy(desc(sysJobs.jobId)).limit(pageSize).offset(offset),
+      db
+        .select()
+        .from(sysJobs)
+        .where(where)
+        .orderBy(desc(sysJobs.jobId))
+        .limit(pageSize)
+        .offset(offset),
       db.select({ count: count() }).from(sysJobs).where(where),
     ])
     // 每个任务最近一次执行日志(job_name 匹配)
@@ -58,7 +64,11 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
         lastRunAt: latest?.createTime ? latest.createTime.toISOString() : null,
         nextRunAt: null,
         lastDuration: null,
-        lastStatus: latest ? (latest.status === '0' ? ('success' as const) : ('failed' as const)) : null,
+        lastStatus: latest
+          ? latest.status === '0'
+            ? ('success' as const)
+            : ('failed' as const)
+          : null,
       }
     })
     return reply.send(success({ list: tasks, total: countResult[0]?.count ?? 0, page, pageSize }))
@@ -71,7 +81,11 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
       const jobId = Number(id)
       const [job] = await db.select().from(sysJobs).where(eq(sysJobs.jobId, jobId)).limit(1)
       if (!job) return reply.status(404).send(error(404, '任务不存在'))
-      const [updated] = await db.update(sysJobs).set({ status: '1' }).where(eq(sysJobs.jobId, jobId)).returning()
+      const [updated] = await db
+        .update(sysJobs)
+        .set({ status: '1' })
+        .where(eq(sysJobs.jobId, jobId))
+        .returning()
       return reply.send(success(updated))
     },
   )
@@ -83,7 +97,11 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
       const jobId = Number(id)
       const [job] = await db.select().from(sysJobs).where(eq(sysJobs.jobId, jobId)).limit(1)
       if (!job) return reply.status(404).send(error(404, '任务不存在'))
-      const [updated] = await db.update(sysJobs).set({ status: '0' }).where(eq(sysJobs.jobId, jobId)).returning()
+      const [updated] = await db
+        .update(sysJobs)
+        .set({ status: '0' })
+        .where(eq(sysJobs.jobId, jobId))
+        .returning()
       return reply.send(success(updated))
     },
   )
@@ -93,7 +111,12 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
     const pageSize = q.pageSize ?? 20
     const offset = (page - 1) * pageSize
     const [list, countResult] = await Promise.all([
-      db.select().from(sysJobLogs).orderBy(desc(sysJobLogs.createTime)).limit(pageSize).offset(offset),
+      db
+        .select()
+        .from(sysJobLogs)
+        .orderBy(desc(sysJobLogs.createTime))
+        .limit(pageSize)
+        .offset(offset),
       db.select({ count: count() }).from(sysJobLogs),
     ])
     return reply.send(success({ list, total: countResult[0]?.count ?? 0, page, pageSize }))

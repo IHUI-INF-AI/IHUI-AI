@@ -1,4 +1,4 @@
-import { pgTable, bigserial, varchar, integer, timestamp, bigint, index } from 'drizzle-orm/pg-core';
+import { pgTable, bigserial, varchar, integer, timestamp, bigint, index } from 'drizzle-orm/pg-core'
 
 /**
  * 身份认证主表（zhs_identity）。
@@ -19,7 +19,7 @@ export const zhsIdentity = pgTable(
   (t) => ({
     statusIdx: index('ix_zhs_identity_status').on(t.status),
   }),
-);
+)
 
 /**
  * 组织机构表（zhs_organization）。
@@ -41,13 +41,13 @@ export const zhsOrganization = pgTable(
     parentIdIdx: index('ix_zhs_organization_parent_id').on(t.parentId),
     statusIdx: index('ix_zhs_organization_status').on(t.status),
   }),
-);
+)
 
 // NOTE: oauthPrivateKeys 已迁移到 ./oauth-private-keys.ts (clientId/privateKey/publicKey/isActive 字段)
 // 旧定义 (appId/keyData/status 字段) 已删除,避免与 schema/index.ts 的 re-export 冲突。
 // 类型 OauthPrivateKey / NewOauthPrivateKey 也从该文件统一导出。
 
-export type ZhsIdentity = typeof zhsIdentity.$inferSelect;
-export type NewZhsIdentity = typeof zhsIdentity.$inferInsert;
-export type ZhsOrganization = typeof zhsOrganization.$inferSelect;
-export type NewZhsOrganization = typeof zhsOrganization.$inferInsert;
+export type ZhsIdentity = typeof zhsIdentity.$inferSelect
+export type NewZhsIdentity = typeof zhsIdentity.$inferInsert
+export type ZhsOrganization = typeof zhsOrganization.$inferSelect
+export type NewZhsOrganization = typeof zhsOrganization.$inferInsert

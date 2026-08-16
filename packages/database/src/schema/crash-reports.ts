@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 崩溃上报表(2026-08-06 立,打通崩溃率链路)。
@@ -29,7 +29,7 @@ export const crashReports = pgTable(
     createdAtIdx: index('crash_reports_created_at_idx').on(t.createdAt),
     platformIdx: index('crash_reports_platform_idx').on(t.platform),
   }),
-);
+)
 
-export type CrashReport = typeof crashReports.$inferSelect;
-export type NewCrashReport = typeof crashReports.$inferInsert;
+export type CrashReport = typeof crashReports.$inferSelect
+export type NewCrashReport = typeof crashReports.$inferInsert

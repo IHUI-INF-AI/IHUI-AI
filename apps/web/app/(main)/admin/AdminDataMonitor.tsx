@@ -4,7 +4,16 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useLocale } from 'next-intl'
-import { Eye, Users, BarChart3, Activity, MousePointerClick, TrendingUp, ArrowRight, Loader2 } from 'lucide-react'
+import {
+  Eye,
+  Users,
+  BarChart3,
+  Activity,
+  MousePointerClick,
+  TrendingUp,
+  ArrowRight,
+  Loader2,
+} from 'lucide-react'
 import { eduApi } from '@/lib/edu'
 import { StatCard } from '@/components/data'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -25,10 +34,20 @@ interface BehaviorSummary {
 const QUICK_LINKS = [
   { href: '/admin/visit-tracking', label: '访问统计', desc: 'PV / UV / IP / 明细', icon: Eye },
   { href: '/admin/visit-trend', label: '访问趋势', desc: '趋势 / 来源 / 热门页', icon: TrendingUp },
-  { href: '/admin/behavior-analytics', label: '行为埋点', desc: '点击 / 搜索 / 下载 / 事件', icon: MousePointerClick },
+  {
+    href: '/admin/behavior-analytics',
+    label: '行为埋点',
+    desc: '点击 / 搜索 / 下载 / 事件',
+    icon: MousePointerClick,
+  },
   { href: '/admin/statistics', label: '综合统计', desc: '运营数据大盘', icon: BarChart3 },
   { href: '/admin/online-users', label: '在线用户', desc: '实时在线会话', icon: Users },
-  { href: '/admin/monitoring-dashboard', label: '系统监控', desc: '服务 / 隧道 / 资源', icon: Activity },
+  {
+    href: '/admin/monitoring-dashboard',
+    label: '系统监控',
+    desc: '服务 / 隧道 / 资源',
+    icon: Activity,
+  },
 ]
 
 function daysAgo(n: number): string {
@@ -53,21 +72,27 @@ export function AdminDataMonitor() {
   const visitQ = useQuery({
     queryKey: ['admin', 'monitor', 'visit', weekAgo, today],
     queryFn: async () => {
-      const r = await eduApi<VisitSummary>(`/api/admin/visit-tracking/summary?startTime=${weekAgo}&endTime=${today}`)
+      const r = await eduApi<VisitSummary>(
+        `/api/admin/visit-tracking/summary?startTime=${weekAgo}&endTime=${today}`,
+      )
       return r.summary ?? {}
     },
   })
   const hotPagesQ = useQuery({
     queryKey: ['admin', 'monitor', 'hot-pages', weekAgo, today],
     queryFn: async () => {
-      const r = await eduApi<{ list: HotPage[] }>(`/api/admin/visit-tracking/stats/page?startTime=${weekAgo}&endTime=${today}&page=1&pageSize=5`)
+      const r = await eduApi<{ list: HotPage[] }>(
+        `/api/admin/visit-tracking/stats/page?startTime=${weekAgo}&endTime=${today}&page=1&pageSize=5`,
+      )
       return r.list ?? []
     },
   })
   const behaviorQ = useQuery({
     queryKey: ['admin', 'monitor', 'behavior', weekAgo, today],
     queryFn: async () => {
-      const r = await eduApi<BehaviorSummary>(`/api/admin/analytics/summary?startTime=${weekAgo}&endTime=${today}`)
+      const r = await eduApi<BehaviorSummary>(
+        `/api/admin/analytics/summary?startTime=${weekAgo}&endTime=${today}`,
+      )
       return r ?? {}
     },
   })
@@ -80,17 +105,40 @@ export function AdminDataMonitor() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="近 7 天 PV" value={numFmt.format(visit.totalPv ?? 0)} icon={Eye} loading={loading} />
-        <StatCard title="近 7 天 UV" value={numFmt.format(visit.totalUv ?? 0)} icon={Users} loading={loading} />
-        <StatCard title="行为事件总数" value={numFmt.format(behavior.summary?.totalEvents ?? 0)} icon={MousePointerClick} loading={loading} />
-        <StatCard title="今日行为事件" value={numFmt.format(behavior.todayEvents ?? 0)} icon={Activity} loading={loading} />
+        <StatCard
+          title="近 7 天 PV"
+          value={numFmt.format(visit.totalPv ?? 0)}
+          icon={Eye}
+          loading={loading}
+        />
+        <StatCard
+          title="近 7 天 UV"
+          value={numFmt.format(visit.totalUv ?? 0)}
+          icon={Users}
+          loading={loading}
+        />
+        <StatCard
+          title="行为事件总数"
+          value={numFmt.format(behavior.summary?.totalEvents ?? 0)}
+          icon={MousePointerClick}
+          loading={loading}
+        />
+        <StatCard
+          title="今日行为事件"
+          value={numFmt.format(behavior.todayEvents ?? 0)}
+          icon={Activity}
+          loading={loading}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">热门页面 Top 5</CardTitle>
-            <Link href="/admin/visit-trend" className="flex items-center gap-1 text-xs text-primary hover:underline">
+            <Link
+              href="/admin/visit-trend"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
               查看趋势 <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -101,10 +149,15 @@ export function AdminDataMonitor() {
               </div>
             )}
             {!loading && hotPages.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted-foreground">暂无访问数据(埋点自 08-10 起采集)</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                暂无访问数据(埋点自 08-10 起采集)
+              </p>
             )}
             {hotPages.map((p, i) => (
-              <div key={p.url} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+              <div
+                key={p.url}
+                className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
+              >
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground">{i + 1}</span>
                   <span className="truncate">{p.url}</span>

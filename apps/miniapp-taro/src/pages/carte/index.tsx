@@ -62,7 +62,6 @@ export default function CartePage() {
 
   return (
     <View className="min-h-screen bg-background">
-
       <View className="bg-gradient-to-b from-[#0f766e] to-[#14b8a6] px-6 pt-12 pb-8 text-white text-center">
         <View className="flex justify-center mb-4">
           {info.avatar ? (
@@ -85,16 +84,15 @@ export default function CartePage() {
       <View className="mx-3 mt-4 bg-card rounded-xl p-4">
         {info.intro && (
           <View className="mb-4">
-            <Text className="block text-xs text-muted-foreground mb-1">{t('carte.introLabel')}</Text>
+            <Text className="block text-xs text-muted-foreground mb-1">
+              {t('carte.introLabel')}
+            </Text>
             <Text className="block text-sm text-foreground leading-relaxed">{info.intro}</Text>
           </View>
         )}
 
         {info.phone && (
-          <View
-            className="flex items-center justify-between py-2.5 mb-2"
-            onClick={handleCopyPhone}
-          >
+          <View className="flex items-center justify-between py-2.5 mb-2" onClick={handleCopyPhone}>
             <Text className="text-sm text-muted-foreground">{t('carte.phone')}</Text>
             <Text className="text-sm text-foreground">{info.phone}</Text>
           </View>
@@ -131,7 +129,9 @@ export default function CartePage() {
       </View>
 
       <View className="mx-3 mt-3 mb-6">
-        <Text className="block text-xs text-muted-foreground text-center break-all">{shareInfo.path}</Text>
+        <Text className="block text-xs text-muted-foreground text-center break-all">
+          {shareInfo.path}
+        </Text>
       </View>
     </View>
   )

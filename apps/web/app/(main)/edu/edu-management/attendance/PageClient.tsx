@@ -107,8 +107,12 @@ const ATTENDANCE_STATUS = [
   { value: 'leave', label: '请假', color: 'bg-blue-500' },
 ] as const
 
-const ATTENDANCE_STATUS_MAP: Map<string, string> = new Map(ATTENDANCE_STATUS.map((s) => [s.value, s.label]))
-const ATTENDANCE_COLOR_MAP: Map<string, string> = new Map(ATTENDANCE_STATUS.map((s) => [s.value, s.color]))
+const ATTENDANCE_STATUS_MAP: Map<string, string> = new Map(
+  ATTENDANCE_STATUS.map((s) => [s.value, s.label]),
+)
+const ATTENDANCE_COLOR_MAP: Map<string, string> = new Map(
+  ATTENDANCE_STATUS.map((s) => [s.value, s.color]),
+)
 
 const LEAVE_TYPES = [
   { value: 'sick', label: '病假' },
@@ -220,11 +224,7 @@ function CheckInDialog({
           </div>
           <div className="grid gap-1.5">
             <Label>日期</Label>
-            <Input
-              type="date"
-              value={form.date}
-              onChange={(e) => update('date', e.target.value)}
-            />
+            <Input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -235,7 +235,9 @@ function CheckInDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(CHECK_IN_METHODS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -248,7 +250,9 @@ function CheckInDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {ATTENDANCE_STATUS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -327,7 +331,10 @@ function LeaveDialog({
     if (form.startDate && form.endDate) {
       const start = new Date(form.startDate)
       const end = new Date(form.endDate)
-      const diff = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+      const diff = Math.max(
+        1,
+        Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+      )
       update('totalDays', diff)
     }
   }, [form.startDate, form.endDate])
@@ -366,7 +373,9 @@ function LeaveDialog({
               </SelectTrigger>
               <SelectContent>
                 {LEAVE_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -411,7 +420,16 @@ function LeaveDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentId.trim() || !form.reason.trim() || !form.startDate || !form.endDate}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saving ||
+              !form.studentId.trim() ||
+              !form.reason.trim() ||
+              !form.startDate ||
+              !form.endDate
+            }
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             提交申请
           </Button>
@@ -461,9 +479,18 @@ function ApproveDialog({
         {leave && (
           <div className="space-y-3 py-2">
             <div className="rounded-md border p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">类型：</span>{LEAVE_TYPE_MAP.get(leave.leaveType) ?? leave.leaveType}</p>
-              <p><span className="text-muted-foreground">日期：</span>{leave.startDate} ~ {leave.endDate} ({leave.totalDays}天)</p>
-              <p><span className="text-muted-foreground">原因：</span>{leave.reason}</p>
+              <p>
+                <span className="text-muted-foreground">类型：</span>
+                {LEAVE_TYPE_MAP.get(leave.leaveType) ?? leave.leaveType}
+              </p>
+              <p>
+                <span className="text-muted-foreground">日期：</span>
+                {leave.startDate} ~ {leave.endDate} ({leave.totalDays}天)
+              </p>
+              <p>
+                <span className="text-muted-foreground">原因：</span>
+                {leave.reason}
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label>审批意见</Label>
@@ -481,15 +508,19 @@ function ApproveDialog({
             onClick={() => handleAction('rejected')}
             disabled={processing}
           >
-            {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+            {processing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="mr-1 h-4 w-4" />
+            )}
             驳回
           </Button>
-          <Button
-            variant="default"
-            onClick={() => handleAction('approved')}
-            disabled={processing}
-          >
-            {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
+          <Button variant="default" onClick={() => handleAction('approved')} disabled={processing}>
+            {processing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+            )}
             批准
           </Button>
         </DialogFooter>
@@ -572,7 +603,15 @@ export default function AttendancePage() {
   })
 
   const checkOutMutation = useMutation({
-    mutationFn: ({ studentId, classId, date }: { studentId: string; classId: string; date: string }) =>
+    mutationFn: ({
+      studentId,
+      classId,
+      date,
+    }: {
+      studentId: string
+      classId: string
+      date: string
+    }) =>
       api('/api/edu-ai-management/attendance/check-out', {
         method: 'PUT',
         body: JSON.stringify({ studentId, classId, date, checkOutMethod: 'manual' }),
@@ -596,7 +635,15 @@ export default function AttendancePage() {
   })
 
   const approveLeaveMutation = useMutation({
-    mutationFn: ({ id, status, remark }: { id: string; status: 'approved' | 'rejected'; remark: string }) =>
+    mutationFn: ({
+      id,
+      status,
+      remark,
+    }: {
+      id: string
+      status: 'approved' | 'rejected'
+      remark: string
+    }) =>
       api(`/api/edu-ai-management/leave/${id}/approve`, {
         method: 'PUT',
         body: JSON.stringify({ status, approveRemark: remark || null }),
@@ -605,8 +652,7 @@ export default function AttendancePage() {
   })
 
   const deleteLeaveMutation = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
     onSuccess: invalidateLeave,
   })
 
@@ -646,7 +692,9 @@ export default function AttendancePage() {
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">考勤管理</h1>
-        <p className="text-xs text-muted-foreground">管理学生签到/签退、查看考勤统计、处理请假申请</p>
+        <p className="text-xs text-muted-foreground">
+          管理学生签到/签退、查看考勤统计、处理请假申请
+        </p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -685,7 +733,9 @@ export default function AttendancePage() {
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {ATTENDANCE_STATUS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -724,24 +774,43 @@ export default function AttendancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学生ID</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">签到时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">签退时间</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">签到方式</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">备注</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学生ID
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          签到时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          签退时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          签到方式
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          备注
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {records.map((r) => (
                         <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">{r.studentId.slice(0, 8)}...</td>
+                          <td className="px-4 py-3 text-xs font-mono">
+                            {r.studentId.slice(0, 8)}...
+                          </td>
                           <td className="px-4 py-3">
                             {r.checkInTime ? (
                               <span className="inline-flex items-center gap-1 text-xs">
                                 <Clock className="h-3 w-3 text-green-500" />
-                                {new Date(r.checkInTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(r.checkInTime).toLocaleTimeString('zh-CN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
@@ -751,7 +820,10 @@ export default function AttendancePage() {
                             {r.checkOutTime ? (
                               <span className="inline-flex items-center gap-1 text-xs">
                                 <Clock className="h-3 w-3 text-orange-500" />
-                                {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
@@ -874,7 +946,9 @@ export default function AttendancePage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">总记录数</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      总记录数
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold">{stats.total}</p>
@@ -882,7 +956,9 @@ export default function AttendancePage() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">出勤率</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      出勤率
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-green-500">{stats.attendanceRate}%</p>
@@ -890,7 +966,9 @@ export default function AttendancePage() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">正常出勤</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      正常出勤
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold">{presentCount}</p>
@@ -905,7 +983,8 @@ export default function AttendancePage() {
                 <CardContent>
                   <div className="space-y-3">
                     {ATTENDANCE_STATUS.map((s) => {
-                      const count = stats.statusBreakdown.find((b) => b.status === s.value)?.count ?? 0
+                      const count =
+                        stats.statusBreakdown.find((b) => b.status === s.value)?.count ?? 0
                       const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0
                       return (
                         <div key={s.value} className="space-y-1">
@@ -914,7 +993,9 @@ export default function AttendancePage() {
                               <span className={cn('inline-block h-2 w-2 rounded-sm', s.color)} />
                               {s.label}
                             </span>
-                            <span className="text-muted-foreground">{count} ({pct}%)</span>
+                            <span className="text-muted-foreground">
+                              {count} ({pct}%)
+                            </span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
                             <div
@@ -939,34 +1020,55 @@ export default function AttendancePage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b">
-                            <th className="px-3 py-2 text-left font-medium text-muted-foreground">时段</th>
+                            <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                              时段
+                            </th>
                             {ATTENDANCE_STATUS.map((s) => (
-                              <th key={s.value} className="px-3 py-2 text-right font-medium text-muted-foreground">{s.label}</th>
+                              <th
+                                key={s.value}
+                                className="px-3 py-2 text-right font-medium text-muted-foreground"
+                              >
+                                {s.label}
+                              </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {stats.periodBreakdown.reduce<Array<{ period: string; breakdown: Record<string, number> }>>(
-                            (acc, item) => {
-                              let group = acc.find((g) => g.period === item.period)
-                              if (!group) {
-                                group = { period: item.period, breakdown: {} }
-                                acc.push(group)
-                              }
-                              group.breakdown[item.status] = (group.breakdown[item.status] ?? 0) + item.count
-                              return acc
-                            }, [],
-                          ).map((group) => (
-                            <tr key={group.period} className="border-b last:border-0 hover:bg-muted/30">
-                              <td className="px-3 py-2 text-xs font-medium">{group.period}</td>
-                              {ATTENDANCE_STATUS.map((s) => (
-                                <td key={s.value} className="px-3 py-2 text-right text-xs">{group.breakdown[s.value] ?? 0}</td>
-                              ))}
-                            </tr>
-                          ))}
+                          {stats.periodBreakdown
+                            .reduce<Array<{ period: string; breakdown: Record<string, number> }>>(
+                              (acc, item) => {
+                                let group = acc.find((g) => g.period === item.period)
+                                if (!group) {
+                                  group = { period: item.period, breakdown: {} }
+                                  acc.push(group)
+                                }
+                                group.breakdown[item.status] =
+                                  (group.breakdown[item.status] ?? 0) + item.count
+                                return acc
+                              },
+                              [],
+                            )
+                            .map((group) => (
+                              <tr
+                                key={group.period}
+                                className="border-b last:border-0 hover:bg-muted/30"
+                              >
+                                <td className="px-3 py-2 text-xs font-medium">{group.period}</td>
+                                {ATTENDANCE_STATUS.map((s) => (
+                                  <td key={s.value} className="px-3 py-2 text-right text-xs">
+                                    {group.breakdown[s.value] ?? 0}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
                           {stats.periodBreakdown.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="py-4 text-center text-xs text-muted-foreground">暂无趋势数据</td>
+                              <td
+                                colSpan={6}
+                                className="py-4 text-center text-xs text-muted-foreground"
+                              >
+                                暂无趋势数据
+                              </td>
                             </tr>
                           )}
                         </tbody>
@@ -983,14 +1085,19 @@ export default function AttendancePage() {
         <TabsContent value="leave" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Select value={leaveStatusFilter} onValueChange={(v) => setLeaveStatusFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={leaveStatusFilter}
+                onValueChange={(v) => setLeaveStatusFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {LEAVE_STATUS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1045,21 +1152,41 @@ export default function AttendancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学生ID</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">类型</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">日期范围</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">天数</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">原因</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学生ID
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          类型
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          日期范围
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          天数
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          原因
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {leaves.map((l) => (
                         <tr key={l.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">{l.studentId.slice(0, 8)}...</td>
-                          <td className="px-4 py-3 text-xs">{LEAVE_TYPE_MAP.get(l.leaveType) ?? l.leaveType}</td>
-                          <td className="px-4 py-3 text-xs">{l.startDate} ~ {l.endDate}</td>
+                          <td className="px-4 py-3 text-xs font-mono">
+                            {l.studentId.slice(0, 8)}...
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {LEAVE_TYPE_MAP.get(l.leaveType) ?? l.leaveType}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {l.startDate} ~ {l.endDate}
+                          </td>
                           <td className="px-4 py-3 text-xs">{l.totalDays}天</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             <TruncatedText value={l.reason} className="max-w-[150px]" />

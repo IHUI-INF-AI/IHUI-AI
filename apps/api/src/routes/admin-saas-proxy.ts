@@ -24,10 +24,7 @@ const ADMIN_SAAS_API_KEY = process.env.ADMIN_SAAS_API_KEY ?? ''
 
 const METHODS_WITH_BODY = new Set(['POST', 'PATCH', 'PUT'])
 
-async function proxyToAdminApi(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
+async function proxyToAdminApi(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   // 解析路径(去掉 /api/admin-saas/ 前缀)
   const path = request.url.replace(/^\/api\/admin-saas\//, '')
   const targetUrl = `${ADMIN_API_URL}/admin/api/${path}`
@@ -70,14 +67,12 @@ async function proxyToAdminApi(
     }
     reply.status(upstream.status).send(payload)
   } catch (e) {
-    const isTimeout =
-      e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
-    reply.status(isTimeout ? 504 : 503).send(
-      error(
-        isTimeout ? 504 : 503,
-        isTimeout ? 'admin-api 响应超时(30s)' : 'admin-api 不可达',
-      ),
-    )
+    const isTimeout = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
+    reply
+      .status(isTimeout ? 504 : 503)
+      .send(
+        error(isTimeout ? 504 : 503, isTimeout ? 'admin-api 响应超时(30s)' : 'admin-api 不可达'),
+      )
   }
 }
 

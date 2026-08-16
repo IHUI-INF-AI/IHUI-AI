@@ -39,25 +39,18 @@ export const useRulesStore = create<RulesUiState>((set) => ({
   testResult: null,
   testing: false,
 
-  startCreate: () =>
-    set({ isCreating: true, editingRule: null }),
-  startEdit: (rule) =>
-    set({ editingRule: rule, isCreating: false }),
-  closeEditor: () =>
-    set({ editingRule: null, isCreating: false }),
-  openTestDialog: (rule) =>
-    set({ testDialogRule: rule, testMessage: '', testResult: null }),
-  closeTestDialog: () =>
-    set({ testDialogRule: null, testMessage: '', testResult: null }),
+  startCreate: () => set({ isCreating: true, editingRule: null }),
+  startEdit: (rule) => set({ editingRule: rule, isCreating: false }),
+  closeEditor: () => set({ editingRule: null, isCreating: false }),
+  openTestDialog: (rule) => set({ testDialogRule: rule, testMessage: '', testResult: null }),
+  closeTestDialog: () => set({ testDialogRule: null, testMessage: '', testResult: null }),
   setTestMessage: (msg) => set({ testMessage: msg }),
   setTestResult: (result) => set({ testResult: result }),
   setTesting: (testing) => set({ testing }),
 }))
 
 /** 优先级 Badge 颜色:高 ≥70 绿 / 中 30-69 黄 / 低 <30 灰 */
-export function priorityVariant(
-  priority: number,
-): 'default' | 'secondary' | 'outline' {
+export function priorityVariant(priority: number): 'default' | 'secondary' | 'outline' {
   if (priority >= 70) return 'default'
   if (priority >= 30) return 'secondary'
   return 'outline'

@@ -262,7 +262,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     avatarBox: {
-      width: 44, height: 44, borderRadius: 22,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',

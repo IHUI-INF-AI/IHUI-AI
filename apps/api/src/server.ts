@@ -299,7 +299,9 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
-    origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
+    origin: config.CORS_ORIGIN.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })

@@ -94,18 +94,20 @@ def _extract_json_array(text: str) -> list[dict[str, Any]]:
     LLM 偶尔会包 ```json ... ``` 代码块或在前面加推理/思考过程,
     用多级回退策略剥掉外层 fence 拿到纯 JSON 字符串。
     """
+    from typing import cast
+
     # 1) 尝试直接 parse
     try:
         result = json.loads(text)
         if isinstance(result, list):
-            return result
+            return cast(list[dict[str, Any]], result)
     except json.JSONDecodeError:
         pass
     # 2) 找 ```json ... ``` 代码块
     fence = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.DOTALL)
     if fence:
         try:
-            return json.loads(fence.group(1))
+            return cast(list[dict[str, Any]], json.loads(fence.group(1)))
         except json.JSONDecodeError:
             pass
     # 3) 找第一个 [{ 到最后一个 ] — 真正的 JSON 数组起始(跳过 [Advisor 等推理前缀)
@@ -114,7 +116,7 @@ def _extract_json_array(text: str) -> list[dict[str, Any]]:
         bracket_end = text.rfind("]")
         if bracket_end > obj_start:
             try:
-                return json.loads(text[obj_start : bracket_end + 1])
+                return cast(list[dict[str, Any]], json.loads(text[obj_start : bracket_end + 1]))
             except json.JSONDecodeError:
                 pass
     # 4) 兜底:第一个 [ 到最后一个 ]
@@ -122,7 +124,7 @@ def _extract_json_array(text: str) -> list[dict[str, Any]]:
     bracket_end = text.rfind("]")
     if bracket_start != -1 and bracket_end > bracket_start:
         try:
-            return json.loads(text[bracket_start : bracket_end + 1])
+            return cast(list[dict[str, Any]], json.loads(text[bracket_start : bracket_end + 1]))
         except json.JSONDecodeError:
             pass
     raise ValueError(f"无法从 LLM 输出提取 JSON 数组: {text[:200]}")

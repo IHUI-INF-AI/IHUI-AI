@@ -187,8 +187,7 @@ export const eduPlanItem = pgTable(
     dueDate: date('due_date'),
     completed: boolean('completed').default(false).notNull(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
-    studentId: uuid('student_id')
-      .references(() => users.id),
+    studentId: uuid('student_id').references(() => users.id),
     parentItemId: uuid('parent_item_id'), // 学生添加子任务时关联
     notes: text('notes'), // 学生备注
     sortOrder: integer('sort_order').default(0).notNull(),
@@ -262,8 +261,7 @@ export const eduLeaveRequest = pgTable(
     reason: text('reason').notNull(),
     attachment: varchar('attachment', { length: 500 }), // 附件(病假条等)
     status: varchar('status', { length: 20 }).default('pending').notNull(),
-    approverId: uuid('approver_id')
-      .references(() => users.id),
+    approverId: uuid('approver_id').references(() => users.id),
     approveRemark: text('approve_remark'),
     approveAt: timestamp('approve_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -304,8 +302,12 @@ export const eduParentStudentBinding = pgTable(
   'edu_parent_student_binding',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    parentId: uuid('parent_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     relationship: varchar('relationship', { length: 30 }).notNull(),
     status: varchar('status', { length: 20 }).default('pending').notNull(),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
@@ -333,8 +335,12 @@ export const eduExamScore = pgTable(
   'edu_exam_score',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     subject: varchar('subject', { length: 100 }).notNull(),
     examName: varchar('exam_name', { length: 200 }).notNull(),
     score: integer('score').notNull(),
@@ -362,10 +368,14 @@ export const eduRankingSnapshot = pgTable(
   'edu_ranking_snapshot',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     examName: varchar('exam_name', { length: 200 }).notNull(),
     subject: varchar('subject', { length: 100 }),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     score: integer('score').notNull(),
     rank: integer('rank').notNull(),
     totalStudents: integer('total_students').notNull(),
@@ -394,8 +404,12 @@ export const eduTeacherSchedule = pgTable(
   'edu_teacher_schedule',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    teacherId: uuid('teacher_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id')
+      .notNull()
+      .references(() => eduTerm.id, { onDelete: 'cascade' }),
     dayOfWeek: integer('day_of_week').notNull(), // 1=周一, 7=周日
     startTime: varchar('start_time', { length: 10 }).notNull(), // HH:mm
     endTime: varchar('end_time', { length: 10 }).notNull(),
@@ -419,10 +433,16 @@ export const eduSchedulingRule = pgTable(
   'edu_scheduling_rule',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id')
+      .notNull()
+      .references(() => eduTerm.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     subject: varchar('subject', { length: 100 }).notNull(),
-    teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    teacherId: uuid('teacher_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     weekday: integer('weekday').notNull(), // 1=周一, 7=周日
     startTime: varchar('start_time', { length: 10 }).notNull(),
     endTime: varchar('end_time', { length: 10 }).notNull(),
@@ -451,8 +471,12 @@ export const eduScheduleChange = pgTable(
   'edu_schedule_change',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    scheduleId: uuid('schedule_id').notNull().references(() => eduCourseSchedule.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => eduCourseSchedule.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     subject: varchar('subject', { length: 100 }).notNull(),
     originalTeacher: varchar('original_teacher', { length: 100 }),
     newTeacher: varchar('new_teacher', { length: 100 }),
@@ -464,7 +488,9 @@ export const eduScheduleChange = pgTable(
     newEndTime: varchar('new_end_time', { length: 10 }),
     reason: text('reason').notNull(),
     status: varchar('status', { length: 20 }).default('pending').notNull(),
-    applicantId: uuid('applicant_id').notNull().references(() => users.id),
+    applicantId: uuid('applicant_id')
+      .notNull()
+      .references(() => users.id),
     approverId: uuid('approver_id').references(() => users.id),
     approveRemark: text('approve_remark'),
     approveAt: timestamp('approve_at', { withTimezone: true }),
@@ -488,8 +514,12 @@ export const eduHomeworkSubmission = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     homeworkId: uuid('homework_id').notNull(),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     content: text('content'),
     attachment: varchar('attachment', { length: 500 }),
     submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
@@ -549,7 +579,9 @@ export const eduTrialBooking = pgTable(
   'edu_trial_booking',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    leadId: uuid('lead_id').notNull().references(() => eduLead.id, { onDelete: 'cascade' }),
+    leadId: uuid('lead_id')
+      .notNull()
+      .references(() => eduLead.id, { onDelete: 'cascade' }),
     studentName: varchar('student_name', { length: 100 }).notNull(),
     studentAge: integer('student_age'),
     parentName: varchar('parent_name', { length: 100 }),
@@ -580,9 +612,15 @@ export const eduEnrollment = pgTable(
   'edu_enrollment',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
-    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id')
+      .notNull()
+      .references(() => eduTerm.id, { onDelete: 'cascade' }),
     enrollDate: date('enroll_date').notNull(),
     totalFee: integer('total_fee').notNull(),
     paidAmount: integer('paid_amount').default(0).notNull(),
@@ -609,8 +647,12 @@ export const eduTuitionFee = pgTable(
   'edu_tuition_fee',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
-    termId: uuid('term_id').notNull().references(() => eduTerm.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
+    termId: uuid('term_id')
+      .notNull()
+      .references(() => eduTerm.id, { onDelete: 'cascade' }),
     feeName: varchar('fee_name', { length: 100 }).notNull(),
     amount: integer('amount').notNull(),
     billingCycle: varchar('billing_cycle', { length: 30 }).default('term').notNull(), // term/monthly/yearly
@@ -637,8 +679,12 @@ export const eduPaymentRecord = pgTable(
   'edu_payment_record',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     feeId: uuid('fee_id').references(() => eduTuitionFee.id),
     amount: integer('amount').notNull(),
     paymentDate: date('payment_date').notNull(),
@@ -668,8 +714,12 @@ export const eduRefundRecord = pgTable(
   'edu_refund_record',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').notNull().references(() => eduClass.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    classId: uuid('class_id')
+      .notNull()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
     paymentId: uuid('payment_id').references(() => eduPaymentRecord.id),
     amount: integer('amount').notNull(),
     refundDate: date('refund_date').notNull(),

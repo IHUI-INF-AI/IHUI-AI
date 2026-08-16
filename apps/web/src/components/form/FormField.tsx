@@ -10,7 +10,14 @@ interface FormFieldProps {
   className?: string
 }
 
-export function FormField({ label, error, required = false, description, children, className }: FormFieldProps) {
+export function FormField({
+  label,
+  error,
+  required = false,
+  description,
+  children,
+  className,
+}: FormFieldProps) {
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
@@ -20,7 +27,9 @@ export function FormField({ label, error, required = false, description, childre
         </label>
       )}
       {children}
-      {description && !error && <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>}
+      {description && !error && (
+        <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>
+      )}
       {error && <p className="line-clamp-2 text-xs text-destructive">{error}</p>}
     </div>
   )

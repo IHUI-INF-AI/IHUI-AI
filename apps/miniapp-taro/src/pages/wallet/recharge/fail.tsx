@@ -34,12 +34,18 @@ export default function RechargeFail() {
         <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-destructive/10 border-[2rpx] border-destructive/40 flex items-center justify-center">
           <Text className="text-[80rpx] text-destructive leading-none">✕</Text>
         </View>
-        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">{tt('wallet.recharge.fail.title', '充值失败')}</Text>
-        <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] leading-[1.6]">{tt('wallet.recharge.fail.desc', '充值未成功,请稍后重试')}</Text>
+        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
+          {tt('wallet.recharge.fail.title', '充值失败')}
+        </Text>
+        <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] leading-[1.6]">
+          {tt('wallet.recharge.fail.desc', '充值未成功,请稍后重试')}
+        </Text>
       </View>
 
       <View className="mx-[32rpx] mb-[24rpx] px-[28rpx] py-[24rpx] bg-warning/10 rounded-[12rpx]">
-        <Text className="block text-[26rpx] text-warning font-semibold mb-[12rpx]">{tt('wallet.recharge.fail.hintTitle', '温馨提示')}</Text>
+        <Text className="block text-[26rpx] text-warning font-semibold mb-[12rpx]">
+          {tt('wallet.recharge.fail.hintTitle', '温馨提示')}
+        </Text>
         <Text className="text-[24rpx] text-muted-foreground leading-[1.6]">
           {tt(
             'wallet.recharge.fail.hintText',
@@ -52,42 +58,66 @@ export default function RechargeFail() {
         <View className="mx-[32rpx] my-[24rpx] px-[32rpx] py-[8rpx] bg-card rounded-[16rpx]">
           {reason ? (
             <View className="flex items-start justify-between py-[28rpx] gap-[24rpx] mt-[8rpx] first:mt-0">
-              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">{tt('wallet.recharge.fail.reasonLabel', '失败原因')}</Text>
+              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">
+                {tt('wallet.recharge.fail.reasonLabel', '失败原因')}
+              </Text>
               <Text className="text-destructive text-[24rpx] text-right break-all">{reason}</Text>
             </View>
           ) : null}
           {orderNo ? (
             <View className="flex items-start justify-between py-[28rpx] gap-[24rpx] mt-[8rpx] first:mt-0">
-              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">{tt('wallet.recharge.fail.orderNoLabel', '订单号')}</Text>
-              <Text className="text-[24rpx] text-muted-foreground text-right break-all">{orderNo}</Text>
+              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">
+                {tt('wallet.recharge.fail.orderNoLabel', '订单号')}
+              </Text>
+              <Text className="text-[24rpx] text-muted-foreground text-right break-all">
+                {orderNo}
+              </Text>
             </View>
           ) : null}
           {amount > 0 ? (
             <View className="flex items-start justify-between py-[28rpx] gap-[24rpx] mt-[8rpx] first:mt-0">
-              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">{tt('wallet.recharge.fail.amountLabel', '充值金额')}</Text>
-              <Text className="text-[26rpx] text-foreground text-right break-all font-semibold">¥{amount.toFixed(2)}</Text>
+              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0">
+                {tt('wallet.recharge.fail.amountLabel', '充值金额')}
+              </Text>
+              <Text className="text-[26rpx] text-foreground text-right break-all font-semibold">
+                ¥{amount.toFixed(2)}
+              </Text>
             </View>
           ) : null}
         </View>
       )}
 
       <View className="pt-[48rpx] px-[60rpx]">
-        <Button className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-primary text-primary-foreground" onClick={retry}>
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-primary text-primary-foreground"
+          onClick={retry}
+        >
           {tt('wallet.recharge.fail.retry', '重新充值')}
         </Button>
-        <Button className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-card text-foreground border-[2rpx] border-border" onClick={goBack}>
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-card text-foreground border-[2rpx] border-border"
+          onClick={goBack}
+        >
           {tt('wallet.recharge.fail.backWallet', '返回钱包')}
         </Button>
-        <Button className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-card text-foreground border-[2rpx] border-border" onClick={viewDetail}>
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center border-none p-0 bg-card text-foreground border-[2rpx] border-border"
+          onClick={viewDetail}
+        >
           {tt('wallet.recharge.fail.viewDetail', '查看明细')}
         </Button>
-        <Button className="mt-[24rpx] rounded-[16rpx] text-center border-none p-0 bg-transparent text-muted-foreground text-[26rpx] h-[72rpx] leading-[72rpx]" openType="contact">
+        <Button
+          className="mt-[24rpx] rounded-[16rpx] text-center border-none p-0 bg-transparent text-muted-foreground text-[26rpx] h-[72rpx] leading-[72rpx]"
+          openType="contact"
+        >
           {tt('wallet.recharge.fail.contactService', '联系客服')}
         </Button>
       </View>
 
       <View className="mx-[32rpx] mt-[32rpx] px-[28rpx] py-[24rpx] bg-card rounded-[12rpx]">
-        <Text className="block text-[26rpx] text-foreground font-semibold mb-[12rpx]">{tt('wallet.recharge.fail.faqQ', '充值失败会扣款吗?')}</Text>
+        <Text className="block text-[26rpx] text-foreground font-semibold mb-[12rpx]">
+          {tt('wallet.recharge.fail.faqQ', '充值失败会扣款吗?')}
+        </Text>
         <Text className="text-[24rpx] text-muted-foreground leading-[1.6]">
           {tt(
             'wallet.recharge.fail.faqA',

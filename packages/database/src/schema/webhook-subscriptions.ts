@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+} from 'drizzle-orm/pg-core'
 
 /**
  * Relay Webhook 订阅表(2026-08-01 立,扩展 Webhook 系统)。
@@ -82,7 +92,4 @@ export type NewWebhookDeliveryLog = typeof webhookDeliveryLogs.$inferInsert
 
 /** Relay Webhook 事件类型枚举(用于类型安全的事件触发) */
 export type RelayWebhookEvent =
-  | 'relay.call.completed'
-  | 'relay.call.failed'
-  | 'relay.balance.low'
-  | 'security.login_anomaly'
+  'relay.call.completed' | 'relay.call.failed' | 'relay.balance.low' | 'security.login_anomaly'

@@ -28,11 +28,7 @@ export function GlobalErrorBanner() {
   if (errors.length === 0) return null
 
   return (
-    <div
-      className="flex flex-col gap-1.5 px-3 pt-2"
-      role="region"
-      aria-label={t('region')}
-    >
+    <div className="flex flex-col gap-1.5 px-3 pt-2" role="region" aria-label={t('region')}>
       {errors.map((err) => (
         <div
           key={err.id}

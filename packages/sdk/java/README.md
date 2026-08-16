@@ -53,21 +53,21 @@ System.out.println(resp.getContent());
 
 ## 13 个业务模块
 
-| 模块字段 | 类 | 端点数 | 说明 |
-|---------|----|----|----|
-| `client.ai` | `AiApi` | 13 | chat / embeddings / vision / moa / models / userModels |
-| `client.agents` | `AgentsApi` | 12 | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行 |
-| `client.audio` | `AudioApi` | 8 | TTS / ASR / 语音对话 / 声纹 / 音乐 |
-| `client.images` | `ImagesApi` | 6 | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| `client.videos` | `VideosApi` | 3 | 视频生成 / 任务查询 / 编排 |
-| `client.threed` | `ThreeDApi` | 1 | 3D 模型生成 |
-| `client.generation` | `GenerationApi` | 3 | 生成队列:入队 / 状态 / 取消 |
-| `client.knowledge` | `KnowledgeApi` | 13 | 知识库 / RAG / 知识图谱 |
-| `client.tools` | `ToolsApi` | 16 | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图 |
-| `client.memory` | `MemoryApi` | 8 | 记忆:保存 / 召回 / 搜索 / Dream / 分类记忆 |
-| `client.messages` | `MessagesApi` | 4 | 消息:发布 / 订阅 / 状态 |
-| `client.files` | `FilesApi` | 9 | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传 |
-| `client.user` | `UserApi` | 9 | 用户 / 工作区 / 工作流 / 统计 |
+| 模块字段            | 类              | 端点数 | 说明                                                    |
+| ------------------- | --------------- | ------ | ------------------------------------------------------- |
+| `client.ai`         | `AiApi`         | 13     | chat / embeddings / vision / moa / models / userModels  |
+| `client.agents`     | `AgentsApi`     | 12     | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行          |
+| `client.audio`      | `AudioApi`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐                      |
+| `client.images`     | `ImagesApi`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景       |
+| `client.videos`     | `VideosApi`     | 3      | 视频生成 / 任务查询 / 编排                              |
+| `client.threed`     | `ThreeDApi`     | 1      | 3D 模型生成                                             |
+| `client.generation` | `GenerationApi` | 3      | 生成队列:入队 / 状态 / 取消                             |
+| `client.knowledge`  | `KnowledgeApi`  | 13     | 知识库 / RAG / 知识图谱                                 |
+| `client.tools`      | `ToolsApi`      | 16     | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图                |
+| `client.memory`     | `MemoryApi`     | 8      | 记忆:保存 / 召回 / 搜索 / Dream / 分类记忆              |
+| `client.messages`   | `MessagesApi`   | 4      | 消息:发布 / 订阅 / 状态                                 |
+| `client.files`      | `FilesApi`      | 9      | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传 |
+| `client.user`       | `UserApi`       | 9      | 用户 / 工作区 / 工作流 / 统计                           |
 
 ## 配置选项
 
@@ -270,11 +270,11 @@ SDK 自动为每个请求注入以下 header:
 
 ## 依赖
 
-| 库 | 版本 | 用途 |
-|----|----|----|
-| OkHttp | 4.12.0 | HTTP 客户端(支持流式 + multipart) |
-| Jackson Databind | 2.16.1 | JSON 序列化反序列化 |
-| SLF4J API | 1.7.36 | 日志门面 |
+| 库               | 版本   | 用途                              |
+| ---------------- | ------ | --------------------------------- |
+| OkHttp           | 4.12.0 | HTTP 客户端(支持流式 + multipart) |
+| Jackson Databind | 2.16.1 | JSON 序列化反序列化               |
+| SLF4J API        | 1.7.36 | 日志门面                          |
 
 ## 系统要求
 

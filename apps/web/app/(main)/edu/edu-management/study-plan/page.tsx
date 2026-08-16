@@ -250,7 +250,15 @@ function StudyPlanEditDialog({
   }
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.planType || !form.classId || !form.termId || !form.startDate || !form.endDate) return
+    if (
+      !form.title.trim() ||
+      !form.planType ||
+      !form.classId ||
+      !form.termId ||
+      !form.startDate ||
+      !form.endDate
+    )
+      return
     setSaving(true)
     try {
       await onSave(form)
@@ -288,10 +296,7 @@ function StudyPlanEditDialog({
           </div>
           <div className="grid gap-1.5">
             <Label>计划类型</Label>
-            <Select
-              value={form.planType}
-              onValueChange={(v: PlanType) => update('planType', v)}
-            >
+            <Select value={form.planType} onValueChange={(v: PlanType) => update('planType', v)}>
               <SelectTrigger>
                 <SelectValue placeholder="选择类型" />
               </SelectTrigger>
@@ -305,10 +310,7 @@ function StudyPlanEditDialog({
             <>
               <div className="grid gap-1.5">
                 <Label>所属学期</Label>
-                <Select
-                  value={form.termId}
-                  onValueChange={(v) => update('termId', v)}
-                >
+                <Select value={form.termId} onValueChange={(v) => update('termId', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择学期" />
                   </SelectTrigger>
@@ -323,10 +325,7 @@ function StudyPlanEditDialog({
               </div>
               <div className="grid gap-1.5">
                 <Label>所属班级</Label>
-                <Select
-                  value={form.classId}
-                  onValueChange={(v) => update('classId', v)}
-                >
+                <Select value={form.classId} onValueChange={(v) => update('classId', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择班级" />
                   </SelectTrigger>
@@ -371,11 +370,18 @@ function StudyPlanEditDialog({
         <DialogFooter>
           {initial && onDelete && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               删除
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !form.title.trim() || !form.startDate || !form.endDate}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.title.trim() || !form.startDate || !form.endDate}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {initial ? '保存' : '创建'}
           </Button>
@@ -451,11 +457,7 @@ function PlanItemEditDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isStudentMode
-              ? '添加备注'
-              : initial
-                ? '编辑计划条目'
-                : '添加计划条目'}
+            {isStudentMode ? '添加备注' : initial ? '编辑计划条目' : '添加计划条目'}
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
@@ -509,7 +511,11 @@ function PlanItemEditDialog({
         <DialogFooter>
           {initial && onDelete && !isStudentMode && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               删除
             </Button>
           )}
@@ -592,7 +598,9 @@ function TermDialog({
                 tabIndex={0}
                 className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                 onClick={() => resetForm(t)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') resetForm(t) }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') resetForm(t)
+                }}
               >
                 <span className={cn(editTerm?.id === t.id && 'font-medium')}>
                   {t.name}
@@ -614,7 +622,11 @@ function TermDialog({
           <p className="text-sm font-medium">{editTerm ? '编辑学期' : '新建学期'}</p>
           <div className="grid gap-1.5">
             <Label>学期名称</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：2026年春季学期" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：2026年春季学期"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -701,7 +713,9 @@ function ClassDialog({
               >
                 <span>
                   {c.name}
-                  {c.grade && <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>}
+                  {c.grade && (
+                    <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>
+                  )}
                 </span>
               </div>
             ))
@@ -712,11 +726,19 @@ function ClassDialog({
           <p className="text-sm font-medium">新建班级</p>
           <div className="grid gap-1.5">
             <Label>班级名称</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：计算机科学1班" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：计算机科学1班"
+            />
           </div>
           <div className="grid gap-1.5">
             <Label>年级</Label>
-            <Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="例如：2024级" />
+            <Input
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="例如：2024级"
+            />
           </div>
         </div>
 
@@ -772,12 +794,10 @@ export default function StudyPlanPage() {
     }
   }, [terms, selectedTermId])
 
-  const {
-    data: classesData,
-    isLoading: classesLoading,
-  } = useQuery({
+  const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () => api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
 
@@ -790,11 +810,15 @@ export default function StudyPlanPage() {
     }
   }, [classes, selectedClassId])
 
-  const {
-    data: plansData,
-    isLoading: plansLoading,
-  } = useQuery({
-    queryKey: ['edu-ai-management', 'study-plan', selectedTermId, selectedClassId, planFilter, statusFilter],
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: [
+      'edu-ai-management',
+      'study-plan',
+      selectedTermId,
+      selectedClassId,
+      planFilter,
+      statusFilter,
+    ],
     queryFn: () => {
       let url = `/api/edu-ai-management/study-plan?termId=${selectedTermId}&classId=${selectedClassId}`
       if (planFilter !== 'all') {
@@ -812,7 +836,10 @@ export default function StudyPlanPage() {
 
   // Parent plans (non-child plans) sorted by creation date desc
   const parentPlans = React.useMemo(
-    () => allPlans.filter((p) => !p.parentPlanId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    () =>
+      allPlans
+        .filter((p) => !p.parentPlanId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [allPlans],
   )
 
@@ -833,12 +860,10 @@ export default function StudyPlanPage() {
     return map
   }, [allPlans])
 
-  const {
-    data: itemsData,
-    isLoading: itemsLoading,
-  } = useQuery({
+  const { data: itemsData, isLoading: itemsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'study-plan', selectedPlan?.id, 'items'],
-    queryFn: () => api<{ list: PlanItem[] }>(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`),
+    queryFn: () =>
+      api<{ list: PlanItem[] }>(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`),
     enabled: !!selectedPlan,
   })
 
@@ -897,12 +922,9 @@ export default function StudyPlanPage() {
   }, [allItems])
 
   /* ── Mutations ── */
-  const invalidate = React.useCallback(
-    () => {
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management'] })
-    },
-    [queryClient],
-  )
+  const invalidate = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['edu-ai-management'] })
+  }, [queryClient])
 
   const createPlan = useMutation({
     mutationFn: (data: StudyPlanFormData) =>
@@ -930,7 +952,9 @@ export default function StudyPlanPage() {
     onSuccess: (_, vars) => {
       invalidate()
       if (selectedPlan?.id === vars.id) {
-        queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'study-plan', vars.id, 'items'] })
+        queryClient.invalidateQueries({
+          queryKey: ['edu-ai-management', 'study-plan', vars.id, 'items'],
+        })
       }
     },
   })
@@ -948,7 +972,10 @@ export default function StudyPlanPage() {
 
   const autoSplitPlan = useMutation({
     mutationFn: (id: string) =>
-      api<{ count: number; plans: StudyPlan[] }>(`/api/edu-ai-management/study-plan/${id}/auto-split`, { method: 'POST' }),
+      api<{ count: number; plans: StudyPlan[] }>(
+        `/api/edu-ai-management/study-plan/${id}/auto-split`,
+        { method: 'POST' },
+      ),
     onSuccess: invalidate,
   })
 
@@ -962,7 +989,13 @@ export default function StudyPlanPage() {
   })
 
   const createItem = useMutation({
-    mutationFn: (data: { content: string; objective?: string | null; dueDate?: string | null; notes?: string | null; parentItemId?: string | null }) =>
+    mutationFn: (data: {
+      content: string
+      objective?: string | null
+      dueDate?: string | null
+      notes?: string | null
+      parentItemId?: string | null
+    }) =>
       api(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`, {
         method: 'POST',
         body: JSON.stringify({
@@ -976,7 +1009,9 @@ export default function StudyPlanPage() {
       }),
     onSuccess: () => {
       invalidate()
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'] })
+      queryClient.invalidateQueries({
+        queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'],
+      })
     },
   })
 
@@ -988,16 +1023,19 @@ export default function StudyPlanPage() {
       }),
     onSuccess: () => {
       invalidate()
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'] })
+      queryClient.invalidateQueries({
+        queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'],
+      })
     },
   })
 
   const deleteItem = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/plan-item/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/edu-ai-management/plan-item/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       invalidate()
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'] })
+      queryClient.invalidateQueries({
+        queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'],
+      })
     },
   })
 
@@ -1009,7 +1047,9 @@ export default function StudyPlanPage() {
       }),
     onSuccess: () => {
       invalidate()
-      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'] })
+      queryClient.invalidateQueries({
+        queryKey: ['edu-ai-management', 'study-plan', selectedPlan!.id, 'items'],
+      })
     },
   })
 
@@ -1143,7 +1183,13 @@ export default function StudyPlanPage() {
   const [timelineOpen, setTimelineOpen] = React.useState(false)
 
   const completionStatsQuery = useQuery({
-    queryKey: ['edu-ai-management', 'study-plan', 'completion-stats', selectedClassId, selectedTermId],
+    queryKey: [
+      'edu-ai-management',
+      'study-plan',
+      'completion-stats',
+      selectedClassId,
+      selectedTermId,
+    ],
     queryFn: () =>
       api<{
         overallRate: number
@@ -1172,15 +1218,16 @@ export default function StudyPlanPage() {
         totalItems: number
         completedItems: number
         completionRate: number
-        timeline: Array<{ date: string; items: Array<{ id: string; content: string; completedAt: string }> }>
-      }>(
-        `/api/edu-ai-management/study-plan/progress-timeline?planId=${selectedPlan!.id}`,
-      ),
+        timeline: Array<{
+          date: string
+          items: Array<{ id: string; content: string; completedAt: string }>
+        }>
+      }>(`/api/edu-ai-management/study-plan/progress-timeline?planId=${selectedPlan!.id}`),
     enabled: false,
   })
 
   /* ── Computed values ── */
-  const completedCount = parentItems.filter(i => i.completed).length
+  const completedCount = parentItems.filter((i) => i.completed).length
   const totalCount = parentItems.length
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
@@ -1217,7 +1264,9 @@ export default function StudyPlanPage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">学习计划管理</h1>
-        <p className="text-xs text-muted-foreground">管理班级的学习计划，支持月计划自动拆解为周计划</p>
+        <p className="text-xs text-muted-foreground">
+          管理班级的学习计划，支持月计划自动拆解为周计划
+        </p>
       </header>
 
       {/* Toolbar */}
@@ -1265,11 +1314,7 @@ export default function StudyPlanPage() {
               <SelectTrigger className="w-44">
                 <SelectValue
                   placeholder={
-                    classesLoading
-                      ? '加载中...'
-                      : selectedTermId
-                        ? '选择班级'
-                        : '请先选择学期'
+                    classesLoading ? '加载中...' : selectedTermId ? '选择班级' : '请先选择学期'
                   }
                 />
               </SelectTrigger>
@@ -1282,7 +1327,12 @@ export default function StudyPlanPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => setClassDialogOpen(true)} disabled={!selectedTermId}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setClassDialogOpen(true)}
+              disabled={!selectedTermId}
+            >
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -1329,7 +1379,11 @@ export default function StudyPlanPage() {
 
           {/* Add button */}
           <div className="ml-auto">
-            <Button size="sm" onClick={handleAddPlan} disabled={!selectedTermId || !selectedClassId}>
+            <Button
+              size="sm"
+              onClick={handleAddPlan}
+              disabled={!selectedTermId || !selectedClassId}
+            >
               <Plus className="mr-1 h-3.5 w-3.5" />
               创建月计划
             </Button>
@@ -1344,7 +1398,9 @@ export default function StudyPlanPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
               {selectedPlan ? '计划列表' : '计划列表'}
-              {parentPlans.length > 0 && <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>}
+              {parentPlans.length > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -1376,10 +1432,13 @@ export default function StudyPlanPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className={cn(
-                                'text-sm font-medium truncate',
-                                plan.status === 'completed' && 'line-through text-muted-foreground',
-                              )}>
+                              <p
+                                className={cn(
+                                  'text-sm font-medium truncate',
+                                  plan.status === 'completed' &&
+                                    'line-through text-muted-foreground',
+                                )}
+                              >
                                 {plan.title}
                               </p>
                             </div>
@@ -1387,23 +1446,27 @@ export default function StudyPlanPage() {
                               <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[plan.status])}>
                                 {PLAN_STATUS_LABELS[plan.status]}
                               </Badge>
-                              <Badge variant="outline">
-                                {PLAN_TYPE_LABELS[plan.planType]}
-                              </Badge>
+                              <Badge variant="outline">{PLAN_TYPE_LABELS[plan.planType]}</Badge>
                               {isUnsplitted && (
-                                <Badge variant="outline" className="border-amber-300 text-amber-600">
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-300 text-amber-600"
+                                >
                                   未拆解
                                 </Badge>
                               )}
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {formatDateDisplay(plan.startDate)} ~ {formatDateDisplay(plan.endDate)}
+                              {formatDateDisplay(plan.startDate)} ~{' '}
+                              {formatDateDisplay(plan.endDate)}
                             </p>
                           </div>
-                          <ChevronRight className={cn(
-                            'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-                            selectedPlan?.id === plan.id && 'rotate-90',
-                          )} />
+                          <ChevronRight
+                            className={cn(
+                              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                              selectedPlan?.id === plan.id && 'rotate-90',
+                            )}
+                          />
                         </div>
                         {/* Action buttons in card */}
                         <div className="mt-2 flex items-center gap-2">
@@ -1449,11 +1512,17 @@ export default function StudyPlanPage() {
                             >
                               <ChevronRight className="h-3 w-3 text-muted-foreground" />
                               <span className="truncate font-medium">{child.title}</span>
-                              <Badge className={cn('px-1 text-[10px]', PLAN_STATUS_VARIANTS[child.status])}>
+                              <Badge
+                                className={cn(
+                                  'px-1 text-[10px]',
+                                  PLAN_STATUS_VARIANTS[child.status],
+                                )}
+                              >
                                 {PLAN_STATUS_LABELS[child.status]}
                               </Badge>
                               <span className="shrink-0 text-muted-foreground">
-                                {formatDateDisplay(child.startDate)}~{formatDateDisplay(child.endDate)}
+                                {formatDateDisplay(child.startDate)}~
+                                {formatDateDisplay(child.endDate)}
                               </span>
                             </button>
                           ))}
@@ -1484,15 +1553,16 @@ export default function StudyPlanPage() {
                       <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[selectedPlan.status])}>
                         {PLAN_STATUS_LABELS[selectedPlan.status]}
                       </Badge>
-                      <Badge variant="outline">
-                        {PLAN_TYPE_LABELS[selectedPlan.planType]}
-                      </Badge>
+                      <Badge variant="outline">{PLAN_TYPE_LABELS[selectedPlan.planType]}</Badge>
                       <span className="text-xs text-muted-foreground">
-                        {formatDateFull(selectedPlan.startDate)} ~ {formatDateFull(selectedPlan.endDate)}
+                        {formatDateFull(selectedPlan.startDate)} ~{' '}
+                        {formatDateFull(selectedPlan.endDate)}
                       </span>
                     </div>
                     {selectedPlan.description && (
-                      <p className="mt-2 text-sm text-muted-foreground">{selectedPlan.description}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {selectedPlan.description}
+                      </p>
                     )}
                     {totalCount > 0 && (
                       <div className="mt-2 flex items-center gap-2 text-xs">
@@ -1527,17 +1597,19 @@ export default function StudyPlanPage() {
                     </div>
                     {/* Action buttons */}
                     <div className="flex gap-1.5">
-                      {selectedPlan.planType === 'monthly' && !childPlansByParent.has(selectedPlan.id) && !isStudentMode && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => handleAutoSplit(selectedPlan.id)}
-                        >
-                          <FileText className="mr-1 h-3 w-3" />
-                          自动拆解
-                        </Button>
-                      )}
+                      {selectedPlan.planType === 'monthly' &&
+                        !childPlansByParent.has(selectedPlan.id) &&
+                        !isStudentMode && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleAutoSplit(selectedPlan.id)}
+                          >
+                            <FileText className="mr-1 h-3 w-3" />
+                            自动拆解
+                          </Button>
+                        )}
                       {!isStudentMode && (
                         <Button
                           size="sm"
@@ -1579,7 +1651,9 @@ export default function StudyPlanPage() {
                         <div className="flex gap-1">
                           {STATUS_ORDER.map((status) => {
                             const isCurrent = selectedPlan.status === status
-                            const isNext = STATUS_ORDER.indexOf(status) === (STATUS_ORDER.indexOf(selectedPlan.status) + 1) % STATUS_ORDER.length
+                            const isNext =
+                              STATUS_ORDER.indexOf(status) ===
+                              (STATUS_ORDER.indexOf(selectedPlan.status) + 1) % STATUS_ORDER.length
                             if (!isCurrent && !isNext) return null
                             return (
                               <Button
@@ -1610,7 +1684,9 @@ export default function StudyPlanPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium">
                     {isStudentMode ? '学习任务' : '计划条目'}
-                    {totalCount > 0 && <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>}
+                    {totalCount > 0 && (
+                      <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
+                    )}
                   </h3>
                   {!isStudentMode && (
                     <Button size="sm" onClick={handleAddItem}>
@@ -1631,7 +1707,11 @@ export default function StudyPlanPage() {
                           : ''}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o - 1)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setWeekOffset((o) => o - 1)}
+                        >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <Button
@@ -1642,7 +1722,11 @@ export default function StudyPlanPage() {
                         >
                           本周
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setWeekOffset((o) => o + 1)}
+                        >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1659,7 +1743,7 @@ export default function StudyPlanPage() {
                         {weekDays.map((day) => {
                           const dateStr = formatDate(day)
                           const dayItems = itemsByDay.get(dateStr) ?? []
-                          const dayCompleted = dayItems.filter(i => i.completed).length
+                          const dayCompleted = dayItems.filter((i) => i.completed).length
                           return (
                             <div
                               key={dateStr}
@@ -1668,11 +1752,14 @@ export default function StudyPlanPage() {
                                 isToday(day) && 'bg-primary/5 border-primary/30',
                               )}
                             >
-                              <div className={cn(
-                                'mb-2 text-xs font-medium',
-                                isToday(day) ? 'text-primary' : 'text-muted-foreground',
-                              )}>
-                                {['日', '一', '二', '三', '四', '五', '六'][day.getDay()]} {day.getDate()}
+                              <div
+                                className={cn(
+                                  'mb-2 text-xs font-medium',
+                                  isToday(day) ? 'text-primary' : 'text-muted-foreground',
+                                )}
+                              >
+                                {['日', '一', '二', '三', '四', '五', '六'][day.getDay()]}{' '}
+                                {day.getDate()}
                                 {dayCompleted > 0 && dayCompleted === dayItems.length && (
                                   <CheckCircle2 className="inline-block ml-1 h-3 w-3 text-green-600" />
                                 )}
@@ -1688,14 +1775,15 @@ export default function StudyPlanPage() {
                                       item.completed && 'opacity-50',
                                     )}
                                     onClick={() => handleEditItem(item)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleEditItem(item) }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') handleEditItem(item)
+                                    }}
                                   >
                                     <GripVertical className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-50" />
                                     <div className="flex-1 min-w-0">
-                                      <p className={cn(
-                                        'truncate',
-                                        item.completed && 'line-through',
-                                      )}>
+                                      <p
+                                        className={cn('truncate', item.completed && 'line-through')}
+                                      >
                                         {item.content}
                                       </p>
                                     </div>
@@ -1752,10 +1840,12 @@ export default function StudyPlanPage() {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className={cn(
-                                  'text-sm font-medium',
-                                  item.completed && 'line-through text-muted-foreground',
-                                )}>
+                                <p
+                                  className={cn(
+                                    'text-sm font-medium',
+                                    item.completed && 'line-through text-muted-foreground',
+                                  )}
+                                >
                                   {item.content}
                                 </p>
                                 {item.dueDate && (
@@ -1844,10 +1934,12 @@ export default function StudyPlanPage() {
                                     className="mt-0.5 h-3.5 w-3.5"
                                   />
                                   <div className="flex-1 min-w-0">
-                                    <p className={cn(
-                                      'text-xs',
-                                      child.completed && 'line-through text-muted-foreground',
-                                    )}>
+                                    <p
+                                      className={cn(
+                                        'text-xs',
+                                        child.completed && 'line-through text-muted-foreground',
+                                      )}
+                                    >
                                       {child.content}
                                     </p>
                                     {child.notes && (
@@ -1913,19 +2005,25 @@ export default function StudyPlanPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-primary">{completionStatsQuery.data.overallRate}%</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {completionStatsQuery.data.overallRate}%
+                      </span>
                       <span className="text-xs text-muted-foreground">总体完成率</span>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-green-600">{completionStatsQuery.data.totalCompleted}</span>
+                      <span className="text-2xl font-bold text-green-600">
+                        {completionStatsQuery.data.totalCompleted}
+                      </span>
                       <span className="text-xs text-muted-foreground">已完成</span>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center p-4">
-                      <span className="text-2xl font-bold text-muted-foreground">{completionStatsQuery.data.totalItems}</span>
+                      <span className="text-2xl font-bold text-muted-foreground">
+                        {completionStatsQuery.data.totalItems}
+                      </span>
                       <span className="text-xs text-muted-foreground">总条目</span>
                     </CardContent>
                   </Card>
@@ -1939,7 +2037,10 @@ export default function StudyPlanPage() {
                   ) : (
                     <div className="divide-y rounded-md border">
                       {completionStatsQuery.data.plans.map((plan) => (
-                        <div key={plan.planId} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div
+                          key={plan.planId}
+                          className="flex items-center justify-between px-3 py-2 text-sm"
+                        >
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium">{plan.planTitle}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1955,10 +2056,16 @@ export default function StudyPlanPage() {
                             <span className="text-xs text-muted-foreground">
                               {plan.completedItems}/{plan.totalItems}
                             </span>
-                            <span className={cn(
-                              'text-sm font-semibold',
-                              plan.completionRate >= 80 ? 'text-green-600' : plan.completionRate >= 50 ? 'text-amber-600' : 'text-muted-foreground',
-                            )}>
+                            <span
+                              className={cn(
+                                'text-sm font-semibold',
+                                plan.completionRate >= 80
+                                  ? 'text-green-600'
+                                  : plan.completionRate >= 50
+                                    ? 'text-amber-600'
+                                    : 'text-muted-foreground',
+                              )}
+                            >
                               {plan.completionRate}%
                             </span>
                           </div>
@@ -1994,13 +2101,17 @@ export default function StudyPlanPage() {
                   <div>
                     <p className="text-sm font-medium">{progressTimelineQuery.data.plan.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {progressTimelineQuery.data.plan.startDate} ~ {progressTimelineQuery.data.plan.endDate}
+                      {progressTimelineQuery.data.plan.startDate} ~{' '}
+                      {progressTimelineQuery.data.plan.endDate}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-primary">{progressTimelineQuery.data.completionRate}%</p>
+                    <p className="text-lg font-bold text-primary">
+                      {progressTimelineQuery.data.completionRate}%
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {progressTimelineQuery.data.completedItems}/{progressTimelineQuery.data.totalItems}
+                      {progressTimelineQuery.data.completedItems}/
+                      {progressTimelineQuery.data.totalItems}
                     </p>
                   </div>
                 </div>
@@ -2015,11 +2126,16 @@ export default function StudyPlanPage() {
                         <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
                           <span>{day.date}</span>
-                          <span className="text-xs text-muted-foreground">({day.items.length} 项)</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({day.items.length} 项)
+                          </span>
                         </div>
                         <div className="ml-6 space-y-1.5 border-l-2 pl-4">
                           {day.items.map((item) => (
-                            <div key={item.id} className="rounded-md border bg-muted/20 px-3 py-1.5 text-sm">
+                            <div
+                              key={item.id}
+                              className="rounded-md border bg-muted/20 px-3 py-1.5 text-sm"
+                            >
                               <p>{item.content}</p>
                               {item.completedAt && (
                                 <p className="mt-0.5 text-xs text-muted-foreground">

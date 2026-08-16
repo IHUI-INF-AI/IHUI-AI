@@ -192,7 +192,9 @@ export const EMPTY_MODEL_FORM: ModelFormState = {
 }
 
 /** Model 默认参数默认值(创建空表单时填充) */
-export const DEFAULT_MODEL_PARAMS: Required<Omit<ModelDefaultParamsStructured, 'systemPrompt' | 'stop' | 'responseFormat' | 'extra'>> = {
+export const DEFAULT_MODEL_PARAMS: Required<
+  Omit<ModelDefaultParamsStructured, 'systemPrompt' | 'stop' | 'responseFormat' | 'extra'>
+> = {
   temperature: 0.7,
   maxTokens: 4096,
   topP: 1,

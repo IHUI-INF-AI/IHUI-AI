@@ -124,7 +124,9 @@ export default function TopicDetailPage() {
   }, [])
 
   const goPublish = useCallback(() => {
-    Taro.navigateTo({ url: `/pages/circle/create?topicId=${id}&topicName=${encodeURIComponent(topic.name || '')}` })
+    Taro.navigateTo({
+      url: `/pages/circle/create?topicId=${id}&topicName=${encodeURIComponent(topic.name || '')}`,
+    })
   }, [id, topic.name])
 
   const formatTime = (v: string): string => {
@@ -134,8 +136,10 @@ export default function TopicDetailPage() {
     const now = Date.now()
     const diff = now - d.getTime()
     if (diff < 60000) return tt('topic.detail.justNow', '刚刚')
-    if (diff < 3600000) return tt('topic.detail.minutesAgo', '{n} 分钟前', { n: Math.floor(diff / 60000) })
-    if (diff < 86400000) return tt('topic.detail.hoursAgo', '{n} 小时前', { n: Math.floor(diff / 3600000) })
+    if (diff < 3600000)
+      return tt('topic.detail.minutesAgo', '{n} 分钟前', { n: Math.floor(diff / 60000) })
+    if (diff < 86400000)
+      return tt('topic.detail.hoursAgo', '{n} 小时前', { n: Math.floor(diff / 3600000) })
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
@@ -193,11 +197,7 @@ export default function TopicDetailPage() {
         {!loading && displayPosts.length > 0 ? (
           <View className="topic-detail-list">
             {displayPosts.map((p) => (
-              <View
-                key={p.id}
-                className="topic-detail-post"
-                onClick={() => goCircle(String(p.id))}
-              >
+              <View key={p.id} className="topic-detail-post" onClick={() => goCircle(String(p.id))}>
                 <View className="topic-detail-post-user">
                   <Image
                     className="topic-detail-avatar"
@@ -205,7 +205,9 @@ export default function TopicDetailPage() {
                     mode="aspectFill"
                   />
                   <View className="topic-detail-user-info">
-                    <Text className="topic-detail-author">{p.author || tt('topic.detail.anonymous', '匿名用户')}</Text>
+                    <Text className="topic-detail-author">
+                      {p.author || tt('topic.detail.anonymous', '匿名用户')}
+                    </Text>
                     <Text className="topic-detail-time">{formatTime(p.createTime)}</Text>
                   </View>
                 </View>

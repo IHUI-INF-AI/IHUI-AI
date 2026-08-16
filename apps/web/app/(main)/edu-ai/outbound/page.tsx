@@ -3,32 +3,83 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, Loader2, Megaphone, Phone, PhoneOutgoing, Play, Plus, Square } from 'lucide-react'
+import {
+  BarChart3,
+  Loader2,
+  Megaphone,
+  Phone,
+  PhoneOutgoing,
+  Play,
+  Plus,
+  Square,
+} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { formatDateOnly } from '@/lib/date-utils'
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle,
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-  Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
 type CampaignStatus = 'created' | 'running' | 'paused' | 'stopped' | 'completed'
 interface Campaign {
-  id: string; name: string; userId: string; script: string; phoneList: string[]
-  status: CampaignStatus; totalCalls: number; answeredCalls: number; failedCalls: number
-  createdAt: number; updatedAt: number; startedAt?: number
+  id: string
+  name: string
+  userId: string
+  script: string
+  phoneList: string[]
+  status: CampaignStatus
+  totalCalls: number
+  answeredCalls: number
+  failedCalls: number
+  createdAt: number
+  updatedAt: number
+  startedAt?: number
 }
-interface CampaignListData { list: Campaign[]; total: number; page: number; pageSize: number }
+interface CampaignListData {
+  list: Campaign[]
+  total: number
+  page: number
+  pageSize: number
+}
 interface CampaignStats {
-  id: string; name: string; status: CampaignStatus; totalCalls: number
-  answeredCalls: number; failedCalls: number; pendingCalls: number; answerRate: number; durationMs: number
+  id: string
+  name: string
+  status: CampaignStatus
+  totalCalls: number
+  answeredCalls: number
+  failedCalls: number
+  pendingCalls: number
+  answerRate: number
+  durationMs: number
 }
-interface CreateForm { name: string; script: string; phoneNumbers: string }
+interface CreateForm {
+  name: string
+  script: string
+  phoneNumbers: string
+}
 
 const EMPTY_FORM: CreateForm = { name: '', script: '', phoneNumbers: '' }
-const TEXTAREA_CLASS = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const TEXTAREA_CLASS =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const STATUS_BADGE: Record<CampaignStatus, string> = {
   created: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
   running: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
@@ -67,45 +118,66 @@ export default function OutboundPage() {
   })
   const createMutation = useMutation({
     mutationFn: async (values: CreateForm) => {
-      const phoneList = values.phoneNumbers.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
+      const phoneList = values.phoneNumbers
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
       return api<Campaign>('/api/outbound/campaign', {
-        method: 'POST', body: JSON.stringify({ name: values.name, script: values.script, phoneList }),
+        method: 'POST',
+        body: JSON.stringify({ name: values.name, script: values.script, phoneList }),
       })
     },
-    onSuccess: () => { setForm(EMPTY_FORM); queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] }) },
+    onSuccess: () => {
+      setForm(EMPTY_FORM)
+      queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] })
+    },
   })
   const startMutation = useMutation({
-    mutationFn: (id: string) => api<Campaign>(`/api/outbound/campaign/${id}/start`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      api<Campaign>(`/api/outbound/campaign/${id}/start`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] }),
   })
   const stopMutation = useMutation({
-    mutationFn: (id: string) => api<Campaign>(`/api/outbound/campaign/${id}/stop`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      api<Campaign>(`/api/outbound/campaign/${id}/stop`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] }),
   })
   const campaigns = data?.list ?? []
   const stats = statsQuery.data
-  const parsePhones = (s: string) => s.split(/[,\n]/).map((p) => p.trim()).filter(Boolean)
+  const parsePhones = (s: string) =>
+    s
+      .split(/[,\n]/)
+      .map((p) => p.trim())
+      .filter(Boolean)
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!form.name.trim() || !form.script.trim() || parsePhones(form.phoneNumbers).length === 0) {
-      setFormError(t('error')); return
+      setFormError(t('error'))
+      return
     }
-    setFormError(''); createMutation.mutate(form)
+    setFormError('')
+    createMutation.mutate(form)
   }
-  const openStats = (id: string) => { setStatsId(id); setStatsOpen(true) }
-  const statItems = stats ? [
-    { label: t('totalCalls'), value: String(stats.totalCalls) },
-    { label: t('answered'), value: String(stats.answeredCalls) },
-    { label: t('failed'), value: String(stats.failedCalls) },
-    { label: t('answerRate'), value: `${(stats.answerRate * 100).toFixed(1)}%` },
-    { label: t('avgDuration'), value: `${(stats.durationMs / 1000).toFixed(1)}s` },
-  ] : []
+  const openStats = (id: string) => {
+    setStatsId(id)
+    setStatsOpen(true)
+  }
+  const statItems = stats
+    ? [
+        { label: t('totalCalls'), value: String(stats.totalCalls) },
+        { label: t('answered'), value: String(stats.answeredCalls) },
+        { label: t('failed'), value: String(stats.failedCalls) },
+        { label: t('answerRate'), value: `${(stats.answerRate * 100).toFixed(1)}%` },
+        { label: t('avgDuration'), value: `${(stats.durationMs / 1000).toFixed(1)}s` },
+      ]
+    : []
   return (
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Megaphone className="h-7 w-7 text-primary" />{t('title')}
+          <Megaphone className="h-7 w-7 text-primary" />
+          {t('title')}
         </h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -113,30 +185,51 @@ export default function OutboundPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Plus className="h-4 w-4 text-primary" />{t('createCampaign')}
+            <Plus className="h-4 w-4 text-primary" />
+            {t('createCampaign')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t('campaignName')}</Label>
-              <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="h-9" placeholder={t('campaignName')} />
+              <Input
+                id="name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="h-9"
+                placeholder={t('campaignName')}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="script">{t('script')}</Label>
-              <textarea id="script" value={form.script} onChange={(e) => setForm({ ...form, script: e.target.value })}
-                className={TEXTAREA_CLASS} rows={3} placeholder={t('script')} />
+              <textarea
+                id="script"
+                value={form.script}
+                onChange={(e) => setForm({ ...form, script: e.target.value })}
+                className={TEXTAREA_CLASS}
+                rows={3}
+                placeholder={t('script')}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phoneNumbers">{t('phoneNumbers')}</Label>
-              <textarea id="phoneNumbers" value={form.phoneNumbers}
+              <textarea
+                id="phoneNumbers"
+                value={form.phoneNumbers}
                 onChange={(e) => setForm({ ...form, phoneNumbers: e.target.value })}
-                className={TEXTAREA_CLASS} rows={3} placeholder={t('phoneNumbersHint')} />
+                className={TEXTAREA_CLASS}
+                rows={3}
+                placeholder={t('phoneNumbersHint')}
+              />
               <p className="text-xs text-muted-foreground">{t('phoneNumbersHint')}</p>
             </div>
             {createMutation.isError && (
-              <Alert variant="danger" title={t('error')} description={(createMutation.error as Error).message} />
+              <Alert
+                variant="danger"
+                title={t('error')}
+                description={(createMutation.error as Error).message}
+              />
             )}
             {formError && <Alert variant="warning" title={formError} />}
             {createMutation.isSuccess && <Alert variant="success" title={t('create')} />}
@@ -150,11 +243,13 @@ export default function OutboundPage() {
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <PhoneOutgoing className="h-5 w-5 text-primary" />{t('title')}
+          <PhoneOutgoing className="h-5 w-5 text-primary" />
+          {t('title')}
         </h2>
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('loading')}
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {tc('loading')}
           </div>
         ) : isError ? (
           <Alert variant="danger" description={(error as Error).message} />
@@ -180,11 +275,14 @@ export default function OutboundPage() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={STATUS_BADGE[c.status]}>{t(c.status)}</Badge>
+                      <Badge variant="outline" className={STATUS_BADGE[c.status]}>
+                        {t(c.status)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="inline-flex items-center gap-1 text-xs">
-                        <Phone className="h-3.5 w-3.5" />{c.phoneList.length}
+                        <Phone className="h-3.5 w-3.5" />
+                        {c.phoneList.length}
                       </span>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -193,19 +291,30 @@ export default function OutboundPage() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {(c.status === 'created' || c.status === 'paused') && (
-                          <Button size="sm" variant="outline" disabled={startMutation.isPending}
-                            onClick={() => startMutation.mutate(c.id)}>
-                            <Play className="mr-1 h-3.5 w-3.5" />{t('start')}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={startMutation.isPending}
+                            onClick={() => startMutation.mutate(c.id)}
+                          >
+                            <Play className="mr-1 h-3.5 w-3.5" />
+                            {t('start')}
                           </Button>
                         )}
                         {c.status === 'running' && (
-                          <Button size="sm" variant="outline" disabled={stopMutation.isPending}
-                            onClick={() => stopMutation.mutate(c.id)}>
-                            <Square className="mr-1 h-3.5 w-3.5" />{t('stop')}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={stopMutation.isPending}
+                            onClick={() => stopMutation.mutate(c.id)}
+                          >
+                            <Square className="mr-1 h-3.5 w-3.5" />
+                            {t('stop')}
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => openStats(c.id)}>
-                          <BarChart3 className="mr-1 h-3.5 w-3.5" />{t('viewStats')}
+                          <BarChart3 className="mr-1 h-3.5 w-3.5" />
+                          {t('viewStats')}
                         </Button>
                       </div>
                     </TableCell>
@@ -221,13 +330,15 @@ export default function OutboundPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />{t('stats')}
+              <BarChart3 className="h-4 w-4 text-primary" />
+              {t('stats')}
             </DialogTitle>
             <DialogDescription>{stats?.name ?? ''}</DialogDescription>
           </DialogHeader>
           {statsQuery.isLoading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />{tc('loading')}
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {tc('loading')}
             </div>
           ) : statsQuery.isError ? (
             <Alert variant="danger" description={(statsQuery.error as Error).message} />

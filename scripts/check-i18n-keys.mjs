@@ -446,19 +446,26 @@ for (const file of sourceFiles) {
   const nsPairs = extractNamespaces(src)
   if (nsPairs.length === 0) continue
 
-  // 2026-07-30: 删除 isMultiNs 宽松检查(任一 ns 存在即通过)
-  // 原 bug:文件有 useTranslations('agents.kanban') + useTranslations('common') 时,
-  // t('confirm')(应查 agents.kanban.confirm)会因为 common.confirm 存在而误判通过,
-  // 掩盖了 agents.kanban.confirm 缺失。改为严格 per-varName namespace 检查。
   const seen = new Set()
   const usedKeys = []
 
+  // 2026-08-16: 多命名空间同名 hook 变量增强
+  // 当同一文件内同一 varName 被多个 useTranslations('ns') 调用时,
+  // extractKeysByVar 基于文件级正则,无法区分每个 key 属于哪个 ns,
+  // 因此对该 varName 的所有 keys 降级为宽松检查(key 在任一 ns 中存在即通过),
+  // 避免把 auth 命名空间的键误判为根命名空间缺失。
+  const varNsMap = new Map()
   for (const { varName, ns } of nsPairs) {
+    if (!varNsMap.has(varName)) varNsMap.set(varName, new Set())
+    varNsMap.get(varName).add(ns)
+  }
+
+  for (const { varName } of nsPairs) {
     for (const key of extractKeysByVar(src, varName)) {
-      const dedupe = `${ns}::${key}`
+      const dedupe = `${varName}::${key}`
       if (seen.has(dedupe)) continue
       seen.add(dedupe)
-      usedKeys.push({ key, ns, varName })
+      usedKeys.push({ key, varName })
     }
   }
 
@@ -468,16 +475,36 @@ for (const file of sourceFiles) {
 
   const relPath = relative(ROOT, file)
 
-  for (const { key, ns, varName } of usedKeys) {
-    // 严格检查:key 必须在其 varName 对应的 namespace 下存在
-    const existsInBase = hasKey(messages[BASE_LANG], ns, key)
-    if (!existsInBase) {
-      missingKeyIssues.push({
-        file: relPath,
-        ns,
-        key,
-        varName,
-      })
+  for (const { key, varName } of usedKeys) {
+    const nsSet = varNsMap.get(varName)
+    if (nsSet.size === 1) {
+      // 严格检查:key 必须在其唯一的 namespace 下存在
+      const ns = [...nsSet][0]
+      const existsInBase = hasKey(messages[BASE_LANG], ns, key)
+      if (!existsInBase) {
+        missingKeyIssues.push({
+          file: relPath,
+          ns,
+          key,
+          varName,
+        })
+      }
+    } else {
+      // 多命名空间同名变量:宽松检查,key 在任一 namespace 下存在即通过
+      const existsInAny = [...nsSet].some(n => hasKey(messages[BASE_LANG], n, key))
+      if (!existsInAny) {
+        // 在所有 ns 中都不存在,报告所有缺失的 ns
+        for (const n of nsSet) {
+          if (!hasKey(messages[BASE_LANG], n, key)) {
+            missingKeyIssues.push({
+              file: relPath,
+              ns: n,
+              key,
+              varName,
+            })
+          }
+        }
+      }
     }
   }
 }

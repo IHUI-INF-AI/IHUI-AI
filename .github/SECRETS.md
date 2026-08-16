@@ -130,4 +130,4 @@
 | sdk-publish.yml           | `NPM_TOKEN`                                                                                          |
 | weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                      |
 | miniapp-preview.yml       | （无）                                                                                               |
-| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                        |
+| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                       |

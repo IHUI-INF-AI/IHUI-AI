@@ -88,6 +88,8 @@ export default function ChatPage() {
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
       signal: controller.signal,
+      // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+      stream: true,
       // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {

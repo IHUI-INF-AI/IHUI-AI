@@ -23,14 +23,23 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X, Keyboard, ShieldCheck, ShieldAlert, History, Hand, Undo2, TriangleAlert, SquareSlash, Layers, Hammer, BookOpen, Search, FileText } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@ihui/ui-react'
+  X,
+  Keyboard,
+  ShieldCheck,
+  ShieldAlert,
+  History,
+  Hand,
+  Undo2,
+  TriangleAlert,
+  SquareSlash,
+  Layers,
+  Hammer,
+  BookOpen,
+  Search,
+  FileText,
+} from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface ShortcutRow {

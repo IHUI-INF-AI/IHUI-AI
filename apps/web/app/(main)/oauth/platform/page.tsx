@@ -43,7 +43,9 @@ export default function OauthPlatformPage() {
           <KeyRound className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -60,7 +62,9 @@ export default function OauthPlatformPage() {
       {/* Features */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('featuresTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            {t('featuresTitle')}
+          </h2>
           <p className="text-sm text-muted-foreground">{t('featuresSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -84,7 +88,9 @@ export default function OauthPlatformPage() {
       {/* Steps */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('stepsTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            {t('stepsTitle')}
+          </h2>
           <p className="text-sm text-muted-foreground">{t('stepsSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">

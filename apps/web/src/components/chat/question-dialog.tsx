@@ -67,9 +67,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
   }
 
   const handleSubmit = () => {
-    const selectedLabels = options
-      .filter((o) => selectedIds.has(o.id))
-      .map((o) => o.label)
+    const selectedLabels = options.filter((o) => selectedIds.has(o.id)).map((o) => o.label)
     const trimmedCustom = customInput.trim()
     // 自定义输入优先级高于选项;两者都有时合并
     const parts = [...selectedLabels]
@@ -88,8 +86,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
     }
   }
 
-  const canSubmit =
-    allowMultiple || (allowCustom && customInput.trim().length > 0)
+  const canSubmit = allowMultiple || (allowCustom && customInput.trim().length > 0)
   const submitLabel = allowMultiple
     ? t('submit') + (selectedIds.size > 0 ? ` (${selectedIds.size})` : '')
     : t('submit')
@@ -129,9 +126,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
                   )}
                 >
                   <span className="flex-1 break-words">{opt.label}</span>
-                  {selected && (
-                    <Check className="ml-2 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  )}
+                  {selected && <Check className="ml-2 h-4 w-4 shrink-0 text-primary" aria-hidden />}
                 </button>
               )
             })}
@@ -162,12 +157,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
             {t('skip')}
           </Button>
           {allowMultiple && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-            >
+            <Button type="button" size="sm" onClick={handleSubmit} disabled={!canSubmit}>
               <span>{submitLabel}</span>
             </Button>
           )}

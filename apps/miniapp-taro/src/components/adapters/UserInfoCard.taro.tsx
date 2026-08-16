@@ -259,11 +259,7 @@ export function UserInfoCard({
       <View style={viewStyles.header()}>
         <View onTap={onEdit} hoverClass="opacity-60" style={viewStyles.avatarWrap(tk)}>
           {showAvatarImg ? (
-            <Image
-              src={avatar}
-              style={{ width: toRpx(56), height: toRpx(56) }}
-              mode="aspectFill"
-            />
+            <Image src={avatar} style={{ width: toRpx(56), height: toRpx(56) }} mode="aspectFill" />
           ) : (
             <View style={viewStyles.avatarPlaceholder(tk)}>
               <Text>{initials}</Text>

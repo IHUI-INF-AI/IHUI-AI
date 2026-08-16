@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlazaCoverScreenProps } from '../../types'
 
@@ -57,18 +65,10 @@ export function PlazaCoverScreen({
         </View>
 
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            activeOpacity={0.7}
-            onPress={onEnter}
-          >
+          <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.7} onPress={onEnter}>
             <Text style={styles.primaryBtnText}>进入广场</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            activeOpacity={0.7}
-            onPress={onPublish}
-          >
+          <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.7} onPress={onPublish}>
             <Text style={styles.secondaryBtnText}>发布需求 ＋</Text>
           </TouchableOpacity>
         </View>

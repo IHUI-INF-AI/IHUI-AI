@@ -298,9 +298,7 @@ export default function EduAiCertificationPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{detail?.certName ?? t('viewDetail')}</DialogTitle>
-            <DialogDescription>
-              {detail?.issuingAuthority ?? t('viewDetail')}
-            </DialogDescription>
+            <DialogDescription>{detail?.issuingAuthority ?? t('viewDetail')}</DialogDescription>
           </DialogHeader>
 
           {detailLoading ? (

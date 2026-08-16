@@ -90,8 +90,16 @@ export default function RegisterIndex() {
               <Image className="logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
             </View>
             <View className="titlebox">
-              <Image className="titlebox-image" src="/static/images/loginengtexta.png" mode="aspectFit" />
-              <Image className="titlebox-image1" src="/static/images/loginzhtext.png" mode="aspectFit" />
+              <Image
+                className="titlebox-image"
+                src="/static/images/loginengtexta.png"
+                mode="aspectFit"
+              />
+              <Image
+                className="titlebox-image1"
+                src="/static/images/loginzhtext.png"
+                mode="aspectFit"
+              />
             </View>
           </View>
 
@@ -189,10 +197,18 @@ export default function RegisterIndex() {
                 </View>
                 <Text className="arge">
                   我已阅读并同意
-                  <Text className="textItem" onClick={() => openAgreement('user')}>《用户协议》</Text>
-                  <Text className="textItem" onClick={() => openAgreement('privacy')}>《隐私协议》</Text>
-                  <Text className="textItem" onClick={() => openAgreement('privacy')}>《个人隐私》</Text>
-                  <Text className="textItem" onClick={() => openAgreement('user')}>《软件使用协议》</Text>
+                  <Text className="textItem" onClick={() => openAgreement('user')}>
+                    《用户协议》
+                  </Text>
+                  <Text className="textItem" onClick={() => openAgreement('privacy')}>
+                    《隐私协议》
+                  </Text>
+                  <Text className="textItem" onClick={() => openAgreement('privacy')}>
+                    《个人隐私》
+                  </Text>
+                  <Text className="textItem" onClick={() => openAgreement('user')}>
+                    《软件使用协议》
+                  </Text>
                 </Text>
               </View>
             </View>
@@ -229,7 +245,9 @@ export default function RegisterIndex() {
             <View className="logintext">
               <View className="textoo">
                 <Text className="has-account">已有账户?</Text>
-                <Text className="to-login" onClick={toLogin}>登录</Text>
+                <Text className="to-login" onClick={toLogin}>
+                  登录
+                </Text>
               </View>
             </View>
           </View>

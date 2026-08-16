@@ -10,7 +10,18 @@ import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { db } from '../db/index.js'
-import { learnTopicLesson, lessons, lessonRecords, eduOrders, eduLiveCategory, eduLiveChannel, examSignups, examPapers, eduClassesSchedules, eduClassesMembers } from '@ihui/database'
+import {
+  learnTopicLesson,
+  lessons,
+  lessonRecords,
+  eduOrders,
+  eduLiveCategory,
+  eduLiveChannel,
+  examSignups,
+  examPapers,
+  eduClassesSchedules,
+  eduClassesMembers,
+} from '@ihui/database'
 import { eq, and, desc, asc, sql } from 'drizzle-orm'
 import { findCertificates, findCertificateById } from '../db/certificate-queries.js'
 import {
@@ -837,7 +848,12 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       const { orderType, targetId, targetTitle, quantity } = parsed.data
       // 服务端反查课程真实价格与标题(防客户端篡改金额/标题)
       const [course] = await db
-        .select({ id: lessons.id, title: lessons.title, price: lessons.price, isFree: lessons.isFree })
+        .select({
+          id: lessons.id,
+          title: lessons.title,
+          price: lessons.price,
+          isFree: lessons.isFree,
+        })
         .from(lessons)
         .where(and(eq(lessons.id, targetId), eq(lessons.isPublished, true)))
         .limit(1)
@@ -876,11 +892,12 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(eduOrders.createdAt))
         .limit(pageSize)
         .offset((page - 1) * pageSize),
-      db.select({ count: sql<number>`count(*)::int` }).from(eduOrders).where(whereCond),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eduOrders)
+        .where(whereCond),
     ])
-    return reply.send(
-      success({ list: rows, total: countRows[0]?.count ?? 0, page, pageSize }),
-    )
+    return reply.send(success({ list: rows, total: countRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // POST /edu/orders/:id/cancel - 取消课程订单(仅本人,pending → cancelled)
@@ -928,10 +945,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { page, pageSize, category, isLive } = parsed.data
-    const conds = [
-      eq(eduLiveChannel.isPublished, true),
-      eq(eduLiveChannel.status, 1),
-    ]
+    const conds = [eq(eduLiveChannel.isPublished, true), eq(eduLiveChannel.status, 1)]
     if (category !== undefined) conds.push(eq(eduLiveChannel.categoryId, category))
     if (isLive !== undefined) conds.push(eq(eduLiveChannel.isLive, isLive))
     const whereCond = and(...conds)
@@ -940,10 +954,17 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
         .select()
         .from(eduLiveChannel)
         .where(whereCond)
-        .orderBy(desc(eduLiveChannel.isLive), asc(eduLiveChannel.sort), desc(eduLiveChannel.startTime))
+        .orderBy(
+          desc(eduLiveChannel.isLive),
+          asc(eduLiveChannel.sort),
+          desc(eduLiveChannel.startTime),
+        )
         .limit(pageSize)
         .offset((page - 1) * pageSize),
-      db.select({ count: sql<number>`count(*)::int` }).from(eduLiveChannel).where(whereCond),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eduLiveChannel)
+        .where(whereCond),
     ])
     const list = rows.map((r) => ({
       id: r.id,
@@ -956,9 +977,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       endTime: r.endTime ? r.endTime.toISOString() : null,
       description: r.intro ?? null,
     }))
-    return reply.send(
-      success({ list, total: countRows[0]?.count ?? 0, page, pageSize }),
-    )
+    return reply.send(success({ list, total: countRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // GET /edu/live/categories - 直播分类列表(启用状态)

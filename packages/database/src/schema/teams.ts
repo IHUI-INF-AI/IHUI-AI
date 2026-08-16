@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, timestamp, text, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, timestamp, text, unique } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 团队表。
@@ -16,7 +16,7 @@ export const teams = pgTable('teams', {
   avatar: varchar('avatar', { length: 512 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 团队成员表。
@@ -39,7 +39,7 @@ export const teamMembers = pgTable(
   (t) => ({
     teamUserUnique: unique().on(t.teamId, t.userId),
   }),
-);
+)
 
 /**
  * 团队邀请表。
@@ -60,11 +60,11 @@ export const teamInvitations = pgTable('team_invitations', {
   status: varchar('status', { length: 32 }).default('pending').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Team = typeof teams.$inferSelect;
-export type NewTeam = typeof teams.$inferInsert;
-export type TeamMember = typeof teamMembers.$inferSelect;
-export type NewTeamMember = typeof teamMembers.$inferInsert;
-export type TeamInvitation = typeof teamInvitations.$inferSelect;
-export type NewTeamInvitation = typeof teamInvitations.$inferInsert;
+export type Team = typeof teams.$inferSelect
+export type NewTeam = typeof teams.$inferInsert
+export type TeamMember = typeof teamMembers.$inferSelect
+export type NewTeamMember = typeof teamMembers.$inferInsert
+export type TeamInvitation = typeof teamInvitations.$inferSelect
+export type NewTeamInvitation = typeof teamInvitations.$inferInsert

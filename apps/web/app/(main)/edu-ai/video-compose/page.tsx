@@ -530,10 +530,7 @@ export default function EduAiVideoComposePage() {
                         )}
                       >
                         <TaskStatusIcon
-                          className={cn(
-                            'h-3.5 w-3.5',
-                            task.status === 'running' && 'animate-spin',
-                          )}
+                          className={cn('h-3.5 w-3.5', task.status === 'running' && 'animate-spin')}
                         />
                       </span>
                       <span className="min-w-0 flex-1">

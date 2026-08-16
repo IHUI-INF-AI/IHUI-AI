@@ -46,9 +46,7 @@ export default function SettingsPage() {
     setDark(v)
     document.documentElement.classList.toggle('dark', v)
     // 持久化:use-system-theme 的 onStorageChanged 会监听到并同步其他 context
-    void chrome.storage.local
-      .set({ [THEME_STORAGE_KEY]: v ? 'dark' : 'light' })
-      .catch(() => {})
+    void chrome.storage.local.set({ [THEME_STORAGE_KEY]: v ? 'dark' : 'light' }).catch(() => {})
   }
 
   return (

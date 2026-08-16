@@ -46,11 +46,18 @@ const mailRoutes: FastifyPluginAsync = async (server) => {
       to: fullTo,
       subject,
       text,
-      html: text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>'),
+      html: text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br/>'),
     })
     // 记录扩展字段(from/fromName/replyTo)到日志:email-service 当前忽略,后续可扩展
     if (from || fromName || replyTo) {
-      request.log.info({ from, fromName, replyTo, to: fullTo, subject }, 'mail/send 扩展字段(当前未应用)')
+      request.log.info(
+        { from, fromName, replyTo, to: fullTo, subject },
+        'mail/send 扩展字段(当前未应用)',
+      )
     }
     if (!result.sent && !result.stub) {
       return reply.status(500).send(error(500, result.error ?? '邮件发送失败'))
@@ -79,7 +86,10 @@ const mailRoutes: FastifyPluginAsync = async (server) => {
       text: html.replace(/<[^>]*>/g, ''),
     })
     if (from || fromName || replyTo) {
-      request.log.info({ from, fromName, replyTo, to: fullTo, subject }, 'mail/send/html 扩展字段(当前未应用)')
+      request.log.info(
+        { from, fromName, replyTo, to: fullTo, subject },
+        'mail/send/html 扩展字段(当前未应用)',
+      )
     }
     if (!result.sent && !result.stub) {
       return reply.status(500).send(error(500, result.error ?? '邮件发送失败'))

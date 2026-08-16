@@ -26,7 +26,11 @@ export const EXPORT_COLS: ExportColumn[] = [
   { key: 'courseId', title: 'col.courseId' },
   { key: 'title', title: 'col.courseName' },
   { key: 'payType', title: 'col.payType', formatter: (v) => PAY_TYPE_KEY[Number(v)] ?? String(v) },
-  { key: 'payCrowd', title: 'col.payCrowd', formatter: (v) => PAY_CROWD_KEY[Number(v)] ?? String(v) },
+  {
+    key: 'payCrowd',
+    title: 'col.payCrowd',
+    formatter: (v) => PAY_CROWD_KEY[Number(v)] ?? String(v),
+  },
   { key: 'amount', title: 'col.amount' },
   { key: 'creator', title: 'col.creator' },
 ]

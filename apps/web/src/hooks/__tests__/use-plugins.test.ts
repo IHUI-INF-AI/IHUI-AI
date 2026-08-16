@@ -40,7 +40,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
       data: {
         states: {
           'playwright-mcp': { installedAt: '2026-07-22T10:00:00.000Z', pinned: true },
-          'remotion': { installedAt: '2026-07-22T11:00:00.000Z', pinned: false },
+          remotion: { installedAt: '2026-07-22T11:00:00.000Z', pinned: false },
         },
         authenticated: true,
       },
@@ -73,7 +73,10 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   })
 
   it('refresh 手动触发再次 GET', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: true, data: { states: {}, authenticated: false } })
+    fetchApiMock.mockResolvedValueOnce({
+      success: true,
+      data: { states: {}, authenticated: false },
+    })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 

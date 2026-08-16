@@ -116,7 +116,11 @@ describe('Payment Gateway API', () => {
   })
 
   describe('Endpoints (401 without auth)', () => {
-    const protectedEndpoints: Array<{ method: 'GET' | 'POST'; url: string; payload?: Record<string, unknown> }> = [
+    const protectedEndpoints: Array<{
+      method: 'GET' | 'POST'
+      url: string
+      payload?: Record<string, unknown>
+    }> = [
       { method: 'POST', url: '/api/payments/wechat/create', payload: {} },
       { method: 'POST', url: '/api/payments/wechat/android/create', payload: {} },
       { method: 'POST', url: '/api/payments/wechat/course/create', payload: {} },

@@ -75,7 +75,9 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
 
   useEffect(() => {
     const Ctor =
-      (typeof window !== 'undefined' && (window.SpeechRecognition ?? window.webkitSpeechRecognition)) || null
+      (typeof window !== 'undefined' &&
+        (window.SpeechRecognition ?? window.webkitSpeechRecognition)) ||
+      null
     if (Ctor) {
       setSupported('native')
       const recognition = new Ctor()
@@ -98,7 +100,10 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         }
       }
       recognitionRef.current = recognition
-    } else if (typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getUserMedia === 'function') {
+    } else if (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.mediaDevices?.getUserMedia === 'function'
+    ) {
       setSupported('fallback')
     } else {
       setSupported('unsupported')

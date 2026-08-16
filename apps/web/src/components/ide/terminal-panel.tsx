@@ -1187,10 +1187,7 @@ function TerminalViewport({
               </div>
             ) : (
               aiSuggestions.map((s, i) => (
-                <Tooltip
-                  key={`${i}-${s.command}`}
-                  content={t('terminalPanel.insertSuggestTitle')}
-                >
+                <Tooltip key={`${i}-${s.command}`} content={t('terminalPanel.insertSuggestTitle')}>
                   <button
                     type="button"
                     className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"

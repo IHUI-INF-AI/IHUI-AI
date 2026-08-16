@@ -103,14 +103,26 @@ describe('Admin Plugin Stats API', () => {
   })
 
   it('GET /stats/summary?days=30 透传 days', async () => {
-    mockSummary.mockResolvedValueOnce({ totalEvents: 0, totalInstalls: 0, totalUninstalls: 0, totalClicks: 0, totalPins: 0, totalUnpins: 0, todayInstalls: 0, todayClicks: 0 })
+    mockSummary.mockResolvedValueOnce({
+      totalEvents: 0,
+      totalInstalls: 0,
+      totalUninstalls: 0,
+      totalClicks: 0,
+      totalPins: 0,
+      totalUnpins: 0,
+      todayInstalls: 0,
+      todayClicks: 0,
+    })
     const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/summary?days=30' })
     expect(res.statusCode).toBe(200)
     expect(mockSummary).toHaveBeenCalledWith(30)
   })
 
   it('GET /stats/summary?days=abc 非法 days → 400', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/summary?days=abc' })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/plugins/stats/summary?days=abc',
+    })
     expect(res.statusCode).toBe(400)
   })
 
@@ -120,7 +132,10 @@ describe('Admin Plugin Stats API', () => {
   })
 
   it('GET /stats/summary?days=400 超上限 → 400', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/summary?days=400' })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/plugins/stats/summary?days=400',
+    })
     expect(res.statusCode).toBe(400)
   })
 
@@ -129,8 +144,24 @@ describe('Admin Plugin Stats API', () => {
   // ─────────────────────────────────────────────────────────
   it('GET /stats/top 默认 limit=20', async () => {
     mockTop.mockResolvedValueOnce([
-      { pluginId: 'playwright-mcp', installs: 10, uninstalls: 1, clicks: 50, pins: 5, unpins: 0, heat: 250 },
-      { pluginId: 'remotion', installs: 8, uninstalls: 0, clicks: 30, pins: 3, unpins: 1, heat: 190 },
+      {
+        pluginId: 'playwright-mcp',
+        installs: 10,
+        uninstalls: 1,
+        clicks: 50,
+        pins: 5,
+        unpins: 0,
+        heat: 250,
+      },
+      {
+        pluginId: 'remotion',
+        installs: 8,
+        uninstalls: 0,
+        clicks: 30,
+        pins: 3,
+        unpins: 1,
+        heat: 190,
+      },
     ])
     const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/top' })
     expect(res.statusCode).toBe(200)
@@ -143,7 +174,10 @@ describe('Admin Plugin Stats API', () => {
 
   it('GET /stats/top?days=30&limit=50 透传 days + limit', async () => {
     mockTop.mockResolvedValueOnce([])
-    const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/top?days=30&limit=50' })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/plugins/stats/top?days=30&limit=50',
+    })
     expect(res.statusCode).toBe(200)
     expect(mockTop).toHaveBeenCalledWith(30, 50)
   })

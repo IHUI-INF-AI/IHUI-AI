@@ -54,7 +54,10 @@ export default function ModelEditScreen() {
   })
   const [submitting, setSubmitting] = useState(false)
 
-  const handleChange = <K extends keyof ModelEditFieldValues>(key: K, value: ModelEditFieldValues[K]) => {
+  const handleChange = <K extends keyof ModelEditFieldValues>(
+    key: K,
+    value: ModelEditFieldValues[K],
+  ) => {
     setFields((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -77,7 +80,9 @@ export default function ModelEditScreen() {
     setSubmitting(true)
     setTimeout(() => {
       setSubmitting(false)
-      Alert.alert(t('modelEdit.success.title'), t('modelEdit.success.message'), [{ text: t('common.gotIt') }])
+      Alert.alert(t('modelEdit.success.title'), t('modelEdit.success.message'), [
+        { text: t('common.gotIt') },
+      ])
     }, 800)
   }
 

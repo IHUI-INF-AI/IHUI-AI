@@ -248,7 +248,10 @@ export async function getConversationMessages(
       .orderBy(asc(relayMessages.createdAt))
       .limit(limit)
       .offset(offset),
-    dbRead.select({ c: sql<number>`count(*)::int` }).from(relayMessages).where(where),
+    dbRead
+      .select({ c: sql<number>`count(*)::int` })
+      .from(relayMessages)
+      .where(where),
   ])
 
   return { items, total: totalRows[0]?.c ?? 0 }
@@ -258,10 +261,7 @@ export async function getConversationMessages(
 // 5. deleteConversation(校验归属后硬删,CASCADE 删 messages)
 // =============================================================================
 
-export async function deleteConversation(
-  conversationId: string,
-  userId: string,
-): Promise<void> {
+export async function deleteConversation(conversationId: string, userId: string): Promise<void> {
   // 校验归属
   const [conv] = await dbRead
     .select({ id: relayConversations.id })

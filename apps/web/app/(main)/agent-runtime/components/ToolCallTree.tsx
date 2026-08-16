@@ -20,12 +20,13 @@ interface ToolCallTreeProps {
   refreshKey: number
 }
 
-const STATUS_META: Record<ToolCallNode['status'], { icon: string; color: string; label: string }> = {
-  pending: { icon: '⏳', color: 'text-blue-500', label: '进行中' },
-  success: { icon: '✅', color: 'text-green-600', label: '成功' },
-  failed: { icon: '❌', color: 'text-red-600', label: '失败' },
-  skipped: { icon: '⏭️', color: 'text-muted-foreground', label: '跳过' },
-}
+const STATUS_META: Record<ToolCallNode['status'], { icon: string; color: string; label: string }> =
+  {
+    pending: { icon: '⏳', color: 'text-blue-500', label: '进行中' },
+    success: { icon: '✅', color: 'text-green-600', label: '成功' },
+    failed: { icon: '❌', color: 'text-red-600', label: '失败' },
+    skipped: { icon: '⏭️', color: 'text-muted-foreground', label: '跳过' },
+  }
 
 function TreeRow({
   node,

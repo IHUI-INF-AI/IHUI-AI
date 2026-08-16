@@ -15,11 +15,7 @@ type SeriesKey = keyof typeof TOKEN_COLORS
 
 const SERIES_KEYS: SeriesKey[] = ['history', 'codebase', 'mention', 'web', 'database']
 
-export function TokenHistoryChart({
-  data,
-  width = 720,
-  height = 240,
-}: TokenHistoryChartProps) {
+export function TokenHistoryChart({ data, width = 720, height = 240 }: TokenHistoryChartProps) {
   const padL = 48
   const padR = 16
   const padT = 16

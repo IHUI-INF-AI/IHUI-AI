@@ -9,12 +9,7 @@
  * 故此处用 fetchApi 直接调 /api/messages 绕过命名冲突,确保拿到 notification.ts 的语义。
  */
 import { useEffect, useState } from 'react'
-import {
-  fetchApi,
-  markAllMessagesRead,
-  type MessageItem,
-  type PageData,
-} from '@ihui/api-client'
+import { fetchApi, markAllMessagesRead, type MessageItem, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'

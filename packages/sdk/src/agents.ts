@@ -80,7 +80,10 @@ export function createAgentsModule(client: BaseClient): AgentsModule {
     },
 
     getTaskStatus: (taskId) =>
-      client.request<V1AgentTaskStatusResponse>('GET', `/agents/tasks/${encodeURIComponent(taskId)}/status`),
+      client.request<V1AgentTaskStatusResponse>(
+        'GET',
+        `/agents/tasks/${encodeURIComponent(taskId)}/status`,
+      ),
     cancelTask: (taskId) =>
       client.request<void>('POST', `/agents/tasks/${encodeURIComponent(taskId)}/cancel`),
     listSessions: () => client.request<V1AgentSessionsResponse>('GET', '/agents/sessions'),

@@ -12,12 +12,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
-import {
-  requireAuth,
-  callVendor,
-  recordUsage,
-  genId,
-} from './ai-vendors/_shared.js'
+import { requireAuth, callVendor, recordUsage, genId } from './ai-vendors/_shared.js'
 
 type StepName = 'script' | 'material' | 'compose' | 'subtitle'
 type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed'
@@ -68,11 +63,7 @@ function newSteps(): Record<StepName, ComposeStep> {
   }
 }
 
-async function runStep(
-  task: ComposeTask,
-  step: StepName,
-  reply: FastifyReply,
-): Promise<boolean> {
+async function runStep(task: ComposeTask, step: StepName, reply: FastifyReply): Promise<boolean> {
   const s = task.steps[step]
   s.status = 'running'
   s.startedAt = Date.now()

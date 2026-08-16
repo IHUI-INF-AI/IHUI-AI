@@ -111,11 +111,7 @@ export const BatchHeader = React.memo(function BatchHeader({
             aria-hidden
           />
           <Icon
-            className={cn(
-              'h-3 w-3 shrink-0',
-              toneCls.icon,
-              status === 'running' && 'animate-spin',
-            )}
+            className={cn('h-3 w-3 shrink-0', toneCls.icon, status === 'running' && 'animate-spin')}
             aria-hidden
           />
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">

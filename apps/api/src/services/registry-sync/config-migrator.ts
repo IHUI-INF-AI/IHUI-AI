@@ -13,11 +13,7 @@
 import { readFile, writeFile, mkdir, readdir, copyFile, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type {
-  ConfigFileType,
-  ConfigMigrateRequest,
-  ConfigMigrateResponse,
-} from '@ihui/types'
+import type { ConfigFileType, ConfigMigrateRequest, ConfigMigrateResponse } from '@ihui/types'
 import {
   CONFIG_FILE_PATHS,
   HIGH_RISK_KEYS,
@@ -72,10 +68,7 @@ function timestampDir(): string {
 // =============================================================================
 
 /** 备份当前文件(迁移前),返回备份文件路径 */
-export async function backupFile(
-  fileType: ConfigFileType,
-  backupDir?: string,
-): Promise<string> {
+export async function backupFile(fileType: ConfigFileType, backupDir?: string): Promise<string> {
   const dir = backupDir ?? join(BACKUP_ROOT, timestampDir())
   const absDir = resolvePath(dir)
   await mkdir(absDir, { recursive: true })
@@ -203,9 +196,7 @@ export async function migrateFile(
 }
 
 /** 自动迁移配置文件 */
-export async function migrateConfig(
-  request: ConfigMigrateRequest,
-): Promise<ConfigMigrateResponse> {
+export async function migrateConfig(request: ConfigMigrateRequest): Promise<ConfigMigrateResponse> {
   const dryRun = request.dryRun ?? true
   const threshold = request.rollbackThreshold ?? 3
   const allTypes = Object.keys(CONFIG_FILE_PATHS) as ConfigFileType[]

@@ -50,7 +50,13 @@ export default function CalendarPage() {
           id: String(task.id),
           title: task.title,
           scheduledAt: task.scheduledAt ?? task.createdAt ?? new Date().toISOString(),
-          status: (task.status === 'success' ? 'published' : task.status === 'failed' ? 'failed' : task.status === 'scheduled' ? 'scheduled' : 'draft') as ScheduledTask['status'],
+          status: (task.status === 'success'
+            ? 'published'
+            : task.status === 'failed'
+              ? 'failed'
+              : task.status === 'scheduled'
+                ? 'scheduled'
+                : 'draft') as ScheduledTask['status'],
           platform: task.targets?.[0]?.platform,
         })),
       )

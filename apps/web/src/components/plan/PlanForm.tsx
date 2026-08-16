@@ -53,8 +53,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
   const [error, setError] = React.useState<string | null>(null)
 
   const addStep = () => setSteps((s) => [...s, { ...emptyDraft }])
-  const removeStep = (i: number) =>
-    setSteps((s) => s.filter((_, idx) => idx !== i))
+  const removeStep = (i: number) => setSteps((s) => s.filter((_, idx) => idx !== i))
   const moveStep = (i: number, dir: -1 | 1) => {
     setSteps((s) => {
       const target = i + dir

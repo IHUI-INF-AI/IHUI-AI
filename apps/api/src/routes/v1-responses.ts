@@ -431,6 +431,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/responses',
     {
+      compress: false,
       schema: {
         description: 'OpenAI Responses API 兼容端点(Cursor/Codex 客户端,支持 stream)',
         tags: ['Responses'],
@@ -484,7 +485,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
       },
       preHandler: [requireApiKeyAuth],
     },
-    async (request, reply) => {
+    async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = responsesSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

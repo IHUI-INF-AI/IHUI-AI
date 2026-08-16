@@ -29,9 +29,9 @@ const scanBodySchema = z.object({
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
-  status: z.transform(emptyToUndefined).pipe(
-    z.enum(['discovered', 'pending', 'approved', 'rejected']).optional(),
-  ),
+  status: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['discovered', 'pending', 'approved', 'rejected']).optional()),
 })
 
 const approveBodySchema = z.object({
@@ -116,13 +116,14 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
               modelId: m.id!,
               modelName: m.name ?? null,
               contextLength: m.context_length ?? null,
-              upstreamPrice: m.input_price || m.output_price
-                ? {
-                    input: m.input_price ?? 0,
-                    output: m.output_price ?? 0,
-                    currency: 'CNY',
-                  }
-                : null,
+              upstreamPrice:
+                m.input_price || m.output_price
+                  ? {
+                      input: m.input_price ?? 0,
+                      output: m.output_price ?? 0,
+                      currency: 'CNY',
+                    }
+                  : null,
               capabilities: m.capabilities ?? [],
               description: m.description ?? null,
               status: 'discovered',
@@ -152,7 +153,8 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
   // ===== 2. GET /admin/relay/discovery/pending — 待审批模型列表 =====
   server.get('/admin/relay/discovery/pending', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize, search, provider, status } = q.data
 
     const conds: ReturnType<typeof eq>[] = []
@@ -252,9 +254,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
         approvedModelRowId = updated!.id
       } else {
         // 不存在,插入新行
-        const upstreamPrice = discovery.upstreamPrice as
-          | { input?: number; output?: number }
-          | null
+        const upstreamPrice = discovery.upstreamPrice as { input?: number; output?: number } | null
         const [inserted] = await db
           .insert(aiModelConfigModels)
           .values({

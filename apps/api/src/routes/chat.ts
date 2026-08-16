@@ -106,6 +106,7 @@ const createMessageSchema = z
     role: z.enum(['user', 'assistant', 'system']).optional(),
     tokens: z.number().int().nonnegative().optional(),
     metadata: z.unknown().optional(),
+    reasoning: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -200,6 +201,7 @@ function serializeMessage(m: {
   conversationId: string
   role: string
   content: string
+  reasoning?: string | null
   tokens: number | null
   metadata: unknown
   createdAt: Date
@@ -209,6 +211,7 @@ function serializeMessage(m: {
     conversationId: m.conversationId,
     role: m.role,
     content: m.content,
+    reasoning: m.reasoning,
     tokens: m.tokens,
     metadata: m.metadata,
     createdAt: m.createdAt,
@@ -539,6 +542,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       content: parsed.data.content,
       tokens: parsed.data.tokens,
       metadata: parsed.data.metadata,
+      reasoning: parsed.data.reasoning,
     })
 
     // WebSocket 实时推送：新消息即时通知客户端刷新（多端同步）
@@ -797,7 +801,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理
   // 迁移自 coze_zhs_py/api/chat.py stream_generator
-  server.post('/coze/stream', async (request, reply) => {
+  server.post(
+    '/coze/stream',
+    { compression: false },
+    async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 

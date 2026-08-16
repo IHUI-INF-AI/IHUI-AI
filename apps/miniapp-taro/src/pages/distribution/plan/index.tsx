@@ -13,9 +13,7 @@ export default function DistributionPlan() {
     api
       .getDistributionInfo()
       .then((res) => {
-        setTotalEarnings(
-          (res as unknown as { totalCommission?: number }).totalCommission ?? 0,
-        )
+        setTotalEarnings((res as unknown as { totalCommission?: number }).totalCommission ?? 0)
       })
       .catch(() => {})
     api
@@ -29,10 +27,7 @@ export default function DistributionPlan() {
   const onOpenVip = () => {
     Taro.showModal({
       title: tt('distribution.plan.openVipTitle', '开通VIP会员'),
-      content: tt(
-        'distribution.plan.openVipContent',
-        '是否前往开通VIP会员,参与分佣计划?',
-      ),
+      content: tt('distribution.plan.openVipContent', '是否前往开通VIP会员,参与分佣计划?'),
       confirmText: tt('distribution.plan.confirm', '确认'),
       cancelText: tt('distribution.plan.cancel', '取消'),
       success: (res) => {
@@ -46,10 +41,7 @@ export default function DistributionPlan() {
   const rules = [
     tt('distribution.plan.rule1', '成为VIP会员后可参与分佣计划'),
     tt('distribution.plan.rule2', '邀请好友成为会员,您将获得会员费20%的佣金'),
-    tt(
-      'distribution.plan.rule3',
-      '佣金将在好友支付成功后24小时内自动结算到您的账户',
-    ),
+    tt('distribution.plan.rule3', '佣金将在好友支付成功后24小时内自动结算到您的账户'),
     tt('distribution.plan.rule4', '账户余额满100元可申请提现到微信或支付宝'),
   ]
 
@@ -69,7 +61,9 @@ export default function DistributionPlan() {
 
       <View className="flex bg-card border border-border rounded-[16rpx] py-[32rpx] mb-[24rpx]">
         <View className="flex-1 text-center">
-          <Text className="block text-[40rpx] font-bold text-primary">¥{totalEarnings.toFixed(2)}</Text>
+          <Text className="block text-[40rpx] font-bold text-primary">
+            ¥{totalEarnings.toFixed(2)}
+          </Text>
           <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
             {tt('distribution.plan.totalEarnings', '累计收益')}
           </Text>
@@ -92,14 +86,19 @@ export default function DistributionPlan() {
               <View className="w-[40rpx] h-[40rpx] rounded-md bg-primary text-primary-foreground text-[24rpx] font-bold flex items-center justify-center mr-[20rpx] flex-shrink-0">
                 <Text>{i + 1}</Text>
               </View>
-              <Text className="flex-1 text-[26rpx] text-foreground leading-[1.6] pt-[2rpx]">{r}</Text>
+              <Text className="flex-1 text-[26rpx] text-foreground leading-[1.6] pt-[2rpx]">
+                {r}
+              </Text>
             </View>
           ))}
         </View>
       </View>
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card shadow-[0_-4rpx_16rpx_rgba(0,0,0,0.3)]">
-        <View className="h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85" onClick={onOpenVip}>
+        <View
+          className="h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85"
+          onClick={onOpenVip}
+        >
           <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
         </View>
       </View>

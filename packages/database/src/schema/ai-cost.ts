@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, timestamp, integer, boolean, numeric, text, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp,
+  integer,
+  boolean,
+  numeric,
+  text,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * AI 成本记录表。
@@ -30,7 +40,7 @@ export const aiCostRecords = pgTable(
     modelIdx: index('ai_cost_model_idx').on(t.model),
     createdIdx: index('ai_cost_created_idx').on(t.createdAt),
   }),
-);
+)
 
 /**
  * AI 预算配置表。
@@ -46,17 +56,21 @@ export const aiBudgets = pgTable(
     model: varchar('model', { length: 128 }),
     dailyTokenLimit: integer('daily_token_limit').default(1_000_000).notNull(),
     monthlyTokenLimit: integer('monthly_token_limit').default(30_000_000).notNull(),
-    dailyCostLimit: numeric('daily_cost_limit', { precision: 10, scale: 4 }).default('100').notNull(),
-    monthlyCostLimit: numeric('monthly_cost_limit', { precision: 10, scale: 4 }).default('2000').notNull(),
+    dailyCostLimit: numeric('daily_cost_limit', { precision: 10, scale: 4 })
+      .default('100')
+      .notNull(),
+    monthlyCostLimit: numeric('monthly_cost_limit', { precision: 10, scale: 4 })
+      .default('2000')
+      .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     scopeUnique: index('ai_budget_scope_idx').on(t.scope, t.scopeKey, t.model),
   }),
-);
+)
 
-export type AiCostRecord = typeof aiCostRecords.$inferSelect;
-export type NewAiCostRecord = typeof aiCostRecords.$inferInsert;
-export type AiBudget = typeof aiBudgets.$inferSelect;
-export type NewAiBudget = typeof aiBudgets.$inferInsert;
+export type AiCostRecord = typeof aiCostRecords.$inferSelect
+export type NewAiCostRecord = typeof aiCostRecords.$inferInsert
+export type AiBudget = typeof aiBudgets.$inferSelect
+export type NewAiBudget = typeof aiBudgets.$inferInsert

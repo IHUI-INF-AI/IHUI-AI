@@ -74,8 +74,7 @@ export function createFilesModule(client: BaseClient): FilesModule {
 
     get: (id) => client.request<V1FileInfo>('GET', `/files/${encodeURIComponent(id)}`),
     delete: (id) => client.request<void>('DELETE', `/files/${encodeURIComponent(id)}`),
-    getContent: (id) =>
-      client.requestStream('GET', `/files/${encodeURIComponent(id)}/content`),
+    getContent: (id) => client.requestStream('GET', `/files/${encodeURIComponent(id)}/content`),
     getVersions: (id) =>
       client.request<V1FileVersionsResponse>('GET', `/files/${encodeURIComponent(id)}/versions`),
     uploadInit: (req) => client.request<V1UploadInitResponse>('POST', '/files/upload-init', req),

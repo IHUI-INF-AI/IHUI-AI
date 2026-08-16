@@ -95,9 +95,7 @@ export default function MemoryScopePage() {
           </Button>
           <div className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight">
-              {scopeOpt?.label ?? scope} 记忆
-            </h1>
+            <h1 className="text-xl font-bold tracking-tight">{scopeOpt?.label ?? scope} 记忆</h1>
             <span className="text-sm text-muted-foreground">({entries.length})</span>
           </div>
         </div>
@@ -157,7 +155,9 @@ export default function MemoryScopePage() {
               key={entry.id}
               entry={entry}
               onDelete={handleDelete}
-              onEdit={(e) => { router.push(`/memory/${e.id}`) }}
+              onEdit={(e) => {
+                router.push(`/memory/${e.id}`)
+              }}
               deleting={deletingId === entry.id}
             />
           ))}

@@ -469,7 +469,12 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       expect(res.statusCode).toBe(201)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data).toEqual({ ticketId: 't-1', replied: true, isAdmin: true, commentId: 'mock-id' })
+      expect(body.data).toEqual({
+        ticketId: 't-1',
+        replied: true,
+        isAdmin: true,
+        commentId: 'mock-id',
+      })
     })
 
     it('isAdmin 默认为 true(body 未传)', async () => {

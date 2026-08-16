@@ -133,9 +133,7 @@ export default function CommissionPage() {
         {list.length === 0 && !loading && (
           <Text className="wc-empty">{t('distribution.commission.empty')}</Text>
         )}
-        {loading && (
-          <Text className="wc-loading">{t('distribution.commission.loading')}</Text>
-        )}
+        {loading && <Text className="wc-loading">{t('distribution.commission.loading')}</Text>}
       </View>
 
       <Button className="wc-withdraw-btn" onClick={goWithdraw}>

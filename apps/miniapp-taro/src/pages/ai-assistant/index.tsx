@@ -106,15 +106,18 @@ export default function AiAssistantPage() {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
   }, [])
 
-  const copyHandle = useCallback((text?: string) => {
-    if (!text || !text.trim())
-      return Taro.showToast({ title: t('ai.aiAssistant.nothingToCopy'), icon: 'none' })
-    Taro.setClipboardData({
-      data: text,
-      success: () => Taro.showToast({ title: t('ai.aiAssistant.copySuccess'), icon: 'success' }),
-      fail: () => Taro.showToast({ title: t('ai.aiAssistant.copyFailed'), icon: 'none' }),
-    })
-  }, [t])
+  const copyHandle = useCallback(
+    (text?: string) => {
+      if (!text || !text.trim())
+        return Taro.showToast({ title: t('ai.aiAssistant.nothingToCopy'), icon: 'none' })
+      Taro.setClipboardData({
+        data: text,
+        success: () => Taro.showToast({ title: t('ai.aiAssistant.copySuccess'), icon: 'success' }),
+        fail: () => Taro.showToast({ title: t('ai.aiAssistant.copyFailed'), icon: 'none' }),
+      })
+    },
+    [t],
+  )
 
   const toggleVisible = useCallback((idx: number) => {
     setList((prev) => prev.map((it, i) => (i === idx ? { ...it, visible: !it.visible } : it)))
@@ -122,7 +125,8 @@ export default function AiAssistantPage() {
 
   const handleSend = useCallback(async () => {
     const message = prompt.trim()
-    if (!message) return Taro.showToast({ title: t('ai.aiAssistant.pleaseInputDesc'), icon: 'none' })
+    if (!message)
+      return Taro.showToast({ title: t('ai.aiAssistant.pleaseInputDesc'), icon: 'none' })
     if (loading) return Taro.showToast({ title: t('ai.aiAssistant.pleaseWait'), icon: 'none' })
     const u = getUserInfo() as { userMargin?: { tokenQuantity?: number } }
     if (u?.userMargin?.tokenQuantity && u.userMargin.tokenQuantity < 50000) {
@@ -226,92 +230,92 @@ export default function AiAssistantPage() {
 
       <ScrollView scrollY className="flex-1" scrollTop={scrollTop}>
         <View className="px-[40rpx]">
-        <View
-          className="flex items-center py-[32rpx] mb-[24rpx] bg-card rounded-lg px-[32rpx]"
-          onClick={() => setTishiShow((v) => !v)}
-        >
-          <Text className="text-[52rpx] text-foreground">
-            {tishiShow ? '关闭' : '查看'}智能体引导说明
-          </Text>
-        </View>
-        {tishiShow && agentPrologue ? (
-          <View className="mb-[32rpx] p-[40rpx] bg-card rounded-lg">
-            <Text className="text-[52rpx] text-muted-foreground">{agentPrologue}</Text>
+          <View
+            className="flex items-center py-[32rpx] mb-[24rpx] bg-card rounded-lg px-[32rpx]"
+            onClick={() => setTishiShow((v) => !v)}
+          >
+            <Text className="text-[52rpx] text-foreground">
+              {tishiShow ? '关闭' : '查看'}智能体引导说明
+            </Text>
           </View>
-        ) : null}
+          {tishiShow && agentPrologue ? (
+            <View className="mb-[32rpx] p-[40rpx] bg-card rounded-lg">
+              <Text className="text-[52rpx] text-muted-foreground">{agentPrologue}</Text>
+            </View>
+          ) : null}
 
-        {list.length === 0 ? (
-          <View className="flex flex-col items-center py-[160rpx]">
-            <Text className="text-[52rpx] text-muted-foreground">请在下方输入您的问题</Text>
-          </View>
-        ) : (
-          list.map((item, idx) => (
-            <View key={idx} className="mb-[40rpx]">
-              <View className="flex justify-end mb-[24rpx]">
-                <View
-                  className="max-w-[70%] px-[40rpx] py-[32rpx] bg-primary text-foreground rounded-lg text-[52rpx]"
-                  onClick={() => setPrompt(item.question)}
-                >
-                  <Text>{item.question}</Text>
-                </View>
-              </View>
-              {item.visible ? (
-                <View className="p-[40rpx] bg-card rounded-lg">
-                  <Text className="block text-[52rpx] text-foreground whitespace-pre-wrap break-words">
-                    {item.answer}
-                  </Text>
-                  {item.images.map((url, i) => (
-                    <Image
-                      key={i}
-                      className="w-full mt-[24rpx] rounded-lg"
-                      src={url}
-                      mode="widthFix"
-                      onClick={() => Taro.previewImage({ current: url, urls: item.images })}
-                    />
-                  ))}
-                  {item.videos.map((url, i) => (
-                    <Video
-                      key={`v-${i}`}
-                      className="w-full mt-[24rpx]"
-                      src={url}
-                      controls
-                      showPlayBtn
-                      showCenterPlayBtn
-                    />
-                  ))}
-                  <View className="flex items-center justify-between mt-[24rpx]">
-                    <Text className="text-[44rpx] text-muted-foreground">
-                      智汇AI生成
-                      {item.totalTokens !== undefined
-                        ? ` · 智汇值:${formatTokens(item.totalTokens)}`
-                        : ''}
-                    </Text>
-                    <View className="flex gap-[32rpx]">
-                      <Text
-                        className="text-[44rpx] text-primary"
-                        onClick={() => toggleVisible(idx)}
-                      >
-                        隐藏
-                      </Text>
-                      <Text
-                        className="text-[44rpx] text-primary"
-                        onClick={() => copyHandle(item.answer)}
-                      >
-                        复制
-                      </Text>
-                    </View>
+          {list.length === 0 ? (
+            <View className="flex flex-col items-center py-[160rpx]">
+              <Text className="text-[52rpx] text-muted-foreground">请在下方输入您的问题</Text>
+            </View>
+          ) : (
+            list.map((item, idx) => (
+              <View key={idx} className="mb-[40rpx]">
+                <View className="flex justify-end mb-[24rpx]">
+                  <View
+                    className="max-w-[70%] px-[40rpx] py-[32rpx] bg-primary text-foreground rounded-lg text-[52rpx]"
+                    onClick={() => setPrompt(item.question)}
+                  >
+                    <Text>{item.question}</Text>
                   </View>
                 </View>
-              ) : (
-                <View className="p-[40rpx] bg-card rounded-lg flex justify-center">
-                  <Text className="text-[44rpx] text-primary" onClick={() => toggleVisible(idx)}>
-                    显示回答
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))
-        )}
+                {item.visible ? (
+                  <View className="p-[40rpx] bg-card rounded-lg">
+                    <Text className="block text-[52rpx] text-foreground whitespace-pre-wrap break-words">
+                      {item.answer}
+                    </Text>
+                    {item.images.map((url, i) => (
+                      <Image
+                        key={i}
+                        className="w-full mt-[24rpx] rounded-lg"
+                        src={url}
+                        mode="widthFix"
+                        onClick={() => Taro.previewImage({ current: url, urls: item.images })}
+                      />
+                    ))}
+                    {item.videos.map((url, i) => (
+                      <Video
+                        key={`v-${i}`}
+                        className="w-full mt-[24rpx]"
+                        src={url}
+                        controls
+                        showPlayBtn
+                        showCenterPlayBtn
+                      />
+                    ))}
+                    <View className="flex items-center justify-between mt-[24rpx]">
+                      <Text className="text-[44rpx] text-muted-foreground">
+                        智汇AI生成
+                        {item.totalTokens !== undefined
+                          ? ` · 智汇值:${formatTokens(item.totalTokens)}`
+                          : ''}
+                      </Text>
+                      <View className="flex gap-[32rpx]">
+                        <Text
+                          className="text-[44rpx] text-primary"
+                          onClick={() => toggleVisible(idx)}
+                        >
+                          隐藏
+                        </Text>
+                        <Text
+                          className="text-[44rpx] text-primary"
+                          onClick={() => copyHandle(item.answer)}
+                        >
+                          复制
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <View className="p-[40rpx] bg-card rounded-lg flex justify-center">
+                    <Text className="text-[44rpx] text-primary" onClick={() => toggleVisible(idx)}>
+                      显示回答
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 

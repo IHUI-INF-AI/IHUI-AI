@@ -44,9 +44,7 @@ export function TeamScreen() {
       setStats(statsRes.data ?? null)
       // 格式化日期字段,共享组件只负责渲染
       const rawMembers = membersRes.data?.list ?? []
-      setMembers(
-        rawMembers.map((m) => ({ ...m, joinDate: formatDateOnly(m.joinDate) })),
-      )
+      setMembers(rawMembers.map((m) => ({ ...m, joinDate: formatDateOnly(m.joinDate) })))
       setLoading(false)
       setRefreshing(false)
     },

@@ -101,9 +101,7 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
       {/* 结果列表 */}
       {!loading && items.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            共 {items.length} 条结果
-          </p>
+          <p className="text-xs text-muted-foreground">共 {items.length} 条结果</p>
           {items.map((item) => (
             <div
               key={item.id}
@@ -112,10 +110,11 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm leading-relaxed">{truncate(item.content, 200)}</p>
                 {item.score !== undefined && (
-                  <span className={cn(
-                    'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                    scoreColor(item.score),
-                  )}
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                      scoreColor(item.score),
+                    )}
                   >
                     {(item.score * 100).toFixed(0)}%
                   </span>

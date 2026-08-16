@@ -36,24 +36,26 @@ export function FollowingScreen() {
 
   // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
   const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) =>
-      UNIAPP_TEXT[key] ?? t(key, params),
+    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
     [t],
   )
 
-  const fetcher = useCallback<Fetcher<FollowingItem>>(async (query) => {
-    const res = await getFollowing(query)
-    if (!res.success) return { success: false as const, error: uniappT('following.loadFailed') }
-    const list: FollowingItem[] = (res.data?.list ?? []).map((u: FollowUser) => ({
-      id: u.id,
-      username: u.username,
-      nickname: u.nickname,
-      avatar: u.avatar,
-      bio: u.bio ?? undefined,
-      followedAt: formatShortDateWithYear(u.followedAt),
-    }))
-    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
-  }, [uniappT])
+  const fetcher = useCallback<Fetcher<FollowingItem>>(
+    async (query) => {
+      const res = await getFollowing(query)
+      if (!res.success) return { success: false as const, error: uniappT('following.loadFailed') }
+      const list: FollowingItem[] = (res.data?.list ?? []).map((u: FollowUser) => ({
+        id: u.id,
+        username: u.username,
+        nickname: u.nickname,
+        avatar: u.avatar,
+        bio: u.bio ?? undefined,
+        followedAt: formatShortDateWithYear(u.followedAt),
+      }))
+      return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+    },
+    [uniappT],
+  )
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<FollowingItem>(fetcher, PAGE_SIZE)

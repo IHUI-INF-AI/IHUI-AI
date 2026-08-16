@@ -51,16 +51,12 @@ export const useErrorBannerStore = create<ErrorBannerState>((set) => ({
     return id
   },
 
-  clearError: (id) =>
-    set((s) => ({ errors: s.errors.filter((e) => e.id !== id) })),
+  clearError: (id) => set((s) => ({ errors: s.errors.filter((e) => e.id !== id) })),
 
   clearAll: () => set({ errors: [] }),
 }))
 
 /** 非 hook 场景便捷函数 */
-export const pushError = (error: unknown): string =>
-  useErrorBannerStore.getState().pushError(error)
-export const clearError = (id: string): void =>
-  useErrorBannerStore.getState().clearError(id)
-export const clearAllErrors = (): void =>
-  useErrorBannerStore.getState().clearAll()
+export const pushError = (error: unknown): string => useErrorBannerStore.getState().pushError(error)
+export const clearError = (id: string): void => useErrorBannerStore.getState().clearError(id)
+export const clearAllErrors = (): void => useErrorBannerStore.getState().clearAll()
