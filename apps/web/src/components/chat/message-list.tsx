@@ -29,7 +29,6 @@ import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
-import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 // 2026-07-31 立,AI 对话可视化深度接入:把 popover 内的富 UI 组件 inline 到消息气泡主流
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
@@ -74,9 +73,7 @@ function TypingIndicator({
 
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
     </div>
   )
 }
@@ -338,7 +335,8 @@ const MessageItem = React.memo(function MessageItem({
   const handleToggleMetadata = React.useCallback(() => {
     setMetadataExpanded((prev) => !prev)
   }, [])
-  const hasMetadata = Boolean(m.meta) && typeof m.meta === 'object' && 'usage' in (m.meta as Record<string, unknown>)
+  const hasMetadata =
+    Boolean(m.meta) && typeof m.meta === 'object' && 'usage' in (m.meta as Record<string, unknown>)
 
   // 4. 发布到社区(Megaphone)— 原项目 publishToCommunity
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false)
@@ -511,7 +509,11 @@ const MessageItem = React.memo(function MessageItem({
                 />
               )
             })}
-            <MarkdownStream content={m.content} isStreaming={streamingThis} collapseLines={codeCollapseLines} />
+            <MarkdownStream
+              content={m.content}
+              isStreaming={streamingThis}
+              collapseLines={codeCollapseLines}
+            />
             {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
                 - 优先用 SSE tool-summary 事件聚合结果(m.toolCallSummary)
                 - 缺失时降级从 m.toolCalls 本地聚合
@@ -558,46 +560,46 @@ const MessageItem = React.memo(function MessageItem({
       {!streamingThis && m.content.length > 0 && (
         <div className="flex flex-col gap-0">
           {/* 常驻元数据区(Token + 时间戳) */}
-          {!isUser && (() => {
-            const timestampLabel = formatMessageTimestamp(m.createdAt)
-            return (
-              <div className="mt-0.5 flex items-center gap-1">
-                <span
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                  data-testid={`message-token-${m.id}`}
-                >
-                  <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                  <span className="font-medium">
-                    {(m.meta?.usage as { totalTokens?: number })?.totalTokens ?? 0} tokens
-                  </span>
-                </span>
-                {timestampLabel && (
+          {!isUser &&
+            (() => {
+              const timestampLabel = formatMessageTimestamp(m.createdAt)
+              return (
+                <div className="mt-0.5 flex items-center gap-1">
                   <span
-                    className="text-xs text-muted-foreground"
-                    data-testid={`message-timestamp-${m.id}`}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                    data-testid={`message-token-${m.id}`}
                   >
-                    {timestampLabel}
+                    <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                    <span className="font-medium">
+                      {(m.meta?.usage as { totalTokens?: number })?.totalTokens ?? 0} tokens
+                    </span>
                   </span>
-                )}
-              </div>
-            )
-          })()}
+                  {timestampLabel && (
+                    <span
+                      className="text-xs text-muted-foreground"
+                      data-testid={`message-timestamp-${m.id}`}
+                    >
+                      {timestampLabel}
+                    </span>
+                  )}
+                </div>
+              )
+            })()}
           {/* 按钮区(hover 显示) */}
-          <div
-            className="-mt-0.5 flex items-center gap-1"
-            data-testid={`message-actions-${m.id}`}
-          >
-            <div
-              className="msg-hover-reveal flex items-center gap-1"
-            >
+          <div className="-mt-0.5 flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
+            <div className="msg-hover-reveal flex items-center gap-1">
               {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
               {!isUser && (
-                <Tooltip content={contentVisible ? t('message.hideContent') : t('message.showContent')}>
+                <Tooltip
+                  content={contentVisible ? t('message.hideContent') : t('message.showContent')}
+                >
                   <button
                     type="button"
                     onClick={handleToggleVisibility}
                     data-testid={`message-visibility-${m.id}`}
-                    aria-label={contentVisible ? t('message.hideContent') : t('message.showContent')}
+                    aria-label={
+                      contentVisible ? t('message.hideContent') : t('message.showContent')
+                    }
                     className={ACTION_BTN_CLASS}
                   >
                     {contentVisible ? (
@@ -689,7 +691,10 @@ const MessageItem = React.memo(function MessageItem({
                     disabled={streamingThis}
                     data-testid={`message-regenerate-${m.id}`}
                     aria-label={t('message.regenerate')}
-                    className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
                   >
                     <RefreshCw className="h-4 w-4" aria-hidden />
                   </button>
@@ -743,7 +748,10 @@ const MessageItem = React.memo(function MessageItem({
                     onClick={handleDelete}
                     data-testid={`message-delete-${m.id}`}
                     aria-label={t('message.delete')}
-                    className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'hover:text-destructive hover:bg-destructive/10',
+                    )}
                   >
                     <Trash2 className="h-4 w-4" aria-hidden />
                   </button>
@@ -753,16 +761,16 @@ const MessageItem = React.memo(function MessageItem({
           </div>
         </div>
       )}
-        {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
+      {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
             展示 promptTokens / completionTokens / totalTokens 细分 */}
-        {!isUser && hasMetadata && metadataExpanded && (
-          <div
-            className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
-            data-testid={`message-metadata-panel-${m.id}`}
-          >
-            <UsageBreakdown usage={m.meta?.usage} />
-          </div>
-        )}
+      {!isUser && hasMetadata && metadataExpanded && (
+        <div
+          className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
+          data-testid={`message-metadata-panel-${m.id}`}
+        >
+          <UsageBreakdown usage={m.meta?.usage} />
+        </div>
+      )}
 
       {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
             用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
@@ -1670,13 +1678,6 @@ export function MessageList({
     [contextMenu, t],
   )
 
-  // 时间间隔格式化(用于 CompressionDivider label)
-  const formatGap = React.useCallback((ms: number): string => {
-    if (ms < 60_000) return `${Math.floor(ms / 1000)}s`
-    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`
-    return `${Math.floor(ms / 3_600_000)}h`
-  }, [])
-
   // 监听自定义事件 'ihui:scroll-to-message' (agent-task-progress-pane 兼容路径)
   React.useEffect(() => {
     const onScrollTo = (e: Event) => {
@@ -1825,23 +1826,8 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
-          const prev = realIdx > 0 ? messages[realIdx - 1] : undefined
-          // 消息间隔超过 5 分钟 → 插入 CompressionDivider
-          const gapMs =
-            prev && m && typeof prev.createdAt === 'number' && typeof m.createdAt === 'number'
-              ? m.createdAt - prev.createdAt
-              : 0
-          const showCompression = gapMs > 5 * 60 * 1000
           return (
             <React.Fragment key={m.id}>
-              {showCompression && prev && (
-                <CompressionDivider
-                  count={1}
-                  label={`${formatGap(gapMs)} 间隔`}
-                  expandable={false}
-                  data-testid={`message-compression-divider-${m.id}`}
-                />
-              )}
               <div ref={enableVirtual ? measureItem(m.id) : undefined}>
                 {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
                 <MessageItem
