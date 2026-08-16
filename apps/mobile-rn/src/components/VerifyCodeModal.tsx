@@ -11,22 +11,15 @@
  * - 单隐藏 TextInput 接收键盘输入(避免 6 个独立输入框切换焦点,Android 兼容性更好)
  * - 6 个视觉格子实时显示已输入数字,聚焦态/已填态分别走不同边框+背景
  * - 满 length 位时启用确认按钮(brand 背景,未启用 opacity 0.6)
- * - 倒计时归零前显示秒数,归零后可点击重发
+ * - 倒计时:打开时不自动启动(remaining=0,短信可能已由调用方发出);
+ *   点击「重新发送」且 onResend 成功后才 startTimer(对齐原版 sendTextMsg 成功后 codeMin=60)
  * - visible 关闭时重置 code/倒计时
  * - 计时器在 unmount 与 visible=false 时清理
  * - 类型零 any,精确类型标注
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type ViewStyle,
-} from 'react-native'
+import { Modal, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native'
 
 export interface VerifyCodeModalProps {
   visible: boolean
@@ -35,7 +28,8 @@ export interface VerifyCodeModalProps {
   countdown?: number
   onClose: () => void
   onSubmit: (code: string) => void
-  onResend: () => void
+  /** 重新发送验证码回调;返回 Promise 时 await 成功后才启动倒计时(对齐原版 sendTextMsg 成功后 codeMin=60) */
+  onResend: () => void | Promise<void>
 }
 
 const DEFAULT_LENGTH = 6
@@ -62,7 +56,7 @@ export function VerifyCodeModal({
   onResend,
 }: VerifyCodeModalProps) {
   const [code, setCode] = useState<string[]>(() => Array<string>(length).fill(''))
-  const [remaining, setRemaining] = useState<number>(countdown)
+  const [remaining, setRemaining] = useState<number>(0)
   const hiddenInputRef = useRef<TextInput>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -95,18 +89,9 @@ export function VerifyCodeModal({
     if (!visible) {
       setCode(Array<string>(length).fill(''))
       stopTimer()
-      setRemaining(countdown)
+      setRemaining(0)
     }
-  }, [visible, length, countdown, stopTimer])
-
-  // visible 开启时启动倒计时
-  useEffect(() => {
-    if (!visible) return
-    startTimer(countdown)
-    return () => {
-      stopTimer()
-    }
-  }, [visible, countdown, startTimer, stopTimer])
+  }, [visible, length, stopTimer])
 
   // 弹起时自动 focus 隐藏输入
   useEffect(() => {
@@ -139,9 +124,10 @@ export function VerifyCodeModal({
     onSubmit(fullCode)
   }, [isComplete, fullCode, onSubmit])
 
-  const handleResend = useCallback(() => {
+  const handleResend = useCallback(async () => {
     if (remaining > 0) return
-    onResend()
+    // 对齐原版:sendTextMsg 发送成功后才启动倒计时,避免"倒计时在走但短信未发"
+    await onResend()
     startTimer(countdown)
   }, [remaining, onResend, countdown, startTimer])
 
