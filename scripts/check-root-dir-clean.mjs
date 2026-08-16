@@ -62,6 +62,8 @@ const ALLOWED_FILES = new Set([
   'app.json',
   // 守门脚本产物
   '__gate_result.txt',
+  // 既有跟踪脚本(chat 消息 key 校验,git 跟踪保证合法)
+  'check-chat-keys.js',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
