@@ -215,13 +215,6 @@ vi.mock('@/components/ai/prompt-templates', () => ({
   PromptTemplates: () => <div data-testid="prompt-templates" />,
 }))
 
-// CompressionDivider mock
-vi.mock('@/components/ai/progress-sections/compression-divider', () => ({
-  CompressionDivider: ({ label }: { label?: string }) => (
-    <div data-testid="compression-divider">{label}</div>
-  ),
-}))
-
 // SubAgentTaskTree mock
 vi.mock('@/components/ai/progress-sections/sub-agent-task-tree', () => ({
   SubAgentTaskTree: () => <div data-testid="subagent-task-tree" />,

@@ -47,7 +47,14 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/execute/stream',
-    { config:  },
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+        },
+      },
+    },
     async (req, reply) => {
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')
