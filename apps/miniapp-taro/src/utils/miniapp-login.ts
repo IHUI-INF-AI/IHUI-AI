@@ -11,7 +11,12 @@
  * 3. (可选)合并用户资料
  * 4. 持久化 token / refreshToken / userInfo
  */
-import { login as platformLogin, getUserProfile as platformGetUserProfile, isWeapp, isAlipay } from '../platform'
+import {
+  login as platformLogin,
+  getUserProfile as platformGetUserProfile,
+  isWeapp,
+  isAlipay,
+} from '../platform'
 import { loginByWechat, loginByAlipay } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo, type LoginResult } from './auth'
 import { useUserStore } from '../stores/user'
@@ -51,7 +56,7 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
   if (platform === 'weapp') {
     result = await loginByWechat(code)
   } else {
-    result = await loginByAlipay(code) as LoginResult
+    result = (await loginByAlipay(code)) as LoginResult
   }
   const { accessToken, refreshToken, user } = result
 
@@ -71,7 +76,11 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
   // 4. 合并昵称/头像
   const finalUser: UserInfo = {
     ...user,
-    nickname: user.nickname || profileNick || user.userName || `${platform === 'weapp' ? '微信' : '支付宝'}用户`,
+    nickname:
+      user.nickname ||
+      profileNick ||
+      user.userName ||
+      `${platform === 'weapp' ? '微信' : '支付宝'}用户`,
     avatar: user.avatar || profileAvatar,
   }
 

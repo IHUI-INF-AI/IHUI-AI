@@ -59,10 +59,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         .returning()
       if (!row) return reply.status(404).send(error(404, '订单不存在'))
       // Phase 3: 同步发货备注到统一 orders 表
-      await db
-        .update(orders)
-        .set({ remark: shipRemark, updatedAt: now })
-        .where(eq(orders.id, id))
+      await db.update(orders).set({ remark: shipRemark, updatedAt: now }).where(eq(orders.id, id))
       return reply.send(success(row))
     },
   )

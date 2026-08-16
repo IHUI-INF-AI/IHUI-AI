@@ -49,19 +49,34 @@ function buildMockServer(): {
   const handlers = new Map<string, (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>>()
   const server = {
     get: vi.fn((path: string, handler: unknown) => {
-      handlers.set(`GET ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      handlers.set(
+        `GET ${path}`,
+        handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+      )
     }),
     post: vi.fn((path: string, handler: unknown) => {
-      handlers.set(`POST ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      handlers.set(
+        `POST ${path}`,
+        handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+      )
     }),
     put: vi.fn((path: string, handler: unknown) => {
-      handlers.set(`PUT ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      handlers.set(
+        `PUT ${path}`,
+        handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+      )
     }),
     patch: vi.fn((path: string, handler: unknown) => {
-      handlers.set(`PATCH ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      handlers.set(
+        `PATCH ${path}`,
+        handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+      )
     }),
     delete: vi.fn((path: string, handler: unknown) => {
-      handlers.set(`DELETE ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      handlers.set(
+        `DELETE ${path}`,
+        handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+      )
     }),
     addHook: vi.fn(),
   } as unknown as FastifyInstance
@@ -319,14 +334,25 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
             setupHint: string
           }>
           count: number
-          summary: { total: number; implemented: number; needsBrowser: number; needsOauth: number; needsSdk: number }
+          summary: {
+            total: number
+            implemented: number
+            needsBrowser: number
+            needsOauth: number
+            needsSdk: number
+          }
         }
       }
       expect(payload.code).toBe(0)
       expect(payload.data.count).toBe(14)
       expect(payload.data.items.length).toBe(14)
       expect(payload.data.summary.total).toBe(14)
-      expect(payload.data.summary.implemented + payload.data.summary.needsBrowser + payload.data.summary.needsOauth + payload.data.summary.needsSdk).toBe(14)
+      expect(
+        payload.data.summary.implemented +
+          payload.data.summary.needsBrowser +
+          payload.data.summary.needsOauth +
+          payload.data.summary.needsSdk,
+      ).toBe(14)
       // 验证 implemented > 0(至少有 wordpress/medium/bilibili/wechat/toutiao/douyin/kuaishou/weibo)
       expect(payload.data.summary.implemented).toBeGreaterThanOrEqual(8)
       // 验证 needsBrowser >= 5(zhihu/csdn/juejin/xiaohongshu/shipinhao)
@@ -354,7 +380,9 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
       const reply = makeReply()
       await handler!(makeRequest({}, {}, {}), reply)
 
-      const payload = reply.sentPayload as { data: { items: Array<{ status: PlatformStatus; canPublish: boolean }> } }
+      const payload = reply.sentPayload as {
+        data: { items: Array<{ status: PlatformStatus; canPublish: boolean }> }
+      }
       for (const item of payload.data.items) {
         if (item.status === 'implemented') {
           expect(item.canPublish).toBe(true)
@@ -386,7 +414,12 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
         code: number
         data: {
           dryRun: boolean
-          results: Array<{ platformId: string; status: PlatformStatus; canPublish: boolean; setupHint: string }>
+          results: Array<{
+            platformId: string
+            status: PlatformStatus
+            canPublish: boolean
+            setupHint: string
+          }>
           summary: { total: number; canPublishNow: number; needsSetup: number }
         }
       }
@@ -418,7 +451,11 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
       const handler = handlers.get('POST /publish/tasks')
       const reply = makeReply()
-      const req = makeRequest({ dryRun: true, platforms: ['csdn', 'medium', 'unknown-xyz'] }, {}, {})
+      const req = makeRequest(
+        { dryRun: true, platforms: ['csdn', 'medium', 'unknown-xyz'] },
+        {},
+        {},
+      )
 
       await handler!(req, reply)
 
@@ -455,7 +492,11 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
       const handler = handlers.get('POST /publish/tasks')
       const reply = makeReply()
-      const req = makeRequest({ content: 'hello', platforms: ['csdn'] }, {}, { authorization: 'Bearer jwt-xxx' })
+      const req = makeRequest(
+        { content: 'hello', platforms: ['csdn'] },
+        {},
+        { authorization: 'Bearer jwt-xxx' },
+      )
 
       await handler!(req, reply)
 
@@ -463,7 +504,9 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
       const [url, opts] = mockFetch.mock.calls[0]!
       expect(url).toContain('/api/publish/tasks')
       expect((opts as { method: string }).method).toBe('POST')
-      expect((opts as { headers: { authorization: string } }).headers.authorization).toBe('Bearer jwt-xxx')
+      expect((opts as { headers: { authorization: string } }).headers.authorization).toBe(
+        'Bearer jwt-xxx',
+      )
     })
   })
 })

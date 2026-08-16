@@ -61,7 +61,10 @@ describe('miniapp-taro 运营 banner API', () => {
       },
     })
     const res = await getBannerList({ position: 'home', status: 1 })
-    expect(mockFetchApi).toHaveBeenCalledWith('/content/banner/list', { position: 'home', status: 1 })
+    expect(mockFetchApi).toHaveBeenCalledWith('/content/banner/list', {
+      position: 'home',
+      status: 1,
+    })
     expect(res.list).toHaveLength(1)
     const first: Banner = res.list[0] as Banner
     expect(first.title).toBe('618 课程大促')

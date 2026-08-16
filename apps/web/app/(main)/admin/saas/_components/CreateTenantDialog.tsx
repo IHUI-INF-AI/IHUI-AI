@@ -92,9 +92,7 @@ export function CreateTenantDialog({
             <select
               className={selectClass + ' w-full'}
               value={form.plan ?? 'free'}
-              onChange={(e) =>
-                onChange({ ...form, plan: e.target.value as TenantForm['plan'] })
-              }
+              onChange={(e) => onChange({ ...form, plan: e.target.value as TenantForm['plan'] })}
               aria-label={t('form.plan')}
             >
               <option value="free">{t('form.planFree')}</option>
@@ -112,7 +110,9 @@ export function CreateTenantDialog({
               <span className="whitespace-nowrap">{t('confirm.cancel')}</span>
             </Button>
             <Button type="submit" disabled={!canSubmit || submitting} className="shrink-0">
-              <span className="whitespace-nowrap">{submitting ? t('creating') : t('confirm.confirm')}</span>
+              <span className="whitespace-nowrap">
+                {submitting ? t('creating') : t('confirm.confirm')}
+              </span>
             </Button>
           </DialogFooter>
         </form>

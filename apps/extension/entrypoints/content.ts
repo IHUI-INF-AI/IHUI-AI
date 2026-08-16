@@ -21,10 +21,7 @@ import {
 } from '../src/content/content-utils'
 import { sendMessage } from '../lib/message-router'
 import { ContentToolbar } from './content/content-toolbar'
-import {
-  computePositionWithMemory,
-  type RectLike,
-} from '../src/content/position-memory'
+import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
 import type { BrowserControlActionType } from '@ihui/types'
 
@@ -71,7 +68,14 @@ function showToolbar(selection: Selection) {
 }
 
 function toRect(r: DOMRect): RectLike {
-  return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
+  return {
+    top: r.top,
+    left: r.left,
+    right: r.right,
+    bottom: r.bottom,
+    width: r.width,
+    height: r.height,
+  }
 }
 
 function hideToolbar() {
@@ -281,7 +285,11 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   saveBtn.addEventListener('click', async () => {
     try {
       const { addWord } = await import('../src/idb/vocab-db')
-      await addWord({ word: payload.word, translation: payload.translation, source: 'context-menu' })
+      await addWord({
+        word: payload.word,
+        translation: payload.translation,
+        source: 'context-menu',
+      })
       saveBtn.textContent = '已保存'
     } catch (err) {
       console.warn('[IHUI AI] save word failed:', err)
@@ -301,15 +309,14 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   const viewport = { width: window.innerWidth, height: window.innerHeight }
   const w = popup.offsetWidth
   const h = popup.offsetHeight
-  const targetRect: RectLike =
-    rect ?? {
-      top: viewport.height / 2 - h / 2,
-      left: viewport.width / 2 - w / 2,
-      right: viewport.width / 2 + w / 2,
-      bottom: viewport.height / 2 + h / 2,
-      width: w,
-      height: h,
-    }
+  const targetRect: RectLike = rect ?? {
+    top: viewport.height / 2 - h / 2,
+    left: viewport.width / 2 - w / 2,
+    right: viewport.width / 2 + w / 2,
+    bottom: viewport.height / 2 + h / 2,
+    width: w,
+    height: h,
+  }
   const placement = computePositionWithMemory(targetRect, w, h, viewport, { margin: 12, offset: 8 })
   popup.style.top = `${placement.top}px`
   popup.style.left = `${placement.left}px`
@@ -326,20 +333,20 @@ export default defineContentScript({
   // 2026-07-22 P0 Round 5 鲁棒性加固:排除银行/支付/政府等敏感网站
   // 防止 content script 注入到敏感页面拦截银行卡号/密码/验证码等
   excludeMatches: [
-    '*://*.icbc.com.cn/*',      // 工商银行
-    '*://*.cmbchina.com/*',     // 招商银行
-    '*://*.abchina.com/*',      // 农业银行
-    '*://*.boc.cn/*',           // 中国银行
-    '*://*.bankcomm.com/*',     // 交通银行
-    '*://*.ccb.com/*',          // 建设银行
-    '*://*.psbc.com/*',         // 邮储银行
-    '*://*.alipay.com/*',       // 支付宝
-    '*://*.tenpay.com/*',       // 财付通
-    '*://pay.weixin.qq.com/*',  // 微信支付
-    '*://*.unionpay.com/*',     // 银联
-    '*://*.gov.cn/*',           // 政府网站
-    '*://*.12306.cn/*',         // 12306
-    '*://*.chinatax.gov.cn/*',  // 税务
+    '*://*.icbc.com.cn/*', // 工商银行
+    '*://*.cmbchina.com/*', // 招商银行
+    '*://*.abchina.com/*', // 农业银行
+    '*://*.boc.cn/*', // 中国银行
+    '*://*.bankcomm.com/*', // 交通银行
+    '*://*.ccb.com/*', // 建设银行
+    '*://*.psbc.com/*', // 邮储银行
+    '*://*.alipay.com/*', // 支付宝
+    '*://*.tenpay.com/*', // 财付通
+    '*://pay.weixin.qq.com/*', // 微信支付
+    '*://*.unionpay.com/*', // 银联
+    '*://*.gov.cn/*', // 政府网站
+    '*://*.12306.cn/*', // 12306
+    '*://*.chinatax.gov.cn/*', // 税务
   ],
   runAt: 'document_idle',
   main(ctx: ContentScriptContext) {
@@ -362,11 +369,20 @@ export default defineContentScript({
       if (!msg || typeof msg !== 'object') return false
       const m = msg as {
         type?: string
-        payload?: { word?: string; matches?: number; text?: string; rect?: RectLike } & CtxVocabResult
+        payload?: {
+          word?: string
+          matches?: number
+          text?: string
+          rect?: RectLike
+        } & CtxVocabResult
       }
       // Agent DOM action forwarded from background (AI browser control)
       if (m.type === 'agent.action.dom') {
-        const req = m.payload as unknown as { action: string; params: Record<string, unknown>; timeout?: number }
+        const req = m.payload as unknown as {
+          action: string
+          params: Record<string, unknown>
+          timeout?: number
+        }
         void executeDomAction(
           req.action as BrowserControlActionType,
           req.params,

@@ -117,10 +117,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         <span className="text-sm font-semibold">{t('title')}</span>
         {sessionId && (
           <Tooltip content={sessionId}>
-            <span
-              data-testid="session-id"
-              className="truncate text-xs text-muted-foreground"
-            >
+            <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
               #{sessionId.slice(0, 8)}
             </span>
           </Tooltip>
@@ -202,9 +199,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               <Ban className="h-3 w-3" />
               {t('cancelledTitle')}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {t('cancelledBody')}
-            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{t('cancelledBody')}</div>
           </section>
         )}
 

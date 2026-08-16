@@ -7,9 +7,7 @@ interface SpecDiffViewProps {
   loading?: boolean
 }
 
-function changeStyle(
-  ct: SpecDiffSection['changeType'],
-): { label: string; cls: string } {
+function changeStyle(ct: SpecDiffSection['changeType']): { label: string; cls: string } {
   switch (ct) {
     case 'added':
       return {
@@ -37,11 +35,7 @@ export function SpecDiffView({ diff, loading }: SpecDiffViewProps) {
     return <div className="text-sm text-muted-foreground">正在生成 diff…</div>
   }
   if (!diff) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        点击「对比变更」查看与上一版本的差异
-      </div>
-    )
+    return <div className="text-sm text-muted-foreground">点击「对比变更」查看与上一版本的差异</div>
   }
 
   const { summary } = diff

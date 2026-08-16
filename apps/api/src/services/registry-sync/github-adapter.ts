@@ -81,17 +81,25 @@ function parseReadme(content: string): {
     name = fm['name'] ?? fm['title'] ?? ''
     description = fm['description'] ?? fm['summary'] ?? null
     categories = fm['categories']
-      ? fm['categories'].split(',').map(s => s.trim()).filter(Boolean)
+      ? fm['categories']
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
       : []
-    tags = fm['tags'] ? fm['tags'].split(',').map(s => s.trim()).filter(Boolean) : []
+    tags = fm['tags']
+      ? fm['tags']
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []
   }
 
   if (!name) {
-    const h1 = lines.find(l => l.startsWith('# '))
+    const h1 = lines.find((l) => l.startsWith('# '))
     if (h1) name = h1.slice(2).trim()
   }
   if (!description) {
-    const desc = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'))
+    const desc = lines.find((l) => l.trim() && !l.startsWith('#') && !l.startsWith('---'))
     if (desc) description = desc.trim()
   }
 
@@ -156,7 +164,7 @@ async function fetchReadmeBatched(
   for (let i = 0; i < dirs.length; i += batchSize) {
     const batch = dirs.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map(d => fetchReadme(owner, repo, d.name, token, timeoutMs)),
+      batch.map((d) => fetchReadme(owner, repo, d.name, token, timeoutMs)),
     )
     results.push(...batchResults)
   }
@@ -184,13 +192,10 @@ async function fetchFromContentsRepo(
     )
   }
   if (!listRes.ok) {
-    throw new RegistryAdapterError(
-      `GitHub contents API returned ${listRes.status}`,
-      'github',
-    )
+    throw new RegistryAdapterError(`GitHub contents API returned ${listRes.status}`, 'github')
   }
   const items = (await listRes.json()) as GitHubContentItem[]
-  const dirs = items.filter(i => i.type === 'dir')
+  const dirs = items.filter((i) => i.type === 'dir')
 
   const [repoInfo, readmes] = await Promise.all([
     fetchRepoInfo(owner, repo, token, timeoutMs),
@@ -284,10 +289,7 @@ async function fetchPlugins(options?: SyncOptions): Promise<RawRegistryItem[]> {
     if (!res.ok) {
       // 首页就失败 → 抛错;非首页失败(可能 rate limit secondary)→ 返回已拉到的数据
       if (page === 1) {
-        throw new RegistryAdapterError(
-          `GitHub search API returned ${res.status}`,
-          'github',
-        )
+        throw new RegistryAdapterError(`GitHub search API returned ${res.status}`, 'github')
       }
       break
     }

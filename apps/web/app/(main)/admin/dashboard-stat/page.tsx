@@ -25,7 +25,11 @@ interface DashboardData {
 }
 
 export default function DashboardStatPage() {
-  const { data: resp, isLoading, isError } = useQuery({
+  const {
+    data: resp,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['admin', 'stats', 'dashboard'],
     queryFn: async () => {
       const r = await fetchApi<DashboardData>('/api/admin/stats/dashboard')

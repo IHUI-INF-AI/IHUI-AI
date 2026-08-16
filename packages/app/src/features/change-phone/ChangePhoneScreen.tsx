@@ -91,7 +91,11 @@ export function ChangePhoneScreen({
           ) : codeMin > 0 ? (
             <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
           ) : (
-            <Pressable style={styles.sendBtn} onPress={onSendCode} accessibilityLabel="重新获取验证码">
+            <Pressable
+              style={styles.sendBtn}
+              onPress={onSendCode}
+              accessibilityLabel="重新获取验证码"
+            >
               <Text style={styles.sendText}>获取验证码</Text>
             </Pressable>
           )}

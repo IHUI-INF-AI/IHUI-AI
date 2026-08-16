@@ -33,7 +33,8 @@ function normalizeStatus(raw?: string): 'pending' | 'processing' | 'success' | '
   if (!raw) return 'pending'
   const s = raw.toLowerCase()
   if (['success', 'completed', 'done', 'paid', 'finish', 'finished'].includes(s)) return 'success'
-  if (['processing', 'processing', 'reviewing', 'approved', 'under_review'].includes(s)) return 'processing'
+  if (['processing', 'processing', 'reviewing', 'approved', 'under_review'].includes(s))
+    return 'processing'
   if (['failed', 'rejected', 'cancel', 'cancelled', 'deny', 'denied'].includes(s)) return 'failed'
   // pending / waiting / null
   return 'pending'
@@ -111,38 +112,59 @@ export default function DeveloperWithdrawal() {
   return (
     <View className="min-h-screen bg-background">
       <View className="px-[30rpx] py-[20rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">{t('developer.withdrawal.title')}</Text>
+        <Text className="text-[36rpx] font-bold text-foreground">
+          {t('developer.withdrawal.title')}
+        </Text>
       </View>
       <View className="flex mx-[20rpx] my-[20rpx] bg-card rounded-[12rpx] py-[24rpx]">
         <View className="flex-1 flex flex-col items-center">
-          <Text className="text-[22rpx] text-muted-foreground">{t('developer.income.withdrawnYuan')}</Text>
-          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">{loading ? '--' : totalAmount}</Text>
+          <Text className="text-[22rpx] text-muted-foreground">
+            {t('developer.income.withdrawnYuan')}
+          </Text>
+          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+            {loading ? '--' : totalAmount}
+          </Text>
         </View>
         <View className="flex-1 flex flex-col items-center">
-          <Text className="text-[22rpx] text-muted-foreground">{t('developer.income.withdrawn')}</Text>
-          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">{loading ? '--' : totalSuccess}</Text>
+          <Text className="text-[22rpx] text-muted-foreground">
+            {t('developer.income.withdrawn')}
+          </Text>
+          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+            {loading ? '--' : totalSuccess}
+          </Text>
         </View>
       </View>
       <View className="p-[20rpx]">
         {loading ? (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('common.loading')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            {t('common.loading')}
+          </Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <View
+              key={item.id}
+              className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+            >
               <View className="flex-1">
-                <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">¥{item.amount}</Text>
-                <Text className="block text-[24rpx] text-muted-foreground">{displayTime(item)}</Text>
+                <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">
+                  ¥{item.amount}
+                </Text>
+                <Text className="block text-[24rpx] text-muted-foreground">
+                  {displayTime(item)}
+                </Text>
                 {displayReason(item) ? (
-                  <Text className="block text-[22rpx] text-destructive mt-[6rpx]">{displayReason(item)}</Text>
+                  <Text className="block text-[22rpx] text-destructive mt-[6rpx]">
+                    {displayReason(item)}
+                  </Text>
                 ) : null}
               </View>
-              <Text className={statusClass(item)}>
-                {item.statusText || statusText(item)}
-              </Text>
+              <Text className={statusClass(item)}>{item.statusText || statusText(item)}</Text>
             </View>
           ))
         ) : (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('developer.withdrawal.empty')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            {t('developer.withdrawal.empty')}
+          </Text>
         )}
       </View>
     </View>

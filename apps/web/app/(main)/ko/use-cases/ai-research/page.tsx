@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, BookOpen, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  BookOpen,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ko/use-cases/ai-research#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 학술 연구', item: 'https://aizhs.top/ko/use-cases/ai-research' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: '사용 사례',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 학술 연구',
+          item: 'https://aizhs.top/ko/use-cases/ai-research',
+        },
       ],
     },
     {
@@ -34,18 +54,53 @@ const jsonLd = {
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: '연구 분야 키워드 / 기존 PDF 문헌 / 인용 스타일 (APA/MLA/Chicago)' }],
+      supply: [
+        {
+          '@type': 'HowToSupply',
+          name: '연구 분야 키워드 / 기존 PDF 문헌 / 인용 스타일 (APA/MLA/Chicago)',
+        },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI 문헌 검색 엔진' },
         { '@type': 'HowToTool', name: 'IHUI AI PDF 파싱 모듈' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '학술 DB 연결', text: 'arXiv/PubMed/IEEE/CNKI/Wanfang 등 30+ DB를 연결, 매일 신규 논문을 자동 수집합니다.' },
-        { '@type': 'HowToStep', position: 2, name: 'PDF 문헌 업로드', text: '기존 PDF 문헌을 일괄 업로드, AI가 제목/저자/초록/참고문헌을 추출하여 로컬 문헌庫를 구축합니다.' },
-        { '@type': 'HowToStep', position: 3, name: '인용 스타일 설정', text: 'APA/MLA/Chicago/GB/T 7714/IEEE/Vancouver 등 20+ 인용 스타일을 지원, Agent가 저널 규격에 맞춰 참고문헌을 생성합니다.' },
-        { '@type': 'HowToStep', position: 4, name: '리뷰 모델 학습', text: 'Agent가 팀의 기존 리뷰 작성 스타일을 학습, 구조화된 문헌 리뷰를 생성하고 사람은 다듬기만 합니다.' },
-        { '@type': 'HowToStep', position: 5, name: '지식 그래프 구축', text: '논문에서 엔터티(저자/기관/방법/데이터셋)와 관계를 추출, 융합 학문 지식 그래프를 시각화합니다.' },
-        { '@type': 'HowToStep', position: 6, name: '동향 리포트 출력', text: '시계열과 토픽 모델로 연구 핫스팟/신규 방법/협력 후보를 주간 단위로 리포트화합니다.' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '학술 DB 연결',
+          text: 'arXiv/PubMed/IEEE/CNKI/Wanfang 등 30+ DB를 연결, 매일 신규 논문을 자동 수집합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: 'PDF 문헌 업로드',
+          text: '기존 PDF 문헌을 일괄 업로드, AI가 제목/저자/초록/참고문헌을 추출하여 로컬 문헌庫를 구축합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '인용 스타일 설정',
+          text: 'APA/MLA/Chicago/GB/T 7714/IEEE/Vancouver 등 20+ 인용 스타일을 지원, Agent가 저널 규격에 맞춰 참고문헌을 생성합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '리뷰 모델 학습',
+          text: 'Agent가 팀의 기존 리뷰 작성 스타일을 학습, 구조화된 문헌 리뷰를 생성하고 사람은 다듬기만 합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '지식 그래프 구축',
+          text: '논문에서 엔터티(저자/기관/방법/데이터셋)와 관계를 추출, 융합 학문 지식 그래프를 시각화합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '동향 리포트 출력',
+          text: '시계열과 토픽 모델로 연구 핫스팟/신규 방법/협력 후보를 주간 단위로 리포트화합니다.',
+        },
       ],
     },
   ],
@@ -74,12 +129,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '30+ DB 교차 검색', desc: 'arXiv/PubMed/IEEE/CNKI/Wanfang/Springer/Elsevier 등 학술 DB를 통합 검색, 신규 논문은 매일 자동 적재됩니다.' },
-  { title: 'PDF 스마트 파싱', desc: 'PDF를 일괄 파싱하여 제목/저자/초록/그림/수식/참고문헌 추출, 100편 파싱 시간을 40시간에서 20분으로 단축.' },
-  { title: '인용 스타일 자동 생성', desc: 'APA/MLA/Chicago/GB/T 7714/IEEE/Vancouver 등 20+ 인용 스타일을 지원, Agent가 저널 요구사항에 맞춰 참고문헌을 자동 생성합니다.' },
-  { title: '문헌 리뷰 생성', desc: 'Agent가 팀의 리뷰 작성 스타일을 학습, 로컬 문헌庫 기반으로 구조화된 리뷰를 생성, 작성 주기를 2주에서 2일로 단축.' },
-  { title: '융합 학문 지식 그래프', desc: '논문의 엔터티(저자/기관/방법/데이터셋)와 관계를 추출, 시각화 가능한 지식 그래프를 생성하여 탐색적 조회와 잠재 협력자 발굴을 지원합니다.' },
-  { title: '연구 동향 분석', desc: '시계열과 토픽 모델로 연구 핫스팟/신규 방법/고인용 논문을 추적, 주간 동향 리포트를 출력하여选题 결정을 지원합니다.' },
+  {
+    title: '30+ DB 교차 검색',
+    desc: 'arXiv/PubMed/IEEE/CNKI/Wanfang/Springer/Elsevier 등 학술 DB를 통합 검색, 신규 논문은 매일 자동 적재됩니다.',
+  },
+  {
+    title: 'PDF 스마트 파싱',
+    desc: 'PDF를 일괄 파싱하여 제목/저자/초록/그림/수식/참고문헌 추출, 100편 파싱 시간을 40시간에서 20분으로 단축.',
+  },
+  {
+    title: '인용 스타일 자동 생성',
+    desc: 'APA/MLA/Chicago/GB/T 7714/IEEE/Vancouver 등 20+ 인용 스타일을 지원, Agent가 저널 요구사항에 맞춰 참고문헌을 자동 생성합니다.',
+  },
+  {
+    title: '문헌 리뷰 생성',
+    desc: 'Agent가 팀의 리뷰 작성 스타일을 학습, 로컬 문헌庫 기반으로 구조화된 리뷰를 생성, 작성 주기를 2주에서 2일로 단축.',
+  },
+  {
+    title: '융합 학문 지식 그래프',
+    desc: '논문의 엔터티(저자/기관/방법/데이터셋)와 관계를 추출, 시각화 가능한 지식 그래프를 생성하여 탐색적 조회와 잠재 협력자 발굴을 지원합니다.',
+  },
+  {
+    title: '연구 동향 분석',
+    desc: '시계열과 토픽 모델로 연구 핫스팟/신규 방법/고인용 논문을 추적, 주간 동향 리포트를 출력하여选题 결정을 지원합니다.',
+  },
 ]
 
 const cases = [
@@ -118,7 +191,10 @@ const metrics = [
 export default function AiResearchPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +206,18 @@ export default function AiResearchPage() {
             AI 학술 연구 어시스턴트:문헌 조사 효율 8배 향상
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포(Web/데스크톱/미니프로그램/브라우저 확장/RN/CLI/API/AI-Service), Apache 2.0 오픈소스, 온프레미스 배포 지원.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포(Web/데스크톱/미니프로그램/브라우저
+            확장/RN/CLI/API/AI-Service), Apache 2.0 오픈소스, 온프레미스 배포 지원.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +227,16 @@ export default function AiResearchPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">연구자의 실제 페인 포인트</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              연구자의 실제 페인 포인트
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +246,9 @@ export default function AiResearchPage() {
 
         {/* 능력 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6대 핵심 능력</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6대 핵심 능력
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +264,9 @@ export default function AiResearchPage() {
 
         {/* 사례 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">고객 도입 사례</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            고객 도입 사례
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,7 +281,9 @@ export default function AiResearchPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">기술 스택과 툴체인</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              기술 스택과 툴체인
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스.
@@ -209,7 +301,9 @@ export default function AiResearchPage() {
         {/* 문의 / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI 학술 연구 어시스턴트 구축을 시작하세요</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI 학술 연구 어시스턴트 구축을 시작하세요
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             가입 시 1000 크레딧 증정, 학술 연구 시나리오 템플릿에서 원클릭 fork, 30분 만에 체험.
           </p>
@@ -228,10 +322,18 @@ export default function AiResearchPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 상담 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 교육용 8802</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 연구실 배포 8803</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 미러 가속 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 상담 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 교육용 8802
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 연구실 배포 8803
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 미러 가속 8809
+            </span>
           </div>
         </section>
       </main>

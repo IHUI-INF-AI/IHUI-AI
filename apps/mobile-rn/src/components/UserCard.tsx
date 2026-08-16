@@ -17,10 +17,30 @@ interface UserCardConfig {
 }
 
 const CARDS: readonly UserCardConfig[] = [
-  { key: 'order', labelKey: 'profile.userCard.order', subtitleKey: 'profile.userCard.orderSubtitle', Icon: Receipt },
-  { key: 'company', labelKey: 'profile.userCard.company', subtitleKey: 'profile.userCard.companySubtitle', Icon: Building2 },
-  { key: 'token', labelKey: 'profile.userCard.token', subtitleKey: 'profile.userCard.tokenSubtitle', Icon: Gem },
-  { key: 'wallet', labelKey: 'profile.userCard.wallet', subtitleKey: 'profile.userCard.walletSubtitle', Icon: Wallet },
+  {
+    key: 'order',
+    labelKey: 'profile.userCard.order',
+    subtitleKey: 'profile.userCard.orderSubtitle',
+    Icon: Receipt,
+  },
+  {
+    key: 'company',
+    labelKey: 'profile.userCard.company',
+    subtitleKey: 'profile.userCard.companySubtitle',
+    Icon: Building2,
+  },
+  {
+    key: 'token',
+    labelKey: 'profile.userCard.token',
+    subtitleKey: 'profile.userCard.tokenSubtitle',
+    Icon: Gem,
+  },
+  {
+    key: 'wallet',
+    labelKey: 'profile.userCard.wallet',
+    subtitleKey: 'profile.userCard.walletSubtitle',
+    Icon: Wallet,
+  },
 ]
 
 export interface UserCardProps {

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { SettingsAccountScreen as SharedSettingsAccountScreen, type SettingsAccountItem } from '@ihui/rn-app'
+import {
+  SettingsAccountScreen as SharedSettingsAccountScreen,
+  type SettingsAccountItem,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -23,14 +26,22 @@ export function SettingsAccountScreen() {
       const r = await fetchApi<SettingsAccountItem>('/account')
       if (!r.success) throw new Error()
       setAccount(r.data ?? { name: '', email: '', phone: '' })
-    } catch { setError(t('settingsAccount.loadFailed')) } finally { setLoading(false) }
+    } catch {
+      setError(t('settingsAccount.loadFailed'))
+    } finally {
+      setLoading(false)
+    }
   }, [t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const onSave = async () => {
     if (!account) return
-    setSaving(true); setError(''); setToast('')
+    setSaving(true)
+    setError('')
+    setToast('')
     try {
       const r = await fetchApi<unknown>('/account', {
         method: 'PUT',
@@ -38,7 +49,11 @@ export function SettingsAccountScreen() {
       })
       if (!r.success) throw new Error()
       setToast(t('settingsAccount.saved'))
-    } catch { setError(t('settingsAccount.loadFailed')) } finally { setSaving(false) }
+    } catch {
+      setError(t('settingsAccount.loadFailed'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

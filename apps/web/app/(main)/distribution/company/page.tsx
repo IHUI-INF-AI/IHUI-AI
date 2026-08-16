@@ -173,7 +173,9 @@ export default function DistributionCompanyPage() {
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <div className={cn('text-xl font-bold tracking-tight min-[768px]:text-2xl', s.tone)}>
+                  <div
+                    className={cn('text-xl font-bold tracking-tight min-[768px]:text-2xl', s.tone)}
+                  >
                     {s.value}
                   </div>
                 )}

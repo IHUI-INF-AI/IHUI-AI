@@ -74,8 +74,7 @@ function readDevLink(userInfo: UserInfo | null): DeveloperLink | null {
   return {
     developer: developer === undefined ? null : developer,
     expiresAt: typeof link.expiresAt === 'number' ? link.expiresAt : undefined,
-    expiresAtStr:
-      typeof link.expiresAtStr === 'string' ? link.expiresAtStr : undefined,
+    expiresAtStr: typeof link.expiresAtStr === 'string' ? link.expiresAtStr : undefined,
     type: typeof link.type === 'number' ? link.type : undefined,
   }
 }
@@ -204,25 +203,19 @@ export default function DevEnterCover() {
           <View className="dc-entry-icon">
             <Text className="dc-entry-emoji">🤖</Text>
           </View>
-          <Text className="dc-entry-text">
-            {tt('devEnter.cover.myAgents', '我的智能体')}
-          </Text>
+          <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
         </View>
         <View className="dc-entry-item" onClick={toModelIncome}>
           <View className="dc-entry-icon">
             <Text className="dc-entry-emoji">💰</Text>
           </View>
-          <Text className="dc-entry-text">
-            {tt('devEnter.cover.agentIncome', '智能体收入')}
-          </Text>
+          <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
         </View>
         <View className="dc-entry-item" onClick={toNbnModel}>
           <View className="dc-entry-icon">
             <Text className="dc-entry-emoji">⚡</Text>
           </View>
-          <Text className="dc-entry-text">
-            {tt('devEnter.cover.n8nAgents', 'n8n智能体')}
-          </Text>
+          <Text className="dc-entry-text">{tt('devEnter.cover.n8nAgents', 'n8n智能体')}</Text>
         </View>
       </View>
 
@@ -233,10 +226,7 @@ export default function DevEnterCover() {
             <Text className="dc-account-label">
               {tt('devEnter.cover.account', '账号')}：{developer.signNickname || '-'}
             </Text>
-            <Text
-              className="dc-copy-btn"
-              onClick={() => copyText(developer.signNickname || '')}
-            >
+            <Text className="dc-copy-btn" onClick={() => copyText(developer.signNickname || '')}>
               {tt('devEnter.cover.copy', '复制')}
             </Text>
           </View>
@@ -244,10 +234,7 @@ export default function DevEnterCover() {
             <Text className="dc-account-label">
               {tt('devEnter.cover.password', '密码')}：{developer.signPassword || '-'}
             </Text>
-            <Text
-              className="dc-copy-btn"
-              onClick={() => copyText(developer.signPassword || '')}
-            >
+            <Text className="dc-copy-btn" onClick={() => copyText(developer.signPassword || '')}>
               {tt('devEnter.cover.copy', '复制')}
             </Text>
           </View>
@@ -256,17 +243,13 @@ export default function DevEnterCover() {
               {tt('devEnter.cover.website', '网址')}：
               {developer.address || tt('devEnter.cover.noWebsite', '无')}
             </Text>
-            <Text
-              className="dc-copy-btn"
-              onClick={() => copyText(developer.address || '')}
-            >
+            <Text className="dc-copy-btn" onClick={() => copyText(developer.address || '')}>
               {tt('devEnter.cover.copy', '复制')}
             </Text>
           </View>
           <View className="dc-account-row">
             <Text className="dc-account-label dc-expire-text">
-              {tt('devEnter.cover.expireTime', '到期时间')}：
-              {devLink?.expiresAtStr || '-'}
+              {tt('devEnter.cover.expireTime', '到期时间')}：{devLink?.expiresAtStr || '-'}
             </Text>
             <View className="dc-renew-btn" onClick={renew}>
               <Text>{tt('devEnter.cover.renew', '续费')}</Text>
@@ -278,9 +261,7 @@ export default function DevEnterCover() {
       {/* 开发者须知 + 继续接单(仅 developer && !expire) */}
       {showAccount ? (
         <View className="dc-notice-row">
-          <Text className="dc-notice-tip">
-            {tt('devEnter.cover.devNotice', '开发者须知')}
-          </Text>
+          <Text className="dc-notice-tip">{tt('devEnter.cover.devNotice', '开发者须知')}</Text>
           <View className="dc-plaza-btn" onClick={toPlaza}>
             <Text>{tt('devEnter.cover.continueOrder', '继续接单')}</Text>
           </View>
@@ -295,11 +276,7 @@ export default function DevEnterCover() {
           </Text>
           <View className="dc-faq-grid">
             {FAQ_LIST.map((item, idx) => (
-              <View
-                key={idx}
-                className="dc-faq-item"
-                onClick={() => toWeb(item)}
-              >
+              <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)}>
                 <Text className="dc-faq-item-title">{item.title}</Text>
                 <Text className="dc-faq-item-context">{item.context}</Text>
                 <Text className="dc-faq-item-btn">{item.btn}</Text>
@@ -309,9 +286,7 @@ export default function DevEnterCover() {
         </View>
       ) : null}
 
-      {loading ? (
-        <Text className="dc-loading">{t('common.loading')}</Text>
-      ) : null}
+      {loading ? <Text className="dc-loading">{t('common.loading')}</Text> : null}
     </ScrollView>
   )
 }

@@ -98,7 +98,10 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
         try {
           parsed = JSON.parse(raw) as IdemRecord
         } catch {
-          server.log.warn({ paymentId, idemKey, raw }, 'payment idempotency corrupted record, recovering')
+          server.log.warn(
+            { paymentId, idemKey, raw },
+            'payment idempotency corrupted record, recovering',
+          )
           const recoveredCorrupt = await server.redis.set(
             key,
             JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),

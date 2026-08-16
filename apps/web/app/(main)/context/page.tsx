@@ -37,8 +37,9 @@ export default function ContextOverviewPage() {
 
   // 持久化开关/预算(乐观更新 + PUT,失败回滚并提示)
   const persistMut = useMutation({
-    mutationFn: (updates: Array<{ type: ContextType; enabled?: boolean; budgetPercent?: number }>) =>
-      updateSources(updates),
+    mutationFn: (
+      updates: Array<{ type: ContextType; enabled?: boolean; budgetPercent?: number }>,
+    ) => updateSources(updates),
     onError: (e: Error) => {
       toast.error('上下文源设置保存失败', { description: e.message })
       void qc.invalidateQueries({ queryKey: ['context', 'sources'] })
@@ -55,7 +56,9 @@ export default function ContextOverviewPage() {
 
   const handleBudget = React.useCallback(
     (type: ContextType, percent: number) => {
-      setSources((prev) => prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)))
+      setSources((prev) =>
+        prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)),
+      )
       persistMut.mutate([{ type, budgetPercent: percent }])
     },
     [persistMut],

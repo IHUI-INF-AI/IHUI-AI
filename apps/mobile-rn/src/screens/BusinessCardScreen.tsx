@@ -3,10 +3,7 @@ import { Share } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getProfile, type AuthUser } from '@ihui/api-client'
-import {
-  BusinessCardScreen as SharedBusinessCardScreen,
-  type BusinessCardItem,
-} from '@ihui/rn-app'
+import { BusinessCardScreen as SharedBusinessCardScreen, type BusinessCardItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -52,9 +49,7 @@ export default function BusinessCardScreen() {
     setError('')
     Promise.all([
       getProfile(),
-      fetchApi<{ list: BusinessCardListItem[] }>(
-        '/api/business-card/list?page=1&pageSize=100',
-      ),
+      fetchApi<{ list: BusinessCardListItem[] }>('/api/business-card/list?page=1&pageSize=100'),
     ])
       .then(([profileRes, listRes]) => {
         if (cancelled) return

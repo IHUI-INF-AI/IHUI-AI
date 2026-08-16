@@ -106,7 +106,10 @@ const createShareSchemaDoc = z.object({
 })
 // 用于运行时校验（含 transform，Date 对象流入业务逻辑）
 const createShareSchema = createShareSchemaDoc.extend({
-  expiresAt: z.iso.datetime().optional().transform((v) => (v ? new Date(v) : undefined)),
+  expiresAt: z.iso
+    .datetime()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
 })
 
 const uploadBase64Schema = z.object({

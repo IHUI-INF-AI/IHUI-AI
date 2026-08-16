@@ -6,12 +6,17 @@ import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { permissions } from '@ihui/database'
 import { eq, ilike, desc, sql, or } from 'drizzle-orm'
-import { paginationSchema, idParamSchema, createPermissionSchema, updatePermissionSchema } from './_shared.js'
+import {
+  paginationSchema,
+  idParamSchema,
+  createPermissionSchema,
+  updatePermissionSchema,
+} from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 const memberPermissionsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/member/permissions', async (request, reply) => {
+  server.get('/member/permissions', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, search } = q.data

@@ -63,7 +63,9 @@ const logsQuerySchema = paginationSchema.extend({
   /** 最大耗时毫秒 */
   maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
-  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
+  httpStatus: z
+    .transform(emptyToUndefined)
+    .pipe(z.coerce.number().int().min(100).max(599).optional()),
   /** 最小成本分 */
   minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大成本分 */
@@ -77,10 +79,9 @@ const rechargeBodySchema = z
     /** 充值成本额度(分,必须为正整数) */
     costDeltaCents: z.number().int().positive().optional(),
   })
-  .refine(
-    (d) => d.tokenDelta !== undefined || d.costDeltaCents !== undefined,
-    { message: 'tokenDelta 或 costDeltaCents 至少填一个' },
-  )
+  .refine((d) => d.tokenDelta !== undefined || d.costDeltaCents !== undefined, {
+    message: 'tokenDelta 或 costDeltaCents 至少填一个',
+  })
 
 /** 兑换码兑换 body(P0-5 刮刮卡式裂变充值,2026-07-31 立) */
 const redeemBodySchema = z.object({
@@ -431,7 +432,12 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       if (!result) return reply.status(404).send(error(404, 'API Key 不存在'))
       return reply.send(success({ id: p.data.id, ...result }))
     } catch (e) {
-      if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode) {
+      if (
+        e &&
+        typeof e === 'object' &&
+        'statusCode' in e &&
+        (e as { statusCode: number }).statusCode
+      ) {
         const status = (e as { statusCode: number }).statusCode
         const msg = e instanceof Error ? e.message : '充值失败'
         return reply.status(status).send(error(status, msg))

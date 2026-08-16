@@ -162,9 +162,7 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   // stub 响应无真实 LLM 调用,跳过记成本;userId 未传时跳过(系统侧调用)
   if (opts.userId && !result.stub && result.usage.totalTokens > 0) {
     try {
-      const provider = result.modelUsed.includes('/')
-        ? result.modelUsed.split('/')[0]!
-        : 'unknown'
+      const provider = result.modelUsed.includes('/') ? result.modelUsed.split('/')[0]! : 'unknown'
       await recordAiCost({
         userId: opts.userId,
         model: result.modelUsed,

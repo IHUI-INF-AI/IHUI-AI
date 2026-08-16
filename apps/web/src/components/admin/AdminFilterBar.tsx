@@ -68,8 +68,8 @@ export function AdminFilterBar({
             {exportLabel ?? '导出'}
           </Button>
         )}
-        {onCreate && (
-          createPermission ? (
+        {onCreate &&
+          (createPermission ? (
             <HasPermi code={createPermission}>
               <Button size="sm" onClick={onCreate}>
                 <Plus className="h-4 w-4" />
@@ -81,8 +81,7 @@ export function AdminFilterBar({
               <Plus className="h-4 w-4" />
               {createLabel ?? '新建'}
             </Button>
-          )
-        )}
+          ))}
       </div>
     </div>
   )

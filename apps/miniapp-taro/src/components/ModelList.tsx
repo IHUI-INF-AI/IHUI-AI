@@ -9,7 +9,6 @@ import selectedModelIcon from '@/assets/remote/images/selected_model.png'
 import rankoneIcon from '@/assets/remote/images/default/rankone.png'
 import { rpx } from '@/utils/rpx'
 
-
 export type ModelItem = LlmModel
 
 /**

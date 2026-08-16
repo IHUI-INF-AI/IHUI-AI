@@ -81,7 +81,9 @@ export default function WebviewIndex() {
         <View className="px-[30rpx] py-[20rpx] bg-card">
           <Text className="text-[36rpx] font-bold text-foreground">{t('webview.title')}</Text>
         </View>
-        <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('webview.missingUrl')}</Text>
+        <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+          {t('webview.missingUrl')}
+        </Text>
       </View>
     )
   }

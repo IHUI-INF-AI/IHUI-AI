@@ -112,7 +112,6 @@ export default function VipDetailsPage() {
 
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
-
       <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[linear-gradient(135deg,#f8d486,var(--color-warning))] text-foreground">
         <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
           <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>

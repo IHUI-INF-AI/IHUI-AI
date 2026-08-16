@@ -118,7 +118,8 @@ export function WorkspacePermissionRequestDialog({
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-muted-foreground">{t('tool')}</span>
                 <span className="font-medium">
-                  {t(TOOL_NAME_KEY[toolNameToI18nKey(current.tool)] ?? 'toolNames.unknown') || current.tool}
+                  {t(TOOL_NAME_KEY[toolNameToI18nKey(current.tool)] ?? 'toolNames.unknown') ||
+                    current.tool}
                 </span>
               </div>
               {current.workspacePath && (
@@ -157,10 +158,19 @@ export function WorkspacePermissionRequestDialog({
                 onClick={() => void handleDecision(false)}
                 className="shrink-0"
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <X className="h-4 w-4 shrink-0" />}
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                ) : (
+                  <X className="h-4 w-4 shrink-0" />
+                )}
                 <span className="whitespace-nowrap">{t('deny')}</span>
               </Button>
-              <Button type="button" disabled={busy} onClick={() => void handleDecision(true)} className="shrink-0">
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleDecision(true)}
+                className="shrink-0"
+              >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                 ) : (

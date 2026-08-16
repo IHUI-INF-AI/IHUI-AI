@@ -71,16 +71,13 @@ export function CodeEditorPane() {
   const registerApplyPatchCallback = useInlineEditStore((s) => s.registerApplyPatchCallback)
 
   /** 更新 tab content 到 IDE workspace store(标记 isDirty) */
-  const updateTabContent = React.useCallback(
-    (tabId: string, content: string) => {
-      useIDEWorkspace.setState((s) => ({
-        openTabs: s.openTabs.map((tab) =>
-          tab.id === tabId ? { ...tab, content, isDirty: true } : tab,
-        ),
-      }))
-    },
-    [],
-  )
+  const updateTabContent = React.useCallback((tabId: string, content: string) => {
+    useIDEWorkspace.setState((s) => ({
+      openTabs: s.openTabs.map((tab) =>
+        tab.id === tabId ? { ...tab, content, isDirty: true } : tab,
+      ),
+    }))
+  }, [])
 
   /** onMount:缓存 editor 实例 + 注册 applyPatch callback */
   const handleEditorMount = React.useCallback(
@@ -189,7 +186,9 @@ export function CodeEditorPane() {
           {/* 编辑器主体:Monaco + InlineEditDialog 浮层 + 字号控制 */}
           <div className="relative flex flex-1 overflow-hidden">
             {isLoadingContent ? (
-              <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">...</div>
+              <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">
+                ...
+              </div>
             ) : (
               <CodeEditor
                 value={activeTab.content}

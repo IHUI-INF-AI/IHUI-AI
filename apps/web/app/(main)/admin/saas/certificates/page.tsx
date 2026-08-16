@@ -32,7 +32,14 @@ import type { CertStatus, TenantCertificate as Certificate } from '@ihui/api-cli
 
 function StatusBadge({ status }: { status: CertStatus }) {
   const t = useTranslations('admin.saas.certificates')
-  const map: Record<CertStatus, { variant: 'default' | 'destructive' | 'outline' | 'secondary'; label: string; className: string }> = {
+  const map: Record<
+    CertStatus,
+    {
+      variant: 'default' | 'destructive' | 'outline' | 'secondary'
+      label: string
+      className: string
+    }
+  > = {
     healthy: {
       variant: 'default',
       label: t('status.healthy'),
@@ -113,7 +120,17 @@ export default function CertificatesPage() {
     )
   }
 
-  const { certificates, total, healthy, warning, critical, expired, acmePath, acmeExists, generatedAt } = data
+  const {
+    certificates,
+    total,
+    healthy,
+    warning,
+    critical,
+    expired,
+    acmePath,
+    acmeExists,
+    generatedAt,
+  } = data
 
   return (
     <div className="space-y-4 px-4 py-6">
@@ -130,12 +147,7 @@ export default function CertificatesPage() {
             <CenteredText>{t('subtitle')}</CenteredText>
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => refetch()}
-          disabled={isRefetching}
-        >
+        <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isRefetching}>
           <RefreshCw className={isRefetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           <CenteredText>{t('refresh')}</CenteredText>
         </Button>
@@ -205,13 +217,7 @@ export default function CertificatesPage() {
   )
 }
 
-function CertCard({
-  cert,
-  dateFmt,
-}: {
-  cert: Certificate
-  dateFmt: Intl.DateTimeFormat
-}) {
+function CertCard({ cert, dateFmt }: { cert: Certificate; dateFmt: Intl.DateTimeFormat }) {
   const t = useTranslations('admin.saas.certificates')
   const tDays = useTranslations('admin.saas.certificates.days')
 
@@ -244,23 +250,11 @@ function CertCard({
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
           <Item label={t('issuer')} value={cert.issuer} mono />
           <Item label={t('subject')} value={cert.subject} mono />
-          <Item
-            label={t('notBefore')}
-            value={dateFmt.format(new Date(cert.notBefore))}
-            mono
-          />
-          <Item
-            label={t('notAfter')}
-            value={dateFmt.format(new Date(cert.notAfter))}
-            mono
-          />
+          <Item label={t('notBefore')} value={dateFmt.format(new Date(cert.notBefore))} mono />
+          <Item label={t('notAfter')} value={dateFmt.format(new Date(cert.notAfter))} mono />
           <Item label={t('daysUntilExpiry')} value={daysLabel} mono />
           {cert.fingerprint ? (
-            <Item
-              label={t('fingerprint')}
-              value={`${cert.fingerprint.slice(0, 16)}…`}
-              mono
-            />
+            <Item label={t('fingerprint')} value={`${cert.fingerprint.slice(0, 16)}…`} mono />
           ) : null}
         </dl>
       </CardContent>
@@ -268,15 +262,7 @@ function CertCard({
   )
 }
 
-function Item({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string
-  value: string
-  mono?: boolean
-}) {
+function Item({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
       <dt className="text-muted-foreground">{label}</dt>

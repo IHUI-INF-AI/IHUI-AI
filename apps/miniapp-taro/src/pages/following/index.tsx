@@ -38,8 +38,7 @@ export default function FollowingPage() {
     }
     if (activeTab === 'followedAt') {
       list.sort(
-        (a, b) =>
-          new Date(b.followedAt || '').getTime() - new Date(a.followedAt || '').getTime(),
+        (a, b) => new Date(b.followedAt || '').getTime() - new Date(a.followedAt || '').getTime(),
       )
     } else {
       // recent:后端无活跃时间字段,按用户名做占位排序
@@ -81,7 +80,9 @@ export default function FollowingPage() {
       {/* 顶部:关注统计 + 搜索 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
-          <Text className="text-[28rpx] text-muted-foreground">{tt('following.total', '已关注')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">
+            {tt('following.total', '已关注')}
+          </Text>
           <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
           <Text className="text-[24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
@@ -119,7 +120,10 @@ export default function FollowingPage() {
             const name = item.nickname || item.username
             const initial = (name || '?').charAt(0)
             return (
-              <View key={item.id} className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]">
+              <View
+                key={item.id}
+                className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+              >
                 {item.avatar ? (
                   <Image
                     className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
@@ -133,17 +137,22 @@ export default function FollowingPage() {
                 )}
                 <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                   <View className="flex items-center justify-between">
-                    <Text className="text-[30rpx] font-semibold text-foreground truncate">{name}</Text>
+                    <Text className="text-[30rpx] font-semibold text-foreground truncate">
+                      {name}
+                    </Text>
                     <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-[6rpx]">
                       <Text className="text-[20rpx] text-primary">
                         {tt('following.following', '已关注')}
                       </Text>
                     </View>
                   </View>
-                  {item.bio ? <Text className="text-[24rpx] text-muted-foreground truncate">{item.bio}</Text> : null}
+                  {item.bio ? (
+                    <Text className="text-[24rpx] text-muted-foreground truncate">{item.bio}</Text>
+                  ) : null}
                   <View className="flex items-center justify-between">
                     <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('following.followedAt', '关注于')} {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
+                      {tt('following.followedAt', '关注于')}{' '}
+                      {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     <Text
                       className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
@@ -168,7 +177,10 @@ export default function FollowingPage() {
               ? tt('following.searchEmpty', '未找到匹配用户')
               : tt('following.empty', '暂无关注')}
           </Text>
-          <View className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]" onClick={goDiscover}>
+          <View
+            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]"
+            onClick={goDiscover}
+          >
             <Text className="text-foreground text-[26rpx]">
               {tt('following.goDiscover', '去发现更多')}
             </Text>
@@ -179,9 +191,7 @@ export default function FollowingPage() {
       {/* 加载状态 */}
       {loading && displayList.length === 0 ? (
         <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
-          <Text>
-            {tt('common.loading', '加载中…')}
-          </Text>
+          <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
       {loading && displayList.length > 0 ? (

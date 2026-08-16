@@ -36,10 +36,7 @@ export async function findAgentById(agentId: string): Promise<Agent | undefined>
  * @param agentId 智能体公开 ID(agents.agentId,uuid)
  * @param limit   最多返回条数(默认 50)
  */
-export async function findAgentTasksByAgentId(
-  agentId: string,
-  limit = 50,
-): Promise<AgentTask[]> {
+export async function findAgentTasksByAgentId(agentId: string, limit = 50): Promise<AgentTask[]> {
   const rows = await dbRead
     .select()
     .from(agentTasks)

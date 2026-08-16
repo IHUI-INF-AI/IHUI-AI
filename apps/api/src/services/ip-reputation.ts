@@ -416,17 +416,11 @@ export class IpReputationService {
 
   /* ----------------------------- 内存降级存储 ----------------------------- */
 
-  private static readonly memCache = new Map<
-    string,
-    { value: IpReputation; expiresAt: number }
-  >()
+  private static readonly memCache = new Map<string, { value: IpReputation; expiresAt: number }>()
   // 黑名单:用 Map<string, true> 而非 Set,以便配合 setWithLRU 限制大小
   // (Set 无 LRU 语义,攻击者构造大量不同 IP 会导致无限增长)
   private static readonly memBlacklist = new Map<string, true>()
-  private static readonly memBadEvents = new Map<
-    string,
-    { count: number; expiresAt: number }
-  >()
+  private static readonly memBadEvents = new Map<string, { count: number; expiresAt: number }>()
   private static readonly memBlocked = new Map<string, number>()
 
   /**

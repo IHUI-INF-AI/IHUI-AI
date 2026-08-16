@@ -248,7 +248,8 @@ function buildDefaultParams(f: ModelFormState): Record<string, unknown> {
     out.presence_penalty = p.presencePenalty
   if (p.systemPrompt && p.systemPrompt.trim()) out.system = p.systemPrompt.trim()
   if (p.stop && p.stop.length > 0) out.stop = p.stop
-  if (p.responseFormat && p.responseFormat !== 'text') out.response_format = { type: p.responseFormat }
+  if (p.responseFormat && p.responseFormat !== 'text')
+    out.response_format = { type: p.responseFormat }
   if (p.extra && Object.keys(p.extra).length > 0) Object.assign(out, p.extra)
   return out
 }

@@ -143,7 +143,9 @@
       "quitRestarting": "Update complete, restarting...",
       "quitQuitting": "Quitting...",
       "quitSkip": "Skip and quit",
-      "autoRestart": "Auto-restarting...",
+      "autoRestartIn": "Auto-restarting in {countdown}s...",
+      "restartLater": "Restart later",
+      "restartNow": "Restart now",
       "preparing": "Preparing update...",
       "autoRetrying": "Update failed, auto-retrying..."
     },

@@ -177,7 +177,9 @@ function ScoreEntryDialog({
               </SelectTrigger>
               <SelectContent>
                 {students.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -238,7 +240,10 @@ function ScoreEntryDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentId || !form.subject.trim() || !form.examName.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.studentId || !form.subject.trim() || !form.examName.trim()}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             保存
           </Button>
@@ -297,7 +302,9 @@ function BatchScoreEntry({
             <tr className="border-b bg-muted/50">
               <th className="px-3 py-2 text-left font-medium">学生</th>
               {subjects.map((s) => (
-                <th key={s} className="px-3 py-2 text-left font-medium">{s}</th>
+                <th key={s} className="px-3 py-2 text-left font-medium">
+                  {s}
+                </th>
               ))}
             </tr>
           </thead>
@@ -366,7 +373,8 @@ export default function GradesPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () => api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: () =>
+      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -548,14 +556,21 @@ export default function GradesPage() {
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
           <div className="flex items-center gap-2">
             <School className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedTermId} onValueChange={(v) => { setSelectedTermId(v); setSelectedClassId('') }}>
+            <Select
+              value={selectedTermId}
+              onValueChange={(v) => {
+                setSelectedTermId(v)
+                setSelectedClassId('')
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="选择学期" />
               </SelectTrigger>
               <SelectContent>
                 {terms.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}{t.isCurrent ? ' (当前)' : ''}
+                    {t.name}
+                    {t.isCurrent ? ' (当前)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -565,7 +580,11 @@ export default function GradesPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
             <Select
               value={selectedClassId}
-              onValueChange={(v) => { setSelectedClassId(v); setSelectedSubject(''); setSelectedExamName('') }}
+              onValueChange={(v) => {
+                setSelectedClassId(v)
+                setSelectedSubject('')
+                setSelectedExamName('')
+              }}
               disabled={!selectedTermId || classes.length === 0}
             >
               <SelectTrigger className="w-40">
@@ -574,7 +593,8 @@ export default function GradesPage() {
               <SelectContent>
                 {classes.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name}{c.grade ? ` (${c.grade})` : ''}
+                    {c.name}
+                    {c.grade ? ` (${c.grade})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -634,7 +654,10 @@ export default function GradesPage() {
             ) : selectedExamName && selectedSubject ? (
               <BatchScoreEntry
                 students={[]}
-                subjects={selectedSubject.split(',').map((s) => s.trim()).filter(Boolean)}
+                subjects={selectedSubject
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)}
                 onSave={async (entries) => {
                   await batchCreateScores.mutateAsync(entries)
                 }}
@@ -662,7 +685,9 @@ export default function GradesPage() {
                 <SelectContent>
                   <SelectItem value="all">全部科目</SelectItem>
                   {subjects.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -673,11 +698,18 @@ export default function GradesPage() {
                 <SelectContent>
                   <SelectItem value="all">全部考试</SelectItem>
                   {examNames.map((n) => (
-                    <SelectItem key={n} value={n}>{n}</SelectItem>
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={scores.length === 0}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                disabled={scores.length === 0}
+              >
                 <Download className="h-3.5 w-3.5" />
                 导出CSV
               </Button>
@@ -772,7 +804,9 @@ export default function GradesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {examNames.map((n) => (
-                    <SelectItem key={n} value={n}>{n}</SelectItem>
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -814,10 +848,14 @@ export default function GradesPage() {
                     {rankWithChange.map((r) => (
                       <tr key={r.studentId} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="px-3 py-2">
-                          <span className={cn(
-                            'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
-                            r.rank <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground',
-                          )}>
+                          <span
+                            className={cn(
+                              'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
+                              r.rank <= 3
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-muted text-muted-foreground',
+                            )}
+                          >
                             {r.rank}
                           </span>
                         </td>
@@ -840,7 +878,8 @@ export default function GradesPage() {
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 text-red-600">
-                              <ArrowDown className="h-4 w-4" />{r.change}
+                              <ArrowDown className="h-4 w-4" />
+                              {r.change}
                             </span>
                           )}
                         </td>
@@ -874,7 +913,9 @@ export default function GradesPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">最高分</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold text-green-600">{statsData?.maxScore ?? '-'}</p>
+                <p className="mt-1 text-2xl font-bold text-green-600">
+                  {statsData?.maxScore ?? '-'}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -931,8 +972,13 @@ export default function GradesPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {rankWithChange.slice(0, 5).map((r) => (
-                  <div key={r.studentId} className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0">
-                    <span className="font-medium">#{r.rank} {r.studentId.slice(0, 8)}</span>
+                  <div
+                    key={r.studentId}
+                    className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0"
+                  >
+                    <span className="font-medium">
+                      #{r.rank} {r.studentId.slice(0, 8)}
+                    </span>
                     <span className="text-muted-foreground">{r.totalScore}分</span>
                   </div>
                 ))}
@@ -946,12 +992,20 @@ export default function GradesPage() {
                 <CardTitle className="text-sm font-medium">后5名</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {rankWithChange.slice(-5).reverse().map((r) => (
-                  <div key={r.studentId} className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0">
-                    <span className="font-medium">#{r.rank} {r.studentId.slice(0, 8)}</span>
-                    <span className="text-muted-foreground">{r.totalScore}分</span>
-                  </div>
-                ))}
+                {rankWithChange
+                  .slice(-5)
+                  .reverse()
+                  .map((r) => (
+                    <div
+                      key={r.studentId}
+                      className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0"
+                    >
+                      <span className="font-medium">
+                        #{r.rank} {r.studentId.slice(0, 8)}
+                      </span>
+                      <span className="text-muted-foreground">{r.totalScore}分</span>
+                    </div>
+                  ))}
                 {rankWithChange.length === 0 && (
                   <p className="px-4 py-4 text-center text-sm text-muted-foreground">暂无数据</p>
                 )}

@@ -13,13 +13,7 @@ import {
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / error */
 export type UpdateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'installing'
-  | 'done'
-  | 'error'
+  'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error'
 
 export interface UpdaterState {
   status: UpdateStatus
@@ -48,25 +42,30 @@ const INITIAL_STATE: UpdaterState = {
 /** 静默检查延迟(启动后 5 秒,避免与初始化竞争资源)。 */
 const SILENT_CHECK_DELAY_MS = 5000
 
+/** 安装完成后的自动重启倒计时(秒)。默认 60 秒,用户可在倒计时内选择"稍后重启"或"立即重启"。 */
+export const RESTART_COUNTDOWN_SECONDS = 60
+
+/** 更新安装完成、进入等待重启倒计时时派发的自定义事件名。UI(如 GlobalShell)可监听该事件显示提示。 */
+export const UPDATER_PENDING_EVENT = 'desktop-updater-pending'
+
 /**
- * 开发环境测试模式(仅 development):
- * - Tauri 开发环境:自动启用(无需 URL 参数),因为桌面端无法手动加参数
- * - 浏览器开发环境:需 URL 参数 ?dev-update=1
- * 生产环境永远返回 false。
+ * 开发环境测试模式:
+ * - 仅当 URL 带 ?dev-update=1 时启用 mock 会话(浏览器 dev 环境)
+ * - Tauri 环境必须显式加 ?dev-update=1 才启用测试
+ * 2026-08-16 修复:此前 Tauri 分支自动 return true,但 macOS/Linux 生产 origin
+ * 是 tauri://localhost(hostname === 'localhost'),被误判为开发 → mock 替代真实
+ * updater → 生产版本更新失效。改为不依赖 hostname,生产永不误判。
  */
 function isDevUpdateTest(): boolean {
   if (typeof window === 'undefined') return false
-  // Turbopack 浏览器端不内联 process.env.NODE_ENV,改用 hostname 检测开发环境
-  const isLocalhost =
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1'
   const devParam = new URLSearchParams(window.location.search).get('dev-update')
-  const tauri = isTauri()
-  if (!isLocalhost) return false
-  // Tauri 开发环境:自动启用测试模式
-  if (tauri) return true
-  // 浏览器开发环境:需 URL 参数
-  return devParam === '1'
+  if (devParam !== '1') return false
+  // Tauri 环境:显式参数 + 本地 origin 才视为开发测试
+  if (isTauri()) return true
+  // 浏览器环境:仅 localhost 允许 mock 测试
+  return (
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  )
 }
 
 /** 模拟更新会话(开发测试用,15.2MB 假包,~4s 下载完)。 */
@@ -105,9 +104,10 @@ function createMockSession(): UpdateSession {
  * - 组件手动触发 checkForUpdate()
  *
  * 强制自动更新策略(2026-07-31 立,无需用户点击任何按钮):
- * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装,完成后 3 秒自动重启
+ * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装,完成后 60 秒倒计时自动重启
+ *   (2026-08-16 改:倒计时期间用户可点"稍后重启"重置倒计时,或"立即重启"直接重启)
  * - 关闭程序:由 quitAndUpdateIfNeeded() 拦截退出流程,自动检查+下载+安装+重启(不可跳过)
- * - 使用中:托盘菜单触发或启动检查,自动下载安装+自动重启,弹窗仅展示进度(不可关闭)
+ * - 使用中:托盘菜单触发或启动检查,自动下载安装,完成后 60 秒倒计时自动重启,弹窗展示进度
  * - 更新失败:自动重试(最多 3 次,间隔 5 秒),超过后显示错误信息
  *
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用,返回 idle 状态。
@@ -117,6 +117,51 @@ export function useUpdater() {
   const mountedRef = React.useRef(true)
   /** 自动重试计数(错误后自动重试,最多 3 次)。 */
   const [retryCount, setRetryCount] = React.useState(0)
+  /** 安装完成后距自动重启的剩余秒数(0 表示未进入等待重启倒计时)。 */
+  const [restartCountdown, setRestartCountdown] = React.useState(0)
+  /** 自动重启倒计时定时器(到 0 时执行 restartApp)。 */
+  const restartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** 剩余秒数递减定时器(每秒 -1)。 */
+  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+
+  /** 清除自动重启相关定时器(幂等)。 */
+  const clearRestartTimers = React.useCallback(() => {
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current)
+      restartTimerRef.current = null
+    }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
+  }, [])
+
+  /**
+   * 启动一轮自动重启倒计时(默认 60 秒):
+   * 先通过 UPDATER_PENDING_EVENT 通知 UI(UpdatePrompt 直接消费返回值,其它组件可监听该事件),
+   * 每秒递减剩余秒数,倒计时结束自动重启;期间用户可调用 restartNow / postponeRestart。
+   */
+  const startRestartCountdown = React.useCallback(() => {
+    clearRestartTimers()
+    setRestartCountdown(RESTART_COUNTDOWN_SECONDS)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent(UPDATER_PENDING_EVENT, {
+          detail: { remainingSeconds: RESTART_COUNTDOWN_SECONDS },
+        }),
+      )
+    }
+    countdownTimerRef.current = setInterval(() => {
+      setRestartCountdown((c) => (c > 0 ? c - 1 : 0))
+    }, 1000)
+    restartTimerRef.current = setTimeout(() => {
+      if (isDevUpdateTest()) {
+        setState(INITIAL_STATE)
+        return
+      }
+      void restartApp()
+    }, RESTART_COUNTDOWN_SECONDS * 1000)
+  }, [])
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -243,18 +288,26 @@ export function useUpdater() {
     return () => window.removeEventListener('desktop-check-update', handler)
   }, [checkForUpdate])
 
-  // 安装完成自动重启(强制更新:无需用户点击,3 秒后自动重启)
+  // 安装完成自动重启:默认 60 秒倒计时(不再 3 秒强杀),期间用户可选择"稍后重启"或"立即重启"
   React.useEffect(() => {
     if (state.status !== 'done') return
-    const timer = setTimeout(() => {
-      if (isDevUpdateTest()) {
-        setState(INITIAL_STATE)
-        return
-      }
-      void restartApp()
-    }, 3000)
-    return () => clearTimeout(timer)
-  }, [state.status])
+    startRestartCountdown()
+    return () => clearRestartTimers()
+  }, [state.status, startRestartCountdown, clearRestartTimers])
+
+  /** 稍后重启:重置一轮自动重启倒计时(再给 60 秒),并再次通知 UI。 */
+  const postponeRestart = React.useCallback(() => {
+    startRestartCountdown()
+  }, [startRestartCountdown])
+
+  /** 立即重启应用(用户点击"立即重启"或倒计时结束前的主动重启)。 */
+  const restartNow = React.useCallback(async () => {
+    clearRestartTimers()
+    setRestartCountdown(0)
+    setState(INITIAL_STATE)
+    if (isDevUpdateTest()) return
+    await restartApp()
+  }, [])
 
   // 更新失败自动重试(强制更新:最多重试 3 次,每次间隔 5 秒)
   React.useEffect(() => {
@@ -289,9 +342,12 @@ export function useUpdater() {
     ...state,
     retryCount,
     maxRetries: 3,
+    restartCountdown,
     checkForUpdate,
     downloadAndInstall,
     restart,
+    restartNow,
+    postponeRestart,
     dismiss,
   }
 }

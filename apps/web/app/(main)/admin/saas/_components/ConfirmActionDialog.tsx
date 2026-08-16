@@ -50,8 +50,7 @@ export function ConfirmActionDialog({
   }, [open])
   const canConfirm = !requireInput || input === requireInput
   const isDestructive = variant === 'destructive'
-  const hintText =
-    requireInputHint ?? t('confirm.confirmInputHint', { value: requireInput ?? '' })
+  const hintText = requireInputHint ?? t('confirm.confirmInputHint', { value: requireInput ?? '' })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

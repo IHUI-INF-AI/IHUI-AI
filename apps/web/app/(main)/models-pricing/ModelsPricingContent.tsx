@@ -88,9 +88,7 @@ export function ModelsPricingContent(): React.JSX.Element {
 
   const grouped = React.useMemo(() => {
     const kw = keyword.trim().toLowerCase()
-    const items = (data ?? []).filter((p) =>
-      kw ? p.modelId.toLowerCase().includes(kw) : true,
-    )
+    const items = (data ?? []).filter((p) => (kw ? p.modelId.toLowerCase().includes(kw) : true))
     const map = new Map<string, AiPricing[]>()
     for (const item of items) {
       const vendor = detectVendor(item.modelId)
@@ -104,7 +102,9 @@ export function ModelsPricingContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       <BackButton />
       <header className="space-y-2 text-center">
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">模型定价</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          模型定价
+        </h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
           所有模型输入/输出 token 单价,单位:元 / 百万 token。按厂商分组,支持关键词搜索。
         </p>
@@ -160,15 +160,26 @@ export function ModelsPricingContent(): React.JSX.Element {
                     {items.map((p) => {
                       const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
                       const regions = [
-                        p.regionPricing?.cn !== null && p.regionPricing?.cn !== undefined && `CN ${p.regionPricing.cn}`,
-                        p.regionPricing?.us !== null && p.regionPricing?.us !== undefined && `US ${p.regionPricing.us}`,
-                        p.regionPricing?.eu !== null && p.regionPricing?.eu !== undefined && `EU ${p.regionPricing.eu}`,
+                        p.regionPricing?.cn !== null &&
+                          p.regionPricing?.cn !== undefined &&
+                          `CN ${p.regionPricing.cn}`,
+                        p.regionPricing?.us !== null &&
+                          p.regionPricing?.us !== undefined &&
+                          `US ${p.regionPricing.us}`,
+                        p.regionPricing?.eu !== null &&
+                          p.regionPricing?.eu !== undefined &&
+                          `EU ${p.regionPricing.eu}`,
                       ]
                         .filter(Boolean)
                         .join(' / ')
                       return (
                         <TableRow key={p.id}>
-                          <TableCell className="max-w-[180px] truncate font-mono text-xs" title={p.modelId}>{p.modelId}</TableCell>
+                          <TableCell
+                            className="max-w-[180px] truncate font-mono text-xs"
+                            title={p.modelId}
+                          >
+                            {p.modelId}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {sym}
                             {formatPrice(p.inputTokenPrice)}

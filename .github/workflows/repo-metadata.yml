@@ -21,7 +21,7 @@ on:
     paths: ['.github/workflows/repo-metadata.yml']
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * 1'  # 每周一 03:00 UTC
+    - cron: '0 3 * * 1' # 每周一 03:00 UTC
 
 permissions:
   contents: read

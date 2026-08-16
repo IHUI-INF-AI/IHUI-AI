@@ -63,10 +63,7 @@ function nextId(): string {
 
 // ===== Zod 业务校验 =====
 const createDramaSchema = z.object({
-  title: z
-    .string()
-    .min(1, '标题不能为空')
-    .max(200, '标题长度 1-200'),
+  title: z.string().min(1, '标题不能为空').max(200, '标题长度 1-200'),
   description: z.string().max(5000, '描述最长 5000 字符').optional().default(''),
   status: z.enum(['draft', 'published']).default('draft'),
   viewCount: z.number().int().min(0, '观看数必须 >= 0').default(0),
@@ -86,10 +83,7 @@ const listQuerySchema = paginationSchema.extend({
 })
 
 const batchIdsSchema = z.object({
-  ids: z
-    .array(z.string().min(1))
-    .min(1, '至少选择 1 条')
-    .max(100, '单次最多 100 条'),
+  ids: z.array(z.string().min(1)).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
 })
 
 // ===== 辅助函数 =====
@@ -107,14 +101,12 @@ async function enrichWithAuthor(records: DramaRecord[]) {
   const userMap = new Map(userRows.map((u) => [u.id, u]))
   return records.map((r) => ({
     ...r,
-    author: r.createdBy ? userMap.get(r.createdBy)?.nickname ?? null : null,
-    authorAvatar: r.createdBy ? userMap.get(r.createdBy)?.avatar ?? null : null,
+    author: r.createdBy ? (userMap.get(r.createdBy)?.nickname ?? null) : null,
+    authorAvatar: r.createdBy ? (userMap.get(r.createdBy)?.avatar ?? null) : null,
   }))
 }
 
-function toDto(
-  r: DramaRecord & { author?: string | null; authorAvatar?: string | null },
-) {
+function toDto(r: DramaRecord & { author?: string | null; authorAvatar?: string | null }) {
   return {
     id: r.id,
     title: r.title,
@@ -244,7 +236,10 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
       dramaStore.set(id, updated)
       published++
     }
-    request.log.info({ published, skippedCount: skipped.length, operatorId }, 'drama audit: batch-publish')
+    request.log.info(
+      { published, skippedCount: skipped.length, operatorId },
+      'drama audit: batch-publish',
+    )
     return reply.send(success({ published, skipped }))
   })
 
@@ -264,7 +259,10 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
         skipped.push({ id, reason: '不存在' })
       }
     }
-    request.log.info({ deleted, skippedCount: skipped.length, operatorId }, 'drama audit: batch-delete')
+    request.log.info(
+      { deleted, skippedCount: skipped.length, operatorId },
+      'drama audit: batch-delete',
+    )
     return reply.send(success({ deleted, skipped }))
   })
 

@@ -9,9 +9,20 @@ import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common/Toaster'
 import { runCommand } from '@ihui/api-client'
 import {
-  Search, FilePlus, FolderPlus, RefreshCw, Pencil, Trash2,
-  FunctionSquare, Box, Variable, Type,
-  GitCommit, FileEdit, Save, ChevronRight,
+  Search,
+  FilePlus,
+  FolderPlus,
+  RefreshCw,
+  Pencil,
+  Trash2,
+  FunctionSquare,
+  Box,
+  Variable,
+  Type,
+  GitCommit,
+  FileEdit,
+  Save,
+  ChevronRight,
 } from 'lucide-react'
 import type { FileNode, OutlineNode, TimelineEntry } from '@ihui/types'
 
@@ -64,7 +75,9 @@ function highlightMatch(name: string, term: string) {
   return (
     <>
       {name.slice(0, idx)}
-      <span className="rounded-sm bg-yellow-500/30 text-foreground">{name.slice(idx, idx + term.length)}</span>
+      <span className="rounded-sm bg-yellow-500/30 text-foreground">
+        {name.slice(idx, idx + term.length)}
+      </span>
       {name.slice(idx + term.length)}
     </>
   )
@@ -101,14 +114,25 @@ function isPathInWorkspace(target: string, workspace: string): boolean {
 export function FileExplorer() {
   const t = useTranslations('ide')
   const locale = useLocale()
-  const { fileTree, activeView, openFile, selectFile, loading, error, workspacePath, fetchFileTree } = useIDEWorkspace()
+  const {
+    fileTree,
+    activeView,
+    openFile,
+    selectFile,
+    loading,
+    error,
+    workspacePath,
+    fetchFileTree,
+  } = useIDEWorkspace()
   const [subTab, setSubTab] = React.useState<SubTab>('files')
   const [search, setSearch] = React.useState('')
 
   // 创建/删除/重命名状态
   const [creating, setCreating] = React.useState<'file' | 'folder' | null>(null)
   const [createName, setCreateName] = React.useState('')
-  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number; node: FileNode } | null>(null)
+  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number; node: FileNode } | null>(
+    null,
+  )
   const [renamingNode, setRenamingNode] = React.useState<FileNode | null>(null)
   const [renameValue, setRenameValue] = React.useState('')
   const [deletingNode, setDeletingNode] = React.useState<FileNode | null>(null)
@@ -120,7 +144,9 @@ export function FileExplorer() {
   React.useEffect(() => {
     if (!menuPos) return
     const close = () => setMenuPos(null)
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuPos(null) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuPos(null)
+    }
     document.addEventListener('click', close)
     document.addEventListener('contextmenu', close, true)
     document.addEventListener('keydown', onKey)
@@ -182,7 +208,9 @@ export function FileExplorer() {
     try {
       const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
       if (result.success) {
-        toast.success(creating === 'file' ? t('fileExplorer.fileCreated') : t('fileExplorer.folderCreated'))
+        toast.success(
+          creating === 'file' ? t('fileExplorer.fileCreated') : t('fileExplorer.folderCreated'),
+        )
         setCreating(null)
         setCreateName('')
         await refreshTree()
@@ -237,9 +265,8 @@ export function FileExplorer() {
       toast.error('路径越界')
       return
     }
-    const command = deletingNode.type === 'folder'
-      ? `rm -rf "${deletingNode.path}"`
-      : `rm "${deletingNode.path}"`
+    const command =
+      deletingNode.type === 'folder' ? `rm -rf "${deletingNode.path}"` : `rm "${deletingNode.path}"`
     try {
       const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
       if (result.success) {
@@ -256,7 +283,11 @@ export function FileExplorer() {
 
   const matched = search ? flattenFiles(fileTree, search) : []
   const tabLabel = (tab: SubTab) =>
-    tab === 'files' ? t('fileExplorer.tabFiles') : tab === 'outline' ? t('fileExplorer.tabOutline') : t('fileExplorer.tabTimeline')
+    tab === 'files'
+      ? t('fileExplorer.tabFiles')
+      : tab === 'outline'
+        ? t('fileExplorer.tabOutline')
+        : t('fileExplorer.tabTimeline')
 
   const renderCreateInput = () => {
     if (!creating) return null
@@ -272,10 +303,20 @@ export function FileExplorer() {
           value={createName}
           onChange={(e) => setCreateName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); void handleCreate() }
-            if (e.key === 'Escape') { setCreating(null); setCreateName('') }
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void handleCreate()
+            }
+            if (e.key === 'Escape') {
+              setCreating(null)
+              setCreateName('')
+            }
           }}
-          placeholder={creating === 'file' ? t('fileExplorer.fileNamePlaceholder') : t('fileExplorer.folderNamePlaceholder')}
+          placeholder={
+            creating === 'file'
+              ? t('fileExplorer.fileNamePlaceholder')
+              : t('fileExplorer.folderNamePlaceholder')
+          }
           className="w-full rounded-md border border-border bg-background px-2 py-0.5 text-xs focus:outline-none"
         />
       </div>
@@ -291,7 +332,9 @@ export function FileExplorer() {
             onClick={() => setSubTab(tab)}
             className={cn(
               'rounded px-2 py-0.5 text-xs transition-colors duration-150',
-              subTab === tab ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+              subTab === tab
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {tabLabel(tab)}
@@ -312,7 +355,10 @@ export function FileExplorer() {
           </div>
           <Tooltip content={t('fileExplorer.newFile')}>
             <button
-              onClick={() => { setCreating('file'); setCreateName('') }}
+              onClick={() => {
+                setCreating('file')
+                setCreateName('')
+              }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFile')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
@@ -322,7 +368,10 @@ export function FileExplorer() {
           </Tooltip>
           <Tooltip content={t('fileExplorer.newFolder')}>
             <button
-              onClick={() => { setCreating('folder'); setCreateName('') }}
+              onClick={() => {
+                setCreating('folder')
+                setCreateName('')
+              }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFolder')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
@@ -345,120 +394,169 @@ export function FileExplorer() {
       <div className="flex-1 overflow-auto py-1">
         {subTab === 'files' && workspacePath && renderCreateInput()}
 
-        {subTab === 'files' && (
-          search ? (
+        {subTab === 'files' &&
+          (search ? (
             matched.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
-            ) : matched.map((node) => {
-              const Icon = getFileIcon(node.name)
-              const isRenaming = renamingNode?.id === node.id
-              const isDeleting = deletingNode?.id === node.id
-              return (
-                <div
-                  key={node.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => { if (!isRenaming && !isDeleting) { selectFile(node.id); openFile(node) } }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectFile(node.id); openFile(node) } }}
-                  onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenuPos({ x: e.clientX, y: e.clientY, node }) }}
-                  className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
-                >
-                  <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(node.name))} />
-                  {isRenaming ? (
-                    <input
-                      ref={renameInputRef}
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); void handleRename() }
-                        if (e.key === 'Escape') { setRenamingNode(null) }
-                      }}
-                      className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
-                    />
-                  ) : isDeleting ? (
-                    <div className="flex flex-1 items-center gap-1">
-                      <span className="truncate text-red-500">{t('fileExplorer.confirmDelete')}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); void handleDelete() }}
-                        className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
-                      >{t('fileExplorer.confirm')}</button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeletingNode(null) }}
-                        className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
-                      >{t('fileExplorer.cancel')}</button>
-                    </div>
-                  ) : (
-                    <span className="truncate">{highlightMatch(node.name, search)}</span>
-                  )}
-                </div>
-              )
-            })
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                {t('fileExplorer.noMatch')}
+              </div>
+            ) : (
+              matched.map((node) => {
+                const Icon = getFileIcon(node.name)
+                const isRenaming = renamingNode?.id === node.id
+                const isDeleting = deletingNode?.id === node.id
+                return (
+                  <div
+                    key={node.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (!isRenaming && !isDeleting) {
+                        selectFile(node.id)
+                        openFile(node)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        selectFile(node.id)
+                        openFile(node)
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setMenuPos({ x: e.clientX, y: e.clientY, node })
+                    }}
+                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
+                  >
+                    <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(node.name))} />
+                    {isRenaming ? (
+                      <input
+                        ref={renameInputRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            void handleRename()
+                          }
+                          if (e.key === 'Escape') {
+                            setRenamingNode(null)
+                          }
+                        }}
+                        className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
+                      />
+                    ) : isDeleting ? (
+                      <div className="flex flex-1 items-center gap-1">
+                        <span className="truncate text-red-500">
+                          {t('fileExplorer.confirmDelete')}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void handleDelete()
+                          }}
+                          className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
+                        >
+                          {t('fileExplorer.confirm')}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeletingNode(null)
+                          }}
+                          className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                        >
+                          {t('fileExplorer.cancel')}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="truncate">{highlightMatch(node.name, search)}</span>
+                    )}
+                  </div>
+                )
+              })
+            )
           ) : !workspacePath ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">{t('editorEmpty.subtitle')}</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              {t('editorEmpty.subtitle')}
+            </div>
           ) : loading ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">...</div>
           ) : error ? (
             <div className="px-3 py-2 text-xs text-red-500">{error}</div>
           ) : fileTree.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              {t('fileExplorer.noMatch')}
+            </div>
           ) : (
-            fileTree.map((node) => (
-              <FileTreeNode key={node.id} node={node} depth={0} />
-            ))
-          )
-        )}
+            fileTree.map((node) => <FileTreeNode key={node.id} node={node} depth={0} />)
+          ))}
 
-        {subTab === 'outline' && (EMPTY_OUTLINE.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
-        ) : EMPTY_OUTLINE.map((item) => {
-          const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
-          return (
-            <div key={item.id}>
-              <div
-                className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
-                style={{ paddingLeft: 12 }}
-              >
-                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                <span className="truncate">{item.label}</span>
-                <span className="ml-auto text-muted-foreground">{item.line}</span>
-              </div>
-              {item.children?.map((c) => {
-                const CIcon = OUTLINE_ICON[c.type] ?? Variable
-                return (
+        {subTab === 'outline' &&
+          (EMPTY_OUTLINE.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              {t('fileExplorer.noMatch')}
+            </div>
+          ) : (
+            EMPTY_OUTLINE.map((item) => {
+              const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
+              return (
+                <div key={item.id}>
                   <div
-                    key={c.id}
-                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
-                    style={{ paddingLeft: 28 }}
+                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
+                    style={{ paddingLeft: 12 }}
                   >
-                    <CIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{c.label}</span>
-                    <span className="ml-auto">{c.line}</span>
+                    <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                    <span className="truncate">{item.label}</span>
+                    <span className="ml-auto text-muted-foreground">{item.line}</span>
                   </div>
-                )
-              })}
-            </div>
-          )
-        }))}
+                  {item.children?.map((c) => {
+                    const CIcon = OUTLINE_ICON[c.type] ?? Variable
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
+                        style={{ paddingLeft: 28 }}
+                      >
+                        <CIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{c.label}</span>
+                        <span className="ml-auto">{c.line}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })
+          ))}
 
-        {subTab === 'timeline' && (EMPTY_TIMELINE.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
-        ) : EMPTY_TIMELINE.map((item) => {
-          const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
-          return (
-            <div
-              key={item.id}
-              className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-xs hover:bg-muted/50"
-            >
-              <TIcon className={cn('h-3.5 w-3.5 shrink-0', TIMELINE_COLOR[item.type])} />
-              <div className="flex flex-1 flex-col">
-                <span className="truncate">{item.label}</span>
-                <span className="text-muted-foreground">{item.author} · {formatTime(item.timestamp)}</span>
-              </div>
+        {subTab === 'timeline' &&
+          (EMPTY_TIMELINE.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              {t('fileExplorer.noMatch')}
             </div>
-          )
-        }))}
+          ) : (
+            EMPTY_TIMELINE.map((item) => {
+              const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
+              return (
+                <div
+                  key={item.id}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-xs hover:bg-muted/50"
+                >
+                  <TIcon className={cn('h-3.5 w-3.5 shrink-0', TIMELINE_COLOR[item.type])} />
+                  <div className="flex flex-1 flex-col">
+                    <span className="truncate">{item.label}</span>
+                    <span className="text-muted-foreground">
+                      {item.author} · {formatTime(item.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })
+          ))}
       </div>
 
       {/* 右键菜单(重命名/删除) */}
@@ -471,14 +569,21 @@ export function FileExplorer() {
         >
           <div className="flex flex-col gap-1">
             <button
-              onClick={() => { setRenamingNode(menuPos.node); setRenameValue(menuPos.node.name); setMenuPos(null) }}
+              onClick={() => {
+                setRenamingNode(menuPos.node)
+                setRenameValue(menuPos.node.name)
+                setMenuPos(null)
+              }}
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-muted"
             >
               <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span>{t('fileExplorer.rename')}</span>
             </button>
             <button
-              onClick={() => { setDeletingNode(menuPos.node); setMenuPos(null) }}
+              onClick={() => {
+                setDeletingNode(menuPos.node)
+                setMenuPos(null)
+              }}
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-red-500 hover:bg-muted"
             >
               <Trash2 className="h-3.5 w-3.5 shrink-0" />

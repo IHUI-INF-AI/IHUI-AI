@@ -99,9 +99,7 @@ export function createUserStore<TProfile>(
       storeApi.setState({ profile })
     },
     updateProfile: (patch) => {
-      storeApi.setState((s) =>
-        s.profile ? { profile: { ...s.profile, ...patch } } : s,
-      )
+      storeApi.setState((s) => (s.profile ? { profile: { ...s.profile, ...patch } } : s))
     },
     setLoading: (loading) => {
       storeApi.setState({ loading })
@@ -119,7 +117,11 @@ export function createUserStore<TProfile>(
       name: persistKey,
       storage: createJSONStorage(() => persistStorage),
       ...(partialize
-        ? { partialize: partialize as (state: UserStoreState<TProfile>) => Partial<UserStoreState<TProfile>> }
+        ? {
+            partialize: partialize as (
+              state: UserStoreState<TProfile>,
+            ) => Partial<UserStoreState<TProfile>>,
+          }
         : {}),
       ...(version !== undefined ? { version } : {}),
     }),
@@ -128,13 +130,8 @@ export function createUserStore<TProfile>(
   // 用 Object.assign 把 React hook 与 vanilla store API 合并成 UseBoundStore 兼容对象,
   // 这样 useUserStore 既能作 hook 调用,又能访问 .getState()/.setState()/.subscribe()
   const useBoundStore = Object.assign(
-    function useUserStoreHook<U>(
-      selector?: (state: UserStoreState<TProfile>) => U,
-    ): U {
-      return useStore(
-        storeApi,
-        selector as (state: UserStoreState<TProfile>) => U,
-      )
+    function useUserStoreHook<U>(selector?: (state: UserStoreState<TProfile>) => U): U {
+      return useStore(storeApi, selector as (state: UserStoreState<TProfile>) => U)
     } as UseBoundStore<StoreApi<UserStoreState<TProfile>>>,
     {
       getState: storeApi.getState,

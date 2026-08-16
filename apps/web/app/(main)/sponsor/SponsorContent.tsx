@@ -8,7 +8,8 @@ import { BackButton } from '@/components/common'
 import { CryptoDonation } from './CryptoDonation'
 
 const KOFI_LINK = 'https://ko-fi.com/ihuiai'
-const PAYPAL_LINK = 'https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD'
+const PAYPAL_LINK =
+  'https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD'
 
 const TIERS = [
   { id: 'bronze', emoji: '🥉', accent: false },
@@ -39,7 +40,9 @@ export function SponsorContent(): React.JSX.Element {
           <Heart className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -85,9 +88,7 @@ export function SponsorContent(): React.JSX.Element {
             >
               <div className="text-2xl min-[768px]:text-3xl">{emoji}</div>
               <h3 className="mt-3 text-lg font-semibold">{t(`tiers.${id}.name`)}</h3>
-              <div className="mt-2 text-2xl font-bold text-primary">
-                {t(`tiers.${id}.price`)}
-              </div>
+              <div className="mt-2 text-2xl font-bold text-primary">{t(`tiers.${id}.price`)}</div>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
                   <li key={n} className="flex items-start gap-2 text-sm">
@@ -110,7 +111,9 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Existing sponsors */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('sponsorsTitle')}</h2>
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('sponsorsTitle')}
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('sponsorsDesc')}
         </p>

@@ -24,7 +24,12 @@ const compareJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs 文心一言', item: 'https://aizhs.top/compare/ihui-vs-ernie' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs 文心一言',
+          item: 'https://aizhs.top/compare/ihui-vs-ernie',
+        },
       ],
     },
   ],

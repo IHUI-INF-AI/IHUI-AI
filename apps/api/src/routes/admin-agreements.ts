@@ -17,11 +17,13 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
-  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
+  pageSize: z
+    .transform((v) => emptyToUndefined(v))
+    .pipe(z.coerce.number().min(1).max(100).default(20)),
   type: z.transform((v) => emptyToUndefined(v)).pipe(z.enum(AGREEMENT_TYPES).optional()),
-  status: z.transform((v) => emptyToUndefined(v)).pipe(
-    z.coerce.number().int().min(0).max(1).optional(),
-  ),
+  status: z
+    .transform((v) => emptyToUndefined(v))
+    .pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createSchema = z.object({

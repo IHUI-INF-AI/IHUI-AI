@@ -24,7 +24,15 @@ interface Props {
   onSubmit: (e: React.FormEvent) => void
 }
 
-export function VariableDialog({ open, editing, form, submitting, onClose, onChange, onSubmit }: Props) {
+export function VariableDialog({
+  open,
+  editing,
+  form,
+  submitting,
+  onClose,
+  onChange,
+  onSubmit,
+}: Props) {
   const t = useTranslations('common')
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

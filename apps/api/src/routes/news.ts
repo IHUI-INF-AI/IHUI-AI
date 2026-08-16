@@ -255,7 +255,9 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
           }
         }
       } catch (err) {
-        logger.warn('[news/feed] ai_world fallback failed', { error: err instanceof Error ? err.message : err })
+        logger.warn('[news/feed] ai_world fallback failed', {
+          error: err instanceof Error ? err.message : err,
+        })
       }
     }
 

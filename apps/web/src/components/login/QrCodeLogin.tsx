@@ -24,11 +24,7 @@ export interface QrCodeLoginProps {
 
 function isQrPlatform(p: ThirdPartyPlatform): p is QrPlatform {
   return (
-    p === 'wechat' ||
-    p === 'enterpriseWechat' ||
-    p === 'dingtalk' ||
-    p === 'feishu' ||
-    p === 'app'
+    p === 'wechat' || p === 'enterpriseWechat' || p === 'dingtalk' || p === 'feishu' || p === 'app'
   )
 }
 

@@ -202,10 +202,7 @@ export default function PrivacyPage() {
           ),
         },
         {
-          text: tt(
-            'about.privacy.s2.p2',
-            '我们使用Cookie和同类技术,主要是为了实现以下功能或服务:',
-          ),
+          text: tt('about.privacy.s2.p2', '我们使用Cookie和同类技术,主要是为了实现以下功能或服务:'),
         },
         {
           title: tt('about.privacy.s2.t1', '2.1 保障产品与服务的安全及高效运行'),
@@ -495,10 +492,7 @@ export default function PrivacyPage() {
           ),
         },
         {
-          text: tt(
-            'about.privacy.s10.p2',
-            '10.1 通过智汇社官方网站或App内的反馈入口进行反馈。',
-          ),
+          text: tt('about.privacy.s10.p2', '10.1 通过智汇社官方网站或App内的反馈入口进行反馈。'),
         },
         {
           text: tt(
@@ -524,7 +518,9 @@ export default function PrivacyPage() {
   return (
     <ScrollView className="h-screen bg-card" scrollY>
       <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
-        <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[20rpx]">{tt('about.privacy.mainTitle', '隐私政策')}</Text>
+        <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[20rpx]">
+          {tt('about.privacy.mainTitle', '隐私政策')}
+        </Text>
         <Text className="block text-[24rpx] text-muted-foreground text-center mb-[12rpx]">
           {tt('about.privacy.updateDate', '更新日期: 2025年06月21日')}
         </Text>
@@ -535,19 +531,33 @@ export default function PrivacyPage() {
         <View className="mb-[40rpx]">
           {overviewParagraphs.map((p, idx) => (
             <View key={idx} className="mb-[20rpx]">
-              {p.title ? <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">{p.title}</Text> : null}
-              <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">{p.text}</Text>
+              {p.title ? (
+                <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
+                  {p.title}
+                </Text>
+              ) : null}
+              <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">
+                {p.text}
+              </Text>
             </View>
           ))}
         </View>
 
         {sections.map((section, sIdx) => (
           <View key={sIdx} className="mb-[40rpx]">
-            <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">{section.subtitle}</Text>
+            <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">
+              {section.subtitle}
+            </Text>
             {section.paragraphs.map((p, pIdx) => (
               <View key={pIdx} className="mb-[20rpx]">
-                {p.title ? <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">{p.title}</Text> : null}
-                <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">{p.text}</Text>
+                {p.title ? (
+                  <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
+                    {p.title}
+                  </Text>
+                ) : null}
+                <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">
+                  {p.text}
+                </Text>
               </View>
             ))}
           </View>

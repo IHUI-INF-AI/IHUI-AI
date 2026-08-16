@@ -165,8 +165,8 @@ pnpm dev
 
 IHUI-AI 为 11+ 主流 AI 引擎提供专属 GEO 入口(https://aizhs.top/<engine>.txt 或 .md):
 
-| 引擎              | 入口                          | 格式                |
-| ----------------- | ----------------------------- | ------------------- |
+| 引擎              | 入口                            | 格式                |
+| ----------------- | ------------------------------- | ------------------- |
 | ChatGPT / GPTBot  | https://aizhs.top/gpt.txt       | Q&A 问答对          |
 | Claude            | https://aizhs.top/claude.md     | 长篇叙述            |
 | Perplexity        | https://aizhs.top/perplexity.md | 引用就绪事实卡片    |

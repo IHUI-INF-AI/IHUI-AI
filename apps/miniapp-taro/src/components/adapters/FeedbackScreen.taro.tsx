@@ -3,11 +3,7 @@ import { useCallback, useState } from 'react'
 import { View, Text, Input, Textarea } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import type {
-  FeedbackScreenProps,
-  FeedbackType,
-  FeedbackSubmitPayload,
-} from '@ihui/types'
+import type { FeedbackScreenProps, FeedbackType, FeedbackSubmitPayload } from '@ihui/types'
 import { useTt } from '@/i18n'
 
 /**
@@ -257,14 +253,8 @@ export function FeedbackScreen({
           <Text style={labelStyle(tk)}>{tr('feedback.type')}</Text>
           <View style={typeRowStyle()}>
             {FEEDBACK_TYPES.map((tp) => (
-              <View
-                key={tp}
-                onTap={() => setType(tp)}
-                style={typeBtnStyle(tk, type === tp)}
-              >
-                <Text style={typeTextStyle(tk, type === tp)}>
-                  {tr(FEEDBACK_TYPE_KEYS[tp])}
-                </Text>
+              <View key={tp} onTap={() => setType(tp)} style={typeBtnStyle(tk, type === tp)}>
+                <Text style={typeTextStyle(tk, type === tp)}>{tr(FEEDBACK_TYPE_KEYS[tp])}</Text>
               </View>
             ))}
           </View>

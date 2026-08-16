@@ -2,10 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { enrollCourse, getCourses, type Course } from '@ihui/api-client'
-import {
-  CourseEnrollScreen as SharedCourseEnrollScreen,
-  type CourseEnrollItem,
-} from '@ihui/rn-app'
+import { CourseEnrollScreen as SharedCourseEnrollScreen, type CourseEnrollItem } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -66,9 +63,7 @@ export function CourseEnrollScreen() {
     const res = await enrollCourse(item.id)
     setEnrollingId(null)
     if (res.success) {
-      setItems((prev) =>
-        prev.map((c) => (c.id === item.id ? { ...c, isEnrolled: true } : c)),
-      )
+      setItems((prev) => prev.map((c) => (c.id === item.id ? { ...c, isEnrolled: true } : c)))
       setToast(t('courseEnroll.enrollSuccess', { title: item.title }))
     } else {
       setToast(res.error || t('courseEnroll.enrollFailed'))

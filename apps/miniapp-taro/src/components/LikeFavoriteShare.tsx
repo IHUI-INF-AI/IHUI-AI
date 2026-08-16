@@ -43,7 +43,9 @@ export default function LikeFavoriteShare({
       </View>
       <View className="flex flex-col items-center" onClick={onShare}>
         <Text className="text-lg text-muted-foreground">↗</Text>
-        <Text className="text-xs mt-0.5 text-muted-foreground">{shareCount > 0 ? shareCount : tt('action.share', '分享')}</Text>
+        <Text className="text-xs mt-0.5 text-muted-foreground">
+          {shareCount > 0 ? shareCount : tt('action.share', '分享')}
+        </Text>
       </View>
     </View>
   )

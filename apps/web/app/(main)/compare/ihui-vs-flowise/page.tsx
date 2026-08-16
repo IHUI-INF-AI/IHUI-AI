@@ -13,10 +13,7 @@ const compareJsonLd = {
         'Flowise 是开源可视化 LangChain 应用构建器(Web 拖拽);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含可视化 + Agent 市场 + 六端分发 + 团队协作。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
-      about: [
-        { '@id': 'https://aizhs.top/#organization' },
-        { '@type': 'Thing', name: 'Flowise' },
-      ],
+      about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Flowise' }],
     },
     {
       '@type': 'BreadcrumbList',
@@ -24,7 +21,12 @@ const compareJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Flowise', item: 'https://aizhs.top/compare/ihui-vs-flowise' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs Flowise',
+          item: 'https://aizhs.top/compare/ihui-vs-flowise',
+        },
       ],
     },
   ],

@@ -125,10 +125,7 @@ export class CircuitBreaker {
     this.pushWindow(now, !success)
     this.evictExpired(now)
     const total = this.window.length
-    if (
-      total >= this.options.minSamples &&
-      this.failureCount >= this.options.failureThreshold
-    ) {
+    if (total >= this.options.minSamples && this.failureCount >= this.options.failureThreshold) {
       this.trip()
     }
   }

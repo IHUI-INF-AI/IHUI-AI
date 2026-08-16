@@ -1,6 +1,16 @@
 import {
-  FileText, FileCode, FileJson, FileImage, FileCog,
-  Hash, FileTerminal, Braces, Database, Binary, Box, Container,
+  FileText,
+  FileCode,
+  FileJson,
+  FileImage,
+  FileCog,
+  Hash,
+  FileTerminal,
+  Braces,
+  Database,
+  Binary,
+  Box,
+  Container,
   type LucideIcon,
 } from 'lucide-react'
 

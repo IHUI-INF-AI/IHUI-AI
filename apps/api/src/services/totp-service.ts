@@ -377,4 +377,3 @@ export async function verifyChallengeToken(token: string): Promise<{
     return null
   }
 }
-

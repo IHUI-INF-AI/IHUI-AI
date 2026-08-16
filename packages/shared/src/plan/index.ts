@@ -90,7 +90,11 @@ export interface PlanProgressStats {
 }
 
 /** 步骤状态元数据(供 UI 选择器使用) */
-export const PLAN_STEP_STATUS_OPTIONS: Array<{ value: PlanStepStatus; label: string; color: string }> = [
+export const PLAN_STEP_STATUS_OPTIONS: Array<{
+  value: PlanStepStatus
+  label: string
+  color: string
+}> = [
   { value: 'pending', label: '待处理', color: 'bg-slate-100 text-slate-700' },
   { value: 'in_progress', label: '进行中', color: 'bg-blue-100 text-blue-700' },
   { value: 'completed', label: '已完成', color: 'bg-emerald-100 text-emerald-700' },

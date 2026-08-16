@@ -127,8 +127,16 @@ export default function ForgotPassword() {
               <Image className="logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
             </View>
             <View className="titlebox">
-              <Image className="titlebox-image" src="/static/images/loginengtexta.png" mode="aspectFit" />
-              <Image className="titlebox-image1" src="/static/images/loginzhtext.png" mode="aspectFit" />
+              <Image
+                className="titlebox-image"
+                src="/static/images/loginengtexta.png"
+                mode="aspectFit"
+              />
+              <Image
+                className="titlebox-image1"
+                src="/static/images/loginzhtext.png"
+                mode="aspectFit"
+              />
             </View>
           </View>
 
@@ -186,7 +194,10 @@ export default function ForgotPassword() {
                         onFocus={() => setIsCodeFocused(true)}
                         onBlur={() => setIsCodeFocused(false)}
                       />
-                      <View className={`send-code ${codeBtnDisabled ? 'send-code-disabled' : ''}`} onClick={sendCode}>
+                      <View
+                        className={`send-code ${codeBtnDisabled ? 'send-code-disabled' : ''}`}
+                        onClick={sendCode}
+                      >
                         <Text>{codeBtnText}</Text>
                       </View>
                     </View>
@@ -197,9 +208,7 @@ export default function ForgotPassword() {
               <>
                 {/* 新密码输入框 + 可见性切换 */}
                 <View className="input-wbox">
-                  <View
-                    className={`input-nbox ${isNewPwdFocused ? 'input-nbox-focused' : ''}`}
-                  >
+                  <View className={`input-nbox ${isNewPwdFocused ? 'input-nbox-focused' : ''}`}>
                     <View className="input-box">
                       <View className="input-icon" />
                       <Input

@@ -114,9 +114,7 @@ export default function FavoritesPage() {
         const targets = items.filter((it) => selectedIds.has(it.id))
         try {
           await Promise.all(
-            targets.map((it) =>
-              deleteFavorite(it.targetType, it.targetId).catch(() => null),
-            ),
+            targets.map((it) => deleteFavorite(it.targetType, it.targetId).catch(() => null)),
           )
           targets.forEach((it) => removeItem(it.id))
           setSelectedIds(new Set())
@@ -154,17 +152,20 @@ export default function FavoritesPage() {
   useReachBottom(() => load())
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
-  const allChecked =
-    displayList.length > 0 && displayList.every((it) => selectedIds.has(it.id))
+  const allChecked = displayList.length > 0 && displayList.every((it) => selectedIds.has(it.id))
 
   return (
     <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 顶部:统计 + 搜索 + 管理按钮 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
-          <Text className="text-[28rpx] text-muted-foreground">{tt('favorites.total', '已收藏')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">
+            {tt('favorites.total', '已收藏')}
+          </Text>
           <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
-          <Text className="text-[24rpx] text-muted-foreground">{tt('favorites.itemsUnit', '项')}</Text>
+          <Text className="text-[24rpx] text-muted-foreground">
+            {tt('favorites.itemsUnit', '项')}
+          </Text>
           <Text
             className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/30 rounded-[8rpx]"
             onClick={() => {
@@ -217,7 +218,9 @@ export default function FavoritesPage() {
             >
               {allChecked ? '✓' : ''}
             </Text>
-            <Text className="ml-[12rpx] text-[26rpx] text-foreground">{tt('favorites.selectAll', '全选')}</Text>
+            <Text className="ml-[12rpx] text-[26rpx] text-foreground">
+              {tt('favorites.selectAll', '全选')}
+            </Text>
           </View>
           <Text
             className={`py-[8rpx] px-[20rpx] text-[24rpx] text-foreground bg-destructive rounded-[8rpx] ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
@@ -247,18 +250,25 @@ export default function FavoritesPage() {
                   </Text>
                 ) : null}
                 {item.cover ? (
-                  <Image className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0" src={item.cover} mode="aspectFill" />
+                  <Image
+                    className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
+                    src={item.cover}
+                    mode="aspectFill"
+                  />
                 ) : (
                   <View className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
                     <Text className="text-[20rpx] text-muted-foreground">{item.targetType}</Text>
                   </View>
                 )}
                 <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
-                  <Text className="text-[30rpx] font-semibold text-foreground truncate">{item.title}</Text>
+                  <Text className="text-[30rpx] font-semibold text-foreground truncate">
+                    {item.title}
+                  </Text>
                   <Text className="text-[22rpx] text-muted-foreground">{item.targetType}</Text>
                   <View className="flex items-center justify-between">
                     <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('favorites.collectedAt', '收藏于')} {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
+                      {tt('favorites.collectedAt', '收藏于')}{' '}
+                      {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     {!manageMode ? (
                       <Text
@@ -288,7 +298,10 @@ export default function FavoritesPage() {
               ? tt('favorites.searchEmpty', '未找到匹配内容')
               : tt('favorites.empty', '暂无收藏')}
           </Text>
-          <View className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]" onClick={goDiscover}>
+          <View
+            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]"
+            onClick={goDiscover}
+          >
             <Text className="text-foreground text-[26rpx]">
               {tt('favorites.goDiscover', '去发现')}
             </Text>
@@ -299,9 +312,7 @@ export default function FavoritesPage() {
       {/* 加载状态 */}
       {loading && displayList.length === 0 ? (
         <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
-          <Text>
-            {tt('common.loading', '加载中…')}
-          </Text>
+          <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
       {loading && displayList.length > 0 ? (

@@ -238,7 +238,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         )}
       </button>
       {/* v2: 展开态内容区(代码块样式) */}
-      {expanded && (
+      {hasContent && expanded && (
         <div
           className="px-2 pb-1 pt-0.5"
           data-testid="thinking-content-wrapper"

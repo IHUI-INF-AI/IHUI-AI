@@ -15,18 +15,58 @@ type OrderItem = Order & {
 }
 
 const STATUS_MAP: Record<string, { type: string; textKey: string; badge: string }> = {
-  pending: { type: 'pending', textKey: 'order.status.pending', badge: 'bg-warning text-warning-foreground' },
+  pending: {
+    type: 'pending',
+    textKey: 'order.status.pending',
+    badge: 'bg-warning text-warning-foreground',
+  },
   paid: { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
-  cancelled: { type: 'cancelled', textKey: 'order.status.cancelled', badge: 'bg-muted text-muted-foreground' },
-  refunding: { type: 'refunding', textKey: 'order.status.refunding', badge: 'bg-warning text-warning-foreground' },
-  refunded: { type: 'refunded', textKey: 'order.status.refunded', badge: 'bg-destructive text-destructive-foreground' },
-  completed: { type: 'completed', textKey: 'order.status.completed', badge: 'bg-success text-success-foreground' },
-  failed: { type: 'failed', textKey: 'order.status.failed', badge: 'bg-destructive text-destructive-foreground' },
-  '0': { type: 'pending', textKey: 'order.status.pending', badge: 'bg-warning text-warning-foreground' },
+  cancelled: {
+    type: 'cancelled',
+    textKey: 'order.status.cancelled',
+    badge: 'bg-muted text-muted-foreground',
+  },
+  refunding: {
+    type: 'refunding',
+    textKey: 'order.status.refunding',
+    badge: 'bg-warning text-warning-foreground',
+  },
+  refunded: {
+    type: 'refunded',
+    textKey: 'order.status.refunded',
+    badge: 'bg-destructive text-destructive-foreground',
+  },
+  completed: {
+    type: 'completed',
+    textKey: 'order.status.completed',
+    badge: 'bg-success text-success-foreground',
+  },
+  failed: {
+    type: 'failed',
+    textKey: 'order.status.failed',
+    badge: 'bg-destructive text-destructive-foreground',
+  },
+  '0': {
+    type: 'pending',
+    textKey: 'order.status.pending',
+    badge: 'bg-warning text-warning-foreground',
+  },
   '1': { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
-  '2': { type: 'completed', textKey: 'order.status.completed', badge: 'bg-success text-success-foreground' },
-  '3': { type: 'cancelled', textKey: 'order.status.cancelled', badge: 'bg-muted text-muted-foreground' },
-  '4': { type: 'refunded', textKey: 'order.status.refunded', badge: 'bg-destructive text-destructive-foreground' },
+  '2': {
+    type: 'completed',
+    textKey: 'order.status.completed',
+    badge: 'bg-success text-success-foreground',
+  },
+  '3': {
+    type: 'cancelled',
+    textKey: 'order.status.cancelled',
+    badge: 'bg-muted text-muted-foreground',
+  },
+  '4': {
+    type: 'refunded',
+    textKey: 'order.status.refunded',
+    badge: 'bg-destructive text-destructive-foreground',
+  },
 }
 
 const TABS = [
@@ -161,11 +201,10 @@ export default function OrderList() {
         <Text className="flex-1 text-center text-[32rpx] text-foreground font-semibold">
           {tt('order.list.title', '我的订单')}
         </Text>
-        <View
-          className="w-[80rpx] text-right text-[26rpx] text-primary"
-          onClick={toggleSearch}
-        >
-          <Text>{showSearch ? tt('order.list.cancel', '取消') : tt('order.list.search', '搜索')}</Text>
+        <View className="w-[80rpx] text-right text-[26rpx] text-primary" onClick={toggleSearch}>
+          <Text>
+            {showSearch ? tt('order.list.cancel', '取消') : tt('order.list.search', '搜索')}
+          </Text>
         </View>
       </View>
 
@@ -212,7 +251,9 @@ export default function OrderList() {
                   <Text className="text-[24rpx] text-muted-foreground">
                     {tt('order.list.orderNo', '订单号')}：{orderNoText}
                   </Text>
-                  <Text className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}>
+                  <Text
+                    className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}
+                  >
                     {info.textKey ? t(info.textKey) : o.status}
                   </Text>
                 </View>

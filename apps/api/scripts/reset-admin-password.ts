@@ -26,10 +26,7 @@ function errMsg(e: unknown): string {
 }
 
 async function updateAdminPassword(hash: string): Promise<void> {
-  await db
-    .update(users)
-    .set({ passwordHash: hash })
-    .where(eq(users.username, ADMIN_USERNAME))
+  await db.update(users).set({ passwordHash: hash }).where(eq(users.username, ADMIN_USERNAME))
 }
 
 async function main() {

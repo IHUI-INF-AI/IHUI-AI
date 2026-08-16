@@ -35,11 +35,7 @@ export function isValidSelection(text: string): boolean {
  * - 跳过已存在的 <mark> 子树(防递归)
  * - 大文本 (>5000 chars) 跳过以保护性能
  */
-export function highlightInElement(
-  root: Element,
-  needle: string,
-  ownerDocument: Document,
-): number {
+export function highlightInElement(root: Element, needle: string, ownerDocument: Document): number {
   if (!needle) return 0
   if (root.textContent && root.textContent.length > 5000) return 0
   const skipTags = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'MARK'])

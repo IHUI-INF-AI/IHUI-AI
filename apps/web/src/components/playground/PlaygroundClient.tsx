@@ -117,12 +117,7 @@ export function PlaygroundClient() {
           )}
           发送
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleClear}
-          disabled={isStreaming}
-          className="h-9"
-        >
+        <Button variant="outline" onClick={handleClear} disabled={isStreaming} className="h-9">
           <Eraser className="h-4 w-4" />
           清空
         </Button>
@@ -134,11 +129,7 @@ export function PlaygroundClient() {
       {/* 主体:左右分栏,移动端堆叠 */}
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <div className="space-y-4">
-          <MessageEditor
-            messages={messages}
-            onChange={setMessages}
-            disabled={isStreaming}
-          />
+          <MessageEditor messages={messages} onChange={setMessages} disabled={isStreaming} />
           <ParameterPanel
             params={params}
             onParamsChange={updateParams}

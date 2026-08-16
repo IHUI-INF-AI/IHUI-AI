@@ -75,9 +75,7 @@ export function PricingContent(): React.JSX.Element {
 
   const levels = React.useMemo(() => {
     if (!data) return []
-    return [...data]
-      .filter((l) => l.status === 1)
-      .sort((a, b) => a.levelValue - b.levelValue)
+    return [...data].filter((l) => l.status === 1).sort((a, b) => a.levelValue - b.levelValue)
   }, [data])
 
   // 推荐档:非免费档中的第一档(通常是个人档)
@@ -91,7 +89,9 @@ export function PricingContent(): React.JSX.Element {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           VIP 会员权益
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">选择适合你的方案</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          选择适合你的方案
+        </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           4 档 VIP 会员,从免费到企业级,满足不同使用场景。年付享 2 个月免费。
         </p>
@@ -179,7 +179,9 @@ export function PricingContent(): React.JSX.Element {
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
                     {!isFree && (
-                      <span className="text-sm text-muted-foreground">/ {yearly ? '年' : '月'}</span>
+                      <span className="text-sm text-muted-foreground">
+                        / {yearly ? '年' : '月'}
+                      </span>
                     )}
                   </div>
 

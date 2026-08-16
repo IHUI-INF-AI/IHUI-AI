@@ -42,10 +42,7 @@ export interface WebhookTriggerConfig {
 }
 
 /** 创建触发器请求体(省略 id / createdAt / updatedAt 由服务端生成) */
-export type CreateWebhookTriggerInput = Omit<
-  WebhookTriggerConfig,
-  'id' | 'createdAt' | 'updatedAt'
->
+export type CreateWebhookTriggerInput = Omit<WebhookTriggerConfig, 'id' | 'createdAt' | 'updatedAt'>
 
 /** 更新触发器请求体(所有字段可选) */
 export type UpdateWebhookTriggerInput = Partial<CreateWebhookTriggerInput>
@@ -53,12 +50,7 @@ export type UpdateWebhookTriggerInput = Partial<CreateWebhookTriggerInput>
 // ================== 触发事件 ==================
 
 /** 触发事件状态 */
-export type WebhookTriggerEventStatus =
-  | 'pending'
-  | 'executing'
-  | 'success'
-  | 'failed'
-  | 'retrying'
+export type WebhookTriggerEventStatus = 'pending' | 'executing' | 'success' | 'failed' | 'retrying'
 
 /** 一次 webhook 触发产生的事件记录(含执行状态 + 重试信息) */
 export interface WebhookTriggerEvent {

@@ -39,12 +39,9 @@ export function NotificationSettingsScreen() {
     }
   }, [t])
 
-  const handleToggle = useCallback(
-    (key: keyof NotificationSettingsItem, value: boolean) => {
-      setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
-    },
-    [],
-  )
+  const handleToggle = useCallback((key: keyof NotificationSettingsItem, value: boolean) => {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }, [])
 
   const handleSave = async () => {
     if (!settings) return

@@ -126,7 +126,10 @@ export default function N8nModel() {
       const file = res.tempFiles[0]
       if (!file) return
       if (file.size > 10 * 1024 * 1024) {
-        Taro.showToast({ title: tt('devEnter.n8nModel.fileSizeExceeded', '文件不能超过10MB'), icon: 'none' })
+        Taro.showToast({
+          title: tt('devEnter.n8nModel.fileSizeExceeded', '文件不能超过10MB'),
+          icon: 'none',
+        })
         return
       }
       setN8nFileName(file.name)
@@ -140,8 +143,7 @@ export default function N8nModel() {
             ? json.workflows[0]
             : json
         if (wf.name && !name) setName(wf.name)
-        if (wf.settings?.description && !description)
-          setDescription(wf.settings.description)
+        if (wf.settings?.description && !description) setDescription(wf.settings.description)
         Taro.showToast({
           title: tt('devEnter.n8nModel.n8nFileParseSuccess', '文件解析成功'),
           icon: 'success',
@@ -174,15 +176,9 @@ export default function N8nModel() {
     })
   }
 
-  const updateParam = (
-    which: 'in' | 'out',
-    index: number,
-    patch: Partial<Param>,
-  ) => {
+  const updateParam = (which: 'in' | 'out', index: number, patch: Partial<Param>) => {
     const setter = which === 'in' ? setInputParams : setOutputParams
-    setter((prev) =>
-      prev.map((p, i) => (i === index ? { ...p, ...patch } : p)),
-    )
+    setter((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)))
   }
   const addParam = (which: 'in' | 'out') => {
     const setter = which === 'in' ? setInputParams : setOutputParams
@@ -310,10 +306,7 @@ export default function N8nModel() {
               {tt('devEnter.n8nModel.paramPrefix', '参数')} {index + 1}
             </Text>
             {params.length > 1 ? (
-              <Text
-                className="nm-param-del"
-                onClick={() => removeParam(which, index)}
-              >
+              <Text className="nm-param-del" onClick={() => removeParam(which, index)}>
                 {tt('devEnter.n8nModel.deleteParam', '删除')}
               </Text>
             ) : null}
@@ -337,9 +330,7 @@ export default function N8nModel() {
               className="nm-field-textarea"
               value={p.description}
               placeholder={tt('devEnter.n8nModel.paramDescPlaceholder', '请输入参数描述')}
-              onInput={(e) =>
-                updateParam(which, index, { description: e.detail.value })
-              }
+              onInput={(e) => updateParam(which, index, { description: e.detail.value })}
             />
           </View>
           <View className="nm-param-field">
@@ -419,15 +410,11 @@ export default function N8nModel() {
         <Text className="nm-back" onClick={() => setView('list')}>
           {t('common.back')}
         </Text>
-        <Text className="nm-title">
-          {tt('devEnter.n8nModel.createTitle', '创建智能体')}
-        </Text>
+        <Text className="nm-title">{tt('devEnter.n8nModel.createTitle', '创建智能体')}</Text>
       </View>
       <ScrollView scrollY className="nm-body">
         {/* 头像 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.avatarLabel', '智能体头像')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.avatarLabel', '智能体头像')}</Text>
         <View className="nm-avatar-wrap" onClick={chooseAvatar}>
           {avatar ? (
             <Image className="nm-avatar" src={avatar} mode="aspectFill" />
@@ -441,9 +428,7 @@ export default function N8nModel() {
         </View>
 
         {/* 名称 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.nameLabel', '智能体名称')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
         <Input
           className="nm-input"
           maxlength={30}
@@ -453,9 +438,7 @@ export default function N8nModel() {
         />
 
         {/* 描述 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.descLabel', '智能体描述')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
         <Textarea
           className="nm-textarea"
           value={description}
@@ -464,16 +447,11 @@ export default function N8nModel() {
         />
 
         {/* n8n 备份文件 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}</Text>
         <View className="nm-file-btn" onClick={chooseN8nFile}>
           <Text className="nm-file-text">
             {n8nFileName ||
-              tt(
-                'devEnter.n8nModel.n8nFilePlaceholder',
-                '点击上传 n8n 备份 JSON 文件',
-              )}
+              tt('devEnter.n8nModel.n8nFilePlaceholder', '点击上传 n8n 备份 JSON 文件')}
           </Text>
         </View>
         {n8nFileName ? (
@@ -486,9 +464,7 @@ export default function N8nModel() {
         ) : null}
 
         {/* n8n 地址 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
         <Input
           className="nm-input"
           maxlength={200}
@@ -498,22 +474,15 @@ export default function N8nModel() {
         />
 
         {/* 输入参数 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.inputParamsLabel', '输入参数')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.inputParamsLabel', '输入参数')}</Text>
         {renderParamList(inputParams, 'in')}
 
         {/* 输出参数 */}
-        <Text className="nm-label">
-          {tt('devEnter.n8nModel.outputParamsLabel', '输出参数')}
-        </Text>
+        <Text className="nm-label">{tt('devEnter.n8nModel.outputParamsLabel', '输出参数')}</Text>
         {renderParamList(outputParams, 'out')}
 
         {/* 提交 */}
-        <View
-          className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`}
-          onClick={onSubmit}
-        >
+        <View className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`} onClick={onSubmit}>
           <Text>
             {submitting
               ? tt('devEnter.n8nModel.submitting', '创建中…')

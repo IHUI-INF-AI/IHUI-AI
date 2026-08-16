@@ -1,10 +1,5 @@
 import { fetchApi } from '@/lib/api'
-import type {
-  HistoryEntry,
-  InterruptEvent,
-  LangGraphCheckpoint,
-  ResumeCommand,
-} from '@ihui/types'
+import type { HistoryEntry, InterruptEvent, LangGraphCheckpoint, ResumeCommand } from '@ihui/types'
 
 /**
  * LangGraph Agent HTTP API 客户端(2026-07-23 立,Q1 HITL web 端)
@@ -26,14 +21,11 @@ export async function triggerInterrupt(
   reason: string,
   payload?: unknown,
 ): Promise<InterruptEvent> {
-  const r = await fetchApi<InterruptEvent>(
-    `/api/agent-langgraph/${threadId}/interrupt`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nodeId, reason, payload }),
-    },
-  )
+  const r = await fetchApi<InterruptEvent>(`/api/agent-langgraph/${threadId}/interrupt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodeId, reason, payload }),
+  })
   if (!r.success) throw new Error(r.error)
   return r.data
 }
@@ -45,25 +37,18 @@ export async function resumeExecution(
   resumeValue: unknown,
   action: ResumeCommand['action'] = 'resume',
 ): Promise<{ ok: true }> {
-  const r = await fetchApi<{ ok: true }>(
-    `/api/agent-langgraph/${threadId}/resume`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ interruptId, resumeValue, action }),
-    },
-  )
+  const r = await fetchApi<{ ok: true }>(`/api/agent-langgraph/${threadId}/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ interruptId, resumeValue, action }),
+  })
   if (!r.success) throw new Error(r.error)
   return r.data
 }
 
 /** 查询当前 thread checkpoint 状态 */
-export async function getThreadState(
-  threadId: string,
-): Promise<LangGraphCheckpoint | null> {
-  const r = await fetchApi<LangGraphCheckpoint | null>(
-    `/api/agent-langgraph/${threadId}/state`,
-  )
+export async function getThreadState(threadId: string): Promise<LangGraphCheckpoint | null> {
+  const r = await fetchApi<LangGraphCheckpoint | null>(`/api/agent-langgraph/${threadId}/state`)
   if (!r.success) {
     // 404 表示 thread 不存在,返回 null(与历史行为一致)
     if (r.status === 404) return null
@@ -73,10 +58,7 @@ export async function getThreadState(
 }
 
 /** 查询历史 checkpoint 列表(Time Travel 入口) */
-export async function getThreadHistory(
-  threadId: string,
-  limit = 100,
-): Promise<HistoryEntry[]> {
+export async function getThreadHistory(threadId: string, limit = 100): Promise<HistoryEntry[]> {
   const r = await fetchApi<HistoryEntry[]>(
     `/api/agent-langgraph/${threadId}/history?limit=${limit}`,
   )

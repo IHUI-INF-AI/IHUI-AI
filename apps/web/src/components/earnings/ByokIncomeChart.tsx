@@ -19,14 +19,8 @@ export function ByokIncomeChart({ data, loading }: Props) {
   const t = useTranslations('earnings')
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null)
 
-  const max = React.useMemo(
-    () => data.reduce((m, p) => Math.max(m, p.amount), 0) || 1,
-    [data],
-  )
-  const total = React.useMemo(
-    () => data.reduce((s, p) => s + p.amount, 0),
-    [data],
-  )
+  const max = React.useMemo(() => data.reduce((m, p) => Math.max(m, p.amount), 0) || 1, [data])
+  const total = React.useMemo(() => data.reduce((s, p) => s + p.amount, 0), [data])
 
   return (
     <Card>

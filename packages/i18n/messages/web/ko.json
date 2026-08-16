@@ -143,7 +143,9 @@
       "quitRestarting": "업데이트 완료, 재시작 중...",
       "quitQuitting": "종료 중...",
       "quitSkip": "건너뛰고 종료",
-      "autoRestart": "자동 재시작 중...",
+      "autoRestartIn": "{countdown}초 후 자동 재시작...",
+      "restartLater": "나중에 다시 시작",
+      "restartNow": "지금 다시 시작",
       "preparing": "업데이트 준비 중...",
       "autoRetrying": "업데이트 실패, 자동 재시도 중..."
     },
@@ -184,9 +186,9 @@
     "vip": "VIP",
     "close": "닫기",
     "user": "계정관리",
-    "messages": "개 메시지",
+    "messages": "메시지",
     "expand": "펼치기",
-    "collapse": "Show less",
+    "collapse": "접기",
     "language": "언어",
     "downloadClient": "앱 다운로드",
     "downloadAssets": "다운로드",
@@ -16682,11 +16684,11 @@
   },
   "agreement": {
     "title": "및",
-    "subtitle": "읽음가져오기하",
+    "subtitle": "읽음 가져오기",
     "userAgreement": "사용자",
     "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
-    "staticContent2": "나예정 개인메시지 센터，아님중미 하향해수。",
-    "staticContent3": "에게，플랫폼상담원。"
+    "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
+    "staticContent3": "에게，플랫폼 상담원。"
   },
   "routes": {
     "userAgreement": "사용자",

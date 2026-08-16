@@ -222,8 +222,7 @@ export const useHooksStore = create<HooksStoreState>((set) => ({
       testResult: null,
     }),
 
-  setDraft: (patch) =>
-    set((s) => ({ draft: { ...s.draft, ...patch } })),
+  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
 
   setTestResult: (result) => set({ testResult: result }),
   setTestingHookId: (id) => set({ testingHookId: id }),

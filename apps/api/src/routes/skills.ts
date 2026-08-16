@@ -213,7 +213,10 @@ const publishSchema = z.object({
 })
 
 async function readMarket(
-  redis: { get: (k: string) => Promise<string | null>; set: (k: string, v: string) => Promise<unknown> },
+  redis: {
+    get: (k: string) => Promise<string | null>
+    set: (k: string, v: string) => Promise<unknown>
+  },
   key: string,
 ): Promise<SkillMarketEntry[]> {
   try {
@@ -293,11 +296,7 @@ interface RedisSetOps {
   smembers: (key: string) => Promise<string[]>
 }
 
-async function setAdd(
-  redis: RedisSetOps,
-  key: string,
-  member: string,
-): Promise<void> {
+async function setAdd(redis: RedisSetOps, key: string, member: string): Promise<void> {
   try {
     await redis.sadd(key, member)
   } catch {
@@ -306,11 +305,7 @@ async function setAdd(
   }
 }
 
-async function setRemove(
-  redis: RedisSetOps,
-  key: string,
-  member: string,
-): Promise<void> {
+async function setRemove(redis: RedisSetOps, key: string, member: string): Promise<void> {
   try {
     await redis.srem(key, member)
   } catch {
@@ -318,11 +313,7 @@ async function setRemove(
   }
 }
 
-async function setIsMember(
-  redis: RedisSetOps,
-  key: string,
-  member: string,
-): Promise<boolean> {
+async function setIsMember(redis: RedisSetOps, key: string, member: string): Promise<boolean> {
   try {
     return (await redis.sismember(key, member)) === 1
   } catch {
@@ -330,10 +321,7 @@ async function setIsMember(
   }
 }
 
-async function setMembers(
-  redis: RedisSetOps,
-  key: string,
-): Promise<string[]> {
+async function setMembers(redis: RedisSetOps, key: string): Promise<string[]> {
   try {
     return await redis.smembers(key)
   } catch {
@@ -423,50 +411,44 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /skills/:name — 获取单个 skill
-  server.get<{ Params: { name: string } }>(
-    '/skills/:name',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.get<{ Params: { name: string } }>('/skills/:name', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const key = redisKey(userId)
-      const skills = await readSkills(server.redis, key)
-      const skill = skills.find((s) => s.name === parsed.data.name)
-      if (!skill) {
-        return reply.status(404).send(error(404, 'Skill 不存在'))
-      }
-      return reply.send(success(skill))
-    },
-  )
+    const key = redisKey(userId)
+    const skills = await readSkills(server.redis, key)
+    const skill = skills.find((s) => s.name === parsed.data.name)
+    if (!skill) {
+      return reply.status(404).send(error(404, 'Skill 不存在'))
+    }
+    return reply.send(success(skill))
+  })
 
   // DELETE /skills/:name — 删除 skill
-  server.delete<{ Params: { name: string } }>(
-    '/skills/:name',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.delete<{ Params: { name: string } }>('/skills/:name', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const key = redisKey(userId)
-      const skills = await readSkills(server.redis, key)
-      const idx = skills.findIndex((s) => s.name === parsed.data.name)
-      if (idx < 0) {
-        return reply.status(404).send(error(404, 'Skill 不存在'))
-      }
-      skills.splice(idx, 1)
-      await writeSkills(server.redis, key, skills)
-      return reply.send(success({ name: parsed.data.name, deleted: true }))
-    },
-  )
+    const key = redisKey(userId)
+    const skills = await readSkills(server.redis, key)
+    const idx = skills.findIndex((s) => s.name === parsed.data.name)
+    if (idx < 0) {
+      return reply.status(404).send(error(404, 'Skill 不存在'))
+    }
+    skills.splice(idx, 1)
+    await writeSkills(server.redis, key, skills)
+    return reply.send(success({ name: parsed.data.name, deleted: true }))
+  })
 
   // POST /skills/sync — 跨端同步(push/pull/list),对齐 SkillSyncRequest/SkillSyncResponse 契约
   server.post('/skills/sync', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -581,9 +563,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     if (q) {
       const lower = q.toLowerCase()
       entries = entries.filter(
-        (e) =>
-          e.name.toLowerCase().includes(lower) ||
-          e.description.toLowerCase().includes(lower),
+        (e) => e.name.toLowerCase().includes(lower) || e.description.toLowerCase().includes(lower),
       )
     }
     if (tag) {
@@ -598,44 +578,41 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /skills/:name/install — 安装 skill(installCount++ + 写入用户私有库 Hash)
-  server.post<{ Params: { name: string } }>(
-    '/skills/:name/install',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.post<{ Params: { name: string } }>('/skills/:name/install', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const entries = await readMarket(server.redis, MARKET_KEY)
-      const idx = entries.findIndex((e) => e.name === parsed.data.name)
-      if (idx < 0) {
-        return reply.status(404).send(error(404, '市场 Skill 不存在'))
-      }
-      const entry = entries[idx]!
-      entry.installCount += 1
-      entry.updatedAt = new Date().toISOString()
-      await writeMarket(server.redis, MARKET_KEY, entries)
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const idx = entries.findIndex((e) => e.name === parsed.data.name)
+    if (idx < 0) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
+    const entry = entries[idx]!
+    entry.installCount += 1
+    entry.updatedAt = new Date().toISOString()
+    await writeMarket(server.redis, MARKET_KEY, entries)
 
-      // 写入用户私有库 Hash skills:<userId>,field=name,value=市场条目 JSON
-      // 让安装的 skill 真正落入用户库(刷新不丢 + 可被 Agent 调用)
-      // 失败不阻塞 install 响应(installCount++ 已生效),仅 warn
-      try {
-        await server.redis.hset(`skills:${userId}`, entry.name, JSON.stringify(entry))
-      } catch (e) {
-        request.log.warn({ err: e, userId, name: entry.name }, 'install: 写入用户私有库失败')
-      }
+    // 写入用户私有库 Hash skills:<userId>,field=name,value=市场条目 JSON
+    // 让安装的 skill 真正落入用户库(刷新不丢 + 可被 Agent 调用)
+    // 失败不阻塞 install 响应(installCount++ 已生效),仅 warn
+    try {
+      await server.redis.hset(`skills:${userId}`, entry.name, JSON.stringify(entry))
+    } catch (e) {
+      request.log.warn({ err: e, userId, name: entry.name }, 'install: 写入用户私有库失败')
+    }
 
-      const resp: SkillInstallResponse = {
-        name: parsed.data.name,
-        installed: true,
-        installCount: entry.installCount,
-      }
-      return reply.send(success(resp))
-    },
-  )
+    const resp: SkillInstallResponse = {
+      name: parsed.data.name,
+      installed: true,
+      installCount: entry.installCount,
+    }
+    return reply.send(success(resp))
+  })
 
   // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
   server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -698,143 +675,128 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /skills/:name/rate — 评分(score 1-5)
-  server.post<{ Params: { name: string } }>(
-    '/skills/:name/rate',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.post<{ Params: { name: string } }>('/skills/:name/rate', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const paramParsed = nameParamSchema.safeParse(request.params)
-      if (!paramParsed.success) {
-        return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const bodyParsed = rateSchema.safeParse(request.body)
-      if (!bodyParsed.success) {
-        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const paramParsed = nameParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = rateSchema.safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const { score, comment } = bodyParsed.data
-      const skillName = paramParsed.data.name
+    const { score, comment } = bodyParsed.data
+    const skillName = paramParsed.data.name
 
-      const entries = await readMarket(server.redis, MARKET_KEY)
-      const entry = entries.find((e) => e.name === skillName)
-      if (!entry) {
-        return reply.status(404).send(error(404, '市场 Skill 不存在'))
-      }
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const entry = entries.find((e) => e.name === skillName)
+    if (!entry) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
 
-      const ratingKey = `skills-rating:${skillName}`
-      const ratings = await readRatings(server.redis, ratingKey)
-      const rating: SkillRating = {
-        id: randomUUID(),
-        userId: Number(userId),
-        userName: `user-${userId}`,
-        skillName,
-        score,
-        comment,
-        createdAt: new Date().toISOString(),
-      }
-      ratings.push(rating)
-      await writeRatings(server.redis, ratingKey, ratings)
+    const ratingKey = `skills-rating:${skillName}`
+    const ratings = await readRatings(server.redis, ratingKey)
+    const rating: SkillRating = {
+      id: randomUUID(),
+      userId: Number(userId),
+      userName: `user-${userId}`,
+      skillName,
+      score,
+      comment,
+      createdAt: new Date().toISOString(),
+    }
+    ratings.push(rating)
+    await writeRatings(server.redis, ratingKey, ratings)
 
-      // 更新市场条目的平均分 + 评分人数
-      const totalScore = ratings.reduce((sum, r) => sum + r.score, 0)
-      entry.rating = Math.round((totalScore / ratings.length) * 100) / 100
-      entry.ratingCount = ratings.length
-      entry.updatedAt = rating.createdAt
-      await writeMarket(server.redis, MARKET_KEY, entries)
+    // 更新市场条目的平均分 + 评分人数
+    const totalScore = ratings.reduce((sum, r) => sum + r.score, 0)
+    entry.rating = Math.round((totalScore / ratings.length) * 100) / 100
+    entry.ratingCount = ratings.length
+    entry.updatedAt = rating.createdAt
+    await writeMarket(server.redis, MARKET_KEY, entries)
 
-      return reply.status(201).send(success(rating))
-    },
-  )
+    return reply.status(201).send(success(rating))
+  })
 
   // GET /skills/:name/ratings — 评分列表
-  server.get<{ Params: { name: string } }>(
-    '/skills/:name/ratings',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
+  server.get<{ Params: { name: string } }>('/skills/:name/ratings', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const ratingKey = `skills-rating:${parsed.data.name}`
-      const ratings = await readRatings(server.redis, ratingKey)
-      return reply.send(success({ ratings, total: ratings.length }))
-    },
-  )
+    const ratingKey = `skills-rating:${parsed.data.name}`
+    const ratings = await readRatings(server.redis, ratingKey)
+    return reply.send(success({ ratings, total: ratings.length }))
+  })
 
   // ===================== 订阅/通知(P2-d) =====================
 
   // POST /skills/:name/subscribe — 订阅 skill(双向索引)
-  server.post<{ Params: { name: string } }>(
-    '/skills/:name/subscribe',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.post<{ Params: { name: string } }>('/skills/:name/subscribe', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const skillName = parsed.data.name
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const skillName = parsed.data.name
 
-      // 校验 skill 存在
-      const entries = await readMarket(server.redis, MARKET_KEY)
-      if (!entries.some((e) => e.name === skillName)) {
-        return reply.status(404).send(error(404, '市场 Skill 不存在'))
-      }
+    // 校验 skill 存在
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    if (!entries.some((e) => e.name === skillName)) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
 
-      await setAdd(server.redis, subKey(skillName), userId)
-      await setAdd(server.redis, userSubsKey(userId), skillName)
+    await setAdd(server.redis, subKey(skillName), userId)
+    await setAdd(server.redis, userSubsKey(userId), skillName)
 
-      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
-      const resp: SkillSubscriptionResponse = { subscribed: true, subscriberCount }
-      return reply.status(201).send(success(resp))
-    },
-  )
+    const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+    const resp: SkillSubscriptionResponse = { subscribed: true, subscriberCount }
+    return reply.status(201).send(success(resp))
+  })
 
   // DELETE /skills/:name/subscribe — 取消订阅
-  server.delete<{ Params: { name: string } }>(
-    '/skills/:name/subscribe',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.delete<{ Params: { name: string } }>('/skills/:name/subscribe', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const skillName = parsed.data.name
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const skillName = parsed.data.name
 
-      await setRemove(server.redis, subKey(skillName), userId)
-      await setRemove(server.redis, userSubsKey(userId), skillName)
+    await setRemove(server.redis, subKey(skillName), userId)
+    await setRemove(server.redis, userSubsKey(userId), skillName)
 
-      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
-      const resp: SkillSubscriptionResponse = { subscribed: false, subscriberCount }
-      return reply.send(success(resp))
-    },
-  )
+    const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+    const resp: SkillSubscriptionResponse = { subscribed: false, subscriberCount }
+    return reply.send(success(resp))
+  })
 
   // GET /skills/:name/subscription — 查询订阅状态 + 订阅人数
-  server.get<{ Params: { name: string } }>(
-    '/skills/:name/subscription',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.get<{ Params: { name: string } }>('/skills/:name/subscription', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = nameParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const skillName = parsed.data.name
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const skillName = parsed.data.name
 
-      const subscribed = await setIsMember(server.redis, subKey(skillName), userId)
-      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
-      const resp: SkillSubscriptionResponse = { subscribed, subscriberCount }
-      return reply.send(success(resp))
-    },
-  )
+    const subscribed = await setIsMember(server.redis, subKey(skillName), userId)
+    const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+    const resp: SkillSubscriptionResponse = { subscribed, subscriberCount }
+    return reply.send(success(resp))
+  })
 
   // GET /skills/notifications — 当前用户的通知列表(LRANGE 0 -1)
   server.get('/skills/notifications', async (request, reply) => {

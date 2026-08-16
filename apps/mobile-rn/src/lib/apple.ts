@@ -17,11 +17,7 @@
 
 import { Platform } from 'react-native'
 import { WEB_BASE_URL } from './config'
-import {
-  callOAuthCallback,
-  openOAuthAndLogin,
-  type OAuthRedirectResult,
-} from './oauth-redirect'
+import { callOAuthCallback, openOAuthAndLogin, type OAuthRedirectResult } from './oauth-redirect'
 
 const APPLE_CLIENT_ID = process.env.EXPO_PUBLIC_APPLE_CLIENT_ID
 const APPLE_REDIRECT_URI = process.env.EXPO_PUBLIC_APPLE_REDIRECT_URI
@@ -41,9 +37,7 @@ export interface AppleNativeResult {
  */
 interface AppleAuthModule {
   isAvailable?: () => boolean
-  signInAsync: (options: {
-    requestedScopes?: unknown[]
-  }) => Promise<{
+  signInAsync: (options: { requestedScopes?: unknown[] }) => Promise<{
     identityToken?: string
     authorizationCode?: string
   }>

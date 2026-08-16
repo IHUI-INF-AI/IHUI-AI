@@ -36,20 +36,22 @@ const paginationSchema = z.object({
 })
 
 const listConfigsQuerySchema = paginationSchema.extend({
-  category: z.transform(emptyToUndefined).pipe(
-    z
-      .enum([
-        'general',
-        'mail',
-        'storage',
-        'security',
-        'payment',
-        'ai',
-        'home_schema',
-        'home_schema_draft',
-      ])
-      .optional(),
-  ),
+  category: z
+    .transform(emptyToUndefined)
+    .pipe(
+      z
+        .enum([
+          'general',
+          'mail',
+          'storage',
+          'security',
+          'payment',
+          'ai',
+          'home_schema',
+          'home_schema_draft',
+        ])
+        .optional(),
+    ),
 })
 
 const configTypeSchema = z.enum(['string', 'number', 'boolean', 'json'])
@@ -139,9 +141,9 @@ const listLogsQuerySchema = paginationSchema.extend({
 })
 
 const listEventsQuerySchema = paginationSchema.extend({
-  type: z.transform(emptyToUndefined).pipe(
-    z.enum(['startup', 'shutdown', 'error', 'warning', 'maintenance', 'deploy']).optional(),
-  ),
+  type: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['startup', 'shutdown', 'error', 'warning', 'maintenance', 'deploy']).optional()),
   level: z.transform(emptyToUndefined).pipe(z.enum(['info', 'warn', 'error']).optional()),
 })
 

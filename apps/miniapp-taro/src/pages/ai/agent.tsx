@@ -22,7 +22,19 @@ type QuickTabKey = 'all' | 'favorites' | 'recent'
 const CATEGORY_KEYWORDS: Record<Exclude<CategoryKey, 'recommend'>, string[]> = {
   office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
   writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
-  coding: ['代码', '编程', '程序', '开发', 'bug', '函数', '前端', '后端', 'python', 'javascript', 'code'],
+  coding: [
+    '代码',
+    '编程',
+    '程序',
+    '开发',
+    'bug',
+    '函数',
+    '前端',
+    '后端',
+    'python',
+    'javascript',
+    'code',
+  ],
   education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
   life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
 }
@@ -136,9 +148,14 @@ export default function AgentPage() {
       arr = arr.slice().reverse()
     } else {
       // hot:综合 uses + 评分
-      arr = arr.slice().sort(
-        (a, b) => (b.uses ?? 0) + estimateRating(b.uses) * 10 - ((a.uses ?? 0) + estimateRating(a.uses) * 10),
-      )
+      arr = arr
+        .slice()
+        .sort(
+          (a, b) =>
+            (b.uses ?? 0) +
+            estimateRating(b.uses) * 10 -
+            ((a.uses ?? 0) + estimateRating(a.uses) * 10),
+        )
     }
     return arr
   }, [list, keyword, activeType, activeCategory, sortKey, quickTab, favoriteIds, recentIds])
@@ -222,7 +239,12 @@ export default function AgentPage() {
     { key: 'recent', label: t('ai.agentList.tabRecent') },
   ]
 
-  const hasFilter = !!(keyword || activeType || activeCategory !== 'recommend' || quickTab !== 'all')
+  const hasFilter = !!(
+    keyword ||
+    activeType ||
+    activeCategory !== 'recommend' ||
+    quickTab !== 'all'
+  )
 
   return (
     <View className="min-h-screen bg-background">
@@ -275,18 +297,18 @@ export default function AgentPage() {
             <ModelTypeButtonGroup activeType={activeType} onSelect={(tp) => setActiveType(tp)} />
             <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap">
               <View className="whitespace-nowrap px-3 pt-1">
-              {categories.map((cat) => {
-                const active = activeCategory === cat.key
-                return (
-                  <View
-                    key={cat.key}
-                    className={`inline-block px-4 py-2 mr-2 rounded-lg text-sm ${active ? 'bg-[var(--color-primary)] text-white' : 'bg-muted text-muted-foreground'}`}
-                    onClick={() => setActiveCategory(cat.key)}
-                  >
-                    <Text>{cat.label}</Text>
-                  </View>
-                )
-              })}
+                {categories.map((cat) => {
+                  const active = activeCategory === cat.key
+                  return (
+                    <View
+                      key={cat.key}
+                      className={`inline-block px-4 py-2 mr-2 rounded-lg text-sm ${active ? 'bg-[var(--color-primary)] text-white' : 'bg-muted text-muted-foreground'}`}
+                      onClick={() => setActiveCategory(cat.key)}
+                    >
+                      <Text>{cat.label}</Text>
+                    </View>
+                  )
+                })}
               </View>
             </ScrollView>
             {/* 排序选项 */}

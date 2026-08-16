@@ -84,9 +84,7 @@ const updateTriggerSchema = z.object({
 
 const listEventsQuerySchema = z.object({
   triggerId: z.string().optional(),
-  status: z
-    .enum(['pending', 'executing', 'success', 'failed', 'retrying'])
-    .optional(),
+  status: z.enum(['pending', 'executing', 'success', 'failed', 'retrying']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
 
@@ -189,15 +187,12 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
     const timer = setTimeout(() => controller.abort(), 30000)
     let resp: Response
     try {
-      resp = await fetch(
-        `${appConfig.AI_SERVICE_URL}/api/agents/${event.agentId}/run`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payload: event.payload, triggeredBy: 'webhook' }),
-          signal: controller.signal,
-        },
-      )
+      resp = await fetch(`${appConfig.AI_SERVICE_URL}/api/agents/${event.agentId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: event.payload, triggeredBy: 'webhook' }),
+        signal: controller.signal,
+      })
     } catch (e) {
       // 超时(controller.abort)或网络错误:抛带原因的 Error
       if (controller.signal.aborted) {
@@ -254,13 +249,10 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
 
     // 获取原始 payload 字符串(签名基于原始字节,不能先 JSON.parse)
     const rawPayload =
-      typeof request.body === 'string'
-        ? request.body
-        : JSON.stringify(request.body ?? {})
+      typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? {})
 
     // 签名验证(X-Webhook-Signature 头,hex 格式)
-    const signatureHeader =
-      (request.headers['x-webhook-signature'] as string | undefined) ?? ''
+    const signatureHeader = (request.headers['x-webhook-signature'] as string | undefined) ?? ''
     const signatureValid = verifySignature(rawPayload, signatureHeader, config.secret)
 
     if (!signatureValid) {
@@ -275,9 +267,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
         status: 'failed',
         sourceIp: request.ip,
       })
-      return reply
-        .status(401)
-        .send(error(401, '签名验证失败'))
+      return reply.status(401).send(error(401, '签名验证失败'))
     }
 
     // 解析 payload 用于条件评估
@@ -371,9 +361,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
   server.post('/webhooks/triggers', async (request, reply) => {
     const parsed = createTriggerSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const input = parsed.data as CreateWebhookTriggerInput
@@ -404,9 +392,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = updateTriggerSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const input = parsed.data as Partial<WebhookTriggerConfig>
@@ -435,9 +421,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
   server.get('/webhooks/events', async (request, reply) => {
     const parsed = listEventsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { triggerId, status, limit } = parsed.data
 
@@ -445,9 +429,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     if (triggerId) list = list.filter((e) => e.triggerId === triggerId)
     if (status) list = list.filter((e) => e.status === status)
     // 按创建时间倒序,取前 limit 条
-    list = list
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, limit)
+    list = list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
 
     return reply.send(success({ list, total: list.length }))
   })
@@ -473,9 +455,7 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     }
     // 只允许重试失败 / 已完成但需重新触发的事件
     if (event.status === 'executing' || event.status === 'retrying') {
-      return reply
-        .status(409)
-        .send(error(409, `事件正在执行中(状态: ${event.status}),无法重试`))
+      return reply.status(409).send(error(409, `事件正在执行中(状态: ${event.status}),无法重试`))
     }
     if (event.status === 'success') {
       return reply.status(409).send(error(409, '事件已成功,无需重试'))

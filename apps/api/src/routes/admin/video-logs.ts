@@ -11,7 +11,7 @@ import { videoLogQuerySchema, idParamSchema } from './_shared.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 const videoLogsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/video-logs', async (request, reply) => {
+  server.get('/video-logs', async (request, reply) => {
     const q = videoLogQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, userUuid, videoId, createdAt } = q.data

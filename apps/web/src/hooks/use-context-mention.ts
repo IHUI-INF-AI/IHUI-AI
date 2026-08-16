@@ -57,7 +57,12 @@ export function useSearchMentions(
   return useQuery({
     queryKey: ['context-mentions', type, query, workspacePath ?? ''],
     queryFn: async () => {
-      const qs = buildQuery({ q: query || undefined, type, workspacePath: workspacePath || undefined, limit: 20 })
+      const qs = buildQuery({
+        q: query || undefined,
+        type,
+        workspacePath: workspacePath || undefined,
+        limit: 20,
+      })
       const res = await fetchApi<MentionSearchResponse>(`/api/context/mentions${qs}`)
       if (!res.success) throw new Error(res.error)
       return res.data

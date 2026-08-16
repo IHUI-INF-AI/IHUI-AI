@@ -13,9 +13,7 @@ export function useIDEShortcuts() {
       const target = e.target as HTMLElement
       const inMonaco = !!target.closest?.('.monaco-editor')
       const isInputFocused =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
       const key = e.key.toLowerCase()
       const store = useIDEWorkspace.getState()

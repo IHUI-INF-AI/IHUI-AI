@@ -18,7 +18,7 @@ const nativeAtob: ((s: string) => string) | undefined =
  * 原生 TextDecoder 构造器引用。
  * web 端 / RN 0.71+ 存在;旧版 Hermes 无。
  */
-const NativeTextDecoder: (typeof TextDecoder) | undefined =
+const NativeTextDecoder: typeof TextDecoder | undefined =
   typeof globalThis !== 'undefined' && 'TextDecoder' in globalThis
     ? (globalThis as { TextDecoder: typeof TextDecoder }).TextDecoder
     : undefined
@@ -61,8 +61,7 @@ function utf8Decode(bytes: Uint8Array): string {
       const b2 = bytes[i++] || 0
       const b3 = bytes[i++] || 0
       const b4 = bytes[i++] || 0
-      const codepoint =
-        ((b & 0x07) << 18) | ((b2 & 0x3f) << 12) | ((b3 & 0x3f) << 6) | (b4 & 0x3f)
+      const codepoint = ((b & 0x07) << 18) | ((b2 & 0x3f) << 12) | ((b3 & 0x3f) << 6) | (b4 & 0x3f)
       const adjusted = codepoint - 0x10000
       result += String.fromCharCode(0xd800 | (adjusted >> 10), 0xdc00 | (adjusted & 0x3ff))
     }

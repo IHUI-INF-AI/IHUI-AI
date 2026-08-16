@@ -77,9 +77,7 @@ function getCurrentMonthStartUtc8(): Date {
   const utc8Ms = now.getTime() + 8 * 60 * 60 * 1000
   const utc8Date = new Date(utc8Ms)
   // UTC+8 当月 1 日 00:00:00(以 UTC 表示)
-  const monthStartUtc8 = new Date(
-    Date.UTC(utc8Date.getUTCFullYear(), utc8Date.getUTCMonth(), 1),
-  )
+  const monthStartUtc8 = new Date(Date.UTC(utc8Date.getUTCFullYear(), utc8Date.getUTCMonth(), 1))
   // 转回 UTC
   return new Date(monthStartUtc8.getTime() - 8 * 60 * 60 * 1000)
 }
@@ -93,12 +91,7 @@ async function getRulesForModel(dbModelId: string): Promise<TieredPricingRule[]>
   const specificRules = await dbRead
     .select()
     .from(tieredPricingRules)
-    .where(
-      and(
-        eq(tieredPricingRules.modelId, dbModelId),
-        eq(tieredPricingRules.enabled, true),
-      ),
-    )
+    .where(and(eq(tieredPricingRules.modelId, dbModelId), eq(tieredPricingRules.enabled, true)))
     .orderBy(asc(tieredPricingRules.fromTokens))
 
   if (specificRules.length > 0) return specificRules
@@ -107,12 +100,7 @@ async function getRulesForModel(dbModelId: string): Promise<TieredPricingRule[]>
   return dbRead
     .select()
     .from(tieredPricingRules)
-    .where(
-      and(
-        eq(tieredPricingRules.modelId, '*'),
-        eq(tieredPricingRules.enabled, true),
-      ),
-    )
+    .where(and(eq(tieredPricingRules.modelId, '*'), eq(tieredPricingRules.enabled, true)))
     .orderBy(asc(tieredPricingRules.fromTokens))
 }
 
@@ -162,10 +150,7 @@ export async function getMonthlyTokenUsage(userId: string, model: string): Promi
     .where(
       and(
         eq(llmCallLogs.userId, userId),
-        or(
-          eq(llmCallLogs.model, dbModelId),
-          like(llmCallLogs.model, `%/${dbModelId}`),
-        ),
+        or(eq(llmCallLogs.model, dbModelId), like(llmCallLogs.model, `%/${dbModelId}`)),
         gte(llmCallLogs.createdAt, monthStart),
       ),
     )

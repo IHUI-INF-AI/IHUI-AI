@@ -1,9 +1,9 @@
-import type { UserPoints, PointTransaction } from '@ihui/database';
-import { adjustPoints } from '../db/gamification-queries.js';
+import type { UserPoints, PointTransaction } from '@ihui/database'
+import { adjustPoints } from '../db/gamification-queries.js'
 
 export interface PointsResult {
-  points: UserPoints;
-  transaction: PointTransaction;
+  points: UserPoints
+  transaction: PointTransaction
 }
 
 /**
@@ -17,7 +17,7 @@ export async function earnPoints(
   description?: string,
   referenceId?: string,
 ): Promise<PointsResult> {
-  if (amount <= 0) throw new Error('获得积分必须为正数');
+  if (amount <= 0) throw new Error('获得积分必须为正数')
   return adjustPoints({
     userId,
     type: 'earn',
@@ -25,7 +25,7 @@ export async function earnPoints(
     source,
     description,
     referenceId,
-  });
+  })
 }
 
 /**
@@ -38,7 +38,7 @@ export async function spendPoints(
   description?: string,
   referenceId?: string,
 ): Promise<PointsResult> {
-  if (amount <= 0) throw new Error('消费积分必须为正数');
+  if (amount <= 0) throw new Error('消费积分必须为正数')
   return adjustPoints({
     userId,
     type: 'spend',
@@ -46,5 +46,5 @@ export async function spendPoints(
     source,
     description,
     referenceId,
-  });
+  })
 }

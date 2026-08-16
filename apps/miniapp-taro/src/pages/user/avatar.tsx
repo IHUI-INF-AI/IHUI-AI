@@ -102,20 +102,14 @@ export default function Avatar() {
       {/* ===== 当前头像预览 ===== */}
       <View className="avatar-preview-wrap">
         <View className="avatar-preview-box" onClick={previewAvatar}>
-          <Image
-            className="avatar-preview-img"
-            src={avatar || DEFAULT_AVATAR}
-            mode="aspectFill"
-          />
+          <Image className="avatar-preview-img" src={avatar || DEFAULT_AVATAR} mode="aspectFill" />
           <View className="avatar-preview-tip">
             <Text className="avatar-preview-tip-text">
               {tt('user.avatar.tapPreview', '点击查看大图')}
             </Text>
           </View>
         </View>
-        {nickname ? (
-          <Text className="avatar-nickname">{nickname}</Text>
-        ) : null}
+        {nickname ? <Text className="avatar-nickname">{nickname}</Text> : null}
       </View>
 
       {/* ===== 操作按钮 ===== */}
@@ -127,11 +121,7 @@ export default function Avatar() {
         >
           {tt('user.avatar.fromAlbum', '从相册选择')}
         </Button>
-        <Button
-          className="avatar-btn avatar-btn-outline"
-          onClick={takePhoto}
-          disabled={uploading}
-        >
+        <Button className="avatar-btn avatar-btn-outline" onClick={takePhoto} disabled={uploading}>
           {tt('user.avatar.takePhoto', '拍照')}
         </Button>
       </View>
@@ -141,9 +131,7 @@ export default function Avatar() {
         <Text className="avatar-hint-line">
           {tt('user.avatar.formatHint', '支持 JPG、PNG 格式')}
         </Text>
-        <Text className="avatar-hint-line">
-          {tt('user.avatar.sizeHint', '建议尺寸 200×200')}
-        </Text>
+        <Text className="avatar-hint-line">{tt('user.avatar.sizeHint', '建议尺寸 200×200')}</Text>
         <Text className="avatar-hint-line avatar-hint-muted">
           {tt('user.avatar.previewHint', '点击头像可查看大图')}
         </Text>
@@ -151,9 +139,7 @@ export default function Avatar() {
 
       {uploading && (
         <View className="avatar-loading-mask">
-          <Text className="avatar-loading-text">
-            {tt('user.avatar.uploading', '上传中…')}
-          </Text>
+          <Text className="avatar-loading-text">{tt('user.avatar.uploading', '上传中…')}</Text>
         </View>
       )}
     </View>

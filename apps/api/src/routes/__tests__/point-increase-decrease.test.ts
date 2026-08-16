@@ -331,4 +331,3 @@ describe('point increase/decrease/fallback', () => {
     expect(body.message).toBe('渠道不存在')
   })
 })
-

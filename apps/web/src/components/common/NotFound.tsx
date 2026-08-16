@@ -17,7 +17,12 @@ export function NotFound({
   className,
 }: NotFoundProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-4 py-12 min-[640px]:py-20 text-center', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-4 py-12 min-[640px]:py-20 text-center',
+        className,
+      )}
+    >
       <div className="text-6xl font-bold text-muted-foreground/30 min-[640px]:text-7xl">{code}</div>
       <h1 className="text-xl font-semibold min-[640px]:text-2xl">{title}</h1>
       <p className="max-w-md text-sm text-muted-foreground">{description}</p>

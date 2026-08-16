@@ -2,15 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Loader2,
-  BookOpen,
-  Key,
-  Code2,
-  Boxes,
-  ShieldCheck,
-  ArrowRight,
-} from 'lucide-react'
+import { Loader2, BookOpen, Key, Code2, Boxes, ShieldCheck, ArrowRight } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'

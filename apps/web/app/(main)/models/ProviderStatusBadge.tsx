@@ -21,10 +21,7 @@ interface ProviderStatusBadgeProps {
   compact?: boolean
 }
 
-const STATUS_CONFIG: Record<
-  ProviderHealthStatus,
-  { dot: string; text: string; label: string }
-> = {
+const STATUS_CONFIG: Record<ProviderHealthStatus, { dot: string; text: string; label: string }> = {
   ok: {
     dot: 'bg-emerald-500',
     text: 'text-emerald-600 dark:text-emerald-400',

@@ -27,16 +27,17 @@ export function ProfileAccountInfo({ user, data }: Props) {
             label: t('nickname'),
             value: <span className="block truncate">{user?.nickname ?? '—'}</span>,
           },
-          { label: t('phone'), value: <span className="whitespace-nowrap">{user?.phone ?? '—'}</span> },
+          {
+            label: t('phone'),
+            value: <span className="whitespace-nowrap">{user?.phone ?? '—'}</span>,
+          },
           {
             label: t('email'),
             value: <TruncatedText value={data?.user?.email ?? '—'} className="block" />,
           },
           {
             label: t('bio'),
-            value: (
-              <span className="line-clamp-2 break-words">{data?.user?.bio || '—'}</span>
-            ),
+            value: <span className="line-clamp-2 break-words">{data?.user?.bio || '—'}</span>,
           },
         ]}
       />

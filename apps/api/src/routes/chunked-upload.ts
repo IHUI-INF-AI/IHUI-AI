@@ -244,11 +244,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(400).send(error(400, `分片 ${i} 缺失，无法合并`))
         }
         // P1 修复:用流式读取替代 readFileSync,避免阻塞 event loop
-        await pipeline(
-          createReadStream(partPath),
-          writeStream,
-          { end: false },
-        )
+        await pipeline(createReadStream(partPath), writeStream, { end: false })
       }
       await new Promise<void>((resolve, reject) => {
         writeStream.on('error', reject)

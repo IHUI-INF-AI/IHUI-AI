@@ -8,14 +8,7 @@
  *
  * 复用 knowledge-rag.ts 的 vector1536 customType + HNSW 索引模式。
  */
-import {
-  pgTable,
-  uuid,
-  text,
-  integer,
-  timestamp,
-  index,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, timestamp, index } from 'drizzle-orm/pg-core'
 import { vector1536 } from './knowledge-rag.js'
 
 /**

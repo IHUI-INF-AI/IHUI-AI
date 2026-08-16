@@ -77,8 +77,7 @@ export default function MemberDetail() {
         avatar: (u.avatar as string) ?? undefined,
         level: (u.level as number) ?? 1,
         joinTime: (u.createdAt as string) || (u.joinTime as string) || '',
-        contribution:
-          (u.contribution as number) ?? (u.commission as number) ?? 0,
+        contribution: (u.contribution as number) ?? (u.commission as number) ?? 0,
       }))
       setList((prev) => (reset ? items : [...prev, ...items]))
       const more = pageRef.current * PAGE_SIZE < (res.total ?? 0)
@@ -180,14 +179,10 @@ export default function MemberDetail() {
           </View>
         )}
 
-        {loading && (
-          <Text className="md-loading">{t('distribution.memberDetail.loading')}</Text>
-        )}
+        {loading && <Text className="md-loading">{t('distribution.memberDetail.loading')}</Text>}
 
         {!loading && !hasMore && list.length > 0 && (
-          <Text className="md-no-more">
-            {tt('distribution.memberDetail.noMore', '没有更多了')}
-          </Text>
+          <Text className="md-no-more">{tt('distribution.memberDetail.noMore', '没有更多了')}</Text>
         )}
       </View>
     </View>

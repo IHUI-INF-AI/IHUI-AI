@@ -49,7 +49,9 @@ export function GenResultViewer({ result }: GenResultViewerProps) {
     <Card>
       <CardHeader>
         <CardTitle>生成结果</CardTitle>
-        <CardDescription>共 {result.files.length} 个文件,模块: {result.moduleName}</CardDescription>
+        <CardDescription>
+          共 {result.files.length} 个文件,模块: {result.moduleName}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {result.files.length > 1 && (

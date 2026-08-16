@@ -23,7 +23,10 @@ export interface ToolExecutionResult {
   metadata?: Record<string, unknown>
 }
 
-export type ToolHandler = (params: Record<string, unknown>, context?: ToolContext) => Promise<ToolExecutionResult>
+export type ToolHandler = (
+  params: Record<string, unknown>,
+  context?: ToolContext,
+) => Promise<ToolExecutionResult>
 
 export interface ToolContext {
   userId?: string
@@ -52,7 +55,11 @@ export class ToolExecutor extends EventEmitter {
     return removed
   }
 
-  async execute(name: string, params: Record<string, unknown>, context?: ToolContext): Promise<ToolExecutionResult> {
+  async execute(
+    name: string,
+    params: Record<string, unknown>,
+    context?: ToolContext,
+  ): Promise<ToolExecutionResult> {
     const tool = this.tools.get(name)
     if (!tool) {
       return { success: false, error: `Tool "${name}" not found`, duration: 0 }

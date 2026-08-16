@@ -34,14 +34,7 @@ const scopeOptions: Array<{ value: SpecScopeType; label: string; desc: string }>
   { value: 'workspace', label: '工作区', desc: '完整工作区' },
 ]
 
-const languageOptions = [
-  'TypeScript',
-  'JavaScript',
-  'Python',
-  'Go',
-  'Rust',
-  'Java',
-]
+const languageOptions = ['TypeScript', 'JavaScript', 'Python', 'Go', 'Rust', 'Java']
 
 /** Spec 生成表单:workspacePath + scope 选择 + 依赖/语言 + 模板快速选择 */
 export function SpecGenerateForm({
@@ -55,16 +48,13 @@ export function SpecGenerateForm({
   const [includeDependencies, setIncludeDependencies] = React.useState(false)
   const [languages, setLanguages] = React.useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = React.useState<SpecTemplate | null>(
-    () =>
-      SPEC_BUILTIN_TEMPLATES.find((t) => t.id === defaultTemplateId) ?? null,
+    () => SPEC_BUILTIN_TEMPLATES.find((t) => t.id === defaultTemplateId) ?? null,
   )
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const toggleLanguage = (lang: string) => {
-    setLanguages((prev) =>
-      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
-    )
+    setLanguages((prev) => (prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,7 +142,9 @@ export function SpecGenerateForm({
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="spec-deps" className="text-sm">包含依赖关系</Label>
+              <Label htmlFor="spec-deps" className="text-sm">
+                包含依赖关系
+              </Label>
               <p className="text-xs text-muted-foreground">提取模块间的依赖调用</p>
             </div>
             <Switch

@@ -149,18 +149,14 @@ describe('SubAgentTaskTree — 基础渲染', () => {
 
   it('自定义 data-testid 覆盖默认', () => {
     const sub = makeSubagent()
-    const { container } = render(
-      <SubAgentTaskTree subagent={sub} data-testid="custom-tree" />,
-    )
+    const { container } = render(<SubAgentTaskTree subagent={sub} data-testid="custom-tree" />)
     expect(container.querySelector('[data-testid="custom-tree"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="subagent-task-tree"]')).toBeFalsy()
   })
 
   it('className prop 透传到根容器', () => {
     const sub = makeSubagent()
-    const { container } = render(
-      <SubAgentTaskTree subagent={sub} className="custom-cls" />,
-    )
+    const { container } = render(<SubAgentTaskTree subagent={sub} className="custom-cls" />)
     const root = container.querySelector('[data-testid="subagent-task-tree"]') as HTMLElement
     expect(root.className).toContain('custom-cls')
   })
@@ -191,9 +187,7 @@ describe('SubAgentTaskTree — 折叠/展开', () => {
   it('点击 header 按钮切换 collapsed', () => {
     const tools = [makeTool({ id: 't1' })]
     const sub = makeSubagent({ tools })
-    const { container } = render(
-      <SubAgentTaskTree subagent={sub} defaultCollapsed={true} />,
-    )
+    const { container } = render(<SubAgentTaskTree subagent={sub} defaultCollapsed={true} />)
     // 折叠时 tools 区域应不可见
     const headerBtn = container.querySelector('button[aria-expanded]') as HTMLButtonElement
     expect(headerBtn.getAttribute('aria-expanded')).toBe('false')
@@ -256,9 +250,7 @@ describe('SubAgentTaskTree — 右键菜单', () => {
 
   it('enableContextMenu=false:contextMenu 不显示菜单', () => {
     const sub = makeSubagent()
-    const { container } = render(
-      <SubAgentTaskTree subagent={sub} enableContextMenu={false} />,
-    )
+    const { container } = render(<SubAgentTaskTree subagent={sub} enableContextMenu={false} />)
     const root = container.querySelector('[data-testid="subagent-task-tree"]') as HTMLElement
     fireEvent.contextMenu(root, { clientX: 200, clientY: 300, button: 2 })
     const menu = container.querySelector('[data-testid="subagent-task-tree-context-menu"]')
@@ -281,7 +273,9 @@ describe('SubAgentTaskTree — 右键菜单', () => {
     const { container } = render(<SubAgentTaskTree subagent={sub} />)
     const root = container.querySelector('[data-testid="subagent-task-tree"]') as HTMLElement
     fireEvent.contextMenu(root, { clientX: 200, clientY: 300, button: 2 })
-    const menu = container.querySelector('[data-testid="subagent-task-tree-context-menu"]') as HTMLElement
+    const menu = container.querySelector(
+      '[data-testid="subagent-task-tree-context-menu"]',
+    ) as HTMLElement
     expect(menu.getAttribute('role')).toBe('menu')
     expect(menu.getAttribute('aria-label')).toContain('MyBot')
   })
@@ -395,7 +389,9 @@ describe('SubAgentTaskTree — 右键菜单', () => {
     const { container } = render(<SubAgentTaskTree subagent={sub} />)
     const root = container.querySelector('[data-testid="subagent-task-tree"]') as HTMLElement
     fireEvent.contextMenu(root, { clientX: 200, clientY: 300, button: 2 })
-    const menu = container.querySelector('[data-testid="subagent-task-tree-context-menu"]') as HTMLElement
+    const menu = container.querySelector(
+      '[data-testid="subagent-task-tree-context-menu"]',
+    ) as HTMLElement
     fireEvent.keyDown(menu, { key: 'Escape' })
     expect(container.querySelector('[data-testid="subagent-task-tree-context-menu"]')).toBeFalsy()
   })
@@ -412,18 +408,14 @@ describe('SubAgentTaskTree — 右键菜单', () => {
       )
       const root = document.querySelector('[data-testid="subagent-task-tree"]') as HTMLElement
       fireEvent.contextMenu(root, { clientX: 200, clientY: 300, button: 2 })
-      expect(
-        document.querySelector('[data-testid="subagent-task-tree-context-menu"]'),
-      ).toBeTruthy()
+      expect(document.querySelector('[data-testid="subagent-task-tree-context-menu"]')).toBeTruthy()
       // 推进 10ms 触发延迟绑定
       act(() => {
         vi.advanceTimersByTime(10)
       })
       // 模拟外部 mousedown
       fireEvent.mouseDown(screen.getByTestId('outside'))
-      expect(
-        document.querySelector('[data-testid="subagent-task-tree-context-menu"]'),
-      ).toBeFalsy()
+      expect(document.querySelector('[data-testid="subagent-task-tree-context-menu"]')).toBeFalsy()
     } finally {
       vi.useRealTimers()
     }
@@ -519,9 +511,7 @@ describe('SubAgentTaskTree — 状态视觉映射', () => {
     expect(container.textContent).toContain('Validator') // nickname renders
     // Bot icon 元素含 text-red-500
     const icons = container.querySelectorAll('[data-testid="lucide-icon"]')
-    const hasRedIcon = Array.from(icons).some((icon) =>
-      icon.className?.includes('text-red-500'),
-    )
+    const hasRedIcon = Array.from(icons).some((icon) => icon.className?.includes('text-red-500'))
     expect(hasRedIcon).toBe(true)
   })
 

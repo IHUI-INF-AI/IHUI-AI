@@ -38,7 +38,8 @@ export const refundMachine = setup({
       rejectReason: ({ event }) => (event.type === 'REJECT' ? event.reason : undefined),
     }),
     recordTransaction: assign({
-      transactionId: ({ event }) => (event.type === 'REFUND_SUCCESS' ? event.transactionId : undefined),
+      transactionId: ({ event }) =>
+        event.type === 'REFUND_SUCCESS' ? event.transactionId : undefined,
     }),
     recordError: assign({
       errorMessage: ({ event }) => (event.type === 'REFUND_FAIL' ? event.error : undefined),
@@ -83,10 +84,4 @@ export const refundMachine = setup({
 })
 
 export type RefundState =
-  | 'pending'
-  | 'reviewing'
-  | 'refunding'
-  | 'refunded'
-  | 'rejected'
-  | 'failed'
-  | 'cancelled'
+  'pending' | 'reviewing' | 'refunding' | 'refunded' | 'rejected' | 'failed' | 'cancelled'

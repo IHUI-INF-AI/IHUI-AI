@@ -202,7 +202,8 @@ export function calculateBehaviorScore(ctx: BehaviorContext): number {
     const { mean, stddev } = meanStddev(intervals)
     if (mean > 0) {
       const cv = stddev / mean // 变异系数
-      if (cv < 0.05) score += 45 // 极规律,几乎确定是脚本
+      if (cv < 0.05)
+        score += 45 // 极规律,几乎确定是脚本
       else if (cv < 0.1) score += 35
       else if (cv < 0.2) score += 20
     }

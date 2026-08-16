@@ -1,10 +1,7 @@
 /**
  * P1-2.2: SaaS 租户管理 — React Query 查询钩子
  */
-import {
-  useQuery,
-  type UseQueryResult,
-} from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 
 import {
   adminGetCustomerMetrics,
@@ -47,9 +44,7 @@ export function useTenantsQuery(options?: {
 }
 
 /** 租户详情 */
-export function useTenantDetail(
-  slug: string | null,
-): UseQueryResult<TenantDetailResult, Error> {
+export function useTenantDetail(slug: string | null): UseQueryResult<TenantDetailResult, Error> {
   return useQuery<TenantDetailResult, Error>({
     queryKey: ['admin', 'saas', 'tenants', 'detail', slug],
     queryFn: async () => {
@@ -64,9 +59,7 @@ export function useTenantDetail(
 }
 
 /** 租户备份列表 */
-export function useBackupsQuery(
-  slug: string | null,
-): UseQueryResult<Backup[], Error> {
+export function useBackupsQuery(slug: string | null): UseQueryResult<Backup[], Error> {
   return useQuery<Backup[], Error>({
     queryKey: ['admin', 'saas', 'tenants', 'backups', slug],
     queryFn: async () => {
@@ -99,9 +92,7 @@ export function useCertificatesQuery(options?: {
 }
 
 /** P1-2.2c: 租户配额(P1-2.2c 占位,等 P1-2.3 Prometheus) */
-export function useCustomerQuotaQuery(
-  slug: string | null,
-): UseQueryResult<CustomerQuota, Error> {
+export function useCustomerQuotaQuery(slug: string | null): UseQueryResult<CustomerQuota, Error> {
   return useQuery<CustomerQuota, Error>({
     queryKey: ['admin', 'saas', 'tenants', 'quota', slug],
     queryFn: async () => {

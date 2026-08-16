@@ -58,18 +58,25 @@ export function EarnCommissionScreen({
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.introCard}>
-          <Text style={styles.introTitle}>{t('earnCommission.introTitle') || '邀请好友,赚取佣金'}</Text>
+          <Text style={styles.introTitle}>
+            {t('earnCommission.introTitle') || '邀请好友,赚取佣金'}
+          </Text>
           <Text style={styles.introDesc}>
-            {t('earnCommission.introDesc') || '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费 20% 的佣金收益'}
+            {t('earnCommission.introDesc') ||
+              '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费 20% 的佣金收益'}
           </Text>
           <View style={styles.statsArea}>
             <View style={styles.statsItem}>
               <Text style={styles.statsValue}>{'¥' + (totalEarnings / 100).toFixed(2)}</Text>
-              <Text style={styles.statsLabel}>{t('earnCommission.totalEarnings') || '累计收益'}</Text>
+              <Text style={styles.statsLabel}>
+                {t('earnCommission.totalEarnings') || '累计收益'}
+              </Text>
             </View>
             <View style={styles.statsItem}>
               <Text style={styles.statsValue}>{String(invitedCount)}</Text>
-              <Text style={styles.statsLabel}>{t('earnCommission.invitedCount') || '邀请人数'}</Text>
+              <Text style={styles.statsLabel}>
+                {t('earnCommission.invitedCount') || '邀请人数'}
+              </Text>
             </View>
           </View>
         </View>
@@ -103,7 +110,9 @@ export function EarnCommissionScreen({
           accessibilityRole="button"
           accessibilityLabel={t('earnCommission.openVip') || '开通VIP会员参与分佣计划'}
         >
-          <Text style={styles.bottomBtnText}>{t('earnCommission.openVip') || '开通VIP会员 参与分佣计划'}</Text>
+          <Text style={styles.bottomBtnText}>
+            {t('earnCommission.openVip') || '开通VIP会员 参与分佣计划'}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -133,7 +142,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     introTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, textAlign: 'center' },
     introDesc: { fontSize: 14, lineHeight: 20, color: tk.text.secondary, textAlign: 'center' },
-    statsArea: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 8 },
+    statsArea: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      width: '100%',
+      marginTop: 8,
+    },
     statsItem: { alignItems: 'center', gap: 6 },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { fontSize: 14, color: tk.text.secondary },
