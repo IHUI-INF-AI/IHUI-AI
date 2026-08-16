@@ -230,7 +230,7 @@
 ### 遗留观察(非本批次修复)
 
 - Redis 版本 5.0.14.1 低于 Bull 要求的 6.2(Aug7 曾 2597 条 MISCONF,当前已恢复)— 建议升级
-- ai-service `publish.scheduler` 在 Postgres 未启动时每 62s 重试(Aug8 历史)— 建议退避重试
+- ~~ai-service `publish.scheduler` 在 Postgres 未启动时每 62s 重试(Aug8 历史)— 建议退避重试~~ ✅(2026-08-13 已实现:scheduler.py `_DB_BACKOFF_BASE_SEC=5.0`/`_MAX=300.0` 指数退避,2026-08-16 复核确认)
 - registry-sync 外部源 mcp.so/smithery.ai/glama.ai 404 + GitHub rate limit — 需配置 githubToken
 
 ---
@@ -436,6 +436,29 @@
   - **check-staged-pollution.mjs(§12 staged 污染)**:保留 warn。多 agent 并行是项目常态,升级会阻塞所有并行开发(误报率 ~100%);check-commit-scope-consistency.mjs 已做 blocking 检测覆盖核心场景
 
 ---
+
+## 已完成任务:mobile-rn 组件对齐原 uniapp 项目(2026-08-16 完成 ✅,平台独占:apps/mobile-rn)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/mobile-rn`(+ 少量 shared 依赖),不参与 web/api/ai-service 跨端契约同步。
+> 原 uniapp 项目:D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue(48 组件);RN:apps/mobile-rn/src/components(55 组件)。
+
+### 目标
+
+穷尽比对原 uniapp 项目组件与 mobile-rn 组件差异(结构/交互/尺寸/文案),逐一对齐,验证 typecheck 0 错误 + 模拟器实测无红屏。
+
+### 成果(commit 92de524,22 files +2559/-822)
+
+- **38 组差异全部处理**:30 组已对齐/重写(我改 11 组:Toolbar/AgentList/AgentShopList 新增/PayButton/ConfirmPurchasePopUp/PurchaseNoticePopUp/BottomFigure/EarningsStatisticsCard/KnowledgePlanet/SingleTypeBar/CardWithList/UserInfoCard/BottomActionBar + 并发会话改 19 组)+ 8 组合理保留(TabBar 原 v-if=false 不渲染/SideMenu/MoreTitles/NavBar/LoginPopUp/VerifyCodeModal/IntroducePopup/ColorfulLoader)
+- **两处真实缺陷修复(2026-08-16 收尾)**:
+  - VerifyCodeModal:倒计时时机修复 — 原"打开即倒计时但短信未发"改为 remaining 初值 0、打开不自动启动、onResend await 成功后 startTimer(对齐原版 sendTextMsg 成功后 codeMin=60)
+  - IntroducePopup:补头像区 + 顶部装饰图(头像 88×88 圆 + 身份徽标 + 左装饰图 + 右二维码 + headertitle 双图),新增 avatarUrl/showDecorations/showAvatar 可选 props 零破坏现有调用
+- **守门修复**:check-root-dir-clean.mjs 白名单补 check-chat-keys.js(既有跟踪脚本)
+
+### 验证
+
+- tsc --noEmit: 0 错误(全量)
+- 模拟器实测:Running "main" 成功,无红屏,登录页/GlobalFloatBox 正常渲染
+- 依赖修复:mobile-rn babel-preset-expo 链接 + .bin 顶层链接(并发 pnpm install 破坏,2026-08-16 两轮修复)
 
 ## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
 
@@ -2740,7 +2763,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-08-06) context 页 toggle/预算持久化 — ai-service PUT /sources(Redis)+api 转发+前端乐观更新(commit bbf42ca20)
 - [x] ✅(2026-08-06) favorites 列表资源标题 — findFavorites 批量关联资源表(commit 43459d2c8)
-- [x] ✅(2026-08-06) **ai-world/favorites 收藏闭环** — 主代理审计发现孤儿页面(前端调 404 接口)后闭环:①后端 GET /ai-world/favorites(requireAuth)+ findAiWorldFavorites 关联 aiWorldItems(commit 8f66eaa05)②social zod 常量加 aiworld,与 JSON schema 对齐(POST /favorites 不再 400,commit 4a3f6af46)③详情页收藏按钮写入口 + cn import 补全(commit ad86535d0)。收藏:状态 GET /api/favorites/check/aiworld/:id、切换 POST/DELETE /api/favorites。favorites 页面导航入口待补(可直接 URL 访问)
+- [x] ✅(2026-08-06) **ai-world/favorites 收藏闭环** — 主代理审计发现孤儿页面(前端调 404 接口)后闭环:①后端 GET /ai-world/favorites(requireAuth)+ findAiWorldFavorites 关联 aiWorldItems(commit 8f66eaa05)②social zod 常量加 aiworld,与 JSON schema 对齐(POST /favorites 不再 400,commit 4a3f6af46)③详情页收藏按钮写入口 + cn import 补全(commit ad86535d0)。收藏:状态 GET /api/favorites/check/aiworld/:id、切换 POST/DELETE /api/favorites。~~favorites 页面导航入口待补(可直接 URL 访问)~~ ✅(2026-08-16 sidebar.tsx AI 组 /ai-world 项下补 children `/ai-world/favorites` 入口,nav.favorites 5 语言 key 已齐全)
 - [x] ✅(2026-08-06) agents 详情页 5 Tab 运行时数据 — GET /subagents/by-agent/:agentId/summary(agent_tasks 聚合)+前端 useQuery 接入
 - [x] ✅(2026-08-06) admin saas 配额真实数据源 — admin-saas-quota.ts 拦截原代理路径,tenants/tenant_quotas/ai_cost_records 真实聚合
 - [x] ✅(2026-08-06) downloads 运营数据配置化 — 10 处 TODO 改 NEXT_PUBLIC_DOWNLOAD_* 环境变量 getter,未配置走"即将上线"
@@ -2937,7 +2960,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - ✅ **第一批(2026-08-07 commit bfcbf555c7)**:用户选中的 3 个 button + message-list 9 个 button + ProviderHealthDot + 守门脚本 bug 修复
 - [x] ✅(2026-08-11) **第二批(P1)**:全项目 200+ 文件中 `title=` 替换为 `<Tooltip>` 包装已清零(0 违规),修复 `check-native-title-tooltip.mjs` 正则 `TooltipProvider` 假阳性误报
-- ⏳ **第三批(P2,后续)**:扫描其他端(desktop/extension/mobile-rn/miniapp-taro/cli)是否有类似原生 title tooltip,按端特性处理
+- [x] ✅(2026-08-16) **第三批(核查关闭)**:扫描其他端(desktop/extension/mobile-rn/miniapp-taro/cli)原生 title tooltip — 五端 0 处违规(全部为自定义组件 title prop/终端无 UI),守门维持 web scope 即可,无需改动
 
 ### 第一批已完成(2026-08-07)
 

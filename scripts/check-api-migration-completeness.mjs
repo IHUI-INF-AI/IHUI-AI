@@ -162,8 +162,12 @@ if (!skipAuditReportCheck) {
   };
   for (const [canonical, candidates] of Object.entries(AUDIT_REPORT_ALIASES)) {
     check(`审计报告存在: ${canonical}`, () => {
-      const found = candidates.find((f) => existsSync(path.join(ROOT, f)));
-      if (!found) throw new Error(`未找到 ${canonical} 或别名 ${candidates.join('/')} 之一, 必须先跑 D 盘历史项目审计`);
+      // 根目录或归档目录(.trae-cn/archive/audit-reports-2026-07-21/)任一存在即通过
+      const ARCHIVE_DIR = path.join(ROOT, '.trae-cn/archive/audit-reports-2026-07-21');
+      const found = candidates.find(
+        (f) => existsSync(path.join(ROOT, f)) || existsSync(path.join(ARCHIVE_DIR, f)),
+      );
+      if (!found) throw new Error(`未找到 ${canonical} 或别名 ${candidates.join('/')} 之一(根目录或归档目录), 必须先跑 D 盘历史项目审计`);
       return true;
     });
   }
@@ -331,14 +335,22 @@ for (const { file, endpoints } of java17Checks) {
 
 // 5. 路径别名 redirect 必须在 routes/index.ts 中
 console.log(`\n${C.cyan}[5/7] 路径别名重定向${C.reset}`);
-check('routes/index.ts 含 3 个路径别名 redirect (agents/agent-withdrawal-detail/ai-model-info)', () => {
+check('routes/index.ts 含 3 个路径别名 redirect (agent-withdrawal-detail/ai-model-info)', () => {
   const text = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
   for (const r of [
-    "redirect('/api/agents/list'",
     "redirect('/api/agent-ext/withdrawal/list'",
     "redirect('/api/llm/models'",
   ]) {
-    if (!text.includes(r)) throw new Error(`routes/index.ts 缺 redirect: ${r}`);
+    // 兼容 reply.redirect('...', 308) 带状态码参数格式
+    if (!text.includes(r) && !text.includes(`${r}, 308)`)) {
+      throw new Error(`routes/index.ts 缺 redirect: ${r}`);
+    }
+  }
+  // /api/agents 已由 agents.ts 直接处理(2026-08-01 删除 redirect,见 index.ts:925 注释),
+  // 改为校验 agents.ts 直接注册端点(不再要求 redirect 存在)
+  const agentsText = readFileSync(path.join(ROOT, 'apps/api/src/routes/agents.ts'), 'utf-8');
+  if (!/\bserver\.get\(\s*['"]\/agents\/list['"]/.test(agentsText)) {
+    throw new Error('agents.ts 缺 GET /agents/list 端点');
   }
   return true;
 });
@@ -380,21 +392,33 @@ check('后端 /api/notifications/badge 端点存在', () => {
 check('后端 /api/auth/qr/status + /qr/generate 端点存在', () => {
   const p = path.join(ROOT, 'apps/api/src/routes/auth.ts');
   const text = readFileSync(p, 'utf-8');
-  if (!text.includes("server.get('/qr/status'")) throw new Error('auth.ts 缺 /qr/status 端点');
-  if (!text.includes("server.post('/qr/generate'")) throw new Error('auth.ts 缺 /qr/generate 端点');
+  // 兼容单行与多行注册格式(server.get('/qr/status' 或 server.get(\n '/qr/status')
+  if (!/\bserver\.get\(\s*['"]\/qr\/status['"]/.test(text)) {
+    throw new Error('auth.ts 缺 /qr/status 端点');
+  }
+  if (!/\bserver\.post\(\s*['"]\/qr\/generate['"]/.test(text)) {
+    throw new Error('auth.ts 缺 /qr/generate 端点');
+  }
   return true;
 });
 
-check('routes/index.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
+check('routes/index.ts 含 5+ 个路径别名 redirect (withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
   const text = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
   for (const r of [
-    "redirect('/api/agents/list'",
     "redirect('/api/agent-ext/withdrawal/list'",
     "redirect('/api/llm/models'",
     "redirect('/api/v1/customer_service/faqs'",
     "redirect('/api/ai-ext/capabilities'",
   ]) {
-    if (!text.includes(r)) throw new Error(`routes/index.ts 缺 redirect: ${r}`);
+    // 兼容 reply.redirect('...', 308) 带状态码参数格式
+    if (!text.includes(r) && !text.includes(`${r}, 308)`)) {
+      throw new Error(`routes/index.ts 缺 redirect: ${r}`);
+    }
+  }
+  // /api/agents 已由 agents.ts 直接处理(见 index.ts:925 注释),此处校验 agents.ts 端点
+  const agentsText = readFileSync(path.join(ROOT, 'apps/api/src/routes/agents.ts'), 'utf-8');
+  if (!/\bserver\.get\(\s*['"]\/agents\/list['"]/.test(agentsText)) {
+    throw new Error('agents.ts 缺 GET /agents/list 端点');
   }
   return true;
 });
