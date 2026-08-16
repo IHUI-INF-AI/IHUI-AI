@@ -276,15 +276,16 @@ function tryHandleChatModeSlash(
  * - 切到 full → 5s 撤销 toast(与 PermissionModePopover 一致体验)
  * - 首次切到 full + 未在 localStorage 静默 → 走 store.pendingFullAccess,
  *   由 message-input 渲染 FullAccessConfirmDialog,确认后切模式 */
-async function tryHandlePermissionSlash(text: string): Promise<boolean> {
+async function tryHandlePermissionSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): Promise<boolean> {
   const trimmed = text.trimStart()
   // 必须以 /permission 开头,后接 ask/auto/full + 空白或行尾
   const m = /^\/permission\s+(ask|auto|full)\b\s*$/.exec(trimmed)
   if (!m) return false
   const target = m[1] as 'ask' | 'auto' | 'full'
-  // 注:此函数内部不能直接调 useTranslations(非 React 组件),
-  // 借助 useAiPanelStore 共享状态,让已挂载的 toast 监听器来显示。
-  // 但 toast 是瞬时反馈,直接在内部硬编码调 sonner(2026-07-25 收尾时改用 i18n)
+  // 翻译函数由 useChat 调用方传入,保持模块级函数不违反 Hooks 规则。
   const { switchPermissionMode } = await import('@/components/ai/permission-mode-popover')
   const modeMap: Record<'ask' | 'auto' | 'full', WorkspacePermissionMode> = {
     ask: 'default',
@@ -294,12 +295,15 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
   const targetMode = modeMap[target]
   // 已是目标模式:不重复切换,仅 toast 提示
   const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+  const labelKey =
+    target === 'ask'
+      ? 'permissionLabelAsk'
+      : target === 'auto'
+        ? 'permissionLabelAuto'
+        : 'permissionLabelFull'
+  const label = t(labelKey)
   if (currentMode === targetMode) {
-    // 已是目标模式 → 不切换,提示用户(2026-07-25 收尾:用 i18n 替代硬编码)
-    // 通过动态 import 加载 useTranslations hook 不可行(hook 必须在组件顶层)
-    // 改用预定义文案 map(由 use-chat 调用方提供 i18n,或直接硬编码英文 fallback)
-    const label = target === 'ask' ? 'Ask' : target === 'auto' ? 'Auto-approve' : 'Full access'
-    toast.info(`Already in ${label} mode`)
+    toast.info(t('permissionAlreadyActive', { mode: label }))
     return true
   }
   // 切到 full + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化,深度对标 Codex safety guard)
@@ -311,7 +315,7 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
   // 切换模式(乐观更新 + 落库 + 失败回滚)
   const result = await switchPermissionMode(targetMode)
   if (!result.ok) {
-    toast.error(`Permission mode switch failed: ${result.error ?? 'unknown'}`)
+    toast.error(t('permissionSwitchFailed', { error: result.error ?? t('permissionUnknownError') }))
     return true
   }
   // 切完模式 → 把刚被 message-input useEffect 占位为 'popover' 的最新一条记录
@@ -324,24 +328,24 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
   }
   // 切到 full → 5s 撤销 toast(与 PermissionModePopover 一致体验)
   if (target === 'full' && result.previousMode) {
-    toast('Switched to full access', {
-      description: `AI can now run any action without confirmation (undo within 5s, previous:${result.previousMode})`,
+    toast(t('permissionSwitchedFullTitle'), {
+      description: t('permissionSwitchedFullDesc', { previous: result.previousMode }),
       duration: 5000,
       action: {
-        label: 'Undo',
+        label: t('permissionUndoLabel'),
         onClick: async () => {
           await switchPermissionMode(result.previousMode!)
         },
       },
     })
   } else if (target === 'auto') {
-    toast.success('Switched to auto-approve', {
-      description: 'Only asks before running detected risky actions',
+    toast.success(t('permissionSwitchedAutoTitle'), {
+      description: t('permissionSwitchedAutoDesc'),
       duration: 3000,
     })
   } else if (target === 'ask' && result.previousMode === 'bypass-permissions') {
-    toast.success('Switched to ask for approval', {
-      description: 'Always asks before editing files outside this project or using the internet',
+    toast.success(t('permissionSwitchedAskTitle'), {
+      description: t('permissionSwitchedAskDesc'),
       duration: 3000,
     })
   }
@@ -1119,7 +1123,7 @@ export function useChat(): UseChatReturn {
       // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
-      if (await tryHandlePermissionSlash(text)) {
+      if (await tryHandlePermissionSlash(text, t)) {
         sendInFlightRef.current = false
         return true
       }
@@ -1147,14 +1151,65 @@ export function useChat(): UseChatReturn {
         return false
       }
 
-      // 拦截自媒体斜杠命令(/wechat-article / /koubo-script),直接调 skill API,
-      // 不走 LLM chat 流。结果作为 assistant 消息追加到对话。
+      // 拦截自媒体斜杠命令(/wechat-article / /koubo-script / /auto-task),
+      // 直接调 skill API,不走 LLM chat 流。结果作为 assistant 消息追加到对话。
+      // 2026-08-16 修复:命中后 assistant 消息需携带 permissionMode,
+      // 且需确保 conversationId 已创建后再持久化 user/assistant(原逻辑只 addMessage 不持久化,
+      // 导致刷新或跨端同步时丢失斜杠命令结果)。
       const slashHit = await tryHandleSelfMediaSlash(text, (assistantContent) => {
         const m = store.currentModel
+        const slashMode = useAiPanelStore.getState().activeWorkspace?.mode
         store.addMessage({ role: 'user', content: text, model: m })
-        store.addMessage({ role: 'assistant', content: assistantContent, model: m })
+        store.addMessage({
+          role: 'assistant',
+          content: assistantContent,
+          model: m,
+          permissionMode: slashMode,
+        })
       })
       if (slashHit) {
+        // 斜杠命令路径同样需要 conversationId 才能持久化 user/assistant。
+        // 若尚无会话,先创建(与下方主流程对齐,保持 fire-and-forget 后台持久化)。
+        let slashCid = store.conversationId
+        if (!slashCid) {
+          const createRes = await createConversation({ model: store.currentModel })
+          if (!createRes.success) {
+            if (createRes.status === 401) {
+              toast.warning('登录已过期', {
+                description: '请重新登录后继续对话',
+              })
+              useAuthStore.setState({ isAuthenticated: false, user: null })
+              const { isAuthenticated: isAuth, token } = useAuthStore.getState()
+              if (!(isAuth && !token)) {
+                openLoginDialogOnce('/')
+              }
+            } else {
+              toast.error('创建会话失败', {
+                description: createRes.error || `服务异常(${createRes.status ?? '未知'})`,
+                action: {
+                  label: t('retry'),
+                  onClick: () => sendMessage(lastSentContentRef.current),
+                },
+              })
+            }
+            sendInFlightRef.current = false
+            return false
+          }
+          slashCid = createRes.data.conversation.id
+          store.setConversationId(slashCid)
+          const sp = new URLSearchParams(window.location.search)
+          sp.set('conversationId', slashCid)
+          router.replace(`/chat?${sp.toString()}`, { scroll: false })
+          queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+        }
+        // 持久化 user + assistant(后台 fire-and-forget,失败沿用 persistMessageSafe 现有 toast 行为)
+        void persistMessageSafe(slashCid, text, 'user')
+        const lastAssistant = useChatStore
+          .getState()
+          .messages.findLast((mm) => mm.role === 'assistant' && mm.content)
+        if (lastAssistant) {
+          void persistMessageSafe(slashCid, lastAssistant.content, 'assistant')
+        }
         sendInFlightRef.current = false
         return true
       }
@@ -1296,7 +1351,12 @@ export function useChat(): UseChatReturn {
 
         // 2026-08-16 立:强制传 contextLimit,后端根据该值判断是否触发 88% 自动压缩。
         const resolvedContextLimit = getModelContextCapacity(effectiveModel)
-        console.log('[Compaction] sendMessage contextLimit=', resolvedContextLimit, 'model=', effectiveModel)
+        logger.debug(
+          '[Compaction] sendMessage contextLimit=',
+          resolvedContextLimit,
+          'model=',
+          effectiveModel,
+        )
 
         await streamChat({
           model: effectiveModel,
@@ -1328,8 +1388,7 @@ export function useChat(): UseChatReturn {
 
             // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
             const compressedMessages = info.compressedMessages as
-              | Array<{ role: ChatRole; content: string }>
-              | undefined
+              Array<{ role: ChatRole; content: string }> | undefined
             if (compressedMessages && compressedMessages.length > 0) {
               const localMessages = useChatStore.getState().messages
               const lastLocal = localMessages[localMessages.length - 1]
@@ -1372,9 +1431,7 @@ export function useChat(): UseChatReturn {
                 model: '',
               }))
 
-              const finalMessages = keepLocalAssistant
-                ? [...converted, lastLocal]
-                : converted
+              const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
 
               useChatStore.getState().setMessages(finalMessages)
             } catch (e) {
@@ -1770,7 +1827,14 @@ export function useChat(): UseChatReturn {
         useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
 
         const answerContextLimit = getModelContextCapacity(effectiveModel)
-        console.log('[Compaction] sendAnswer contextLimit=', answerContextLimit, 'model=', effectiveModel, 'history=', history.length)
+        logger.debug(
+          '[Compaction] sendAnswer contextLimit=',
+          answerContextLimit,
+          'model=',
+          effectiveModel,
+          'history=',
+          history.length,
+        )
 
         await streamChat({
           model: effectiveModel,
@@ -1805,8 +1869,7 @@ export function useChat(): UseChatReturn {
 
             // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
             const compressedMessages = info.compressedMessages as
-              | Array<{ role: ChatRole; content: string }>
-              | undefined
+              Array<{ role: ChatRole; content: string }> | undefined
             if (compressedMessages && compressedMessages.length > 0) {
               const localMessages = useChatStore.getState().messages
               const lastLocal = localMessages[localMessages.length - 1]
@@ -1849,9 +1912,7 @@ export function useChat(): UseChatReturn {
                 model: '',
               }))
 
-              const finalMessages = keepLocalAssistant
-                ? [...converted, lastLocal]
-                : converted
+              const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
 
               useChatStore.getState().setMessages(finalMessages)
             } catch (e) {
