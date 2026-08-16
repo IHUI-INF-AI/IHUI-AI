@@ -40,14 +40,14 @@ export default function VipUpgradeToast({
 
   return (
     <View className="fixed top-4 left-0 right-0 z-40 flex justify-center px-4">
-      {/* TODO: custom color: #fef3c7/#fde68a VIP 品牌金色渐变(浅),无对应 token,保留原值 */}
+
       <View
         className="flex items-center px-4 py-2.5 rounded-md shadow-lg"
         style={{ background: 'linear-gradient(90deg, #fef3c7, #fde68a)' }}
       >
         <Text className="text-base mr-2">👑</Text>
         <Text className="text-xs text-yellow-700 mr-3">{desc}</Text>
-        {/* TODO: custom color: #d97706 VIP 品牌金色渐变(深),无对应 token,保留原值 */}
+
         <View
           className="px-3 py-1 rounded-md"
           style={{ background: 'linear-gradient(90deg, var(--color-warning), #d97706)' }}

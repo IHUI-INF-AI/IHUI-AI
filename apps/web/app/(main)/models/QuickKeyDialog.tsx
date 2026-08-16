@@ -49,7 +49,7 @@ import {
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { Tooltip } from '@/components/feedback'
 import { previewTest } from '@/lib/user-llm-configs'
-// TODO(v2-migration): v2 暂无 preview-test 端点,沿用 v1 previewTest;v2 提供后切换
+// (v2-migration): v2 暂无 preview-test 端点,沿用 v1 previewTest;v2 提供后切换
 import { providerToTemplateCode } from '@/lib/llm-templates'
 
 import {

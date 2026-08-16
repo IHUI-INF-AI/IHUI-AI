@@ -52,26 +52,25 @@ function providerIcon(providerId: string): { letter: string; bg: string } {
   )
 }
 
-/** 类型徽章配色(对齐 mobile-rn 原实现:图像紫 / 音视频绿 / 文本蓝) */
+/** 类型徽章配色(对齐 uniapp model-plaza:图像粉 / 音视频绿 / 文本蓝,语义区分非主色) */
 function typeBadge(
   type: ModelPlazaModelType,
-  tk: AppThemeTokens,
 ): { text: string; color: string; bg: string; labelKey: string } {
   if (type === 'image') {
     return {
       text: '',
-      color: tk.purple.DEFAULT,
-      bg: tk.purple.light,
+      color: '#C41E7A',
+      bg: '#FDE8F5',
       labelKey: 'modelPlaza.typeImage',
     }
   }
   if (type === 'av') {
-    return { text: '', color: tk.success.deep, bg: tk.success.light, labelKey: 'modelPlaza.typeAv' }
+    return { text: '', color: '#2E7D32', bg: '#E8F5E9', labelKey: 'modelPlaza.typeAv' }
   }
   return {
     text: '',
-    color: tk.indigo.DEFAULT,
-    bg: tk.indigo.light,
+    color: '#1888EE',
+    bg: '#E8F4FD',
     labelKey: 'modelPlaza.typeText',
   }
 }
@@ -197,7 +196,7 @@ export function ModelPlazaScreen({
           </View>
         }
         renderItem={({ item }) => {
-          const tb = typeBadge(item.type, tk)
+          const tb = typeBadge(item.type)
           return (
             <TouchableOpacity
               style={styles.modelCard}
@@ -252,6 +251,24 @@ export function ModelPlazaScreen({
   )
 }
 
+/** 对齐 uniapp box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04) — 胶囊 tab 阴影 */
+const shadowSoft = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.04,
+  shadowRadius: 4,
+  elevation: 1,
+}
+
+/** 对齐 uniapp box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04) — 卡片 / 厂商头部阴影 */
+const shadowCard = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.04,
+  shadowRadius: 6,
+  elevation: 1,
+}
+
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.muted },
@@ -264,46 +281,45 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 8,
       backgroundColor: tk.surface.bg,
     },
-    backText: { fontSize: 14, color: tk.text.secondary },
+    backText: { fontSize: 16, color: tk.text.secondary },
     headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     compareBtn: {
       paddingHorizontal: 12,
-      height: 30,
+      height: 44,
       borderRadius: 8,
       borderWidth: 1,
-      borderColor: tk.purple.DEFAULT,
+      borderColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    compareText: { fontSize: 12, fontWeight: '600', color: tk.purple.DEFAULT },
-    providerScroll: { maxHeight: 44, backgroundColor: tk.surface.bg },
-    providerScrollContent: { paddingHorizontal: 16, gap: 8, paddingVertical: 6 },
+    compareText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+    providerScroll: { maxHeight: 48, backgroundColor: 'transparent' },
+    providerScrollContent: { paddingHorizontal: 12, gap: 8, paddingVertical: 6 },
     providerSection: {
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.muted,
       paddingTop: 10,
       paddingBottom: 6,
     },
     sectionLabel: {
-      fontSize: 13,
-      color: tk.text.tertiary,
+      fontSize: 14,
+      color: tk.text.secondary,
       marginBottom: 8,
-      marginHorizontal: 16,
+      marginHorizontal: 12,
     },
     providerTab: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       paddingHorizontal: 14,
-      height: 32,
+      height: 36,
       borderRadius: 16,
       borderWidth: 0,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.bg,
       justifyContent: 'center',
+      ...shadowSoft,
     },
     providerTabActive: {
-      backgroundColor: tk.indigo.light,
-      borderWidth: 1,
-      borderColor: tk.brand.DEFAULT,
+      backgroundColor: 'rgba(0, 0, 0, 0.08)',
     },
     providerTabIcon: {
       width: 18,
@@ -313,70 +329,80 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     providerTabIconText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF', lineHeight: 13 },
-    providerText: { fontSize: 13, color: tk.text.secondary },
-    providerTextActive: { color: tk.indigo.deep, fontWeight: '600' },
+    providerText: { fontSize: 16, color: tk.text.secondary },
+    providerTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     providerHeader: {
+      marginHorizontal: 12,
+      marginBottom: 12,
       paddingHorizontal: 12,
       paddingVertical: 14,
       backgroundColor: tk.surface.bg,
+      borderRadius: 10,
+      ...shadowCard,
     },
-    providerName: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    providerMeta: { marginTop: 4, fontSize: 11, color: tk.text.tertiary },
-    providerDesc: { marginTop: 6, fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    providerName: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    providerMeta: { marginTop: 4, fontSize: 14, color: tk.text.tertiary },
+    providerDesc: { marginTop: 6, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
     errorBar: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: tk.surface.bg },
-    errorText: { fontSize: 12, color: tk.danger.bright },
+    errorText: { fontSize: 14, color: tk.danger.bright },
     typeTabs: {
       flexDirection: 'row',
       gap: 8,
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       paddingVertical: 10,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.muted,
     },
     typeTab: {
-      paddingHorizontal: 12,
-      height: 30,
+      paddingHorizontal: 14,
+      height: 34,
       borderRadius: 16,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.bg,
       alignItems: 'center',
       justifyContent: 'center',
+      ...shadowSoft,
     },
-    typeTabActive: { backgroundColor: tk.purple.DEFAULT },
-    typeTabText: { fontSize: 12, color: tk.text.secondary },
-    typeTabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    listBody: { padding: 16, paddingBottom: 32 },
-    separator: { height: 10 },
+    typeTabActive: { backgroundColor: 'rgba(0, 0, 0, 0.08)' },
+    typeTabText: { fontSize: 16, color: tk.text.secondary },
+    typeTabTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
+    listBody: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 32 },
+    separator: { height: 12 },
     empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
-    modelCard: { padding: 12, borderRadius: 12, backgroundColor: tk.surface.bg },
+    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    modelCard: {
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: tk.surface.bg,
+      ...shadowCard,
+    },
     cardTop: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: 8,
     },
-    modelName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
-    typeBadgeText: { fontSize: 11, fontWeight: '600' },
+    modelName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    typeBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4, marginLeft: 8 },
+    typeBadgeText: { fontSize: 12, fontWeight: '600' },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      marginBottom: 8,
+      marginBottom: 6,
       flexWrap: 'wrap',
     },
-    priceLabel: { fontSize: 11, color: tk.text.tertiary },
-    priceValue: { fontSize: 12, color: tk.indigo.DEFAULT, fontWeight: '600' },
-    priceDivider: { fontSize: 11, color: tk.border.medium, marginHorizontal: 4 },
-    priceExtra: { fontSize: 11, color: tk.text.tertiary },
-    cardDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 18, marginBottom: 8 },
+    priceLabel: { fontSize: 14, color: tk.text.tertiary },
+    priceValue: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
+    priceDivider: { fontSize: 14, color: tk.border.medium, marginHorizontal: 6 },
+    priceExtra: { fontSize: 12, color: tk.text.tertiary },
+    cardDesc: { fontSize: 14, color: tk.text.secondary, lineHeight: 18, marginBottom: 6 },
     cardTagRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
     cardTag: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 6,
-      backgroundColor: tk.surface.card,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      borderRadius: 3,
+      backgroundColor: '#F0F0F0',
     },
-    cardTagText: { fontSize: 11, color: tk.text.secondary },
-    payMode: { marginLeft: 'auto', fontSize: 11, color: tk.text.tertiary },
+    cardTagText: { fontSize: 12, color: tk.text.secondary },
+    payMode: { marginLeft: 'auto', fontSize: 12, color: tk.text.tertiary },
   })
 }

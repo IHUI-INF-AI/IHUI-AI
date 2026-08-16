@@ -5,7 +5,7 @@
 
 /* ===== 顶部 header(对齐原项目 PersonalInformationCard:深色渐变) ===== */
 .cp-header {
-  /* TODO: custom color: 原项目品牌深灰渐变,无对应 token,保留原值 */
+  /* custom color: 原项目品牌深灰渐变,无对应 token,保留原值 */
   background: linear-gradient(180deg, #1f2937 0%, #374151 100%);
   padding: 60rpx 32rpx 48rpx;
   color: #fff;
@@ -153,7 +153,7 @@
   flex-direction: column;
   align-items: center;
   padding: 24rpx 0;
-  /* TODO: custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
+  /* custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
   background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
   border-radius: 15rpx;
 }

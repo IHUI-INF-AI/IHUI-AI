@@ -78,29 +78,30 @@ export function OrderDetailScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    body: { padding: 16 },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 10 },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 12,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
     },
     label: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    value: { marginTop: 2, fontSize: 14, color: tk.text.primary },
-    price: { marginTop: 2, fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
+    value: { marginTop: 8, fontSize: 16, color: tk.text.primary },
+    price: { marginTop: 8, fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, textAlign: 'center' },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     backBtn: { marginTop: 12 },
   })
 }

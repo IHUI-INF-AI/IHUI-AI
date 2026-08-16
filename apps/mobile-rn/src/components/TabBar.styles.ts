@@ -9,7 +9,7 @@ import { rnLightTokens as tk } from '@ihui/design-tokens'
 
 export const TAB_BAR_HEIGHT = 56
 export const TAB_BAR_ICON_SIZE = 24
-export const TAB_BAR_FONT_SIZE = 10
+export const TAB_BAR_FONT_SIZE = 11
 export const TAB_BAR_TOP_BORDER = 1
 
 export const tabBarStyles = {

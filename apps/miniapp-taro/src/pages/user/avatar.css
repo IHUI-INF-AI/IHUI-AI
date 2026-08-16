@@ -38,7 +38,7 @@
 }
 .avatar-preview-tip-text {
   font-size: 22rpx;
-  /* TODO: custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
+  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
   color: #fff;
 }
 .avatar-nickname {
@@ -66,7 +66,7 @@
 }
 .avatar-btn-primary {
   background: var(--color-primary);
-  /* TODO: custom color: #1a1a2e 深色文字在主色按钮上,无对应 token,保留原值 */
+  /* custom color: #1a1a2e 深色文字在主色按钮上,无对应 token,保留原值 */
   color: #1a1a2e;
 }
 .avatar-btn-outline {

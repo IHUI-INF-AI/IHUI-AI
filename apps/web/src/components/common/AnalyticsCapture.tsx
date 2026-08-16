@@ -67,18 +67,7 @@ export function AnalyticsCapture() {
   const lastReportRef = React.useRef<Record<string, number>>({})
   const flushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const queue = React.useCallback((events: Array<Record<string, unknown>>) => {
-    bufferRef.current.push(...events)
-    // 批量满 30 或 8s 定时上报
-    if (bufferRef.current.length >= 30) {
-      void flush()
-    } else if (!flushTimerRef.current) {
-      flushTimerRef.current = setTimeout(() => {
-        flushTimerRef.current = null
-        void flush()
-      }, 8000)
-    }
-  }, [])
+  const flushRef = React.useRef<() => void>(() => {})
 
   const flush = React.useCallback(async () => {
     if (bufferRef.current.length === 0) return
@@ -93,6 +82,24 @@ export function AnalyticsCapture() {
       })
     } catch {
       // 失败静默
+    }
+  }, [])
+
+  // 保持 ref 指向最新 flush,queue 通过 ref 调用避免循环依赖
+  React.useEffect(() => {
+    flushRef.current = () => void flush()
+  }, [flush])
+
+  const queue = React.useCallback((events: Array<Record<string, unknown>>) => {
+    bufferRef.current.push(...events)
+    // 批量满 30 或 8s 定时上报
+    if (bufferRef.current.length >= 30) {
+      flushRef.current()
+    } else if (!flushTimerRef.current) {
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = null
+        flushRef.current()
+      }, 8000)
     }
   }, [])
 

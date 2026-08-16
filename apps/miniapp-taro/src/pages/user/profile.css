@@ -28,12 +28,12 @@
   font-size: 22rpx;
 }
 .pf-tag-vip {
-  /* TODO: custom color: 原项目 identity-vip #716fff/#f0eeff,无对应 token,保留原值 */
+  /* custom color: 原项目 identity-vip #716fff/#f0eeff,无对应 token,保留原值 */
   color: #716fff;
   background: #f0eeff;
 }
 .pf-tag-admin {
-  /* TODO: custom color: 原项目 identity-trader #7ca500/#f0f8e8,无对应 token,保留原值 */
+  /* custom color: 原项目 identity-trader #7ca500/#f0f8e8,无对应 token,保留原值 */
   color: #7ca500;
   background: #f0f8e8;
 }

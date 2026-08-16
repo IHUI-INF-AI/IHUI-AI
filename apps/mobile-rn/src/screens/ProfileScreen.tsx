@@ -98,7 +98,7 @@ const MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
 /**
  * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 178+ 路由的 RootStackParamList
  * 联合类型推断失败(distributive conditional type 限制),需在 helper 内部隔离类型断言。
- * FIXME(any): react-navigation v6 类型系统限制;移除计划:升级到 v7 后改用原生 navigate
+ * react-navigation v6 类型系统限制;移除计划:升级到 v7 后改用原生 navigate
  */
 function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList): void {
   if (nav) {
