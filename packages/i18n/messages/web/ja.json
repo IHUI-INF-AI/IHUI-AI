@@ -591,7 +591,7 @@
     "createProjectDesc": "ファイルのプロジェクトを",
     "name": "プロジェクト名",
     "namePlaceholder": "ごの",
-    "nameRequired": "ごエージェント",
+    "nameRequired": "名前を入力してください",
     "description": "プロジェクト",
     "descriptionPlaceholder": "ごエージェント",
     "files": "ファイル",
@@ -614,7 +614,7 @@
     "clickUpload": "またはクリックしてファイルを",
     "download": "ダウンロード",
     "deleteFile": "ファイルを",
-    "deleteConfirm": "これ？",
+    "deleteConfirm": "削除しますか？",
     "uploadFailed": "アップロード",
     "downloadFailed": "ダウンロードに",
     "detail": {
@@ -810,6 +810,19 @@
     "cmdPolish": "のテキストをし、よりプロフェッショナルでストリームにしてください：",
     "cmdWechatArticle": "WeChat公式アカウント記事を生成してください。要件:\n1. テーマ:\n2. 要約:\n3. ハイライトマーカー(金言カード / ヒントブロック / 引用 / コードブロック / 小見出し)\n4. 画像提案:\ncontent-engineパイプラインを実行してください(摸魚緑テーマ + 22項目自己検証 + ドラフトボックスプッシュ)。",
     "cmdKouboScript": "本日8本のDouyinナレーション原稿を生成してください。要件:\n1. 日付: MMDD\n2. テーマ方向:\n3. 二重ゲート検証(曖昧さ圧縮 / 原稿間語彙 / 全量検証 / 語弊 / ホットトピックカバー)\nkoubo-workflowパイプラインを実行してください(制約優先執筆法)。",
+    "permissionLabelAsk": "承認を求める",
+    "permissionLabelAuto": "自動承認",
+    "permissionLabelFull": "完全アクセス",
+    "permissionAlreadyActive": "現在は {mode} モードです",
+    "permissionSwitchFailed": "権限モードの切り替えに失敗しました:{error}",
+    "permissionUnknownError": "不明なエラー",
+    "permissionSwitchedFullTitle": "完全アクセスモードに切り替えました",
+    "permissionSwitchedFullDesc": "{previous} から完全アクセスモードへ切り替えました",
+    "permissionSwitchedAutoTitle": "自動承認モードに切り替えました",
+    "permissionSwitchedAutoDesc": "{previous} から自動承認モードへ切り替えました",
+    "permissionSwitchedAskTitle": "承認を求めるモードに切り替えました",
+    "permissionSwitchedAskDesc": "{previous} から承認を求めるモードへ切り替えました",
+    "permissionUndoLabel": "元に戻す",
     "selfMediaSkill": "セルフメディア Skill",
     "skillLibrary": {
       "title": "スキルライブラリ",
@@ -1923,7 +1936,7 @@
       "titlePlaceholder": "コースタイトルを",
       "titleRequired": "titleRequired",
       "createSuccess": "しました",
-      "updateSuccess": "しいしい",
+      "updateSuccess": "更新しました",
       "deleteSuccess": "しました",
       "categoriesTitle": "categoriesTitle",
       "categoriesSubtitle": "categoriesSubtitle",
@@ -3855,7 +3868,7 @@
       "fieldTitle": "タイトル",
       "fieldIntro": "から",
       "fieldSort": "ソート",
-      "titlePlaceholder": "titlePlaceholder",
+      "titlePlaceholder": "タイトルを入力",
       "introPlaceholder": "チャンネルをしてください()",
       "createSuccess": "しました",
       "updateSuccess": "しいしい",
@@ -10904,7 +10917,21 @@
     "exportName": "リンク",
     "total": "{total}",
     "prev": "へ",
-    "next": "へ"
+    "next": "へ",
+    "message": {
+      "hideContent": "コンテンツを非表示",
+      "showContent": "コンテンツを表示",
+      "like": "いいね",
+      "copy": "コピー",
+      "downloadImages": "画像をダウンロード",
+      "share": "共有",
+      "toggleMetadata": "メタデータを切り替え",
+      "regenerate": "再生成",
+      "publishToCommunity": "コミュニティに公開",
+      "edit": "編集",
+      "reply": "返信",
+      "delete": "削除"
+    }
   },
   "adminApiApps": {
     "title": "APIアプリ",
@@ -10948,55 +10975,32 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI"
-        ]
+        "keywords": ["チャット", "会話", "AI"]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI"
-        ]
+        "keywords": ["ドラマ", "ビデオ", "AI"]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search"
-        ]
+        "keywords": ["検索", "search"]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ]
+        "keywords": ["AI", "ワールド", "アプリ"]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ]
+        "keywords": ["プロフィール", "ユーザー", "設定"]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ]
+        "keywords": ["設定", "環境設定", "構成"]
       }
     }
   },
@@ -11418,31 +11422,19 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ]
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ]
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ]
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
         }
       ]
     },
@@ -11563,37 +11555,25 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ]
+          "examples": ["ナレッジQ&A", "プロセス自動化"]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ]
+          "examples": ["データ分析", "意思決定サポート"]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ]
+          "examples": ["会議調整", "承認プロセス"]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ]
+          "examples": ["マーケティング自動化", "マルチエージェント連携"]
         }
       ]
     },
@@ -13279,15 +13259,7 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ],
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -13431,18 +13403,8 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ],
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
