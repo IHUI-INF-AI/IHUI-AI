@@ -53,7 +53,12 @@ if (typeof window !== 'undefined') {
   const w = window as unknown as Record<string, unknown>
   const wxLike = (w.wx ?? w.jWeixin) as Record<string, unknown> | undefined
   if (wxLike && typeof wxLike === 'object') {
-    const noopApis = ['onMemoryWarning', 'onNeedPrivacyAuthorization', 'getMenuButtonBoundingClientRect', 'onNetworkStatusChange']
+    const noopApis = [
+      'onMemoryWarning',
+      'onNeedPrivacyAuthorization',
+      'getMenuButtonBoundingClientRect',
+      'onNetworkStatusChange',
+    ]
     for (const api of noopApis) {
       if (typeof wxLike[api] === 'function') {
         try {
@@ -70,7 +75,6 @@ if (typeof window !== 'undefined') {
         const obj = e as { message?: unknown; stack?: unknown; name?: unknown }
         const msg = obj.message
         const stack = obj.stack
-        // eslint-disable-next-line no-console
         console.error(
           `[${label}]`,
           typeof msg === 'string' && msg ? msg : '(non-string message)',
@@ -78,7 +82,6 @@ if (typeof window !== 'undefined') {
           e,
         )
       } else {
-        // eslint-disable-next-line no-console
         console.error(`[${label}]`, String(e))
       }
     } catch {

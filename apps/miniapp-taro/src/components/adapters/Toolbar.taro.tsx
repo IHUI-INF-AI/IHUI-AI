@@ -110,11 +110,7 @@ export function Toolbar({
         }
         return (
           <View key={item.key} style={viewStyles.rowItem()}>
-            <View
-              onTap={item.onPress}
-              hoverClass="opacity-60"
-              style={toolStyle}
-            >
+            <View onTap={item.onPress} hoverClass="opacity-60" style={toolStyle}>
               {isImagePath(item.icon) ? (
                 <Image src={item.icon} style={viewStyles.iconImg()} mode="aspectFit" />
               ) : (

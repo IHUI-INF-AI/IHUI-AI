@@ -63,21 +63,21 @@ Console.WriteLine(resp?.GetContent());
 
 ## 13 个业务模块
 
-| 模块属性 | 类 | 端点数 | 说明 |
-|---------|----|----|----|
-| `client.Ai` | `AiApi` | 13 | chat / embeddings / vision / moa / models / userModels |
-| `client.Agents` | `AgentsApi` | 12 | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行 |
-| `client.Audio` | `AudioApi` | 8 | TTS / ASR / 语音对话 / 声纹 / 音乐 |
-| `client.Images` | `ImagesApi` | 6 | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| `client.Videos` | `VideosApi` | 3 | 视频生成 / 任务查询 / 编排 |
-| `client.ThreeD` | `ThreeDApi` | 1 | 3D 模型生成 |
-| `client.Generation` | `GenerationApi` | 3 | 生成队列:入队 / 状态 / 取消 |
-| `client.Knowledge` | `KnowledgeApi` | 13 | 知识库 / RAG / 知识图谱 |
-| `client.Tools` | `ToolsApi` | 16 | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图 |
-| `client.Memory` | `MemoryApi` | 8 | 记忆:保存 / 召回 / 搜索 / Dream / 分类记忆 |
-| `client.Messages` | `MessagesApi` | 4 | 消息:发布 / 订阅 / 状态 |
-| `client.Files` | `FilesApi` | 9 | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传 |
-| `client.User` | `UserApi` | 9 | 用户 / 工作区 / 工作流 / 统计 |
+| 模块属性            | 类              | 端点数 | 说明                                                    |
+| ------------------- | --------------- | ------ | ------------------------------------------------------- |
+| `client.Ai`         | `AiApi`         | 13     | chat / embeddings / vision / moa / models / userModels  |
+| `client.Agents`     | `AgentsApi`     | 12     | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行          |
+| `client.Audio`      | `AudioApi`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐                      |
+| `client.Images`     | `ImagesApi`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景       |
+| `client.Videos`     | `VideosApi`     | 3      | 视频生成 / 任务查询 / 编排                              |
+| `client.ThreeD`     | `ThreeDApi`     | 1      | 3D 模型生成                                             |
+| `client.Generation` | `GenerationApi` | 3      | 生成队列:入队 / 状态 / 取消                             |
+| `client.Knowledge`  | `KnowledgeApi`  | 13     | 知识库 / RAG / 知识图谱                                 |
+| `client.Tools`      | `ToolsApi`      | 16     | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图                |
+| `client.Memory`     | `MemoryApi`     | 8      | 记忆:保存 / 召回 / 搜索 / Dream / 分类记忆              |
+| `client.Messages`   | `MessagesApi`   | 4      | 消息:发布 / 订阅 / 状态                                 |
+| `client.Files`      | `FilesApi`      | 9      | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传 |
+| `client.User`       | `UserApi`       | 9      | 用户 / 工作区 / 工作流 / 统计                           |
 
 ## 配置选项
 
@@ -168,6 +168,7 @@ catch (SdkException e)
 ```
 
 所有异常都继承自 `SdkException`,携带:
+
 - `Status` — HTTP 状态码(网络错误为 0)
 - `Code` — 错误码字符串(如 `auth_invalid_api_key`),可能为 null
 - `Details` — 错误详情(来自响应体的反序列化对象),可能为 null
@@ -340,6 +341,7 @@ SDK 自动为每个请求注入以下 header:
 - `Content-Type: application/json`(普通请求)或 `multipart/form-data; boundary=...`(上传请求)
 
 后端鉴权链路:
+
 1. 从 `Authorization: Bearer <API_KEY>` 提取 API Key
 2. 在 `developer_api_keys` 表中查找对应的 hashed secret
 3. 验证 API Key 的状态 / 过期时间 / 权限点
@@ -366,11 +368,11 @@ SDK 自动为每个请求注入以下 header:
 
 ## 依赖
 
-| 库 | 用途 |
-|----|----|
-| `System.Net.Http` | HTTP 客户端(`HttpClient` + `SocketsHttpHandler` + `MultipartFormDataContent`) |
-| `System.Text.Json` | JSON 序列化 / 反序列化(`JsonSerializer` + `JsonDocument` + `JsonElement`) |
-| `System.Threading` | 异步流(`IAsyncEnumerable` + `EnumeratorCancellation`) |
+| 库                 | 用途                                                                          |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `System.Net.Http`  | HTTP 客户端(`HttpClient` + `SocketsHttpHandler` + `MultipartFormDataContent`) |
+| `System.Text.Json` | JSON 序列化 / 反序列化(`JsonSerializer` + `JsonDocument` + `JsonElement`)     |
+| `System.Threading` | 异步流(`IAsyncEnumerable` + `EnumeratorCancellation`)                         |
 
 无任何 NuGet 外部依赖。
 

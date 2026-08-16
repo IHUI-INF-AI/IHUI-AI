@@ -32,9 +32,8 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
     if (agent.type === 3 || agent.type === 5) {
       return
     }
-    const targetUrl = agent.source === 'n8n'
-      ? '/pages/tools/ai_assistant_n8n'
-      : '/pages/tools/ai_assistant'
+    const targetUrl =
+      agent.source === 'n8n' ? '/pages/tools/ai_assistant_n8n' : '/pages/tools/ai_assistant'
     const agentId = agent.agentId || agent.id
     Taro.navigateTo({
       url: `${targetUrl}?modelNamea=${encodeURIComponent(agent.agentName)}&pitcha=${idx}&agentId=${encodeURIComponent(agentId)}&type=${agent.type ?? ''}`,
@@ -56,11 +55,7 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
               style={{ borderRadius: '25rpx' }}
             >
               {agent.agentAvatar ? (
-                <Image
-                  className="agent-avatar"
-                  src={agent.agentAvatar}
-                  mode="aspectFill"
-                />
+                <Image className="agent-avatar" src={agent.agentAvatar} mode="aspectFill" />
               ) : (
                 <View className="agent-avatar agent-avatar-fallback">
                   <Text className="agent-avatar-fallback-text">

@@ -36,7 +36,11 @@ export function FeedbackDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('feedbackDetail.empty')}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.back}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>

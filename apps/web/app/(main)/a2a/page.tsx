@@ -80,13 +80,18 @@ function isTaskStatus(value: unknown): value is TaskStatus {
 
 function isTask(value: unknown): value is Task {
   return (
-    typeof value === 'object' && value !== null && 'status' in value && isTaskStatus((value as Task).status)
+    typeof value === 'object' &&
+    value !== null &&
+    'status' in value &&
+    isTaskStatus((value as Task).status)
   )
 }
 
 function isAgentList(value: unknown): value is AgentListResponse {
   return (
-    typeof value === 'object' && value !== null && Array.isArray((value as AgentListResponse).agents)
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as AgentListResponse).agents)
   )
 }
 
@@ -213,7 +218,7 @@ export default function A2APage() {
 
   React.useEffect(() => {
     void loadAgents()
-    }, [])
+  }, [])
 
   function handleTabChange(key: TabKey) {
     setTab(key)
@@ -307,7 +312,11 @@ export default function A2APage() {
     }
   }
 
-  const tabs: Array<{ key: TabKey; icon: React.ComponentType<{ className?: string }>; label: string }> = [
+  const tabs: Array<{
+    key: TabKey
+    icon: React.ComponentType<{ className?: string }>
+    label: string
+  }> = [
     { key: 'agents', icon: Bot, label: t('tabAgents') },
     { key: 'register', icon: Plus, label: t('tabRegister') },
     { key: 'tasks', icon: Send, label: t('tabTasks') },
@@ -480,11 +489,19 @@ export default function A2APage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => void handleRegister()} disabled={registerLoading}>
-                {registerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {registerLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 {t('register')}
               </Button>
-              {registerError && <Alert variant="danger" description={registerError} className="flex-1" />}
-              {registerSuccess && <Alert variant="success" description={t('success')} className="flex-1" />}
+              {registerError && (
+                <Alert variant="danger" description={registerError} className="flex-1" />
+              )}
+              {registerSuccess && (
+                <Alert variant="success" description={t('success')} className="flex-1" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -556,7 +573,11 @@ export default function A2APage() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={() => void handleSendTask()} disabled={sendLoading}>
-                  {sendLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sendLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
                   {t('sendTask')}
                 </Button>
                 {taskError && <Alert variant="danger" description={taskError} className="flex-1" />}

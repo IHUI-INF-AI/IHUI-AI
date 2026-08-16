@@ -488,56 +488,69 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // 1. DeepSeek — POST /deepseek/chat, POST /deepseek/chat/stream
   // ==========================================================================
 
-  server.post('/deepseek/chat', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const key = requireKey('DEEPSEEK_API_KEY', 'DeepSeek', reply)
-    if (!key) return
-    const { model = 'deepseek-chat', message } = parsed.data
-    const data = await degradedMode(
-      () =>
-        getBulkhead('ai-call', 10, 50).execute(() =>
-          proxyJSON(
-            DEEPSEEK_URL,
-            { Authorization: `Bearer ${key}` },
-            {
-              model,
-              messages: [{ role: 'user', content: message }],
-              stream: false,
-            },
-            reply,
+  server.post(
+    '/deepseek/chat',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const key = requireKey('DEEPSEEK_API_KEY', 'DeepSeek', reply)
+      if (!key) return
+      const { model = 'deepseek-chat', message } = parsed.data
+      const data = await degradedMode(
+        () =>
+          getBulkhead('ai-call', 10, 50).execute(() =>
+            proxyJSON(
+              DEEPSEEK_URL,
+              { Authorization: `Bearer ${key}` },
+              {
+                model,
+                messages: [{ role: 'user', content: message }],
+                stream: false,
+              },
+              reply,
+            ),
           ),
-        ),
-      null,
-      () => reply.send(success({ degraded: true, message: 'AI 服务暂时不可用,请稍后重试' })),
-    )
-    if (data === null) return
-    return reply.send(success(data))
-  })
+        null,
+        () => reply.send(success({ degraded: true, message: 'AI 服务暂时不可用,请稍后重试' })),
+      )
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
-  server.post('/deepseek/chat/stream', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const key = requireKey('DEEPSEEK_API_KEY', 'DeepSeek', reply)
-    if (!key) return
-    const { model = 'deepseek-chat', message } = parsed.data
-    return streamSSE(
-      reply,
-      DEEPSEEK_URL,
-      { Authorization: `Bearer ${key}` },
-      {
-        model,
-        messages: [{ role: 'user', content: message }],
-        stream: true,
+  server.post(
+    '/deepseek/chat/stream',
+    {
+      config: {
+        compression: false,
+        rateLimit: { max: 20, timeWindow: '1 minute' },
       },
-    )
-  })
+    },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const key = requireKey('DEEPSEEK_API_KEY', 'DeepSeek', reply)
+      if (!key) return
+      const { model = 'deepseek-chat', message } = parsed.data
+      return streamSSE(
+        reply,
+        DEEPSEEK_URL,
+        { Authorization: `Bearer ${key}` },
+        {
+          model,
+          messages: [{ role: 'user', content: message }],
+          stream: true,
+        },
+      )
+    },
+  )
 
   // ==========================================================================
   // 2. DeepSeek WebSocket — GET /ws/deepseek
@@ -623,79 +636,91 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   //            POST /kling/image/generate, GET /kling/task/:taskId
   // ==========================================================================
 
-  server.post('/kling/video/generate', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const parsed = klingVideoSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const {
-      prompt,
-      model_name = 'kling-v1',
-      duration = '5',
-      mode = 'std',
-      aspect_ratio = '16:9',
-      cfg_scale = 0.5,
-      negative_prompt,
-      camera_control,
-    } = parsed.data
-    const payload: Record<string, unknown> = {
-      model_name,
-      prompt,
-      duration,
-      mode,
-      aspect_ratio,
-      cfg_scale,
-    }
-    if (negative_prompt) payload.negative_prompt = negative_prompt
-    if (camera_control) payload.camera_control = camera_control
-    const data = await klingCall(KLING_T2V, payload, reply)
-    if (data === null) return
-    return reply.send(success(data))
-  })
+  server.post(
+    '/kling/video/generate',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = klingVideoSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const {
+        prompt,
+        model_name = 'kling-v1',
+        duration = '5',
+        mode = 'std',
+        aspect_ratio = '16:9',
+        cfg_scale = 0.5,
+        negative_prompt,
+        camera_control,
+      } = parsed.data
+      const payload: Record<string, unknown> = {
+        model_name,
+        prompt,
+        duration,
+        mode,
+        aspect_ratio,
+        cfg_scale,
+      }
+      if (negative_prompt) payload.negative_prompt = negative_prompt
+      if (camera_control) payload.camera_control = camera_control
+      const data = await klingCall(KLING_T2V, payload, reply)
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
-  server.post('/kling/video/image-to-video', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const parsed = klingI2VSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const {
-      image,
-      model_name = 'kling-v1',
-      prompt,
-      negative_prompt,
-      duration = '5',
-      mode = 'std',
-      cfg_scale = 0.5,
-    } = parsed.data
-    const payload: Record<string, unknown> = { model_name, image, duration, mode, cfg_scale }
-    if (prompt) payload.prompt = prompt
-    if (negative_prompt) payload.negative_prompt = negative_prompt
-    const data = await klingCall(KLING_I2V, payload, reply)
-    if (data === null) return
-    return reply.send(success(data))
-  })
+  server.post(
+    '/kling/video/image-to-video',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = klingI2VSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const {
+        image,
+        model_name = 'kling-v1',
+        prompt,
+        negative_prompt,
+        duration = '5',
+        mode = 'std',
+        cfg_scale = 0.5,
+      } = parsed.data
+      const payload: Record<string, unknown> = { model_name, image, duration, mode, cfg_scale }
+      if (prompt) payload.prompt = prompt
+      if (negative_prompt) payload.negative_prompt = negative_prompt
+      const data = await klingCall(KLING_I2V, payload, reply)
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
-  server.post('/kling/image/generate', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const parsed = klingImageSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const {
-      prompt,
-      model_name = 'kling-v1',
-      n = 1,
-      aspect_ratio = '1:1',
-      negative_prompt,
-    } = parsed.data
-    const payload: Record<string, unknown> = { model_name, prompt, n, aspect_ratio }
-    if (negative_prompt) payload.negative_prompt = negative_prompt
-    const data = await klingCall(KLING_T2I, payload, reply)
-    if (data === null) return
-    return reply.send(success(data))
-  })
+  server.post(
+    '/kling/image/generate',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = klingImageSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const {
+        prompt,
+        model_name = 'kling-v1',
+        n = 1,
+        aspect_ratio = '1:1',
+        negative_prompt,
+      } = parsed.data
+      const payload: Record<string, unknown> = { model_name, prompt, n, aspect_ratio }
+      if (negative_prompt) payload.negative_prompt = negative_prompt
+      const data = await klingCall(KLING_T2I, payload, reply)
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
   server.get('/kling/task/:taskId', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -717,27 +742,31 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ vendors: Object.keys(VENDOR_CONFIGS) }))
   })
 
-  server.post('/multi/:vendor/chat', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const { vendor } = vendorParam.parse(request.params)
-    const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const cfg = VENDOR_CONFIGS[vendor]
-    if (!cfg) return reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
-    if (!cfg.base) return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
-    const key = process.env[cfg.keyEnv] ?? ''
-    if (cfg.keyEnv !== 'N8N_API_KEY' && !key) {
-      return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
-    }
-    const { model = 'gpt-3.5-turbo', message } = parsed.data
-    const url = `${cfg.base}${cfg.chatPath}`
-    const headers = { ...cfg.authHeader(key) }
-    const data = await proxyJSON(url, headers, cfg.buildPayload(model, message), reply)
-    if (data === null) return
-    return reply.send(success(data))
-  })
+  server.post(
+    '/multi/:vendor/chat',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const { vendor } = vendorParam.parse(request.params)
+      const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const cfg = VENDOR_CONFIGS[vendor]
+      if (!cfg) return reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
+      if (!cfg.base) return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
+      const key = process.env[cfg.keyEnv] ?? ''
+      if (cfg.keyEnv !== 'N8N_API_KEY' && !key) {
+        return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
+      }
+      const { model = 'gpt-3.5-turbo', message } = parsed.data
+      const url = `${cfg.base}${cfg.chatPath}`
+      const headers = { ...cfg.authHeader(key) }
+      const data = await proxyJSON(url, headers, cfg.buildPayload(model, message), reply)
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
   server.post('/multi/:vendor/chat/stream', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -848,7 +877,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/qwen/chat/stream', async (request, reply) => {
+  server.post(
+    '/qwen/chat/stream',
+    { compression: false },
+    async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -1258,7 +1290,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/coze/message/stream', async (request, reply) => {
+  server.post(
+    '/coze/message/stream',
+    { compression: false },
+    async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeMessageSchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -1320,7 +1355,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/coze/workflow/run/stream', async (request, reply) => {
+  server.post(
+    '/coze/workflow/run/stream',
+    { compression: false },
+    async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -1359,7 +1397,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/coze/workflow/run/resume/stream', async (request, reply) => {
+  server.post(
+    '/coze/workflow/run/resume/stream',
+    { compression: false },
+    async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowResumeSchema.safeParse(request.body)
     if (!parsed.success) {

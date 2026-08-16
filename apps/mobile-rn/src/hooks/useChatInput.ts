@@ -18,11 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
-import type {
-  MessageInputAgentVariable,
-  MessageInputFile,
-  MessageInputFileType,
-} from '@ihui/types'
+import type { MessageInputAgentVariable, MessageInputFile, MessageInputFileType } from '@ihui/types'
 
 let fileIdCounter = 0
 const nextFileId = (): string => `file-${Date.now()}-${++fileIdCounter}`

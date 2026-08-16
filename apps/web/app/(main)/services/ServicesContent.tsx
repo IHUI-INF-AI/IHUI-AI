@@ -3,7 +3,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Server, GraduationCap, Code2, Phone, Check, ArrowRight, ChevronDown, Sparkles } from 'lucide-react'
+import {
+  Server,
+  GraduationCap,
+  Code2,
+  Phone,
+  Check,
+  ArrowRight,
+  ChevronDown,
+  Sparkles,
+} from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AnimatedNumber, BackButton } from '@/components/common'
 
@@ -29,7 +38,9 @@ export function ServicesContent(): React.JSX.Element {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('hero.cta')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('hero.title')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          {t('hero.title')}
+        </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
@@ -53,7 +64,9 @@ export function ServicesContent(): React.JSX.Element {
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h2 className="mt-3 text-lg font-semibold tracking-tight">{t(`cards.${key}.title`)}</h2>
+                <h2 className="mt-3 text-lg font-semibold tracking-tight">
+                  {t(`cards.${key}.title`)}
+                </h2>
                 <p className="mt-1 text-xs text-muted-foreground">{t(`cards.${key}.desc`)}</p>
                 <div className="mt-3 flex items-baseline gap-1">
                   <span className="text-2xl font-bold tracking-tight text-primary">
@@ -98,7 +111,9 @@ export function ServicesContent(): React.JSX.Element {
 
       {/* FAQ */}
       <section className="mt-12 space-y-4">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('faq.title')}</h2>
+        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('faq.title')}
+        </h2>
         <div className="mx-auto max-w-3xl space-y-3">
           {faqItems.slice(0, FAQ_COUNT).map((item, idx) => (
             <details
@@ -118,7 +133,9 @@ export function ServicesContent(): React.JSX.Element {
       {/* 询价表单 */}
       <section id="inquiry" className="mt-12 scroll-mt-20">
         <div className="mx-auto max-w-2xl space-y-2 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('inquiry.title')}</h2>
+          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            {t('inquiry.title')}
+          </h2>
           <p className="text-sm text-muted-foreground">{t('inquiry.subtitle')}</p>
         </div>
       </section>

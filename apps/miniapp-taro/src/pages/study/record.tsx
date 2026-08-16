@@ -19,7 +19,8 @@ interface StudyInfo {
 const PAGE_SIZE = 20
 
 const STATUS_BASE = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx]'
-const TAB_BASE = 'flex-1 flex items-center justify-center h-[60rpx] text-[26rpx] text-muted-foreground rounded-[8rpx]'
+const TAB_BASE =
+  'flex-1 flex items-center justify-center h-[60rpx] text-[26rpx] text-muted-foreground rounded-[8rpx]'
 const TAB_ACTIVE = 'text-white bg-primary font-semibold'
 const STATE_TEXT = 'block text-center text-[26rpx] text-muted-foreground py-[80rpx]'
 
@@ -46,34 +47,37 @@ export default function StudyRecord() {
   const loadingRef = useRef(false)
   const totalRef = useRef(0)
 
-  const load = useCallback(async (reset = false) => {
-    if (loadingRef.current) return
-    if (reset) {
-      pageRef.current = 1
-      hasMoreRef.current = true
-      setHasMore(true)
-      setError(false)
-    }
-    if (!hasMoreRef.current) return
-    loadingRef.current = true
-    setLoading(true)
-    try {
-      const res = await getStudyRecords({ page: pageRef.current, pageSize: PAGE_SIZE })
-      const rows = (res.list || []) as StudyRecordRow[]
-      setRawList((prev) => (reset ? rows : [...prev, ...rows]))
-      totalRef.current = res.total ?? (reset ? rows.length : totalRef.current)
-      const more = pageRef.current * PAGE_SIZE < totalRef.current
-      hasMoreRef.current = more
-      setHasMore(more)
-      pageRef.current++
-    } catch {
-      setError(true)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
-    } finally {
-      loadingRef.current = false
-      setLoading(false)
-    }
-  }, [tt])
+  const load = useCallback(
+    async (reset = false) => {
+      if (loadingRef.current) return
+      if (reset) {
+        pageRef.current = 1
+        hasMoreRef.current = true
+        setHasMore(true)
+        setError(false)
+      }
+      if (!hasMoreRef.current) return
+      loadingRef.current = true
+      setLoading(true)
+      try {
+        const res = await getStudyRecords({ page: pageRef.current, pageSize: PAGE_SIZE })
+        const rows = (res.list || []) as StudyRecordRow[]
+        setRawList((prev) => (reset ? rows : [...prev, ...rows]))
+        totalRef.current = res.total ?? (reset ? rows.length : totalRef.current)
+        const more = pageRef.current * PAGE_SIZE < totalRef.current
+        hasMoreRef.current = more
+        setHasMore(more)
+        pageRef.current++
+      } catch {
+        setError(true)
+        Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+      }
+    },
+    [tt],
+  )
 
   const loadInfo = useCallback(async () => {
     try {
@@ -90,8 +94,7 @@ export default function StudyRecord() {
   }, [])
 
   usePullDownRefresh(() => {
-    Promise.all([loadInfo(), load(true)])
-      .finally(() => Taro.stopPullDownRefresh())
+    Promise.all([loadInfo(), load(true)]).finally(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {
@@ -170,7 +173,11 @@ export default function StudyRecord() {
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
               <Text className="text-[40rpx] font-bold text-primary leading-[1.2]">{s.num}</Text>
-              {s.unit && <Text className="text-[22rpx] text-muted-foreground ml-[4rpx] font-normal">{s.unit}</Text>}
+              {s.unit && (
+                <Text className="text-[22rpx] text-muted-foreground ml-[4rpx] font-normal">
+                  {s.unit}
+                </Text>
+              )}
             </View>
             <Text className="mt-[8rpx] text-[22rpx] text-muted-foreground">{s.label}</Text>
           </View>
@@ -196,16 +203,26 @@ export default function StudyRecord() {
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View key={r.id} className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]" onClick={() => goCourse(r.courseId)}>
+              <View
+                key={r.id}
+                className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]"
+                onClick={() => goCourse(r.courseId)}
+              >
                 {r.coverUrl ? (
-                  <Image className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0" src={r.coverUrl} mode="aspectFill" />
+                  <Image
+                    className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0"
+                    src={r.coverUrl}
+                    mode="aspectFill"
+                  />
                 ) : (
                   <View className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
                     <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
                   </View>
                 )}
                 <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
-                  <Text className="text-[28rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{r.courseTitle}</Text>
+                  <Text className="text-[28rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                    {r.courseTitle}
+                  </Text>
                   <View className="mt-[12rpx]">
                     <View className="h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden">
                       <View
@@ -237,7 +254,9 @@ export default function StudyRecord() {
       {error && !loading && (
         <View className="flex flex-col items-center py-[60rpx]" onClick={() => load(true)}>
           <Text className="text-[26rpx] text-destructive">{tt('common.failed', '加载失败')}</Text>
-          <Text className="text-[26rpx] text-primary mt-[12rpx]">{tt('common.retry', '点击重试')}</Text>
+          <Text className="text-[26rpx] text-primary mt-[12rpx]">
+            {tt('common.retry', '点击重试')}
+          </Text>
         </View>
       )}
       {loading && <Text className={STATE_TEXT}>{tt('common.loading', '加载中...')}</Text>}

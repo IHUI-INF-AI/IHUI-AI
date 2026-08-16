@@ -80,10 +80,7 @@ export function trackVisualization(input: TrackVisualizationInput): Promise<{ re
   })
 }
 
-export function fetchVisualization(
-  conversationId = '',
-  userId = '',
-): Promise<VisualizationData> {
+export function fetchVisualization(conversationId = '', userId = ''): Promise<VisualizationData> {
   const qs = new URLSearchParams()
   if (conversationId) qs.set('conversationId', conversationId)
   if (userId) qs.set('userId', userId)
@@ -96,10 +93,7 @@ export function fetchCompressionStats(userId = ''): Promise<CompressionStats> {
   return api(`/api/context/compression-stats${qs.toString() ? `?${qs.toString()}` : ''}`)
 }
 
-export function fetchSessionMemory(
-  conversationId = '',
-  userId = '',
-): Promise<SessionMemory> {
+export function fetchSessionMemory(conversationId = '', userId = ''): Promise<SessionMemory> {
   const qs = new URLSearchParams()
   if (conversationId) qs.set('conversationId', conversationId)
   if (userId) qs.set('userId', userId)

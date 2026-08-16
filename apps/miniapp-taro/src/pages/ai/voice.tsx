@@ -36,10 +36,7 @@ const WAVE_DELAYS = [0, 0.1, 0.2, 0.3, 0.4]
 
 export default function VoicePage() {
   const { t } = useI18n()
-  const tt = useCallback(
-    (k: string, fb: string) => (t(k) === k ? fb : t(k)),
-    [t],
-  )
+  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
   const [messages, setMessages] = useState<VoiceMessage[]>([
     { role: 'assistant', content: t('ai.voice.welcome') },
@@ -166,18 +163,21 @@ export default function VoicePage() {
     recorderRef.current?.stop()
   }, [recording, stopTimer])
 
-  const onPlayAudio = useCallback((msg: VoiceMessage, idx: number) => {
-    if (!msg.audio || playingIdx === idx) {
-      setPlayingIdx(-1)
-      return
-    }
-    const audio = Taro.createInnerAudioContext()
-    audio.src = msg.audio
-    setPlayingIdx(idx)
-    audio.onEnded(() => setPlayingIdx(-1))
-    audio.onError(() => setPlayingIdx(-1))
-    audio.play()
-  }, [playingIdx])
+  const onPlayAudio = useCallback(
+    (msg: VoiceMessage, idx: number) => {
+      if (!msg.audio || playingIdx === idx) {
+        setPlayingIdx(-1)
+        return
+      }
+      const audio = Taro.createInnerAudioContext()
+      audio.src = msg.audio
+      setPlayingIdx(idx)
+      audio.onEnded(() => setPlayingIdx(-1))
+      audio.onError(() => setPlayingIdx(-1))
+      audio.play()
+    },
+    [playingIdx],
+  )
 
   const onClear = useCallback(() => {
     Taro.showModal({
@@ -203,25 +203,36 @@ export default function VoicePage() {
   return (
     <View className="flex flex-col h-screen bg-background">
       <View className="flex items-center justify-between pt-[120rpx] px-[32rpx] pb-[24rpx] bg-card">
-        <Text className="text-[34rpx] font-semibold text-foreground">{tt('ai.voice.title', 'AI 语音对话')}</Text>
+        <Text className="text-[34rpx] font-semibold text-foreground">
+          {tt('ai.voice.title', 'AI 语音对话')}
+        </Text>
         <Text className="text-[26rpx] text-muted-foreground" onClick={onClear}>
           {tt('ai.voice.clearChat', '清空对话')}
         </Text>
       </View>
 
-      <ScrollView
-        className="flex-1 py-[24rpx] px-[32rpx]"
-        scrollY
-        scrollTop={scrollTop}
-      >
+      <ScrollView className="flex-1 py-[24rpx] px-[32rpx]" scrollY scrollTop={scrollTop}>
         {messages.map((m, i) => (
-          <View key={i} className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[var(--color-wechat-green)]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
-            <View className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}>
+          <View
+            key={i}
+            className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
+          >
+            <View
+              className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[var(--color-wechat-green)]'}`}
+            >
+              {m.role === 'user' ? '我' : 'AI'}
+            </View>
+            <View
+              className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}
+            >
               {m.isVoice ? (
                 <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
-                  <Text className="text-[32rpx] text-foreground">{playingIdx === i ? '⏸' : '▶'}</Text>
-                  <Text className="text-[24rpx] text-foreground">{fmtDuration(m.duration || 0)}</Text>
+                  <Text className="text-[32rpx] text-foreground">
+                    {playingIdx === i ? '⏸' : '▶'}
+                  </Text>
+                  <Text className="text-[24rpx] text-foreground">
+                    {fmtDuration(m.duration || 0)}
+                  </Text>
                   <View className="flex items-center gap-[4rpx] h-[40rpx]">
                     {WAVE_DELAYS.map((delay, n) => (
                       <View
@@ -240,12 +251,24 @@ export default function VoicePage() {
         ))}
         {loading ? (
           <View className="flex mb-[32rpx] items-start">
-            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[var(--color-wechat-green)]">AI</View>
+            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[var(--color-wechat-green)]">
+              AI
+            </View>
             <View className="max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] bg-card">
               <View className="flex gap-[8rpx] items-center">
                 <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.2s' }}>·</Text>
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.4s' }}>·</Text>
+                <Text
+                  className="text-[40rpx] text-muted-foreground animate-pulse"
+                  style={{ animationDelay: '0.2s' }}
+                >
+                  ·
+                </Text>
+                <Text
+                  className="text-[40rpx] text-muted-foreground animate-pulse"
+                  style={{ animationDelay: '0.4s' }}
+                >
+                  ·
+                </Text>
               </View>
             </View>
           </View>
@@ -254,7 +277,9 @@ export default function VoicePage() {
 
       <View className="py-[16rpx] px-[32rpx] bg-card">
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">{tt('ai.voice.speed', '语速')}</Text>
+          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">
+            {tt('ai.voice.speed', '语速')}
+          </Text>
           {SPEEDS.map((s) => (
             <Text
               key={s}
@@ -266,7 +291,9 @@ export default function VoicePage() {
           ))}
         </View>
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">{tt('ai.voice.timbre', '音色')}</Text>
+          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">
+            {tt('ai.voice.timbre', '音色')}
+          </Text>
           {TIMBRES.map((tb) => (
             <Text
               key={tb}

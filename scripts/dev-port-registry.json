@@ -43,12 +43,13 @@
       "timeout_sec": 90
     },
     "desktop": {
+      "_note": "tauri dev 不自占端口:beforeDevCommand 自起 web(8801),devUrl 指向 localhost:8801。port=8801 仅用于冲突检测+探活,禁止与 web 同组启动(next dev 会端口冲突)。首次 cargo 编译约 10 分钟,timeout 给 900s。需 cargo 在 PATH(见 start-dev.ps1 自动注入)。",
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/desktop", "dev"],
       "cwd": "apps/desktop",
-      "port": 8806,
-      "health": null,
-      "timeout_sec": 60
+      "port": 8801,
+      "health": "http://localhost:8801",
+      "timeout_sec": 900
     },
     "extension": {
       "cmd": "pnpm",

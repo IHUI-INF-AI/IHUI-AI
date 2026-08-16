@@ -205,9 +205,7 @@ export default function NewsListPage() {
               <Text className="pinned-views">
                 {tt('news.readCount', '{n}阅读', { n: formatViews(Number(pinned.views ?? 0)) })}
               </Text>
-              {pinned.source ? (
-                <Text className="pinned-source">{pinned.source}</Text>
-              ) : null}
+              {pinned.source ? <Text className="pinned-source">{pinned.source}</Text> : null}
             </View>
           </View>
         </View>
@@ -224,9 +222,7 @@ export default function NewsListPage() {
                 className={`item${isRead ? ' item-read' : ''}`}
                 onClick={() => goDetail(n.id)}
               >
-                {n.coverUrl ? (
-                  <Image className="cover" src={n.coverUrl} mode="aspectFill" />
-                ) : null}
+                {n.coverUrl ? <Image className="cover" src={n.coverUrl} mode="aspectFill" /> : null}
                 <View className="body">
                   <View className="title-row">
                     {!isRead ? <Text className="unread-dot" /> : null}

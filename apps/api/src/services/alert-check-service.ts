@@ -6,15 +6,15 @@
  * 并检查是否有未处理的严重告警需要升级通知。
  */
 
-import { sql, and, gt, lt, ilike } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { auditLogs } from '@ihui/database';
+import { sql, and, gt, lt, ilike } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { auditLogs } from '@ihui/database'
 
 export interface AlertCheckResult {
-  checked: number;
-  resolved: number;
-  escalated: number;
-  errors: string[];
+  checked: number
+  resolved: number
+  escalated: number
+  errors: string[]
 }
 
 /**
@@ -27,9 +27,9 @@ export interface AlertCheckResult {
  * 4. 24 小时前的旧告警视为已恢复的噪音
  */
 export async function checkDailyAlerts(): Promise<AlertCheckResult> {
-  const errors: string[] = [];
-  const now = new Date();
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const errors: string[] = []
+  const now = new Date()
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
   try {
     // 统计最近 24h 内含错误关键字的审计日志（告警源）
@@ -38,14 +38,9 @@ export async function checkDailyAlerts(): Promise<AlertCheckResult> {
         count: sql<number>`count(*)::int`,
       })
       .from(auditLogs)
-      .where(
-        and(
-          ilike(auditLogs.action, '%error%'),
-          gt(auditLogs.createdAt, twentyFourHoursAgo),
-        ),
-      );
+      .where(and(ilike(auditLogs.action, '%error%'), gt(auditLogs.createdAt, twentyFourHoursAgo)))
 
-    const checked = recentAlerts[0]?.count ?? 0;
+    const checked = recentAlerts[0]?.count ?? 0
 
     // 统计 24h 前的旧告警（可视为已恢复的噪音）
     const oldAlerts = await db
@@ -53,26 +48,21 @@ export async function checkDailyAlerts(): Promise<AlertCheckResult> {
         count: sql<number>`count(*)::int`,
       })
       .from(auditLogs)
-      .where(
-        and(
-          ilike(auditLogs.action, '%error%'),
-          lt(auditLogs.createdAt, twentyFourHoursAgo),
-        ),
-      );
+      .where(and(ilike(auditLogs.action, '%error%'), lt(auditLogs.createdAt, twentyFourHoursAgo)))
 
-    const resolved = oldAlerts[0]?.count ?? 0;
+    const resolved = oldAlerts[0]?.count ?? 0
 
     // 升级逻辑：如果最近 24h 错误数超过 50，标记为需要升级通知
-    const escalated = checked > 50 ? 1 : 0;
+    const escalated = checked > 50 ? 1 : 0
 
     return {
       checked,
       resolved,
       escalated,
       errors,
-    };
+    }
   } catch (err) {
-    errors.push(err instanceof Error ? err.message : String(err));
-    return { checked: 0, resolved: 0, escalated: 0, errors };
+    errors.push(err instanceof Error ? err.message : String(err))
+    return { checked: 0, resolved: 0, escalated: 0, errors }
   }
 }

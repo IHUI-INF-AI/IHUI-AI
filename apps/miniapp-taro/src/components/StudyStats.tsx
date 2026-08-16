@@ -29,12 +29,16 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
 
   return (
     <View className="bg-card mx-3 my-3 rounded-xl p-4">
-      <Text className="block text-sm font-medium text-foreground mb-3">{tt('study.statsTitle', '学习数据')}</Text>
+      <Text className="block text-sm font-medium text-foreground mb-3">
+        {tt('study.statsTitle', '学习数据')}
+      </Text>
 
       <View className="flex items-center mb-4">
         <ProgressCircle percent={weekPercent} size={70} showText text={`${weekMinutes}m`} />
         <View className="ml-4 flex-1">
-          <Text className="block text-xs text-muted-foreground">{tt('study.weeklyStudy', '本周学习')}</Text>
+          <Text className="block text-xs text-muted-foreground">
+            {tt('study.weeklyStudy', '本周学习')}
+          </Text>
           <Text className="text-base font-medium text-foreground">
             {Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m
           </Text>
@@ -47,17 +51,23 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
       <View className="grid grid-cols-3 gap-2 pt-3">
         <View className="text-center">
           <Text className="block text-base font-medium text-primary">{totalLessons}</Text>
-          <Text className="block text-xs text-muted-foreground">{tt('study.completedLessons', '完成课时')}</Text>
+          <Text className="block text-xs text-muted-foreground">
+            {tt('study.completedLessons', '完成课时')}
+          </Text>
         </View>
         <View className="text-center">
           <Text className="block text-base font-medium text-warning">
             {Math.floor(totalMinutes / 60)}h
           </Text>
-          <Text className="block text-xs text-muted-foreground">{tt('study.totalDuration', '累计时长')}</Text>
+          <Text className="block text-xs text-muted-foreground">
+            {tt('study.totalDuration', '累计时长')}
+          </Text>
         </View>
         <View className="text-center">
           <Text className="block text-base font-medium text-destructive">{streakDays}</Text>
-          <Text className="block text-xs text-muted-foreground">{tt('study.streakDays', '连续天数')}</Text>
+          <Text className="block text-xs text-muted-foreground">
+            {tt('study.streakDays', '连续天数')}
+          </Text>
         </View>
       </View>
     </View>

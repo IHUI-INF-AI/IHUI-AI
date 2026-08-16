@@ -307,7 +307,11 @@ export function PayButton({
   return (
     <View style={viewStyles.root()}>
       <View style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)} onTap={handleClick}>
-        <Image src={cfg.icon} style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }} mode="aspectFit" />
+        <Image
+          src={cfg.icon}
+          style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }}
+          mode="aspectFit"
+        />
         <Text style={textStyles.label()}>{cfg.label}</Text>
       </View>
 
@@ -324,7 +328,11 @@ export function PayButton({
                 <Image src={agentAvatar} style={imageStyles.avatar()} mode="aspectFill" />
               ) : (
                 <View style={viewStyles.avatarFallback(tk)}>
-                  <Image src={agentAvatarFallbackIcon} style={{ width: toRpx(20), height: toRpx(20) }} mode="aspectFit" />
+                  <Image
+                    src={agentAvatarFallbackIcon}
+                    style={{ width: toRpx(20), height: toRpx(20) }}
+                    mode="aspectFit"
+                  />
                 </View>
               )}
               <View style={viewStyles.productText()}>

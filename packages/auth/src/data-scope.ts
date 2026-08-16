@@ -35,7 +35,7 @@ export enum DataScope {
 export const DEFAULT_ROLE_SCOPE_MAP: Record<number, DataScope> = {
   1: DataScope.ALL,
   2: DataScope.ORGANIZATION,
-};
+}
 
 /**
  * 根据角色 ID 推断 DataScope。
@@ -43,9 +43,9 @@ export const DEFAULT_ROLE_SCOPE_MAP: Record<number, DataScope> = {
  * 调用方可用 RBAC 表覆盖此默认值。
  */
 export function getDataScopeForRole(roleId: number): DataScope {
-  if (roleId === 1) return DataScope.ALL;
-  if (roleId === 2) return DataScope.ORGANIZATION;
-  return DataScope.SELF;
+  if (roleId === 1) return DataScope.ALL
+  if (roleId === 2) return DataScope.ORGANIZATION
+  return DataScope.SELF
 }
 
 /**
@@ -58,11 +58,11 @@ export function getDataScopeForRole(roleId: number): DataScope {
  */
 export interface ScopeFilter {
   /** 触发的 scope，便于调用方记录审计 / 日志 */
-  scope: DataScope;
+  scope: DataScope
   /** 当前用户 ID（SELF / DEPARTMENT 时使用） */
-  userId?: string;
+  userId?: string
   /** 当前 family ID（FAMILY 时使用） */
-  familyId?: string;
+  familyId?: string
 }
 
 /**
@@ -73,28 +73,24 @@ export interface ScopeFilter {
  * - SELF:   回传 userId
  * - NONE:   scope=NONE，调用方应直接返回空结果集
  */
-export function buildScopeFilter(
-  scope: DataScope,
-  userId: string,
-  familyId?: string,
-): ScopeFilter {
+export function buildScopeFilter(scope: DataScope, userId: string, familyId?: string): ScopeFilter {
   switch (scope) {
     case DataScope.ALL:
-      return { scope };
+      return { scope }
     case DataScope.ORGANIZATION:
       // 组织级数据：暂不附加条件（apps/api 可结合 organization 表加 where）
-      return { scope, userId };
+      return { scope, userId }
     case DataScope.DEPARTMENT:
       // 部门级数据：apps/api 结合 dept 表加 where（本包不持有 ORM schema）
-      return { scope, userId };
+      return { scope, userId }
     case DataScope.FAMILY:
-      return { scope, familyId };
+      return { scope, familyId }
     case DataScope.SELF:
-      return { scope, userId };
+      return { scope, userId }
     case DataScope.NONE:
-      return { scope };
+      return { scope }
     default:
-      return { scope: DataScope.NONE };
+      return { scope: DataScope.NONE }
   }
 }
 
@@ -122,17 +118,17 @@ export function canAccess(
     case DataScope.ALL:
     case DataScope.ORGANIZATION:
     case DataScope.DEPARTMENT:
-      return true;
+      return true
     case DataScope.FAMILY:
       // 没有 currentFamilyId 时退化为 SELF；有 familyId 时仍只放行本人数据，
       // 跨成员可见性需结合资源的 familyId 走 buildScopeFilter + DB 查询。
-      if (!currentFamilyId) return resourceOwnerId === currentUserId;
-      return resourceOwnerId === currentUserId;
+      if (!currentFamilyId) return resourceOwnerId === currentUserId
+      return resourceOwnerId === currentUserId
     case DataScope.SELF:
-      return resourceOwnerId === currentUserId;
+      return resourceOwnerId === currentUserId
     case DataScope.NONE:
-      return false;
+      return false
     default:
-      return false;
+      return false
   }
 }

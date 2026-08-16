@@ -26,6 +26,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         userId,
         messageId,
         content,
+        reasoning,
         tokens,
         model,
         provider,
@@ -42,6 +43,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         try {
           savedMessage = await updateMessage(messageId, userId, {
             content,
+            reasoning,
             tokens: tokens,
             metadata,
           })
@@ -69,6 +71,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           conversationId,
           role: 'assistant',
           content,
+          reasoning,
           tokens: tokens,
           metadata,
         })

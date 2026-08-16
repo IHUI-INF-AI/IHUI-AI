@@ -11,7 +11,11 @@
  * 测试文件豁免 any(AGENTS.md §3),本文件用精确类型。
  */
 import { describe, it, expect, vi } from 'vitest'
-import { AICostTracker, CostTrackerError, type ModelPricing } from '../src/services/ai-cost-tracker.js'
+import {
+  AICostTracker,
+  CostTrackerError,
+  type ModelPricing,
+} from '../src/services/ai-cost-tracker.js'
 
 // mock logger 避免 record() 调用时输出日志污染测试输出
 vi.mock('../src/utils/logger.js', () => ({

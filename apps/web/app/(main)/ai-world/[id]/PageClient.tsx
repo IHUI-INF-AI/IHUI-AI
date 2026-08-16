@@ -73,10 +73,9 @@ export default function AiWorldDetailPage() {
   const favMutation = useMutation({
     mutationFn: async (favorited: boolean) => {
       if (favorited) {
-        const r = await fetchApi<{ favorited: boolean }>(
-          `/api/favorites/aiworld/${params.id}`,
-          { method: 'DELETE' },
-        )
+        const r = await fetchApi<{ favorited: boolean }>(`/api/favorites/aiworld/${params.id}`, {
+          method: 'DELETE',
+        })
         if (!r.success) throw new Error(r.error)
         return false
       }

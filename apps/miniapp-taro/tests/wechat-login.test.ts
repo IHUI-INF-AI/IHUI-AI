@@ -9,8 +9,12 @@ vi.mock('@tarojs/taro', () => {
   const mock = {
     ENV_TYPE: { WEAPP: 'weapp', WEB: 'web', H5: 'h5', RN: 'rn', ALIPAY: 'alipay' },
     getStorageSync: (key: string) => taroStorage[key] ?? '',
-    setStorageSync: (key: string, val: unknown) => { taroStorage[key] = val },
-    removeStorageSync: (key: string) => { delete taroStorage[key] },
+    setStorageSync: (key: string, val: unknown) => {
+      taroStorage[key] = val
+    },
+    removeStorageSync: (key: string) => {
+      delete taroStorage[key]
+    },
     reLaunch: vi.fn(),
     showToast: vi.fn(),
     login: vi.fn(),
@@ -50,8 +54,10 @@ describe('miniapp-taro 微信静默登录', () => {
   describe('code 获取', () => {
     it('成功获取 code 并登录', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-001', refreshToken: 'rt-001',
-        expiresIn: 7200, refreshExpiresIn: 2592000,
+        accessToken: 'at-001',
+        refreshToken: 'rt-001',
+        expiresIn: 7200,
+        refreshExpiresIn: 2592000,
         user: { id: 'u-001', nickname: 'User', uuid: 'u-001' },
       })
       const client: WechatClient = {
@@ -74,7 +80,9 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('client.login 抛错时传播异常', async () => {
       const client: WechatClient = {
-        login: vi.fn(async () => { throw new Error('wx.login failed') }),
+        login: vi.fn(async () => {
+          throw new Error('wx.login failed')
+        }),
         getEnv: () => 'weapp',
       }
       await expect(wechatLogin({}, client)).rejects.toThrow('wx.login failed')
@@ -84,8 +92,10 @@ describe('miniapp-taro 微信静默登录', () => {
   describe('静默登录', () => {
     it('不带 profile 的静默登录成功', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-silent', refreshToken: 'rt-silent',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-silent',
+        refreshToken: 'rt-silent',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-silent', nickname: 'SilentUser', uuid: 'u-silent' },
       })
       const client: WechatClient = {
@@ -101,9 +111,16 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('持久化 token 和 userInfo', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-persist', refreshToken: 'rt-persist',
-        expiresIn: 3600, refreshExpiresIn: 86400,
-        user: { id: 'u-persist', nickname: 'Persist', avatar: 'https://avatar.png', uuid: 'u-persist' },
+        accessToken: 'at-persist',
+        refreshToken: 'rt-persist',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
+        user: {
+          id: 'u-persist',
+          nickname: 'Persist',
+          avatar: 'https://avatar.png',
+          uuid: 'u-persist',
+        },
       })
       const client: WechatClient = {
         login: vi.fn(async () => 'persist-code'),
@@ -118,8 +135,10 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('后端返回的 isNewUser 标志传递', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-new', refreshToken: 'rt-new',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-new',
+        refreshToken: 'rt-new',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-new', nickname: 'NewUser', uuid: 'u-new', isNewUser: true } as never,
       })
       const client: WechatClient = {
@@ -132,8 +151,10 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('isNewUser 默认 false', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-old', refreshToken: 'rt-old',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-old',
+        refreshToken: 'rt-old',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-old', nickname: 'OldUser', uuid: 'u-old' },
       })
       const client: WechatClient = {
@@ -166,8 +187,10 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('后端返回用户无昵称时用默认值', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-nonnick', refreshToken: 'rt-nonnick',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-nonnick',
+        refreshToken: 'rt-nonnick',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-nonnick', uuid: 'u-nonnick' },
       })
       const client: WechatClient = {
@@ -180,13 +203,17 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('withProfile=true 但拒绝授权时不阻断登录', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-deny', refreshToken: 'rt-deny',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-deny',
+        refreshToken: 'rt-deny',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-deny', nickname: 'DenyUser', uuid: 'u-deny' },
       })
       const client: WechatClient = {
         login: vi.fn(async () => 'deny-code'),
-        getUserProfile: vi.fn(async () => { throw new Error('user deny') }),
+        getUserProfile: vi.fn(async () => {
+          throw new Error('user deny')
+        }),
         getEnv: () => 'weapp',
       }
       const result = await wechatLogin({ withProfile: true }, client)
@@ -196,8 +223,10 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('withProfile=false 不调用 getUserProfile', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-noprofile', refreshToken: 'rt-noprofile',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-noprofile',
+        refreshToken: 'rt-noprofile',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-noprofile', nickname: 'NoProfile', uuid: 'u-noprofile' },
       })
       const getUserProfile = vi.fn()
@@ -212,8 +241,10 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('后端无昵称但 profile 有昵称时用 profile 昵称', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-profile-nick', refreshToken: 'rt-profile-nick',
-        expiresIn: 3600, refreshExpiresIn: 86400,
+        accessToken: 'at-profile-nick',
+        refreshToken: 'rt-profile-nick',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
         user: { id: 'u-nonick', uuid: 'u-nonick' },
       })
       const client: WechatClient = {
@@ -230,9 +261,16 @@ describe('miniapp-taro 微信静默登录', () => {
 
     it('后端有昵称时优先用后端昵称', async () => {
       mockLoginByWechat.mockResolvedValue({
-        accessToken: 'at-backend-nick', refreshToken: 'rt-backend-nick',
-        expiresIn: 3600, refreshExpiresIn: 86400,
-        user: { id: 'u-backend', nickname: 'Backend Nick', avatar: 'https://backend.png', uuid: 'u-backend' },
+        accessToken: 'at-backend-nick',
+        refreshToken: 'rt-backend-nick',
+        expiresIn: 3600,
+        refreshExpiresIn: 86400,
+        user: {
+          id: 'u-backend',
+          nickname: 'Backend Nick',
+          avatar: 'https://backend.png',
+          uuid: 'u-backend',
+        },
       })
       const client: WechatClient = {
         login: vi.fn(async () => 'backend-nick-code'),

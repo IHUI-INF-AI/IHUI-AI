@@ -66,7 +66,9 @@ export default function AskDetailPage() {
             <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{data.author}</Text>
             <Text className="ml-auto text-[22rpx] text-muted-foreground">{data.createTime}</Text>
           </View>
-          <View className="mt-[24rpx] text-[28rpx] text-foreground leading-[1.8]">{data.content}</View>
+          <View className="mt-[24rpx] text-[28rpx] text-foreground leading-[1.8]">
+            {data.content}
+          </View>
         </View>
       ) : null}
 
@@ -86,7 +88,9 @@ export default function AskDetailPage() {
                 <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{a.author}</Text>
                 <Text className="ml-auto text-[22rpx] text-muted-foreground">{a.time}</Text>
               </View>
-              <View className="mt-[16rpx] text-[28rpx] text-foreground leading-[1.6]">{a.content}</View>
+              <View className="mt-[16rpx] text-[28rpx] text-foreground leading-[1.6]">
+                {a.content}
+              </View>
             </View>
           ))}
         </View>
@@ -99,7 +103,12 @@ export default function AskDetailPage() {
           placeholder={t('ask.detail.placeholder')}
           onInput={(e) => setAnswer(e.detail.value)}
         />
-        <Button className="ml-[16rpx] bg-primary disabled:bg-muted text-foreground text-[24rpx]" size="mini" onClick={onAnswer} disabled={!answer}>
+        <Button
+          className="ml-[16rpx] bg-primary disabled:bg-muted text-foreground text-[24rpx]"
+          size="mini"
+          onClick={onAnswer}
+          disabled={!answer}
+        >
           {t('ask.detail.answer')}
         </Button>
       </View>

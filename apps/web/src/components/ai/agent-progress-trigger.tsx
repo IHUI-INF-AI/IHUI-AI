@@ -4,7 +4,6 @@ import * as React from 'react'
 import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { TruncatedText } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import {
   hydrateAgentProgressPaneFromStorage,
@@ -13,7 +12,6 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useModeStore } from '@/stores/mode'
 import type { ChatMode } from '@ihui/types'
-import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/connection-status'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 
 // ChatMode 4 态元信息(从 current-mode-badge.tsx 整合而来)
@@ -100,18 +98,6 @@ export function AgentProgressTrigger({
   // 是否有"实时状态"(流式任务时显示 spinner + 扫光,即使还没有具体任务名也显示"执行中")
   const hasLiveActivity = isStreaming
 
-  // Phase 16: 推导连接状态
-  const connectionState = React.useMemo(
-    () =>
-      deriveConnectionState(
-        isStreaming,
-        progress.overview.reconnectAttempt,
-        !!progress.overview.error,
-        conversationId,
-      ),
-    [isStreaming, progress.overview.reconnectAttempt, progress.overview.error, conversationId],
-  )
-
   // Phase 24(2026-07-29):客户端 mount 后同步 localStorage 中的 open/pinned
   React.useEffect(() => {
     hydrateAgentProgressPaneFromStorage()
@@ -140,7 +126,9 @@ export function AgentProgressTrigger({
       ref={undefined}
       type="button"
       onClick={() => {
+        console.error('[Trigger] onClick, paneOpen before toggle:', paneOpen)
         togglePane()
+        console.error('[Trigger] after togglePane, store open:', useAgentProgressPaneStore.getState().open)
         onTriggerClick?.()
       }}
       aria-label={hasLiveActivity ? `任务进度 ${liveStatusText}` : `${modeLabel}任务`}
@@ -172,7 +160,7 @@ export function AgentProgressTrigger({
         <ModeIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{modeLabel}</span>
       </span>
-      {/* 实时状态:流式任务时显示 spinner + 任务名 */}
+      {/* 实时状态:流式任务时只显示 spinner,避免与前面的 mode badge 文字重复 */}
       {hasLiveActivity ? (
         <span
           className="inline-flex items-center gap-1 whitespace-nowrap"
@@ -183,29 +171,8 @@ export function AgentProgressTrigger({
             aria-hidden="true"
             data-testid="agent-progress-live-spinner"
           />
-          <TruncatedText
-            value={liveStatusText}
-            className="min-w-0 flex-1 max-w-[180px] animate-shimmer bg-clip-text text-transparent"
-            style={{
-              backgroundImage:
-                'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
-              backgroundSize: '200% 100%',
-              WebkitBackgroundClip: 'text',
-            }}
-          />
         </span>
-      ) : (
-        /* 静态状态:连接状态点 + 当前工作文字提示 */
-        <span className="inline-flex items-center gap-1 whitespace-nowrap">
-          <ConnectionStatusDot state={connectionState} />
-          <span className="animate-shimmer bg-clip-text text-transparent" style={{
-            backgroundImage:
-              'linear-gradient(90deg, hsl(var(--color-muted-foreground)) 0%, hsl(var(--color-muted-foreground)) 35%, hsl(var(--color-primary)) 50%, hsl(var(--color-muted-foreground)) 65%, hsl(var(--color-muted-foreground)) 100%)',
-            backgroundSize: '200% 100%',
-            WebkitBackgroundClip: 'text',
-          }}>{liveStatusText}</span>
-        </span>
-      )}
+      ) : null}
     </button>
   )
 

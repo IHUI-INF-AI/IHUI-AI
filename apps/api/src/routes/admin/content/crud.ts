@@ -152,8 +152,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(announcements).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(announcements)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'help-article': {
@@ -166,8 +170,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(helpArticles).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(helpArticles)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'help-category': {
@@ -180,8 +188,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(helpCategories).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(helpCategories)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'doc': {
@@ -194,7 +206,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(docs).where(where))[0]?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(docs)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'article': {
@@ -207,8 +224,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(newsArticles).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(newsArticles)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'advertise': {
@@ -221,8 +242,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(carousels).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(carousels)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'about-us':
@@ -237,7 +262,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(docs).where(where))[0]?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(docs)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
     case 'recommendation':
@@ -252,8 +282,12 @@ async function listByType(
         .limit(pageSize)
         .offset(offset)
       const total =
-        (await db.select({ c: sql<number>`count(*)::int` }).from(systemConfigs).where(where))[0]
-          ?.c ?? 0
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(systemConfigs)
+            .where(where)
+        )[0]?.c ?? 0
       return { rows, total }
     }
   }
@@ -315,11 +349,23 @@ async function getByType(type: ContentType, id: string): Promise<unknown | null>
 async function createByType(type: ContentType, body: Record<string, unknown>): Promise<unknown> {
   switch (type) {
     case 'announcement': {
-      const data = pick(body, ['title', 'content', 'type', 'isPinned', 'isPublished', 'publishedAt', 'expiresAt', 'createdBy'])
+      const data = pick(body, [
+        'title',
+        'content',
+        'type',
+        'isPinned',
+        'isPublished',
+        'publishedAt',
+        'expiresAt',
+        'createdBy',
+      ])
       if (!data.title || !data.content) {
         throw new AppError('title/content 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(announcements).values(data as never).returning()
+      const [row] = await db
+        .insert(announcements)
+        .values(data as never)
+        .returning()
       return row
     }
     case 'help-article': {
@@ -328,7 +374,10 @@ async function createByType(type: ContentType, body: Record<string, unknown>): P
       if (!data.title || !data.content) {
         throw new AppError('title/content 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(helpArticles).values({ ...data, slug } as never).returning()
+      const [row] = await db
+        .insert(helpArticles)
+        .values({ ...data, slug } as never)
+        .returning()
       return row
     }
     case 'help-category': {
@@ -336,7 +385,10 @@ async function createByType(type: ContentType, body: Record<string, unknown>): P
       if (!data.name || !data.slug) {
         throw new AppError('name/slug 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(helpCategories).values(data as never).returning()
+      const [row] = await db
+        .insert(helpCategories)
+        .values(data as never)
+        .returning()
       return row
     }
     case 'doc': {
@@ -345,7 +397,10 @@ async function createByType(type: ContentType, body: Record<string, unknown>): P
       if (!data.title || !data.content) {
         throw new AppError('title/content 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(docs).values({ ...data, slug } as never).returning()
+      const [row] = await db
+        .insert(docs)
+        .values({ ...data, slug } as never)
+        .returning()
       return row
     }
     case 'article': {
@@ -366,7 +421,10 @@ async function createByType(type: ContentType, body: Record<string, unknown>): P
       if (!data.title || !data.content) {
         throw new AppError('title/content 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(newsArticles).values(data as never).returning()
+      const [row] = await db
+        .insert(newsArticles)
+        .values(data as never)
+        .returning()
       return row
     }
     case 'advertise': {
@@ -384,7 +442,10 @@ async function createByType(type: ContentType, body: Record<string, unknown>): P
       if (!data.position || !data.imageUrl) {
         throw new AppError('position/imageUrl 必填', 400, 'VALIDATION_FAILED')
       }
-      const [row] = await db.insert(carousels).values(data as never).returning()
+      const [row] = await db
+        .insert(carousels)
+        .values(data as never)
+        .returning()
       return row
     }
     case 'about-us': {
@@ -444,7 +505,15 @@ async function updateByType(
   const now = new Date()
   switch (type) {
     case 'announcement': {
-      const data = pick(body, ['title', 'content', 'type', 'isPinned', 'isPublished', 'publishedAt', 'expiresAt'])
+      const data = pick(body, [
+        'title',
+        'content',
+        'type',
+        'isPinned',
+        'isPublished',
+        'publishedAt',
+        'expiresAt',
+      ])
       const [row] = await db
         .update(announcements)
         .set({ ...data, updatedAt: now } as never)
@@ -471,7 +540,15 @@ async function updateByType(
       return row ?? null
     }
     case 'doc': {
-      const data = pick(body, ['title', 'category', 'content', 'authorId', 'status', 'sortOrder', 'slug'])
+      const data = pick(body, [
+        'title',
+        'category',
+        'content',
+        'authorId',
+        'status',
+        'sortOrder',
+        'slug',
+      ])
       const [row] = await db
         .update(docs)
         .set({ ...data, updatedAt: now } as never)

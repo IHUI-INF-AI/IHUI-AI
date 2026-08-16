@@ -36,7 +36,9 @@ export default function WithdrawalRecords({
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 mb-2">
-        <Text className="text-sm font-medium text-foreground">{tt('withdrawal.records', '提现记录')}</Text>
+        <Text className="text-sm font-medium text-foreground">
+          {tt('withdrawal.records', '提现记录')}
+        </Text>
       </View>
 
       <ScrollView
@@ -47,13 +49,18 @@ export default function WithdrawalRecords({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('common.loadingShort', '加载中...')}
+            </Text>
           </View>
         ) : records.length === 0 ? (
           <EmptyState text="暂无提现记录" />
         ) : (
           records.map((record) => {
-            const status = STATUS_MAP[record.status] ?? { label: '未知', color: 'text-muted-foreground' }
+            const status = STATUS_MAP[record.status] ?? {
+              label: '未知',
+              color: 'text-muted-foreground',
+            }
             return (
               <View
                 key={record.id}

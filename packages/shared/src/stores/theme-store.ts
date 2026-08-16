@@ -78,16 +78,15 @@ export interface CreatedThemeStore {
   reset: () => void
 }
 
-const DEFAULT_STATE: Pick<ThemeStoreState, 'theme' | 'accentColor' | 'fontSize' | 'highContrast'> = {
-  theme: 'system',
-  accentColor: 'green',
-  fontSize: 'medium',
-  highContrast: false,
-}
+const DEFAULT_STATE: Pick<ThemeStoreState, 'theme' | 'accentColor' | 'fontSize' | 'highContrast'> =
+  {
+    theme: 'system',
+    accentColor: 'green',
+    fontSize: 'medium',
+    highContrast: false,
+  }
 
-export function createThemeStore(
-  options: CreateThemeStoreOptions = {},
-): CreatedThemeStore {
+export function createThemeStore(options: CreateThemeStoreOptions = {}): CreatedThemeStore {
   const {
     transport,
     persistKey = 'ihui-theme',
@@ -158,9 +157,7 @@ export function createThemeStore(
 
   // 手动构造 UseBoundStore:既可作为 hook 调用,又保留 .getState/.setState/.subscribe
   const useBoundStore = Object.assign(
-    function useThemeStoreHook<U>(
-      selector?: (state: ThemeStoreState) => U,
-    ): U {
+    function useThemeStoreHook<U>(selector?: (state: ThemeStoreState) => U): U {
       return useStore(storeApi, selector as (state: ThemeStoreState) => U)
     } as UseBoundStore<StoreApi<ThemeStoreState>>,
     {

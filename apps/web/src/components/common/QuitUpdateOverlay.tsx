@@ -56,9 +56,7 @@ export function QuitUpdateOverlay() {
             <div
               className={cn(
                 'flex h-12 w-12 items-center justify-center rounded-xl',
-                isRestarting
-                  ? 'bg-green-500/10 text-green-500'
-                  : 'bg-primary/10 text-primary',
+                isRestarting ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary',
               )}
             >
               {isRestarting ? (
@@ -71,9 +69,7 @@ export function QuitUpdateOverlay() {
             </div>
 
             <div className="text-center">
-              <p className="text-sm font-semibold text-foreground">
-                {statusText}
-              </p>
+              <p className="text-sm font-semibold text-foreground">{statusText}</p>
               {isDownloading && total > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                   {percent}% · {formatFileSize(downloaded)} / {formatFileSize(total)}

@@ -164,7 +164,9 @@ function DataTableImpl<T>({
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className={cn('px-3 py-2.5', alignMap[col.align ?? 'left'])}>
-                      {col.render ? col.render(row, index) : String((row as Record<string, unknown>)[col.key] ?? '')}
+                      {col.render
+                        ? col.render(row, index)
+                        : String((row as Record<string, unknown>)[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>
@@ -176,7 +178,8 @@ function DataTableImpl<T>({
       {pagination && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
-            共 {pagination.total} 条,第 {pagination.page}/{Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
+            共 {pagination.total} 条,第 {pagination.page}/
+            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
           </span>
           <div className="flex shrink-0 items-center gap-1">
             <button

@@ -8,7 +8,11 @@ import { generate, GEN_TYPES } from '../../../services/code-generator.js'
 import { requireAdmin } from '../../../plugins/require-permission.js'
 
 const fieldSchema = z.object({
-  name: z.string().min(1).max(64).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+  name: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
   type: z.enum(['string', 'number', 'boolean', 'date']),
   label: z.string().max(64).optional(),
   required: z.boolean().optional(),

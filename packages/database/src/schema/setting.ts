@@ -8,8 +8,8 @@ import {
   timestamp,
   jsonb,
   index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * edu_platform 教育平台设置表 - 键值对配置,按 group 分组。
@@ -42,7 +42,7 @@ export const eduSettings = pgTable(
     groupKeyIdx: index('edu_settings_group_key_idx').on(t.group, t.key),
     publicIdx: index('edu_settings_public_idx').on(t.isPublic),
   }),
-);
+)
 
-export type EduSetting = typeof eduSettings.$inferSelect;
-export type NewEduSetting = typeof eduSettings.$inferInsert;
+export type EduSetting = typeof eduSettings.$inferSelect
+export type NewEduSetting = typeof eduSettings.$inferInsert

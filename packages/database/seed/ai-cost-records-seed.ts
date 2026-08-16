@@ -5,9 +5,7 @@ import { createDb } from '../src/client.js'
 import { aiBudgets, aiCostRecords } from '../src/schema/ai-cost.js'
 import { users } from '../src/schema/users.js'
 
-const db = createDb(
-  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui',
-)
+const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
 type CostRecordEntry = typeof aiCostRecords.$inferInsert
 type BudgetEntry = typeof aiBudgets.$inferInsert
@@ -139,11 +137,7 @@ function buildDayBatchRecords(
  *  算法:seed 写入用 deterministic promptHash (idx=0),存在即说明该 (user, model, day) 整批已写入
  *  即使两次随机 callCount 不同 (5-15),首次写入的 idx=0 永远存在 → 重跑时整批跳过
  */
-async function isBatchInserted(
-  userId: string,
-  model: string,
-  dayIso: string,
-): Promise<boolean> {
+async function isBatchInserted(userId: string, model: string, dayIso: string): Promise<boolean> {
   const firstHash = makeSeedPromptHash(userId, model, dayIso, 0)
   const [row] = await db
     .select({ id: aiCostRecords.id })
@@ -170,7 +164,8 @@ async function isBudgetExists(
   model: string | null,
 ): Promise<boolean> {
   const baseConditions = and(eq(aiBudgets.scope, scope), eq(aiBudgets.scopeKey, scopeKey))
-  const modelCondition = model === null ? sql`${aiBudgets.model} IS NULL` : eq(aiBudgets.model, model)
+  const modelCondition =
+    model === null ? sql`${aiBudgets.model} IS NULL` : eq(aiBudgets.model, model)
   const [row] = await db
     .select({ id: aiBudgets.id })
     .from(aiBudgets)

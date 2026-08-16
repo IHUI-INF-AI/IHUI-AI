@@ -9,20 +9,8 @@
  */
 
 import * as React from 'react'
-import {
-  ExternalLink,
-  ChevronDown,
-  HelpCircle,
-  KeyRound,
-  ShieldCheck,
-  Cookie,
-} from 'lucide-react'
-import {
-  Badge,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from '@ihui/ui-react'
+import { ExternalLink, ChevronDown, HelpCircle, KeyRound, ShieldCheck, Cookie } from 'lucide-react'
+import { Badge, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import {
   getPlatformSchema,
@@ -45,12 +33,13 @@ const AUTH_BADGE_STYLE: Readonly<Record<CredentialAuthType, string>> = {
   none: 'bg-muted text-muted-foreground',
 } as const
 
-const AUTH_ICON: Readonly<Record<CredentialAuthType, React.ComponentType<{ className?: string }>>> = {
-  api_key: KeyRound,
-  oauth: ShieldCheck,
-  browser_cookie: Cookie,
-  none: HelpCircle,
-} as const
+const AUTH_ICON: Readonly<Record<CredentialAuthType, React.ComponentType<{ className?: string }>>> =
+  {
+    api_key: KeyRound,
+    oauth: ShieldCheck,
+    browser_cookie: Cookie,
+    none: HelpCircle,
+  } as const
 
 const FAQ_ITEMS: readonly { q: string; a: string }[] = [
   {
@@ -71,19 +60,12 @@ const FAQ_ITEMS: readonly { q: string; a: string }[] = [
   },
 ] as const
 
-export function CredentialGuide({
-  platformId,
-  value,
-  onChange,
-  disabled,
-}: CredentialGuideProps) {
+export function CredentialGuide({ platformId, value, onChange, disabled }: CredentialGuideProps) {
   const schema = getPlatformSchema(platformId)
 
   if (!schema) {
     return (
-      <p className="text-xs text-muted-foreground">
-        暂不支持该平台的可视化配置,请使用 JSON 模式。
-      </p>
+      <p className="text-xs text-muted-foreground">暂不支持该平台的可视化配置,请使用 JSON 模式。</p>
     )
   }
 

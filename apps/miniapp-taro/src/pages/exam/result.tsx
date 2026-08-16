@@ -130,9 +130,7 @@ export default function ExamResult() {
         {!loading ? (
           <View>
             {/* 成绩展示 */}
-            <View
-              className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}
-            >
+            <View className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}>
               <View className="exam-result-badge">
                 <Text>{info.pass ? '✓' : '×'}</Text>
               </View>
@@ -212,9 +210,7 @@ export default function ExamResult() {
                         <Text className="exam-result-review-label">
                           {tt('exam.result.correctAnswer', '正确答案')}:
                         </Text>
-                        <Text className="exam-result-review-answer correct">
-                          {q.correctAnswer}
-                        </Text>
+                        <Text className="exam-result-review-answer correct">{q.correctAnswer}</Text>
                       </View>
                     ) : null}
                     {q.analysis ? (
@@ -222,9 +218,7 @@ export default function ExamResult() {
                         <Text className="exam-result-review-analysis-label">
                           {tt('exam.result.analysis', '解析')}
                         </Text>
-                        <Text className="exam-result-review-analysis-text">
-                          {q.analysis}
-                        </Text>
+                        <Text className="exam-result-review-analysis-text">{q.analysis}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -248,7 +242,11 @@ export default function ExamResult() {
           <Button className="exam-result-btn exam-result-btn-secondary" onClick={goList}>
             {tt('exam.result.goList', '查看考试列表')}
           </Button>
-          <Button className="exam-result-btn exam-result-btn-secondary" onClick={onShare} openType="share">
+          <Button
+            className="exam-result-btn exam-result-btn-secondary"
+            onClick={onShare}
+            openType="share"
+          >
             {tt('exam.result.share', '分享成绩')}
           </Button>
         </View>

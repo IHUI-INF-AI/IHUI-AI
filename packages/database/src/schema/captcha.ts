@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core'
 
 /**
  * 图形验证码表（Redis 为主存储，此表为持久化 fallback）。
@@ -16,7 +16,7 @@ export const captchas = pgTable(
   (t) => ({
     keyIdx: index('captchas_key_idx').on(t.captchaKey),
   }),
-);
+)
 
-export type Captcha = typeof captchas.$inferSelect;
-export type NewCaptcha = typeof captchas.$inferInsert;
+export type Captcha = typeof captchas.$inferSelect
+export type NewCaptcha = typeof captchas.$inferInsert

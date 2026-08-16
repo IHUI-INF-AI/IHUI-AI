@@ -458,7 +458,10 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     aria-label={item.favorite ? t('unfavorite') : t('favorite')}
                   >
                     <Star
-                      className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
+                      className={cn(
+                        'h-3.5 w-3.5',
+                        item.favorite && 'fill-amber-400 text-amber-400',
+                      )}
                     />
                   </Button>
                 </span>

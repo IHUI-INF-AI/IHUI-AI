@@ -93,10 +93,7 @@ export class CaptchaService {
    * @param type  挑战类型,默认 'image'
    * @param ip    调用方 IP,用于频率限制
    */
-  async generateChallenge(
-    type: ChallengeType = 'image',
-    ip?: string,
-  ): Promise<Challenge> {
+  async generateChallenge(type: ChallengeType = 'image', ip?: string): Promise<Challenge> {
     // 频率限制
     if (ip) {
       const allowed = await this.checkRateLimit(ip)
@@ -159,11 +156,7 @@ export class CaptchaService {
    * 通过则下发临时 token。
    * @param ip  调用方 IP(可选),用于 recaptcha / turnstile 服务端校验
    */
-  async verifyChallenge(
-    challengeId: string,
-    answer: string,
-    ip?: string,
-  ): Promise<VerifyResult> {
+  async verifyChallenge(challengeId: string, answer: string, ip?: string): Promise<VerifyResult> {
     if (!challengeId || !answer) {
       return { valid: false, reason: 'missing-challenge-or-answer' }
     }
@@ -291,7 +284,10 @@ export class CaptchaService {
 
   /* ----------------------------- 挑战存储 ----------------------------- */
 
-  private async storeChallenge(id: string, data: { answer: string; type: ChallengeType }): Promise<void> {
+  private async storeChallenge(
+    id: string,
+    data: { answer: string; type: ChallengeType },
+  ): Promise<void> {
     if (!this.redis) {
       setWithLRU(
         CaptchaService.memChallenges,
@@ -441,23 +437,27 @@ function renderSvgImage(code: string): string {
   // 噪点
   const noise: string[] = []
   for (let i = 0; i < 18; i++) {
-    const x = nextRand() * width / 256
-    const y = nextRand() * height / 256
-    const c = (nextRand() * 0xffffff & 0xffffff)
+    const x = (nextRand() * width) / 256
+    const y = (nextRand() * height) / 256
+    const c = (nextRand() * 0xffffff) & 0xffffff
     const color = `#${c.toString(16).padStart(6, '0')}`
-    noise.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1" fill="${color}" opacity="0.35"/>`)
+    noise.push(
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1" fill="${color}" opacity="0.35"/>`,
+    )
   }
 
   // 干扰线
   const lines: string[] = []
   for (let i = 0; i < 3; i++) {
-    const x1 = nextRand() * width / 256
-    const y1 = nextRand() * height / 256
-    const x2 = nextRand() * width / 256
-    const y2 = nextRand() * height / 256
-    const c = (nextRand() * 0x999999 + 0x333333 & 0xffffff)
+    const x1 = (nextRand() * width) / 256
+    const y1 = (nextRand() * height) / 256
+    const x2 = (nextRand() * width) / 256
+    const y2 = (nextRand() * height) / 256
+    const c = (nextRand() * 0x999999 + 0x333333) & 0xffffff
     const color = `#${c.toString(16).padStart(6, '0')}`
-    lines.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1" opacity="0.5"/>`)
+    lines.push(
+      `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1" opacity="0.5"/>`,
+    )
   }
 
   // 字符
@@ -465,7 +465,7 @@ function renderSvgImage(code: string): string {
     .map((ch, i) => {
       const rotate = randomInt(-22, 23)
       const y = 28 + randomInt(-3, 4)
-      const c = 0x333333 + (nextRand() * 0x444444 & 0xcccccc)
+      const c = 0x333333 + ((nextRand() * 0x444444) & 0xcccccc)
       const color = `#${c.toString(16).padStart(6, '0')}`
       const x = 18 + i * 24
       return `<text x="${x}" y="${y}" font-size="26" font-family="monospace" fill="${color}" transform="rotate(${rotate} ${x} ${y - 6})" font-weight="bold">${escapeXml(ch)}</text>`
@@ -495,12 +495,18 @@ function mathProblem(): { text: string; result: number } {
 function escapeXml(s: string): string {
   return s.replace(/[<>&'"]/g, (ch) => {
     switch (ch) {
-      case '<': return '&lt;'
-      case '>': return '&gt;'
-      case '&': return '&amp;'
-      case "'": return '&apos;'
-      case '"': return '&quot;'
-      default: return ch
+      case '<':
+        return '&lt;'
+      case '>':
+        return '&gt;'
+      case '&':
+        return '&amp;'
+      case "'":
+        return '&apos;'
+      case '"':
+        return '&quot;'
+      default:
+        return ch
     }
   })
 }

@@ -33,19 +33,19 @@ koubo/
 
 ## 核心文件说明
 
-| 文件 | 状态 | 用途 |
-|------|------|------|
-| **AGENTS.md** | ✅ 活跃 | 最高权威参考：铁律/禁令/技术约束/风格/偏好/教训 |
-| **Output/MMDD.txt** | ✅ 活跃 | 当天交付的口播稿正文（唯一权威定稿） |
-| 素材库/素材库.md | ✅ 活跃 | 金句库/类比库/数据弹药/案例库/开头钩子库/转折表达库 |
-| 素材库/选题存档.md | ✅ 活跃 | 每次完稿后追加记录，用于选题查重 |
-| 素材库/已发布内容记忆.json | ✅ 活跃 | 已发布元数据+image_registry |
-| 工具脚本/koubo_validate.py | ✅ 活跃 | 全量验证：`python 工具脚本/koubo_validate.py Output/MMDD.txt` |
+| 文件                           | 状态    | 用途                                                                  |
+| ------------------------------ | ------- | --------------------------------------------------------------------- |
+| **AGENTS.md**                  | ✅ 活跃 | 最高权威参考：铁律/禁令/技术约束/风格/偏好/教训                       |
+| **Output/MMDD.txt**            | ✅ 活跃 | 当天交付的口播稿正文（唯一权威定稿）                                  |
+| 素材库/素材库.md               | ✅ 活跃 | 金句库/类比库/数据弹药/案例库/开头钩子库/转折表达库                   |
+| 素材库/选题存档.md             | ✅ 活跃 | 每次完稿后追加记录，用于选题查重                                      |
+| 素材库/已发布内容记忆.json     | ✅ 活跃 | 已发布元数据+image_registry                                           |
+| 工具脚本/koubo_validate.py     | ✅ 活跃 | 全量验证：`python 工具脚本/koubo_validate.py Output/MMDD.txt`         |
 | 工具脚本/koubo_quality_gate.py | ✅ 活跃 | 朗读质量门禁：`python 工具脚本/koubo_quality_gate.py Output/MMDD.txt` |
-| 工具脚本/koubo_live_check.py | ✅ 活跃 | 实时自查：`python 工具脚本/koubo_live_check.py --all Output/MMDD.txt` |
-| 工具脚本/pre_publish_check.py | ✅ 活跃 | 发布前集成门禁：`python 工具脚本/pre_publish_check.py --all` |
-| 工具脚本/project_hygiene.py | ✅ 活跃 | 项目卫生检查：`python 工具脚本/project_hygiene.py` |
-| 工具脚本/archive_daily.py | ✅ 活跃 | 每日自动存档：`python 工具脚本/archive_daily.py` |
+| 工具脚本/koubo_live_check.py   | ✅ 活跃 | 实时自查：`python 工具脚本/koubo_live_check.py --all Output/MMDD.txt` |
+| 工具脚本/pre_publish_check.py  | ✅ 活跃 | 发布前集成门禁：`python 工具脚本/pre_publish_check.py --all`          |
+| 工具脚本/project_hygiene.py    | ✅ 活跃 | 项目卫生检查：`python 工具脚本/project_hygiene.py`                    |
+| 工具脚本/archive_daily.py      | ✅ 活跃 | 每日自动存档：`python 工具脚本/archive_daily.py`                      |
 
 ## 旧项目归档（已整合迁出）
 

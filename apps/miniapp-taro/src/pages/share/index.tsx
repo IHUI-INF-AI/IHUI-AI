@@ -207,7 +207,9 @@ export default function ShareIndexPage() {
             id: asString(raw['id']),
             title: asString(raw['title']),
             time: asString(raw['time']),
-            messages: Array.isArray(raw['messages']) ? (raw['messages'] as ChatHistoryItem['messages']) : undefined,
+            messages: Array.isArray(raw['messages'])
+              ? (raw['messages'] as ChatHistoryItem['messages'])
+              : undefined,
           }
         }),
       )
@@ -219,11 +221,18 @@ export default function ShareIndexPage() {
   const loadModelList = useCallback(async () => {
     try {
       const res = (await api.getCozeApiList()) as { list?: unknown[]; models?: unknown[] }
-      const rawList = Array.isArray(res?.list) ? res.list : Array.isArray(res?.models) ? res.models : []
+      const rawList = Array.isArray(res?.list)
+        ? res.list
+        : Array.isArray(res?.models)
+          ? res.models
+          : []
       setModelList(
         rawList.map((r) => {
           const raw = r as Record<string, unknown>
-          return { id: asString(raw['id']) || asString(raw['model']), name: asString(raw['name']) || asString(raw['modelName']) }
+          return {
+            id: asString(raw['id']) || asString(raw['model']),
+            name: asString(raw['name']) || asString(raw['modelName']),
+          }
         }),
       )
     } catch {
@@ -494,7 +503,9 @@ export default function ShareIndexPage() {
 
     // 按模型分组
     for (const model of modelList) {
-      const modelChats = chatHistory.filter((c) => c.id.startsWith(String(model.id)) || modelList.length === 1)
+      const modelChats = chatHistory.filter(
+        (c) => c.id.startsWith(String(model.id)) || modelList.length === 1,
+      )
       if (modelChats.length === 0) continue
 
       // 按日期分组
@@ -551,7 +562,9 @@ export default function ShareIndexPage() {
           <View className="share-rank-header">
             <View className="share-rank-header-left">
               <Text className="share-rank-title">{tt('share.index.title', 'AI资讯')}</Text>
-              <Text className="share-rank-subtitle">{tt('share.index.subtitle', '汇聚前沿科技资讯')}</Text>
+              <Text className="share-rank-subtitle">
+                {tt('share.index.subtitle', '汇聚前沿科技资讯')}
+              </Text>
             </View>
             <View className="share-rank-enter" onClick={() => activeNav(0)}>
               <Text className="share-rank-enter-text">{tt('share.index.enter', '进入资讯')}</Text>
@@ -571,7 +584,9 @@ export default function ShareIndexPage() {
             />
             {rankList.length > 0 ? (
               <View className="share-rank-more" onClick={() => setActiveNavbar(true)}>
-                <Text className="share-rank-more-text">{tt('share.index.viewMore', '查看更多排行')}</Text>
+                <Text className="share-rank-more-text">
+                  {tt('share.index.viewMore', '查看更多排行')}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -608,7 +623,10 @@ export default function ShareIndexPage() {
           } else if (item.key === 'dynamic') {
             // 当前页,无需跳转
           } else {
-            Taro.navigateTo({ url, fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }) })
+            Taro.navigateTo({
+              url,
+              fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }),
+            })
           }
         }}
         onLabelItemClick={(item) => {
@@ -625,11 +643,16 @@ export default function ShareIndexPage() {
             })
           } else if (item.key === 'freebie') {
             // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
-            const feishuUrl = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
+            const feishuUrl =
+              'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
             Taro.setClipboardData({
               data: feishuUrl,
               success: () =>
-                Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
+                Taro.showToast({
+                  title: '链接已复制,请在浏览器打开',
+                  icon: 'none',
+                  duration: 2000,
+                }),
               fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
             })
           }
@@ -740,7 +763,8 @@ export default function ShareIndexPage() {
                   content: n.summary,
                   // 仅在首项或与前一项日期不同时显示日期分组标题
                   date:
-                    idx === 0 || infoList[idx - 1]?.createTime.slice(0, 10) !== n.createTime.slice(0, 10)
+                    idx === 0 ||
+                    infoList[idx - 1]?.createTime.slice(0, 10) !== n.createTime.slice(0, 10)
                       ? n.createTime.slice(0, 10)
                       : undefined,
                   source: n.categoryName,
@@ -751,13 +775,11 @@ export default function ShareIndexPage() {
                 onClick={(item) => goInfoDetail(item.id)}
               />
             ))
-          ) : (
-            !loading ? (
-              <View className="share-empty">
-                <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
-              </View>
-            ) : null
-          )}
+          ) : !loading ? (
+            <View className="share-empty">
+              <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
+            </View>
+          ) : null}
           {loading ? (
             <View className="share-loading">
               <View className="share-loading-dot" />
@@ -791,10 +813,7 @@ export default function ShareIndexPage() {
 
         {/* BackToTop 回到顶部按钮 — 对齐原项目 toodown-wrapper */}
         {showToodown ? (
-          <View
-            className="share-toodown-wrapper"
-            onClick={backToTop}
-          >
+          <View className="share-toodown-wrapper" onClick={backToTop}>
             <View className="share-toodown">
               <Text className="share-toodown-arrow">↑</Text>
             </View>
@@ -835,7 +854,10 @@ export default function ShareIndexPage() {
         visible={showTrackModal}
         onConfirm={(selectedTracks) => {
           try {
-            Taro.setStorageSync('selectedTracks', selectedTracks.map((t) => t.id))
+            Taro.setStorageSync(
+              'selectedTracks',
+              selectedTracks.map((t) => t.id),
+            )
             Taro.setStorageSync('hasSelectedTracks', true)
           } catch {
             // 静默

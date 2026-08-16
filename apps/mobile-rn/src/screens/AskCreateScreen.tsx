@@ -18,11 +18,22 @@ export function AskCreateScreen() {
   const [error, setError] = useState('')
 
   const onSubmit = async () => {
-    if (!title.trim()) { setError(t('askCreate.titleRequired')); return }
-    setSaving(true); setError('')
+    if (!title.trim()) {
+      setError(t('askCreate.titleRequired'))
+      return
+    }
+    setSaving(true)
+    setError('')
     const res = await fetchApi<{ id: string }>('/api/asks', {
       method: 'POST',
-      body: JSON.stringify({ title: title.trim(), content: content.trim(), tags: tags.split(',').map((s) => s.trim()).filter(Boolean) }),
+      body: JSON.stringify({
+        title: title.trim(),
+        content: content.trim(),
+        tags: tags
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }),
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('AskDetail', { id: res.data.id })

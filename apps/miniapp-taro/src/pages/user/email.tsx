@@ -16,10 +16,13 @@ export default function Email() {
   const [submitting, setSubmitting] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const tt = useCallback((k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }, [t])
+  const tt = useCallback(
+    (k: string, fb: string) => {
+      const v = t(k)
+      return v === k ? fb : v
+    },
+    [t],
+  )
 
   const maskedEmail = (() => {
     const e = (currentEmail || '').trim()
@@ -65,7 +68,10 @@ export default function Email() {
       return
     }
     if (target === currentEmail) {
-      Taro.showToast({ title: tt('user.email.sameAsCurrent', '新邮箱不能与当前邮箱相同'), icon: 'none' })
+      Taro.showToast({
+        title: tt('user.email.sameAsCurrent', '新邮箱不能与当前邮箱相同'),
+        icon: 'none',
+      })
       return
     }
     try {
@@ -147,10 +153,7 @@ export default function Email() {
               value={code}
               onInput={(e) => setCode(e.detail.value)}
             />
-            <Text
-              className={`email-code-btn ${counting ? 'disabled' : ''}`}
-              onClick={sendCode}
-            >
+            <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
               {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
             </Text>
           </View>
@@ -160,7 +163,9 @@ export default function Email() {
         className={`email-submit ${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim()) && code.trim().length === 6 && !submitting ? '' : 'disabled'}`}
         onClick={onSubmit}
       >
-        <Text>{submitting ? tt('user.email.binding', '绑定中…') : tt('user.email.bind', '绑定')}</Text>
+        <Text>
+          {submitting ? tt('user.email.binding', '绑定中…') : tt('user.email.bind', '绑定')}
+        </Text>
       </View>
     </View>
   )

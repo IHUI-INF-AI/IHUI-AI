@@ -77,8 +77,12 @@ export default function StudyPublish() {
           onChange={(e) => setCategory(Number(e.detail.value))}
         >
           <View className="flex items-center h-[80rpx]">
-            <Text className="text-[28rpx] text-foreground w-[160rpx]">{t('study.publish.category')}</Text>
-            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">{categories[category]}</Text>
+            <Text className="text-[28rpx] text-foreground w-[160rpx]">
+              {t('study.publish.category')}
+            </Text>
+            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">
+              {categories[category]}
+            </Text>
             <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
           </View>
         </Picker>
@@ -90,8 +94,12 @@ export default function StudyPublish() {
           onChange={(e) => setVisibility(Number(e.detail.value))}
         >
           <View className="flex items-center h-[80rpx]">
-            <Text className="text-[28rpx] text-foreground w-[160rpx]">{t('study.publish.visibility')}</Text>
-            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">{visibilityOptions[visibility]}</Text>
+            <Text className="text-[28rpx] text-foreground w-[160rpx]">
+              {t('study.publish.visibility')}
+            </Text>
+            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">
+              {visibilityOptions[visibility]}
+            </Text>
             <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
           </View>
         </Picker>
@@ -104,7 +112,12 @@ export default function StudyPublish() {
         />
       </View>
 
-      <Button className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]" loading={saving} onClick={submit} disabled={saving}>
+      <Button
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]"
+        loading={saving}
+        onClick={submit}
+        disabled={saving}
+      >
         {t('study.publish.submit')}
       </Button>
     </View>

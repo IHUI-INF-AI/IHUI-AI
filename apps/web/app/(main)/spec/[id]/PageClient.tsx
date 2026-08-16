@@ -4,14 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  Loader2,
-  AlertCircle,
-  GitCompare,
-  FileText,
-  Activity,
-} from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, GitCompare, FileText, Activity } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { loadSpec, diffSpec } from '@/lib/spec-api'
 import type { SpecDiff } from '@ihui/shared/spec/index'
@@ -35,7 +28,11 @@ export default function SpecDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
 
-  const { data: spec, isLoading, error } = useQuery({
+  const {
+    data: spec,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['spec', 'detail', id],
     queryFn: () => loadSpec(id),
     enabled: !!id,
@@ -103,7 +100,11 @@ export default function SpecDetailPage() {
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={handleDiff} disabled={diffLoading}>
-          {diffLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitCompare className="h-4 w-4" />}
+          {diffLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <GitCompare className="h-4 w-4" />
+          )}
           对比变更
         </Button>
       </div>

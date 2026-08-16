@@ -138,17 +138,32 @@ describe('rewarded-video-ad 并发安全', () => {
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: TEST_USER_ID, transactionId: 'tx-a', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-a', TEST_SECRET) },
+        body: {
+          userId: TEST_USER_ID,
+          transactionId: 'tx-a',
+          rewardAmount: 10,
+          signature: sig(TEST_USER_ID, 'tx-a', TEST_SECRET),
+        },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: TEST_USER_ID, transactionId: 'tx-b', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-b', TEST_SECRET) },
+        body: {
+          userId: TEST_USER_ID,
+          transactionId: 'tx-b',
+          rewardAmount: 10,
+          signature: sig(TEST_USER_ID, 'tx-b', TEST_SECRET),
+        },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: TEST_USER_ID, transactionId: 'tx-c', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-c', TEST_SECRET) },
+        body: {
+          userId: TEST_USER_ID,
+          transactionId: 'tx-c',
+          rewardAmount: 10,
+          signature: sig(TEST_USER_ID, 'tx-c', TEST_SECRET),
+        },
       }),
     ])
 
@@ -165,12 +180,22 @@ describe('rewarded-video-ad 并发安全', () => {
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: TEST_USER_ID, transactionId: 'tx-no-dedup-1', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-no-dedup-1', TEST_SECRET) },
+        body: {
+          userId: TEST_USER_ID,
+          transactionId: 'tx-no-dedup-1',
+          rewardAmount: 10,
+          signature: sig(TEST_USER_ID, 'tx-no-dedup-1', TEST_SECRET),
+        },
       }),
       server.inject({
         method: 'POST',
         url: '/api/rewarded-video-ad/notify',
-        body: { userId: TEST_USER_ID, transactionId: 'tx-no-dedup-2', rewardAmount: 10, signature: sig(TEST_USER_ID, 'tx-no-dedup-2', TEST_SECRET) },
+        body: {
+          userId: TEST_USER_ID,
+          transactionId: 'tx-no-dedup-2',
+          rewardAmount: 10,
+          signature: sig(TEST_USER_ID, 'tx-no-dedup-2', TEST_SECRET),
+        },
       }),
     ])
 

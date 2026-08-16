@@ -105,7 +105,10 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   } = params
   const t = useTranslations('chat')
   const [isDragOver, setIsDragOver] = React.useState(false)
-  const [pendingMessage, setPendingMessage] = React.useState<{ text: string; refs: ReferenceItem[] } | null>(null)
+  const [pendingMessage, setPendingMessage] = React.useState<{
+    text: string
+    refs: ReferenceItem[]
+  } | null>(null)
 
   const handleFileInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,7 +277,18 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       setValue(text)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
     }
-  }, [value, isStreaming, isHighRisk, t, doSend, references, setValue, resetReferences, draftKey, inputCoreRef])
+  }, [
+    value,
+    isStreaming,
+    isHighRisk,
+    t,
+    doSend,
+    references,
+    setValue,
+    resetReferences,
+    draftKey,
+    inputCoreRef,
+  ])
 
   const sendPendingMessage = React.useCallback(async () => {
     if (!pendingMessage) return

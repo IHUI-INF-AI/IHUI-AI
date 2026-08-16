@@ -6,7 +6,9 @@ import { findPrivateLettersForAdmin } from '../db/private-letters-admin-queries.
 
 const listQuerySchema = z.object({
   page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
-  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
+  pageSize: z
+    .transform((v) => emptyToUndefined(v))
+    .pipe(z.coerce.number().min(1).max(100).default(20)),
 })
 
 /** 管理路由：私信列表查询 */

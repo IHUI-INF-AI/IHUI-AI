@@ -142,9 +142,7 @@ export async function listApiSubscriptionPlans(): Promise<PlanInfo[]> {
  * - remainingTokens:用户所有 active Key 的 token_balance 之和(>0 才计入,-1 表示无限)
  * - history:用户所有 orderType=6 订单(按 paidAt/createdAt 降序)
  */
-export async function getUserSubscriptionStatus(
-  userId: string,
-): Promise<UserSubscriptionStatus> {
+export async function getUserSubscriptionStatus(userId: string): Promise<UserSubscriptionStatus> {
   // 1. 查用户所有 orderType=6 订单(关联 plans 拿 planName)
   const orderRows = await dbRead
     .select({

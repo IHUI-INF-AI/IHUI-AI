@@ -59,10 +59,7 @@ export default function PhoneAreaCodePicker({
             <ScrollView scrollY style={{ height: '280rpx' }}>
               {NATION_DATA.map((item) => (
                 <View className="nationInfo" key={item.id}>
-                  <View
-                    className="nation-info1"
-                    onClick={() => selectnati(item.content)}
-                  >
+                  <View className="nation-info1" onClick={() => selectnati(item.content)}>
                     <Text className="nation-name">{item.title}</Text>
                     <Text className="nation-code">{item.content}</Text>
                   </View>

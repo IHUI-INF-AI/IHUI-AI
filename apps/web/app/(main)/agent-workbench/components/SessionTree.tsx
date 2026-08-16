@@ -57,9 +57,7 @@ function TreeNode({ node, depth }: { node: AgentSession; depth: number }) {
             className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
             aria-label={expanded ? '折叠' : '展开'}
           >
-            <ChevronRight
-              className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')}
-            />
+            <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
           </button>
         ) : (
           <span className="w-3 shrink-0" />

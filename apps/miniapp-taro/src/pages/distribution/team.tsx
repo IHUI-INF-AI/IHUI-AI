@@ -104,7 +104,9 @@ export default function DistributionTeam() {
   useEffect(() => {
     let result = [...rawList]
     if (activeTab === 'date' && selectedDate) {
-      result = result.filter((m) => formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') === selectedDate)
+      result = result.filter(
+        (m) => formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') === selectedDate,
+      )
     }
     const kw = searchText.trim().toLowerCase()
     if (kw) {
@@ -173,9 +175,7 @@ export default function DistributionTeam() {
             setActiveTab('date')
           }}
         >
-          <View
-            className={`team-sort-btn ${activeTab === 'date' ? 'team-sort-btn-active' : ''}`}
-          >
+          <View className={`team-sort-btn ${activeTab === 'date' ? 'team-sort-btn-active' : ''}`}>
             <Text>{selectedDate || tt('distribution.team.sortByDate', '邀请时间')}</Text>
             <Text className="team-sort-arrow">▾</Text>
           </View>
@@ -230,7 +230,8 @@ export default function DistributionTeam() {
                   </View>
                   <View className="team-info-row">
                     <Text className="team-info-time">
-                      {tt('distribution.team.joinTime', '邀请时间')}: {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
+                      {tt('distribution.team.joinTime', '邀请时间')}:{' '}
+                      {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     <Text className="team-sub-btn" onClick={() => goSubordinates(m.id)}>
                       {tt('distribution.team.viewSubordinates', '查看下级')}

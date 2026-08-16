@@ -25,8 +25,20 @@ export interface ExportResult {
 }
 
 const VOID_TAGS = [
-  'br', 'img', 'input', 'hr', 'meta', 'link',
-  'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr',
+  'br',
+  'img',
+  'input',
+  'hr',
+  'meta',
+  'link',
+  'area',
+  'base',
+  'col',
+  'embed',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ]
 
 /** 从预览名派生 PascalCase 组件名;非 ASCII 回退到 DesignComponent。 */
@@ -43,10 +55,7 @@ export function deriveComponentName(name: string): string {
 }
 
 /** 解析 HTML,提取 body innerHTML + 收集 inline style → className。 */
-function convertHtml(
-  html: string,
-  format: ExportFormat,
-): { bodyInner: string; cssText: string } {
+function convertHtml(html: string, format: ExportFormat): { bodyInner: string; cssText: string } {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
     return { bodyInner: html, cssText: '' }
   }
@@ -84,7 +93,10 @@ function convertHtml(
     bodyInner = bodyInner.replace(/\sclass=/g, ' className=')
     bodyInner = bodyInner.replace(/\sfor=/g, ' htmlFor=')
     const voidPattern = new RegExp(`<(${VOID_TAGS.join('|')})(\\s[^>]*?)?>`, 'gi')
-    bodyInner = bodyInner.replace(voidPattern, (_match, tag: string, attrs?: string) => `<${tag}${attrs || ''} />`)
+    bodyInner = bodyInner.replace(
+      voidPattern,
+      (_match, tag: string, attrs?: string) => `<${tag}${attrs || ''} />`,
+    )
   }
 
   return { bodyInner, cssText }

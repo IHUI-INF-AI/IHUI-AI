@@ -214,9 +214,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   const autoPlanSchema = z.object({
     task: z.string().min(1, '任务描述不能为空'),
-    constraints: z
-      .object({ maxAgents: z.number().int().min(1).max(20).optional() })
-      .optional(),
+    constraints: z.object({ maxAgents: z.number().int().min(1).max(20).optional() }).optional(),
   })
 
   const customRoleSchema = z.object({
@@ -251,9 +249,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = autoPlanSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     // 调用 ai-service /api/llm/complete,要求 LLM 返回 JSON 编排计划
@@ -332,9 +328,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = customRoleSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const input = parsed.data
 
@@ -384,9 +378,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = customRoleSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const input = parsed.data
 
@@ -428,9 +420,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = autoGenerateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { task } = parsed.data
 
@@ -485,28 +475,25 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/agents/:role/evolution-history ----------
 
-  server.get(
-    '/subagents/agents/:role/evolution-history',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
+  server.get('/subagents/agents/:role/evolution-history', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
 
-      const { role } = request.params as { role: string }
-      const stored = evolutionHistories.get(role)
-      if (stored) {
-        return reply.send(success(stored))
-      }
-      // 返回初始空历史
-      return reply.send(
-        success({
-          agentRole: role,
-          currentPrompt: INITIAL_PROMPTS[role] ?? '',
-          versions: [],
-          recentRecords: [],
-        }),
-      )
-    },
-  )
+    const { role } = request.params as { role: string }
+    const stored = evolutionHistories.get(role)
+    if (stored) {
+      return reply.send(success(stored))
+    }
+    // 返回初始空历史
+    return reply.send(
+      success({
+        agentRole: role,
+        currentPrompt: INITIAL_PROMPTS[role] ?? '',
+        versions: [],
+        recentRecords: [],
+      }),
+    )
+  })
 
   // ---------- POST /subagents/agents/:role/evolve(调用 ai-service 分析演化) ----------
 
@@ -580,7 +567,9 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
             scannedRecords: recentRecords.length,
             // needsEvolution 显式 false 时尊重 LLM 判断;否则按 patches 是否非空推断
             needsEvolution:
-              typeof result.needsEvolution === 'boolean' ? result.needsEvolution : patches.length > 0,
+              typeof result.needsEvolution === 'boolean'
+                ? result.needsEvolution
+                : patches.length > 0,
             patches,
             summary: result.summary ?? `LLM 分析了 ${recentRecords.length} 条记录`,
             analyzedAt: nowIso(),
@@ -604,49 +593,43 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/agents/:role/apply-evolution ----------
 
-  server.post(
-    '/subagents/agents/:role/apply-evolution',
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
+  server.post('/subagents/agents/:role/apply-evolution', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
 
-      const { role } = request.params as { role: string }
-      const parsed = applyEvolutionSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { patches } = parsed.data
+    const { role } = request.params as { role: string }
+    const parsed = applyEvolutionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { patches } = parsed.data
 
-      // 应用补丁到内存历史
-      const stored = evolutionHistories.get(role)
-      const currentPrompt =
-        stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? ''
-      let newPrompt = currentPrompt
-      for (const p of patches) {
-        if (p.originalText.length > 0) {
-          newPrompt = newPrompt.replace(p.originalText, p.suggestedReplacement)
-        }
+    // 应用补丁到内存历史
+    const stored = evolutionHistories.get(role)
+    const currentPrompt = stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? ''
+    let newPrompt = currentPrompt
+    for (const p of patches) {
+      if (p.originalText.length > 0) {
+        newPrompt = newPrompt.replace(p.originalText, p.suggestedReplacement)
       }
+    }
 
-      const version: EvolutionVersion = {
-        version: `v${(stored?.versions.length ?? 0) + 1}`,
-        prompt: newPrompt,
-        changes: patches,
-        createdAt: nowIso(),
-      }
+    const version: EvolutionVersion = {
+      version: `v${(stored?.versions.length ?? 0) + 1}`,
+      prompt: newPrompt,
+      changes: patches,
+      createdAt: nowIso(),
+    }
 
-      const history: EvolutionHistory = {
-        agentRole: role,
-        currentPrompt: newPrompt,
-        versions: [...(stored?.versions ?? []), version],
-        recentRecords: [],
-      }
-      evolutionHistories.set(role, history)
-      return reply.send(success({ version }))
-    },
-  )
+    const history: EvolutionHistory = {
+      agentRole: role,
+      currentPrompt: newPrompt,
+      versions: [...(stored?.versions ?? []), version],
+      recentRecords: [],
+    }
+    evolutionHistories.set(role, history)
+    return reply.send(success({ version }))
+  })
 
   // ---------- GET /subagents/:id/collaboration(从 subagent-dispatch-service 拉取) ----------
 

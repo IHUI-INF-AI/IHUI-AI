@@ -130,7 +130,9 @@ export default function CourseList() {
                   {item.teacher && (
                     <Text className="text-xs text-muted-foreground">{item.teacher}</Text>
                   )}
-                  <Text className="text-base text-destructive font-semibold">¥{item.price ?? 0}</Text>
+                  <Text className="text-base text-destructive font-semibold">
+                    ¥{item.price ?? 0}
+                  </Text>
                 </View>
               </View>
             </View>

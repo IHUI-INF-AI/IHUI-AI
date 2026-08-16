@@ -13,7 +13,19 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   (
-    { label, error, autoResize = false, showCounter = false, maxLength, className, containerClassName, id, value, onChange, ...props },
+    {
+      label,
+      error,
+      autoResize = false,
+      showCounter = false,
+      maxLength,
+      className,
+      containerClassName,
+      id,
+      value,
+      onChange,
+      ...props
+    },
     ref,
   ) => {
     const reactId = React.useId()
@@ -38,7 +50,10 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={cn('w-full space-y-1.5', containerClassName)}>
         {label && (
-          <label htmlFor={textareaId} className="text-sm font-medium leading-none whitespace-nowrap">
+          <label
+            htmlFor={textareaId}
+            className="text-sm font-medium leading-none whitespace-nowrap"
+          >
             {label}
           </label>
         )}
@@ -59,11 +74,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         <div className="flex items-center justify-between">
-          {error ? (
-            <p className="text-xs text-destructive">{error}</p>
-          ) : (
-            <span />
-          )}
+          {error ? <p className="text-xs text-destructive">{error}</p> : <span />}
           {showCounter && (
             <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
               {length}

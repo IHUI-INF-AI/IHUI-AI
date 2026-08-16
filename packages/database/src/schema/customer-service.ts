@@ -9,8 +9,8 @@ import {
   jsonb,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 客服工单分类表。
@@ -30,7 +30,7 @@ export const customerServiceCategories = pgTable(
   (t) => ({
     slugIdx: index('cs_categories_slug_idx').on(t.slug),
   }),
-);
+)
 
 /**
  * 客服工单表。
@@ -70,7 +70,7 @@ export const customerServiceTickets = pgTable(
     categoryIdx: index('cs_tickets_category_idx').on(t.categoryId),
     assigneeIdx: index('cs_tickets_assignee_idx').on(t.assigneeId),
   }),
-);
+)
 
 /**
  * 工单评论表（用户与客服的往返回复）。
@@ -95,7 +95,7 @@ export const customerServiceComments = pgTable(
   (t) => ({
     ticketIdx: index('cs_comments_ticket_idx').on(t.ticketId),
   }),
-);
+)
 
 /**
  * 客服坐席表。
@@ -122,7 +122,7 @@ export const customerServiceAgents = pgTable(
     userIdx: unique('cs_agents_user_unique').on(t.userId),
     statusIdx: index('cs_agents_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 实时会话表（WebSocket 聊天会话）。
@@ -155,7 +155,7 @@ export const customerServiceSessions = pgTable(
     agentIdx: index('cs_sessions_agent_idx').on(t.agentId),
     statusIdx: index('cs_sessions_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 服务评级表（工单或会话结束后用户评分）。
@@ -186,17 +186,17 @@ export const customerServiceRatings = pgTable(
     ticketIdx: index('cs_ratings_ticket_idx').on(t.ticketId),
     sessionIdx: index('cs_ratings_session_idx').on(t.sessionId),
   }),
-);
+)
 
-export type CustomerServiceCategory = typeof customerServiceCategories.$inferSelect;
-export type NewCustomerServiceCategory = typeof customerServiceCategories.$inferInsert;
-export type CustomerServiceTicket = typeof customerServiceTickets.$inferSelect;
-export type NewCustomerServiceTicket = typeof customerServiceTickets.$inferInsert;
-export type CustomerServiceComment = typeof customerServiceComments.$inferSelect;
-export type NewCustomerServiceComment = typeof customerServiceComments.$inferInsert;
-export type CustomerServiceAgent = typeof customerServiceAgents.$inferSelect;
-export type NewCustomerServiceAgent = typeof customerServiceAgents.$inferInsert;
-export type CustomerServiceSession = typeof customerServiceSessions.$inferSelect;
-export type NewCustomerServiceSession = typeof customerServiceSessions.$inferInsert;
-export type CustomerServiceRating = typeof customerServiceRatings.$inferSelect;
-export type NewCustomerServiceRating = typeof customerServiceRatings.$inferInsert;
+export type CustomerServiceCategory = typeof customerServiceCategories.$inferSelect
+export type NewCustomerServiceCategory = typeof customerServiceCategories.$inferInsert
+export type CustomerServiceTicket = typeof customerServiceTickets.$inferSelect
+export type NewCustomerServiceTicket = typeof customerServiceTickets.$inferInsert
+export type CustomerServiceComment = typeof customerServiceComments.$inferSelect
+export type NewCustomerServiceComment = typeof customerServiceComments.$inferInsert
+export type CustomerServiceAgent = typeof customerServiceAgents.$inferSelect
+export type NewCustomerServiceAgent = typeof customerServiceAgents.$inferInsert
+export type CustomerServiceSession = typeof customerServiceSessions.$inferSelect
+export type NewCustomerServiceSession = typeof customerServiceSessions.$inferInsert
+export type CustomerServiceRating = typeof customerServiceRatings.$inferSelect
+export type NewCustomerServiceRating = typeof customerServiceRatings.$inferInsert

@@ -54,13 +54,19 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
             label={t('providerLabel')}
             value={provider}
             onChange={setProvider}
-            options={PROVIDERS.map((p) => ({ value: p, label: t(PROVIDER_KEY[p] ?? 'provider.unknown') }))}
+            options={PROVIDERS.map((p) => ({
+              value: p,
+              label: t(PROVIDER_KEY[p] ?? 'provider.unknown'),
+            }))}
           />
           <OptionSelect
             label={t('durationLabel')}
             value={duration}
             onChange={setDuration}
-            options={DURATIONS.map((d) => ({ value: d, label: t(DURATION_KEY[d] ?? 'duration.unknown') }))}
+            options={DURATIONS.map((d) => ({
+              value: d,
+              label: t(DURATION_KEY[d] ?? 'duration.unknown'),
+            }))}
           />
         </div>
       }

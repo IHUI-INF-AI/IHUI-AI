@@ -9,8 +9,8 @@ import {
   timestamp,
   jsonb,
   index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 课程作业表。
@@ -36,7 +36,7 @@ export const learnHomework = pgTable(
     lessonIdx: index('learn_homework_lesson_idx').on(t.lessonId),
     chapterIdx: index('learn_homework_chapter_idx').on(t.chapterId),
   }),
-);
+)
 
 /**
  * 学习地图表。
@@ -58,7 +58,7 @@ export const learnMaps = pgTable(
   (t) => ({
     pubIdx: index('learn_maps_published_idx').on(t.isPublished),
   }),
-);
+)
 
 /**
  * 发票申请表。
@@ -70,7 +70,9 @@ export const learnInvoiceApplications = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     orderId: varchar('order_id', { length: 100 }).notNull(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     type: varchar('type', { length: 50 }).notNull(),
     title: varchar('title', { length: 200 }).notNull(),
     taxNo: varchar('tax_no', { length: 50 }).notNull(),
@@ -84,7 +86,7 @@ export const learnInvoiceApplications = pgTable(
     userIdx: index('learn_invoice_applications_user_idx').on(t.userId),
     statusIdx: index('learn_invoice_applications_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 发票抬头表。
@@ -94,7 +96,9 @@ export const learnInvoiceTitles = pgTable(
   'learn_invoice_titles',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 200 }).notNull(),
     type: varchar('type', { length: 50 }).notNull(),
     taxNo: varchar('tax_no', { length: 50 }).notNull(),
@@ -109,13 +113,13 @@ export const learnInvoiceTitles = pgTable(
   (t) => ({
     userIdx: index('learn_invoice_titles_user_idx').on(t.userId),
   }),
-);
+)
 
-export type LearnHomework = typeof learnHomework.$inferSelect;
-export type NewLearnHomework = typeof learnHomework.$inferInsert;
-export type LearnMap = typeof learnMaps.$inferSelect;
-export type NewLearnMap = typeof learnMaps.$inferInsert;
-export type LearnInvoiceApplication = typeof learnInvoiceApplications.$inferSelect;
-export type NewLearnInvoiceApplication = typeof learnInvoiceApplications.$inferInsert;
-export type LearnInvoiceTitle = typeof learnInvoiceTitles.$inferSelect;
-export type NewLearnInvoiceTitle = typeof learnInvoiceTitles.$inferInsert;
+export type LearnHomework = typeof learnHomework.$inferSelect
+export type NewLearnHomework = typeof learnHomework.$inferInsert
+export type LearnMap = typeof learnMaps.$inferSelect
+export type NewLearnMap = typeof learnMaps.$inferInsert
+export type LearnInvoiceApplication = typeof learnInvoiceApplications.$inferSelect
+export type NewLearnInvoiceApplication = typeof learnInvoiceApplications.$inferInsert
+export type LearnInvoiceTitle = typeof learnInvoiceTitles.$inferSelect
+export type NewLearnInvoiceTitle = typeof learnInvoiceTitles.$inferInsert

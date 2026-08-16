@@ -79,7 +79,9 @@ export default function UserInfoCard({
     showGrowthBar && growthMax && growthMax > 0 ? Math.min((growthValue / growthMax) * 100, 100) : 0
 
   return (
-    <View className={cn('rounded-lg bg-card border border-border p-3 active:opacity-80', className)}>
+    <View
+      className={cn('rounded-lg bg-card border border-border p-3 active:opacity-80', className)}
+    >
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)===== */}
       {!isLogged && onLogin ? (
         <View
@@ -105,7 +107,11 @@ export default function UserInfoCard({
                 <Text className="text-sm font-medium text-foreground truncate">{nickname}</Text>
                 {/* VIP 徽标:isVip 用 userVip_act.png(远程),非 VIP 用 userVip_nor.png(本地) */}
                 <View className="relative flex-shrink-0">
-                  <Image src={isVip ? vipActIcon : vipNorIcon} mode="aspectFit" className="h-4 w-10" />
+                  <Image
+                    src={isVip ? vipActIcon : vipNorIcon}
+                    mode="aspectFit"
+                    className="h-4 w-10"
+                  />
                   {isVip && vipTitle ? (
                     <View className="absolute inset-0 flex items-center justify-center">
                       <Text className="text-[20rpx] text-white font-medium leading-none">
@@ -129,7 +135,11 @@ export default function UserInfoCard({
                   </View>
                 ) : null}
                 {onClick ? (
-                  <Image src={editIconImg} mode="aspectFit" className="w-4 h-4 flex-shrink-0 ml-auto" />
+                  <Image
+                    src={editIconImg}
+                    mode="aspectFit"
+                    className="w-4 h-4 flex-shrink-0 ml-auto"
+                  />
                 ) : null}
               </View>
               {/* 等级 + 智汇值行 */}
@@ -162,7 +172,11 @@ export default function UserInfoCard({
                         : undefined
                     }
                   >
-                    <Image src={wirelessLogoImg} mode="aspectFit" className="w-4 h-3 flex-shrink-0" />
+                    <Image
+                      src={wirelessLogoImg}
+                      mode="aspectFit"
+                      className="w-4 h-3 flex-shrink-0"
+                    />
                     <Text className="text-xs text-muted-foreground truncate">{tokenDisplay}</Text>
                     {onWallet ? (
                       <Image

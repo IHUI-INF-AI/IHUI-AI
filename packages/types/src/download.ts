@@ -8,14 +8,7 @@
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
 export type DownloadPlatform =
-  | 'web'
-  | 'desktop'
-  | 'ios'
-  | 'android-apk'
-  | 'mobile'
-  | 'wechat-miniapp'
-  | 'extension'
-  | 'cli'
+  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
 
 /** 下载事件触发来源 */
 export type DownloadSource = 'sidebar' | 'detail_page'

@@ -8,14 +8,7 @@
  */
 
 import * as React from 'react'
-import {
-  Globe,
-  Keyboard,
-  Cookie,
-  ClipboardPaste,
-  AlertTriangle,
-  ExternalLink,
-} from 'lucide-react'
+import { Globe, Keyboard, Cookie, ClipboardPaste, AlertTriangle, ExternalLink } from 'lucide-react'
 
 interface CookieFieldHint {
   readonly name: string
@@ -65,8 +58,10 @@ export function BrowserAuthHelper({
         title: '按 F12 打开开发者工具',
         body: (
           <>
-            登录后停留在该平台页面,按键盘 <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">F12</kbd> 打开开发者工具,
-            切换到 <span className="font-medium">Application</span>(中文版叫"应用程序")→ 左侧 <span className="font-medium">Cookies</span> → 选中平台域名。
+            登录后停留在该平台页面,按键盘{' '}
+            <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">F12</kbd>{' '}
+            打开开发者工具, 切换到 <span className="font-medium">Application</span>
+            (中文版叫"应用程序")→ 左侧 <span className="font-medium">Cookies</span> → 选中平台域名。
           </>
         ),
       },
@@ -75,7 +70,9 @@ export function BrowserAuthHelper({
         title: '找到对应 Cookie 并复制值',
         body: (
           <>
-            在 Cookie 列表中查找以下名称,双击 <span className="font-medium">Value</span> 列 → 全选(<kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+A</kbd>)→ 复制(<kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+C</kbd>):
+            在 Cookie 列表中查找以下名称,双击 <span className="font-medium">Value</span> 列 → 全选(
+            <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+A</kbd>)→ 复制(
+            <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+C</kbd>):
             <ul className="mt-1.5 space-y-1">
               {cookieFields.map((f) => (
                 <li key={f.name} className="flex items-center gap-1.5">
@@ -93,7 +90,13 @@ export function BrowserAuthHelper({
       {
         icon: ClipboardPaste,
         title: '粘贴到下方表单对应字段',
-        body: <>点击下方每个字段右侧的「粘贴」按钮,或手动 <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+V</kbd> 粘贴 Cookie 值,完成后点击「保存凭据」。</>,
+        body: (
+          <>
+            点击下方每个字段右侧的「粘贴」按钮,或手动{' '}
+            <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Ctrl+V</kbd> 粘贴
+            Cookie 值,完成后点击「保存凭据」。
+          </>
+        ),
       },
     ],
     [platformName, platformUrl, cookieFields],
@@ -118,9 +121,7 @@ export function BrowserAuthHelper({
                   <Icon className="h-3 w-3 text-orange-500" />
                   {step.title}
                 </div>
-                <div className="text-xs leading-relaxed text-muted-foreground">
-                  {step.body}
-                </div>
+                <div className="text-xs leading-relaxed text-muted-foreground">{step.body}</div>
               </div>
             </li>
           )
@@ -129,8 +130,8 @@ export function BrowserAuthHelper({
       <div className="flex items-start gap-1.5 rounded bg-orange-500/10 p-2 text-[11px] leading-relaxed text-orange-700 dark:text-orange-300">
         <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
         <span>
-          Cookie 有效期约 <span className="font-medium">7-30 天</span>,过期后需重新登录并复制新 Cookie。
-          建议在私密/无痕窗口登录,避免其他插件干扰;不要把 Cookie 分享给他人(等同账号密码)。
+          Cookie 有效期约 <span className="font-medium">7-30 天</span>,过期后需重新登录并复制新
+          Cookie。 建议在私密/无痕窗口登录,避免其他插件干扰;不要把 Cookie 分享给他人(等同账号密码)。
         </span>
       </div>
     </div>

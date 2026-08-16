@@ -56,7 +56,9 @@ export function StatCard({
           <span>{label}</span>
         </div>
         <div className="flex items-baseline gap-1">
-          <span className={`text-2xl font-semibold tabular-nums tracking-tight ${VALUE_VARIANT[variant]}`}>
+          <span
+            className={`text-2xl font-semibold tabular-nums tracking-tight ${VALUE_VARIANT[variant]}`}
+          >
             {value}
           </span>
           {hint && <span className="text-xs text-muted-foreground">{hint}</span>}

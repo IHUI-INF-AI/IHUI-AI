@@ -15,7 +15,14 @@ Card.displayName = 'Card'
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     // pb-0 防止与 CardContent 默认 p-4/p-6 形成双 padding,保持 Header→Content 间距与原版一致
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-4 pb-0 min-[640px]:p-6 min-[640px]:pb-0', className)} {...props} />
+    <div
+      ref={ref}
+      className={cn(
+        'flex flex-col space-y-1.5 p-4 pb-0 min-[640px]:p-6 min-[640px]:pb-0',
+        className,
+      )}
+      {...props}
+    />
   ),
 )
 CardHeader.displayName = 'CardHeader'
@@ -43,9 +50,7 @@ CardDescription.displayName = 'CardDescription'
 // 自定义调用方须加 min-[640px]:p-X 限定响应式 padding,否则会被此默认值一致化
 // 与 CardHeader 配合时由 CardHeader 的 pb-0 对冲,Header→Content 间距恒定 22px
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-4', className)} {...props} />
-  ),
+  ({ className, ...props }, ref) => <div ref={ref} className={cn('p-4', className)} {...props} />,
 )
 CardContent.displayName = 'CardContent'
 
@@ -53,7 +58,11 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     // 配合 CardContent 默认对称 padding:CardFooter pt-0,Footer→Content 顶部不重复
     // 但 Footer 自己也需要 pb 对称,所以用 p-4 pb-0 / min-[640px]:p-6 min-[640px]:pb-0
-    <div ref={ref} className={cn('flex items-center p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0', className)} {...props} />
+    <div
+      ref={ref}
+      className={cn('flex items-center p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0', className)}
+      {...props}
+    />
   ),
 )
 CardFooter.displayName = 'CardFooter'

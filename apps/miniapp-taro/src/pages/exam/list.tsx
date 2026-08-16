@@ -57,10 +57,18 @@ export default function ExamList() {
         {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
       </View>
       <View className="flex gap-3 mt-2">
-        <Text className="text-xs text-muted-foreground">{t('exam.questions', { n: e.questionCount })}</Text>
-        <Text className="text-xs text-muted-foreground">{t('exam.minutes', { n: e.duration })}</Text>
-        <Text className="text-xs text-muted-foreground">{t('exam.passScore', { n: e.passScore })}</Text>
-        <Text className="text-xs text-muted-foreground">{t('exam.totalScore', { n: e.totalScore })}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('exam.questions', { n: e.questionCount })}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('exam.minutes', { n: e.duration })}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('exam.passScore', { n: e.passScore })}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('exam.totalScore', { n: e.totalScore })}
+        </Text>
       </View>
     </View>
   )
@@ -85,9 +93,7 @@ export default function ExamList() {
             </Text>
           )}
           {r.submittedAt && (
-            <Text className="text-xs text-muted-foreground">
-              {formatDateOnly(r.submittedAt)}
-            </Text>
+            <Text className="text-xs text-muted-foreground">{formatDateOnly(r.submittedAt)}</Text>
           )}
         </View>
       </View>
@@ -111,7 +117,9 @@ export default function ExamList() {
             className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => setTab(item.key)}
           >
-            <View className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}>
+            <View
+              className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}
+            >
               {t(item.labelKey)}
             </View>
           </View>

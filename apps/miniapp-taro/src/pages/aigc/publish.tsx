@@ -132,70 +132,89 @@ export default function AigcPublish() {
 
       <ScrollView scrollY className="flex-1 box-border">
         <View className="p-[20rpx]">
-        {/* 上传作品 */}
-        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.workLabel')}</Text>
-          <View className="flex flex-wrap gap-[16rpx]">
-            {fileList.map((f, i) => (
-              <View key={i} className="relative w-[160rpx] h-[160rpx] rounded-[12rpx] overflow-hidden">
-                <Image className="w-full h-full" src={f.url} mode="aspectFill" />
-                <View className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[rgba(0,0,0,0.6)] rounded-[6rpx] flex items-center justify-center" onClick={() => removeFile(i)}>
-                  <Text className="text-white text-[24rpx] leading-none">×</Text>
+          {/* 上传作品 */}
+          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+              {t('aigc.publish.workLabel')}
+            </Text>
+            <View className="flex flex-wrap gap-[16rpx]">
+              {fileList.map((f, i) => (
+                <View
+                  key={i}
+                  className="relative w-[160rpx] h-[160rpx] rounded-[12rpx] overflow-hidden"
+                >
+                  <Image className="w-full h-full" src={f.url} mode="aspectFill" />
+                  <View
+                    className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[rgba(0,0,0,0.6)] rounded-[6rpx] flex items-center justify-center"
+                    onClick={() => removeFile(i)}
+                  >
+                    <Text className="text-white text-[24rpx] leading-none">×</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-            {fileList.length < MAX_FILES ? (
-              <View className="w-[160rpx] h-[160rpx] bg-background border-[2rpx] border-dashed border-muted-foreground rounded-[12rpx] flex flex-col items-center justify-center" onClick={chooseImage}>
-                <Text className="text-[48rpx] text-muted-foreground leading-none">+</Text>
-                <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">{t('aigc.publish.addImage')}</Text>
-              </View>
-            ) : null}
+              ))}
+              {fileList.length < MAX_FILES ? (
+                <View
+                  className="w-[160rpx] h-[160rpx] bg-background border-[2rpx] border-dashed border-muted-foreground rounded-[12rpx] flex flex-col items-center justify-center"
+                  onClick={chooseImage}
+                >
+                  <Text className="text-[48rpx] text-muted-foreground leading-none">+</Text>
+                  <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
+                    {t('aigc.publish.addImage')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
 
-        {/* 标题 */}
-        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.titleLabel')}</Text>
-          <Input
-            className="w-full h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] box-border"
-            maxlength={50}
-            placeholder={t('aigc.publish.titlePlaceholder')}
-            value={title}
-            onInput={(e) => setTitle(e.detail.value)}
-          />
-        </View>
+          {/* 标题 */}
+          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+              {t('aigc.publish.titleLabel')}
+            </Text>
+            <Input
+              className="w-full h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] box-border"
+              maxlength={50}
+              placeholder={t('aigc.publish.titlePlaceholder')}
+              value={title}
+              onInput={(e) => setTitle(e.detail.value)}
+            />
+          </View>
 
-        {/* 简介 */}
-        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.descLabel')}</Text>
-          <Textarea
-            className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
-            placeholder={t('aigc.publish.descPlaceholder')}
-            value={desc}
-            onInput={(e) => setDesc(e.detail.value)}
-          />
-        </View>
+          {/* 简介 */}
+          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+              {t('aigc.publish.descLabel')}
+            </Text>
+            <Textarea
+              className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
+              placeholder={t('aigc.publish.descPlaceholder')}
+              value={desc}
+              onInput={(e) => setDesc(e.detail.value)}
+            />
+          </View>
 
-        {/* 提示词 */}
-        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.promptLabel')}</Text>
-          <Textarea
-            className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
-            placeholder={t('aigc.publish.promptPlaceholder')}
-            value={prompt}
-            onInput={(e) => setPrompt(e.detail.value)}
-          />
-        </View>
+          {/* 提示词 */}
+          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+              {t('aigc.publish.promptLabel')}
+            </Text>
+            <Textarea
+              className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
+              placeholder={t('aigc.publish.promptPlaceholder')}
+              value={prompt}
+              onInput={(e) => setPrompt(e.detail.value)}
+            />
+          </View>
 
-        <Button
-          className="w-full bg-primary text-foreground text-[30rpx] rounded-[12rpx] mt-[20rpx]"
-          loading={submitting || uploading}
-          disabled={submitting || uploading}
-          onClick={onSubmit}
-        >
-          {t('aigc.publish.publish')}
-        </Button>
-        <View className="h-[60rpx]" />
+          <Button
+            className="w-full bg-primary text-foreground text-[30rpx] rounded-[12rpx] mt-[20rpx]"
+            loading={submitting || uploading}
+            disabled={submitting || uploading}
+            onClick={onSubmit}
+          >
+            {t('aigc.publish.publish')}
+          </Button>
+          <View className="h-[60rpx]" />
         </View>
       </ScrollView>
     </View>

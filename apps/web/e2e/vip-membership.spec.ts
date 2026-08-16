@@ -19,7 +19,9 @@ test.describe('VIP 会员页 /vip', () => {
     // 等待内容加载
     await page.waitForTimeout(2000)
     // 查找订阅按钮
-    const subscribeBtn = page.getByRole('link', { name: /订阅|Subscribe|免费开始|Get Started/i }).first()
+    const subscribeBtn = page
+      .getByRole('link', { name: /订阅|Subscribe|免费开始|Get Started/i })
+      .first()
     if (await subscribeBtn.isVisible()) {
       const href = await subscribeBtn.getAttribute('href')
       expect(href).toContain('/payment/checkout')

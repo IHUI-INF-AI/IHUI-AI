@@ -378,7 +378,13 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
         </Tabs>
 
         <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isPending} className="shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={isPending}
+            className="shrink-0"
+          >
             <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
           {tab === 'import' ? (

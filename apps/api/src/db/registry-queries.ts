@@ -81,9 +81,7 @@ function toSyncLog(r: RegistrySyncLogRecord): RegistrySyncLog {
   }
 }
 
-function toWebhookTrigger(
-  r: RegistryWebhookTriggerDBRecord,
-): RegistryWebhookTriggerRecord {
+function toWebhookTrigger(r: RegistryWebhookTriggerDBRecord): RegistryWebhookTriggerRecord {
   return {
     id: r.id,
     name: r.name,
@@ -131,12 +129,7 @@ export async function listRegistryItems(
   if (query.source) conds.push(eq(registryItems.source, query.source))
   if (query.q) {
     const like = `%${query.q}%`
-    conds.push(
-      or(
-        ilike(registryItems.name, like),
-        ilike(registryItems.description, like),
-      )!,
-    )
+    conds.push(or(ilike(registryItems.name, like), ilike(registryItems.description, like))!)
   }
   if (query.category) {
     // categories 是 jsonb 数组,用 @> 包含判断
@@ -176,13 +169,16 @@ export async function listRegistryItems(
   if (userId && rows.length > 0) {
     const currentPageKeys = rows.map((r) => `${r.sourceType}:${r.sourceId}`)
     const userInstalls = await dbRead.execute(
-      sql`SELECT key FROM "user_preferences" WHERE "user_id" = ${userId} AND "group" = 'registry_installs' AND key IN (${sql.join(currentPageKeys.map((k) => sql`${k}`), sql`, `)})`,
+      sql`SELECT key FROM "user_preferences" WHERE "user_id" = ${userId} AND "group" = 'registry_installs' AND key IN (${sql.join(
+        currentPageKeys.map((k) => sql`${k}`),
+        sql`, `,
+      )})`,
     )
     // drizzle postgres-js execute 返回 RowList 或 { rows },兼容两种形态
     const installRows = (
       Array.isArray(userInstalls)
         ? userInstalls
-        : (userInstalls as { rows?: unknown[] }).rows ?? []
+        : ((userInstalls as { rows?: unknown[] }).rows ?? [])
     ) as Array<{ key: string }>
     const installedKeys = new Set(installRows.map((r) => r.key))
     installedIds = rows
@@ -202,14 +198,8 @@ export async function listRegistryItems(
 /**
  * 单条详情。install_status 先固定返回 not_installed(安装表后续接入)。
  */
-export async function getRegistryItem(
-  id: string,
-): Promise<RegistryItemDetailResponse | null> {
-  const rows = await dbRead
-    .select()
-    .from(registryItems)
-    .where(eq(registryItems.id, id))
-    .limit(1)
+export async function getRegistryItem(id: string): Promise<RegistryItemDetailResponse | null> {
+  const rows = await dbRead.select().from(registryItems).where(eq(registryItems.id, id)).limit(1)
   const r = rows[0]
   if (!r) return null
   const installStatus: RegistryInstallStatus = 'not_installed'
@@ -274,11 +264,7 @@ export async function upsertRegistryItem(
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      target: [
-        registryItems.sourceType,
-        registryItems.source,
-        registryItems.sourceId,
-      ],
+      target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
       set: {
         name: raw.name,
         description: raw.description,
@@ -498,10 +484,7 @@ export async function listSyncLogs(
 export async function insertWebhookTrigger(
   record: NewRegistryWebhookTriggerRecord,
 ): Promise<RegistryWebhookTriggerRecord> {
-  const rows = await db
-    .insert(registryWebhookTriggers)
-    .values(record)
-    .returning()
+  const rows = await db.insert(registryWebhookTriggers).values(record).returning()
   const r = rows[0]
   if (!r) throw new Error('insertWebhookTrigger: 未返回记录')
   return toWebhookTrigger(r)
