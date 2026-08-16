@@ -41,35 +41,33 @@ export function ConversionFunnel({ data, loading }: Props) {
         </div>
 
         <div className="mt-4 space-y-2.5">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-1">
-                <div className="h-3 w-16 animate-pulse rounded bg-muted" />
-                <div className="h-7 w-full animate-pulse rounded bg-muted" />
-              </div>
-            ))
-          ) : (
-            data.map((s) => {
-              const pct = (s.count / first) * 100
-              return (
-                <div key={s.stage} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{t(labelKey[s.stage])}</span>
-                    <span className="font-medium">
-                      {s.count}
-                      <span className="ml-1 text-muted-foreground">{pct.toFixed(1)}%</span>
-                    </span>
-                  </div>
-                  <div className="h-6 w-full rounded-sm bg-muted/40">
-                    <div
-                      className={`flex h-full items-center rounded-sm ${STAGE_CLS[s.stage]} px-2`}
-                      style={{ width: `${Math.max(8, pct)}%` }}
-                    />
-                  </div>
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                  <div className="h-7 w-full animate-pulse rounded bg-muted" />
                 </div>
-              )
-            })
-          )}
+              ))
+            : data.map((s) => {
+                const pct = (s.count / first) * 100
+                return (
+                  <div key={s.stage} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{t(labelKey[s.stage])}</span>
+                      <span className="font-medium">
+                        {s.count}
+                        <span className="ml-1 text-muted-foreground">{pct.toFixed(1)}%</span>
+                      </span>
+                    </div>
+                    <div className="h-6 w-full rounded-sm bg-muted/40">
+                      <div
+                        className={`flex h-full items-center rounded-sm ${STAGE_CLS[s.stage]} px-2`}
+                        style={{ width: `${Math.max(8, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
         </div>
       </CardContent>
     </Card>

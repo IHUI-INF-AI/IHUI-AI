@@ -175,7 +175,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     if (!result.sent && primary !== 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) {
       const fallback = await sendViaSmtp(options)
       if (fallback.sent) {
-        logger.warn(`[email-fallback] primary=${primary} failed, smtp ok, To: ${maskEmail(options.to)}`)
+        logger.warn(
+          `[email-fallback] primary=${primary} failed, smtp ok, To: ${maskEmail(options.to)}`,
+        )
         result = fallback
       }
     }

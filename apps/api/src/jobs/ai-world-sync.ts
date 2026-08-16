@@ -64,7 +64,8 @@ export interface SyncSourceResult {
 
 // ===== 模型排行榜类型定义(2026-07-22 新增,5 大权威榜单) =====
 
-export type LeaderboardId = 'lmsys' | 'opencompass' | 'hf-open-llm' | 'superclue' | 'artificial-analysis'
+export type LeaderboardId =
+  'lmsys' | 'opencompass' | 'hf-open-llm' | 'superclue' | 'artificial-analysis'
 
 export interface LeaderboardEntry {
   leaderboard: LeaderboardId
@@ -86,29 +87,91 @@ function rsshub(path: string): string {
 }
 
 /** 国外官方 blog RSS(12 站) */
-const RSS_FEEDS_OFFICIAL: Array<{ source: string; url: string; kind: ItemKind; categorySlug?: string }> = [
+const RSS_FEEDS_OFFICIAL: Array<{
+  source: string
+  url: string
+  kind: ItemKind
+  categorySlug?: string
+}> = [
   { source: 'openai', url: 'https://openai.com/blog/rss.xml', kind: 'news', categorySlug: 'chat' },
-  { source: 'anthropic', url: 'https://www.anthropic.com/news/rss.xml', kind: 'news', categorySlug: 'chat' },
-  { source: 'deepmind', url: 'https://deepmind.google/blog/rss.xml', kind: 'news', categorySlug: 'multimodal' },
-  { source: 'meta-ai', url: 'https://ai.meta.com/blog/rss/', kind: 'news', categorySlug: 'multimodal' },
-  { source: 'microsoft-ai', url: 'https://blogs.microsoft.com/ai/feed/', kind: 'news', categorySlug: 'platform' },
-  { source: 'huggingface-blog', url: 'https://huggingface.co/blog/feed.xml', kind: 'news', categorySlug: 'platform' },
-  { source: 'stability-ai', url: 'https://stability.ai/news/rss.xml', kind: 'news', categorySlug: 'image' },
+  {
+    source: 'anthropic',
+    url: 'https://www.anthropic.com/news/rss.xml',
+    kind: 'news',
+    categorySlug: 'chat',
+  },
+  {
+    source: 'deepmind',
+    url: 'https://deepmind.google/blog/rss.xml',
+    kind: 'news',
+    categorySlug: 'multimodal',
+  },
+  {
+    source: 'meta-ai',
+    url: 'https://ai.meta.com/blog/rss/',
+    kind: 'news',
+    categorySlug: 'multimodal',
+  },
+  {
+    source: 'microsoft-ai',
+    url: 'https://blogs.microsoft.com/ai/feed/',
+    kind: 'news',
+    categorySlug: 'platform',
+  },
+  {
+    source: 'huggingface-blog',
+    url: 'https://huggingface.co/blog/feed.xml',
+    kind: 'news',
+    categorySlug: 'platform',
+  },
+  {
+    source: 'stability-ai',
+    url: 'https://stability.ai/news/rss.xml',
+    kind: 'news',
+    categorySlug: 'image',
+  },
   { source: 'mistral-ai', url: 'https://mistral.ai/rss.xml', kind: 'news', categorySlug: 'chat' },
   { source: 'cohere', url: 'https://cohere.com/blog/rss.xml', kind: 'news', categorySlug: 'chat' },
-  { source: 'nvidia-ai', url: 'https://blogs.nvidia.com/blog/category/deep-learning/feed/', kind: 'news', categorySlug: 'platform' },
-  { source: 'google-research', url: 'https://research.google/blog/rss/', kind: 'news', categorySlug: 'multimodal' },
-  { source: 'apple-ml', url: 'https://machinelearning.apple.com/rss.xml', kind: 'news', categorySlug: 'multimodal' },
+  {
+    source: 'nvidia-ai',
+    url: 'https://blogs.nvidia.com/blog/category/deep-learning/feed/',
+    kind: 'news',
+    categorySlug: 'platform',
+  },
+  {
+    source: 'google-research',
+    url: 'https://research.google/blog/rss/',
+    kind: 'news',
+    categorySlug: 'multimodal',
+  },
+  {
+    source: 'apple-ml',
+    url: 'https://machinelearning.apple.com/rss.xml',
+    kind: 'news',
+    categorySlug: 'multimodal',
+  },
 ]
 
 /** 国外科技媒体 RSS(8 站) */
 const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = [
-  { source: 'techcrunch-ai', url: 'https://techcrunch.com/category/artificial-intelligence/feed/', kind: 'news' },
-  { source: 'the-verge-ai', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', kind: 'news' },
+  {
+    source: 'techcrunch-ai',
+    url: 'https://techcrunch.com/category/artificial-intelligence/feed/',
+    kind: 'news',
+  },
+  {
+    source: 'the-verge-ai',
+    url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml',
+    kind: 'news',
+  },
   { source: 'venturebeat-ai', url: 'https://venturebeat.com/category/ai/feed/', kind: 'news' },
   { source: 'mit-tech-review', url: 'https://www.technologyreview.com/feed/', kind: 'news' },
   { source: 'wired-ai', url: 'https://www.wired.com/feed/tag/ai/latest/rss', kind: 'news' },
-  { source: 'ars-technica', url: 'https://feeds.arstechnica.com/arstechnica/features', kind: 'news' },
+  {
+    source: 'ars-technica',
+    url: 'https://feeds.arstechnica.com/arstechnica/features',
+    kind: 'news',
+  },
   { source: 'the-information', url: 'https://www.theinformation.com/feed/', kind: 'news' },
   { source: 'stratechery', url: 'https://stratechery.com/feed/', kind: 'news' },
 ]
@@ -138,8 +201,18 @@ const HF_PAPERS_URL = 'https://huggingface.co/papers'
 
 /** GitHub Trending topics(12 个) */
 const GITHUB_TOPICS = [
-  'ai', 'llm', 'machine-learning', 'deep-learning', 'transformer',
-  'chatbot', 'langchain', 'agent', 'stable-diffusion', 'gpt', 'rag', 'neural-network',
+  'ai',
+  'llm',
+  'machine-learning',
+  'deep-learning',
+  'transformer',
+  'chatbot',
+  'langchain',
+  'agent',
+  'stable-diffusion',
+  'gpt',
+  'rag',
+  'neural-network',
 ]
 const GITHUB_MAX_RESULTS = 60
 
@@ -162,11 +235,21 @@ const AI_APPS: Array<{ source: string; name: string; url: string; category: stri
   { source: 'hunyuan', name: 'Hunyuan', url: 'https://hunyuan.tencent.com', category: 'chat' },
   { source: 'skywork', name: 'Skywork', url: 'https://chat.tiangong.cn', category: 'chat' },
   // 图像生成(6)
-  { source: 'midjourney', name: 'Midjourney', url: 'https://www.midjourney.com', category: 'image' },
+  {
+    source: 'midjourney',
+    name: 'Midjourney',
+    url: 'https://www.midjourney.com',
+    category: 'image',
+  },
   { source: 'dalle', name: 'DALL·E', url: 'https://openai.com/dall-e-3', category: 'image' },
   { source: 'leonardo', name: 'Leonardo', url: 'https://leonardo.ai', category: 'image' },
   { source: 'ideogram', name: 'Ideogram', url: 'https://ideogram.ai', category: 'image' },
-  { source: 'firefly', name: 'Adobe Firefly', url: 'https://www.adobe.com/products/firefly.html', category: 'image' },
+  {
+    source: 'firefly',
+    name: 'Adobe Firefly',
+    url: 'https://www.adobe.com/products/firefly.html',
+    category: 'image',
+  },
   { source: 'civitai', name: 'Civitai', url: 'https://civitai.com', category: 'image' },
   // 视频生成(5)
   { source: 'sora', name: 'Sora', url: 'https://sora.com', category: 'video' },
@@ -181,55 +264,160 @@ const AI_APPS: Array<{ source: string; name: string; url: string; category: stri
   { source: 'descript', name: 'Descript', url: 'https://www.descript.com', category: 'audio' },
   // 编程开发(4)
   { source: 'cursor', name: 'Cursor', url: 'https://cursor.com', category: 'code' },
-  { source: 'copilot', name: 'GitHub Copilot', url: 'https://github.com/features/copilot', category: 'code' },
+  {
+    source: 'copilot',
+    name: 'GitHub Copilot',
+    url: 'https://github.com/features/copilot',
+    category: 'code',
+  },
   { source: 'windsurf', name: 'Windsurf', url: 'https://codeium.com/windsurf', category: 'code' },
   { source: 'codeium', name: 'Codeium', url: 'https://codeium.com', category: 'code' },
   // 搜索问答(2)
-  { source: 'perplexity-app', name: 'Perplexity', url: 'https://www.perplexity.ai', category: 'search' },
+  {
+    source: 'perplexity-app',
+    name: 'Perplexity',
+    url: 'https://www.perplexity.ai',
+    category: 'search',
+  },
   { source: 'you-com', name: 'You.com', url: 'https://you.com', category: 'search' },
 ]
 
 /** AI 工具元数据(35+ 国内外,按 category 分组) */
 const AI_TOOLS: Array<{ source: string; name: string; url: string; category: string }> = [
   // 图像工具(5)
-  { source: 'stable-diffusion', name: 'Stable Diffusion', url: 'https://stability.ai', category: 'image' },
+  {
+    source: 'stable-diffusion',
+    name: 'Stable Diffusion',
+    url: 'https://stability.ai',
+    category: 'image',
+  },
   { source: 'flux', name: 'FLUX', url: 'https://blackforestlabs.ai', category: 'image' },
-  { source: 'comfyui', name: 'ComfyUI', url: 'https://github.com/comfyanonymous/ComfyUI', category: 'image' },
-  { source: 'automatic1111', name: 'AUTOMATIC1111', url: 'https://github.com/AUTOMATIC1111/stable-diffusion-webui', category: 'image' },
-  { source: 'midjourney-tool', name: 'Midjourney', url: 'https://www.midjourney.com', category: 'image' },
+  {
+    source: 'comfyui',
+    name: 'ComfyUI',
+    url: 'https://github.com/comfyanonymous/ComfyUI',
+    category: 'image',
+  },
+  {
+    source: 'automatic1111',
+    name: 'AUTOMATIC1111',
+    url: 'https://github.com/AUTOMATIC1111/stable-diffusion-webui',
+    category: 'image',
+  },
+  {
+    source: 'midjourney-tool',
+    name: 'Midjourney',
+    url: 'https://www.midjourney.com',
+    category: 'image',
+  },
   // 视频工具(2)
   { source: 'runway-tool', name: 'Runway', url: 'https://runwayml.com', category: 'video' },
-  { source: 'hunyuan-video', name: 'Hunyuan Video', url: 'https://hunyuan.tencent.com', category: 'video' },
+  {
+    source: 'hunyuan-video',
+    name: 'Hunyuan Video',
+    url: 'https://hunyuan.tencent.com',
+    category: 'video',
+  },
   // 音频工具(2)
   { source: 'elevenlabs', name: 'ElevenLabs', url: 'https://elevenlabs.io', category: 'audio' },
   { source: 'suno-tool', name: 'Suno', url: 'https://suno.com', category: 'audio' },
   // 开发平台(13)
-  { source: 'huggingface', name: 'Hugging Face', url: 'https://huggingface.co', category: 'platform' },
+  {
+    source: 'huggingface',
+    name: 'Hugging Face',
+    url: 'https://huggingface.co',
+    category: 'platform',
+  },
   { source: 'replicate', name: 'Replicate', url: 'https://replicate.com', category: 'platform' },
   { source: 'together', name: 'Together AI', url: 'https://www.together.ai', category: 'platform' },
   { source: 'anyscale', name: 'Anyscale', url: 'https://www.anyscale.com', category: 'platform' },
   { source: 'fireworks', name: 'Fireworks AI', url: 'https://fireworks.ai', category: 'platform' },
   { source: 'openrouter', name: 'OpenRouter', url: 'https://openrouter.ai', category: 'platform' },
   { source: 'groq', name: 'Groq', url: 'https://groq.com', category: 'platform' },
-  { source: 'mistral-platform', name: 'Mistral Platform', url: 'https://console.mistral.ai', category: 'platform' },
-  { source: 'cohere-platform', name: 'Cohere Platform', url: 'https://dashboard.cohere.com', category: 'platform' },
-  { source: 'bailian', name: '阿里百炼', url: 'https://bailian.console.aliyun.com', category: 'platform' },
-  { source: 'volcengine-ark', name: '火山方舟', url: 'https://www.volcengine.com/product/ark', category: 'platform' },
-  { source: 'qianfan', name: '百度千帆', url: 'https://qianfan.cloud.baidu.com', category: 'platform' },
-  { source: 'zhipu-open', name: '智谱开放平台', url: 'https://open.bigmodel.cn', category: 'platform' },
+  {
+    source: 'mistral-platform',
+    name: 'Mistral Platform',
+    url: 'https://console.mistral.ai',
+    category: 'platform',
+  },
+  {
+    source: 'cohere-platform',
+    name: 'Cohere Platform',
+    url: 'https://dashboard.cohere.com',
+    category: 'platform',
+  },
+  {
+    source: 'bailian',
+    name: '阿里百炼',
+    url: 'https://bailian.console.aliyun.com',
+    category: 'platform',
+  },
+  {
+    source: 'volcengine-ark',
+    name: '火山方舟',
+    url: 'https://www.volcengine.com/product/ark',
+    category: 'platform',
+  },
+  {
+    source: 'qianfan',
+    name: '百度千帆',
+    url: 'https://qianfan.cloud.baidu.com',
+    category: 'platform',
+  },
+  {
+    source: 'zhipu-open',
+    name: '智谱开放平台',
+    url: 'https://open.bigmodel.cn',
+    category: 'platform',
+  },
   // 框架库(6)
-  { source: 'langchain', name: 'LangChain', url: 'https://www.langchain.com', category: 'framework' },
-  { source: 'llamaindex', name: 'LlamaIndex', url: 'https://www.llamaindex.ai', category: 'framework' },
+  {
+    source: 'langchain',
+    name: 'LangChain',
+    url: 'https://www.langchain.com',
+    category: 'framework',
+  },
+  {
+    source: 'llamaindex',
+    name: 'LlamaIndex',
+    url: 'https://www.llamaindex.ai',
+    category: 'framework',
+  },
   { source: 'crewai', name: 'CrewAI', url: 'https://www.crewai.com', category: 'framework' },
-  { source: 'autogen', name: 'AutoGen', url: 'https://github.com/microsoft/autogen', category: 'framework' },
-  { source: 'dspy', name: 'DSPy', url: 'https://github.com/stanfordnlp/dspy', category: 'framework' },
-  { source: 'semantic-kernel', name: 'Semantic Kernel', url: 'https://github.com/microsoft/semantic-kernel', category: 'framework' },
+  {
+    source: 'autogen',
+    name: 'AutoGen',
+    url: 'https://github.com/microsoft/autogen',
+    category: 'framework',
+  },
+  {
+    source: 'dspy',
+    name: 'DSPy',
+    url: 'https://github.com/stanfordnlp/dspy',
+    category: 'framework',
+  },
+  {
+    source: 'semantic-kernel',
+    name: 'Semantic Kernel',
+    url: 'https://github.com/microsoft/semantic-kernel',
+    category: 'framework',
+  },
   // 本地部署/推理(7)
-  { source: 'vllm', name: 'vLLM', url: 'https://github.com/vllm-project/vllm', category: 'framework' },
+  {
+    source: 'vllm',
+    name: 'vLLM',
+    url: 'https://github.com/vllm-project/vllm',
+    category: 'framework',
+  },
   { source: 'ollama', name: 'Ollama', url: 'https://ollama.com', category: 'framework' },
   { source: 'lmstudio', name: 'LM Studio', url: 'https://lmstudio.ai', category: 'framework' },
   { source: 'localai', name: 'LocalAI', url: 'https://localai.io', category: 'framework' },
-  { source: 'litellm', name: 'LiteLLM', url: 'https://github.com/BerriAI/litellm', category: 'framework' },
+  {
+    source: 'litellm',
+    name: 'LiteLLM',
+    url: 'https://github.com/BerriAI/litellm',
+    category: 'framework',
+  },
   { source: 'jan', name: 'Jan', url: 'https://jan.ai', category: 'framework' },
   { source: 'gpt4all', name: 'GPT4All', url: 'https://gpt4all.io', category: 'framework' },
 ]
@@ -249,19 +437,91 @@ const AI_REPOS_GITHUB: Array<{ source: string; kind: ItemKind; owner: string; re
 ]
 
 // AI World 自定义分类(借鉴 ai-bot.cn 结构但重命名,不抄 slug)
-export const AI_WORLD_CATEGORIES: Array<{ slug: string; name: string; description: string; icon: string; sort: number }> = [
+export const AI_WORLD_CATEGORIES: Array<{
+  slug: string
+  name: string
+  description: string
+  icon: string
+  sort: number
+}> = [
   { slug: 'chat', name: '对话助手', description: '通用 AI 对话与聊天助手', icon: 'Bot', sort: 1 },
-  { slug: 'image', name: '图像生成', description: 'AI 绘画、图像编辑与视觉创作', icon: 'Image', sort: 2 },
-  { slug: 'video', name: '视频生成', description: 'AI 视频创作、剪辑与合成', icon: 'Video', sort: 3 },
-  { slug: 'audio', name: '音频语音', description: 'AI 音乐、语音合成与音频处理', icon: 'Music', sort: 4 },
-  { slug: 'code', name: '编程开发', description: 'AI 编程、代码生成与开发辅助', icon: 'Code', sort: 5 },
-  { slug: 'search', name: '搜索问答', description: 'AI 搜索引擎与知识问答', icon: 'Search', sort: 6 },
-  { slug: 'platform', name: '开发平台', description: 'AI 模型托管、训练与部署平台', icon: 'Cloud', sort: 7 },
-  { slug: 'framework', name: '框架库', description: 'AI 应用开发框架与工具链', icon: 'Boxes', sort: 8 },
-  { slug: 'multimodal', name: '多模态', description: '融合文本、图像、音频的多模态 AI', icon: 'Layers', sort: 9 },
-  { slug: 'news', name: 'AI 资讯', description: 'AI 行业动态、官方博客与新闻', icon: 'Newspaper', sort: 10 },
-  { slug: 'paper', name: 'AI 论文', description: 'arXiv 与 Hugging Face 每日论文', icon: 'FileText', sort: 11 },
-  { slug: 'project', name: '开源项目', description: 'GitHub 趋势 AI 开源项目', icon: 'Github', sort: 12 },
+  {
+    slug: 'image',
+    name: '图像生成',
+    description: 'AI 绘画、图像编辑与视觉创作',
+    icon: 'Image',
+    sort: 2,
+  },
+  {
+    slug: 'video',
+    name: '视频生成',
+    description: 'AI 视频创作、剪辑与合成',
+    icon: 'Video',
+    sort: 3,
+  },
+  {
+    slug: 'audio',
+    name: '音频语音',
+    description: 'AI 音乐、语音合成与音频处理',
+    icon: 'Music',
+    sort: 4,
+  },
+  {
+    slug: 'code',
+    name: '编程开发',
+    description: 'AI 编程、代码生成与开发辅助',
+    icon: 'Code',
+    sort: 5,
+  },
+  {
+    slug: 'search',
+    name: '搜索问答',
+    description: 'AI 搜索引擎与知识问答',
+    icon: 'Search',
+    sort: 6,
+  },
+  {
+    slug: 'platform',
+    name: '开发平台',
+    description: 'AI 模型托管、训练与部署平台',
+    icon: 'Cloud',
+    sort: 7,
+  },
+  {
+    slug: 'framework',
+    name: '框架库',
+    description: 'AI 应用开发框架与工具链',
+    icon: 'Boxes',
+    sort: 8,
+  },
+  {
+    slug: 'multimodal',
+    name: '多模态',
+    description: '融合文本、图像、音频的多模态 AI',
+    icon: 'Layers',
+    sort: 9,
+  },
+  {
+    slug: 'news',
+    name: 'AI 资讯',
+    description: 'AI 行业动态、官方博客与新闻',
+    icon: 'Newspaper',
+    sort: 10,
+  },
+  {
+    slug: 'paper',
+    name: 'AI 论文',
+    description: 'arXiv 与 Hugging Face 每日论文',
+    icon: 'FileText',
+    sort: 11,
+  },
+  {
+    slug: 'project',
+    name: '开源项目',
+    description: 'GitHub 趋势 AI 开源项目',
+    icon: 'Github',
+    sort: 12,
+  },
 ]
 
 // ===== 抓取器 =====
@@ -271,7 +531,11 @@ const rssParser = new RSSParser({
   headers: { 'User-Agent': 'IHUI-AI/1.0 AI-World-Sync' },
 })
 
-const fetchWithTimeout = async (url: string, opts: RequestInit = {}, timeoutMs = 20000): Promise<Response> => {
+const fetchWithTimeout = async (
+  url: string,
+  opts: RequestInit = {},
+  timeoutMs = 20000,
+): Promise<Response> => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -298,7 +562,12 @@ function cleanText(html: string | undefined, maxLen = 1000): string | undefined 
 }
 
 /** 抓 RSS feed(资讯类) */
-async function fetchRssFeed(feed: { source: string; url: string; kind: ItemKind; categorySlug?: string }): Promise<FetchedItem[]> {
+async function fetchRssFeed(feed: {
+  source: string
+  url: string
+  kind: ItemKind
+  categorySlug?: string
+}): Promise<FetchedItem[]> {
   const res = await fetchWithTimeout(feed.url)
   if (!res.ok) throw new Error(`RSS ${feed.source} HTTP ${res.status}`)
   const xml = await res.text()
@@ -349,25 +618,27 @@ async function fetchHuggingfacePapers(): Promise<FetchedItem[]> {
   const html = await res.text()
   const $ = cheerio.load(html)
   const items: FetchedItem[] = []
-  $('article').slice(0, 30).each((_, el) => {
-    const $el = $(el)
-    const title = $el.find('h3 a, h3, a[href*="/papers/"]').first().text().trim()
-    const href = $el.find('a[href*="/papers/"]').first().attr('href')
-    const summary = $el.find('p, .summary, [class*="summary"]').first().text().trim()
-    if (!title || !href) return
-    const url = href.startsWith('http') ? href : `https://huggingface.co${href}`
-    items.push({
-      kind: 'paper',
-      source: 'huggingface-papers',
-      sourceUrl: url,
-      title: title.slice(0, 500),
-      summary: summary.slice(0, 1000) || undefined,
-      url,
-      publishedAt: new Date(),
-      metadata: { dailyFeatured: true },
-      categorySlug: 'paper',
+  $('article')
+    .slice(0, 30)
+    .each((_, el) => {
+      const $el = $(el)
+      const title = $el.find('h3 a, h3, a[href*="/papers/"]').first().text().trim()
+      const href = $el.find('a[href*="/papers/"]').first().attr('href')
+      const summary = $el.find('p, .summary, [class*="summary"]').first().text().trim()
+      if (!title || !href) return
+      const url = href.startsWith('http') ? href : `https://huggingface.co${href}`
+      items.push({
+        kind: 'paper',
+        source: 'huggingface-papers',
+        sourceUrl: url,
+        title: title.slice(0, 500),
+        summary: summary.slice(0, 1000) || undefined,
+        url,
+        publishedAt: new Date(),
+        metadata: { dailyFeatured: true },
+        categorySlug: 'paper',
+      })
     })
-  })
   return items
 }
 
@@ -380,12 +651,16 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
   for (const topic of GITHUB_TOPICS) {
     try {
       const url = `https://api.github.com/search/repositories?q=topic:${topic}+pushed:>${since}&sort=stars&order=desc&per_page=${perPage}`
-      const res = await fetchWithTimeout(url, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'IHUI-AI/1.0 AI-World-Sync',
+      const res = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'IHUI-AI/1.0 AI-World-Sync',
+          },
         },
-      }, 15000)
+        15000,
+      )
       if (!res.ok) {
         // rate limit 或其他错误,跳过此 topic 继续下一个
         logger.warn(`[ai-world-sync] github topic=${topic} HTTP ${res.status}, skip`)
@@ -403,9 +678,10 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
           title: String(repo.full_name ?? repo.name ?? 'Untitled'),
           summary: description?.slice(0, 1000),
           url: htmlUrl,
-          coverImage: repo.owner && typeof repo.owner === 'object' && 'avatar_url' in repo.owner
-            ? String((repo.owner as Record<string, unknown>).avatar_url)
-            : undefined,
+          coverImage:
+            repo.owner && typeof repo.owner === 'object' && 'avatar_url' in repo.owner
+              ? String((repo.owner as Record<string, unknown>).avatar_url)
+              : undefined,
           publishedAt: repo.pushed_at ? new Date(String(repo.pushed_at)) : undefined,
           metadata: {
             stars: repo.stargazers_count,
@@ -417,30 +693,42 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
         })
       }
     } catch (err) {
-      logger.warn(`[ai-world-sync] github topic=${topic} error:`, { error: err instanceof Error ? err.message : err })
+      logger.warn(`[ai-world-sync] github topic=${topic} error:`, {
+        error: err instanceof Error ? err.message : err,
+      })
     }
   }
   // 去重(同 sourceUrl)
   const seen = new Set<string>()
-  return items.filter((it) => {
-    if (seen.has(it.sourceUrl)) return false
-    seen.add(it.sourceUrl)
-    return true
-  }).slice(0, GITHUB_MAX_RESULTS)
+  return items
+    .filter((it) => {
+      if (seen.has(it.sourceUrl)) return false
+      seen.add(it.sourceUrl)
+      return true
+    })
+    .slice(0, GITHUB_MAX_RESULTS)
 }
 
 /** 抓 AI APP / Tool 官网元数据(只取 title + meta description,不抓 ai-bot.cn) */
-async function fetchSiteMeta(entry: { source: string; name: string; url: string; category: string }, kind: ItemKind): Promise<FetchedItem> {
-  const res = await fetchWithTimeout(entry.url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)' },
-  }, 15000)
+async function fetchSiteMeta(
+  entry: { source: string; name: string; url: string; category: string },
+  kind: ItemKind,
+): Promise<FetchedItem> {
+  const res = await fetchWithTimeout(
+    entry.url,
+    {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)' },
+    },
+    15000,
+  )
   if (!res.ok) throw new Error(`${entry.name} HTTP ${res.status}`)
   const html = await res.text()
   const $ = cheerio.load(html)
   const title = $('title').first().text().trim() || entry.name
-  const description = $('meta[name="description"]').attr('content')?.trim()
-    || $('meta[property="og:description"]').attr('content')?.trim()
-    || ''
+  const description =
+    $('meta[name="description"]').attr('content')?.trim() ||
+    $('meta[property="og:description"]').attr('content')?.trim() ||
+    ''
   const ogImage = $('meta[property="og:image"]').attr('content') ?? undefined
   return {
     kind,
@@ -492,7 +780,9 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
     return text.trim() || null
   } catch (err) {
     if (!llmErrorLogged) {
-      logger.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, { error: err instanceof Error ? err.message : err })
+      logger.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, {
+        error: err instanceof Error ? err.message : err,
+      })
       llmErrorLogged = true
     }
     return null
@@ -523,18 +813,24 @@ export async function ensureCategories(): Promise<void> {
       .where(eq(aiWorldCategories.slug, cat.slug))
       .limit(1)
     if (existing.length === 0) {
-      await db.insert(aiWorldCategories).values({
-        slug: cat.slug,
-        name: cat.name,
-        description: cat.description,
-        icon: cat.icon,
-        sort: cat.sort,
-        status: 1,
-      }).onConflictDoNothing()
+      await db
+        .insert(aiWorldCategories)
+        .values({
+          slug: cat.slug,
+          name: cat.name,
+          description: cat.description,
+          icon: cat.icon,
+          sort: cat.sort,
+          status: 1,
+        })
+        .onConflictDoNothing()
     }
   }
   // 预热缓存(limit 100 保证覆盖所有分类)
-  const allCats = await db.select({ id: aiWorldCategories.id, slug: aiWorldCategories.slug }).from(aiWorldCategories).limit(100)
+  const allCats = await db
+    .select({ id: aiWorldCategories.id, slug: aiWorldCategories.slug })
+    .from(aiWorldCategories)
+    .limit(100)
   for (const c of allCats) categoryIdCache.set(c.slug, c.id)
 }
 
@@ -577,10 +873,7 @@ async function upsertItem(item: FetchedItem): Promise<UpsertResult> {
   const existing = await db
     .select({ id: aiWorldItems.id })
     .from(aiWorldItems)
-    .where(and(
-      eq(aiWorldItems.kind, item.kind),
-      eq(aiWorldItems.sourceUrl, item.sourceUrl),
-    ))
+    .where(and(eq(aiWorldItems.kind, item.kind), eq(aiWorldItems.sourceUrl, item.sourceUrl)))
     .limit(1)
   const payload: NewAiWorldItem = {
     kind: item.kind,
@@ -662,16 +955,18 @@ async function syncOneSourceWithRetry(
         }
       }
       // status:全失败且 items>0 → failed;有成功有失败 → partial;否则 success
-      const status: SyncSourceResult['status'] = successCount === 0 && items.length > 0
-        ? 'failed'
-        : failCount > 0
-          ? 'partial'
-          : 'success'
+      const status: SyncSourceResult['status'] =
+        successCount === 0 && items.length > 0 ? 'failed' : failCount > 0 ? 'partial' : 'success'
       const errorParts: string[] = []
       if (failCount > 0) errorParts.push(`${failCount} failed`)
       if (skippedCount > 0) errorParts.push(`${skippedCount} skipped(dedup)`)
       const result: SyncSourceResult = {
-        source, kind, status, itemCount: successCount, startedAt, finishedAt: new Date(),
+        source,
+        kind,
+        status,
+        itemCount: successCount,
+        startedAt,
+        finishedAt: new Date(),
         error: errorParts.length > 0 ? errorParts.join(', ') : undefined,
       }
       await writeSyncLog(result)
@@ -684,7 +979,13 @@ async function syncOneSourceWithRetry(
     }
   }
   const failed: SyncSourceResult = {
-    source, kind, status: 'failed', itemCount: 0, startedAt, finishedAt: new Date(), error: lastError,
+    source,
+    kind,
+    status: 'failed',
+    itemCount: 0,
+    startedAt,
+    finishedAt: new Date(),
+    error: lastError,
   }
   await writeSyncLog(failed)
   return failed
@@ -724,7 +1025,11 @@ export async function syncAllSources(): Promise<SyncSourceResult[]> {
   for (let i = 0; i < AI_APPS.length; i += APP_BATCH) {
     const batch = AI_APPS.slice(i, i + APP_BATCH)
     const batchResults = await Promise.all(
-      batch.map((entry) => syncOneSourceWithRetry(entry.source, 'app', async () => [await fetchSiteMeta(entry, 'app')])),
+      batch.map((entry) =>
+        syncOneSourceWithRetry(entry.source, 'app', async () => [
+          await fetchSiteMeta(entry, 'app'),
+        ]),
+      ),
     )
     results.push(...batchResults)
   }
@@ -734,21 +1039,34 @@ export async function syncAllSources(): Promise<SyncSourceResult[]> {
   for (let i = 0; i < AI_TOOLS.length; i += TOOL_BATCH) {
     const batch = AI_TOOLS.slice(i, i + TOOL_BATCH)
     const batchResults = await Promise.all(
-      batch.map((entry) => syncOneSourceWithRetry(entry.source, 'tool', async () => [await fetchSiteMeta(entry, 'tool')])),
+      batch.map((entry) =>
+        syncOneSourceWithRetry(entry.source, 'tool', async () => [
+          await fetchSiteMeta(entry, 'tool'),
+        ]),
+      ),
     )
     results.push(...batchResults)
   }
 
   // 7. 模型排行榜(5 大权威榜单,2026-07-22 新增)
-  results.push(...await syncRankings())
+  results.push(...(await syncRankings()))
   // 8. 热度更新(GitHub stars/forks + LLM 综合分,2026-07-22 新增)
-  results.push(...await syncTrendingMetrics())
+  results.push(...(await syncTrendingMetrics()))
 
   return results
 }
 
 /** 统计信源数量(供 /sync/logs 接口展示,2026-07-22 扩充 rankings + trending) */
-export function getSourceStats(): { rss: number; arxiv: number; github: number; apps: number; tools: number; rankings: number; trending: number; total: number } {
+export function getSourceStats(): {
+  rss: number
+  arxiv: number
+  github: number
+  apps: number
+  tools: number
+  rankings: number
+  trending: number
+  total: number
+} {
   // rankings:5 大权威榜单(lmsys / opencompass / hf-open-llm / superclue / artificial-analysis)
   const rankingsCount = 5
   // trending:有 GitHub 仓库的 AI 工具/APP 数量
@@ -761,7 +1079,15 @@ export function getSourceStats(): { rss: number; arxiv: number; github: number; 
     tools: AI_TOOLS.length,
     rankings: rankingsCount,
     trending: trendingCount,
-    total: RSS_FEEDS.length + 1 + 1 + GITHUB_TOPICS.length + AI_APPS.length + AI_TOOLS.length + rankingsCount + trendingCount,
+    total:
+      RSS_FEEDS.length +
+      1 +
+      1 +
+      GITHUB_TOPICS.length +
+      AI_APPS.length +
+      AI_TOOLS.length +
+      rankingsCount +
+      trendingCount,
   }
 }
 
@@ -773,20 +1099,26 @@ let scheduledTask: ScheduledTask | null = null
 export function startAiWorldSyncScheduler(): void {
   if (scheduledTask) return
   // 每日 0 点 + 12 点(对应 12 小时间隔)
-  scheduledTask = cron.schedule('0 0,12 * * *', async () => {
-    try {
-      const results = await syncAllSources()
-      const ok = results.filter((r) => r.status === 'success').length
-      const partial = results.filter((r) => r.status === 'partial').length
-      const fail = results.filter((r) => r.status === 'failed').length
-      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      logger.info(`[ai-world-sync] done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
-    } catch (err) {
-      logger.error('[ai-world-sync] fatal:', { error: err })
-    }
-  }, {
-    timezone: 'Asia/Shanghai',
-  })
+  scheduledTask = cron.schedule(
+    '0 0,12 * * *',
+    async () => {
+      try {
+        const results = await syncAllSources()
+        const ok = results.filter((r) => r.status === 'success').length
+        const partial = results.filter((r) => r.status === 'partial').length
+        const fail = results.filter((r) => r.status === 'failed').length
+        const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+        logger.info(
+          `[ai-world-sync] done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`,
+        )
+      } catch (err) {
+        logger.error('[ai-world-sync] fatal:', { error: err })
+      }
+    },
+    {
+      timezone: 'Asia/Shanghai',
+    },
+  )
   logger.info('[ai-world-sync] scheduler started (cron: 0 0,12 * * * Asia/Shanghai)')
 }
 
@@ -824,9 +1156,11 @@ function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
   for (const sel of selectors) {
     $(sel).each((_, tr) => {
       const cells: string[] = []
-      $(tr).find('td').each((_, td) => {
-        cells.push($(td).text().trim())
-      })
+      $(tr)
+        .find('td')
+        .each((_, td) => {
+          cells.push($(td).text().trim())
+        })
       if (cells.length >= 2) rows.push(cells)
     })
     if (rows.length > 0) break
@@ -836,13 +1170,13 @@ function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
 
 /** LMArena 子分类映射(表头 → category slug) */
 const LMARENA_CATEGORIES = [
-  'overall',      // Overall
-  'expert',       // Expert
+  'overall', // Overall
+  'expert', // Expert
   'hard-prompts', // Hard Prompts
-  'coding',       // Coding
-  'math',         // Math
-  'creative',     // Creative Writing
-  'instruction',  // Instruction Following
+  'coding', // Coding
+  'math', // Math
+  'creative', // Creative Writing
+  'instruction', // Instruction Following
   'longer-query', // Longer Query
 ] as const
 
@@ -878,7 +1212,38 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
       const rawName = (cells[0] ?? '').trim()
       if (!rawName || rawName === 'Model') return
       // 尝试分离 provider 和 model:找已知 provider 前缀
-      const knownProviders = ['Anthropic', 'OpenAI', 'Google', 'Meta', 'Mistral', 'Cohere', 'Alibaba', 'Baidu', 'Tencent', 'ByteDance', 'DeepSeek', 'Nvidia', 'Microsoft', 'Amazon', 'Apple', 'Samsung', 'xAI', 'Perplexity', 'Reka', 'Zhipu', 'Minimax', 'Baichuan', 'Yi', '01-AI', 'HuggingFace', 'Together', 'Anyscale', 'Saama', 'Nomic', 'Databricks']
+      const knownProviders = [
+        'Anthropic',
+        'OpenAI',
+        'Google',
+        'Meta',
+        'Mistral',
+        'Cohere',
+        'Alibaba',
+        'Baidu',
+        'Tencent',
+        'ByteDance',
+        'DeepSeek',
+        'Nvidia',
+        'Microsoft',
+        'Amazon',
+        'Apple',
+        'Samsung',
+        'xAI',
+        'Perplexity',
+        'Reka',
+        'Zhipu',
+        'Minimax',
+        'Baichuan',
+        'Yi',
+        '01-AI',
+        'HuggingFace',
+        'Together',
+        'Anyscale',
+        'Saama',
+        'Nomic',
+        'Databricks',
+      ]
       let provider: string | undefined
       let modelName: string = rawName
       for (const p of knownProviders) {
@@ -897,7 +1262,11 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
         }
       }
       // 8 个子分类各取 rank(cells[1]-cells[8])
-      for (let catIdx = 0; catIdx < LMARENA_CATEGORIES.length && catIdx + 1 < cells.length; catIdx++) {
+      for (
+        let catIdx = 0;
+        catIdx < LMARENA_CATEGORIES.length && catIdx + 1 < cells.length;
+        catIdx++
+      ) {
         const category = LMARENA_CATEGORIES[catIdx]
         if (!category) continue
         const rankStr = cells[catIdx + 1]?.trim() ?? ''
@@ -918,10 +1287,14 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
         })
       }
     })
-    logger.info(`[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`)
+    logger.info(
+      `[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`,
+    )
     return entries
   } catch (err) {
-    logger.warn('[ai-world-sync] LMArena leaderboard error:', { error: err instanceof Error ? err.message : err })
+    logger.warn('[ai-world-sync] LMArena leaderboard error:', {
+      error: err instanceof Error ? err.message : err,
+    })
     return []
   }
 }
@@ -935,13 +1308,27 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
  * 2026-07-22 立:从降级空改为 Playwright 渲染抓取 + 多分类拆分(7 类),生产可用
  */
 const OPENCOMPASS_SUBSCORE_MAP: Record<string, string> = {
-  '语言': 'chinese', 'chinese': 'chinese', 'Chinese': 'chinese',
-  '英文': 'english', 'english': 'english', 'English': 'english',
-  '知识': 'knowledge', 'knowledge': 'knowledge', 'Knowledge': 'knowledge',
-  '推理': 'reasoning', 'reasoning': 'reasoning', 'Reasoning': 'reasoning',
-  '数学': 'math', 'math': 'math', 'Math': 'math',
-  '代码': 'coding', 'coding': 'coding', 'Coding': 'coding',
-  '智能体': 'agent', 'agent': 'agent', 'Agent': 'agent',
+  语言: 'chinese',
+  chinese: 'chinese',
+  Chinese: 'chinese',
+  英文: 'english',
+  english: 'english',
+  English: 'english',
+  知识: 'knowledge',
+  knowledge: 'knowledge',
+  Knowledge: 'knowledge',
+  推理: 'reasoning',
+  reasoning: 'reasoning',
+  Reasoning: 'reasoning',
+  数学: 'math',
+  math: 'math',
+  Math: 'math',
+  代码: 'coding',
+  coding: 'coding',
+  Coding: 'coding',
+  智能体: 'agent',
+  agent: 'agent',
+  Agent: 'agent',
 }
 async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
   const baseUrl = process.env.AI_SERVICE_URL
@@ -1002,7 +1389,16 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
       }
     })
     // 多分类拆分:每条 entry 的 scores 中匹配 OPENCOMPASS_SUBSCORE_MAP 的子分数 → 拆出独立条目
-    const byCat: Record<string, Array<{ modelName: string; provider?: string; subScore: number; scores: Record<string, unknown>; publishedAt: Date }>> = {}
+    const byCat: Record<
+      string,
+      Array<{
+        modelName: string
+        provider?: string
+        subScore: number
+        scores: Record<string, unknown>
+        publishedAt: Date
+      }>
+    > = {}
     for (const entry of rawEntries) {
       if (!entry.scores) continue
       for (const [k, v] of Object.entries(entry.scores)) {
@@ -1039,10 +1435,14 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
     }
     const catCount: Record<string, number> = {}
     for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
-    logger.info(`[ai-world-sync] OpenCompass fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    logger.info(
+      `[ai-world-sync] OpenCompass fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`,
+    )
     return entries
   } catch (err) {
-    logger.warn('[ai-world-sync] OpenCompass scrape error:', { error: err instanceof Error ? err.message : err })
+    logger.warn('[ai-world-sync] OpenCompass scrape error:', {
+      error: err instanceof Error ? err.message : err,
+    })
     return []
   }
 }
@@ -1056,7 +1456,8 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
  */
 async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
   try {
-    const url = 'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation'
+    const url =
+      'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation'
     const res = await fetchWithTimeout(
       url,
       { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
@@ -1076,7 +1477,12 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
     }>
     const now = new Date()
     const filtered = data.filter((m) => m.id && typeof m.downloads === 'number')
-    const baseEntry = (m: typeof filtered[number], rank: number, category: string, score: number) => ({
+    const baseEntry = (
+      m: (typeof filtered)[number],
+      rank: number,
+      category: string,
+      score: number,
+    ) => ({
       leaderboard: 'hf-open-llm' as const,
       category,
       rank,
@@ -1096,36 +1502,63 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
     const overallTop = filtered.slice(0, 50)
     overallTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'overall', m.downloads)))
     // 分类判定 helper
-    const hasTag = (m: typeof filtered[number], keys: string[]) => {
+    const hasTag = (m: (typeof filtered)[number], keys: string[]) => {
       const tags = (m.tags ?? []).map((t) => t.toLowerCase())
       const id = m.id.toLowerCase()
       return keys.some((k) => tags.includes(k) || id.includes(k))
     }
     // chat:tags 含 conversational/chat
-    const chatTop = filtered.filter((m) => hasTag(m, ['conversational', 'chat', 'rlhf', 'dpo'])).slice(0, 30)
+    const chatTop = filtered
+      .filter((m) => hasTag(m, ['conversational', 'chat', 'rlhf', 'dpo']))
+      .slice(0, 30)
     chatTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'chat', m.downloads)))
     // coding:tags 含 code/coder
-    const codingTop = filtered.filter((m) => hasTag(m, ['code', 'coder', 'codestral', 'starcoder', 'deepseek-coder'])).slice(0, 30)
+    const codingTop = filtered
+      .filter((m) => hasTag(m, ['code', 'coder', 'codestral', 'starcoder', 'deepseek-coder']))
+      .slice(0, 30)
     codingTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'coding', m.downloads)))
     // instruction:tags 含 instruct
-    const instTop = filtered.filter((m) => hasTag(m, ['instruct', 'instruction', 'it'])).slice(0, 30)
+    const instTop = filtered
+      .filter((m) => hasTag(m, ['instruct', 'instruction', 'it']))
+      .slice(0, 30)
     instTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'instruction', m.downloads)))
     // reasoning:tags 含 reasoning 或模型名含 r1/o1
-    const reasonTop = filtered.filter((m) => hasTag(m, ['reasoning', 'reason', 'r1', 'o1', 'qwq'])).slice(0, 30)
+    const reasonTop = filtered
+      .filter((m) => hasTag(m, ['reasoning', 'reason', 'r1', 'o1', 'qwq']))
+      .slice(0, 30)
     reasonTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'reasoning', m.downloads)))
     // open-source:license 在 OSI 列表(简化判定:tags 含 'license:' 开源协议)
-    const OSI_LICENSES = ['mit', 'apache-2.0', 'apache 2.0', 'gpl', 'lgpl', 'bsd', 'mpl', 'unlicense', 'cc-by-sa-4.0', 'cc0']
-    const openTop = filtered.filter((m) => {
-      const tags = (m.tags ?? []).map((t) => t.toLowerCase())
-      return tags.some((t) => t.startsWith('license:') && OSI_LICENSES.some((lic) => t.includes(lic)))
-    }).slice(0, 30)
+    const OSI_LICENSES = [
+      'mit',
+      'apache-2.0',
+      'apache 2.0',
+      'gpl',
+      'lgpl',
+      'bsd',
+      'mpl',
+      'unlicense',
+      'cc-by-sa-4.0',
+      'cc0',
+    ]
+    const openTop = filtered
+      .filter((m) => {
+        const tags = (m.tags ?? []).map((t) => t.toLowerCase())
+        return tags.some(
+          (t) => t.startsWith('license:') && OSI_LICENSES.some((lic) => t.includes(lic)),
+        )
+      })
+      .slice(0, 30)
     openTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'open-source', m.downloads)))
     const catCount: Record<string, number> = {}
     for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
-    logger.info(`[ai-world-sync] HF Hub models fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    logger.info(
+      `[ai-world-sync] HF Hub models fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`,
+    )
     return entries
   } catch (err) {
-    logger.warn('[ai-world-sync] HF Hub models API error:', { error: err instanceof Error ? err.message : err })
+    logger.warn('[ai-world-sync] HF Hub models API error:', {
+      error: err instanceof Error ? err.message : err,
+    })
     return []
   }
 }
@@ -1139,11 +1572,12 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
  * 多分类(2026-07-22 立):基于子分数列拆 6 类(overall/reasoning/coding/agent/instruction/safety)
  */
 const SUPERCLUE_SUBSCORE_MAP: Record<string, string> = {
-  '数学推理': 'reasoning', '科学推理': 'reasoning',
-  '代码生成': 'coding',
-  '智能体Agent': 'agent',
-  '精确指令遵循': 'instruction',
-  '幻觉控制': 'safety',
+  数学推理: 'reasoning',
+  科学推理: 'reasoning',
+  代码生成: 'coding',
+  智能体Agent: 'agent',
+  精确指令遵循: 'instruction',
+  幻觉控制: 'safety',
 }
 async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
   try {
@@ -1174,7 +1608,9 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
         }
       }>
     }
-    const firstDf = config.components?.find((c) => c.type === 'dataframe' && c.props?.value?.data?.length)
+    const firstDf = config.components?.find(
+      (c) => c.type === 'dataframe' && c.props?.value?.data?.length,
+    )
     if (!firstDf || !firstDf.props?.value?.data) {
       logger.warn('[ai-world-sync] SuperCLUE no dataframe with data found, skip')
       return []
@@ -1184,7 +1620,12 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
     const rows = dfValue.data ?? []
     const now = new Date()
     // 提取原始行数据(含 modelName / provider / 总分 / 各子分数)
-    const rawRows: Array<{ modelName: string; provider?: string; totalScore: number; subScores: Record<string, number> }> = []
+    const rawRows: Array<{
+      modelName: string
+      provider?: string
+      totalScore: number
+      subScores: Record<string, number>
+    }> = []
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       if (!row || row.length < 5) continue
@@ -1192,7 +1633,8 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       if (!modelName || modelName === '-') continue
       const provider = String(row[2] ?? '').trim() || undefined
       const totalScore = row[4]
-      const scoreNum = typeof totalScore === 'number' ? totalScore : parseFloat(String(totalScore ?? ''))
+      const scoreNum =
+        typeof totalScore === 'number' ? totalScore : parseFloat(String(totalScore ?? ''))
       if (!Number.isFinite(scoreNum)) continue
       const subScores: Record<string, number> = {}
       for (let j = 5; j < Math.min(headers.length, row.length); j++) {
@@ -1218,13 +1660,26 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       publishedAt: now,
     }))
     // 子分类:按 SUPERCLUE_SUBSCORE_MAP 拆分,每个子分类 top 30
-    const byCat: Record<string, Array<{ modelName: string; provider?: string; subScore: number; subScores: Record<string, number> }>> = {}
+    const byCat: Record<
+      string,
+      Array<{
+        modelName: string
+        provider?: string
+        subScore: number
+        subScores: Record<string, number>
+      }>
+    > = {}
     for (const r of rawRows) {
       for (const [header, subScore] of Object.entries(r.subScores)) {
         const cat = SUPERCLUE_SUBSCORE_MAP[header]
         if (!cat) continue
         if (!byCat[cat]) byCat[cat] = []
-        byCat[cat].push({ modelName: r.modelName, provider: r.provider, subScore, subScores: r.subScores })
+        byCat[cat].push({
+          modelName: r.modelName,
+          provider: r.provider,
+          subScore,
+          subScores: r.subScores,
+        })
       }
     }
     for (const [cat, items] of Object.entries(byCat)) {
@@ -1246,10 +1701,14 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
     }
     const catCount: Record<string, number> = {}
     for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
-    logger.info(`[ai-world-sync] SuperCLUE fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    logger.info(
+      `[ai-world-sync] SuperCLUE fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`,
+    )
     return entries
   } catch (err) {
-    logger.warn('[ai-world-sync] SuperCLUE leaderboard error:', { error: err instanceof Error ? err.message : err })
+    logger.warn('[ai-world-sync] SuperCLUE leaderboard error:', {
+      error: err instanceof Error ? err.message : err,
+    })
     return []
   }
 }
@@ -1283,7 +1742,11 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
     for (const chunk of rscChunks) {
       const content = chunk.match(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/)?.[1] || ''
       try {
-        const unescaped = content.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+        const unescaped = content
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\')
         combinedData += unescaped
       } catch {
         combinedData += content
@@ -1291,11 +1754,32 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
     }
 
     // 9 分类数据收集:每类按分数排序后填 rank
-    const byCat: Record<string, Array<{ modelName: string; provider?: string; score: number; scores: Record<string, unknown> }>> = {}
-    const uiWords = new Set(['Intelligence', 'Speed', 'Quality', 'Cost', 'Artificial Analysis', 'next-size-adjust', 'Cost per Task'])
+    const byCat: Record<
+      string,
+      Array<{
+        modelName: string
+        provider?: string
+        score: number
+        scores: Record<string, unknown>
+      }>
+    > = {}
+    const uiWords = new Set([
+      'Intelligence',
+      'Speed',
+      'Quality',
+      'Cost',
+      'Artificial Analysis',
+      'next-size-adjust',
+      'Cost per Task',
+    ])
     const seenModel = new Set<string>()
 
-    const addEntry = (cat: string, modelName: string, score: number, scores: Record<string, unknown>) => {
+    const addEntry = (
+      cat: string,
+      modelName: string,
+      score: number,
+      scores: Record<string, unknown>,
+    ) => {
       if (!modelName || uiWords.has(modelName) || score <= 0) return
       if (!byCat[cat]) byCat[cat] = []
       byCat[cat].push({
@@ -1318,7 +1802,10 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
         if (c === '{') depth++
         else if (c === '}') {
           depth--
-          if (depth === 0) { end = i + 1; break }
+          if (depth === 0) {
+            end = i + 1
+            break
+          }
         }
       }
       if (end < 0) continue
@@ -1355,28 +1842,37 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
       // 添加 elo 子分类
       if (overallElo) {
         const elo = parseFloat(overallElo)
-        if (Number.isFinite(elo) && elo > 0) addEntry('overall', modelName, elo, { elo, source: 'briefcase-overall' })
+        if (Number.isFinite(elo) && elo > 0)
+          addEntry('overall', modelName, elo, { elo, source: 'briefcase-overall' })
       }
       if (analyticalElo) {
         const elo = parseFloat(analyticalElo)
-        if (Number.isFinite(elo) && elo > 0) addEntry('analytical', modelName, elo, { elo, source: 'briefcase-analytical' })
+        if (Number.isFinite(elo) && elo > 0)
+          addEntry('analytical', modelName, elo, { elo, source: 'briefcase-analytical' })
       }
       if (presentationElo) {
         const elo = parseFloat(presentationElo)
-        if (Number.isFinite(elo) && elo > 0) addEntry('presentation', modelName, elo, { elo, source: 'briefcase-presentation' })
+        if (Number.isFinite(elo) && elo > 0)
+          addEntry('presentation', modelName, elo, { elo, source: 'briefcase-presentation' })
       }
       // 添加 index 子分类(0-100 分)
       if (intelM && intelM[1]) {
         const v = parseFloat(intelM[1])
-        if (Number.isFinite(v) && v > 0) addEntry('intelligence', modelName, v, { intelligenceIndex: v, source: 'intelligence-index' })
+        if (Number.isFinite(v) && v > 0)
+          addEntry('intelligence', modelName, v, {
+            intelligenceIndex: v,
+            source: 'intelligence-index',
+          })
       }
       if (codingM && codingM[1]) {
         const v = parseFloat(codingM[1])
-        if (Number.isFinite(v) && v > 0) addEntry('coding', modelName, v, { codingIndex: v, source: 'coding-index' })
+        if (Number.isFinite(v) && v > 0)
+          addEntry('coding', modelName, v, { codingIndex: v, source: 'coding-index' })
       }
       if (agenticM && agenticM[1]) {
         const v = parseFloat(agenticM[1])
-        if (Number.isFinite(v) && v > 0) addEntry('agentic', modelName, v, { agenticIndex: v, source: 'agentic-index' })
+        if (Number.isFinite(v) && v > 0)
+          addEntry('agentic', modelName, v, { agenticIndex: v, source: 'agentic-index' })
       }
       // 添加 rate 子分类(0-1 通过率转 0-100 分)
       if (gpqaM && gpqaM[1]) {
@@ -1423,10 +1919,14 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
     }
     const catCount: Record<string, number> = {}
     for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
-    logger.info(`[ai-world-sync] Artificial Analysis fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    logger.info(
+      `[ai-world-sync] Artificial Analysis fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`,
+    )
     return entries
   } catch (err) {
-    logger.warn('[ai-world-sync] Artificial Analysis error:', { error: err instanceof Error ? err.message : err })
+    logger.warn('[ai-world-sync] Artificial Analysis error:', {
+      error: err instanceof Error ? err.message : err,
+    })
     return []
   }
 }
@@ -1446,11 +1946,13 @@ async function upsertRanking(entry: LeaderboardEntry): Promise<'inserted' | 'upd
     const existing = await db
       .select({ id: aiWorldRankings.id })
       .from(aiWorldRankings)
-      .where(and(
-        eq(aiWorldRankings.leaderboard, entry.leaderboard),
-        eq(aiWorldRankings.category, entry.category),
-        eq(aiWorldRankings.modelName, entry.modelName),
-      ))
+      .where(
+        and(
+          eq(aiWorldRankings.leaderboard, entry.leaderboard),
+          eq(aiWorldRankings.category, entry.category),
+          eq(aiWorldRankings.modelName, entry.modelName),
+        ),
+      )
       .limit(1)
     const now = new Date()
     if (existing.length > 0) {
@@ -1483,10 +1985,9 @@ async function upsertRanking(entry: LeaderboardEntry): Promise<'inserted' | 'upd
     await db.insert(aiWorldRankings).values(payload).onConflictDoNothing()
     return 'inserted'
   } catch (err) {
-    logger.warn(
-      `[ai-world-sync] upsertRanking ${entry.leaderboard}/${entry.modelName} error:`,
-      { error: err instanceof Error ? err.message : err },
-    )
+    logger.warn(`[ai-world-sync] upsertRanking ${entry.leaderboard}/${entry.modelName} error:`, {
+      error: err instanceof Error ? err.message : err,
+    })
     return 'error'
   }
 }
@@ -1504,7 +2005,8 @@ export async function syncRankings(): Promise<SyncSourceResult[]> {
         if (r === 'inserted' || r === 'updated') successCount++
       }
       // 空数据视为 success(页面 JS 渲染拿不到表格,不算失败,只记录提示)
-      const status: SyncSourceResult['status'] = entries.length === 0 || successCount > 0 ? 'success' : 'failed'
+      const status: SyncSourceResult['status'] =
+        entries.length === 0 || successCount > 0 ? 'success' : 'failed'
       const result: SyncSourceResult = {
         source,
         kind: 'ranking',
@@ -1538,7 +2040,10 @@ export async function syncRankings(): Promise<SyncSourceResult[]> {
 /** 抓单个 GitHub 仓库的 stars/forks/watchers/subscribers/openIssues,失败返回 null
  * 支持 GITHUB_TOKEN 环境变量(限额从 60/h 提升到 5000/h)
  */
-async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
+async function fetchGithubRepoMetrics(
+  owner: string,
+  repo: string,
+): Promise<{
   stars: number
   forks: number
   watchers: number
@@ -1564,7 +2069,9 @@ async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
       if (res.status === 403) {
         const remaining = res.headers.get('X-RateLimit-Remaining')
         if (remaining === '0') {
-          logger.warn(`[ai-world-sync] GitHub API rate limit exceeded (配置 GITHUB_TOKEN 环境变量可提升到 5000/h)`)
+          logger.warn(
+            `[ai-world-sync] GitHub API rate limit exceeded (配置 GITHUB_TOKEN 环境变量可提升到 5000/h)`,
+          )
         } else {
           logger.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP 403, skip`)
         }
@@ -1588,7 +2095,9 @@ async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
       openIssues: data.open_issues_count ?? 0,
     }
   } catch (err) {
-    logger.warn(`[ai-world-sync] github repo ${owner}/${repo} error:`, { error: err instanceof Error ? err.message : err })
+    logger.warn(`[ai-world-sync] github repo ${owner}/${repo} error:`, {
+      error: err instanceof Error ? err.message : err,
+    })
     return null
   }
 }
@@ -1632,7 +2141,9 @@ export async function syncTrendingMetrics(): Promise<SyncSourceResult[]> {
           const existing = await db
             .select({ id: aiWorldItems.id, viewCount: aiWorldItems.viewCount })
             .from(aiWorldItems)
-            .where(and(eq(aiWorldItems.source, repoInfo.source), eq(aiWorldItems.kind, repoInfo.kind)))
+            .where(
+              and(eq(aiWorldItems.source, repoInfo.source), eq(aiWorldItems.kind, repoInfo.kind)),
+            )
             .limit(1)
           if (existing.length === 0) {
             const result: SyncSourceResult = {
@@ -1659,9 +2170,10 @@ export async function syncTrendingMetrics(): Promise<SyncSourceResult[]> {
           let trendingScore: number
           if (llmScore) {
             const parsed = parseInt(llmScore.replace(/\D/g, ''), 10)
-            trendingScore = Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
-              ? parsed
-              : computeTrendingScoreFallback(metrics.stars, metrics.forks)
+            trendingScore =
+              Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
+                ? parsed
+                : computeTrendingScoreFallback(metrics.stars, metrics.forks)
           } else {
             trendingScore = computeTrendingScoreFallback(metrics.stars, metrics.forks)
           }
@@ -1721,19 +2233,23 @@ let trendingScheduledTask: ScheduledTask | null = null
 /** 启动模型排行榜定时任务(每日 6 点,模型榜单更新慢) */
 export function startRankingScheduler(): void {
   if (rankingScheduledTask) return
-  rankingScheduledTask = cron.schedule('0 6 * * *', async () => {
-    try {
-      const results = await syncRankings()
-      const ok = results.filter((r) => r.status === 'success').length
-      const fail = results.filter((r) => r.status === 'failed').length
-      const items = results.reduce((sum, r) => sum + r.itemCount, 0)
-      logger.info(`[ai-world-sync] ranking done: ${ok} success, ${fail} failed, ${items} items`)
-    } catch (err) {
-      logger.error('[ai-world-sync] ranking fatal:', { error: err })
-    }
-  }, {
-    timezone: 'Asia/Shanghai',
-  })
+  rankingScheduledTask = cron.schedule(
+    '0 6 * * *',
+    async () => {
+      try {
+        const results = await syncRankings()
+        const ok = results.filter((r) => r.status === 'success').length
+        const fail = results.filter((r) => r.status === 'failed').length
+        const items = results.reduce((sum, r) => sum + r.itemCount, 0)
+        logger.info(`[ai-world-sync] ranking done: ${ok} success, ${fail} failed, ${items} items`)
+      } catch (err) {
+        logger.error('[ai-world-sync] ranking fatal:', { error: err })
+      }
+    },
+    {
+      timezone: 'Asia/Shanghai',
+    },
+  )
   logger.info('[ai-world-sync] ranking scheduler started (cron: 0 6 * * * Asia/Shanghai)')
 }
 
@@ -1748,19 +2264,23 @@ export function stopRankingScheduler(): void {
 /** 启动热度更新定时任务(每 4 小时) */
 export function startTrendingScheduler(): void {
   if (trendingScheduledTask) return
-  trendingScheduledTask = cron.schedule('0 */4 * * *', async () => {
-    try {
-      const results = await syncTrendingMetrics()
-      const ok = results.filter((r) => r.status === 'success').length
-      const fail = results.filter((r) => r.status === 'failed').length
-      const items = results.reduce((sum, r) => sum + r.itemCount, 0)
-      logger.info(`[ai-world-sync] trending done: ${ok} success, ${fail} failed, ${items} items`)
-    } catch (err) {
-      logger.error('[ai-world-sync] trending fatal:', { error: err })
-    }
-  }, {
-    timezone: 'Asia/Shanghai',
-  })
+  trendingScheduledTask = cron.schedule(
+    '0 */4 * * *',
+    async () => {
+      try {
+        const results = await syncTrendingMetrics()
+        const ok = results.filter((r) => r.status === 'success').length
+        const fail = results.filter((r) => r.status === 'failed').length
+        const items = results.reduce((sum, r) => sum + r.itemCount, 0)
+        logger.info(`[ai-world-sync] trending done: ${ok} success, ${fail} failed, ${items} items`)
+      } catch (err) {
+        logger.error('[ai-world-sync] trending fatal:', { error: err })
+      }
+    },
+    {
+      timezone: 'Asia/Shanghai',
+    },
+  )
   logger.info('[ai-world-sync] trending scheduler started (cron: 0 */4 * * * Asia/Shanghai)')
 }
 
@@ -1778,8 +2298,11 @@ export function stopTrendingScheduler(): void {
  * 跑所有 fetcher,只统计预计条目数,不写库(不调 upsertItem / upsertRanking / db.update)
  * 用于上线前验证抓取链路连通性 + 各源数据量预估
  */
-export async function runDryRun(): Promise<Array<{ source: string; kind: string; estimatedItems: number; error?: string }>> {
-  const results: Array<{ source: string; kind: string; estimatedItems: number; error?: string }> = []
+export async function runDryRun(): Promise<
+  Array<{ source: string; kind: string; estimatedItems: number; error?: string }>
+> {
+  const results: Array<{ source: string; kind: string; estimatedItems: number; error?: string }> =
+    []
 
   // RSS(30 源)
   for (const feed of RSS_FEEDS) {
@@ -1787,7 +2310,12 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
       const items = await fetchRssFeed(feed)
       results.push({ source: feed.source, kind: 'rss', estimatedItems: items.length })
     } catch (err) {
-      results.push({ source: feed.source, kind: 'rss', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+      results.push({
+        source: feed.source,
+        kind: 'rss',
+        estimatedItems: 0,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
   // arXiv
@@ -1795,21 +2323,36 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
     const items = await fetchArxivPapers()
     results.push({ source: 'arxiv', kind: 'paper', estimatedItems: items.length })
   } catch (err) {
-    results.push({ source: 'arxiv', kind: 'paper', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    results.push({
+      source: 'arxiv',
+      kind: 'paper',
+      estimatedItems: 0,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
   // HF Papers
   try {
     const items = await fetchHuggingfacePapers()
     results.push({ source: 'huggingface-papers', kind: 'paper', estimatedItems: items.length })
   } catch (err) {
-    results.push({ source: 'huggingface-papers', kind: 'paper', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    results.push({
+      source: 'huggingface-papers',
+      kind: 'paper',
+      estimatedItems: 0,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
   // GitHub Trending
   try {
     const items = await fetchGithubTrending()
     results.push({ source: 'github', kind: 'project', estimatedItems: items.length })
   } catch (err) {
-    results.push({ source: 'github', kind: 'project', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    results.push({
+      source: 'github',
+      kind: 'project',
+      estimatedItems: 0,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
   // AI Apps(35+)
   for (const entry of AI_APPS) {
@@ -1817,7 +2360,12 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
       const item = await fetchSiteMeta(entry, 'app')
       results.push({ source: entry.source, kind: 'app', estimatedItems: item ? 1 : 0 })
     } catch (err) {
-      results.push({ source: entry.source, kind: 'app', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+      results.push({
+        source: entry.source,
+        kind: 'app',
+        estimatedItems: 0,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
   // AI Tools(35+)
@@ -1826,7 +2374,12 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
       const item = await fetchSiteMeta(entry, 'tool')
       results.push({ source: entry.source, kind: 'tool', estimatedItems: item ? 1 : 0 })
     } catch (err) {
-      results.push({ source: entry.source, kind: 'tool', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+      results.push({
+        source: entry.source,
+        kind: 'tool',
+        estimatedItems: 0,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
   // 5 大排行榜
@@ -1835,7 +2388,12 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
       const entries = await fn()
       results.push({ source, kind: 'ranking', estimatedItems: entries.length })
     } catch (err) {
-      results.push({ source, kind: 'ranking', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+      results.push({
+        source,
+        kind: 'ranking',
+        estimatedItems: 0,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
   // GitHub 仓库热度
@@ -1844,7 +2402,12 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
       const metrics = await fetchGithubRepoMetrics(repoInfo.owner, repoInfo.repo)
       results.push({ source: repoInfo.source, kind: 'trending', estimatedItems: metrics ? 1 : 0 })
     } catch (err) {
-      results.push({ source: repoInfo.source, kind: 'trending', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+      results.push({
+        source: repoInfo.source,
+        kind: 'trending',
+        estimatedItems: 0,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
   return results
@@ -1853,11 +2416,14 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
 // ===== CLI 入口(--run-once 手动触发 / --dry-run 预估条目数不写库 / --rankings-only 只测 5 大榜单) =====
 
 // 检测 CLI 调用:tsx apps/api/src/jobs/ai-world-sync.ts --run-once | --dry-run | --rankings-only
-const isCli = process.argv[1]?.endsWith('ai-world-sync.ts') || process.argv[1]?.endsWith('ai-world-sync.js')
+const isCli =
+  process.argv[1]?.endsWith('ai-world-sync.ts') || process.argv[1]?.endsWith('ai-world-sync.js')
 if (isCli && process.argv.includes('--rankings-only')) {
   ;(async () => {
     try {
-      logger.info('[ai-world-sync] rankings-only start (5 leaderboards + GitHub trending, no DB writes)')
+      logger.info(
+        '[ai-world-sync] rankings-only start (5 leaderboards + GitHub trending, no DB writes)',
+      )
       const startTime = Date.now()
       // 5 大排行榜
       for (const { source, fn } of RANKING_FETCHERS) {
@@ -1868,11 +2434,15 @@ if (isCli && process.argv.includes('--rankings-only')) {
           logger.info(`  ✓ ${source}: ${entries.length} entries (${elapsed}s)`)
           // 打印前 3 条样本
           for (const e of entries.slice(0, 3)) {
-            logger.info(`      - rank=${e.rank} ${e.provider ? `[${e.provider}] ` : ''}${e.modelName} score=${e.score ?? '-'} cat=${e.category}`)
+            logger.info(
+              `      - rank=${e.rank} ${e.provider ? `[${e.provider}] ` : ''}${e.modelName} score=${e.score ?? '-'} cat=${e.category}`,
+            )
           }
         } catch (err) {
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          logger.info(`  ✗ ${source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+          logger.info(
+            `  ✗ ${source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`,
+          )
         }
       }
       // GitHub 仓库热度(前 5 个样本)
@@ -1889,10 +2459,14 @@ if (isCli && process.argv.includes('--rankings-only')) {
           }
         } catch (err) {
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          logger.info(`  ✗ ${repoInfo.source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+          logger.info(
+            `  ✗ ${repoInfo.source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`,
+          )
         }
       }
-      logger.info(`[ai-world-sync] rankings-only done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+      logger.info(
+        `[ai-world-sync] rankings-only done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`,
+      )
       process.exit(0)
     } catch (err) {
       logger.error('[ai-world-sync] rankings-only fatal:', { error: err })
@@ -1905,13 +2479,17 @@ if (isCli && process.argv.includes('--rankings-only')) {
       logger.info('[ai-world-sync] sync-rankings start (DELETE old + fetch + upsert + verify)')
       const startTime = Date.now()
       // 1. 删除旧的 5 大榜单数据
-      const delRes = await db.execute(sql`DELETE FROM ai_world_rankings WHERE leaderboard IN ('lmsys','opencompass','hf-open-llm','superclue','artificial-analysis')`)
+      const delRes = await db.execute(
+        sql`DELETE FROM ai_world_rankings WHERE leaderboard IN ('lmsys','opencompass','hf-open-llm','superclue','artificial-analysis')`,
+      )
       const delCount = Array.isArray(delRes) ? delRes.length : 0
       logger.info(`[ai-world-sync] deleted ${delCount} old ranking rows`)
       // 2. 调用 syncRankings 抓取 + upsert 新数据
       const results = await syncRankings()
       for (const r of results) {
-        logger.info(`  - ${r.source}: ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`)
+        logger.info(
+          `  - ${r.source}: ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`,
+        )
       }
       // 3. 验证:GROUP BY 统计每个榜单的分类分布
       const verifyRows = await db.execute(sql`
@@ -1921,7 +2499,12 @@ if (isCli && process.argv.includes('--rankings-only')) {
         GROUP BY leaderboard, category
         ORDER BY leaderboard, category
       `)
-      const rows = (verifyRows as unknown as Array<{ leaderboard: string; category: string; n: number | string }>) ?? []
+      const rows =
+        (verifyRows as unknown as Array<{
+          leaderboard: string
+          category: string
+          n: number | string
+        }>) ?? []
       const byLeaderboard: Record<string, Array<{ category: string; n: number }>> = {}
       let totalEntries = 0
       for (const row of rows) {
@@ -1938,8 +2521,12 @@ if (isCli && process.argv.includes('--rankings-only')) {
         const catSummary = cats.map((c) => `${c.category}=${c.n}`).join(', ')
         logger.info(`  ${lb} (${cats.length} cats): ${catSummary}`)
       }
-      logger.info(`[ai-world-sync] TOTAL: ${totalEntries} entries across ${Object.keys(byLeaderboard).length} leaderboards`)
-      logger.info(`[ai-world-sync] sync-rankings done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+      logger.info(
+        `[ai-world-sync] TOTAL: ${totalEntries} entries across ${Object.keys(byLeaderboard).length} leaderboards`,
+      )
+      logger.info(
+        `[ai-world-sync] sync-rankings done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`,
+      )
       process.exit(0)
     } catch (err) {
       logger.error('[ai-world-sync] sync-rankings fatal:', { error: err })
@@ -1951,13 +2538,19 @@ if (isCli && process.argv.includes('--rankings-only')) {
     try {
       logger.info('[ai-world-sync] dry-run start (no DB writes)')
       const stats = getSourceStats()
-      logger.info(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
+      logger.info(
+        `[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`,
+      )
       const results = await runDryRun()
       const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
       const failed = results.filter((r) => r.error).length
-      logger.info(`[ai-world-sync] dry-run done: ${results.length} sources, ${totalEstimated} estimated items, ${failed} errors`)
+      logger.info(
+        `[ai-world-sync] dry-run done: ${results.length} sources, ${totalEstimated} estimated items, ${failed} errors`,
+      )
       for (const r of results) {
-        logger.info(`  - ${r.source} (${r.kind}): ${r.estimatedItems} items${r.error ? ` err=${r.error}` : ''}`)
+        logger.info(
+          `  - ${r.source} (${r.kind}): ${r.estimatedItems} items${r.error ? ` err=${r.error}` : ''}`,
+        )
       }
       process.exit(0)
     } catch (err) {
@@ -1970,15 +2563,21 @@ if (isCli && process.argv.includes('--rankings-only')) {
     try {
       logger.info('[ai-world-sync] run-once start')
       const stats = getSourceStats()
-      logger.info(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
+      logger.info(
+        `[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`,
+      )
       const results = await syncAllSources()
       const ok = results.filter((r) => r.status === 'success').length
       const partial = results.filter((r) => r.status === 'partial').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      logger.info(`[ai-world-sync] run-once done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
+      logger.info(
+        `[ai-world-sync] run-once done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`,
+      )
       for (const r of results) {
-        logger.info(`  - ${r.source} (${r.kind}): ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`)
+        logger.info(
+          `  - ${r.source} (${r.kind}): ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`,
+        )
       }
       process.exit(0)
     } catch (err) {

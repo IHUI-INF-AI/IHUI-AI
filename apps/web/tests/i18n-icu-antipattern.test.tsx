@@ -82,8 +82,16 @@ type IcuKey = {
 
 const ICU_KEYS: readonly IcuKey[] = [
   // 2026-07-28 修复的 2 处(单大括号)
-  { key: 'chat.contextUsage.triggerLabel', placeholders: ['percent', 'used', 'max'], braceStyle: 'single' },
-  { key: 'chat.contextUsage.compressResultDesc', placeholders: ['original', 'compressed'], braceStyle: 'single' },
+  {
+    key: 'chat.contextUsage.triggerLabel',
+    placeholders: ['percent', 'used', 'max'],
+    braceStyle: 'single',
+  },
+  {
+    key: 'chat.contextUsage.compressResultDesc',
+    placeholders: ['original', 'compressed'],
+    braceStyle: 'single',
+  },
   // 2026-08-05 修复:fallbackNotice 实际 JSON 是单大括号 {var}(next-intl 4 ICU 标准)
   { key: 'chat.fallbackNotice', placeholders: ['backup', 'primary'], braceStyle: 'single' },
   // 其他含占位符的 web 端 key(用于扩展覆盖)
@@ -127,10 +135,7 @@ describe('web · next-intl ICU 反模式回归', () => {
           expect(v, `${locale}.${key} 必须存在`).toBeDefined()
           expect(typeof v, `${locale}.${key} 必须是 string`).toBe('string')
           // 5 语言共用同一 braceStyle:每语言都必须含该占位符(单/双大括号)
-          expect(
-            v as string,
-            `${locale}.${key} 必须含 ICU 占位符 ${expected}`,
-          ).toContain(expected)
+          expect(v as string, `${locale}.${key} 必须含 ICU 占位符 ${expected}`).toContain(expected)
         }
       },
     )
@@ -190,15 +195,11 @@ describe('web · next-intl ICU 反模式回归', () => {
       const abs = join(process.cwd(), rel)
       const content = await readFile(abs, 'utf-8')
       // Pattern A: t(key, "...{{n}}...").replace — 反模式完整形态
-      expect(
-        content,
-        `${rel} 不应含 t(key, "...{{...}}...").replace 模式`,
-      ).not.toMatch(/t\(\s*['"][^'"]+['"]\s*,\s*['"][^'"]*\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}[^'"]*['"]\s*\)\s*\.replace/)
+      expect(content, `${rel} 不应含 t(key, "...{{...}}...").replace 模式`).not.toMatch(
+        /t\(\s*['"][^'"]+['"]\s*,\s*['"][^'"]*\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}[^'"]*['"]\s*\)\s*\.replace/,
+      )
       // Pattern B: t(key).replace("{{n}}", val) — 任何 t/tt 后跟 .replace("{{
-      expect(
-        content,
-        `${rel} 不应含 .replace("{{ 反模式`,
-      ).not.toMatch(/\.replace\s*\(\s*['"]\{\{/)
+      expect(content, `${rel} 不应含 .replace("{{ 反模式`).not.toMatch(/\.replace\s*\(\s*['"]\{\{/)
     })
 
     it('context-usage-ring.tsx 第 257 行已修复为 t(compressResultDesc, { original, compressed })', async () => {
@@ -232,9 +233,9 @@ describe('web · next-intl ICU 反模式回归', () => {
   describe('3) useTranslations mock: t() 必须接受 params 对象,不能单参 + .replace 链', () => {
     it('t(key, params) 返回 key|param=value 形式(走 ICU 通道)', () => {
       const t = useTranslations()
-      expect(t('chat.contextUsage.compressResultDesc', { original: '1234', compressed: '567' })).toBe(
-        'chat.contextUsage.compressResultDesc|original=1234&compressed=567',
-      )
+      expect(
+        t('chat.contextUsage.compressResultDesc', { original: '1234', compressed: '567' }),
+      ).toBe('chat.contextUsage.compressResultDesc|original=1234&compressed=567')
       expect(t('chat.contextUsage.triggerLabel', { percent: 80, used: '8k', max: '10k' })).toBe(
         'chat.contextUsage.triggerLabel|percent=80&used=8k&max=10k',
       )

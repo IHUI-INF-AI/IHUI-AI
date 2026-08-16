@@ -44,14 +44,13 @@ vi.mock('react-native', async () => {
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       const { style, onPress, onChangeText, ...rest } = props
-      const mergedStyle = Array.isArray(style)
-        ? Object.assign({}, ...style.filter(Boolean))
-        : style
+      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
       const extra: Record<string, unknown> = {}
       if (onPress) extra.onClick = onPress
-      if (typeof onChangeText === 'function') extra.onChange = (e: { target: { value: string } }) => {
-        ;(onChangeText as (v: string) => void)(e.target.value)
-      }
+      if (typeof onChangeText === 'function')
+        extra.onChange = (e: { target: { value: string } }) => {
+          ;(onChangeText as (v: string) => void)(e.target.value)
+        }
       return createElement(tag, { ...rest, ...extra, style: mergedStyle }, props.children)
     }
   return {

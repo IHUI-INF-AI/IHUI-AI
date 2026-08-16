@@ -12,14 +12,7 @@ import { BackButton } from '@/components/common'
 import { DOWNLOADS_CONFIG, PLATFORM_META } from '@/config/downloads.config'
 
 type PlatformKey =
-  | 'web'
-  | 'desktop'
-  | 'ios'
-  | 'android-apk'
-  | 'mobile'
-  | 'wechat-miniapp'
-  | 'extension'
-  | 'cli'
+  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
 
 interface DownloadsStats {
   total: number
@@ -344,7 +337,9 @@ export default function DownloadsPage() {
           </table>
           <p className="mt-3 text-xs text-muted-foreground">
             {t('pendingConfigFile')}:{' '}
-            <code className="rounded bg-muted px-1.5 py-0.5">apps/web/src/config/downloads.config.ts</code>
+            <code className="rounded bg-muted px-1.5 py-0.5">
+              apps/web/src/config/downloads.config.ts
+            </code>
           </p>
         </CardContent>
       </Card>

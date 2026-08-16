@@ -18,6 +18,7 @@ import { config } from '../config/index.js'
  */
 const callbackSchema = z.object({
   content: z.string(),
+  reasoning: z.string().optional(),
   model: z.string().nullable().optional(),
   provider: z.string().optional(),
   usage: z.unknown().optional(),
@@ -43,85 +44,87 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       config: { sqliGuard: { enabled: false } },
     },
     async (request, reply) => {
-    // 2026-08-06 修复:共享密钥校验从"可选"改为"强制"(fail-closed)。
-    // 原实现:AI_CALLBACK_SECRET 为空时端点完全公开,攻击者可伪造回调
-    // 注入任意 assistant 消息 + 篡改 token 用量(扣费) + 伪造 userId 关联。
-    // 与 plugins/internal-service-token.ts 的 checkInternalServiceToken
-    // 策略保持一致(该函数对未配置 secret 已 fail-closed);docker-compose
-    // 亦强制要求配置 AI_CALLBACK_SECRET(:? 校验),生产环境必有密钥。
-    if (!config.AI_CALLBACK_SECRET) {
-      request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
-      return reply.status(401).send(error(401, 'AI callback secret not configured'))
-    }
-    const provided = request.headers['x-internal-secret']
-    if (provided !== config.AI_CALLBACK_SECRET) {
-      request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
-      return reply.status(401).send(error(401, 'unauthorized'))
-    }
-
-    const parsed = callbackSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-
-    const { content, model, provider, usage, stub, metadata } = parsed.data
-    const conversationId = metadata?.conversationId
-    const messageId = metadata?.messageId
-    const userId = metadata?.userId
-
-    if (!conversationId || !userId) {
-      // 缺少关联键,无法处理,但仍返回 202 避免阻塞 AI service
-      request.log.warn({ metadata }, 'ai callback missing conversationId/userId')
-      return reply
-        .status(202)
-        .send(success({ accepted: true, warning: 'missing association keys' }))
-    }
-
-    // 入队 aiCallback,Worker 异步处理持久化 + 推送
-    try {
-      const aiCallbackQueue = (
-        server as unknown as {
-          aiCallbackQueue?: { add: (name: string, data: unknown) => Promise<{ id?: string }> }
-        }
-      ).aiCallbackQueue
-
-      if (aiCallbackQueue) {
-        const usageObj = usage as
-          | {
-              total_tokens?: number
-              prompt_tokens?: number
-              completion_tokens?: number
-            }
-          | undefined
-        const tokens = usageObj?.total_tokens
-        await aiCallbackQueue.add('complete', {
-          conversationId,
-          userId,
-          messageId: messageId ?? '',
-          content,
-          tokens,
-          // G3: 透传 LLM 扣费链路所需结构化字段
-          model: model ?? undefined,
-          provider,
-          promptTokens: usageObj?.prompt_tokens,
-          completionTokens: usageObj?.completion_tokens,
-          // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
-          idempotencyKey: `${conversationId}:${messageId ?? ''}`,
-          metadata: { model, usage, stub },
-        })
-        return reply.status(202).send(success({ accepted: true, queued: true }))
+      // 2026-08-06 修复:共享密钥校验从"可选"改为"强制"(fail-closed)。
+      // 原实现:AI_CALLBACK_SECRET 为空时端点完全公开,攻击者可伪造回调
+      // 注入任意 assistant 消息 + 篡改 token 用量(扣费) + 伪造 userId 关联。
+      // 与 plugins/internal-service-token.ts 的 checkInternalServiceToken
+      // 策略保持一致(该函数对未配置 secret 已 fail-closed);docker-compose
+      // 亦强制要求配置 AI_CALLBACK_SECRET(:? 校验),生产环境必有密钥。
+      if (!config.AI_CALLBACK_SECRET) {
+        request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
+        return reply.status(401).send(error(401, 'AI callback secret not configured'))
+      }
+      const provided = request.headers['x-internal-secret']
+      if (provided !== config.AI_CALLBACK_SECRET) {
+        request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
+        return reply.status(401).send(error(401, 'unauthorized'))
       }
 
-      // 队列不可用时降级:直接返回,AI service 会重试或放弃(由其策略决定)
-      request.log.warn('aiCallbackQueue not available, callback dropped')
-      return reply
-        .status(202)
-        .send(success({ accepted: true, queued: false, warning: 'queue unavailable' }))
-    } catch (e) {
-      request.log.error({ err: e }, 'ai callback enqueue failed')
-      return reply.status(502).send(error(502, 'callback enqueue failed'))
-    }
-  })
+      const parsed = callbackSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const { content, reasoning, model, provider, usage, stub, metadata } = parsed.data
+      const conversationId = metadata?.conversationId
+      const messageId = metadata?.messageId
+      const userId = metadata?.userId
+
+      if (!conversationId || !userId) {
+        // 缺少关联键,无法处理,但仍返回 202 避免阻塞 AI service
+        request.log.warn({ metadata }, 'ai callback missing conversationId/userId')
+        return reply
+          .status(202)
+          .send(success({ accepted: true, warning: 'missing association keys' }))
+      }
+
+      // 入队 aiCallback,Worker 异步处理持久化 + 推送
+      try {
+        const aiCallbackQueue = (
+          server as unknown as {
+            aiCallbackQueue?: { add: (name: string, data: unknown) => Promise<{ id?: string }> }
+          }
+        ).aiCallbackQueue
+
+        if (aiCallbackQueue) {
+          const usageObj = usage as
+            | {
+                total_tokens?: number
+                prompt_tokens?: number
+                completion_tokens?: number
+              }
+            | undefined
+          const tokens = usageObj?.total_tokens
+          await aiCallbackQueue.add('complete', {
+            conversationId,
+            userId,
+            messageId: messageId ?? '',
+            content,
+            reasoning,
+            tokens,
+            // G3: 透传 LLM 扣费链路所需结构化字段
+            model: model ?? undefined,
+            provider,
+            promptTokens: usageObj?.prompt_tokens,
+            completionTokens: usageObj?.completion_tokens,
+            // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
+            idempotencyKey: `${conversationId}:${messageId ?? ''}`,
+            metadata: { model, usage, stub },
+          })
+          return reply.status(202).send(success({ accepted: true, queued: true }))
+        }
+
+        // 队列不可用时降级:直接返回,AI service 会重试或放弃(由其策略决定)
+        request.log.warn('aiCallbackQueue not available, callback dropped')
+        return reply
+          .status(202)
+          .send(success({ accepted: true, queued: false, warning: 'queue unavailable' }))
+      } catch (e) {
+        request.log.error({ err: e }, 'ai callback enqueue failed')
+        return reply.status(502).send(error(502, 'callback enqueue failed'))
+      }
+    },
+  )
 }
 
 export default aiCallbackPlugin

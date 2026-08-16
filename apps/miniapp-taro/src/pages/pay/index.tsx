@@ -1,7 +1,14 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
-import { getVipOrderPayInfo, createAlipayMiniappPayment, type VipPayInfo, getProfile, get, post } from '@/api'
+import {
+  getVipOrderPayInfo,
+  createAlipayMiniappPayment,
+  type VipPayInfo,
+  getProfile,
+  get,
+  post,
+} from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n, useTt } from '@/i18n'
 
@@ -20,7 +27,10 @@ interface OrderDetailInfo {
 }
 
 const COUNTDOWN_TOTAL = 15 * 60
-const priceFmt = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const priceFmt = new Intl.NumberFormat('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 const METHOD_ICON_COLOR: Record<PayMethod, string> = {
   wechat: 'text-success',
@@ -66,7 +76,9 @@ export default function PayIndex() {
     Promise.all([
       getProfile().catch(() => null),
       get<OrderDetailInfo>(`/vip/order/${no}`).catch(() => null),
-      get<{ items: CouponItem[] } | CouponItem[]>('/coupons/available', { amount: amt }).catch(() => null),
+      get<{ items: CouponItem[] } | CouponItem[]>('/coupons/available', { amount: amt }).catch(
+        () => null,
+      ),
     ]).then(([user, detail, couponRes]) => {
       if (user && typeof user.balance === 'number') setBalance(user.balance)
       if (detail) setOrderDetail(detail)
@@ -190,15 +202,21 @@ export default function PayIndex() {
 
   const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)
 
-  const methodBase = 'flex items-center px-[12rpx] py-[20rpx] rounded-xl border-[2rpx] border-transparent'
+  const methodBase =
+    'flex items-center px-[12rpx] py-[20rpx] rounded-xl border-[2rpx] border-transparent'
   const methodActive = 'bg-primary/10 border-primary/40'
-  const radioBase = 'w-[36rpx] h-[36rpx] border-[2rpx] border-border rounded-lg bg-secondary flex items-center justify-center'
+  const radioBase =
+    'w-[36rpx] h-[36rpx] border-[2rpx] border-border rounded-lg bg-secondary flex items-center justify-center'
   const radioOn = 'border-primary bg-primary'
 
   return (
     <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
-      <View className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}>
-        <Text className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}>
+      <View
+        className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}
+      >
+        <Text
+          className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}
+        >
           {expired
             ? tt('pay.orderExpired', '订单已超时')
             : t('pay.countdownTip', { time: formatTime(remaining) })}
@@ -207,7 +225,9 @@ export default function PayIndex() {
 
       <View className="px-[32rpx] py-[40rpx] bg-card rounded-2xl border-[2rpx] border-border text-center">
         <Text className="block text-[26rpx] text-muted-foreground">{t('pay.orderAmount')}</Text>
-        <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">¥{priceFmt.format(finalAmount)}</Text>
+        <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">
+          ¥{priceFmt.format(finalAmount)}
+        </Text>
         {couponDiscount > 0 && (
           <Text className="block mt-[12rpx] text-[24rpx] text-success">
             {t('pay.couponSaved', { n: priceFmt.format(couponDiscount) })}
@@ -218,33 +238,49 @@ export default function PayIndex() {
       <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
         <View className="flex items-center justify-between py-[12rpx]">
           <Text className="text-[26rpx] text-muted-foreground">{tt('pay.orderNo', '订单号')}</Text>
-          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">{orderNo || '—'}</Text>
+          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+            {orderNo || '—'}
+          </Text>
         </View>
         <View className="flex items-center justify-between py-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.goodsName', '商品名称')}</Text>
+          <Text className="text-[26rpx] text-muted-foreground">
+            {tt('pay.goodsName', '商品名称')}
+          </Text>
           <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
             {orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅')}
           </Text>
         </View>
         <View className="flex items-center justify-between py-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.createTime', '下单时间')}</Text>
-          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">{orderDetail.createTime || '—'}</Text>
+          <Text className="text-[26rpx] text-muted-foreground">
+            {tt('pay.createTime', '下单时间')}
+          </Text>
+          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+            {orderDetail.createTime || '—'}
+          </Text>
         </View>
       </View>
 
       <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
-        <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('pay.selectMethod')}</Text>
+        <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+          {t('pay.selectMethod')}
+        </Text>
 
         <View
           className={`${methodBase}${payMethod === 'wechat' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('wechat')}
         >
-          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.wechat}`}>{tt('pay.wechat', '微')}</View>
+          <View
+            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.wechat}`}
+          >
+            {tt('pay.wechat', '微')}
+          </View>
           <View className="flex-1 ml-[24rpx] flex flex-col">
             <Text className="text-[28rpx] text-foreground">{t('pay.wechat')}</Text>
           </View>
           <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
-            {payMethod === 'wechat' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
+            {payMethod === 'wechat' && (
+              <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>
+            )}
           </View>
         </View>
 
@@ -252,12 +288,18 @@ export default function PayIndex() {
           className={`${methodBase}${payMethod === 'alipay' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('alipay')}
         >
-          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.alipay}`}>{tt('pay.alipay', '支')}</View>
+          <View
+            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.alipay}`}
+          >
+            {tt('pay.alipay', '支')}
+          </View>
           <View className="flex-1 ml-[24rpx] flex flex-col">
             <Text className="text-[28rpx] text-foreground">{tt('pay.alipay', '支付宝')}</Text>
           </View>
           <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
-            {payMethod === 'alipay' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
+            {payMethod === 'alipay' && (
+              <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>
+            )}
           </View>
         </View>
 
@@ -265,7 +307,11 @@ export default function PayIndex() {
           className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('balance')}
         >
-          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.balance}`}>{tt('pay.balance', '余')}</View>
+          <View
+            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.balance}`}
+          >
+            {tt('pay.balance', '余')}
+          </View>
           <View className="flex-1 ml-[24rpx] flex flex-col">
             <Text className="text-[28rpx] text-foreground">{tt('pay.balance', '余额支付')}</Text>
             <Text className="mt-[6rpx] text-[24rpx] text-muted-foreground">
@@ -285,17 +331,26 @@ export default function PayIndex() {
             </Text>
           ) : (
             <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
-              {payMethod === 'balance' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
+              {payMethod === 'balance' && (
+                <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">
+                  ✓
+                </Text>
+              )}
             </View>
           )}
         </View>
       </View>
 
-      <View className="flex items-center justify-between mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border" onClick={onSelectCoupon}>
+      <View
+        className="flex items-center justify-between mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border"
+        onClick={onSelectCoupon}
+      >
         <Text className="text-[28rpx] text-foreground">{tt('pay.coupon', '优惠券')}</Text>
         <View className="flex items-center">
           {selectedCoupon ? (
-            <Text className="text-[28rpx] text-destructive font-semibold">-¥{priceFmt.format(selectedCoupon.amount)}</Text>
+            <Text className="text-[28rpx] text-destructive font-semibold">
+              -¥{priceFmt.format(selectedCoupon.amount)}
+            </Text>
           ) : (
             <Text className="text-[26rpx] text-muted-foreground">
               {coupons.length > 0

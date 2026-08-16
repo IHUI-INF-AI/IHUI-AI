@@ -66,9 +66,7 @@ function LayerCard({ data }: { data: LayerData }) {
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <Icon className="h-4 w-4 text-primary" />
           {meta.label}
-          <span className="ml-auto text-xs font-normal text-muted-foreground">
-            {data.count} 条
-          </span>
+          <span className="ml-auto text-xs font-normal text-muted-foreground">{data.count} 条</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 pt-0">

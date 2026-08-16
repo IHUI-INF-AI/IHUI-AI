@@ -63,10 +63,12 @@ const ADDRESS_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_USER = '00000000-0000-4000-8000-000000000099'
 
 function mockAuthed() {
-  mockAuthenticate.mockImplementation(async (request: { userId?: string; jwtPayload?: unknown }) => {
-    request.userId = USER_ID
-    request.jwtPayload = { userId: USER_ID }
-  })
+  mockAuthenticate.mockImplementation(
+    async (request: { userId?: string; jwtPayload?: unknown }) => {
+      request.userId = USER_ID
+      request.jwtPayload = { userId: USER_ID }
+    },
+  )
 }
 
 function mockUnauthed() {

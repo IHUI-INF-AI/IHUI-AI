@@ -938,7 +938,12 @@ describe('MessageContextMenu — normalizeMarkdown 单元测试(deprecated markd
       '',
     ]
     for (const input of inputs) {
-      expect(markdownForClipboard(input)).toBe(input.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim())
+      expect(markdownForClipboard(input)).toBe(
+        input
+          .replace(/\r\n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim(),
+      )
     }
   })
 

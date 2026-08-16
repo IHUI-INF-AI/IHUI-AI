@@ -59,13 +59,7 @@ describe('parsePermissionMode — 非法/边界值', () => {
 })
 
 describe('checkPermissionMode — 5 mode × 3 dangerLevel 矩阵', () => {
-  const modes: PermissionMode[] = [
-    'default',
-    'acceptEdits',
-    'bypassPermissions',
-    'plan',
-    'manual',
-  ]
+  const modes: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'manual']
   const levels: DangerLevel[] = ['read', 'write', 'dangerous']
 
   const expected: Record<PermissionMode, Record<DangerLevel, PermissionDecision>> = {

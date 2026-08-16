@@ -1,4 +1,14 @@
-import { pgTable, varchar, integer, bigint, numeric, jsonb, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  varchar,
+  integer,
+  bigint,
+  numeric,
+  jsonb,
+  timestamp,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 智能体计费表 (agent_billings)。
@@ -72,7 +82,7 @@ export const agentBillings = pgTable(
     modelIdx: index('agent_billings_model_idx').on(t.modelId),
     statusIdx: index('agent_billings_status_idx').on(t.billingStatus),
   }),
-);
+)
 
-export type AgentBilling = typeof agentBillings.$inferSelect;
-export type NewAgentBilling = typeof agentBillings.$inferInsert;
+export type AgentBilling = typeof agentBillings.$inferSelect
+export type NewAgentBilling = typeof agentBillings.$inferInsert

@@ -771,9 +771,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     // === 扣组池(2026-08-01 立;P0-8 修复 2026-08-05)===
     // P0-8 原实现:dbRead 读余额 → 应用层计算 → db UPDATE,并发 Lost Update 超用平台额度。
     // 改为原子 CASE WHEN 条件更新(与个人余额同模式),-1(无限额度)保持 -1,余额不足不扣减。
-    let updatedGroup:
-      | { sharedTokenBalance: number; sharedCostBalanceCents: number }
-      | undefined
+    let updatedGroup: { sharedTokenBalance: number; sharedCostBalanceCents: number } | undefined
     try {
       const groupRows = await db
         .update(apiKeyGroups)
@@ -978,7 +976,12 @@ export async function rechargeApiKeyFromWallet(
   tokenDelta: number,
   costDeltaCents: number,
 ): Promise<{ tokenBalance: number; costBalanceCents: number } | null> {
-  if (!Number.isInteger(tokenDelta) || tokenDelta <= 0 || !Number.isInteger(costDeltaCents) || costDeltaCents <= 0) {
+  if (
+    !Number.isInteger(tokenDelta) ||
+    tokenDelta <= 0 ||
+    !Number.isInteger(costDeltaCents) ||
+    costDeltaCents <= 0
+  ) {
     throw Object.assign(new Error('充值数量必须为正整数'), { statusCode: 400 })
   }
   // 1 token = 1 cent:cost 额度(分)需等额 token 支付
@@ -1020,7 +1023,8 @@ export async function rechargeApiKeyFromWallet(
     if (!keyRow) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
     const setClause: Record<string, unknown> = { updatedAt: new Date() }
     if (keyRow.tokenBalance !== -1) setClause.tokenBalance = keyRow.tokenBalance + tokenDelta
-    if (keyRow.costBalanceCents !== -1) setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
+    if (keyRow.costBalanceCents !== -1)
+      setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
     const [updated] = await tx
       .update(developerApiKeys)
       .set(setClause)

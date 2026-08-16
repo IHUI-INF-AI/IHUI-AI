@@ -254,10 +254,12 @@ export function MessageCenterScreen({
   const tt = useTt()
 
   // i18n 三级降级:t prop → useTt() I18nContext → 硬编码中文 fallback
-  const t: TFunction = tProp ?? ((key, options) => {
-    const fb = FALLBACK[key] ?? key
-    return tt(key, fb, options)
-  })
+  const t: TFunction =
+    tProp ??
+    ((key, options) => {
+      const fb = FALLBACK[key] ?? key
+      return tt(key, fb, options)
+    })
 
   const typeLabel = (type: MessageTab): string => {
     switch (type) {
@@ -288,14 +290,8 @@ export function MessageCenterScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View
-                key={tab}
-                style={viewStyles.tab(tk, active)}
-                onTap={() => onSelectTab(tab)}
-              >
-                <Text style={textStyles.tabText(tk, active)}>
-                  {t(`messageCenter.tab.${tab}`)}
-                </Text>
+              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)}>
+                <Text style={textStyles.tabText(tk, active)}>{t(`messageCenter.tab.${tab}`)}</Text>
               </View>
             )
           })}

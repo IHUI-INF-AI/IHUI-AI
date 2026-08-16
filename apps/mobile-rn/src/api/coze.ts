@@ -11,7 +11,12 @@ const LEGACY_STORAGE_KEY = 'coze_config_v1'
 const transport = createAsyncStorageTransport()
 
 // ===== 共享层 re-export(类型 + 常量 + 错误类 + 工厂) =====
-export { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, CozeApiError, createCozeClient } from '@ihui/api-client'
+export {
+  COZE_DEFAULT_BASE_URL,
+  COZE_DEFAULT_TIMEOUT,
+  CozeApiError,
+  createCozeClient,
+} from '@ihui/api-client'
 export type { CozeClient } from '@ihui/api-client'
 export type {
   CozeConfig,
@@ -63,7 +68,9 @@ export async function loadCozeConfig(): Promise<CozeConfig> {
         botId: p.botId ?? '',
         timeout: p.timeout ?? COZE_DEFAULT_TIMEOUT,
       }
-    } catch { /* fallthrough */ }
+    } catch {
+      /* fallthrough */
+    }
   }
   return { token: '', baseUrl: COZE_DEFAULT_BASE_URL, botId: '', timeout: COZE_DEFAULT_TIMEOUT }
 }

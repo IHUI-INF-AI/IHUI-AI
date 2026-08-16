@@ -41,7 +41,13 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '@ihui/ui-react'
-import { fetchUserSkills, fetchMarketSkills, batchInstallSkills, batchDeleteSkills, batchUpdateSkills } from './helpers'
+import {
+  fetchUserSkills,
+  fetchMarketSkills,
+  batchInstallSkills,
+  batchDeleteSkills,
+  batchUpdateSkills,
+} from './helpers'
 import { ExportImportDialog } from './ExportImportDialog'
 import type { UserSkill, SkillMarketEntry, BatchUpdateForm } from './types'
 
@@ -165,18 +171,30 @@ export function BatchOperations() {
         <div className="flex gap-1 rounded-md bg-muted p-1">
           <button
             type="button"
-            onClick={() => { setTab('market'); setSelected(new Set()); setBatchResult(null) }}
+            onClick={() => {
+              setTab('market')
+              setSelected(new Set())
+              setBatchResult(null)
+            }}
             className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'market' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'market'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {t('marketTab')}
           </button>
           <button
             type="button"
-            onClick={() => { setTab('user'); setSelected(new Set()); setBatchResult(null) }}
+            onClick={() => {
+              setTab('user')
+              setSelected(new Set())
+              setBatchResult(null)
+            }}
             className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'user' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'user'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {t('userTab')}
@@ -186,102 +204,102 @@ export function BatchOperations() {
         <div className="flex-1" />
 
         {tab === 'market' && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={handleBatchInstall}
+                  disabled={selected.size === 0 || batchRunning}
+                >
+                  {batchRunning ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <PackagePlus className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {t('batchInstall')}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t('batchInstallTooltip')}</TooltipContent>
+          </Tooltip>
+        )}
+        {tab === 'user' && (
+          <>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
                   <Button
                     size="sm"
-                    variant="default"
-                    onClick={handleBatchInstall}
+                    variant="destructive"
+                    onClick={handleBatchDelete}
                     disabled={selected.size === 0 || batchRunning}
                   >
                     {batchRunning ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <PackagePlus className="mr-1.5 h-3.5 w-3.5" />
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                     )}
-                    {t('batchInstall')}
+                    {t('batchDelete')}
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{t('batchInstallTooltip')}</TooltipContent>
+              <TooltipContent>{t('batchDeleteTooltip')}</TooltipContent>
             </Tooltip>
-          )}
-          {tab === 'user' && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={handleBatchDelete}
-                      disabled={selected.size === 0 || batchRunning}
-                    >
-                      {batchRunning ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      {t('batchDelete')}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t('batchDeleteTooltip')}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowUpdateDialog(true)}
-                      disabled={selected.size === 0 || batchRunning}
-                    >
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                      {t('batchUpdate')}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t('batchUpdateTooltip')}</TooltipContent>
-              </Tooltip>
-            </>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowExportImport(true)}
-                  disabled={batchRunning}
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  {t('exportImport')}
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{t('exportImportTooltip')}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
-                    toast.success(t('refreshed'))
-                  }}
-                  disabled={batchRunning}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{t('refreshTooltip')}</TooltipContent>
-          </Tooltip>
-        </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowUpdateDialog(true)}
+                    disabled={selected.size === 0 || batchRunning}
+                  >
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    {t('batchUpdate')}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t('batchUpdateTooltip')}</TooltipContent>
+            </Tooltip>
+          </>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowExportImport(true)}
+                disabled={batchRunning}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                {t('exportImport')}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{t('exportImportTooltip')}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
+                  toast.success(t('refreshed'))
+                }}
+                disabled={batchRunning}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{t('refreshTooltip')}</TooltipContent>
+        </Tooltip>
+      </div>
 
       {batchRunning && (
         <div className="space-y-2 rounded-md border bg-muted/30 px-3 py-2">
@@ -327,7 +345,9 @@ export function BatchOperations() {
       {batchResult && !batchRunning && batchResult.errors.length > 0 && (
         <div className="max-h-32 overflow-y-auto rounded-md border bg-destructive/5 p-2 text-xs text-destructive">
           {batchResult.errors.map((err, i) => (
-            <div key={i} className="py-0.5">{err}</div>
+            <div key={i} className="py-0.5">
+              {err}
+            </div>
           ))}
         </div>
       )}
@@ -337,9 +357,7 @@ export function BatchOperations() {
           <CardTitle className="text-base">
             {tab === 'market' ? t('marketTitle') : t('userTitle')}
           </CardTitle>
-          <CardDescription>
-            {t('selectedCount', { count: selected.size })}
-          </CardDescription>
+          <CardDescription>{t('selectedCount', { count: selected.size })}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -366,7 +384,9 @@ export function BatchOperations() {
                   <TableHead className="hidden sm:table-cell">{t('descriptionColumn')}</TableHead>
                   <TableHead className="hidden md:table-cell w-24">{t('versionColumn')}</TableHead>
                   {tab === 'market' && (
-                    <TableHead className="hidden md:table-cell w-20">{t('installsColumn')}</TableHead>
+                    <TableHead className="hidden md:table-cell w-20">
+                      {t('installsColumn')}
+                    </TableHead>
                   )}
                   {tab === 'user' && (
                     <TableHead className="hidden md:table-cell w-20">{t('sourceColumn')}</TableHead>
@@ -401,7 +421,9 @@ export function BatchOperations() {
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[240px] truncate">
-                        {'description' in item ? (item as SkillMarketEntry).description : (item as UserSkill).description}
+                        {'description' in item
+                          ? (item as SkillMarketEntry).description
+                          : (item as UserSkill).description}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                         {item.version}

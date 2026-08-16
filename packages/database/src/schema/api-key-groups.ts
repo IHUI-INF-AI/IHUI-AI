@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, integer, timestamp, jsonb, index, text, boolean } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  jsonb,
+  index,
+  text,
+  boolean,
+} from 'drizzle-orm/pg-core'
 
 /**
  * API Key 分组表(2026-08-01 立,P0 中转站造血能力批次)。

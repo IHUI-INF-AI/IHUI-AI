@@ -18,11 +18,7 @@
 import { createHmac, randomBytes } from 'node:crypto'
 import { eq, and, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import {
-  webhookSubscriptions,
-  webhookDeliveryLogs,
-  type RelayWebhookEvent,
-} from '@ihui/database'
+import { webhookSubscriptions, webhookDeliveryLogs, type RelayWebhookEvent } from '@ihui/database'
 
 // =============================================================================
 // 常量
@@ -81,11 +77,7 @@ interface DeliveryResult {
  * POST 请求体到 webhook URL,带 X-IHUI-Signature 头。
  * 超时 10s,返回响应状态码 + 截断的响应体。
  */
-async function deliver(
-  url: string,
-  body: string,
-  signature: string,
-): Promise<DeliveryResult> {
+async function deliver(url: string, body: string, signature: string): Promise<DeliveryResult> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS)
   try {

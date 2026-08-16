@@ -31,7 +31,9 @@ export default function NoteEditor({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-sm font-medium text-foreground">{tt('study.noteTitle', title)}</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {tt('study.noteTitle', title)}
+          </Text>
           <Text className="text-sm text-muted-foreground" onClick={onCancel}>
             {tt('study.noteClose', '关闭')}
           </Text>
@@ -47,7 +49,9 @@ export default function NoteEditor({
         />
 
         <View className="flex justify-between items-center mt-3">
-          <Text className="text-xs text-muted-foreground">{content.length} {tt('study.noteCountUnit', '字')}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {content.length} {tt('study.noteCountUnit', '字')}
+          </Text>
           <View className="flex space-x-2">
             <View className="px-4 py-2 rounded-md bg-muted" onClick={onCancel}>
               <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>

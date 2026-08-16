@@ -113,11 +113,7 @@ function canonicalStringify(value: unknown): string {
   }
   const obj = value as Record<string, unknown>
   const keys = Object.keys(obj).sort()
-  return (
-    '{' +
-    keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') +
-    '}'
-  )
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}'
 }
 
 /**
@@ -321,9 +317,7 @@ export function exportAuditLogs(
 }
 
 /** 统计(总数 + 按 action 分组 + 按 user 分组)。 */
-export async function getAuditLogStats(
-  filters: AuditLogFilters,
-): Promise<AuditLogStatsResult> {
+export async function getAuditLogStats(filters: AuditLogFilters): Promise<AuditLogStatsResult> {
   const [total, byAction, byUser] = await Promise.all([
     countAuditLogs(filters),
     groupByAction(filters),

@@ -84,10 +84,4 @@ export const ticketMachine = setup({
   },
 })
 
-export type TicketState =
-  | 'open'
-  | 'assigned'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed'
-  | 'rejected'
+export type TicketState = 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed' | 'rejected'

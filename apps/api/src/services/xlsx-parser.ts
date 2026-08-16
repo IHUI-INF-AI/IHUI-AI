@@ -145,7 +145,9 @@ function parseAddress(addr: string): { row: number; col: number } | null {
 }
 
 /** 解析 Excel range 字符串(如 "A1:B2")为 { top, left, bottom, right }(1-based) */
-function parseRange(range: string): { top: number; left: number; bottom: number; right: number } | null {
+function parseRange(
+  range: string,
+): { top: number; left: number; bottom: number; right: number } | null {
   const parts = range.split(':')
   const tl = parseAddress(parts[0] ?? '')
   const br = parts[1] ? parseAddress(parts[1]) : tl
@@ -198,7 +200,9 @@ function exceljsWorksheetToMatrix(ws: Worksheet): string[][] {
 }
 
 /** 用 exceljs 解析 .xlsx/.xlsm,返回多 sheet 矩阵 */
-async function parseWithExceljs(buffer: Buffer): Promise<Array<{ name: string; matrix: string[][] }>> {
+async function parseWithExceljs(
+  buffer: Buffer,
+): Promise<Array<{ name: string; matrix: string[][] }>> {
   const workbook = new Workbook()
   // exceljs .d.ts 在全局声明了 `interface Buffer extends ArrayBuffer`,与 Node.js 的 Buffer(extends Uint8Array)类型冲突
   // 运行时完全兼容(Node Buffer 是 Uint8Array 子类,exceljs 内部用 Buffer.isBuffer / instanceof Uint8Array 检测)
@@ -348,7 +352,10 @@ export async function parseXlsx(buffer: Buffer): Promise<XlsxParseResult> {
     sheets = await parseWithExceljs(buffer)
   } catch (e) {
     // exceljs 解析失败(可能是 .xlsm 或非标准 OOXML)→ 降级 xlsx 库
-    console.warn('[xlsx-parser.parseXlsx] exceljs failed, fallback to xlsx lib:', (e as Error).message)
+    console.warn(
+      '[xlsx-parser.parseXlsx] exceljs failed, fallback to xlsx lib:',
+      (e as Error).message,
+    )
     sheets = parseWithXlsxLib(buffer)
   }
   if (sheets.length === 0) {

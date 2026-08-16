@@ -16,7 +16,11 @@ import { getChannelManager, type ChannelMessage, type ChannelConfig } from './ch
 import { getToolExecutor, type ToolExecutionResult } from './tools.js'
 import { getTaskExecutor, type Task, type TaskResult } from './task-executor.js'
 import { getSelfEvolutionEngine, type SkillInstallation } from './self-evolution.js'
-import { getMessageProcessor, type ProcessedMessage, type IntentAnalysis } from './message-processor.js'
+import {
+  getMessageProcessor,
+  type ProcessedMessage,
+  type IntentAnalysis,
+} from './message-processor.js'
 import { getMemoryService } from './memory.js'
 import { getModelManager } from './models.js'
 import { getSystemService } from './system.js'
@@ -218,12 +222,25 @@ export class ClawdbotService extends EventEmitter {
     return response
   }
 
-  private getRecentHistory(userId: string): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  private getRecentHistory(
+    userId: string,
+  ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
     const history = this.conversations.get(userId) ?? []
     return history.slice(-10).map((m) => ({ role: m.role, content: m.content }))
   }
 
-  async executeTask(name: string, description: string, steps: Array<{ id: string; name: string; type: 'tool'; toolName?: string; toolParams?: Record<string, unknown> }>, context?: Record<string, unknown>): Promise<TaskResult> {
+  async executeTask(
+    name: string,
+    description: string,
+    steps: Array<{
+      id: string
+      name: string
+      type: 'tool'
+      toolName?: string
+      toolParams?: Record<string, unknown>
+    }>,
+    context?: Record<string, unknown>,
+  ): Promise<TaskResult> {
     const task = this.taskExecutor.create({ name, description, steps, context })
     return this.taskExecutor.execute(task.id)
   }
@@ -260,23 +277,57 @@ export class ClawdbotService extends EventEmitter {
   }
 
   // 子服务访问器
-  getGateway() { return this.gateway }
-  getChannelManager() { return this.channelManager }
-  getToolExecutor() { return this.toolExecutor }
-  getTaskExecutor() { return this.taskExecutor }
-  getEvolutionEngine() { return this.evolutionEngine }
-  getMessageProcessor() { return this.messageProcessor }
-  getMemoryService() { return this.memoryService }
-  getModelManager() { return this.modelManager }
-  getSystemService() { return this.systemService }
-  getSkillManager() { return this.skillManager }
-  getCanvasService() { return this.canvasService }
-  getIntegrationManager() { return this.integrationManager }
-  getMcpClient() { return this.mcpClient }
-  getNodeExecutor() { return this.nodeExecutor }
-  getPairingService() { return this.pairingService }
-  getVoiceService() { return this.voiceService }
-  getBrowserAutomation() { return this.browserAutomation }
+  getGateway() {
+    return this.gateway
+  }
+  getChannelManager() {
+    return this.channelManager
+  }
+  getToolExecutor() {
+    return this.toolExecutor
+  }
+  getTaskExecutor() {
+    return this.taskExecutor
+  }
+  getEvolutionEngine() {
+    return this.evolutionEngine
+  }
+  getMessageProcessor() {
+    return this.messageProcessor
+  }
+  getMemoryService() {
+    return this.memoryService
+  }
+  getModelManager() {
+    return this.modelManager
+  }
+  getSystemService() {
+    return this.systemService
+  }
+  getSkillManager() {
+    return this.skillManager
+  }
+  getCanvasService() {
+    return this.canvasService
+  }
+  getIntegrationManager() {
+    return this.integrationManager
+  }
+  getMcpClient() {
+    return this.mcpClient
+  }
+  getNodeExecutor() {
+    return this.nodeExecutor
+  }
+  getPairingService() {
+    return this.pairingService
+  }
+  getVoiceService() {
+    return this.voiceService
+  }
+  getBrowserAutomation() {
+    return this.browserAutomation
+  }
 }
 
 let instance: ClawdbotService | null = null

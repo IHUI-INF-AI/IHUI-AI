@@ -21,8 +21,7 @@ export interface ReferenceItem {
 
 const MAX_LABEL_LENGTH = 30
 
-const generateId = (): string =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const generateId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 /**
  * 消息输入区 references 状态管理 hook(2026-07-29 提取自 message-input.tsx)
@@ -77,9 +76,7 @@ export function useMessageReferences(): {
       id: generateId(),
       type: 'text',
       label:
-        trimmed.length > MAX_LABEL_LENGTH
-          ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...`
-          : trimmed,
+        trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed,
       preview: trimmed,
     }
     setReferences((prev) => [...prev, ref])
@@ -89,9 +86,7 @@ export function useMessageReferences(): {
     const trimmed = code.trim()
     if (!trimmed) return
     const summary =
-      trimmed.length > MAX_LABEL_LENGTH
-        ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...`
-        : trimmed
+      trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed
     const ref: ReferenceItem = {
       id: generateId(),
       type: 'text',

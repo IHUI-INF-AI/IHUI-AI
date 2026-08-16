@@ -15,12 +15,7 @@ interface TenantFilterProps {
   onStateChange: (v: string) => void
 }
 
-export function TenantFilter({
-  search,
-  onSearchChange,
-  state,
-  onStateChange,
-}: TenantFilterProps) {
+export function TenantFilter({ search, onSearchChange, state, onStateChange }: TenantFilterProps) {
   const t = useTranslations('admin.saas')
   return (
     <div className="flex flex-wrap items-center gap-2">

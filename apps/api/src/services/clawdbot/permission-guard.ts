@@ -126,12 +126,7 @@ export function getPermissionGuard(): PermissionGuard {
   return instance
 }
 
-export type PermissionMode =
-  | 'default'
-  | 'acceptEdits'
-  | 'bypassPermissions'
-  | 'plan'
-  | 'manual'
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'manual'
 
 export type PermissionDecision = 'allow' | 'deny' | 'ask'
 
@@ -145,9 +140,7 @@ const VALID_PERMISSION_MODES: ReadonlySet<string> = new Set([
   'manual',
 ])
 
-export function parsePermissionMode(
-  s: string | undefined | null,
-): PermissionMode | undefined {
+export function parsePermissionMode(s: string | undefined | null): PermissionMode | undefined {
   if (!s || typeof s !== 'string') return undefined
   const trimmed = s.trim()
   if (VALID_PERMISSION_MODES.has(trimmed)) return trimmed as PermissionMode

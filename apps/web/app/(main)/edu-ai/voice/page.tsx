@@ -190,9 +190,7 @@ export default function VoicePage() {
               />
             </div>
 
-            {errorMsg && (
-              <Alert variant="danger" title={t('callError')} description={errorMsg} />
-            )}
+            {errorMsg && <Alert variant="danger" title={t('callError')} description={errorMsg} />}
 
             {!isCallActive && (
               <Button type="submit" disabled={startCall.isPending || !calleeId.trim()}>
@@ -213,10 +211,14 @@ export default function VoicePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- 实时语音流,无预录媒体文件 */ }
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- 实时语音流,无预录媒体文件 */}
             <audio ref={audioRef} autoPlay className="hidden" />
             {isCallActive && (
-              <Button variant="destructive" onClick={() => endCall.mutate()} disabled={endCall.isPending}>
+              <Button
+                variant="destructive"
+                onClick={() => endCall.mutate()}
+                disabled={endCall.isPending}
+              >
                 {endCall.isPending ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (

@@ -84,7 +84,9 @@ export default function RecruitmentPage() {
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{data.title}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          {data.title}
+        </h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
           {data.description}
         </p>

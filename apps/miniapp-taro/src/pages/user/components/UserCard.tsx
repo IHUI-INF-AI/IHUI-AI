@@ -12,10 +12,34 @@ export interface UserCardProps {
 /** UserCard 组件 — 对齐原项目 user_cards.vue（订单/公司/智汇值/钱包卡片） */
 export default function UserCard({ onGoPage }: UserCardProps) {
   const items = [
-    { key: 'order', icon: dingdanIcon, title: '我的订单', desc: '查看相关订单', path: '/pages/user_order_list/index' },
-    { key: 'distribution', icon: gerenIcon, title: '我的公司', desc: '查看员工与业绩', path: '/pagesA/distribution/index' },
-    { key: 'token', icon: xianLabelIcon, title: '我的智汇值', desc: '智汇消耗信息', path: '/pages/tools/token_value' },
-    { key: 'money', icon: shezhiIcon, title: '我的钱包', desc: '查看余额与充值', path: '/pagesA/top-up/index' },
+    {
+      key: 'order',
+      icon: dingdanIcon,
+      title: '我的订单',
+      desc: '查看相关订单',
+      path: '/pages/user_order_list/index',
+    },
+    {
+      key: 'distribution',
+      icon: gerenIcon,
+      title: '我的公司',
+      desc: '查看员工与业绩',
+      path: '/pagesA/distribution/index',
+    },
+    {
+      key: 'token',
+      icon: xianLabelIcon,
+      title: '我的智汇值',
+      desc: '智汇消耗信息',
+      path: '/pages/tools/token_value',
+    },
+    {
+      key: 'money',
+      icon: shezhiIcon,
+      title: '我的钱包',
+      desc: '查看余额与充值',
+      path: '/pagesA/top-up/index',
+    },
   ]
   return (
     <View className="flex flex-wrap justify-between w-full mt-[20rpx] mb-[14rpx]">
@@ -25,7 +49,10 @@ export default function UserCard({ onGoPage }: UserCardProps) {
           <View
             key={item.key}
             className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
-            style={{ background: 'rgba(0,4,255,0.03)', boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)' }}
+            style={{
+              background: 'rgba(0,4,255,0.03)',
+              boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)',
+            }}
             onClick={() => {
               const userInfodata = Taro.getStorageSync('data')
               if (!userInfodata) {

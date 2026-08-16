@@ -165,12 +165,11 @@ export function AgentScreen() {
   const [activeCategory, setActiveCategory] = useState<string>('')
   const [activeMain, setActiveMain] = useState<string>('all')
   // 分类字典:初始用静态 fallback,API 成功后覆盖
-  const [agentCategoryList, setAgentCategoryList] = useState<ReadonlyArray<AgentCategoryItem>>(
-    AGENT_CATEGORY_FALLBACK,
-  )
-  const [agentMainCategoryList, setAgentMainCategoryList] = useState<ReadonlyArray<AgentCategoryItem>>(
-    AGENT_MAIN_CATEGORY_FALLBACK,
-  )
+  const [agentCategoryList, setAgentCategoryList] =
+    useState<ReadonlyArray<AgentCategoryItem>>(AGENT_CATEGORY_FALLBACK)
+  const [agentMainCategoryList, setAgentMainCategoryList] = useState<
+    ReadonlyArray<AgentCategoryItem>
+  >(AGENT_MAIN_CATEGORY_FALLBACK)
 
   const loadAgents = useCallback(
     async (opts?: { agentCategory?: string; agentMainCategory?: string }): Promise<void> => {
@@ -223,9 +222,7 @@ export function AgentScreen() {
     const kw = searchKeyword.trim().toLowerCase()
     if (!kw) return items
     return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(kw) ||
-        item.description.toLowerCase().includes(kw),
+      (item) => item.name.toLowerCase().includes(kw) || item.description.toLowerCase().includes(kw),
     )
   }, [items, searchKeyword])
 
@@ -293,54 +290,92 @@ export function AgentScreen() {
   const handleDrawerNavigate = useCallback(
     (tab: DrawerTab): void => {
       setDrawerVisible(false)
-      if (tab === 'square') { navigation.navigate('Square'); return }
-      if (tab === 'share') { navigation.navigate('Share'); return }
+      if (tab === 'square') {
+        navigation.navigate('Square')
+        return
+      }
+      if (tab === 'share') {
+        navigation.navigate('Share')
+        return
+      }
       const rnTab = DRAWER_TAB_TO_RN_TAB[tab]
       rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
     },
     [navigation, rootNav],
   )
   const handleDrawerNavigateCompany = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('Distribution')
+    setDrawerVisible(false)
+    navigation.navigate('Distribution')
   }, [navigation])
   const handleDrawerClaimFree = useCallback((): void => {
     setDrawerVisible(false)
-    try { Clipboard.setString(FREE_RESOURCE_URL); showToast('链接已复制到剪贴板', 'success') }
-    catch { showToast('复制失败,请重试', 'warning') }
+    try {
+      Clipboard.setString(FREE_RESOURCE_URL)
+      showToast('链接已复制到剪贴板', 'success')
+    } catch {
+      showToast('复制失败,请重试', 'warning')
+    }
   }, [showToast])
   const handleDrawerCreateNewChat = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('AiAssistant')
-  }, [navigation])
-  const handleDrawerSelectConversation = useCallback((id: string): void => {
     setDrawerVisible(false)
-    const conv = drawerConversations.find((c) => c.id === id)
-    navigation.navigate('AiAssistant', { agentId: id, title: conv?.title })
-  }, [navigation, drawerConversations])
-  const handleDrawerDeleteConversation = useCallback((_id: string): void => {
-    Alert.alert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: () => showToast('删除功能待 API 接入', 'info') },
-    ])
-  }, [showToast])
+    navigation.navigate('AiAssistant')
+  }, [navigation])
+  const handleDrawerSelectConversation = useCallback(
+    (id: string): void => {
+      setDrawerVisible(false)
+      const conv = drawerConversations.find((c) => c.id === id)
+      navigation.navigate('AiAssistant', { agentId: id, title: conv?.title })
+    },
+    [navigation, drawerConversations],
+  )
+  const handleDrawerDeleteConversation = useCallback(
+    (_id: string): void => {
+      Alert.alert('删除对话', '确认删除此对话?', [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => showToast('删除功能待 API 接入', 'info'),
+        },
+      ])
+    },
+    [showToast],
+  )
   const handleDrawerOpenSettings = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('Settings')
+    setDrawerVisible(false)
+    navigation.navigate('Settings')
   }, [navigation])
   const handleDrawerOpenMessages = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('MessageCenter')
+    setDrawerVisible(false)
+    navigation.navigate('MessageCenter')
   }, [navigation])
   const handleDrawerGoHome = useCallback((): void => {
-    setDrawerVisible(false); navigation.navigate('Main', { screen: 'HomeMain' })
-  }, [navigation])
-  const handleNavigateExtra = useCallback((menu: DrawerExtraMenu): void => {
     setDrawerVisible(false)
-    switch (menu) {
-      case 'aigc': navigation.navigate('AigcList'); break
-      case 'learn': navigation.navigate('Learn'); break
-      case 'modelPlaza': navigation.navigate('ModelPlaza'); break
-      case 'company': navigation.navigate('Distribution'); break
-      case 'tools': navigation.navigate('Settings'); break
-    }
+    navigation.navigate('Main', { screen: 'HomeMain' })
   }, [navigation])
+  const handleNavigateExtra = useCallback(
+    (menu: DrawerExtraMenu): void => {
+      setDrawerVisible(false)
+      switch (menu) {
+        case 'aigc':
+          navigation.navigate('AigcList')
+          break
+        case 'learn':
+          navigation.navigate('Learn')
+          break
+        case 'modelPlaza':
+          navigation.navigate('ModelPlaza')
+          break
+        case 'company':
+          navigation.navigate('Distribution')
+          break
+        case 'tools':
+          navigation.navigate('Settings')
+          break
+      }
+    },
+    [navigation],
+  )
 
   const drawerUser = {
     avatar: user?.avatar,
@@ -366,7 +401,10 @@ export function AgentScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); void load() }}
+            onRefresh={() => {
+              setRefreshing(true)
+              void load()
+            }}
           />
         }
       >
@@ -380,7 +418,12 @@ export function AgentScreen() {
         ) : null}
         {banners.length > 0 ? (
           <View style={styles.carouselWrap}>
-            <Carousel banner={banners} onItemPress={(item) => { void item }} />
+            <Carousel
+              banner={banners}
+              onItemPress={(item) => {
+                void item
+              }}
+            />
           </View>
         ) : null}
         {recentAgents.length > 0 ? (
@@ -392,14 +435,18 @@ export function AgentScreen() {
             onPress={() => setViewMode('shared')}
             activeOpacity={0.8}
           >
-            <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>智能体</Text>
+            <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
+              智能体
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, viewMode === 'local' && styles.tabActive]}
             onPress={() => setViewMode('local')}
             activeOpacity={0.8}
           >
-            <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>模型选择</Text>
+            <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
+              模型选择
+            </Text>
           </TouchableOpacity>
         </View>
         <View style={styles.viewport}>
@@ -410,7 +457,10 @@ export function AgentScreen() {
               loading={loading}
               refreshing={refreshing}
               error={error}
-              onRefresh={() => { setRefreshing(true); void load() }}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
               onPressItem={(id) => handleItemClick(id)}
               onBack={() => navigation.goBack()}
             />
@@ -429,7 +479,12 @@ export function AgentScreen() {
           <Text style={styles.backToTopIcon}>↑</Text>
         </TouchableOpacity>
       ) : null}
-      <FloatBox visible={toast.visible} type={toast.type} message={toast.message} onHide={handleToastHide} />
+      <FloatBox
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        onHide={handleToastHide}
+      />
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}
@@ -464,7 +519,9 @@ export function AgentScreen() {
                     style={[styles.trackBtn, selected && styles.trackBtnActive]}
                     onPress={() => handleCategorySelect(cat.id)}
                   >
-                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>{cat.name}</Text>
+                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>
+                      {cat.name}
+                    </Text>
                   </Pressable>
                 )
               })}
@@ -479,7 +536,9 @@ export function AgentScreen() {
                     style={[styles.trackBtn, selected && styles.trackBtnActive]}
                     onPress={() => handleMainSelect(main.id)}
                   >
-                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>{main.name}</Text>
+                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>
+                      {main.name}
+                    </Text>
                   </Pressable>
                 )
               })}
@@ -495,19 +554,78 @@ const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
   carouselWrap: { marginTop: 9, marginHorizontal: 10, borderRadius: 15, overflow: 'hidden' },
-  tabBar: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, gap: 8, backgroundColor: tokens.surface.bg },
-  tab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.muted },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 8,
+    backgroundColor: tokens.surface.bg,
+  },
+  tab: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, color: tokens.text.secondary },
   tabTextActive: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
   viewport: { minHeight: 400, paddingHorizontal: 10 },
-  backToTopBtn: { position: 'absolute', bottom: 20, right: 16, width: 34, height: 34, borderRadius: 17, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
-  backToTopIcon: { fontSize: 18, color: tokens.text.secondary, lineHeight: 20, includeFontPadding: false },
+  backToTopBtn: {
+    position: 'absolute',
+    bottom: 20,
+    right: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  backToTopIcon: {
+    fontSize: 18,
+    color: tokens.text.secondary,
+    lineHeight: 20,
+    includeFontPadding: false,
+  },
   trackOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  trackContent: { backgroundColor: tokens.surface.card, paddingHorizontal: 10, paddingVertical: 5, borderBottomLeftRadius: 12, borderBottomRightRadius: 12 },
-  trackBtn: { paddingHorizontal: 4, height: 22, justifyContent: 'center', borderRadius: 4, borderWidth: 1, borderColor: '#ffffff', backgroundColor: 'transparent', marginRight: 3 },
-  trackBtnActive: { backgroundColor: 'rgba(248, 249, 252, 0.65)', borderColor: '#e0e8ff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 },
+  trackContent: {
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  trackBtn: {
+    paddingHorizontal: 4,
+    height: 22,
+    justifyContent: 'center',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+    marginRight: 3,
+  },
+  trackBtnActive: {
+    backgroundColor: 'rgba(248, 249, 252, 0.65)',
+    borderColor: '#e0e8ff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+  },
   trackBtnText: { fontSize: 11, color: 'rgba(0,0,0,0.6)' },
   trackBtnTextActive: { fontSize: 11, color: '#000000', fontWeight: '700' },
-  trackDivider: { height: StyleSheet.hairlineWidth, backgroundColor: tokens.surface.muted, marginVertical: 5 },
+  trackDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.surface.muted,
+    marginVertical: 5,
+  },
 })

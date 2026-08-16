@@ -85,15 +85,15 @@ export default function SkillsPopup({
 
       <ScrollView scrollX className="whitespace-nowrap mb-2">
         <View className="px-3 py-2">
-        {CATEGORIES.map((c) => (
-          <View
-            key={c.key}
-            className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
-            onClick={() => setCategory(c.key)}
-          >
-            <Text>{t(c.labelKey)}</Text>
-          </View>
-        ))}
+          {CATEGORIES.map((c) => (
+            <View
+              key={c.key}
+              className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+              onClick={() => setCategory(c.key)}
+            >
+              <Text>{t(c.labelKey)}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
 

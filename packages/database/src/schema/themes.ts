@@ -34,7 +34,9 @@ export const themeColors = pgTable(
   'theme_colors',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    themeId: uuid('theme_id').references(() => themes.id, { onDelete: 'cascade' }).notNull(),
+    themeId: uuid('theme_id')
+      .references(() => themes.id, { onDelete: 'cascade' })
+      .notNull(),
     key: varchar('key', { length: 100 }).notNull(),
     value: varchar('value', { length: 100 }).notNull(),
     label: varchar('label', { length: 100 }),
@@ -51,7 +53,9 @@ export const themeFonts = pgTable(
   'theme_fonts',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    themeId: uuid('theme_id').references(() => themes.id, { onDelete: 'cascade' }).notNull(),
+    themeId: uuid('theme_id')
+      .references(() => themes.id, { onDelete: 'cascade' })
+      .notNull(),
     name: varchar('name', { length: 100 }).notNull(),
     family: varchar('family', { length: 200 }).notNull(),
     url: varchar('url', { length: 500 }),
@@ -69,7 +73,9 @@ export const themeAssets = pgTable(
   'theme_assets',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    themeId: uuid('theme_id').references(() => themes.id, { onDelete: 'cascade' }).notNull(),
+    themeId: uuid('theme_id')
+      .references(() => themes.id, { onDelete: 'cascade' })
+      .notNull(),
     type: varchar('type', { length: 50 }).notNull(),
     url: varchar('url', { length: 500 }).notNull(),
     label: varchar('label', { length: 100 }),

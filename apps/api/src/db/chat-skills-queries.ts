@@ -63,10 +63,12 @@ export async function listChatSkills(
 }
 
 /** 按 ID 查一条(供 PATCH/DELETE 校验归属)。 */
-export async function findChatSkillById(
-  id: string,
-): Promise<ChatSkillRow | undefined> {
-  const rows = await db.select(rowFields).from(userChatSkills).where(eq(userChatSkills.id, id)).limit(1)
+export async function findChatSkillById(id: string): Promise<ChatSkillRow | undefined> {
+  const rows = await db
+    .select(rowFields)
+    .from(userChatSkills)
+    .where(eq(userChatSkills.id, id))
+    .limit(1)
   return rows[0]
 }
 

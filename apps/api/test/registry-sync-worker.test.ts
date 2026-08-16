@@ -114,12 +114,14 @@ function createMockServer() {
   } as any
 }
 
-function createMockJob(data: Partial<{
-  sourceType: string | null
-  source: string | null
-  force: boolean
-  triggerId: string
-}> = {}) {
+function createMockJob(
+  data: Partial<{
+    sourceType: string | null
+    source: string | null
+    force: boolean
+    triggerId: string
+  }> = {},
+) {
   return {
     id: 'job-test-001',
     data: {
@@ -228,9 +230,27 @@ describe('Registry Sync Worker', () => {
       skipped: 0,
       failed: 0,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: null, newVersion: '1.0.0' },
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-2', oldVersion: null, newVersion: '2.0.0' },
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-3', oldVersion: null, newVersion: '3.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: null,
+          newVersion: '1.0.0',
+        },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-2',
+          oldVersion: null,
+          newVersion: '2.0.0',
+        },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-3',
+          oldVersion: null,
+          newVersion: '3.0.0',
+        },
       ],
       hashList: ['hash-1', 'hash-2', 'hash-3'],
     })
@@ -262,8 +282,20 @@ describe('Registry Sync Worker', () => {
       skipped: 0,
       failed: 1,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: null, newVersion: '1.0.0' },
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-2', oldVersion: null, newVersion: '2.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: null,
+          newVersion: '1.0.0',
+        },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-2',
+          oldVersion: null,
+          newVersion: '2.0.0',
+        },
       ],
       hashList: ['h1', 'h2'],
     })
@@ -313,7 +345,13 @@ describe('Registry Sync Worker', () => {
       skipped: 0,
       failed: 0,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: null, newVersion: '1.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: null,
+          newVersion: '1.0.0',
+        },
       ],
       hashList: ['h1'],
     })
@@ -360,7 +398,13 @@ describe('Registry Sync Worker', () => {
       skipped: 1,
       failed: 0,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: '1.0.0', newVersion: '1.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.0',
+        },
       ],
       hashList: ['h1'],
     })
@@ -371,9 +415,7 @@ describe('Registry Sync Worker', () => {
     const result = await handler(job)
 
     expect(result).toEqual({ synced: 0, failed: 0, skipped: 1, total: 1 })
-    expect(mockInsertSyncLog).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'success' }),
-    )
+    expect(mockInsertSyncLog).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }))
   })
 
   it('sync_log 的 oldVersion 聚合:第一个版本变化的 oldVersion 被写入', async () => {
@@ -388,7 +430,13 @@ describe('Registry Sync Worker', () => {
       skipped: 0,
       failed: 0,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: '1.0.0', newVersion: '2.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: '1.0.0',
+          newVersion: '2.0.0',
+        },
       ],
       hashList: ['h1'],
     })
@@ -430,7 +478,13 @@ describe('Registry Sync Worker', () => {
       skipped: 0,
       failed: 0,
       oldVersions: [
-        { sourceType: 'mcp', source: 'github', sourceId: 'repo-1', oldVersion: '1.0.0', newVersion: '1.0.0' },
+        {
+          sourceType: 'mcp',
+          source: 'github',
+          sourceId: 'repo-1',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.0',
+        },
       ],
       hashList: ['h1'],
     })

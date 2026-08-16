@@ -22,10 +22,7 @@ export function useDownloadTrack(): (
   source: DownloadSource,
   assetHref?: string,
 ) => void {
-  return useCallback(
-    (platform: DownloadPlatform, source: DownloadSource, assetHref?: string) => {
-      void downloadEndpoints.track({ platform, source, assetHref })
-    },
-    [],
-  )
+  return useCallback((platform: DownloadPlatform, source: DownloadSource, assetHref?: string) => {
+    void downloadEndpoints.track({ platform, source, assetHref })
+  }, [])
 }

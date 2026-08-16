@@ -14,8 +14,10 @@ import { cn } from '../lib/utils'
  * 不弹独立窗口,纯 pointer events。
  */
 
-export interface ResizableHandleProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onResize'> {
+export interface ResizableHandleProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'onResize'
+> {
   /** 手柄位置(决定拖拽方向) */
   direction: 'left' | 'right' | 'top' | 'bottom'
   /** 拖拽时每帧回调,delta 为像素位移(向右/下为正) */
@@ -41,16 +43,7 @@ const isHorizontal = (d: ResizableHandleProps['direction']) => d === 'left' || d
 
 export const ResizableHandle = React.forwardRef<HTMLDivElement, ResizableHandleProps>(
   (
-    {
-      direction,
-      onResize,
-      onResizeStart,
-      onResizeEnd,
-      disabled,
-      size = 8,
-      className,
-      ...rest
-    },
+    { direction, onResize, onResizeStart, onResizeEnd, disabled, size = 8, className, ...rest },
     ref,
   ) => {
     const handlePointerDown = React.useCallback(

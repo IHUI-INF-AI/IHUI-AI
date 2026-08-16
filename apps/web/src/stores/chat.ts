@@ -396,7 +396,10 @@ export const useChatStore = create<ChatState>()(
             const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
             if (mIdx !== -1) {
               const target = s.messages[mIdx]
-              if (target && !(target.subagentActivities ?? []).some((a) => a.agentId === event.id)) {
+              if (
+                target &&
+                !(target.subagentActivities ?? []).some((a) => a.agentId === event.id)
+              ) {
                 messages = s.messages.slice()
                 messages[mIdx] = {
                   ...target,

@@ -147,14 +147,8 @@ export function LiveHostScreen() {
 
   const sharedStream = useMemo(() => (stream ? mapStream(stream) : null), [stream])
   const durationText = useMemo(() => formatDuration(duration), [duration])
-  const recvBytesText = useMemo(
-    () => formatFileSize(stream?.recvBytes ?? 0),
-    [stream?.recvBytes],
-  )
-  const sendBytesText = useMemo(
-    () => formatFileSize(stream?.sendBytes ?? 0),
-    [stream?.sendBytes],
-  )
+  const recvBytesText = useMemo(() => formatFileSize(stream?.recvBytes ?? 0), [stream?.recvBytes])
+  const sendBytesText = useMemo(() => formatFileSize(stream?.sendBytes ?? 0), [stream?.sendBytes])
 
   return (
     <SharedLiveHostScreen

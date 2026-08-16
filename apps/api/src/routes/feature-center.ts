@@ -319,10 +319,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       }))
       // 合并:DB 优先,文件 slug 去重(DB 已有的 slug 不再从文件重复加载)
       const dbSlugs = new Set(dbList.map((d) => d.url.replace('/docs/', '')))
-      const merged = [
-        ...dbList,
-        ...fileDocs.filter((d) => !dbSlugs.has(d.id.replace('file:', ''))),
-      ]
+      const merged = [...dbList, ...fileDocs.filter((d) => !dbSlugs.has(d.id.replace('file:', '')))]
       return reply.send(success(merged))
     } catch (e) {
       server.log.error(e)

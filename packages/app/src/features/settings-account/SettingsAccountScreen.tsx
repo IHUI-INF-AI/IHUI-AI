@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { ScrollView, Text, TouchableOpacity, View, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SettingsAccountScreenProps } from '../../types'
 
@@ -81,14 +89,43 @@ export function SettingsAccountScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48, paddingBottom: 32 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 10,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
     back: { fontSize: 16, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '700', color: tk.text.primary, marginBottom: 8 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: 8,
+    },
     label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
-    input: { marginTop: 8, paddingHorizontal: 12, height: 50, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light, backgroundColor: '#f5f5f5', fontSize: 16, color: tk.text.primary },
+    input: {
+      marginTop: 8,
+      paddingHorizontal: 12,
+      height: 50,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: '#f5f5f5',
+      fontSize: 16,
+      color: tk.text.primary,
+    },
     error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
     toast: { marginTop: 12, fontSize: 14, color: tk.success.DEFAULT },
-    saveBtn: { marginTop: 16, height: 50, justifyContent: 'center', borderRadius: 12, backgroundColor: tk.brand.DEFAULT, alignItems: 'center' },
+    saveBtn: {
+      marginTop: 16,
+      height: 50,
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+    },
     btnDisabled: { opacity: 0.6 },
     saveText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },

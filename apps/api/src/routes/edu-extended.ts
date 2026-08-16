@@ -37,7 +37,10 @@ import { sendStudentReport } from './edu-public.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
-const optionalUuid = z.transform(emptyToUndefined).pipe(z.uuid({ error: '无效的 ID' })).optional()
+const optionalUuid = z
+  .transform(emptyToUndefined)
+  .pipe(z.uuid({ error: '无效的 ID' }))
+  .optional()
 
 const notesListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

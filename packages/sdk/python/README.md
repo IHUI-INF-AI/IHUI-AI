@@ -77,21 +77,21 @@ asyncio.run(main())
 
 ## 模块总览
 
-| 模块 | 端点数 | 说明 |
-|------|--------|------|
-| `client.ai` | 13 | Chat / Embeddings / Models / MoA |
-| `client.agents` | 12 | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行 |
-| `client.audio` | 8 | TTS / ASR / 语音对话 / 声纹 / 音乐 |
-| `client.images` | 6 | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| `client.videos` | 3 | 生成 / 任务查询 / 编排 |
-| `client.threed` | 1 | 3D 模型生成 |
-| `client.generation` | 3 | 生成队列:入队 / 状态 / 取消 |
-| `client.knowledge` | 13 | 知识库 / RAG / 知识图谱 |
-| `client.tools` | 16 | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图 |
-| `client.memory` | 8 | 记忆:保存 / 召回 / 搜索 / Dream |
-| `client.messages` | 4 | 消息:发布 / 订阅 / 状态 |
-| `client.files` | 9 | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本 |
-| `client.user` | 9 | 用户 / 工作区 / 工作流 / 统计 |
+| 模块                | 端点数 | 说明                                              |
+| ------------------- | ------ | ------------------------------------------------- |
+| `client.ai`         | 13     | Chat / Embeddings / Models / MoA                  |
+| `client.agents`     | 12     | Agent 列表 / 调用 / 高级执行 / Pipeline / 并行    |
+| `client.audio`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐                |
+| `client.images`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
+| `client.videos`     | 3      | 生成 / 任务查询 / 编排                            |
+| `client.threed`     | 1      | 3D 模型生成                                       |
+| `client.generation` | 3      | 生成队列:入队 / 状态 / 取消                       |
+| `client.knowledge`  | 13     | 知识库 / RAG / 知识图谱                           |
+| `client.tools`      | 16     | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图          |
+| `client.memory`     | 8      | 记忆:保存 / 召回 / 搜索 / Dream                   |
+| `client.messages`   | 4      | 消息:发布 / 订阅 / 状态                           |
+| `client.files`      | 9      | 文件:列表 / 上传 / 详情 / 删除 / 内容 / 版本      |
+| `client.user`       | 9      | 用户 / 工作区 / 工作流 / 统计                     |
 
 ## 使用示例
 
@@ -513,6 +513,7 @@ X-Api-Secret: secret_xxx  # 如果配置了 secret
 ```
 
 支持两种鉴权方式:
+
 - `Authorization: Bearer <API_KEY>`(默认)
 - `X-Api-Key: <API_KEY>`(备选,SDK 内部使用 Bearer)
 

@@ -5,7 +5,16 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ArrowLeft, Tag, FileText, FolderOpen, User, MessageSquare, FileCode, Loader2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Tag,
+  FileText,
+  FolderOpen,
+  User,
+  MessageSquare,
+  FileCode,
+  Loader2,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 

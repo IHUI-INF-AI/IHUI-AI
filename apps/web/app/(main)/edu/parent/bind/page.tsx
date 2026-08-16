@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  UserPlus,
-  Link as LinkIcon,
-  Trash2,
-} from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, UserPlus, Link as LinkIcon, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
@@ -152,11 +145,15 @@ export default function ParentBindPage() {
               <p className="text-sm font-medium">{t('bind.relationshipLabel')}</p>
               <select
                 value={relationship}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRelationship(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setRelationship(e.target.value)
+                }
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {RELATIONSHIP_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -208,7 +205,9 @@ export default function ParentBindPage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {t('bind.relationship')}: {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ?? b.relationship}
+                      {t('bind.relationship')}:{' '}
+                      {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ??
+                        b.relationship}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

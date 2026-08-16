@@ -61,9 +61,7 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = createSchema.safeParse(request.body ?? {})
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -87,9 +85,7 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     const { id } = request.params as { id: string }
     const parsed = resizeSchema.safeParse(request.body ?? {})
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const ok = resizeSession(id, request.userId, parsed.data.cols, parsed.data.rows)

@@ -50,7 +50,8 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   })
 
   const installMut = useMutation({
-    mutationFn: (name: string) => api(`/api/skills/${encodeURIComponent(name)}/install`, { method: 'POST' }),
+    mutationFn: (name: string) =>
+      api(`/api/skills/${encodeURIComponent(name)}/install`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills', 'market'] })
       qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
@@ -58,7 +59,8 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   })
 
   const unlistMut = useMutation({
-    mutationFn: (name: string) => api(`/api/skills/${encodeURIComponent(name)}/unlist`, { method: 'POST' }),
+    mutationFn: (name: string) =>
+      api(`/api/skills/${encodeURIComponent(name)}/unlist`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills', 'market'] })
     },
@@ -83,7 +85,12 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
+    >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('marketTitle')}</DialogTitle>
@@ -98,7 +105,9 @@ export function SkillMarketDialog({ open, onClose }: Props) {
               onChange={(e) => setSearchQ(e.target.value)}
               placeholder={t('searchMarketPlaceholder')}
               className="pl-8"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearch()
+              }}
             />
           </div>
           <Button variant="outline" size="sm" onClick={handleSearch}>
@@ -116,7 +125,9 @@ export function SkillMarketDialog({ open, onClose }: Props) {
           ) : marketQ.error ? (
             <div className="py-8 text-center text-destructive">{marketQ.error.message}</div>
           ) : list.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">{t('noMarketData')}</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {t('noMarketData')}
+            </div>
           ) : (
             list.map((skill) => (
               <div
@@ -151,7 +162,11 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                     <p className="mt-0.5 text-xs text-muted-foreground">{skill.description}</p>
                   ) : null}
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {skill.author ? <span>{t('author')}: {skill.author}</span> : null}
+                    {skill.author ? (
+                      <span>
+                        {t('author')}: {skill.author}
+                      </span>
+                    ) : null}
                     {skill.installCount !== null && skill.installCount !== undefined ? (
                       <span>{t('installCount', { count: skill.installCount })}</span>
                     ) : null}
@@ -169,12 +184,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-1">
                   {skill.isInstalled ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled
-                      className="text-xs"
-                    >
+                    <Button variant="outline" size="sm" disabled className="text-xs">
                       <Download className="mr-1 h-3 w-3" />
                       {t('installed')}
                     </Button>

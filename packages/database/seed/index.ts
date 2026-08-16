@@ -95,13 +95,15 @@ const STEPS: SeedStep[] = [
   {
     index: 11,
     name: 'AI 成本治理 seed',
-    description: '为 admin/ai-cost 看板 top-users / budget-alerts 端点补真实数据(3 用户 × 4 模型 × 7 天 + 3 预算)',
+    description:
+      '为 admin/ai-cost 看板 top-users / budget-alerts 端点补真实数据(3 用户 × 4 模型 × 7 天 + 3 预算)',
     fn: seedAiCostRecords,
   },
   {
     index: 12,
     name: 'P1-3 AI 教育课程内容 + 证书模板',
-    description: '8 门示范课程(AI 编程入门 / LangGraph / MCP / AI 教育方法论 / 多模态 / RAG / Agent 评测 / AI 安全)+ 章节大纲 + 2 个证书视觉模板(紧凑 / 古典)',
+    description:
+      '8 门示范课程(AI 编程入门 / LangGraph / MCP / AI 教育方法论 / 多模态 / RAG / Agent 评测 / AI 安全)+ 章节大纲 + 2 个证书视觉模板(紧凑 / 古典)',
     fn: seedCourses,
   },
 ]

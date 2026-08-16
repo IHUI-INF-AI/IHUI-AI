@@ -191,22 +191,12 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
           </audio>
           <div className="ml-auto flex items-center gap-1">
             <Tooltip content="下载">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={downloadRecording}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={downloadRecording}>
                 <Download className="h-4 w-4" />
               </Button>
             </Tooltip>
             <Tooltip content="删除">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={deleteRecording}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={deleteRecording}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </Tooltip>

@@ -69,7 +69,11 @@ export function MentionSearch({
         )}
       </div>
 
-      <div className="flex flex-nowrap gap-1 overflow-x-auto" role="tablist" aria-label={t('mentionTypeAriaLabel')}>
+      <div
+        className="flex flex-nowrap gap-1 overflow-x-auto"
+        role="tablist"
+        aria-label={t('mentionTypeAriaLabel')}
+      >
         {TYPE_TABS.map((t) => (
           <button
             key={t.value}
@@ -119,9 +123,7 @@ export function MentionSearch({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{m.label}</p>
-                {m.detail && (
-                  <p className="truncate text-xs text-muted-foreground">{m.detail}</p>
-                )}
+                {m.detail && <p className="truncate text-xs text-muted-foreground">{m.detail}</p>}
                 {m.insertText && (
                   <code className="mt-1 inline-block max-w-full truncate rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {m.insertText}

@@ -28,20 +28,46 @@ export interface CookieHealthIndicatorProps {
 }
 
 const LEVEL_CONFIG: Record<CookieHealthLevel, { dot: string; label: string; text: string }> = {
-  healthy: { dot: 'bg-emerald-500', label: 'cookieHealth.healthy', text: 'text-emerald-600 dark:text-emerald-400' },
-  expiring: { dot: 'bg-amber-500', label: 'cookieHealth.expiring', text: 'text-amber-600 dark:text-amber-400' },
-  expired: { dot: 'bg-rose-500', label: 'cookieHealth.expired', text: 'text-rose-600 dark:text-rose-400' },
+  healthy: {
+    dot: 'bg-emerald-500',
+    label: 'cookieHealth.healthy',
+    text: 'text-emerald-600 dark:text-emerald-400',
+  },
+  expiring: {
+    dot: 'bg-amber-500',
+    label: 'cookieHealth.expiring',
+    text: 'text-amber-600 dark:text-amber-400',
+  },
+  expired: {
+    dot: 'bg-rose-500',
+    label: 'cookieHealth.expired',
+    text: 'text-rose-600 dark:text-rose-400',
+  },
 }
 
 const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Shanghai',
 })
 
-export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefreshed }: CookieHealthIndicatorProps) {
+export function CookieHealthIndicator({
+  accountId,
+  initialLevel,
+  compact,
+  onRefreshed,
+}: CookieHealthIndicatorProps) {
   const t = useTranslations('publish')
   const toast = useToast()
   const [level, setLevel] = React.useState<CookieHealthLevel>(initialLevel ?? 'expired')
-  const [detail, setDetail] = React.useState<{ lastVerified: string | null; predictedExpiry: string | null; daysSince: number | null } | null>(null)
+  const [detail, setDetail] = React.useState<{
+    lastVerified: string | null
+    predictedExpiry: string | null
+    daysSince: number | null
+  } | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   const [hovered, setHovered] = React.useState(false)
 
@@ -61,7 +87,9 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
     }
   }, [accountId])
 
-  React.useEffect(() => { void loadHealth() }, [loadHealth])
+  React.useEffect(() => {
+    void loadHealth()
+  }, [loadHealth])
 
   async function handleRefresh(e: React.MouseEvent) {
     e.stopPropagation()
@@ -95,7 +123,13 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className={cn('inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium', cfg.text, !compact && 'bg-muted/40')}>
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+          cfg.text,
+          !compact && 'bg-muted/40',
+        )}
+      >
         <span className={cn('inline-block h-2 w-2 rounded-full', cfg.dot)} aria-hidden />
         {!compact && <span>{t(cfg.label)}</span>}
       </div>
@@ -107,7 +141,11 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
           className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
           aria-label={t('cookieHealth.refresh')}
         >
-          {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          {refreshing ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
         </button>
       </Tooltip>
 
@@ -116,16 +154,22 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
           <div className="space-y-1">
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t('cookieHealth.lastVerified')}</span>
-              <span>{detail.lastVerified ? TIME_FMT.format(new Date(detail.lastVerified)) : '-'}</span>
+              <span>
+                {detail.lastVerified ? TIME_FMT.format(new Date(detail.lastVerified)) : '-'}
+              </span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t('cookieHealth.predictedExpiry')}</span>
-              <span>{detail.predictedExpiry ? TIME_FMT.format(new Date(detail.predictedExpiry)) : '-'}</span>
+              <span>
+                {detail.predictedExpiry ? TIME_FMT.format(new Date(detail.predictedExpiry)) : '-'}
+              </span>
             </div>
             {detail.daysSince !== null && (
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t('cookieHealth.daysSince')}</span>
-                <span>{detail.daysSince.toFixed(1)} {t('cookieHealth.days')}</span>
+                <span>
+                  {detail.daysSince.toFixed(1)} {t('cookieHealth.days')}
+                </span>
               </div>
             )}
           </div>

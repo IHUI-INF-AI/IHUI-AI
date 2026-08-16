@@ -548,7 +548,7 @@ async def get_ai_skills_stats() -> dict[str, Any]:
 
     total_calls = 0
     total_success = 0
-    total_duration_ms = 0
+    total_duration_ms = 0.0
     total_tokens = 0
     per_skill: list[dict[str, Any]] = []
     # 趋势数据:按天聚合

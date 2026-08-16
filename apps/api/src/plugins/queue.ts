@@ -47,6 +47,7 @@ export interface AICallbackJobData {
   userId: string
   messageId: string
   content: string
+  reasoning?: string
   tokens?: number
   // G3 新增:LLM 扣费链路接通所需字段
   model?: string

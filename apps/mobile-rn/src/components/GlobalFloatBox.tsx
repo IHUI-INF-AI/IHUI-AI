@@ -1,197 +1,176 @@
 /**
- * GlobalFloatBox 全局浮窗按钮(mobile-rn 端)
+ * GlobalFloatBox 全局浮窗(mobile-rn 端)
  *
- * 1:1 复刻历史 Uniapp 项目 App.vue 行 5-23 的全局浮窗:
- * - 3 个按钮:推广 📣 / 咨询 💬 / 更多 ⋯(Uniapp 用 iconfont,RN 用 emoji 替代)
- * - 展开/收起箭头(toggleFloatbox):收起时只显示箭头,展开时显示 3 个按钮
- * - 固定右下角(position absolute, bottom 100+, right 16)
- * - 圆角 8,背景 tokens.surface.card + 阴影,按钮竖向排列
- * - 自动隐藏:App 切到后台(onHide)收起,切回前台(onShow)展开
+ * 对齐历史 Uniapp 项目 src/components/FloatBox.vue:
+ * - 靠右的白色圆角容器 + 左侧一个竖条(zhankaiH.png),不是上下箭头按钮
+ * - 收起时浮窗滑出屏幕右侧,只露出左侧竖条;点竖条 → 浮窗向左滑入
+ * - 3 个按钮竖排:赚米(红字)/客服/反馈,图标用原 uniapp 图片
+ * - 滑动动画:Animated translateX(对齐 uniapp transition right 0.35s)
  *
- * 内聚管理:expanded 状态 + AppState 监听在组件内部,对外只暴露 3 个回调。
- * 跳转由调用方(App.tsx)通过 navigationRef 注入 onPromote/onConsult/onMore 实现,
- * 未传回调时降级为 Alert 兜底(仅作为开发期占位)。
+ * 尺寸对齐(2rpx=1dp):
+ * - 浮窗宽 118rpx=59dp,圆角 30rpx=15dp,right 20rpx=10dp,bottom 9%
+ * - 竖条 40rpx=20dp 宽 × 100rpx=50dp 高
+ * - 图标 72rpx=36dp,文字 28rpx=14dp 加粗 #222
  */
-import { useCallback, useEffect, useState } from 'react'
-import {
-  Alert,
-  AppState,
-  type AppStateStatus,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Animated, Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 
 export interface GlobalFloatBoxProps {
-  /** 推广按钮回调(未传则用 Alert 兜底) */
+  /** 赚米按钮回调(分享/推广) */
   onPromote?: () => void
-  /** 咨询按钮回调(未传则用 Alert 兜底) */
+  /** 客服按钮回调 */
   onConsult?: () => void
-  /** 更多按钮回调(未传则用 Alert 兜底) */
-  onMore?: () => void
+  /** 反馈按钮回调 */
+  onFeedback?: () => void
 }
 
-const CONTAINER_BOTTOM = 100
-const CONTAINER_RIGHT = 16
-const CONTAINER_BORDER_RADIUS = 8
-const CONTAINER_PADDING = 4
-const ITEM_SIZE = 44
-const ITEM_BORDER_RADIUS = 6
-const ITEM_GAP = 4
-const ICON_FONT_SIZE = 18
-const LABEL_FONT_SIZE = 10
-const LABEL_MARGIN_TOP = 2
-const ARROW_HEIGHT = 28
-const ARROW_FONT_SIZE = 12
+// 图标资源(拷贝自原 uniapp static/images)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ICON_TUIGUANG = require('../../assets/images/floatbox/tuiguang.png')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ICON_KF = require('../../assets/images/floatbox/kf.png')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ICON_FANKUI = require('../../assets/images/floatbox/yijianfankui.png')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ICON_ARROW = require('../../assets/images/floatbox/zhankaiH.png')
 
-type FloatItemKey = 'promote' | 'consult' | 'more'
+const FLOAT_BOX_WIDTH = 59 // 118rpx
+const ARROW_WIDTH = 20 // 40rpx
+const ARROW_HEIGHT = 50 // 100rpx
+const BORDER_RADIUS = 15 // 30rpx
+const ICON_SIZE = 36 // 72rpx
+const LABEL_FONT_SIZE = 14 // 28rpx
+const ITEM_MARGIN = 2 // 5rpx
+const CONTENT_PADDING = 7 // 14rpx
+const RIGHT = 10 // 20rpx
+const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH // 收起时向右滑出浮窗宽度
 
-interface FloatItemDef {
-  key: FloatItemKey
-  icon: string
-  label: string
-  handler: () => void
-}
+export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloatBoxProps) {
+  // isOpen = true 展开(浮窗在屏幕内);false 收起(浮窗滑出,只露竖条)
+  const [isOpen, setIsOpen] = useState(true)
+  const translateX = useRef(new Animated.Value(0)).current
 
-export function GlobalFloatBox({ onPromote, onConsult, onMore }: GlobalFloatBoxProps) {
-  // expanded = true 展开显示 3 个按钮;false 收起只显示箭头
-  const [expanded, setExpanded] = useState(true)
-
-  // 自动隐藏:onHide(active→inactive/background)收起,onShow(→active)展开
-  // 复刻 Uniapp App.vue onShow 中 floatboxVisible = true 的语义
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') {
-        setExpanded(true)
-      } else {
-        setExpanded(false)
-      }
-    })
-    return () => subscription.remove()
-  }, [])
+    Animated.timing(translateX, {
+      toValue: isOpen ? 0 : COLLAPSE_DISTANCE,
+      duration: 350,
+      useNativeDriver: true,
+    }).start()
+  }, [isOpen, translateX])
 
-  const toggleFloatbox = useCallback(() => {
-    setExpanded((prev) => !prev)
+  const toggleBox = useCallback(() => {
+    setIsOpen((prev) => !prev)
   }, [])
 
   const handlePromote = useCallback(() => {
-    if (onPromote) {
-      onPromote()
-      return
-    }
-    console.info('[GlobalFloatBox] promote clicked')
-    Alert.alert('推广', '推广功能即将上线')
+    onPromote?.()
   }, [onPromote])
 
   const handleConsult = useCallback(() => {
-    if (onConsult) {
-      onConsult()
-      return
-    }
-    console.info('[GlobalFloatBox] consult clicked')
-    Alert.alert('咨询', '咨询功能即将上线')
+    onConsult?.()
   }, [onConsult])
 
-  const handleMore = useCallback(() => {
-    if (onMore) {
-      onMore()
-      return
-    }
-    console.info('[GlobalFloatBox] more clicked')
-    Alert.alert('更多', '更多功能即将上线')
-  }, [onMore])
-
-  const items: FloatItemDef[] = [
-    { key: 'promote', icon: '📣', label: '推广', handler: handlePromote },
-    { key: 'consult', icon: '💬', label: '咨询', handler: handleConsult },
-    { key: 'more', icon: '⋯', label: '更多', handler: handleMore },
-  ]
+  const handleFeedback = useCallback(() => {
+    onFeedback?.()
+  }, [onFeedback])
 
   return (
-    <View pointerEvents="box-none" style={styles.root}>
-      <View style={styles.container}>
-        {expanded &&
-          items.map((item) => (
-            <Pressable
-              key={item.key}
-              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-              onPress={item.handler}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-            >
-              <Text style={styles.icon}>{item.icon}</Text>
-              <Text style={styles.label}>{item.label}</Text>
-            </Pressable>
-          ))}
+    <Animated.View pointerEvents="box-none" style={[styles.root, { transform: [{ translateX }] }]}>
+      {/* 竖条:点击展开/收起(对齐 uniapp float-arrow) */}
+      <Pressable
+        style={styles.arrow}
+        onPress={toggleBox}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={isOpen ? '收起浮窗' : '展开浮窗'}
+      >
+        <Image source={ICON_ARROW} style={styles.arrowImg} resizeMode="contain" />
+      </Pressable>
+
+      {/* 浮窗内容:三个按钮竖排(赚米/客服/反馈) */}
+      <View style={styles.floatBox}>
         <Pressable
-          style={({ pressed }) => [styles.arrow, pressed && styles.itemPressed]}
-          onPress={toggleFloatbox}
+          style={styles.item}
+          onPress={handlePromote}
           accessibilityRole="button"
-          accessibilityLabel={expanded ? '收起浮窗' : '展开浮窗'}
+          accessibilityLabel="赚米"
         >
-          <Text style={styles.arrowText}>{expanded ? '▼' : '▲'}</Text>
+          <Image source={ICON_TUIGUANG} style={styles.icon} resizeMode="contain" />
+          <Text style={[styles.label, styles.labelPromote]}>赚 米</Text>
+        </Pressable>
+        <Pressable
+          style={styles.item}
+          onPress={handleConsult}
+          accessibilityRole="button"
+          accessibilityLabel="客服"
+        >
+          <Image source={ICON_KF} style={styles.icon} resizeMode="contain" />
+          <Text style={styles.label}>客 服</Text>
+        </Pressable>
+        <Pressable
+          style={styles.item}
+          onPress={handleFeedback}
+          accessibilityRole="button"
+          accessibilityLabel="反馈"
+        >
+          <Image source={ICON_FANKUI} style={styles.icon} resizeMode="contain" />
+          <Text style={styles.label}>反 馈</Text>
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   root: {
     position: 'absolute',
-    bottom: CONTAINER_BOTTOM,
-    right: CONTAINER_RIGHT,
+    right: RIGHT,
+    bottom: '9%',
+    flexDirection: 'row',
+    alignItems: 'center',
     zIndex: 1000,
   } as ViewStyle,
-  container: {
-    backgroundColor: tokens.surface.card,
-    borderRadius: CONTAINER_BORDER_RADIUS,
-    padding: CONTAINER_PADDING,
-    alignItems: 'center',
-    // iOS 阴影
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    // Android 阴影
-    elevation: 4,
-  } as ViewStyle,
-  item: {
-    width: ITEM_SIZE,
-    height: ITEM_SIZE,
-    borderRadius: ITEM_BORDER_RADIUS,
+  arrow: {
+    width: ARROW_WIDTH,
+    height: ARROW_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: ITEM_GAP,
   } as ViewStyle,
-  itemPressed: {
-    backgroundColor: tokens.surface.muted,
+  arrowImg: {
+    width: ARROW_WIDTH,
+    height: ARROW_HEIGHT,
+  },
+  floatBox: {
+    width: FLOAT_BOX_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: BORDER_RADIUS,
+    paddingVertical: CONTENT_PADDING,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 阴影(对齐 uniapp box-shadow 0 1px 3px rgba(0,0,0,0.06))
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  } as ViewStyle,
+  item: {
+    alignItems: 'center',
+    marginVertical: ITEM_MARGIN,
   } as ViewStyle,
   icon: {
-    fontSize: ICON_FONT_SIZE,
-    lineHeight: ICON_FONT_SIZE + 2,
-    textAlign: 'center',
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    marginBottom: 3,
   },
   label: {
     fontSize: LABEL_FONT_SIZE,
-    color: tokens.text.secondary,
-    marginTop: LABEL_MARGIN_TOP,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#222',
+    letterSpacing: 1,
   },
-  arrow: {
-    width: ITEM_SIZE,
-    height: ARROW_HEIGHT,
-    borderRadius: ITEM_BORDER_RADIUS,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  arrowText: {
-    fontSize: ARROW_FONT_SIZE,
-    color: tokens.text.tertiary,
-    textAlign: 'center',
+  labelPromote: {
+    color: '#ff0000',
   },
 })
 

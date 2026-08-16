@@ -23,8 +23,12 @@ vi.mock('@ihui/ui-react', () => ({
     <button {...rest}>{children}</button>
   ),
   Card: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => <div>{children}</div>,
-  CardContent: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => <div>{children}</div>,
-  Badge: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => <span>{children}</span>,
+  CardContent: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => (
+    <div>{children}</div>
+  ),
+  Badge: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => (
+    <span>{children}</span>
+  ),
 }))
 
 // lucide-react mock
@@ -42,9 +46,7 @@ const TASKS: ScheduledTask[] = [
 function renderCalendar() {
   const onCreateTask = vi.fn()
   const onReschedule = vi.fn()
-  render(
-    <PublishCalendar tasks={TASKS} onReschedule={onReschedule} onCreateTask={onCreateTask} />,
-  )
+  render(<PublishCalendar tasks={TASKS} onReschedule={onReschedule} onCreateTask={onCreateTask} />)
   return { onCreateTask, onReschedule }
 }
 

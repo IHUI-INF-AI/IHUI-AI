@@ -61,12 +61,7 @@ export async function listFavorites(userId: string): Promise<AiCapability[]> {
   const favRows = await db
     .select({ key: userPreferences.key })
     .from(userPreferences)
-    .where(
-      and(
-        eq(userPreferences.userId, userId),
-        eq(userPreferences.group, FAVORITES_GROUP),
-      ),
-    )
+    .where(and(eq(userPreferences.userId, userId), eq(userPreferences.group, FAVORITES_GROUP)))
   const ids = favRows.map((r) => r.key)
   if (ids.length === 0) return []
   return db.select().from(aiCapabilities).where(inArray(aiCapabilities.id, ids))

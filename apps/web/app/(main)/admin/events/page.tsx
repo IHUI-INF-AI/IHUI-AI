@@ -18,7 +18,16 @@ import { cn } from '@/lib/utils'
 import { EventFilter } from './EventFilter'
 import { EventTable } from './EventTable'
 import { EventDialog } from './EventDialog'
-import { api, normList, EMPTY_FORM, eventToForm, TYPE_DOT, LEVEL_BADGE, TYPE_KEY, LEVEL_KEY } from './helpers'
+import {
+  api,
+  normList,
+  EMPTY_FORM,
+  eventToForm,
+  TYPE_DOT,
+  LEVEL_BADGE,
+  TYPE_KEY,
+  LEVEL_KEY,
+} from './helpers'
 import type { SystemEvent, EventForm, EventType, Level } from './types'
 import { BackButton } from '@/components/common'
 
@@ -160,7 +169,9 @@ export default function AdminEventsPage() {
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className={cn('h-2 w-2 rounded-sm', TYPE_DOT[delTarget.type])} />
-                <span className="font-medium">{t(TYPE_KEY[delTarget.type] ?? 'types.unknown')}</span>
+                <span className="font-medium">
+                  {t(TYPE_KEY[delTarget.type] ?? 'types.unknown')}
+                </span>
                 <span
                   className={cn(
                     'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',

@@ -95,10 +95,7 @@ export function CourseDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar
-        title={course?.title ?? '课程详情'}
-        onBack={() => navigation.goBack()}
-      />
+      <NavBar title={course?.title ?? '课程详情'} onBack={() => navigation.goBack()} />
       <SharedCourseDetailScreen
         t={t}
         item={detailItem}

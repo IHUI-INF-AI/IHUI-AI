@@ -77,7 +77,9 @@ export default function CreateAgentPage() {
       </div>
 
       <div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('createTitle')}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('createTitle')}
+        </h1>
         <p className="mt-0.5 text-xs text-muted-foreground">{t('createSubtitle')}</p>
       </div>
 

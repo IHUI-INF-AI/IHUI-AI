@@ -103,7 +103,11 @@ export default function LessonListItem({
           )}
           {vipVisible && (
             <View className="lli-vip-pill">
-              <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+              <Image
+                className="w-[38rpx] h-[34rpx] mr-[10rpx]"
+                src={icon('king')}
+                mode="aspectFit"
+              />
               <Text className="lli-vip-text">VIP可看</Text>
             </View>
           )}
@@ -157,10 +161,18 @@ export default function LessonListItem({
           {(vipVisible || priceVisible) && (
             <View className={`lli-pill ${data.vipOnly ? 'lli-pill-vip' : 'lli-pill-paid'}`}>
               {data.vipOnly && (
-                <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+                <Image
+                  className="w-[38rpx] h-[34rpx] mr-[10rpx]"
+                  src={icon('king')}
+                  mode="aspectFit"
+                />
               )}
               {!data.vipOnly && data.price !== undefined && (
-                <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('fufei')} mode="aspectFit" />
+                <Image
+                  className="w-[38rpx] h-[34rpx] mr-[10rpx]"
+                  src={icon('fufei')}
+                  mode="aspectFit"
+                />
               )}
               <Text className="lli-pill-text">
                 {data.vipOnly ? 'VIP鍙湅' : data.price !== undefined ? '浠樿垂椤圭洰' : ''}
@@ -212,7 +224,11 @@ export default function LessonListItem({
         <View className="flex items-center mt-[10rpx]">
           {vipVisible && data.vipOnly && (
             <View className="lli-vip-pill">
-              <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+              <Image
+                className="w-[38rpx] h-[34rpx] mr-[10rpx]"
+                src={icon('king')}
+                mode="aspectFit"
+              />
               <Text className="lli-vip-text">VIP可看</Text>
             </View>
           )}
@@ -243,13 +259,12 @@ export default function LessonListItem({
 
       <View className="flex-1 min-w-0">
         <View className="flex items-center">
-          {typeIcon && (
-            data.type === 'article' ? (
+          {typeIcon &&
+            (data.type === 'article' ? (
               <Text className="text-xs text-muted-foreground mr-2">{typeIcon}</Text>
             ) : (
               <Image className="w-3 h-3 mr-2" src={typeIcon} mode="aspectFit" />
-            )
-          )}
+            ))}
           <Text
             className={`text-sm truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
           >
@@ -299,7 +314,9 @@ export default function LessonListItem({
         </Text>
       )}
       {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}
-      {data.locked && <Image className="w-3 h-3 mr-2" src="/static/images/icons/lock.svg" mode="aspectFit" />}
+      {data.locked && (
+        <Image className="w-3 h-3 mr-2" src="/static/images/icons/lock.svg" mode="aspectFit" />
+      )}
     </View>
   )
 }

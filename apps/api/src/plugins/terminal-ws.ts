@@ -110,10 +110,7 @@ const wsTerminalPlugin: FastifyPluginAsync = async (server) => {
               break
             case 'resize':
               try {
-                entry.pty.resize(
-                  Math.max(1, msg.data.cols),
-                  Math.max(1, msg.data.rows),
-                )
+                entry.pty.resize(Math.max(1, msg.data.cols), Math.max(1, msg.data.rows))
               } catch {
                 /* resize 失败忽略 */
               }

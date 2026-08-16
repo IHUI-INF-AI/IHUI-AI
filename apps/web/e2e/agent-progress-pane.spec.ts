@@ -207,8 +207,6 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     await trigger.click()
     await page.waitForTimeout(1000)
 
-    expect(
-      errors.filter((e) => !e.includes('favicon') && !e.includes('/api/ai/')),
-    ).toHaveLength(0)
+    expect(errors.filter((e) => !e.includes('favicon') && !e.includes('/api/ai/'))).toHaveLength(0)
   })
 })

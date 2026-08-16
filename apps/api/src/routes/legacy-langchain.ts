@@ -10,11 +10,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
-import {
-  requireAuth,
-  callVendor,
-  recordUsage,
-} from './ai-vendors/_shared.js'
+import { requireAuth, callVendor, recordUsage } from './ai-vendors/_shared.js'
 
 const chatSchema = z.object({
   messages: z.array(z.unknown()).min(1).max(100),
@@ -57,7 +53,9 @@ export const legacyLangchainRoutes: FastifyPluginAsync = async (server) => {
   server.post('/chat', async (request, reply) => {
     const body = chatSchema.parse(request.body)
     if (body.stream) {
-      return reply.status(400).send(error(400, '兼容接口暂不支持 stream,请使用 /api/chat/coze/stream'))
+      return reply
+        .status(400)
+        .send(error(400, '兼容接口暂不支持 stream,请使用 /api/chat/coze/stream'))
     }
     const data = await callVendor(
       'dashscope',

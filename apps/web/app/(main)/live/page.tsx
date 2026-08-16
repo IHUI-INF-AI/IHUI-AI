@@ -166,7 +166,9 @@ export default function LivePage() {
         ))}
       </div>
 
-      {categoriesError && <Alert variant="danger" description={(categoriesError as Error).message} />}
+      {categoriesError && (
+        <Alert variant="danger" description={(categoriesError as Error).message} />
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -239,7 +241,9 @@ export default function LivePage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('page', { page, total: totalPages })}</span>
+          <span className="text-sm text-muted-foreground">
+            {t('page', { page, total: totalPages })}
+          </span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -282,7 +286,9 @@ export default function LivePage() {
               ) : null}
             </DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <span>{t('category')}: {categoryName(selected?.categoryId ?? null)}</span>
+              <span>
+                {t('category')}: {categoryName(selected?.categoryId ?? null)}
+              </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
                 {t('startTime')}: {formatTime(selected?.startTime ?? null, locale)}

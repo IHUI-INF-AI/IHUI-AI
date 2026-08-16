@@ -266,9 +266,7 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { tokenBalance: 800, costBalanceCents: 500 },
-            ]),
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 800, costBalanceCents: 500 }]),
           }),
         }),
       })
@@ -318,9 +316,7 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { tokenBalance: 1000, costBalanceCents: 500 },
-            ]),
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 1000, costBalanceCents: 500 }]),
           }),
         }),
       })
@@ -358,9 +354,7 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       })
       const setMock = vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([
-            { tokenBalance: -1, costBalanceCents: -1 },
-          ]),
+          returning: vi.fn().mockResolvedValue([{ tokenBalance: -1, costBalanceCents: -1 }]),
         }),
       })
       mockDbUpdate.mockReturnValue({ set: setMock })

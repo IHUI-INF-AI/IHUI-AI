@@ -10,6 +10,8 @@ export function useLoadMore(fetch: (page: number) => Promise<boolean>) {
     if (hasMore) pageRef.current++
     loadingRef.current = false
   }, [fetch])
-  const reset = useCallback(() => { pageRef.current = 1 }, [])
+  const reset = useCallback(() => {
+    pageRef.current = 1
+  }, [])
   return { loadMore, reset }
 }

@@ -9,25 +9,25 @@
  * 的工单化流程,否则长期差异可能被忽略导致资金口径不一致。
  */
 
-import { downloadBillUrl } from './alipay.js';
-import { downloadBill as wxDownloadBill, closeOrder as wxCloseOrder } from './wechat-pay.js';
-import { closeOrder as aliCloseOrder } from './alipay.js';
-import { findPaidOrdersByDate, findExpiredOrders } from './order-service.js';
-import { updateOrderStatus } from '../db/payment-queries.js';
-import type { Order } from '@ihui/database';
+import { downloadBillUrl } from './alipay.js'
+import { downloadBill as wxDownloadBill, closeOrder as wxCloseOrder } from './wechat-pay.js'
+import { closeOrder as aliCloseOrder } from './alipay.js'
+import { findPaidOrdersByDate, findExpiredOrders } from './order-service.js'
+import { updateOrderStatus } from '../db/payment-queries.js'
+import type { Order } from '@ihui/database'
 
 export interface ReconcileDiff {
-  onlyRemote: Array<{ outTradeNo: string; amount: string; tradeStatus: string }>;
-  onlyLocal: Array<{ orderNo: string; amount: number }>;
+  onlyRemote: Array<{ outTradeNo: string; amount: string; tradeStatus: string }>
+  onlyLocal: Array<{ orderNo: string; amount: number }>
 }
 
 export interface ReconcileResult {
-  date: string;
-  platform: string;
-  localCount: number;
-  remoteCount: number;
-  diff: ReconcileDiff;
-  error?: string;
+  date: string
+  platform: string
+  localCount: number
+  remoteCount: number
+  diff: ReconcileDiff
+  error?: string
 }
 
 /**
@@ -35,13 +35,13 @@ export interface ReconcileResult {
  */
 export async function reconcileAlipay(billDate: string): Promise<ReconcileResult> {
   try {
-    const billUrl = await downloadBillUrl(billDate, 'trade');
-    const resp = await fetch(billUrl);
-    const csvText = await resp.text();
+    const billUrl = await downloadBillUrl(billDate, 'trade')
+    const resp = await fetch(billUrl)
+    const csvText = await resp.text()
 
-    const remoteTrades = parseAlipayBill(csvText);
-    const localOrders = await findPaidOrdersByDate(billDate);
-    return buildDiff(billDate, 'alipay', localOrders, remoteTrades);
+    const remoteTrades = parseAlipayBill(csvText)
+    const localOrders = await findPaidOrdersByDate(billDate)
+    return buildDiff(billDate, 'alipay', localOrders, remoteTrades)
   } catch (e) {
     return {
       date: billDate,
@@ -50,7 +50,7 @@ export async function reconcileAlipay(billDate: string): Promise<ReconcileResult
       remoteCount: 0,
       diff: { onlyRemote: [], onlyLocal: [] },
       error: (e as Error).message,
-    };
+    }
   }
 }
 
@@ -59,10 +59,10 @@ export async function reconcileAlipay(billDate: string): Promise<ReconcileResult
  */
 export async function reconcileWechat(billDate: string): Promise<ReconcileResult> {
   try {
-    const csvText = await wxDownloadBill(billDate, 'ALL');
-    const remoteTrades = parseWechatBill(csvText);
-    const localOrders = await findPaidOrdersByDate(billDate);
-    return buildDiff(billDate, 'wechat', localOrders, remoteTrades);
+    const csvText = await wxDownloadBill(billDate, 'ALL')
+    const remoteTrades = parseWechatBill(csvText)
+    const localOrders = await findPaidOrdersByDate(billDate)
+    return buildDiff(billDate, 'wechat', localOrders, remoteTrades)
   } catch (e) {
     return {
       date: billDate,
@@ -71,32 +71,29 @@ export async function reconcileWechat(billDate: string): Promise<ReconcileResult
       remoteCount: 0,
       diff: { onlyRemote: [], onlyLocal: [] },
       error: (e as Error).message,
-    };
+    }
   }
 }
 
 /** 支付宝 + 微信合并对账。 */
 export async function reconcileAll(billDate: string): Promise<{
-  date: string;
-  alipay: ReconcileResult;
-  wechat: ReconcileResult;
+  date: string
+  alipay: ReconcileResult
+  wechat: ReconcileResult
 }> {
-  const [alipay, wechat] = await Promise.all([
-    reconcileAlipay(billDate),
-    reconcileWechat(billDate),
-  ]);
-  return { date: billDate, alipay, wechat };
+  const [alipay, wechat] = await Promise.all([reconcileAlipay(billDate), reconcileWechat(billDate)])
+  return { date: billDate, alipay, wechat }
 }
 
 /** 自动对账昨天（供定时任务每日 03:00 调用）。 */
 export async function autoReconcileYesterday(): Promise<{
-  date: string;
-  alipay: ReconcileResult;
-  wechat: ReconcileResult;
+  date: string
+  alipay: ReconcileResult
+  wechat: ReconcileResult
 }> {
-  const yesterday = new Date(Date.now() - 86400_000);
-  const billDate = formatDate(yesterday);
-  return reconcileAll(billDate);
+  const yesterday = new Date(Date.now() - 86400_000)
+  const billDate = formatDate(yesterday)
+  return reconcileAll(billDate)
 }
 
 /**
@@ -104,34 +101,34 @@ export async function autoReconcileYesterday(): Promise<{
  * 供定时任务每 10 分钟调用。
  */
 export async function autoCloseExpiredOrders(): Promise<{
-  scanned: number;
-  closed: string[];
-  failed: Array<{ orderNo: string; error: string }>;
+  scanned: number
+  closed: string[]
+  failed: Array<{ orderNo: string; error: string }>
 }> {
-  const pending = await findExpiredOrders();
-  const closed: string[] = [];
-  const failed: Array<{ orderNo: string; error: string }> = [];
+  const pending = await findExpiredOrders()
+  const closed: string[] = []
+  const failed: Array<{ orderNo: string; error: string }> = []
 
   for (const order of pending) {
     try {
       // 调用对应支付渠道关单接口
       if (order.paymentMethod === 'alipay') {
-        await aliCloseOrder(order.orderNo);
+        await aliCloseOrder(order.orderNo)
       } else if (
         order.paymentMethod === 'wechat' ||
         order.paymentMethod === 'wechat_android' ||
         order.paymentMethod === 'wechat_course'
       ) {
-        await wxCloseOrder(order.orderNo);
+        await wxCloseOrder(order.orderNo)
       }
-      await updateOrderStatus(order.orderNo, 'cancelled');
-      closed.push(order.orderNo);
+      await updateOrderStatus(order.orderNo, 'cancelled')
+      closed.push(order.orderNo)
     } catch (e) {
-      failed.push({ orderNo: order.orderNo, error: (e as Error).message });
+      failed.push({ orderNo: order.orderNo, error: (e as Error).message })
     }
   }
 
-  return { scanned: pending.length, closed, failed };
+  return { scanned: pending.length, closed, failed }
 }
 
 // =============================================================================
@@ -139,14 +136,17 @@ export async function autoCloseExpiredOrders(): Promise<{
 // =============================================================================
 
 interface RemoteTrade {
-  outTradeNo: string;
-  amount: string;
-  tradeStatus: string;
+  outTradeNo: string
+  amount: string
+  tradeStatus: string
 }
 
 /** CSV 单元格清理:去引号包裹 + 去除 BOM。 */
 function cleanCell(raw: string): string {
-  return raw.trim().replace(/^`/, '').replace(/\uFEFF/g, '')
+  return raw
+    .trim()
+    .replace(/^`/, '')
+    .replace(/\uFEFF/g, '')
 }
 
 /** 按列名定位表头行中的索引;找不到返回 -1。 */
@@ -164,29 +164,29 @@ function findColumnIndex(header: string[], name: string): number {
  * 避免表头顺序变化导致列错位;表头找不到时回退旧固定索引兼容。
  */
 function parseAlipayBill(csvText: string): RemoteTrade[] {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
-  const trades: RemoteTrade[] = [];
-  let headerIdx: string[] | null = null;
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim())
+  const trades: RemoteTrade[] = []
+  let headerIdx: string[] | null = null
   for (const line of lines) {
-    if (line.startsWith('#')) continue;
-    const parts = line.split(',').map(cleanCell);
+    if (line.startsWith('#')) continue
+    const parts = line.split(',').map(cleanCell)
     if (parts.includes('商户订单号')) {
-      headerIdx = parts;
-      break;
+      headerIdx = parts
+      break
     }
   }
 
-  let inDetail = false;
+  let inDetail = false
   for (const line of lines) {
     if (line.startsWith('#')) {
-      inDetail = line.includes('明细') || line.includes('记录');
-      continue;
+      inDetail = line.includes('明细') || line.includes('记录')
+      continue
     }
-    if (!inDetail) continue;
-    const parts = line.split(',').map(cleanCell);
+    if (!inDetail) continue
+    const parts = line.split(',').map(cleanCell)
     // 跳过表头行本身(表头行也会匹配明细段)
-    if (headerIdx && parts.length >= 4 && parts[0] === '账务流水号') continue;
-    if (parts.length < 6) continue;
+    if (headerIdx && parts.length >= 4 && parts[0] === '账务流水号') continue
+    if (parts.length < 6) continue
     // 按表头名取列;找不到时回退到标准支付宝账单固定索引(1=商户订单号 5=交易金额 14=费率)
     const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
     const amountIdx = headerIdx ? findColumnIndex(headerIdx, '交易金额') : -1
@@ -195,10 +195,10 @@ function parseAlipayBill(csvText: string): RemoteTrade[] {
     const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[5] ?? '')
     // 支付宝账单无"交易状态"列(明细均为已成交交易),留空即可
     const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : ''
-    if (!outTradeNo) continue;
-    trades.push({ outTradeNo, amount, tradeStatus });
+    if (!outTradeNo) continue
+    trades.push({ outTradeNo, amount, tradeStatus })
   }
-  return trades;
+  return trades
 }
 
 /**
@@ -211,25 +211,25 @@ function parseAlipayBill(csvText: string): RemoteTrade[] {
  * (6=商户订单号 12=应结订单金额 9=交易状态)。
  */
 function parseWechatBill(csvText: string): RemoteTrade[] {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
-  const trades: RemoteTrade[] = [];
-  let headerIdx: string[] | null = null;
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim())
+  const trades: RemoteTrade[] = []
+  let headerIdx: string[] | null = null
   for (const line of lines) {
-    if (line.startsWith('总') || line.startsWith('交易时间')) continue;
-    const parts = line.split(',').map(cleanCell);
+    if (line.startsWith('总') || line.startsWith('交易时间')) continue
+    const parts = line.split(',').map(cleanCell)
     if (parts.includes('商户订单号')) {
-      headerIdx = parts;
-      break;
+      headerIdx = parts
+      break
     }
   }
   // 微信账单前 2 行为标题与表头,从第 3 行开始为交易记录
   for (let i = 2; i < lines.length; i++) {
-    const line = lines[i]!;
-    if (line.startsWith('总') || line.startsWith('交易时间')) continue;
-    const parts = line.split(',').map(cleanCell);
+    const line = lines[i]!
+    if (line.startsWith('总') || line.startsWith('交易时间')) continue
+    const parts = line.split(',').map(cleanCell)
     // 跳过表头行本身
-    if (headerIdx && parts.length >= 4 && parts[0] === '交易时间') continue;
-    if (parts.length < 13) continue;
+    if (headerIdx && parts.length >= 4 && parts[0] === '交易时间') continue
+    if (parts.length < 13) continue
     // 按表头名取列;找不到时回退微信 V3 标准固定索引
     const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
     const amountIdx = headerIdx ? findColumnIndex(headerIdx, '应结订单金额') : -1
@@ -237,10 +237,10 @@ function parseWechatBill(csvText: string): RemoteTrade[] {
     const outTradeNo = outTradeNoIdx >= 0 ? (parts[outTradeNoIdx] ?? '') : (parts[6] ?? '')
     const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[12] ?? '')
     const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : (parts[9] ?? '')
-    if (!outTradeNo) continue;
-    trades.push({ outTradeNo, amount, tradeStatus });
+    if (!outTradeNo) continue
+    trades.push({ outTradeNo, amount, tradeStatus })
   }
-  return trades;
+  return trades
 }
 
 /** 构建对账差异结果。 */
@@ -250,18 +250,18 @@ function buildDiff(
   localOrders: Order[],
   remoteTrades: RemoteTrade[],
 ): ReconcileResult {
-  const localMap = new Map(localOrders.map((o) => [o.orderNo, o]));
-  const remoteMap = new Map(remoteTrades.map((t) => [t.outTradeNo, t]));
+  const localMap = new Map(localOrders.map((o) => [o.orderNo, o]))
+  const remoteMap = new Map(remoteTrades.map((t) => [t.outTradeNo, t]))
 
   const onlyRemote = remoteTrades
     .filter((t) => !localMap.has(t.outTradeNo))
     .slice(0, 50)
-    .map((t) => ({ outTradeNo: t.outTradeNo, amount: t.amount, tradeStatus: t.tradeStatus }));
+    .map((t) => ({ outTradeNo: t.outTradeNo, amount: t.amount, tradeStatus: t.tradeStatus }))
 
   const onlyLocal = localOrders
     .filter((o) => !remoteMap.has(o.orderNo))
     .slice(0, 50)
-    .map((o) => ({ orderNo: o.orderNo, amount: o.amount }));
+    .map((o) => ({ orderNo: o.orderNo, amount: o.amount }))
 
   return {
     date: billDate,
@@ -269,10 +269,10 @@ function buildDiff(
     localCount: localOrders.length,
     remoteCount: remoteTrades.length,
     diff: { onlyRemote, onlyLocal },
-  };
+  }
 }
 
 function formatDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }

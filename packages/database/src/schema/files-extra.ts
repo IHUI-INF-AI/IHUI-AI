@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, integer, text, timestamp, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { files } from './files.js';
+import { pgTable, uuid, varchar, integer, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { files } from './files.js'
 
 /**
  * 文件分享表。
@@ -20,10 +20,10 @@ export const fileShares = pgTable('file_shares', {
   permissions: varchar('permissions', { length: 8 }).default('view').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type FileShare = typeof fileShares.$inferSelect;
-export type NewFileShare = typeof fileShares.$inferInsert;
+export type FileShare = typeof fileShares.$inferSelect
+export type NewFileShare = typeof fileShares.$inferInsert
 
 /**
  * 文件版本历史表。
@@ -46,7 +46,7 @@ export const fileVersions = pgTable(
   (t) => ({
     uniq: unique().on(t.fileId, t.version),
   }),
-);
+)
 
-export type FileVersion = typeof fileVersions.$inferSelect;
-export type NewFileVersion = typeof fileVersions.$inferInsert;
+export type FileVersion = typeof fileVersions.$inferSelect
+export type NewFileVersion = typeof fileVersions.$inferInsert

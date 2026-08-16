@@ -91,11 +91,13 @@ async function buildJwtToken(userUuid: string | null, privateKey: string): Promi
  * 3. 调用 Coze 授权接口换取 access_token
  * 4. 缓存 token 以便后续使用
  */
-export async function getCozeAccessToken(options: {
-  userUuid?: string | null
-  privateKey?: string | null
-  forceRefresh?: boolean
-} = {}): Promise<string | null> {
+export async function getCozeAccessToken(
+  options: {
+    userUuid?: string | null
+    privateKey?: string | null
+    forceRefresh?: boolean
+  } = {},
+): Promise<string | null> {
   const { userUuid = null, privateKey: pkOverride = null, forceRefresh = false } = options
   try {
     const now = Math.floor(Date.now() / 1000)
@@ -136,7 +138,10 @@ export async function getCozeAccessToken(options: {
     tokenCache.expireTime = now + TOKEN_TTL
     return result.access_token
   } catch (e) {
-    console.error('[coze-auth-utils] getCozeAccessToken 失败:', e instanceof Error ? e.message : String(e))
+    console.error(
+      '[coze-auth-utils] getCozeAccessToken 失败:',
+      e instanceof Error ? e.message : String(e),
+    )
     return null
   }
 }

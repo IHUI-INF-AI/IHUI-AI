@@ -46,57 +46,57 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
       <ScrollView scrollY className="" style={{ maxHeight: '40vh', minHeight: '120px' }}>
         <View className="p-3">
-        {plan && (
-          <View className="mb-3 p-3 rounded-md bg-muted border border-border">
-            <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
-              {t('ai.agentDetail.runtimePlan')}
-            </Text>
-            <Text className="block text-xs leading-relaxed text-foreground whitespace-pre-wrap">
-              {plan}
-            </Text>
-          </View>
-        )}
+          {plan && (
+            <View className="mb-3 p-3 rounded-md bg-muted border border-border">
+              <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
+                {t('ai.agentDetail.runtimePlan')}
+              </Text>
+              <Text className="block text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+                {plan}
+              </Text>
+            </View>
+          )}
 
-        {permission && (
-          <View className="mb-3 p-3 rounded-md bg-amber-50 border border-amber-200">
-            <Text className="block mb-1.5 text-xs font-medium text-amber-700">
-              {t('ai.agentDetail.runtimePermission')}: {permission.decision}
-            </Text>
-            <Text className="block text-xs text-foreground">
-              {t('ai.agentDetail.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
-              {t('ai.agentDetail.runtimePermissionLevel')}:{permission.dangerLevel ?? 'read'} ·{' '}
-              {t('ai.agentDetail.runtimePermissionMode')}:{permission.mode}
-            </Text>
-          </View>
-        )}
+          {permission && (
+            <View className="mb-3 p-3 rounded-md bg-amber-50 border border-amber-200">
+              <Text className="block mb-1.5 text-xs font-medium text-amber-700">
+                {t('ai.agentDetail.runtimePermission')}: {permission.decision}
+              </Text>
+              <Text className="block text-xs text-foreground">
+                {t('ai.agentDetail.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
+                {t('ai.agentDetail.runtimePermissionLevel')}:{permission.dangerLevel ?? 'read'} ·{' '}
+                {t('ai.agentDetail.runtimePermissionMode')}:{permission.mode}
+              </Text>
+            </View>
+          )}
 
-        {output && (
-          <View className="mb-3">
-            <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
-              {t('ai.agentDetail.runtimeOutput')}
-            </Text>
-            <Text className="block text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-              {output}
-            </Text>
-          </View>
-        )}
+          {output && (
+            <View className="mb-3">
+              <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
+                {t('ai.agentDetail.runtimeOutput')}
+              </Text>
+              <Text className="block text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                {output}
+              </Text>
+            </View>
+          )}
 
-        {error && (
-          <View className="mb-3 p-3 rounded-md bg-destructive/10 border border-red-200">
-            <Text className="block mb-1 text-xs font-medium text-red-700">
-              {t('ai.agentDetail.runtimeError')}
-            </Text>
-            <Text className="block text-xs text-destructive">{error}</Text>
-          </View>
-        )}
+          {error && (
+            <View className="mb-3 p-3 rounded-md bg-destructive/10 border border-red-200">
+              <Text className="block mb-1 text-xs font-medium text-red-700">
+                {t('ai.agentDetail.runtimeError')}
+              </Text>
+              <Text className="block text-xs text-destructive">{error}</Text>
+            </View>
+          )}
 
-        {!plan && !output && !error && !permission && (
-          <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">
-              {t('ai.agentDetail.runtimeEmpty')}
-            </Text>
-          </View>
-        )}
+          {!plan && !output && !error && !permission && (
+            <View className="py-8 text-center">
+              <Text className="text-sm text-muted-foreground">
+                {t('ai.agentDetail.runtimeEmpty')}
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 

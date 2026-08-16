@@ -69,9 +69,13 @@ export function ShareScreen({
           {result ? (
             <View style={styles.card}>
               <Text style={styles.cardLabel}>{t('share.url')}</Text>
-              <Text style={styles.cardValue} numberOfLines={1} selectable>{result.shareUrl}</Text>
+              <Text style={styles.cardValue} numberOfLines={1} selectable>
+                {result.shareUrl}
+              </Text>
               <Text style={styles.cardLabel}>{t('share.code')}</Text>
-              <Text style={styles.cardValue} selectable>{result.shareCode}</Text>
+              <Text style={styles.cardValue} selectable>
+                {result.shareCode}
+              </Text>
               <Text style={styles.cardLabel}>{t('share.expireAt')}</Text>
               <Text style={styles.cardValue}>{result.expireAt}</Text>
             </View>
@@ -80,15 +84,13 @@ export function ShareScreen({
       )}
       {renderFooter ? (
         renderFooter()
-      ) : (
-        result ? (
-          <View style={styles.shareBtnWrap}>
-            <TouchableOpacity style={styles.shareBtn} onPress={onShare}>
-              <Text style={styles.shareText}>{t('share.shareNow')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null
-      )}
+      ) : result ? (
+        <View style={styles.shareBtnWrap}>
+          <TouchableOpacity style={styles.shareBtn} onPress={onShare}>
+            <Text style={styles.shareText}>{t('share.shareNow')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -98,20 +100,53 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { flexGrow: 1 },
     back: { fontSize: 16, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 8,
+    },
     targetTitle: { fontSize: 16, color: tk.text.primary, marginBottom: 12 },
     label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
-    input: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light, fontSize: 16, color: tk.text.primary, backgroundColor: '#f5f5f5' },
-    createBtn: { marginTop: 16, paddingVertical: 15, borderRadius: 12, backgroundColor: tk.brand.DEFAULT, alignItems: 'center' },
+    input: {
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: 16,
+      color: tk.text.primary,
+      backgroundColor: '#f5f5f5',
+    },
+    createBtn: {
+      marginTop: 16,
+      paddingVertical: 15,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+    },
     btnDisabled: { backgroundColor: tk.text.tertiary },
     createText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     muted: { marginTop: 12, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
     error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
-    card: { marginTop: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light },
+    card: {
+      marginTop: 16,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
     cardLabel: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     cardValue: { marginTop: 8, fontSize: 16, color: tk.text.primary },
     shareBtnWrap: { paddingHorizontal: 10, paddingVertical: 12 },
-    shareBtn: { paddingVertical: 15, borderRadius: 12, backgroundColor: tk.brand.DEFAULT, alignItems: 'center' },
+    shareBtn: {
+      paddingVertical: 15,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+    },
     shareText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
   })
 }

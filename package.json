@@ -66,22 +66,27 @@
     "sync:downloads:dry-run": "node scripts/sync-downloads.mjs --dry-run"
   },
   "overrides": {
-    "git-clone": ">=0.2.1",
-    "swiper": ">=12.1.2",
-    "lodash-es": ">=4.17.24",
-    "postcss": ">=8.5.18",
-    "nanoid": ">=3.3.18",
-    "undici": ">=7.29.0",
-    "fast-uri": ">=3.1.5",
-    "ip-address": ">=10.3.1",
-    "image-size": ">=2.0.3",
-    "brace-expansion": ">=1.1.18",
-    "html-minifier": ">=4.0.1",
-    "http-cache-semantics": ">=4.1.1",
-    "serialize-javascript": ">=7.0.3",
-    "decompress": ">=4.2.2",
-    "adm-zip": ">=0.6.0",
-    "glob": ">=10.5.0"
+    "swiper": "12.1.2",
+    "lodash-es": "4.17.24",
+    "postcss": "8.5.26",
+    "nanoid": "3.3.18",
+    "undici": "7.29.0",
+    "fast-uri": "3.1.5",
+    "ip-address": "10.3.1",
+    "html-minifier": "4.0.1",
+    "http-cache-semantics": "4.1.1",
+    "serialize-javascript": "7.1.0",
+    "adm-zip": "0.6.0",
+    "glob": "13.0.6",
+    "sharp": "0.35.3"
+  },
+  "dependencies": {
+    "adm-zip": "0.6.0",
+    "git-clone": "0.2.0",
+    "glob": "13.0.6",
+    "serialize-javascript": "7.1.0",
+    "image-size": "2.0.2",
+    "swiper": "12.1.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",

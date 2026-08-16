@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  ScrollView,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View,
-  StyleSheet,
-} from 'react-native'
+import { ScrollView, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
@@ -91,9 +84,7 @@ export function CheckInScreen({
               disabled={info.todaySigned || signing}
               activeOpacity={0.7}
             >
-              <Text
-                style={[styles.signBtnText, info.todaySigned && styles.signBtnTextDisabled]}
-              >
+              <Text style={[styles.signBtnText, info.todaySigned && styles.signBtnTextDisabled]}>
                 {signing
                   ? t('common.loading')
                   : info.todaySigned

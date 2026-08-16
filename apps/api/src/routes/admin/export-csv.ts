@@ -204,12 +204,12 @@ const ordersExportQuerySchema = z.object({
   startDate: dateStrSchema,
   endDate: dateStrSchema,
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
-  status: z.transform(emptyToUndefined).pipe(
-    z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
-  ),
-  paymentMethod: z.transform(emptyToUndefined).pipe(
-    z.enum(['wechat', 'alipay', 'stripe', 'paypal', 'usdc']).optional(),
-  ),
+  status: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional()),
+  paymentMethod: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['wechat', 'alipay', 'stripe', 'paypal', 'usdc']).optional()),
 })
 
 /** 复用 relay-logs.ts 的 13 个筛选维度 */
@@ -222,7 +222,9 @@ const relayLogsExportQuerySchema = z.object({
   clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   minLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
-  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
+  httpStatus: z
+    .transform(emptyToUndefined)
+    .pipe(z.coerce.number().int().min(100).max(599).optional()),
   minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   maxCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   startDate: dateStrSchema,

@@ -73,9 +73,7 @@ function parseSseJson(line: string): Record<string, unknown> | null {
 
 /** 从 usage 对象安全取数值 */
 function safeNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? Math.floor(value)
-    : 0
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0
 }
 
 /** 粗略估算 token(1 token ≈ 4 字符,中英文混合) */
@@ -180,8 +178,7 @@ export async function callPlayground(
   const usage = (data.usage as Record<string, unknown> | undefined) ?? {}
   const promptTokens = safeNumber(usage.prompt_tokens)
   const completionTokens = safeNumber(usage.completion_tokens)
-  const totalTokens =
-    safeNumber(usage.total_tokens) || promptTokens + completionTokens
+  const totalTokens = safeNumber(usage.total_tokens) || promptTokens + completionTokens
   const model = typeof data.model === 'string' ? data.model : params.model
 
   return {
@@ -238,9 +235,7 @@ export function generatePythonCode(
   apiKey: string,
 ): string {
   const base = getPublicBaseUrl()
-  const messagesJson = JSON.stringify(
-    messages.map((m) => ({ role: m.role, content: m.content })),
-  )
+  const messagesJson = JSON.stringify(messages.map((m) => ({ role: m.role, content: m.content })))
   return `from openai import OpenAI
 
 client = OpenAI(

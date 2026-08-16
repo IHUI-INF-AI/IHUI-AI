@@ -14,11 +14,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
-import {
-  LiveChatClient,
-  type ChatMessage,
-  type ChatStatus,
-} from '../lib/ws/chat-client'
+import { LiveChatClient, type ChatMessage, type ChatStatus } from '../lib/ws/chat-client'
 
 type Route = RouteProp<RootStackParamList, 'LiveDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'LiveDetail'>
@@ -139,10 +135,7 @@ export function LiveDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar
-        title={live?.title ?? t('liveDetail.title')}
-        onBack={() => navigation.goBack()}
-      />
+      <NavBar title={live?.title ?? t('liveDetail.title')} onBack={() => navigation.goBack()} />
       <SharedLiveDetailScreen
         t={t}
         live={sharedLive}

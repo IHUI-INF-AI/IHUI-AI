@@ -68,7 +68,10 @@ function formatTokenK(n: number): string {
 }
 
 /** 计算会话耗时(毫秒)。无 sessionStart 时返回 0。 */
-export function calcSessionDurationMs(sessionStart: string | null | undefined, nowMs: number): number {
+export function calcSessionDurationMs(
+  sessionStart: string | null | undefined,
+  nowMs: number,
+): number {
   if (!sessionStart) return 0
   const startMs = Date.parse(sessionStart)
   if (Number.isNaN(startMs)) return 0
@@ -77,7 +80,15 @@ export function calcSessionDurationMs(sessionStart: string | null | undefined, n
 
 /** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生 */
 export function buildStatLines(input: OverviewSummaryInput, durationMs?: number): string[] {
-  const { overview, sessionStart, nowMs = Date.now(), totalTokens, tokenRate, etaMs, contextUsage } = input
+  const {
+    overview,
+    sessionStart,
+    nowMs = Date.now(),
+    totalTokens,
+    tokenRate,
+    etaMs,
+    contextUsage,
+  } = input
   const effectiveDuration = durationMs ?? calcSessionDurationMs(sessionStart, nowMs)
   const lines: string[] = []
   if (overview.totalSteps > 0) {
@@ -90,9 +101,7 @@ export function buildStatLines(input: OverviewSummaryInput, durationMs?: number)
     lines.push(`- 子代理: ${parts.join(' · ')}`)
   }
   if (overview.totalTerminals > 0) {
-    lines.push(
-      `- 终端: ${overview.runningTerminals} 运行中 · ${overview.totalTerminals} 总`,
-    )
+    lines.push(`- 终端: ${overview.runningTerminals} 运行中 · ${overview.totalTerminals} 总`)
   }
   if (overview.totalChanges > 0) {
     lines.push(`- 变更: ${overview.totalChanges} 文件`)

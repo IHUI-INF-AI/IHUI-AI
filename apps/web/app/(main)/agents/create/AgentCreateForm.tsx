@@ -172,10 +172,7 @@ export function AgentCreateForm({
       {/* 绑定技能 */}
       <div className="space-y-2">
         <Label>{t('fieldSkills')}</Label>
-        <SkillCheckboxList
-          selected={form.skillIds}
-          onChange={(ids) => update('skillIds', ids)}
-        />
+        <SkillCheckboxList selected={form.skillIds} onChange={(ids) => update('skillIds', ids)} />
       </div>
 
       {err && (
@@ -215,9 +212,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
   }, [data])
 
   const toggle = (id: string) => {
-    const next = selected.includes(id)
-      ? selected.filter((s) => s !== id)
-      : [...selected, id]
+    const next = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]
     onChange(next)
   }
 

@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, Power, Trash2, ShieldCheck } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { STATUS_LABEL, STATUS_STYLE } from './helpers'
 import type { OAuthApp } from './types'
@@ -46,7 +54,9 @@ export function OauthAppTable({ list, isLoading, togglePending, onToggle, onDele
             list.map((a) => (
               <TableRow key={a.id}>
                 <TableCell className="font-medium">{a.name}</TableCell>
-                <TableCell className="max-w-[160px] truncate font-mono text-xs" title={a.clientId}>{a.clientId}</TableCell>
+                <TableCell className="max-w-[160px] truncate font-mono text-xs" title={a.clientId}>
+                  {a.clientId}
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {a.ownerName || a.ownerId}
                 </TableCell>

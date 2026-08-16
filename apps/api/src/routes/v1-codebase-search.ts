@@ -60,9 +60,7 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
   server.post('/search', async (req, reply) => {
     const parsed = searchSchema.safeParse(req.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
     try {
@@ -96,16 +94,11 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
   server.post('/index', async (req, reply) => {
     const parsed = indexSchema.safeParse(req.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
     try {
-      const result = await codebaseIndexService.indexChunks(
-        b.repoId,
-        b.chunks as ChunkInput[],
-      )
+      const result = await codebaseIndexService.indexChunks(b.repoId, b.chunks as ChunkInput[])
       return reply.send(success(result))
     } catch (e) {
       req.log.error(e)

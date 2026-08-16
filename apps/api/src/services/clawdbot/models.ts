@@ -106,7 +106,10 @@ export class ModelManager extends EventEmitter {
     if (!model.enabled) throw new Error(`Model "${modelId}" is disabled`)
 
     // 简化的完成调用：实际实现需要对接各厂商 SDK
-    logger.info({ model: modelId, messages: request.messages.length }, '[Models] Completion request')
+    logger.info(
+      { model: modelId, messages: request.messages.length },
+      '[Models] Completion request',
+    )
     this.emit('completionRequested', { modelId, request })
 
     return {

@@ -23,7 +23,8 @@ import { useAuthStore } from '@/stores/auth'
 const REPORT_URL = '/api/analytics/track' // method: POST
 
 // 常见文档/下载扩展名
-const DOWNLOAD_RE = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz|mp4|mp3|wav|png|jpe?g|webp|gif)(\?|#|$)/i
+const DOWNLOAD_RE =
+  /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz|mp4|mp3|wav|png|jpe?g|webp|gif)(\?|#|$)/i
 
 function getSessionId(): string {
   try {
@@ -160,15 +161,23 @@ export function AnalyticsCapture() {
       if (form.hasAttribute('data-analytics-form')) {
         const label = form.getAttribute('data-analytics-form') || 'form'
         // 取搜索类表单的 input 值作为关键词
-        const keyword =
-          form.querySelector<HTMLInputElement>('input[type="search"], input[name="q"], input[name="keyword"], input[name="search"]')
-            ?.value?.trim()
+        const keyword = form
+          .querySelector<HTMLInputElement>(
+            'input[type="search"], input[name="q"], input[name="keyword"], input[name="search"]',
+          )
+          ?.value?.trim()
         emit('form_submit', label, { category: 'form', keyword: keyword ?? undefined })
       } else if (form.closest('form[role="search"], form[class*="search"]')) {
-        const keyword =
-          form.querySelector<HTMLInputElement>('input[type="search"], input[name="q"], input[name="keyword"]')
-            ?.value?.trim()
-        if (keyword) emit('search', keyword.slice(0, 100), { category: 'search', keyword: keyword.slice(0, 100) })
+        const keyword = form
+          .querySelector<HTMLInputElement>(
+            'input[type="search"], input[name="q"], input[name="keyword"]',
+          )
+          ?.value?.trim()
+        if (keyword)
+          emit('search', keyword.slice(0, 100), {
+            category: 'search',
+            keyword: keyword.slice(0, 100),
+          })
       }
     }
 

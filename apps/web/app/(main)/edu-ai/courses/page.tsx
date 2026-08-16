@@ -184,10 +184,7 @@ export default function EduAICoursesPage() {
           <CardContent className="space-y-2 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={cn(
-                  'rounded-md px-2 py-0.5 text-xs font-medium',
-                  stageClass(k.stage),
-                )}
+                className={cn('rounded-md px-2 py-0.5 text-xs font-medium', stageClass(k.stage))}
               >
                 {stageLabel(k.stage)}
               </span>
@@ -224,9 +221,7 @@ export default function EduAICoursesPage() {
             <span
               className={cn(
                 'rounded-md px-2 py-0.5 text-xs font-medium',
-                required
-                  ? 'bg-emerald-500/10 text-emerald-600'
-                  : 'bg-amber-500/10 text-amber-600',
+                required ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600',
               )}
             >
               {required ? t('required') : t('elective')}

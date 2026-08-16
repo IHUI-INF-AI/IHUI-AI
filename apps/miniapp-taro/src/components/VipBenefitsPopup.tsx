@@ -376,7 +376,6 @@ export default function VipBenefitsPopup({
             </View>
           </ScrollView>
           <View className="px-4 py-3">
-
             <View
               className="w-full py-3 rounded-md text-center"
               style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}

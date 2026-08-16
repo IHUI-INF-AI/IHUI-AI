@@ -254,7 +254,9 @@ export default function AiSkillDetailPage() {
             try {
               const r = await exportAiSkill(skill.id)
               if (r.success && r.data) {
-                const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify(r.data, null, 2)], {
+                  type: 'application/json',
+                })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
@@ -275,17 +277,25 @@ export default function AiSkillDetailPage() {
           {t('exportBtn')}
         </button>
         {/* 版本信息 */}
-        {(skill as unknown as Record<string, unknown>).version || (skill as unknown as Record<string, unknown>).updatedAt ? (
+        {(skill as unknown as Record<string, unknown>).version ||
+        (skill as unknown as Record<string, unknown>).updatedAt ? (
           <p className="text-xs text-muted-foreground">
-            {(skill as unknown as Record<string, unknown>).version
-              ? <>{t('versionLabel')}: v{String((skill as unknown as Record<string, unknown>).version)}</>
-              : null}
-            {(skill as unknown as Record<string, unknown>).version && (skill as unknown as Record<string, unknown>).updatedAt ? (
+            {(skill as unknown as Record<string, unknown>).version ? (
+              <>
+                {t('versionLabel')}: v
+                {String((skill as unknown as Record<string, unknown>).version)}
+              </>
+            ) : null}
+            {(skill as unknown as Record<string, unknown>).version &&
+            (skill as unknown as Record<string, unknown>).updatedAt ? (
               <span className="mx-1">·</span>
             ) : null}
-            {(skill as unknown as Record<string, unknown>).updatedAt
-              ? <>{t('updatedAt')} {String((skill as unknown as Record<string, unknown>).updatedAt).slice(0, 10)}</>
-              : null}
+            {(skill as unknown as Record<string, unknown>).updatedAt ? (
+              <>
+                {t('updatedAt')}{' '}
+                {String((skill as unknown as Record<string, unknown>).updatedAt).slice(0, 10)}
+              </>
+            ) : null}
           </p>
         ) : null}
       </section>
@@ -316,7 +326,9 @@ export default function AiSkillDetailPage() {
                   >
                     {t(labelKey)}
                     {isMissing && (
-                      <span className="ml-1 text-[10px] text-destructive">*{t('invokeRequired')}</span>
+                      <span className="ml-1 text-[10px] text-destructive">
+                        *{t('invokeRequired')}
+                      </span>
                     )}
                   </label>
                   {long ? (
@@ -450,9 +462,7 @@ export default function AiSkillDetailPage() {
       )}
 
       {/* 使用反馈(仅当有调用结果时) */}
-      {result && (
-        <FeedbackSection skillId={skill.id} t={t} />
-      )}
+      {result && <FeedbackSection skillId={skill.id} t={t} />}
 
       {/* 相关推荐 */}
       <RecommendationsSection skillName={skill.name} t={t} />
@@ -510,7 +520,13 @@ function ResultContent({ result }: ResultContentProps) {
 }
 
 /** 使用反馈区块 */
-function FeedbackSection({ skillId, t }: { skillId: string; t: ReturnType<typeof useTranslations<'aiSkillDetail'>> }) {
+function FeedbackSection({
+  skillId,
+  t,
+}: {
+  skillId: string
+  t: ReturnType<typeof useTranslations<'aiSkillDetail'>>
+}) {
   const [rating, setRating] = React.useState(0)
   const [hoverRating, setHoverRating] = React.useState(0)
   const [comment, setComment] = React.useState('')
@@ -524,10 +540,13 @@ function FeedbackSection({ skillId, t }: { skillId: string; t: ReturnType<typeof
     }
     setSubmitting(true)
     try {
-      const r = await fetchApi<{ ok: boolean }>(`/api/ai-skills/${encodeURIComponent(skillId)}/feedback`, {
-        method: 'POST',
-        body: JSON.stringify({ skillId, rating, comment: comment.trim() || undefined }),
-      })
+      const r = await fetchApi<{ ok: boolean }>(
+        `/api/ai-skills/${encodeURIComponent(skillId)}/feedback`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ skillId, rating, comment: comment.trim() || undefined }),
+        },
+      )
       if (r.success) {
         setSubmitted(true)
         toast.success(t('feedbackSubmitted'))
@@ -620,7 +639,13 @@ function FeedbackSection({ skillId, t }: { skillId: string; t: ReturnType<typeof
 }
 
 /** 相关推荐技能区块 */
-function RecommendationsSection({ skillName, t }: { skillName: string; t: ReturnType<typeof useTranslations<'aiSkillDetail'>> }) {
+function RecommendationsSection({
+  skillName,
+  t,
+}: {
+  skillName: string
+  t: ReturnType<typeof useTranslations<'aiSkillDetail'>>
+}) {
   const { data: result, isLoading } = useQuery({
     queryKey: ['ai-skills', 'recommendations', skillName],
     queryFn: () => getAiSkillRecommendations({ context: skillName, top_k: 4 }),

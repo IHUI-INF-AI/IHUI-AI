@@ -89,7 +89,13 @@ export function createDefaultStep(type: StepType): WorkflowStep {
     case 'llm':
       return { name: 'LLM 调用', type: 'llm', input: '请回答...' }
     case 'condition':
-      return { name: '条件判断', type: 'condition', condition: 'true', thenSteps: [], elseSteps: [] }
+      return {
+        name: '条件判断',
+        type: 'condition',
+        condition: 'true',
+        thenSteps: [],
+        elseSteps: [],
+      }
     case 'delay':
       return { name: '延迟', type: 'delay', duration: 1000 }
     case 'loop':
@@ -105,16 +111,26 @@ export function createDefaultStep(type: StepType): WorkflowStep {
 
 function getColorForStep(type: StepType): StepNodeData['color'] {
   switch (type) {
-    case 'trigger': return 'blue'
-    case 'echo': return 'slate'
-    case 'skill': return 'violet'
-    case 'llm': return 'emerald'
-    case 'condition': return 'amber'
-    case 'delay': return 'slate'
-    case 'loop': return 'blue'
-    case 'parallel': return 'violet'
-    case 'tool': return 'amber'
-    default: return 'slate'
+    case 'trigger':
+      return 'blue'
+    case 'echo':
+      return 'slate'
+    case 'skill':
+      return 'violet'
+    case 'llm':
+      return 'emerald'
+    case 'condition':
+      return 'amber'
+    case 'delay':
+      return 'slate'
+    case 'loop':
+      return 'blue'
+    case 'parallel':
+      return 'violet'
+    case 'tool':
+      return 'amber'
+    default:
+      return 'slate'
   }
 }
 

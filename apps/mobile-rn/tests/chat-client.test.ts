@@ -140,7 +140,12 @@ describe('lib/ws/chat-client', () => {
     client.connect('r')
     await new Promise((r) => setTimeout(r, 0))
     instances[0]!.simulateOpen()
-    instances[0]!.simulateMessage({ id: 'm2', nickname: 'bob', content: 'yo', createdAt: '2026-07-20T10:01:00Z' })
+    instances[0]!.simulateMessage({
+      id: 'm2',
+      nickname: 'bob',
+      content: 'yo',
+      createdAt: '2026-07-20T10:01:00Z',
+    })
     expect(messages).toHaveLength(1)
     client.disconnect()
   })

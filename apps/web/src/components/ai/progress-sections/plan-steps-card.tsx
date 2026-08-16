@@ -3,12 +3,7 @@
 import * as React from 'react'
 import { AlertCircle, Check, Clock, Copy, ListTodo, Loader2, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@ihui/ui-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import { Tooltip as FeedbackTooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
@@ -112,9 +107,7 @@ export function PlanStepsCard({
       summary = t('plan.summaryAllDone')
     } else {
       const lastStep = steps[steps.length - 1]
-      summary = lastStep
-        ? `${t('plan.statusPending')}:${lastStep.step}`
-        : undefined
+      summary = lastStep ? `${t('plan.statusPending')}:${lastStep.step}` : undefined
     }
   }
 
@@ -141,46 +134,44 @@ export function PlanStepsCard({
         summary={summary}
         headerExtra={totalDurationBadge}
       >
-      {/* 分段进度条(每个步骤一段 + 百分比) */}
-      <SegmentedProgressBar
-        steps={steps}
-        rootTestId={rootTestId}
-        progressPct={progressPct}
-        className="mb-1.5"
-      />
+        {/* 分段进度条(每个步骤一段 + 百分比) */}
+        <SegmentedProgressBar
+          steps={steps}
+          rootTestId={rootTestId}
+          progressPct={progressPct}
+          className="mb-1.5"
+        />
 
-      <ol
-        className={cn('relative space-y-0.5 pl-1', className)}
-        aria-live="polite"
-        aria-label={t('plan.ariaLabel')}
-        data-testid={`${rootTestId}-list`}
-      >
-        {steps.map((s, idx) => {
-          const isLast = idx === steps.length - 1
-          // 组间分隔:不同 groupIndex 之间加 pt-1.5(空隙分隔,非分割线)
-          const prevStep = idx > 0 ? steps[idx - 1] : undefined
-          const isGroupBoundary =
-            prevStep &&
-            s.groupIndex !== undefined &&
-            prevStep.groupIndex !== undefined &&
-            s.groupIndex !== prevStep.groupIndex
-          return (
-            <PlanStepItem
-              key={s.id}
-              step={s}
-              isLast={isLast}
-              rootTestId={rootTestId}
-              index={idx + 1}
-              isGroupBoundary={!!isGroupBoundary}
-              requestJumpToMessage={requestJumpToMessage}
-              setHoveredPlanStep={setHoveredPlanStep}
-              isHighlightedByHover={
-                !!s.sourceMessageId && s.sourceMessageId === hoveredMessageId
-              }
-            />
-          )
-        })}
-      </ol>
+        <ol
+          className={cn('relative space-y-0.5 pl-1', className)}
+          aria-live="polite"
+          aria-label={t('plan.ariaLabel')}
+          data-testid={`${rootTestId}-list`}
+        >
+          {steps.map((s, idx) => {
+            const isLast = idx === steps.length - 1
+            // 组间分隔:不同 groupIndex 之间加 pt-1.5(空隙分隔,非分割线)
+            const prevStep = idx > 0 ? steps[idx - 1] : undefined
+            const isGroupBoundary =
+              prevStep &&
+              s.groupIndex !== undefined &&
+              prevStep.groupIndex !== undefined &&
+              s.groupIndex !== prevStep.groupIndex
+            return (
+              <PlanStepItem
+                key={s.id}
+                step={s}
+                isLast={isLast}
+                rootTestId={rootTestId}
+                index={idx + 1}
+                isGroupBoundary={!!isGroupBoundary}
+                requestJumpToMessage={requestJumpToMessage}
+                setHoveredPlanStep={setHoveredPlanStep}
+                isHighlightedByHover={!!s.sourceMessageId && s.sourceMessageId === hoveredMessageId}
+              />
+            )
+          })}
+        </ol>
       </FoldableSection>
     </TooltipProvider>
   )
@@ -235,11 +226,7 @@ function SegmentedProgressBar({
                   data-testid={`${rootTestId}-segment-${s.id}`}
                 />
               </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                sideOffset={6}
-                className="text-[11px] leading-relaxed"
-              >
+              <TooltipContent side="bottom" sideOffset={6} className="text-[11px] leading-relaxed">
                 <div className="flex items-center gap-1.5">
                   <span
                     className={cn(
@@ -398,9 +385,7 @@ function PlanStepItem({
       <span
         className={cn(
           'relative z-10 mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-all',
-          s.error
-            ? 'bg-red-500/15 ring-2 ring-red-500/30'
-            : STATUS_DOT_CLS[s.status],
+          s.error ? 'bg-red-500/15 ring-2 ring-red-500/30' : STATUS_DOT_CLS[s.status],
           isJumpable && 'group-hover:scale-110',
         )}
         aria-hidden

@@ -63,11 +63,7 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
     }
     const { slug } = parsed.data
     try {
-      const [tenant] = await dbRead
-        .select()
-        .from(tenants)
-        .where(eq(tenants.slug, slug))
-        .limit(1)
+      const [tenant] = await dbRead.select().from(tenants).where(eq(tenants.slug, slug)).limit(1)
       if (!tenant) {
         // 部署层存在但数据库无租户记录:无真实配额可报,返回 404 让前端显示空态
         return reply.status(404).send(error(404, '未找到该租户的配额数据'))

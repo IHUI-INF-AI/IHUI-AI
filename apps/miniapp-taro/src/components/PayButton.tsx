@@ -107,7 +107,9 @@ export default function PayButton({
     if (cfg.showPurchasePopup) {
       setPopupVisible(true)
       if (onFetchPrice && agentId) {
-        onFetchPrice(agentId).then(setPrice).catch(() => setPrice(0.01))
+        onFetchPrice(agentId)
+          .then(setPrice)
+          .catch(() => setPrice(0.01))
       }
       return
     }
@@ -115,7 +117,6 @@ export default function PayButton({
   }
 
   const handlePay = () => {
-
     Taro.showToast({ title: '支付功能待接入后端', icon: 'none' })
     setPopupVisible(false)
     onClick?.(type, agentId)
@@ -148,15 +149,23 @@ export default function PayButton({
             {/* 商品信息 */}
             <View className="flex items-center mb-3">
               {agentAvatar ? (
-                <Image className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3" src={agentAvatar} mode="aspectFill" />
+                <Image
+                  className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3"
+                  src={agentAvatar}
+                  mode="aspectFill"
+                />
               ) : (
                 <View className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3 bg-muted flex items-center justify-center">
                   <Image className="w-8 h-8" src="/static/images/icons/bot.svg" mode="aspectFit" />
                 </View>
               )}
               <View className="flex-1">
-                <Text className="block text-sm font-medium text-foreground">{agentName || tt('pay.defaultName', 'AI 助手')}</Text>
-                <Text className="block text-xs text-muted-foreground">{tt('pay.subscribeTip', '订阅后可无限使用')}</Text>
+                <Text className="block text-sm font-medium text-foreground">
+                  {agentName || tt('pay.defaultName', 'AI 助手')}
+                </Text>
+                <Text className="block text-xs text-muted-foreground">
+                  {tt('pay.subscribeTip', '订阅后可无限使用')}
+                </Text>
               </View>
             </View>
             {/* 价格 */}
@@ -167,7 +176,9 @@ export default function PayButton({
             </View>
             {/* 数量 */}
             <View className="flex items-center mb-3">
-              <Text className="text-xs text-muted-foreground mr-2">{tt('pay.countLabel', '数量')}:</Text>
+              <Text className="text-xs text-muted-foreground mr-2">
+                {tt('pay.countLabel', '数量')}:
+              </Text>
               <View
                 className="w-7 h-7 flex items-center justify-center rounded-md border border-border"
                 onClick={() => count > 1 && setCount(count - 1)}
@@ -187,7 +198,9 @@ export default function PayButton({
               className="w-full py-3 rounded-md text-center bg-primary text-white font-medium"
               onClick={handlePay}
             >
-              <Text className="text-sm">{tt('pay.payNow', '立即支付')} ¥{realPrice}</Text>
+              <Text className="text-sm">
+                {tt('pay.payNow', '立即支付')} ¥{realPrice}
+              </Text>
             </View>
           </View>
         </View>
