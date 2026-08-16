@@ -6,10 +6,10 @@
  * - 新 API:聊天输入模式(prompt 提供),渲染完整 Uniapp 对齐 UI:
  *   + 模型信息条(onShowModelList / onShowModelConfig / onModelConfigChange)
  *   + ToggleButtonGroup(5 开关:onToggleSuperAgent/Agentfu/Mcp/KnowledgeBase/PermanentMemory)
- *   + 图片预览行(onRemoveImage)
+ *   + 图片预览行(onRemoveImage(index))
  *   + InputArea(TextInput + 语音 + 发送:onPromptChange/onInputFocus/Blur/Click/onSend/onTextareaHeightChange)
  *   + 辅助按钮行(onFunctionHandle / onSourceHandle / onFangda)
- *   + IconButtonGroup(相机/相册/文件:onIconClick)
+ *   + IconButtonGroup(相机/相册/文件/微信文件:onIconClick(type))
  *   + 键盘监听(onKeyboardShow / onKeyboardHide)
  *   + 语音动画(onStartVoiceAnimation / onStopVoiceAnimation via voiceInputEnabled)
  *   + 长按手势(onStartLongPress / onEndLongPress on voice button)
@@ -47,6 +47,9 @@ export interface BottomActionBarAction {
   loading?: boolean
 }
 
+/** 图标按钮组点击来源(对齐 Uniapp handleIconClick(type):camera/album/file/wxfile) */
+export type BottomActionBarIconType = 'camera' | 'album' | 'file' | 'wxfile'
+
 // ── 新 API:25+ 事件回调 + 状态 ──
 
 export interface BottomActionBarProps {
@@ -64,7 +67,7 @@ export interface BottomActionBarProps {
   onToggleKnowledgeBase?: () => void
   onTogglePermanentMemory?: () => void
   onToggleVoiceInput?: () => void
-  onRemoveImage?: () => void
+  onRemoveImage?: (index: number) => void
   onStartLongPress?: () => void
   onEndLongPress?: () => void
   onInputFocus?: () => void
@@ -74,7 +77,7 @@ export interface BottomActionBarProps {
   onStopVoiceAnimation?: () => void
   onFunctionHandle?: () => void
   onSourceHandle?: () => void
-  onIconClick?: () => void
+  onIconClick?: (type: BottomActionBarIconType) => void
   onShowModelConfig?: () => void
   onTextareaHeightChange?: (height: number) => void
   onModelConfigChange?: (config: unknown) => void
@@ -212,9 +215,7 @@ function LabelButton({ action }: BottomActionBarItemProps) {
     : styles.secondaryButtonPressed
   const disabledStyle: ViewStyle = styles.buttonDisabled
 
-  const labelStyle: TextStyle = isPrimary
-    ? styles.primaryButtonLabel
-    : styles.secondaryButtonLabel
+  const labelStyle: TextStyle = isPrimary ? styles.primaryButtonLabel : styles.secondaryButtonLabel
 
   const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [
     baseStyle,
@@ -360,8 +361,18 @@ function ChatInputBar(props: BottomActionBarProps) {
     { key: 'super-agent', label: '智能体', active: superAgentEnabled, onPress: onToggleSuperAgent },
     { key: 'super-agentfu', label: '智能体辅', active: false, onPress: onToggleSuperAgentfu },
     { key: 'mcp', label: 'MCP', active: mcpEnabled, onPress: onToggleMcp },
-    { key: 'knowledge-base', label: '知识库', active: knowledgeBaseEnabled, onPress: onToggleKnowledgeBase },
-    { key: 'permanent-memory', label: '记忆', active: permanentMemoryEnabled, onPress: onTogglePermanentMemory },
+    {
+      key: 'knowledge-base',
+      label: '知识库',
+      active: knowledgeBaseEnabled,
+      onPress: onToggleKnowledgeBase,
+    },
+    {
+      key: 'permanent-memory',
+      label: '记忆',
+      active: permanentMemoryEnabled,
+      onPress: onTogglePermanentMemory,
+    },
   ]
   const visibleChips = allChips.filter(
     (chip): chip is ToggleChipConfig & { onPress: () => void } => chip.onPress !== undefined,
@@ -428,7 +439,12 @@ function ChatInputBar(props: BottomActionBarProps) {
       {visibleChips.length > 0 ? (
         <View style={styles.toggleRow}>
           {visibleChips.map((chip) => (
-            <ToggleChip key={chip.key} label={chip.label} active={chip.active} onPress={chip.onPress} />
+            <ToggleChip
+              key={chip.key}
+              label={chip.label}
+              active={chip.active}
+              onPress={chip.onPress}
+            />
           ))}
         </View>
       ) : null}
@@ -442,7 +458,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               {onRemoveImage !== undefined ? (
                 <Pressable
                   style={styles.imageRemoveBtn}
-                  onPress={onRemoveImage}
+                  onPress={() => onRemoveImage(index)}
                   hitSlop={4}
                   accessibilityRole="button"
                   accessibilityLabel="删除图片"
@@ -554,12 +570,12 @@ function ChatInputBar(props: BottomActionBarProps) {
         </View>
       ) : null}
 
-      {/* 图标按钮组:相机 / 相册 / 文件 */}
+      {/* 图标按钮组:相机 / 相册 / 文件 / 微信文件 */}
       {showIconGroup ? (
         <View style={styles.iconGroup}>
           <Pressable
             style={styles.iconGroupItem}
-            onPress={onIconClick}
+            onPress={() => onIconClick('camera')}
             accessibilityRole="button"
             accessibilityLabel="相机"
           >
@@ -572,7 +588,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           </Pressable>
           <Pressable
             style={styles.iconGroupItem}
-            onPress={onIconClick}
+            onPress={() => onIconClick('album')}
             accessibilityRole="button"
             accessibilityLabel="相册"
           >
@@ -585,15 +601,28 @@ function ChatInputBar(props: BottomActionBarProps) {
           </Pressable>
           <Pressable
             style={styles.iconGroupItem}
-            onPress={onIconClick}
+            onPress={() => onIconClick('file')}
             accessibilityRole="button"
-            accessibilityLabel="文件"
+            accessibilityLabel="本地文件"
           >
             <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
               {'📁'}
             </Text>
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'文件'}
+              {'本地文件'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.iconGroupItem}
+            onPress={() => onIconClick('wxfile')}
+            accessibilityRole="button"
+            accessibilityLabel="微信文件"
+          >
+            <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
+              {'💬'}
+            </Text>
+            <Text style={styles.iconGroupLabel} numberOfLines={1}>
+              {'微信文件'}
             </Text>
           </Pressable>
         </View>
@@ -902,6 +931,7 @@ const styles = StyleSheet.create({
   // ── 新模式:图标按钮组 ──
   iconGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     paddingBottom: 12,
   } as ViewStyle,

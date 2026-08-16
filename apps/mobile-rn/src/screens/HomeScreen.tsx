@@ -42,7 +42,7 @@ import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import { OfflineBanner } from '../components/OfflineBanner'
 import AiModelCard from '../components/AiModelCard'
-import { Toolbar, type ToolbarItem } from '../components/Toolbar'
+import { Toolbar } from '../components/Toolbar'
 import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
@@ -58,7 +58,7 @@ import ModelList, { type ModelListGroup } from '../components/ModelList'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 // 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
-import AgentList, { type AgentListItem } from '../components/AgentList'
+import AgentShopList, { type AgentShopItem } from '../components/AgentShopList'
 import { FenLeiOverlay } from '../components/FenLeiOverlay'
 import { useAuth } from '../context/AuthContext'
 import { useNetwork } from '../context/NetworkContext'
@@ -308,14 +308,14 @@ const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
   { id: 'learning', name: '学习' },
 ]
 
-/** Agent → AgentListItem 映射(点赞数后端 Agent 无字段,省略由卡片显示 0 占位) */
-function toAgentListItem(a: Agent): AgentListItem {
+/** Agent → AgentShopItem 映射(点赞数后端 Agent 无字段,省略由卡片显示 0 占位) */
+function toAgentShopItem(a: Agent): AgentShopItem {
   return {
     id: a.id,
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
-    category: a.category,
+    tags: a.tags.length > 0 ? a.tags : undefined,
     isCollect: a.isFavorited,
     collectCount: a.favoriteCount,
     usageCount: a.useCount,
@@ -389,7 +389,7 @@ export function HomeScreen() {
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
 
   // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 + tagWrapShow 赛道分类弹层 ──
-  const [agentItems, setAgentItems] = useState<AgentListItem[]>([])
+  const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
   const [trackCategories, setTrackCategories] =
     useState<ReadonlyArray<AgentCategoryItem>>(AGENT_CATEGORY_FALLBACK)
   const [mainCategories, setMainCategories] = useState<ReadonlyArray<AgentCategoryItem>>(
@@ -576,13 +576,30 @@ export function HomeScreen() {
     tags: ['免费', '热门'],
   }
 
-  /** Toolbar 快捷工具栏(对齐 Uniapp 首页工具条) */
-  const toolbarItems: ToolbarItem[] = [
-    { key: 'search', icon: '🔍', onPress: () => rootNav?.navigate('Search') },
-    { key: 'bookmark', icon: '🔖', onPress: () => rootNav?.navigate('Bookmark') },
-    { key: 'history', icon: '🕘', onPress: () => rootNav?.navigate('History') },
-    { key: 'share', icon: '📤', onPress: () => rootNav?.navigate('Share') },
-  ]
+  /** Toolbar 首页工具栏(对齐 Uniapp Toolbar/index.vue: 顶部服务入口 + 营销区 + 双列条目 + AI定制条) */
+  const onToolbarMore = () => rootNav?.navigate('AgentMarket')
+  const onToolbarBanner = () => rootNav?.navigate('AigcList')
+  const onToolbarToolPress = (key: string) => {
+    // 对齐原项目 handleItemClick(item.id + 2) 分流: ai_image/ai_video/ai_wenan/ai_clip → AigcList
+    switch (key) {
+      case 'ai_live': // AI直播
+        rootNav?.navigate('LiveList')
+        break
+      case 'ai_avatar': // AI数字人
+      case 'ai_image':
+      case 'ai_video':
+      case 'ai_wenan':
+      case 'ai_clip':
+        rootNav?.navigate('AigcList')
+        break
+      default:
+        break
+    }
+  }
+  const onToolbarCustomMade = () => {
+    // 原项目 goToCustomMade: 功能开发中 toast
+    rootNav?.navigate('AgentMarket')
+  }
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
@@ -639,7 +656,7 @@ export function HomeScreen() {
       agentMainCategory: mainId,
     })
     if (res.success) {
-      const list = (res.data.list ?? []).map(toAgentListItem)
+      const list = (res.data.list ?? []).map(toAgentShopItem)
       setAgentItems(list)
       // RecentAgents 降级数据源:无 getAgentUseHistory 接口,取列表前 5 条(对齐 uniapp slice(0,5))
       setRecentAgents(list.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
@@ -797,9 +814,16 @@ export function HomeScreen() {
           courses={carouselItems}
           onPress={(id) => navigation.navigate('CourseDetail', { id })}
         />
-        {/* Toolbar 快捷工具栏(对齐 Uniapp 首页工具条) */}
+        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块) */}
         <View style={shellStyles.toolbarWrap}>
-          <Toolbar items={toolbarItems} separators={['history']} />
+          <Toolbar
+            items={[]}
+            onServicePress={() => rootNav?.navigate('AgentMarket')}
+            onMorePress={onToolbarMore}
+            onBannerPress={onToolbarBanner}
+            onToolPress={onToolbarToolPress}
+            onCustomServicePress={onToolbarCustomMade}
+          />
         </View>
         {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
         {cardItems.length > 0 ? (
@@ -903,12 +927,12 @@ export function HomeScreen() {
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
-        {/* AgentList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 ai-list,核心区块)
+        {/* AgentShopList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 Ai-list_b,核心区块)
          *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistant;
          *  scrollEnabled=false 嵌套外层 ScrollView,由页面整体滚动 */}
         <View style={shellStyles.agentListWrap}>
           <MoreTitles title="AI 应用商店" />
-          <AgentList
+          <AgentShopList
             items={agentItems}
             onItemClick={handleAgentPress}
             onItemLike={handleAgentLike}
@@ -997,7 +1021,7 @@ export function HomeScreen() {
       <GlobalFloatBox
         onPromote={() => rootNav?.navigate('Promote')}
         onConsult={() => rootNav?.navigate('CustomerService')}
-        onMore={() => rootNav?.navigate('Settings')}
+        onFeedback={() => rootNav?.navigate('Settings')}
       />
       {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
       <Drawer

@@ -78,9 +78,12 @@ export function RankingScreen() {
   const fullItems = useMemo<FullRankingItem[]>(() => toFullRankingItems(list), [list])
 
   /** 点击排名项 → 跳转排名详情页 */
-  const onItemPress = useCallback((id: string) => {
-    navigation.navigate('RankingDetail', { id })
-  }, [navigation])
+  const onItemPress = useCallback(
+    (id: string) => {
+      navigation.navigate('RankingDetail', { id })
+    },
+    [navigation],
+  )
 
   return (
     <View style={shellStyles.root}>
