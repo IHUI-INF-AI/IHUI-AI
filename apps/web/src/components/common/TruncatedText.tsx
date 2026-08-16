@@ -25,6 +25,8 @@ interface TruncatedTextProps {
   mono?: boolean
   /** tooltip 方向,默认 top */
   side?: 'top' | 'right' | 'bottom' | 'left'
+  /** 透传内联样式(shimmer 渐变文字等) */
+  style?: React.CSSProperties
 }
 
 export function TruncatedText({
@@ -32,6 +34,7 @@ export function TruncatedText({
   className,
   mono,
   side = 'top',
+  style,
 }: TruncatedTextProps) {
   const ref = React.useRef<HTMLDivElement | null>(null)
   const [truncated, setTruncated] = React.useState(false)
@@ -50,6 +53,7 @@ export function TruncatedText({
   const inner = (
     <div
       ref={ref}
+      style={style}
       className={cn(
         'truncate',
         mono && 'font-mono',

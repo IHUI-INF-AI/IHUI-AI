@@ -12,6 +12,7 @@ import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
+import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
 import { registerWechat } from './src/lib/wechat'
 import {
   subscribeOAuthDeepLink,
@@ -45,6 +46,7 @@ function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
   return (
     <NavigationContainer
+      ref={navigationRef}
       linking={linking}
       theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
     >
@@ -111,8 +113,13 @@ function AppContent() {
         </I18nProvider>
         <StatusBar style="auto" />
       </SafeAreaProvider>
-      {/* 全局浮窗:推广/咨询/更多,覆盖在 RootNavigator 之上(右下角悬浮) */}
-      <GlobalFloatBox />
+      {/* 全局浮窗:推广/咨询/更多,覆盖在 RootNavigator 之上(右下角悬浮)。
+          跳转目标对齐历史 Uniapp 浮窗语义:推广→推广中心,咨询→客服,更多→任务中心 */}
+      <GlobalFloatBox
+        onPromote={() => navigateTo('Promote')}
+        onConsult={() => navigateTo('CustomerService')}
+        onMore={() => navigateTo('TaskCenter')}
+      />
     </View>
   )
 }

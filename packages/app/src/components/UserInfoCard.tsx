@@ -87,7 +87,7 @@ const viewStyles = {
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
-    backgroundColor: 'rgba(195, 190, 255, 0.15)',
+    backgroundColor: tk.surface.light,
   }),
   header: (): CSSProperties => ({
     display: 'flex',
@@ -98,12 +98,12 @@ const viewStyles = {
   avatarWrap: (tk: AppThemeTokens): CSSProperties => ({
     width: 56,
     height: 56,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: tk.surface.light,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: tk.indigo.light,
+    borderColor: tk.border.light,
     flexShrink: 0,
     cursor: 'pointer',
   }),
@@ -139,7 +139,7 @@ const viewStyles = {
     backgroundColor: isVip ? tk.warning.light : tk.surface.card,
     borderRadius: 2,
   }),
-  tokenRow: (): CSSProperties => ({
+  tokenRow: (tk: AppThemeTokens): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -149,8 +149,8 @@ const viewStyles = {
     paddingRight: 8,
     paddingTop: 6,
     paddingBottom: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderRadius: 6,
+    backgroundColor: tk.surface.muted,
+    borderRadius: 12,
   }),
   tokenLabelWrap: (): CSSProperties => ({
     display: 'flex',
@@ -162,8 +162,8 @@ const viewStyles = {
     paddingRight: 10,
     paddingTop: 4,
     paddingBottom: 4,
-    backgroundColor: tk.indigo.DEFAULT,
-    borderRadius: 6,
+    backgroundColor: tk.brand.DEFAULT,
+    borderRadius: 12,
     cursor: 'pointer',
   }),
 }
@@ -171,13 +171,13 @@ const viewStyles = {
 const textStyles = {
   loginBtnText: (tk: AppThemeTokens): CSSProperties => ({
     fontSize: 16,
-    fontWeight: 600,
+    fontWeight: 700,
     color: tk.text.primary,
   }),
   name: (tk: AppThemeTokens): CSSProperties => ({
     flex: 1,
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     color: tk.text.primary,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -186,7 +186,7 @@ const textStyles = {
   }),
   editText: (tk: AppThemeTokens): CSSProperties => ({
     fontSize: 12,
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
     marginLeft: 4,
   }),
   roleText: (tk: AppThemeTokens, isVip: boolean): CSSProperties => ({
@@ -196,12 +196,12 @@ const textStyles = {
   }),
   tokenLabel: (tk: AppThemeTokens): CSSProperties => ({
     fontSize: 12,
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
   }),
   tokenValue: (tk: AppThemeTokens): CSSProperties => ({
     fontSize: 12,
     fontWeight: 700,
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
     marginLeft: 4,
   }),
   rechargeBtnText: (tk: AppThemeTokens): CSSProperties => ({
@@ -296,7 +296,7 @@ export function UserInfoCard({
                 justifyContent: 'center',
                 fontSize: 20,
                 fontWeight: 600,
-                color: tk.indigo.DEFAULT,
+                color: tk.text.primary,
               }}
             >
               <span>{initials}</span>
@@ -334,7 +334,7 @@ export function UserInfoCard({
       </div>
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
-      <div style={viewStyles.tokenRow()}>
+      <div style={viewStyles.tokenRow(tk)}>
         <div style={viewStyles.tokenLabelWrap()}>
           <span style={textStyles.tokenLabel(tk)}>
             {trOrFallback(t, 'user.tokenLabel', FALLBACK_TOKEN_LABEL)}

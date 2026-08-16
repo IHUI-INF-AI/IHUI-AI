@@ -145,8 +145,8 @@ export function CourseFilterScreen({
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -180,18 +180,18 @@ export function CourseFilterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-    backBtn: { marginBottom: 4 },
-    backText: { fontSize: 14, color: tk.text.secondary },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    backBtn: { marginBottom: 8 },
+    backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     filterSection: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,
     },
     filterLabel: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.text.medium,
       marginTop: 8,
@@ -201,40 +201,40 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.surface.card,
     },
-    chipActive: { backgroundColor: tk.success.DEFAULT },
+    chipActive: { backgroundColor: tk.brand.DEFAULT },
     chipText: { fontSize: 12, color: tk.text.secondary },
     chipTextActive: { color: tk.surface.light },
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: 12, alignItems: 'center' },
     resetBtn: { backgroundColor: tk.surface.card },
-    applyBtn: { backgroundColor: tk.success.DEFAULT },
-    resetText: { fontSize: 13, color: tk.text.secondary },
-    applyText: { fontSize: 13, color: tk.surface.light },
+    applyBtn: { backgroundColor: tk.brand.DEFAULT },
+    resetText: { fontSize: 14, color: tk.text.secondary },
+    applyText: { fontSize: 14, color: tk.surface.light },
     errorBar: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: 12, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 12, color: tk.success.DEFAULT },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    retryText: { fontSize: 14, color: tk.brand.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 12, color: tk.text.tertiary, marginTop: 8 },
+    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    cardMeta: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-    cardMetaText: { fontSize: 12, color: tk.text.secondary },
-    priceText: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
+    cardMetaText: { fontSize: 14, color: tk.text.secondary },
+    priceText: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
   })
 }

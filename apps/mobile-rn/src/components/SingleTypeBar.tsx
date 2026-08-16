@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   item: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.light,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   } as ViewStyle,
   text: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.secondary,
   } as TextStyle,

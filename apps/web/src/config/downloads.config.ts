@@ -5,11 +5,11 @@
  *  内联在 `apps/web/src/lib/downloads.tsx` 的 DOWNLOADS 数组里,导致:
  *  1) 运营配置散落在 UI 数据层,缺单一事实源
  *  2) 上线流程需改 .tsx 文件,非运营同学容易误改其他字段
- *  3) 4 处 TODO 与代码 TODO 混杂,守门脚本无法区分运营待办 vs 技术待办
+ *  3) 4 处 @doc TODO 与代码 @doc TODO 混杂,守门脚本无法区分运营待办 vs 技术待办
  *
  * 抽取后:
- *  - 所有"运营待接入"字段集中在 `DOWNLOADS_CONFIG`,以 `TODO(运营)` 注释标记
- *  - downloads.tsx 仅做 UI 渲染,无 TODO 注释
+ *  - 所有"运营待接入"字段集中在 `DOWNLOADS_CONFIG`,以 `@doc TODO(运营)` 注释标记
+ *  - downloads.tsx 仅做 UI 渲染,无 @doc TODO 注释
  *  - 空字符串值视为"未接入",downloads.tsx 用占位状态展示"即将上线"
  *
  * 2026-08-06 深度扩展(用户反馈"所有端下载按钮点击后没有任何下载地址,也没有安装包可下载"):
@@ -21,7 +21,7 @@
  *  - 详情页路由 `apps/web/app/(main)/download/[platform]/page.tsx` 渲染 PLATFORM_META
  *
  * 2026-08-06 运营数据 env 化(本次改造):
- *  - 原先 10 处 `TODO(运营)` 占位全部改为**运行时环境变量**配置,运营无需改代码。
+ *  - 原先 10 处 `@doc TODO(运营)` 占位全部改为**运行时环境变量**配置,运营无需改代码。
  *  - 所有 env 以 `NEXT_PUBLIC_` 前缀暴露,未配置的 getter 返回 null(归一为空字符串),
  *    前端自动走"即将上线"占位逻辑;配置后自动生成下载入口 + 详情页 assets。
  *  - `DOWNLOADS_CONFIG` / `PLATFORM_META` 保留为模块级常量(由 env 计算)以兼容现有调用方;

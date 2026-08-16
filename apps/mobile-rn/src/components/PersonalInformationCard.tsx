@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: 12,
   } as ViewStyle,
   detailItem: {
     flex: 1,

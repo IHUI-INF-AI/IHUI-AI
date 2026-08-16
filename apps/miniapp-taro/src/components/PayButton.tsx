@@ -115,7 +115,7 @@ export default function PayButton({
   }
 
   const handlePay = () => {
-    // TODO: 实际接入后端 createPayHistory + 微信 JSAPI pay()
+
     Taro.showToast({ title: '支付功能待接入后端', icon: 'none' })
     setPopupVisible(false)
     onClick?.(type, agentId)

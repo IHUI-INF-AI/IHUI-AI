@@ -50,8 +50,8 @@ export function PayButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: 48,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: 12,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

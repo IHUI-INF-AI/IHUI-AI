@@ -8,6 +8,8 @@ export {
   getDeviceFingerprintProvider,
   setBaseUrl,
   setStreamBaseUrl,
+  getStreamBaseUrl,
+  getToken,
   streamChat,
   parseStreamLine,
   parseStreamLineReasoning,

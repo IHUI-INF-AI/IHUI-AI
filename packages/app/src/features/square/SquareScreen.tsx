@@ -245,11 +245,11 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     } as ViewStyle,
     backText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.medium,
     } as TextStyle,
     navTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 8,
-      paddingHorizontal: 4,
+      paddingHorizontal: 10,
       gap: 8,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
@@ -277,7 +277,7 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.85,
     } as ViewStyle,
     typeText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: tk.text.secondary,
     } as TextStyle,
@@ -291,11 +291,11 @@ function createStyles(tk: AppThemeTokens) {
       padding: 24,
     } as ViewStyle,
     loadingText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
     } as TextStyle,
     errorText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.primary,
       marginBottom: 12,
       textAlign: 'center',
@@ -308,21 +308,24 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     retryText: {
       color: tk.surface.light,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
-      padding: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 12,
     } as ViewStyle,
     itemGap: {
-      height: 8,
+      height: 12,
     } as ViewStyle,
 
     // 卡片
     card: {
       borderRadius: 12,
-      padding: 8,
+      padding: 12,
       backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
     } as ViewStyle,
     cardPressed: {
       backgroundColor: tk.surface.muted,
@@ -333,25 +336,27 @@ function createStyles(tk: AppThemeTokens) {
     categoryBadge: {
       alignSelf: 'flex-start',
       paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
-      backgroundColor: tk.indigo.light,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tk.border.medium,
     } as ViewStyle,
     categoryText: {
-      fontSize: 11,
+      fontSize: 12,
       lineHeight: 14,
-      color: tk.indigo.DEFAULT,
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     title: {
-      fontSize: 15,
-      lineHeight: 21,
+      fontSize: 16,
+      lineHeight: 22,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     summary: {
-      fontSize: 13,
-      lineHeight: 19,
+      fontSize: 14,
+      lineHeight: 20,
       color: tk.text.secondary,
     } as TextStyle,
     metaRow: {
@@ -362,29 +367,31 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     authorBadge: {
       paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
-      backgroundColor: tk.purple.light,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tk.border.medium,
     } as ViewStyle,
     authorText: {
-      fontSize: 11,
+      fontSize: 12,
       lineHeight: 14,
-      color: tk.purple.DEFAULT,
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     metaText: {
-      fontSize: 11,
+      fontSize: 12,
       lineHeight: 14,
       color: tk.text.tertiary,
     } as TextStyle,
     sourceText: {
-      fontSize: 11,
+      fontSize: 12,
       lineHeight: 14,
       color: tk.text.tertiary,
-      marginTop: 2,
+      marginTop: 4,
     } as TextStyle,
     emptyText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
     } as TextStyle,
 

@@ -78,7 +78,7 @@
 }
 .status-processing {
   color: #007aff;
-  /* TODO: custom color: iOS 蓝,无对应 token */
+  /* custom color: iOS 蓝,无对应 token */
   background: rgba(0, 122, 255, 0.1);
 }
 .status-success {

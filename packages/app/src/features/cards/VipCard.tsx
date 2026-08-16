@@ -136,25 +136,32 @@ export function VipCard({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    card: { backgroundColor: tk.surface.muted, borderRadius: 8, padding: 16, gap: 12 },
+    card: {
+      backgroundColor: tk.surface.light,
+      borderRadius: 16,
+      padding: 14,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
     pressed: { opacity: 0.85 },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     vipBadge: {
       backgroundColor: VIP_BG,
-      borderRadius: 6,
+      borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
-    vipBadgeText: { color: VIP_TEXT, fontSize: 12, fontWeight: '700' },
-    title: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    expireWrap: { alignItems: 'flex-end', gap: 2 },
-    daysText: { fontSize: 12, color: VIP_BG, fontWeight: '600' },
-    expireText: { fontSize: 12, color: tk.text.secondary },
+    vipBadgeText: { color: VIP_TEXT, fontSize: 14, fontWeight: '700' },
+    title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    expireWrap: { alignItems: 'flex-end', gap: 4 },
+    daysText: { fontSize: 14, color: VIP_BG, fontWeight: '600' },
+    expireText: { fontSize: 14, color: tk.text.secondary },
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     benefitTag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 6,
+      borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -163,11 +170,11 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       alignSelf: 'flex-start',
       backgroundColor: VIP_BG,
-      borderRadius: 6,
-      paddingHorizontal: 16,
+      borderRadius: 12,
+      paddingHorizontal: 10,
       paddingVertical: 8,
     },
-    purchaseBtnText: { color: VIP_TEXT, fontSize: 13, fontWeight: '700' },
-    footer: { marginTop: 4 },
+    purchaseBtnText: { color: VIP_TEXT, fontSize: 14, fontWeight: '700' },
+    footer: { marginTop: 8 },
   })
 }
