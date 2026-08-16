@@ -166,7 +166,15 @@
     "deleteSuccess": "しました",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン"
+    "colToken": "トークン",
+    "backHome": "ホームへ戻る",
+    "cancelTime": "時間をキャンセル",
+    "comingSoon": "お楽しみに",
+    "exportSuccess": "エクスポート成功",
+    "notFoundTitle": "ページが見つかりません",
+    "payTime": "支払い時間",
+    "reasonRequired": "理由を入力してください",
+    "searchHistory": "検索履歴"
   },
   "taskReceiver": {
     "title": "タスク受信",
@@ -6990,7 +6998,9 @@
       "error": "のにしました",
       "subtitle": "をしてよりくのを",
       "approvedTitle": "み",
-      "rejectedTitle": "認証不合格"
+      "rejectedTitle": "認証不合格",
+      "pendingTitle": "审核中",
+      "title": "实名认证"
     },
     "subscription": {
       "autoRenewOn": "あり",
@@ -7927,7 +7937,16 @@
     "connectedAccountsBoundAt": "バインド",
     "connectedAccountsUnbindSuccess": "をしました",
     "connectedAccountsUnbindFail": "にしました",
-    "connectedAccountsLoading": "みみ..."
+    "connectedAccountsLoading": "みみ...",
+    "accountDeletionCodeSendFailed": "验证码发送失败",
+    "accountDeletionCodeSent": "验证码已发送",
+    "accountDeletionFailed": "注销失败，请重试",
+    "connectedAccountsPlatform": "平台账号",
+    "exportExpiresAt": "过期时间",
+    "langZh": "中文",
+    "marketingEmail": "营销邮件",
+    "notificationsSaveFailed": "保存失败",
+    "privacySaveFailed": "保存失败"
   },
   "favorites": {
     "title": "おにり",
@@ -10344,7 +10363,9 @@
     "categoryTech": "技術 & 開発",
     "categoryPricing": "価格 & 課金",
     "categoryDeploy": "展開 & 運用",
-    "categoryPrivacy": "データ & セキュリティ"
+    "categoryPrivacy": "データ & セキュリティ",
+    "categoryGeneral": "平台",
+    "heroTitle": "常见问题"
   },
   "articles": {
     "title": "記事",
@@ -15058,7 +15079,13 @@
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム"
+      "deviceFrame": "デバイスフレーム",
+      "deviceMobilePortrait": "スマホ縦",
+      "deviceMobileLandscape": "スマホ横",
+      "deviceTabletPortrait": "タブレット縦",
+      "deviceTabletLandscape": "タブレット横",
+      "deviceDesktop": "デスクトップ",
+      "deviceCustom": "カスタム"
     },
     "templates": {
       "title": "テンプレート"
@@ -16025,7 +16052,11 @@
     "filterAllModels": "全モデル",
     "errorLoadFailed": "読み込み失敗",
     "errorNetwork": "ネットワークエラー",
-    "errorOperation": "操作失敗"
+    "errorOperation": "操作失敗",
+    "gpt-4o": "GPT-4o",
+    "claude-3-5-sonnet": "Claude 3.5 Sonnet",
+    "glm-4-5": "GLM-4.5",
+    "default": "デフォルト"
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -16147,7 +16178,8 @@
       "next": "下一页",
       "noRating": "暂无评分",
       "pricing": "料金",
-      "total": "合計 {n} 個のツール"
+      "total": "合計 {n} 個のツール",
+      "all": "すべて"
     },
     "courses": {
       "title": "AI 课程",
@@ -16709,7 +16741,10 @@
     "viewCount": "{count}",
     "prev": "へ",
     "next": "へ",
-    "notFound": "つかりません"
+    "notFound": "つかりません",
+    "contactSupport": "联系客服",
+    "related": "相关文章",
+    "toc": "本页目录"
   },
   "searchHistory": {
     "title": "APIテスト",
@@ -16741,7 +16776,8 @@
   },
   "forbidden": {
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
-    "backToHome": "ホームへ戻る"
+    "backToHome": "ホームへ戻る",
+    "title": "无权限"
   },
   "parentPortal": {
     "dashboard": {

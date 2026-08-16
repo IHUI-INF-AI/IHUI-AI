@@ -15041,7 +15041,13 @@
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame"
+      "deviceFrame": "Device Frame",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "Templates"
@@ -16008,7 +16014,11 @@
     "filterAllModels": "All Models",
     "errorLoadFailed": "Load failed",
     "errorNetwork": "Network error",
-    "errorOperation": "Operation failed"
+    "errorOperation": "Operation failed",
+    "gpt-4o": "GPT-4o",
+    "claude-3-5-sonnet": "Claude 3.5 Sonnet",
+    "glm-4-5": "GLM-4.5",
+    "default": "Default"
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -16168,7 +16178,8 @@
       "next": "Next",
       "noRating": "No rating",
       "pricing": "Pricing",
-      "total": "{n} tools total"
+      "total": "{n} tools total",
+      "all": "All"
     },
     "courses": {
       "title": "AI Courses",

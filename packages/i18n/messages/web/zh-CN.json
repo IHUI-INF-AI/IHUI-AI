@@ -15015,7 +15015,13 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框"
+      "deviceFrame": "设备外框",
+      "deviceMobilePortrait": "手机竖屏",
+      "deviceMobileLandscape": "手机横屏",
+      "deviceTabletPortrait": "平板竖屏",
+      "deviceTabletLandscape": "平板横屏",
+      "deviceDesktop": "桌面端",
+      "deviceCustom": "自定义"
     },
     "templates": {
       "title": "模板"
@@ -15971,7 +15977,11 @@
     "filterAllModels": "全部模型",
     "errorLoadFailed": "加载失败",
     "errorNetwork": "网络异常",
-    "errorOperation": "操作失败"
+    "errorOperation": "操作失败",
+    "gpt-4o": "GPT-4o",
+    "claude-3-5-sonnet": "Claude 3.5 Sonnet",
+    "glm-4-5": "GLM-4.5",
+    "default": "默认模型"
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -16093,7 +16103,8 @@
       "next": "下一页",
       "noRating": "暂无评分",
       "pricing": "定价",
-      "total": "共 {n} 个工具"
+      "total": "共 {n} 个工具",
+      "all": "全部"
     },
     "courses": {
       "title": "AI 课程",

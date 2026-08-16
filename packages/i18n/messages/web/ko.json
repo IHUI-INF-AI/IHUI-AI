@@ -149,21 +149,29 @@
       "preparing": "업데이트 준비 중...",
       "autoRetrying": "업데이트 실패, 자동 재시도 중..."
     },
+    "actions": "작업",
+    "backHome": "홈으로 돌아가기",
+    "batchDelete": "일괄 삭제",
+    "cancelTime": "취소시간",
+    "colToken": "토큰",
+    "comingSoon": "기대해 주세요",
+    "exportSuccess": "내보내기 성공",
+    "loadFailed": "로딩 실패",
+    "noData": "데이터 없음",
+    "notFoundTitle": "페이지를 찾을 수 없습니다",
+    "originalPrice": "원가",
+    "payTime": "결제 시간",
+    "reasonRequired": "사유를 입력해 주세요",
     "resize": "드래그하여 너비 조절",
+    "searchHistory": "검색 기록",
+    "viewDetail": "자세히 보기",
     "create": "생성",
     "reset": "재설정",
     "noPosts": "아직 게시물이 없습니다",
     "noAnswers": "답변 없음",
-    "cancelTime": "취소시간",
-    "reasonRequired": "사유를 입력해 주세요",
-    "originalPrice": "원가",
     "errorDescription": "페이지를 로드하는 중 오류가 발생했습니다. 다시 시도해 주세요.",
-    "notFoundTitle": "페이지를 찾을 수 없습니다",
-    "exportSuccess": "내보내기 성공",
     "total": "총",
-    "loadFailed": "로딩 실패",
-    "deleteSuccess": "삭제 성공",
-    "colToken": "토큰"
+    "deleteSuccess": "삭제 성공"
   },
   "taskReceiver": {
     "title": "작업 수신기",
@@ -362,6 +370,7 @@
     "eduNotes": "노트",
     "eduQa": "Q&A",
     "eduProgress": "진도",
+    "eduParentPortal": "학부모 포털",
     "memberDashboard": "회원 허브",
     "memberBenefits": "혜택",
     "memberCoupons": "쿠폰",
@@ -481,8 +490,7 @@
     "eduAiTbox": "IoT 기기",
     "fundData": "펀드 데이터",
     "eduAiMetaLearner": "메타 러너",
-    "adminSkillBatch": "일괄 작업",
-    "eduParentPortal": "학부모 포털"
+    "adminSkillBatch": "일괄 작업"
   },
   "home": {
     "announcement": {
@@ -1729,8 +1737,8 @@
       "dryRunInput": "샘플 본문(JSON)",
       "dryRunRun": "미리보기 실행",
       "dryRunOriginal": "원본 body",
-      "dryRunNoChange": "수정 후 body(변경 없음)",
-      "dryRunModified": "수정 후 body"
+      "dryRunModified": "수정 후 body",
+      "dryRunNoChange": "수정 후 body(변경 없음)"
     },
     "skills": {
       "title": "스킬 관리",
@@ -6882,12 +6890,13 @@
       "phoneChanged": "전화번호 변경 성공",
       "changePhoneFailed": "전화번호 변경 실패, 잠시 후 재시도",
       "mergeHint": "새 전화번호에 기존 계정이 있으면 모든 데이터를 자동 병합하며, 현재 계정의 닉네임, 아바타, 소개 등을 유지합니다",
+      "avatarHint": "JPG / PNG, 200x200 권장",
+      "emailPlaceholder": "이메일을 입력하세요",
+      "nicknamePlaceholder": "닉네임을 입력하세요",
       "title": "개인",
       "subtitle": "포괄적인의개발문서및API참조",
       "avatar": "변경아바타",
-      "nicknamePlaceholder": "닉네임을 입력하세요",
       "phone": "전화",
-      "emailPlaceholder": "이메일을 입력하세요",
       "bio": "자기소개",
       "bioPlaceholder": "자기소개를 해주세요",
       "saving": "저장중간"
@@ -6920,8 +6929,8 @@
       "logout": "로그아웃",
       "devicesLoading": "로딩 중...",
       "devicesEmpty": "데이터 없음",
-      "title": "보안",
-      "subtitle": "포괄적인의개발문서및API참조"
+      "subtitle": "포괄적인의개발문서및API참조",
+      "title": "보안"
     },
     "notifications": {
       "viewList": "목록 보기",
@@ -6938,9 +6947,10 @@
         "project": "프로젝트",
         "system": "시스템"
       },
+      "allRead": "모두 읽음으로 표시",
+      "markAllRead": "모두 읽음으로 표시",
       "title": "알림",
       "unreadCount": "{count}개 안 읽음",
-      "allRead": "모두 읽음으로 표시",
       "noData": "없음알림"
     },
     "public": {
@@ -6978,7 +6988,11 @@
       "rejectedReason": "거절 사유",
       "success": "인증 제출 성공",
       "error": "인증 제출 실패",
-      "rejectedTitle": "인증 거절됨"
+      "approvedTitle": "인증 통과",
+      "pendingTitle": "심사 중",
+      "rejectedTitle": "인증 거절됨",
+      "subtitle": "실명 인증을 완료하면 더 많은 기능을 이용할 수 있습니다",
+      "title": "실명 인증"
     },
     "subscription": {
       "autoRenewOn": "활성화됨",
@@ -7005,6 +7019,9 @@
       "manage": "관리",
       "autoRenewClosed": "자동 갱신 미활성화",
       "openAutoRenew": "자동 갱신 활성화",
+      "autoRenew": "자동 갱신",
+      "current": "현재 요금제",
+      "expireTime": "만료 시간",
       "notSubscribed": "VIP 미구독"
     },
     "articles": {
@@ -7852,7 +7869,54 @@
     "billingInvoiceNo": "청구서 번호",
     "billingInvoiceType": "청구서 유형",
     "billingNoData": "청구 기록이 없습니다",
+    "accountDeletionCancel": "삭제 취소",
+    "accountDeletionCodeLabel": "인증 코드",
+    "accountDeletionCodePlaceholder": "인증 코드 입력",
+    "accountDeletionCodeSendFailed": "인증코드 발송 실패",
+    "accountDeletionCodeSent": "인증코드가 발송되었습니다",
+    "accountDeletionFailed": "삭제 실패, 다시 시도해 주세요",
+    "accountDeletionPhonePlaceholder": "전화번호를 입력하세요",
+    "accountDeletionResend": "{seconds}초 후 다시 보내기",
+    "accountDeletionSubmit": "탈퇴 확인",
+    "accountDeletionSuccess": "계정이 탈퇴되었습니다. 로그인 페이지로 이동합니다",
+    "accountDeletionWarning": "이 작업은 되돌릴 수 없으며 모든 데이터가 영구적으로 손실됩니다.",
+    "adTracking": "광고 추적",
+    "billingInvoices": "청구서 신청",
+    "billingOrders": "주문",
+    "connectedAccountsBoundAt": "연결 시간",
+    "connectedAccountsPlatform": "플랫폼 계정",
+    "connectedAccountsUnbindConfirm": "{platform} 계정을 해제하시겠습니까?",
+    "connectedAccountsUnbindFail": "해제 실패",
+    "connectedAccountsUnbound": "연결되지 않음",
     "dashboardDesc": "모든 설정 옵션에 빠르게 액세스",
+    "dataVisibility": "데이터 가시성",
+    "dataVisibilityDesc": "프로필 정보 표시 범위 제어",
+    "emailNotif": "이메일 알림",
+    "exportCreating": "내보내기 생성 중...",
+    "exportCsv": "CSV 형식",
+    "exportCsvDesc": "표 형식 CSV 데이터 내보내기",
+    "exportExpiresAt": "만료 시간",
+    "exportFailed": "내보내기 실패, 다시 시도해 주세요",
+    "exportJson": "JSON 형식",
+    "exportLastExport": "최근 내보내기",
+    "exportNoHistory": "내보내기 기록 없음",
+    "exportScope": "내보내기 범위",
+    "exportScopeDesc": "프로필, 채팅 기록, 주문, 사용 통계 등 포함",
+    "exportSuccess": "내보내기 완료",
+    "langZh": "중국어",
+    "marketingEmail": "마케팅 이메일",
+    "notificationsSaveFailed": "저장 실패",
+    "personalizedRecommendation": "맞춤 추천",
+    "privacySaveFailed": "저장 실패",
+    "pushNotif": "인앱 알림",
+    "pushNotifDesc": "플랫폼 내 메시지 수신",
+    "sidebarCollapsed": "기본 접기",
+    "sidebarExpanded": "기본 펼치기",
+    "smsNotif": "SMS 알림",
+    "smsNotifDesc": "SMS로 인증코드 및 알림 수신",
+    "subPagesTitle": "더보기 설정",
+    "systemNotif": "시스템 알림",
+    "themeSystem": "시스템",
     "preferencesDesc": "앱 환경을 맞춤 설정하세요",
     "activityDesc": "계정 활동 기록을 확인하세요",
     "billingDesc": "청구서 및 결제 기록을 확인하세요",
@@ -7860,40 +7924,17 @@
     "theme": "주제:",
     "themeLight": "라이트템플릿방식",
     "themeDark": "깊은색템플릿방식",
-    "themeSystem": "시스템",
-    "subPagesTitle": "더보기 설정",
     "accountDeletionDesc": "계정 및 관련 데이터를 영구적으로 삭제합니다",
-    "accountDeletionWarning": "이 작업은 되돌릴 수 없으며 모든 데이터가 영구적으로 손실됩니다.",
     "accountDeletionConfirm": "결과를 이해하고 계정 삭제를 확인합니다",
-    "accountDeletionCodePlaceholder": "인증 코드 입력",
-    "accountDeletionCodeSent": "인증코드가 발송되었습니다",
-    "accountDeletionCodeSendFailed": "인증코드 발송 실패",
-    "accountDeletionFailed": "삭제 실패, 다시 시도해 주세요",
-    "accountDeletionPhonePlaceholder": "전화번호를 입력하세요",
     "accountDeletionStatusScheduled": "계정 삭제가 예약되어 있습니다",
     "privacyDesc": "데이터 가시성 및 개인정보 설정 관리",
-    "dataVisibility": "데이터 가시성",
-    "dataVisibilityDesc": "프로필 정보 표시 범위 제어",
     "adTrackingDesc": "활동 기반 맞춤 광고 허용",
-    "personalizedRecommendation": "맞춤 추천",
     "privacyLoadFailed": "설정 불러오기 실패",
     "privacySaveSuccess": "저장됨",
-    "exportCsvDesc": "표 형식 CSV 데이터 내보내기",
-    "exportScopeDesc": "프로필, 채팅 기록, 주문, 사용 통계 등 포함",
-    "exportCreating": "내보내기 생성 중...",
-    "exportSuccess": "내보내기 완료",
-    "exportFailed": "내보내기 실패, 다시 시도해 주세요",
-    "exportLastExport": "최근 내보내기",
-    "exportNoHistory": "내보내기 기록 없음",
     "notificationsDesc": "알림 설정을 관리하세요",
     "emailNotifDesc": "이메일로 중요 알림 수신",
-    "smsNotifDesc": "SMS로 인증코드 및 알림 수신",
-    "pushNotif": "인앱 알림",
     "notificationsLoadFailed": "설정 불러오기 실패",
     "notificationsSaveSuccess": "저장됨",
-    "billingInvoices": "청구서 신청",
-    "connectedAccountsUnbound": "연결되지 않음",
-    "connectedAccountsBoundAt": "연결 시간",
     "connectedAccountsUnbindSuccess": "연결 해제 성공",
     "connectedAccountsLoading": "불러오는 중..."
   },
@@ -8552,7 +8593,6 @@
         "closed": "휴무"
       }
     },
-    "retry": "재시도",
     "eval": {
       "title": "평가",
       "subtitle": "테스트 데이터셋 관리, 자동 평가 실행 및 결과 비교",
@@ -8712,6 +8752,7 @@
       "empty": "프롬프트 없음",
       "loading": "로딩 중..."
     },
+    "retry": "재시도",
     "trajectory": {
       "title": "Agent 실행 추적",
       "searchPlaceholder": "session_id 검색...",
@@ -8913,11 +8954,11 @@
     "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요",
     "tab_list": "목록",
     "tab_new": "최신",
-    "title": "AI인마음페이스테스트",
-    "subtitle": "포괄적인의개발문서및API참조",
-    "empty": "피드백 기록 없음",
     "backToList": "목록으로 돌아가기",
-    "notFound": "찾을 수 없음"
+    "empty": "피드백 기록 없음",
+    "notFound": "찾을 수 없음",
+    "title": "AI인마음페이스테스트",
+    "subtitle": "포괄적인의개발문서및API참조"
   },
   "comments": {
     "replyTitle": "관리자 답변",
@@ -10272,8 +10313,8 @@
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
     "ctaPrimary": "무료 가입",
     "ctaSecondary": "문서 보기",
-    "metaTitle": "회사 소개 — IHUI AI",
-    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / CLI 6개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스."
+    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / CLI 6개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
+    "metaTitle": "회사 소개 — IHUI AI"
   },
   "faq": {
     "metaTitle": "자주 묻는 질문 — IHUI AI",
@@ -10306,10 +10347,12 @@
     "ctaTitle": "답변을 찾지 못하셨나요?",
     "ctaDesc": "기술팀에 문의해 주세요, 2시간 이내에 답변드립니다.",
     "ctaButton": "기술 지원 문의",
-    "heroSubtitle": "IHUI AI에 대한 12가지 자주 묻는 질문, 30초 안에 답을 찾으세요.",
-    "categoryTech": "기술 & 개발",
-    "categoryPricing": "가격 & 과금",
     "categoryDeploy": "배포 & 운영",
+    "categoryGeneral": "플랫폼",
+    "categoryTech": "기술 & 개발",
+    "heroSubtitle": "IHUI AI에 대한 12가지 자주 묻는 질문, 30초 안에 답을 찾으세요.",
+    "heroTitle": "자주 묻는 질문",
+    "categoryPricing": "가격 & 과금",
     "categoryPrivacy": "데이터 & 보안"
   },
   "articles": {
@@ -15024,7 +15067,13 @@
     "responsive": {
       "customWidth": "사용자 지정 너비",
       "apply": "적용",
-      "deviceFrame": "장치 프레임"
+      "deviceFrame": "장치 프레임",
+      "deviceMobilePortrait": "모바일 세로",
+      "deviceMobileLandscape": "모바일 가로",
+      "deviceTabletPortrait": "태블릿 세로",
+      "deviceTabletLandscape": "태블릿 가로",
+      "deviceDesktop": "데스크톱",
+      "deviceCustom": "사용자 정의"
     },
     "templates": {
       "title": "템플릿"
@@ -15986,7 +16035,13 @@
     "filterAllModels": "전체 모델",
     "errorLoadFailed": "로드 실패",
     "errorNetwork": "네트워크 오류",
-    "errorOperation": "작업 실패"
+    "errorOperation": "작업 실패",
+    "gpt-4o": "GPT-4o",
+    "claude-3-5-sonnet": "Claude 3.5 Sonnet",
+    "glm-4": {
+      "5": "GLM-4.5"
+    },
+    "default": "기본"
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -16108,7 +16163,8 @@
       "next": "다음 페이지",
       "noRating": "평점 없음",
       "pricing": "가격",
-      "total": "총 {n}개 도구"
+      "total": "총 {n}개 도구",
+      "all": "전체"
     },
     "courses": {
       "title": "AI 과정",
@@ -16651,60 +16707,6 @@
     "active": "활성",
     "inactive": "비활성"
   },
-  "a11y": {
-    "lineChart": "꺾은선 차트",
-    "radarChart": "방사형 차트",
-    "openCustomerService": "고객센터 열기",
-    "send": "보내기",
-    "searchOption": "옵션 검색",
-    "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
-    "breadcrumb": "빵 부스러기 탐색"
-  },
-  "help": {
-    "title": "AI인마음페이스테스트",
-    "subtitle": "포괄적인의개발문서및API참조",
-    "contactSupport": "고객 지원",
-    "allArticles": "전체 문서",
-    "searchPlaceholder": "기사 검색",
-    "empty": "기사가 없습니다",
-    "backToList": "목록으로 돌아가기",
-    "updatedAt": "업데이트시간",
-    "viewCount": "{count}회 조회",
-    "prev": "이전",
-    "next": "다음",
-    "related": "관련 문서",
-    "notFound": "찾을 수 없음"
-  },
-  "searchHistory": {
-    "title": "AI인마음페이스테스트",
-    "subtitle": "포괄적인의개발문서및API참조",
-    "clearAll": "지우기모든",
-    "empty": "콘텐츠가 없습니다",
-    "resultCount": "{count}건 결과"
-  },
-  "agreement": {
-    "title": "및",
-    "subtitle": "읽음 가져오기",
-    "userAgreement": "사용자",
-    "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
-    "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
-    "staticContent3": "에게，플랫폼 상담원。"
-  },
-  "routes": {
-    "userAgreement": "사용자",
-    "aboutUs": "회사 소개"
-  },
-  "themeToggle": {
-    "lightMode": "라이트템플릿방식",
-    "darkMode": "깊은색템플릿방식"
-  },
-  "themeBackup": {
-    "title": "테마"
-  },
-  "forbidden": {
-    "title": "권한 없음",
-    "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요."
-  },
   "parentPortal": {
     "dashboard": {
       "title": "학부모 포털",
@@ -16756,5 +16758,62 @@
       "detail": "성적 상세",
       "examCount": "총 {count}회 시험"
     }
+  },
+  "a11y": {
+    "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
+    "breadcrumb": "빵 부스러기 탐색",
+    "searchOption": "옵션 검색",
+    "lineChart": "꺾은선 차트",
+    "radarChart": "방사형 차트",
+    "openCustomerService": "고객센터 열기",
+    "send": "보내기"
+  },
+  "agreement": {
+    "effectiveDate": "시행 날짜",
+    "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
+    "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
+    "staticContent3": "에게，플랫폼 상담원。",
+    "title": "및",
+    "subtitle": "읽음 가져오기",
+    "userAgreement": "사용자"
+  },
+  "forbidden": {
+    "backToHome": "홈으로 돌아가기",
+    "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요.",
+    "title": "권한 없음"
+  },
+  "help": {
+    "backToList": "목록으로 돌아가기",
+    "contactSupport": "고객 지원",
+    "empty": "기사가 없습니다",
+    "notFound": "찾을 수 없음",
+    "related": "관련 문서",
+    "toc": "본 페이지 목차",
+    "updatedAt": "업데이트시간",
+    "viewCount": "{count}회 조회",
+    "title": "AI인마음페이스테스트",
+    "subtitle": "포괄적인의개발문서및API참조",
+    "allArticles": "전체 문서",
+    "searchPlaceholder": "기사 검색",
+    "prev": "이전",
+    "next": "다음"
+  },
+  "searchHistory": {
+    "clearAll": "지우기모든",
+    "subtitle": "포괄적인의개발문서및API참조",
+    "title": "AI인마음페이스테스트",
+    "empty": "콘텐츠가 없습니다",
+    "resultCount": "{count}건 결과"
+  },
+  "themeBackup": {
+    "title": "테마"
+  },
+  "themeToggle": {
+    "darkMode": "깊은색템플릿방식",
+    "lightMode": "라이트템플릿방식"
+  },
+  "routes": {
+    "userAgreement": "사용자",
+    "aboutUs": "회사 소개"
   }
 }
