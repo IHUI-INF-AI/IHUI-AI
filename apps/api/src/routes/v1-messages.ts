@@ -368,7 +368,6 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
-      compression: false,
     },
     async (request, reply) => {
       const parsed = anthropicMessagesSchema.safeParse(request.body)

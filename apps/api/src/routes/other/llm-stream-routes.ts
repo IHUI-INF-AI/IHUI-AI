@@ -27,8 +27,7 @@ const llmStreamSchema = z.object({
 export const llmStreamRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/llm/complete/stream',
-    { compression: false },
-    async (request, reply) => {
+        async (request, reply) => {
     const parsed = llmStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
