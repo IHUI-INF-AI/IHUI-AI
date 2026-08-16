@@ -55,10 +55,12 @@ const CARD_ID = '11111111-1111-4111-8111-111111111111'
 const PREFIX = '/api'
 
 function mockAuthed(userId: string = USER_ID) {
-  mockAuthenticate.mockImplementation(async (request: { userId?: string; jwtPayload?: unknown }) => {
-    request.userId = userId
-    request.jwtPayload = { userId, roleId: 0 }
-  })
+  mockAuthenticate.mockImplementation(
+    async (request: { userId?: string; jwtPayload?: unknown }) => {
+      request.userId = userId
+      request.jwtPayload = { userId, roleId: 0 }
+    },
+  )
 }
 
 function mockUnauthed() {
@@ -77,9 +79,7 @@ describe('business-card routes — /api/business-card/*', () => {
   beforeAll(async () => {
     server.setErrorHandler((err, _request, reply) => {
       const statusCode =
-        err.statusCode && err.statusCode >= 400 && err.statusCode < 600
-          ? err.statusCode
-          : 500
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({
         code: statusCode,
         message: statusCode >= 500 ? '服务器错误' : err.message,
@@ -109,9 +109,7 @@ describe('business-card routes — /api/business-card/*', () => {
 
   it('GET /business-card/:id 存在 → 200 + viewCount +1', async () => {
     mockAuthed()
-    enqueue(
-      [{ id: CARD_ID, userId: USER_ID, name: '张三', viewCount: 5, isPublic: true }],
-    )
+    enqueue([{ id: CARD_ID, userId: USER_ID, name: '张三', viewCount: 5, isPublic: true }])
     const res = await server.inject({
       method: 'GET',
       url: `${PREFIX}/business-card/${CARD_ID}`,
@@ -137,10 +135,7 @@ describe('business-card routes — /api/business-card/*', () => {
 
   it('POST /business-card/:id 创建名片 → 201 + created:true', async () => {
     mockAuthed()
-    enqueue(
-      [],
-      [{ id: CARD_ID, userId: USER_ID, name: '李四', viewCount: 0, isPublic: true }],
-    )
+    enqueue([], [{ id: CARD_ID, userId: USER_ID, name: '李四', viewCount: 0, isPublic: true }])
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/business-card/${USER_ID}`,
@@ -216,7 +211,12 @@ describe('business-card routes — /api/business-card/*', () => {
   it('DELETE /business-card/:id 非所有者 → 403', async () => {
     mockAuthed()
     enqueue([
-      { id: CARD_ID, userId: '22222222-2222-4222-8222-222222222222', name: '他人的', isPublic: true },
+      {
+        id: CARD_ID,
+        userId: '22222222-2222-4222-8222-222222222222',
+        name: '他人的',
+        isPublic: true,
+      },
     ])
     const res = await server.inject({
       method: 'DELETE',
@@ -228,10 +228,7 @@ describe('business-card routes — /api/business-card/*', () => {
   it('GET /business-card/favorites 返回收藏列表(分页)', async () => {
     mockAuthed()
     const card = { id: CARD_ID, userId: USER_ID, name: '张三', isPublic: true, viewCount: 0 }
-    enqueue(
-      [{ ...card, favoritedAt: new Date() }],
-      [{ count: 1 }],
-    )
+    enqueue([{ ...card, favoritedAt: new Date() }], [{ count: 1 }])
     const res = await server.inject({
       method: 'GET',
       url: `${PREFIX}/business-card/favorites?page=1&pageSize=10`,

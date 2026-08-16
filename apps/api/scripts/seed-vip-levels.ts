@@ -119,7 +119,9 @@ async function main() {
         })
         .where(eq(vipLevels.id, existing.id))
       updated++
-      console.info(`  [update] levelValue=${level.levelValue} ${level.levelName} ¥${level.price / 100}/月`)
+      console.info(
+        `  [update] levelValue=${level.levelValue} ${level.levelName} ¥${level.price / 100}/月`,
+      )
     } else {
       await db.insert(vipLevels).values({
         levelName: level.levelName,
@@ -131,7 +133,9 @@ async function main() {
         sortOrder: level.sortOrder,
       })
       inserted++
-      console.info(`  [insert] levelValue=${level.levelValue} ${level.levelName} ¥${level.price / 100}/月`)
+      console.info(
+        `  [insert] levelValue=${level.levelValue} ${level.levelName} ¥${level.price / 100}/月`,
+      )
     }
   }
 

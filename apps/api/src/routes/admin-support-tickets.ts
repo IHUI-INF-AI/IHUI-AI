@@ -36,13 +36,15 @@ const replyBodySchema = z.object({
 
 const listQuerySchema = z.object({
   page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().int().min(1).default(1)),
-  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(
-    z.coerce.number().int().min(1).max(100).default(20),
-  ),
+  pageSize: z
+    .transform((v) => emptyToUndefined(v))
+    .pipe(z.coerce.number().int().min(1).max(100).default(20)),
 })
 
 const ticketListQuerySchema = listQuerySchema.extend({
-  status: z.transform(emptyToUndefined).pipe(z.enum(['open', 'processing', 'closed', 'resolved']).optional()),
+  status: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['open', 'processing', 'closed', 'resolved']).optional()),
   search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 

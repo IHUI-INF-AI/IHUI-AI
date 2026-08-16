@@ -27,9 +27,7 @@ export function TrendChart({ data, range, onRangeChange }: TrendChartProps) {
   const barWidth = Math.max(8, Math.min(24, (CHART_HEIGHT - data.length * BAR_GAP) / data.length))
 
   if (data.length === 0) {
-    return (
-      <div className="py-8 text-center text-xs text-muted-foreground">{t('noData')}</div>
-    )
+    return <div className="py-8 text-center text-xs text-muted-foreground">{t('noData')}</div>
   }
 
   return (

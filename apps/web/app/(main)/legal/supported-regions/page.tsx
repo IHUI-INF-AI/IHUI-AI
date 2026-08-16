@@ -39,7 +39,13 @@ const PAYMENTS: readonly string[] = [
   'paymentPaypal',
 ]
 
-const LANGUAGES: readonly string[] = ['languageZhCN', 'languageZhTW', 'languageEN', 'languageJA', 'languageKO']
+const LANGUAGES: readonly string[] = [
+  'languageZhCN',
+  'languageZhTW',
+  'languageEN',
+  'languageJA',
+  'languageKO',
+]
 
 export default function SupportedRegionsPage() {
   const t = useTranslations('legal.supportedRegions')

@@ -395,9 +395,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { tokenBalance: 1000, costBalanceCents: 500 },
-            ]),
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 1000, costBalanceCents: 500 }]),
           }),
         }),
       })
@@ -440,9 +438,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { tokenBalance: 1000, costBalanceCents: 500 },
-            ]),
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 1000, costBalanceCents: 500 }]),
           }),
         }),
       })
@@ -465,8 +461,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       expect(result.costCents).toBe(25)
 
       const insertedValues = valuesFnNoCache.mock.calls[0]?.[0] as
-        | Record<string, unknown>
-        | undefined
+        Record<string, unknown> | undefined
       expect(insertedValues).toBeDefined()
       expect(insertedValues!.cacheReadTokens).toBe(0)
       expect(insertedValues!.cacheCreationTokens).toBe(0)
@@ -492,9 +487,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { tokenBalance: 1000, costBalanceCents: 500 },
-            ]),
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 1000, costBalanceCents: 500 }]),
           }),
         }),
       })
@@ -517,9 +510,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       expect(result.costCents).toBe(45)
 
       // 验证 insert 透传 cache 字段
-      const insertedValues = valuesFnTotal.mock.calls[0]?.[0] as
-        | Record<string, unknown>
-        | undefined
+      const insertedValues = valuesFnTotal.mock.calls[0]?.[0] as Record<string, unknown> | undefined
       expect(insertedValues).toBeDefined()
       expect(insertedValues!.cacheReadTokens).toBe(400)
       expect(insertedValues!.cacheCreationTokens).toBe(300)

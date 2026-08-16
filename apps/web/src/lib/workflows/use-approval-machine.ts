@@ -25,9 +25,9 @@ export interface UseApprovalMachineReturn {
 
 export function useApprovalMachine(): UseApprovalMachineReturn {
   const [snapshot, send, canType] = useWorkflowMachine(approvalMachine)
-  const state = (typeof snapshot?.value === 'string'
-    ? snapshot.value
-    : String(snapshot?.value ?? 'draft')) as ApprovalState
+  const state = (
+    typeof snapshot?.value === 'string' ? snapshot.value : String(snapshot?.value ?? 'draft')
+  ) as ApprovalState
   const context = (snapshot?.context ?? { submitCount: 0 }) as ApprovalContext
 
   return {

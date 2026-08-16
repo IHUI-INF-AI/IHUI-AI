@@ -1,13 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-  Button,
-} from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } from '@ihui/ui-react'
 import { Cpu, Zap, Shield, Sparkles, ArrowRight, Check } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -18,7 +11,7 @@ export const metadata: Metadata = {
     canonical: '/en/models',
     languages: {
       'x-default': '/models',
-      'en': '/en/models',
+      en: '/en/models',
       'zh-CN': '/models',
     },
   },
@@ -41,22 +34,62 @@ export const metadata: Metadata = {
 }
 
 const providers = [
-  { name: 'OpenAI', count: '20+ models', models: ['GPT-4o', 'GPT-4 Turbo', 'GPT-3.5 Turbo', 'o1', 'o3'] },
-  { name: 'Anthropic', count: '12+ models', models: ['Claude 3.5 Sonnet', 'Claude 3 Opus', 'Claude 3 Haiku'] },
-  { name: 'Google Gemini', count: '8+ models', models: ['Gemini 1.5 Pro', 'Gemini 1.5 Flash', 'Gemini Ultra'] },
-  { name: 'Alibaba Qwen', count: '15+ models', models: ['Qwen2.5-72B', 'Qwen2.5-Coder', 'Qwen-VL'] },
+  {
+    name: 'OpenAI',
+    count: '20+ models',
+    models: ['GPT-4o', 'GPT-4 Turbo', 'GPT-3.5 Turbo', 'o1', 'o3'],
+  },
+  {
+    name: 'Anthropic',
+    count: '12+ models',
+    models: ['Claude 3.5 Sonnet', 'Claude 3 Opus', 'Claude 3 Haiku'],
+  },
+  {
+    name: 'Google Gemini',
+    count: '8+ models',
+    models: ['Gemini 1.5 Pro', 'Gemini 1.5 Flash', 'Gemini Ultra'],
+  },
+  {
+    name: 'Alibaba Qwen',
+    count: '15+ models',
+    models: ['Qwen2.5-72B', 'Qwen2.5-Coder', 'Qwen-VL'],
+  },
   { name: 'Baidu ERNIE', count: '10+ models', models: ['ERNIE 4.0', 'ERNIE Speed', 'ERNIE Lite'] },
-  { name: 'DeepSeek', count: '8+ models', models: ['DeepSeek-V3', 'DeepSeek-Coder', 'DeepSeek-R1'] },
+  {
+    name: 'DeepSeek',
+    count: '8+ models',
+    models: ['DeepSeek-V3', 'DeepSeek-Coder', 'DeepSeek-R1'],
+  },
   { name: 'Zhipu GLM', count: '10+ models', models: ['GLM-4', 'GLM-4V', 'GLM-3-Turbo'] },
-  { name: 'ByteDance Doubao', count: '12+ models', models: ['Doubao-Pro', 'Doubao-Lite', 'Doubao-Vision'] },
+  {
+    name: 'ByteDance Doubao',
+    count: '12+ models',
+    models: ['Doubao-Pro', 'Doubao-Lite', 'Doubao-Vision'],
+  },
   { name: 'Moonshot Kimi', count: '6+ models', models: ['Kimi-Long-Context', 'Moonshot-v1'] },
 ]
 
 const features = [
-  { icon: Cpu, title: 'Unified API', desc: 'OpenAI-compatible interface. Switch models with a single line change — no SDK refactoring needed.' },
-  { icon: Shield, title: 'Auto-Failover', desc: 'Automatic fallback when a provider is down. Your requests always succeed, even during outages.' },
-  { icon: Zap, title: 'Pay-as-You-Go', desc: 'No commitment, no minimum spend. Pay only for the tokens you actually use.' },
-  { icon: Sparkles, title: 'Stream & Batch', desc: 'Support for streaming responses and batch processing. Build responsive UX and process large workloads.' },
+  {
+    icon: Cpu,
+    title: 'Unified API',
+    desc: 'OpenAI-compatible interface. Switch models with a single line change — no SDK refactoring needed.',
+  },
+  {
+    icon: Shield,
+    title: 'Auto-Failover',
+    desc: 'Automatic fallback when a provider is down. Your requests always succeed, even during outages.',
+  },
+  {
+    icon: Zap,
+    title: 'Pay-as-You-Go',
+    desc: 'No commitment, no minimum spend. Pay only for the tokens you actually use.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Stream & Batch',
+    desc: 'Support for streaming responses and batch processing. Build responsive UX and process large workloads.',
+  },
 ]
 
 export default function ModelsLandingPage() {
@@ -96,7 +129,8 @@ export default function ModelsLandingPage() {
               9 Providers, 176+ Models
             </h2>
             <p className="mt-3 text-muted-foreground">
-              All major AI providers unified under one API. Switch models without changing your code.
+              All major AI providers unified under one API. Switch models without changing your
+              code.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -111,10 +145,7 @@ export default function ModelsLandingPage() {
                 <CardContent className="space-y-3">
                   <ul className="space-y-1">
                     {p.models.map((m) => (
-                      <li
-                        key={m}
-                        className="flex items-center gap-2 text-sm text-muted-foreground"
-                      >
+                      <li key={m} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                         {m}
                       </li>
@@ -144,9 +175,7 @@ export default function ModelsLandingPage() {
                     <f.icon className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-semibold">{f.title}</h3>
-                  <CardDescription className="mt-2 leading-relaxed">
-                    {f.desc}
-                  </CardDescription>
+                  <CardDescription className="mt-2 leading-relaxed">{f.desc}</CardDescription>
                 </CardContent>
               </Card>
             ))}

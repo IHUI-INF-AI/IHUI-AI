@@ -23,7 +23,12 @@ interface ExportImportDialogProps {
   onImported: () => void
 }
 
-export function ExportImportDialog({ open, onOpenChange, skills, onImported }: ExportImportDialogProps) {
+export function ExportImportDialog({
+  open,
+  onOpenChange,
+  skills,
+  onImported,
+}: ExportImportDialogProps) {
   const t = useTranslations('admin.skillBatch')
   const [tab, setTab] = React.useState<'export' | 'import'>('export')
   const [importing, setImporting] = React.useState(false)
@@ -74,7 +79,9 @@ export function ExportImportDialog({ open, onOpenChange, skills, onImported }: E
             type="button"
             onClick={() => setTab('export')}
             className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'export' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'export'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Download className="h-4 w-4" />
@@ -84,7 +91,9 @@ export function ExportImportDialog({ open, onOpenChange, skills, onImported }: E
             type="button"
             onClick={() => setTab('import')}
             className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'import' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'import'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Upload className="h-4 w-4" />
@@ -94,7 +103,9 @@ export function ExportImportDialog({ open, onOpenChange, skills, onImported }: E
 
         {tab === 'export' ? (
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">{t('exportHint', { count: skills.length })}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('exportHint', { count: skills.length })}
+            </p>
             <Button onClick={handleExport} disabled={skills.length === 0} className="w-full">
               <Download className="mr-2 h-4 w-4" />
               {t('exportButton')} ({skills.length})

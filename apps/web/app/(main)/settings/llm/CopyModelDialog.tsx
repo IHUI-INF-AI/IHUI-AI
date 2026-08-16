@@ -222,11 +222,22 @@ export function CopyModelDialog({
         </div>
 
         <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
-          <Button variant="ghost" onClick={onClose} disabled={copyMut.isPending} className="shrink-0">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={copyMut.isPending}
+            className="shrink-0"
+          >
             <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
-          <Button onClick={handleConfirm} disabled={copyMut.isPending || !targetId} className="shrink-0">
-            {copyMut.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin shrink-0" /> : null}
+          <Button
+            onClick={handleConfirm}
+            disabled={copyMut.isPending || !targetId}
+            className="shrink-0"
+          >
+            {copyMut.isPending ? (
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin shrink-0" />
+            ) : null}
             <span className="whitespace-nowrap">{t('confirm')}</span>
           </Button>
         </DialogFooter>

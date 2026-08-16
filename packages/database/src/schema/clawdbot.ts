@@ -35,7 +35,9 @@ export const clawdbotPermissions = pgTable(
   'clawdbot_permissions',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    botId: uuid('bot_id').references(() => clawdbotBots.id, { onDelete: 'cascade' }).notNull(),
+    botId: uuid('bot_id')
+      .references(() => clawdbotBots.id, { onDelete: 'cascade' })
+      .notNull(),
     userId: uuid('user_id'),
     role: varchar('role', { length: 50 }).default('user').notNull(),
     permissions: jsonb('permissions').$type<string[]>().default([]).notNull(),
@@ -52,7 +54,9 @@ export const clawdbotSessions = pgTable(
   'clawdbot_sessions',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    botId: uuid('bot_id').references(() => clawdbotBots.id, { onDelete: 'cascade' }).notNull(),
+    botId: uuid('bot_id')
+      .references(() => clawdbotBots.id, { onDelete: 'cascade' })
+      .notNull(),
     userId: uuid('user_id').notNull(),
     title: varchar('title', { length: 200 }),
     status: varchar('status', { length: 20 }).default('active').notNull(),

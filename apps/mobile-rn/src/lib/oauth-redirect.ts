@@ -24,14 +24,7 @@ import { WEB_BASE_URL } from './config'
 // 8 个平台:与 @ihui/types ThirdPartyPlatform 对齐(减去 'app' 不走 OAuth)
 // 导出原因:apple.ts/google.ts 调 callOAuthCallback 时需传平台标识。
 export type OAuthPlatform =
-  | 'google'
-  | 'apple'
-  | 'feishu'
-  | 'github'
-  | 'wechat'
-  | 'dingtalk'
-  | 'enterpriseWechat'
-  | 'alipay'
+  'google' | 'apple' | 'feishu' | 'github' | 'wechat' | 'dingtalk' | 'enterpriseWechat' | 'alipay'
 
 /** OAuth 登录结果(供 LoginScreen 处理 success / error / cancelled) */
 export interface OAuthRedirectResult {

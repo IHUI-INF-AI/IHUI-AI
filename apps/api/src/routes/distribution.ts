@@ -77,9 +77,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     // 走 listSubordinates 复用分页查询封装(与 commission-routes 一致)
     if (page && pageSize) {
       const result = await listSubordinates(userId, page, pageSize)
-      return reply.send(
-        success({ list: result.items, total: result.total, page, pageSize }),
-      )
+      return reply.send(success({ list: result.items, total: result.total, page, pageSize }))
     }
 
     // 未传分页:返回全部(保持 miniapp-taro/mobile-rn 现有行为兼容)
@@ -260,9 +258,9 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        status: z.transform((v) => (v === undefined || v === '' ? undefined : Number(v))).pipe(
-          z.number().int().min(0).max(3).optional(),
-        ),
+        status: z
+          .transform((v) => (v === undefined || v === '' ? undefined : Number(v)))
+          .pipe(z.number().int().min(0).max(3).optional()),
       })
       .parse(request.query)
 
@@ -378,9 +376,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query ?? {})
     const result = await listCommissionFlows(request.userId!, page, pageSize)
-    return reply.send(
-      success({ list: result.items, total: result.total, page, pageSize }),
-    )
+    return reply.send(success({ list: result.items, total: result.total, page, pageSize }))
   })
 
   // GET /distribution/withdraw-list — 提现记录列表(补建:原 api-client 调用 404)
@@ -393,9 +389,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query ?? {})
     const result = await listWithdrawals(userId, page, pageSize)
-    return reply.send(
-      success({ list: result.items, total: result.total, page, pageSize }),
-    )
+    return reply.send(success({ list: result.items, total: result.total, page, pageSize }))
   })
 
   // GET /distribution/ranking — 分销排行(补建:原 api-client 调用 404)

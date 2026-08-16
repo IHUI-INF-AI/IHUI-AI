@@ -73,7 +73,9 @@ export function AboutContent(): React.JSX.Element {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-6xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-6xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -148,7 +150,9 @@ export function AboutContent(): React.JSX.Element {
               <div className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight text-primary">
                 {t(valueKey)}
               </div>
-              <div className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">{t(descKey)}</div>
+              <div className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+                {t(descKey)}
+              </div>
             </div>
           ))}
         </div>
@@ -157,7 +161,9 @@ export function AboutContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-card p-5 min-[768px]:p-8 min-[1024px]:p-12 text-center">
         <Rocket className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('ctaTitle')}
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>

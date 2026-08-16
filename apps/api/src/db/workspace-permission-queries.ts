@@ -20,7 +20,12 @@ export async function getPermission(
   const rows = await dbRead
     .select()
     .from(workspacePermissions)
-    .where(and(eq(workspacePermissions.userId, userId), eq(workspacePermissions.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissions.userId, userId),
+        eq(workspacePermissions.workspacePath, workspacePath),
+      ),
+    )
     .limit(1)
   return rows[0]
 }
@@ -78,20 +83,40 @@ export async function touchLastAccessed(userId: string, workspacePath: string): 
   await db
     .update(workspacePermissions)
     .set({ lastAccessedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(workspacePermissions.userId, userId), eq(workspacePermissions.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissions.userId, userId),
+        eq(workspacePermissions.workspacePath, workspacePath),
+      ),
+    )
 }
 
 export async function deletePermission(userId: string, workspacePath: string): Promise<void> {
   // 级联清理:规则 + 审计日志 + 主记录
   await db
     .delete(workspacePermissionRules)
-    .where(and(eq(workspacePermissionRules.userId, userId), eq(workspacePermissionRules.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissionRules.userId, userId),
+        eq(workspacePermissionRules.workspacePath, workspacePath),
+      ),
+    )
   await db
     .delete(workspacePermissionAuditLogs)
-    .where(and(eq(workspacePermissionAuditLogs.userId, userId), eq(workspacePermissionAuditLogs.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissionAuditLogs.userId, userId),
+        eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
+      ),
+    )
   await db
     .delete(workspacePermissions)
-    .where(and(eq(workspacePermissions.userId, userId), eq(workspacePermissions.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissions.userId, userId),
+        eq(workspacePermissions.workspacePath, workspacePath),
+      ),
+    )
 }
 
 // =============================================================================
@@ -105,7 +130,12 @@ export async function listRules(
   return dbRead
     .select()
     .from(workspacePermissionRules)
-    .where(and(eq(workspacePermissionRules.userId, userId), eq(workspacePermissionRules.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissionRules.userId, userId),
+        eq(workspacePermissionRules.workspacePath, workspacePath),
+      ),
+    )
     .orderBy(desc(workspacePermissionRules.createdAt))
 }
 
@@ -182,7 +212,12 @@ export async function createRulesBulk(
 export async function clearUserRules(userId: string, workspacePath: string): Promise<void> {
   await db
     .delete(workspacePermissionRules)
-    .where(and(eq(workspacePermissionRules.userId, userId), eq(workspacePermissionRules.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissionRules.userId, userId),
+        eq(workspacePermissionRules.workspacePath, workspacePath),
+      ),
+    )
 }
 
 // =============================================================================
@@ -215,7 +250,12 @@ export async function listAuditLogs(
   return dbRead
     .select()
     .from(workspacePermissionAuditLogs)
-    .where(and(eq(workspacePermissionAuditLogs.userId, userId), eq(workspacePermissionAuditLogs.workspacePath, workspacePath)))
+    .where(
+      and(
+        eq(workspacePermissionAuditLogs.userId, userId),
+        eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
+      ),
+    )
     .orderBy(desc(workspacePermissionAuditLogs.createdAt))
     .limit(limit)
 }

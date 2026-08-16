@@ -31,9 +31,7 @@ export default function ImagePreviewModal({ visible, source, onClose }: ImagePre
           </Pressable>
         </View>
         <View style={styles.imageWrap}>
-          {source ? (
-            <Image source={source} style={styles.image} resizeMode="contain" />
-          ) : null}
+          {source ? <Image source={source} style={styles.image} resizeMode="contain" /> : null}
         </View>
       </Pressable>
     </Modal>

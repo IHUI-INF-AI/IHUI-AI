@@ -19,11 +19,7 @@ import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import {
-  notifications,
-  securityLogs,
-  type RelayWebhookEvent,
-} from '@ihui/database'
+import { notifications, securityLogs, type RelayWebhookEvent } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import { sendEmail } from './email-service.js'
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
@@ -32,10 +28,7 @@ import { notifyRelayEvent } from './webhook-relay-notifier.js'
 /* 类型                                                                        */
 /* -------------------------------------------------------------------------- */
 
-export type AnomalyEventType =
-  | 'remote_login'
-  | 'new_device_login'
-  | 'frequent_login_failure'
+export type AnomalyEventType = 'remote_login' | 'new_device_login' | 'frequent_login_failure'
 
 export interface LoginAnomalyInput {
   userId: string
@@ -86,8 +79,7 @@ const RECENT_ANOMALY_DAYS = 30
 const NOTIFICATION_TYPE = 'system'
 
 const K_ATTEMPT = (userId: string, ip: string) => `login:attempt:${userId}:${ip}`
-const K_NOTIFIED = (userId: string, eventHash: string) =>
-  `anomaly:notified:${userId}:${eventHash}`
+const K_NOTIFIED = (userId: string, eventHash: string) => `anomaly:notified:${userId}:${eventHash}`
 
 /* -------------------------------------------------------------------------- */
 /* 内存降级存储(Redis 不可用时)                                                */
@@ -211,12 +203,7 @@ export async function getRecentAnomalies(userId: string): Promise<AnomalyRecord[
         createdAt: securityLogs.createdAt,
       })
       .from(securityLogs)
-      .where(
-        and(
-          eq(securityLogs.userId, userId),
-          gte(securityLogs.createdAt, since),
-        ),
-      )
+      .where(and(eq(securityLogs.userId, userId), gte(securityLogs.createdAt, since)))
       .orderBy(desc(securityLogs.createdAt))
       .limit(200)
 

@@ -602,18 +602,16 @@ export function useTerminalSession() {
           // 更新列表项的 eventCount + title
           const r = result.data.recording
           setRecordings(
-            useTerminalStore
-              .getState()
-              .recordings.map((item) =>
-                item.id === recordingId
-                  ? {
-                      ...item,
-                      eventCount: r.events.length,
-                      title: r.title,
-                      durationMs: r.durationMs,
-                    }
-                  : item,
-              ),
+            useTerminalStore.getState().recordings.map((item) =>
+              item.id === recordingId
+                ? {
+                    ...item,
+                    eventCount: r.events.length,
+                    title: r.title,
+                    durationMs: r.durationMs,
+                  }
+                : item,
+            ),
           )
           return true
         }

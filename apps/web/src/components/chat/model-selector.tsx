@@ -306,13 +306,7 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
  *  (React 17+ SyntheticEvent 在 handler 返回后 currentTarget 置 null),导致 setPopoverAnchor
  *  永远走 prev?.el === null 分支(永真为 false)→ popover 常驻显示。改为单组件持有
  *  hover 状态 + useRef 管理 timer,徽章与 popover 共享同一 show/scheduleHide 桥接。 */
-function MemberDiscountSection({
-  opt,
-  children,
-}: {
-  opt: ModelOption
-  children: React.ReactNode
-}) {
+function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: React.ReactNode }) {
   const router = useRouter()
   const t = useTranslations('chat')
   const [open, setOpen] = React.useState(false)
@@ -320,8 +314,7 @@ function MemberDiscountSection({
   const anchorRef = React.useRef<HTMLDivElement | null>(null)
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const eligible =
-    opt.memberDiscountEligible && (opt.pointsMultiplier ?? 0) > 0
+  const eligible = opt.memberDiscountEligible && (opt.pointsMultiplier ?? 0) > 0
 
   const cancelHide = React.useCallback(() => {
     if (closeTimerRef.current) {
@@ -360,11 +353,7 @@ function MemberDiscountSection({
 
   return (
     <>
-      <div
-        ref={anchorRef}
-        onMouseEnter={show}
-        onMouseLeave={scheduleHide}
-      >
+      <div ref={anchorRef} onMouseEnter={show} onMouseLeave={scheduleHide}>
         {children}
       </div>
       {open && pos && opt.pointsMultiplier !== undefined && (

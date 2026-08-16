@@ -239,8 +239,14 @@ const adminFlowsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   userId: z.uuid().optional(),
   opType: z.coerce.number().int().min(0).max(5).optional(),
-  startDate: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
-  endDate: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+  startDate: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
+  endDate: z.coerce
+    .date()
+    .refine((d) => !isNaN(d.getTime()), '无效日期')
+    .optional(),
   keyword: z.string().max(100).optional(),
 })
 

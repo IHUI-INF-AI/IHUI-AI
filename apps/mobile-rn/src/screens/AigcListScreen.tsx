@@ -215,8 +215,7 @@ export default function AigcListScreen() {
 
   // 派生 MaterialList 数据(从已加载的 AigcListItem 中筛选素材类)
   const materialItems = useMemo<MaterialItem[]>(
-    () =>
-      items.filter((it) => isMaterialType(it.fileType)).map(toMaterialItem),
+    () => items.filter((it) => isMaterialType(it.fileType)).map(toMaterialItem),
     [items],
   )
 
@@ -238,10 +237,7 @@ export default function AigcListScreen() {
   )
 
   // 顶部 AIGC 作品轮播(取前 5 条,与 shared 屏共用 items 数据源)
-  const carouselItems = useMemo<CourseCarouselItem[]>(
-    () => toCarouselItems(items),
-    [items],
-  )
+  const carouselItems = useMemo<CourseCarouselItem[]>(() => toCarouselItems(items), [items])
 
   const handleCarouselPress = useCallback(
     (id: string) => {
@@ -278,27 +274,20 @@ export default function AigcListScreen() {
           onPress={() => setViewMode('shared')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-            作品
-          </Text>
+          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>作品</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'local' && styles.tabActive]}
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            素材库
-          </Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>素材库</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>
         {viewMode === 'shared' ? (
           <View style={styles.sharedPane}>
-            <CourseCarousel
-              courses={carouselItems}
-              onPress={handleCarouselPress}
-            />
+            <CourseCarousel courses={carouselItems} onPress={handleCarouselPress} />
             <View style={styles.sharedFill}>
               <SharedAigcListScreen {...sharedListProps} />
             </View>

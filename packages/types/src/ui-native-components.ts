@@ -238,13 +238,7 @@ export interface VideoPlayerMinimalProps {
  * - buymonth: 包月
  * - none: 无(默认)
  */
-export type AiModelUserType =
-  | 'freevip'
-  | 'freeuse'
-  | 'freetime'
-  | 'hasbuy'
-  | 'buymonth'
-  | 'none'
+export type AiModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
 
 /**
  * AI 模型数据类型(mobile-rn AiModelCard 使用;miniapp-taro 用扁平 props)

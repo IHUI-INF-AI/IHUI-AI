@@ -278,15 +278,9 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       defaultOpen={false}
       data-testid={testId ?? 'tool-call-summary-card'}
     >
-      <div
-        className="space-y-1.5 px-2 pb-1.5 pt-1"
-        data-state={isStreaming ? 'streaming' : 'done'}
-      >
+      <div className="space-y-1.5 px-2 pb-1.5 pt-1" data-state={isStreaming ? 'streaming' : 'done'}>
         {/* 折叠态 chip 行(展开态隐藏,避免重复) */}
-        <div
-          className="flex flex-wrap items-center gap-1"
-          data-testid="tool-call-summary-chips"
-        >
+        <div className="flex flex-wrap items-center gap-1" data-testid="tool-call-summary-chips">
           {visibleChips.map((c) => {
             const Icon = c.Icon
             return (

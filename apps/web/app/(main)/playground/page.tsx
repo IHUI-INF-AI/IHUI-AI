@@ -16,7 +16,8 @@ export default function PlaygroundPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">API Playground</h1>
         <p className="text-xs text-muted-foreground">
-          用你的 API Key 直接调用 /v1/chat/completions,支持流式渲染、参数调节与代码生成,无需跳转到 /chat。
+          用你的 API Key 直接调用 /v1/chat/completions,支持流式渲染、参数调节与代码生成,无需跳转到
+          /chat。
         </p>
       </header>
       <PlaygroundClient />

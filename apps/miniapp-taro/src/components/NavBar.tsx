@@ -5,7 +5,6 @@ import { cn } from '@ihui/design-tokens'
 import menuIconSrc from '@/assets/remote/images/menu.svg'
 import { rpx, px } from '@/utils/rpx'
 
-
 export interface NavBarNotification {
   text: string
   onClose?: () => void
@@ -119,7 +118,9 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onPack}
               >
-                <Text style={{ fontSize: rpx(32), color: textColor, fontWeight: 'bold' }}>{'‹'}</Text>
+                <Text style={{ fontSize: rpx(32), color: textColor, fontWeight: 'bold' }}>
+                  {'‹'}
+                </Text>
               </View>
             ) : null}
             <View
@@ -127,32 +128,47 @@ export default function NavBar({
               style={{ width: rpx(40), height: rpx(40) }}
               onClick={onMenuClick}
             >
-              <Image src={menuIconSrc} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
+              <Image
+                src={menuIconSrc}
+                style={{ width: rpx(40), height: rpx(40) }}
+                mode="aspectFit"
+              />
             </View>
           </View>
           {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
           {onActiveNav ? (
             <View className="flex flex-1 items-center justify-center gap-[40rpx]">
               <View onClick={() => onActiveNav(0)}>
-                <Text style={{
-                  color: activeTitleIndex === 0 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
-                  fontSize: rpx(28),
-                  fontWeight: activeTitleIndex === 0 ? '600' : 'normal' as const,
-                  textDecoration: activeTitleIndex === 0 ? 'underline' : 'none' as const,
-                }}>每日资讯</Text>
+                <Text
+                  style={{
+                    color: activeTitleIndex === 0 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                    fontSize: rpx(28),
+                    fontWeight: activeTitleIndex === 0 ? '600' : ('normal' as const),
+                    textDecoration: activeTitleIndex === 0 ? 'underline' : ('none' as const),
+                  }}
+                >
+                  每日资讯
+                </Text>
               </View>
               <View onClick={() => onActiveNav(1)}>
-                <Text style={{
-                  color: activeTitleIndex === 1 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
-                  fontSize: rpx(28),
-                  fontWeight: activeTitleIndex === 1 ? '600' : 'normal' as const,
-                  textDecoration: activeTitleIndex === 1 ? 'underline' : 'none' as const,
-                }}>排行榜</Text>
+                <Text
+                  style={{
+                    color: activeTitleIndex === 1 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                    fontSize: rpx(28),
+                    fontWeight: activeTitleIndex === 1 ? '600' : ('normal' as const),
+                    textDecoration: activeTitleIndex === 1 ? 'underline' : ('none' as const),
+                  }}
+                >
+                  排行榜
+                </Text>
               </View>
             </View>
           ) : (
             <View className="flex flex-1 items-center justify-center">
-              <Text className="font-bold truncate" style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}>
+              <Text
+                className="font-bold truncate"
+                style={{ color: textColor, fontSize: rpx(30), maxWidth: rpx(300) }}
+              >
                 {title}
               </Text>
             </View>
@@ -198,7 +214,16 @@ export default function NavBar({
                 }}
                 onClick={onJoinClick}
               >
-                <Text style={{ color: 'var(--color-primary)', fontSize: rpx(22), fontWeight: 'bold', whiteSpace: 'nowrap' }}>{joinText}</Text>
+                <Text
+                  style={{
+                    color: 'var(--color-primary)',
+                    fontSize: rpx(22),
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {joinText}
+                </Text>
               </View>
             ) : null}
           </View>

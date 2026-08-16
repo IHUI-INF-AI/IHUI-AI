@@ -110,10 +110,7 @@ export default function ModelRecord() {
           {tt('about.modelRecord.noticeTitle', '模型信息公示')}
         </Text>
         <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
-          {tt(
-            'about.modelRecord.noticeText',
-            '本应用使用人工智能技术,以下为所用模型信息',
-          )}
+          {tt('about.modelRecord.noticeText', '本应用使用人工智能技术,以下为所用模型信息')}
         </Text>
       </View>
 

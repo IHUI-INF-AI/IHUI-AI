@@ -703,10 +703,10 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         ])
 
       const retention7d = retention7dBaseRow[0]?.c
-        ? Number(((retention7dRow[0]?.c ?? 0) / retention7dBaseRow[0].c * 100).toFixed(2))
+        ? Number((((retention7dRow[0]?.c ?? 0) / retention7dBaseRow[0].c) * 100).toFixed(2))
         : 0
       const retention30d = retention30dBaseRow[0]?.c
-        ? Number(((retention30dRow[0]?.c ?? 0) / retention30dBaseRow[0].c * 100).toFixed(2))
+        ? Number((((retention30dRow[0]?.c ?? 0) / retention30dBaseRow[0].c) * 100).toFixed(2))
         : 0
 
       return reply.send(

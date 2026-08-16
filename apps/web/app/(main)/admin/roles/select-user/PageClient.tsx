@@ -74,8 +74,7 @@ export default function SelectUserPage() {
     setSelected(next)
   }
 
-  if (!roleId)
-    return <div className="py-8 text-center text-muted-foreground">缺少 roleId 参数</div>
+  if (!roleId) return <div className="py-8 text-center text-muted-foreground">缺少 roleId 参数</div>
 
   return (
     <div className="space-y-4 px-4 py-6">
@@ -119,7 +118,9 @@ export default function SelectUserPage() {
 
       {total > 0 && (
         <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">共 {total} 条 · {page}/{totalPages}</span>
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+            共 {total} 条 · {page}/{totalPages}
+          </span>
           <div className="flex shrink-0 gap-1">
             <Button
               className="shrink-0"

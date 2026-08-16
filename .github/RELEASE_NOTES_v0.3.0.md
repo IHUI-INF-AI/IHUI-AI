@@ -24,12 +24,12 @@
 
 已生成并嵌入 4 个币种的钱包地址到 [/sponsor](https://aizhs.top/sponsor) 页面:
 
-| 币种 | 网络 | 地址 |
-|------|------|------|
-| Bitcoin | BTC (Native SegWit) | `bc1q3q4ffds36kmmz7x8q0ynuvh70hmfaf08sh3e0y` |
-| Ethereum | ETH | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
-| USDT (TRC20) ⭐推荐 | Tron(手续费 ~$1) | `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` |
-| USDT (ERC20) | ETH | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
+| 币种                | 网络                | 地址                                         |
+| ------------------- | ------------------- | -------------------------------------------- |
+| Bitcoin             | BTC (Native SegWit) | `bc1q3q4ffds36kmmz7x8q0ynuvh70hmfaf08sh3e0y` |
+| Ethereum            | ETH                 | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
+| USDT (TRC20) ⭐推荐 | Tron(手续费 ~$1)    | `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG`         |
+| USDT (ERC20)        | ETH                 | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
 
 私钥已离线保管,公开地址可立即接收全球转账。
 
@@ -49,12 +49,14 @@ README 新增 4 个一键部署按钮 + Docker Compose:
 为零技术背景的家人朋友编写的傻瓜指南,详细到"点击哪个按钮"级别:
 
 **部署类**(`docs/deployment/`):
+
 - `family-operation-guide.md` — 总指南(9 渠道优先级 + 5 阶段流程)
 - `family-friends-guide.md` — 代部署详细步骤
 - `one-click-deploy.md` — 4 平台对比
 - `vercel-deploy.md` / `railway-deploy.md` — 单平台详细步骤
 
 **支付渠道注册类**(`docs/monetization/`):
+
 - `payment-setup-guide.md` — 9 种渠道对比表
 - `paypal-setup.md` — ⭐ 10 分钟,最快开始收款
 - `ko-fi-setup.md` — ⭐ 0% 平台手续费
@@ -70,14 +72,14 @@ README 新增 4 个一键部署按钮 + Docker Compose:
 
 ## 📊 预期收入模型
 
-| 收入流 | 单价 | 月转化(保守) | 月收入 |
-|--------|------|--------------|--------|
-| AI Prompt Library | ¥99 | 20 单 | ¥1,980 |
-| 加密货币捐赠 | 不定 | — | ~¥500 |
-| GitHub Sponsors | $5-100/月 | 5 人 | ~$50 |
-| Ko-fi 捐赠 | $3-25 | 10 笔 | ~$50 |
-| Gumroad 数字产品 | $15 | 15 单 | ~$225 |
-| **合计** | — | — | **~¥5,000+/月** |
+| 收入流            | 单价      | 月转化(保守) | 月收入          |
+| ----------------- | --------- | ------------ | --------------- |
+| AI Prompt Library | ¥99       | 20 单        | ¥1,980          |
+| 加密货币捐赠      | 不定      | —            | ~¥500           |
+| GitHub Sponsors   | $5-100/月 | 5 人         | ~$50            |
+| Ko-fi 捐赠        | $3-25     | 10 笔        | ~$50            |
+| Gumroad 数字产品  | $15       | 15 单        | ~$225           |
+| **合计**          | —         | —            | **~¥5,000+/月** |
 
 ---
 

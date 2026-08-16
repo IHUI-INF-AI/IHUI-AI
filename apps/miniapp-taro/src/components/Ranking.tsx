@@ -50,7 +50,9 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
       {title && <Text className="block text-base font-medium text-foreground mb-2">{title}</Text>}
       {list.length === 0 ? (
         <View className="flex items-center justify-center py-12">
-          <Text className="text-sm text-muted-foreground">{tt('ranking.noData', '暂无排行数据')}</Text>
+          <Text className="text-sm text-muted-foreground">
+            {tt('ranking.noData', '暂无排行数据')}
+          </Text>
         </View>
       ) : (
         list.map((item, idx) => (
@@ -75,11 +77,15 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
               />
             ) : (
               <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-muted">
-                <Text className="text-xs font-medium text-muted-foreground">{getName(item).charAt(0)}</Text>
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {getName(item).charAt(0)}
+                </Text>
               </View>
             )}
             <Text className="flex-1 text-sm text-foreground truncate">{getName(item)}</Text>
-            <Text className={`text-sm font-medium ${idx < 3 ? 'text-amber-600' : 'text-foreground'}`}>
+            <Text
+              className={`text-sm font-medium ${idx < 3 ? 'text-amber-600' : 'text-foreground'}`}
+            >
               {getValue(item)}
               {unit}
             </Text>

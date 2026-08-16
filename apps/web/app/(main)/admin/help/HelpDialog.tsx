@@ -34,14 +34,7 @@ interface Props {
   onClose: () => void
 }
 
-export function HelpDialog({
-  open,
-  editing,
-  defaultValues,
-  savePending,
-  onValid,
-  onClose,
-}: Props) {
+export function HelpDialog({ open, editing, defaultValues, savePending, onValid, onClose }: Props) {
   const t = useTranslations('admin.help')
   const tc = useTranslations('common')
   const { form } = useZodForm<HelpFormValues>({

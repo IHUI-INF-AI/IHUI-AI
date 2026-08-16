@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 直播分类表（树形结构，pid 自引用）。
@@ -14,7 +23,7 @@ export const liveCategories = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ pidIdx: index('live_categories_pid_idx').on(t.pid) }),
-);
+)
 
 /**
  * 讲师表。
@@ -32,7 +41,7 @@ export const liveLecturers = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ sortIdx: index('live_lecturers_sort_idx').on(t.sort) }),
-);
+)
 
 /**
  * 直播频道表。
@@ -65,11 +74,11 @@ export const liveChannels = pgTable(
     lectIdx: index('live_channels_lecturer_idx').on(t.lecturerId),
     liveIdx: index('live_channels_live_idx').on(t.isLive),
   }),
-);
+)
 
-export type LiveCategory = typeof liveCategories.$inferSelect;
-export type NewLiveCategory = typeof liveCategories.$inferInsert;
-export type LiveLecturer = typeof liveLecturers.$inferSelect;
-export type NewLiveLecturer = typeof liveLecturers.$inferInsert;
-export type LiveChannel = typeof liveChannels.$inferSelect;
-export type NewLiveChannel = typeof liveChannels.$inferInsert;
+export type LiveCategory = typeof liveCategories.$inferSelect
+export type NewLiveCategory = typeof liveCategories.$inferInsert
+export type LiveLecturer = typeof liveLecturers.$inferSelect
+export type NewLiveLecturer = typeof liveLecturers.$inferInsert
+export type LiveChannel = typeof liveChannels.$inferSelect
+export type NewLiveChannel = typeof liveChannels.$inferInsert

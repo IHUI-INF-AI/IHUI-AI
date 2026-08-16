@@ -16,14 +16,14 @@
 
 ### 环境要求
 
-| 工具 | 最低版本 | 备注 |
-| --- | --- | --- |
-| Node.js | 20 LTS | 推荐 22 LTS |
-| pnpm | 9.x | 包管理器(强制,不接受 npm/yarn) |
-| Python | 3.11 | 仅 `apps/ai-service` 需要 |
-| PostgreSQL | 15 | 生产必需;开发可用 SQLite 替代 |
-| Redis | 7 | 可选(队列/缓存) |
-| Git | 2.40+ | 启用 `core.autocrlf=false`(避免 CRLF 污染) |
+| 工具       | 最低版本 | 备注                                       |
+| ---------- | -------- | ------------------------------------------ |
+| Node.js    | 20 LTS   | 推荐 22 LTS                                |
+| pnpm       | 9.x      | 包管理器(强制,不接受 npm/yarn)             |
+| Python     | 3.11     | 仅 `apps/ai-service` 需要                  |
+| PostgreSQL | 15       | 生产必需;开发可用 SQLite 替代              |
+| Redis      | 7        | 可选(队列/缓存)                            |
+| Git        | 2.40+    | 启用 `core.autocrlf=false`(避免 CRLF 污染) |
 
 ### Fork & Clone
 
@@ -83,13 +83,13 @@ git merge --ff-only upstream/main
 
 分支名必须用 conventional 前缀 + 短描述(kebab-case):
 
-| 前缀 | 用途 | 示例 |
-| --- | --- | --- |
-| `feat/` | 新功能 | `feat/mobile-offline-cache` |
-| `fix/` | Bug 修复 | `fix/auth-token-refresh-race` |
-| `docs/` | 文档 | `docs/ja-translation-pass` |
-| `chore/` | 构建/依赖/工具 | `chore/upgrade-next-15-2` |
-| `test/` | 测试 | `test/e2e-payment-flow` |
+| 前缀        | 用途           | 示例                           |
+| ----------- | -------------- | ------------------------------ |
+| `feat/`     | 新功能         | `feat/mobile-offline-cache`    |
+| `fix/`      | Bug 修复       | `fix/auth-token-refresh-race`  |
+| `docs/`     | 文档           | `docs/ja-translation-pass`     |
+| `chore/`    | 构建/依赖/工具 | `chore/upgrade-next-15-2`      |
+| `test/`     | 测试           | `test/e2e-payment-flow`        |
 | `refactor/` | 重构(不改契约) | `refactor/extract-rls-helpers` |
 
 ```bash
@@ -214,15 +214,15 @@ IHUI-AI/
 
 ### 测试金字塔
 
-| 层级 | 命令 | 工具 | 覆盖范围 |
-| --- | --- | --- | --- |
-| 单元测试 | `pnpm test` | Vitest | 工具函数 / hooks / services |
-| 类型检查 | `pnpm typecheck` | tsc --noEmit | 全 monorepo 类型安全 |
-| Lint | `pnpm lint` | ESLint 9 + eslint-config | 代码风格 |
-| E2E(Web) | `pnpm --filter @ihui/web e2e` | Playwright | 关键用户流程 |
-| 集成(API) | `pnpm --filter @ihui/api test` | Vitest + supertest | 路由契约 |
-| Python 测试 | `pnpm --filter @ihui/ai-service test` | pytest | ai-service |
-| 全量验证 | `pnpm turbo build typecheck lint test` | Turborepo | 全部必须全绿 |
+| 层级        | 命令                                   | 工具                     | 覆盖范围                    |
+| ----------- | -------------------------------------- | ------------------------ | --------------------------- |
+| 单元测试    | `pnpm test`                            | Vitest                   | 工具函数 / hooks / services |
+| 类型检查    | `pnpm typecheck`                       | tsc --noEmit             | 全 monorepo 类型安全        |
+| Lint        | `pnpm lint`                            | ESLint 9 + eslint-config | 代码风格                    |
+| E2E(Web)    | `pnpm --filter @ihui/web e2e`          | Playwright               | 关键用户流程                |
+| 集成(API)   | `pnpm --filter @ihui/api test`         | Vitest + supertest       | 路由契约                    |
+| Python 测试 | `pnpm --filter @ihui/ai-service test`  | pytest                   | ai-service                  |
+| 全量验证    | `pnpm turbo build typecheck lint test` | Turborepo                | 全部必须全绿                |
 
 ### 编写测试
 
@@ -253,9 +253,11 @@ IHUI-AI/
 
 ```markdown
 ## 改动描述
+
 <!-- 一句话说明这个 PR 做了什么 -->
 
 ## 改动类型
+
 - [ ] feat(新功能)
 - [ ] fix(Bug 修复)
 - [ ] docs(文档)
@@ -264,12 +266,15 @@ IHUI-AI/
 - [ ] chore(构建/工具)
 
 ## 关联 Issue
+
 Closes #<issue-number>
 
 ## 测试方式
+
 <!-- 你如何验证这个改动有效?命令 / 截图 / 视频 -->
 
 ## 自检清单
+
 - [ ] typecheck 全绿
 - [ ] lint 全绿
 - [ ] test 全绿
@@ -277,9 +282,11 @@ Closes #<issue-number>
 - [ ] 跨端同步(若适用)
 
 ## 截图 / 视频
+
 <!-- UI 改动必填:default / hover / active / dark mode 4 状态 -->
 
 ## 破坏性变更
+
 - [ ] 本 PR 不含破坏性变更
 - [ ] 本 PR 含破坏性变更(已说明迁移路径)
 ```

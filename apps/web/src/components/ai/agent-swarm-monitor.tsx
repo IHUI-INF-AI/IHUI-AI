@@ -138,37 +138,37 @@ export function AgentSwarmMonitor({
                 <h4 className="mb-2 text-sm font-medium">{t('agentStatus')}</h4>
                 <div className="overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">{t('name')}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t('type')}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t('status')}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t('currentStep')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {agentList.map((a, idx) => (
-                        <tr key={`${a.name}-${idx}`} className="even:bg-muted/[0.03]">
-                          <td className="px-3 py-2 font-medium">{a.name}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{a.type}</td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={cn(
-                                'rounded px-1.5 py-0.5 text-xs font-medium',
-                                STATUS_CLASS[a.status],
-                              )}
-                            >
-                              {ts(a.status)}
-                            </span>
-                          </td>
-                          <td className="max-w-xs break-words px-3 py-2 text-muted-foreground">
-                            {a.currentStep || '-'}
-                          </td>
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/30">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">{t('name')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('type')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('status')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('currentStep')}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {agentList.map((a, idx) => (
+                          <tr key={`${a.name}-${idx}`} className="even:bg-muted/[0.03]">
+                            <td className="px-3 py-2 font-medium">{a.name}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{a.type}</td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={cn(
+                                  'rounded px-1.5 py-0.5 text-xs font-medium',
+                                  STATUS_CLASS[a.status],
+                                )}
+                              >
+                                {ts(a.status)}
+                              </span>
+                            </td>
+                            <td className="max-w-xs break-words px-3 py-2 text-muted-foreground">
+                              {a.currentStep || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

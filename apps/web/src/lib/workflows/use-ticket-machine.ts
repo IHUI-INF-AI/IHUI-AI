@@ -17,9 +17,9 @@ export interface UseTicketMachineReturn {
 
 export function useTicketMachine(): UseTicketMachineReturn {
   const [snapshot, send, canType] = useWorkflowMachine(ticketMachine)
-  const state = (typeof snapshot?.value === 'string'
-    ? snapshot.value
-    : String(snapshot?.value ?? 'open')) as TicketState
+  const state = (
+    typeof snapshot?.value === 'string' ? snapshot.value : String(snapshot?.value ?? 'open')
+  ) as TicketState
   const context = (snapshot?.context ?? { reopenCount: 0 }) as TicketContext
 
   return {

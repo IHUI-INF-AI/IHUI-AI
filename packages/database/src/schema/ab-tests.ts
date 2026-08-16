@@ -5,7 +5,17 @@
  * 此处补 TS schema 定义以消除 check-db-schema-drift 的 dead migration 告警,
  * 并保持 packages/database 单一数据源的表名 ↔ migration 一致性。
  */
-import { pgTable, uuid, varchar, text, integer, boolean, jsonb, timestamp, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  jsonb,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
 
 export const abTests = pgTable(
   'ab_tests',

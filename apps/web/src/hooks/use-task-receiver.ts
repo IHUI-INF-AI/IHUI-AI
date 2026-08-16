@@ -188,15 +188,12 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         `/api/tasks?since=${since}`,
       )
       if (!data) return
-      const list = Array.isArray(data) ? data : data.tasks ?? []
+      const list = Array.isArray(data) ? data : (data.tasks ?? [])
       if (list.length === 0) return
       setTasks((prev) => {
         const next = upsertIncremental(prev, list, deviceId, seenIds.current)
         // 更新 lastSeenTs 为补拉任务中的最大 updatedAt
-        const maxTs = list.reduce(
-          (max, t) => Math.max(max, Date.parse(t.updatedAt) || 0),
-          since,
-        )
+        const maxTs = list.reduce((max, t) => Math.max(max, Date.parse(t.updatedAt) || 0), since)
         if (maxTs > lastSeenTsRef.current) {
           lastSeenTsRef.current = maxTs
           saveLastSeenTs(maxTs)
@@ -253,9 +250,7 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
           saveLastSeenTs(ts)
         }
         return prev.map((x) =>
-          x.id === taskId
-            ? { ...x, status: 'cancelled', updatedAt: cancelledTask.updatedAt }
-            : x,
+          x.id === taskId ? { ...x, status: 'cancelled', updatedAt: cancelledTask.updatedAt } : x,
         )
       }
       const result = msg.payload as TaskResult

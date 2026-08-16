@@ -1,8 +1,8 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { checkAuth } from '../plugins/auth.js';
-import { success, error } from '../utils/response.js';
-import { findPlazaItemList } from '../db/misc-queries.js';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { checkAuth } from '../plugins/auth.js'
+import { success, error } from '../utils/response.js'
+import { findPlazaItemList } from '../db/misc-queries.js'
 
 // =============================================================================
 // 查询参数
@@ -13,7 +13,7 @@ const plazaListQuerySchema = z.object({
   search: z.string().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-});
+})
 
 // =============================================================================
 // 需求广场路由（挂载于 /api/plaza）
@@ -21,17 +21,17 @@ const plazaListQuerySchema = z.object({
 
 export const plazaRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await checkAuth(request, reply))) return;
-  });
+    if (!(await checkAuth(request, reply))) return
+  })
 
   // GET /list - 广场智能体列表
   server.get('/list', async (request, reply) => {
-    const parsed = plazaListQuerySchema.safeParse(request.query);
+    const parsed = plazaListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { status, search, page, pageSize } = parsed.data;
-    const result = await findPlazaItemList({ status, search, page, pageSize });
-    return reply.send(success(result));
-  });
-};
+    const { status, search, page, pageSize } = parsed.data
+    const result = await findPlazaItemList({ status, search, page, pageSize })
+    return reply.send(success(result))
+  })
+}

@@ -215,7 +215,9 @@ describe('TagsView 视觉守门', () => {
     //   高对比突出"当前页",不占元素内部空间(对比 border 占 1px 内边距)
     expect(link!.className, 'active tag 应用 outline-1 宽度').toContain('outline-1')
     expect(link!.className, 'active tag 应用 outline-black 亮色色').toContain('outline-black')
-    expect(link!.className, 'active tag 应用 dark:outline-white 暗色色').toContain('dark:outline-white')
+    expect(link!.className, 'active tag 应用 dark:outline-white 暗色色').toContain(
+      'dark:outline-white',
+    )
   })
 
   it('关闭按钮 X 默认占位 w-5 + opacity-0(hover 不拉伸标签宽度,加大到接近文字大小)', () => {

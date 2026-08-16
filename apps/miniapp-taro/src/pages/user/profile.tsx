@@ -94,9 +94,7 @@ export default function Profile() {
       <View className="pf-identity-row">
         <Text className="pf-identity-label">{t('user.identity')}</Text>
         <View className="pf-identity-tags">
-          {form.isVip ? (
-            <Text className="pf-tag pf-tag-vip">{t('user.vipMember')}</Text>
-          ) : null}
+          {form.isVip ? <Text className="pf-tag pf-tag-vip">{t('user.vipMember')}</Text> : null}
           {(form.roleId ?? 0) >= 1 ? (
             <Text className="pf-tag pf-tag-admin">{t('user.admin')}</Text>
           ) : null}
@@ -110,10 +108,7 @@ export default function Profile() {
       <View className="pf-section">
         <Text className="pf-section-title">{t('user.profile.avatar')}</Text>
         <View className="pf-section-card">
-          <View
-            className="pf-item pf-item-avatar"
-            onClick={chooseAvatar}
-          >
+          <View className="pf-item pf-item-avatar" onClick={chooseAvatar}>
             <View className="pf-avatar-wrap">
               <Image
                 className="pf-avatar-img"
@@ -137,11 +132,7 @@ export default function Profile() {
         <Text className="pf-section-title">{tt('user.profile.accountInfo', '账号信息')}</Text>
         <View className="pf-section-card">
           {accountRows.map((row) => (
-            <View
-              key={row.path}
-              className="pf-item"
-              onClick={() => navigate(row.path)}
-            >
+            <View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
               <Text className="pf-item-label">{row.label}</Text>
               <View className="pf-item-right">
                 <Text className="pf-item-value">{row.value}</Text>
@@ -157,11 +148,7 @@ export default function Profile() {
         <Text className="pf-section-title">{tt('user.profile.security', '安全设置')}</Text>
         <View className="pf-section-card">
           {securityRows.map((row) => (
-            <View
-              key={row.path}
-              className="pf-item"
-              onClick={() => navigate(row.path)}
-            >
+            <View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
               <Text className="pf-item-label">{row.label}</Text>
               <View className="pf-item-right">
                 {row.value ? <Text className="pf-item-value">{row.value}</Text> : null}
@@ -176,10 +163,7 @@ export default function Profile() {
       <View className="pf-section">
         <Text className="pf-section-title">{tt('user.profile.other', '其他')}</Text>
         <View className="pf-section-card">
-          <View
-            className="pf-item"
-            onClick={() => navigate('/pages/user/feedback')}
-          >
+          <View className="pf-item" onClick={() => navigate('/pages/user/feedback')}>
             <Text className="pf-item-label">{t('user.profile.feedback')}</Text>
             <View className="pf-item-right">
               <Text className="pf-arrow">›</Text>

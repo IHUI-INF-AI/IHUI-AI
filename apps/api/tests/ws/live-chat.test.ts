@@ -27,14 +27,15 @@ const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown
     return chain
   },
   returning: () => {
-    const next = { ...chain, then: (resolve: (v: unknown) => unknown) =>
-      Promise.resolve([insertedRows.shift()]).then(resolve),
+    const next = {
+      ...chain,
+      then: (resolve: (v: unknown) => unknown) =>
+        Promise.resolve([insertedRows.shift()]).then(resolve),
     }
     return next
   },
 }
-chain.then = (resolve: (v: unknown) => unknown) =>
-  Promise.resolve(selectRows).then(resolve)
+chain.then = (resolve: (v: unknown) => unknown) => Promise.resolve(selectRows).then(resolve)
 
 vi.mock('../../src/db/index.js', () => ({
   db: {
@@ -263,12 +264,7 @@ describe('LiveChatServer', () => {
   it('handleMessage — unknown type → error frame', async () => {
     const s1 = makeMockSocket()
     const room = server.join('42', s1 as WebSocket)
-    await server.handleMessage(
-      room,
-      s1 as WebSocket,
-      JSON.stringify({ type: 'who-knows' }),
-      'u1',
-    )
+    await server.handleMessage(room, s1 as WebSocket, JSON.stringify({ type: 'who-knows' }), 'u1')
     const sent = (s1 as unknown as { _sent: string[] })._sent
     expect(sent.some((s) => s.includes('"error"') && s.includes('未知消息类型'))).toBe(true)
   })

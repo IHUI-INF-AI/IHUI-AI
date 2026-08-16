@@ -25,5 +25,5 @@
     "isolatedModules": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next", "e2e", "src/stories", ".storybook", "scripts"]
+  "exclude": ["node_modules", ".next", "e2e", "tests", "src/stories", ".storybook", "scripts"]
 }

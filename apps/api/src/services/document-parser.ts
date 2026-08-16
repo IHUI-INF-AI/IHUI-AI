@@ -77,7 +77,10 @@ function htmlToText(html: string): string {
     .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
   // 2. 块级标签换行
-  s = s.replace(/<\/?(p|div|br|li|h[1-6]|tr|td|th|section|article|header|footer|nav|aside|main|blockquote|pre)\b[^>]*>/gi, '\n')
+  s = s.replace(
+    /<\/?(p|div|br|li|h[1-6]|tr|td|th|section|article|header|footer|nav|aside|main|blockquote|pre)\b[^>]*>/gi,
+    '\n',
+  )
   // 3. 去掉其余标签
   s = s.replace(/<[^>]+>/g, '')
   // 4. 实体解码(只覆盖最常见的)
@@ -113,7 +116,8 @@ export async function parseDocument(opts: {
 
   // MIME 解析优先级:显式传入(multipart 头的 mimetype) > 扩展名兜底
   const provided = (opts.mimeType ?? '').toLowerCase().trim()
-  const mime = provided && provided !== 'application/octet-stream' ? provided : detectByExt(filename)
+  const mime =
+    provided && provided !== 'application/octet-stream' ? provided : detectByExt(filename)
 
   if (mime === PDF_MIME) {
     // unpdf 接受 Uint8Array,Node Buffer 是其子类,直接传

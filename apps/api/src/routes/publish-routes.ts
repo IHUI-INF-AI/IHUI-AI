@@ -297,7 +297,9 @@ async function proxyMultipartToAiService(
 
   // 用 FormData 转发(保留原始 filename + content-type)
   const formData = new FormData()
-  const blob = new Blob([new Uint8Array(buffer)], { type: data.mimetype || 'application/octet-stream' })
+  const blob = new Blob([new Uint8Array(buffer)], {
+    type: data.mimetype || 'application/octet-stream',
+  })
   formData.append('file', blob, data.filename || `upload-${Date.now()}`)
 
   const headers: Record<string, string> = {}
@@ -317,7 +319,12 @@ async function proxyMultipartToAiService(
       }
     }
     // 统一封装为 { code, message, data } 格式(ai-service 返回裸 dict)
-    if (upstream.ok && payload && typeof payload === 'object' && !('code' in (payload as Record<string, unknown>))) {
+    if (
+      upstream.ok &&
+      payload &&
+      typeof payload === 'object' &&
+      !('code' in (payload as Record<string, unknown>))
+    ) {
       reply.status(upstream.status).send(success(payload))
     } else {
       reply.status(upstream.status).send(payload)
@@ -418,9 +425,10 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
     if (isDryRun) {
       // 平台列表优先取 body.platforms,未传则对所有注册平台做 dry-run
-      const platforms = Array.isArray(body.platforms) && body.platforms.length > 0
-        ? body.platforms.filter((p): p is string => typeof p === 'string')
-        : PLATFORM_REGISTRY.map((e) => e.platformId)
+      const platforms =
+        Array.isArray(body.platforms) && body.platforms.length > 0
+          ? body.platforms.filter((p): p is string => typeof p === 'string')
+          : PLATFORM_REGISTRY.map((e) => e.platformId)
       const results = computeDryRunResults(platforms)
       return reply.send(
         success({
@@ -583,12 +591,20 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/accounts/:accountId/cookie-health', async (request, reply) => {
     const { accountId } = request.params as { accountId: string }
-    await proxyToAiService(request, reply, `/accounts/${encodeURIComponent(accountId)}/cookie-health`)
+    await proxyToAiService(
+      request,
+      reply,
+      `/accounts/${encodeURIComponent(accountId)}/cookie-health`,
+    )
   })
 
   server.post('/publish/accounts/:accountId/refresh-cookie', async (request, reply) => {
     const { accountId } = request.params as { accountId: string }
-    await proxyToAiService(request, reply, `/accounts/${encodeURIComponent(accountId)}/refresh-cookie`)
+    await proxyToAiService(
+      request,
+      reply,
+      `/accounts/${encodeURIComponent(accountId)}/refresh-cookie`,
+    )
   })
 
   server.get('/publish/cookie-refresh/stats', async (request, reply) => {

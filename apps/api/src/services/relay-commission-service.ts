@@ -20,12 +20,7 @@
  */
 import { eq, and, sql, desc, lte, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import {
-  relayCommissionRecords,
-  systemConfigs,
-  users,
-  developerApiKeys,
-} from '@ihui/database'
+import { relayCommissionRecords, systemConfigs, users, developerApiKeys } from '@ihui/database'
 import type { RelayCommissionRecord } from '@ihui/database'
 
 // =============================================================================

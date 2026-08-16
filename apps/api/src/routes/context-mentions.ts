@@ -113,9 +113,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = mentionQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { q, type, workspacePath, limit } = parsed.data
     try {
@@ -140,9 +138,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = tableQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { q, limit } = parsed.data
     try {
@@ -179,9 +175,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = symbolQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { q, limit } = parsed.data
     try {
@@ -202,9 +196,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = enrichBodySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { userMessage, conversationId, mentions, messages, totalBudget, userId } = parsed.data
     try {
@@ -244,7 +236,9 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
   server.put('/sources', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const body = (request.body ?? {}) as { updates?: Array<{ type: string; enabled?: boolean; budgetPercent?: number }> }
+    const body = (request.body ?? {}) as {
+      updates?: Array<{ type: string; enabled?: boolean; budgetPercent?: number }>
+    }
     if (!Array.isArray(body.updates) || body.updates.length === 0) {
       return reply.status(400).send(error(400, 'updates 不能为空'))
     }
@@ -266,9 +260,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = trackVisualizationBodySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
       const recorded = await contextEngineService.trackVisualization(parsed.data)
@@ -288,9 +280,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = visualizationQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, userId } = parsed.data
     try {
@@ -314,9 +304,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = compressionStatsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { userId } = parsed.data
     try {
@@ -337,9 +325,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = memoryQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, userId } = parsed.data
     try {
@@ -363,9 +349,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = clearMemoryQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId } = parsed.data
     try {

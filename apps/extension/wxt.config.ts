@@ -13,6 +13,7 @@ export default defineConfig({
   dev: {
     server: {
       host: '127.0.0.1',
+      port: 8808,
     },
   },
   manifest: {

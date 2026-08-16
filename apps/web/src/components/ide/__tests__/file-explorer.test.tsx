@@ -146,9 +146,7 @@ describe('FileExplorer', () => {
 
   it('搜索无匹配显示 noMatch', () => {
     mockStore.state.workspacePath = '/ws'
-    mockStore.state.fileTree = [
-      { id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' },
-    ]
+    mockStore.state.fileTree = [{ id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' }]
     const { getByPlaceholderText, getByText } = renderFileExplorer()
     fireEvent.change(getByPlaceholderText('fileExplorer.searchPlaceholder'), {
       target: { value: 'zzz' },

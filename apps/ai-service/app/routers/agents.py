@@ -91,7 +91,7 @@ def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
     return tools
 
 
-def _make_loop_v2_llm(model: str | None):
+def _make_loop_v2_llm(model: str | None) -> Any:
     """构造 AgentLoopV2 的 llm_complete_fn(包装 llm_gateway.complete)。"""
 
     async def _llm(messages: list[dict[str, Any]], tools: list[Any]) -> dict[str, Any]:
@@ -134,7 +134,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
     async def event_generator() -> AsyncIterator[str]:
         from ..services.hook_engine import hook_engine
 
-        subs: dict[str, asyncio.Queue] = {}
+        subs: dict[str, asyncio.Queue[Any]] = {}
         for evt in ("session.start", "tool.before", "tool.after", "error"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
@@ -186,7 +186,7 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
     async def event_generator() -> AsyncIterator[str]:
         from ..services.hook_engine import hook_engine
 
-        subs: dict[str, asyncio.Queue] = {}
+        subs: dict[str, asyncio.Queue[Any]] = {}
         for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
@@ -276,11 +276,11 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
 # Trace 存储(进程内 LRU,供 agent 执行轨迹可视化)
 # ---------------------------------------------------------------------------
 
-_trace_store: dict[str, dict] = {}
+_trace_store: dict[str, dict[str, Any]] = {}
 _MAX_TRACES = 100
 
 
-def store_trace(session_id: str, trace_data: dict) -> None:
+def store_trace(session_id: str, trace_data: dict[str, Any]) -> None:
     """存储 agent 执行 trace。"""
     _trace_store[session_id] = trace_data
     if len(_trace_store) > _MAX_TRACES:
@@ -389,7 +389,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     enable_checkpoint=True,
                 )
                 # 订阅事件 → SSE(只转发本 session 的 tool/error/session 事件)
-                subs: dict[str, asyncio.Queue] = {}
+                subs: dict[str, asyncio.Queue[Any]] = {}
                 for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
                     subs[evt] = hook_engine.subscribe(evt)
                 try:
@@ -833,7 +833,7 @@ async def get_agent_token_usage(agent_id: str, range: str = "24h") -> dict[str, 
     return {"code": 0, "message": "success", "data": {"tokenUsage": items}}
 
 
-def _ts_to_iso(ts) -> str:
+def _ts_to_iso(ts: Any) -> str:
     """时间戳(秒) → ISO8601(带 Z);非数值原样返回。"""
     if isinstance(ts, (int, float)) and ts > 0:
         import datetime as _dt

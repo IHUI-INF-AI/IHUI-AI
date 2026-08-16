@@ -11,26 +11,26 @@
 
 ## 2. 当前已迁移(P2-F 起步 + 二批深化 + 三批 9 屏)
 
-| 共享组件                            | Taro 适配文件                     | 行数  | 替换要点                                                                                      |
-| ----------------------------------- | --------------------------------- | ----- | --------------------------------------------------------------------------------------------- |
-| `packages/app/SectionHeader`        | `SectionHeader.taro.tsx`          | ~95   | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                                 |
-| `packages/app/ColorfulLoader`       | `ColorfulLoader.taro.tsx`         | ~88   | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin`         |
-| `packages/app/PayButton`            | `PayButton.taro.tsx`              | ~290  | `button` → `View`;`onClick` → `onTap`;Modal 自绘;Toast → `Taro.showToast`                     |
-| `packages/app/Selecter`             | `Selecter.taro.tsx`               | ~280  | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留          |
-| `packages/app/Carousel`             | `Carousel.taro.tsx`               | ~190  | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay |
-| `packages/app/NavBar`               | `NavBar.taro.tsx`                 | ~120  | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传                    |
-| `packages/app/TabBar`               | `TabBar.taro.tsx`                 | ~150  | 5 Tab 状态机 + active 配色;safe area bottom inset 适配                                       |
-| `packages/app/Toolbar`              | `Toolbar.taro.tsx`                | ~130  | 水平工具栏 + active 状态 + 分隔线;`ScrollView scrollX` 防溢出                                |
-| `packages/app/UserInfoCard`         | `UserInfoCard.taro.tsx`           | ~180  | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                          |
-| `packages/app/FeedbackScreen`       | `FeedbackScreen.taro.tsx`         | ~309  | `TextInput` → `Textarea`/`Input`;`TouchableOpacity` → `View+onTap`;类型选择 + 内容输入 + 提交状态机 |
-| `packages/app/SettingsScreen`       | `SettingsScreen.taro.tsx`         | ~545  | RN `Switch` → Taro `Switch`;RN `Modal` → 自绘 View 弹层;密码修改 + 通知开关 + 账户跳转        |
-| `packages/app/OrderScreen`          | `OrderScreen.taro.tsx`            | ~360  | `RefreshControl` → `ScrollView refresher*`;tab 切换 + 卡片列表 + 下拉刷新;状态徽章配色       |
-| `packages/app/WalletScreen`         | `WalletScreen.taro.tsx`           | ~258  | 余额卡片 + 交易列表 + 下拉刷新;`getRnTokens` 主题注入;`toRpx` 全量换算                       |
-| `packages/app/MessageCenterScreen`  | `MessageCenterScreen.taro.tsx`    | ~366  | tab 切换 + 消息列表 + 下拉刷新;`numberOfLines` → CSS `line-clamp`;i18n 三级降级              |
-| `packages/app/StudyPlanScreen`      | `StudyPlanScreen.taro.tsx`        | ~333  | 状态徽章(active/paused/completed/overdue)+ 进度条 clamp + 卡片列表 + 下拉刷新               |
-| `packages/app/CertificateScreen`    | `CertificateScreen.taro.tsx`      | ~273  | 状态徽章(issued/expired/revoked)+ 卡片列表 + 下拉刷新;`getRnTokens` 主题注入                |
-| `packages/app/NoteListScreen`       | `NoteListScreen.taro.tsx`         | ~239  | 卡片列表 + 创建按钮 + 下拉刷新;`numberOfLines` → CSS `ellipsis`/`line-clamp`                |
-| `packages/app/NoteDetailScreen`     | `NoteDetailScreen.taro.tsx`       | ~238  | 内容 + 元信息 + 返回;`paddingHorizontal` → 标准 CSS `paddingLeft/Right`;i18n 三级降级       |
+| 共享组件                           | Taro 适配文件                  | 行数 | 替换要点                                                                                            |
+| ---------------------------------- | ------------------------------ | ---- | --------------------------------------------------------------------------------------------------- |
+| `packages/app/SectionHeader`       | `SectionHeader.taro.tsx`       | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                                       |
+| `packages/app/ColorfulLoader`      | `ColorfulLoader.taro.tsx`      | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin`               |
+| `packages/app/PayButton`           | `PayButton.taro.tsx`           | ~290 | `button` → `View`;`onClick` → `onTap`;Modal 自绘;Toast → `Taro.showToast`                           |
+| `packages/app/Selecter`            | `Selecter.taro.tsx`            | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留                |
+| `packages/app/Carousel`            | `Carousel.taro.tsx`            | ~190 | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay     |
+| `packages/app/NavBar`              | `NavBar.taro.tsx`              | ~120 | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传                          |
+| `packages/app/TabBar`              | `TabBar.taro.tsx`              | ~150 | 5 Tab 状态机 + active 配色;safe area bottom inset 适配                                              |
+| `packages/app/Toolbar`             | `Toolbar.taro.tsx`             | ~130 | 水平工具栏 + active 状态 + 分隔线;`ScrollView scrollX` 防溢出                                       |
+| `packages/app/UserInfoCard`        | `UserInfoCard.taro.tsx`        | ~180 | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                                 |
+| `packages/app/FeedbackScreen`      | `FeedbackScreen.taro.tsx`      | ~309 | `TextInput` → `Textarea`/`Input`;`TouchableOpacity` → `View+onTap`;类型选择 + 内容输入 + 提交状态机 |
+| `packages/app/SettingsScreen`      | `SettingsScreen.taro.tsx`      | ~545 | RN `Switch` → Taro `Switch`;RN `Modal` → 自绘 View 弹层;密码修改 + 通知开关 + 账户跳转              |
+| `packages/app/OrderScreen`         | `OrderScreen.taro.tsx`         | ~360 | `RefreshControl` → `ScrollView refresher*`;tab 切换 + 卡片列表 + 下拉刷新;状态徽章配色              |
+| `packages/app/WalletScreen`        | `WalletScreen.taro.tsx`        | ~258 | 余额卡片 + 交易列表 + 下拉刷新;`getRnTokens` 主题注入;`toRpx` 全量换算                              |
+| `packages/app/MessageCenterScreen` | `MessageCenterScreen.taro.tsx` | ~366 | tab 切换 + 消息列表 + 下拉刷新;`numberOfLines` → CSS `line-clamp`;i18n 三级降级                     |
+| `packages/app/StudyPlanScreen`     | `StudyPlanScreen.taro.tsx`     | ~333 | 状态徽章(active/paused/completed/overdue)+ 进度条 clamp + 卡片列表 + 下拉刷新                       |
+| `packages/app/CertificateScreen`   | `CertificateScreen.taro.tsx`   | ~273 | 状态徽章(issued/expired/revoked)+ 卡片列表 + 下拉刷新;`getRnTokens` 主题注入                        |
+| `packages/app/NoteListScreen`      | `NoteListScreen.taro.tsx`      | ~239 | 卡片列表 + 创建按钮 + 下拉刷新;`numberOfLines` → CSS `ellipsis`/`line-clamp`                        |
+| `packages/app/NoteDetailScreen`    | `NoteDetailScreen.taro.tsx`    | ~238 | 内容 + 元信息 + 返回;`paddingHorizontal` → 标准 CSS `paddingLeft/Right`;i18n 三级降级               |
 
 ## 3. 架构原则
 

@@ -38,6 +38,10 @@ vi.mock('node:child_process', () => ({
   })),
 }));
 
+// 共享 mock state:某些测试(如"完整流程")通过 deps 注入 fake startLocalCallbackServer,
+// 避免依赖真实端口。无需 mock 整个模块(ESM 下静态绑定,vi.mock 替换 namespace
+// 对函数体内引用无效,因此选择依赖注入方式)。
+
 // 全局 fetch mock
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -405,9 +409,42 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
   });
 
   it('完整流程:lock → callback → token exchange → 凭证写入 → lock 释放', async () => {
-    const port = 19010;
+    // 历史问题:此测试原本硬编码 19010 端口,在 vitest 并发/CI 环境下会 EADDRINUSE 失败。
+    // 修复:通过 deps.startLocalCallbackServer 注入 fake 实现,waitForCode 直接 resolve 测试 code,
+    // 完全绕过本地端口依赖。生产代码调用 startOAuthFlow 时不传 deps,行为完全不变。
+    const codeFromTest = 'e2e-code';
+    const fakeCallbackImpl: typeof startLocalCallbackServer = (
+      _port,
+      expectedState,
+      _timeoutMs,
+    ) => {
+      let settled = false;
+      const waitForCode = new Promise<string>((resolve, reject) => {
+        const t = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            reject(new Error('mocked OAuth 回调超时'));
+          }
+        }, 3000);
+        setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(t);
+          if (!expectedState) {
+            reject(new Error('expectedState empty'));
+          } else {
+            resolve(codeFromTest);
+          }
+        }, 30);
+      });
+      const close = (): void => {
+        settled = true;
+      };
+      return { waitForCode, close, actualPort: _port || 0 };
+    };
+
     const config = makeOAuthConfig({
-      redirectUri: `http://localhost:${port}/callback`,
+      redirectUri: 'http://localhost:0/callback',
     });
 
     // mock token endpoint 响应
@@ -421,36 +458,13 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
       }),
     });
 
-    // 在启动 flow 之前设置 spy,捕获 console.info 中的授权 URL
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
-    // 启动 OAuth flow(异步)
-    const flowPromise = startOAuthFlow(config);
+    // 启动 OAuth flow,显式注入 fake callback(避免真实 listen 端口)
+    const result = await startOAuthFlow(config, 0, {
+      startLocalCallbackServer: fakeCallbackImpl,
+    });
 
-    // 等待 server 就绪 + console.info 被调用
-    await new Promise((r) => setTimeout(r, 300));
-
-    // 从 console.info 调用中找到授权 URL,提取 state
-    const infoCalls = infoSpy.mock.calls.map((c) => String(c[0] ?? '') + String(c[1] ?? ''));
-    const urlCall = infoCalls.find((s) => s.includes('state='));
-    if (!urlCall) {
-      infoSpy.mockRestore();
-      throw new Error('未找到授权 URL 日志');
-    }
-    const stateMatch = urlCall.match(/state=([^&\s]+)/);
-    if (!stateMatch) {
-      infoSpy.mockRestore();
-      throw new Error('URL 中未找到 state 参数');
-    }
-    const state = decodeURIComponent(stateMatch[1]!);
-
-    // 发送 callback
-    http.get(
-      `http://localhost:${port}/callback?code=e2e-code&state=${state}`,
-      () => {},
-    ).on('error', () => {});
-
-    const result = await flowPromise;
     infoSpy.mockRestore();
 
     expect(result.accessToken).toBe('e2e-access');
@@ -464,5 +478,5 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
     // 验证 lock 已释放
     const lock = await readLockForTest();
     expect(lock).toBeNull();
-  }, 10000);
+  }, 15000);
 });

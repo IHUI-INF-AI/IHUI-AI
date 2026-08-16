@@ -88,14 +88,14 @@ export function RiskBadge({
           inCooldown && 'ring-1 ring-orange-500/30',
         )}
       >
-      <Icon className={isSm ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
-      <span>{t(style.i18nKey)}</span>
-      {inCooldown && (
-        <span className="ml-0.5 text-orange-700 dark:text-orange-400">
-          {t('cooldownRemaining')} {fmtCooldown(cooldownRemaining)}
-        </span>
-      )}
-    </span>
+        <Icon className={isSm ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
+        <span>{t(style.i18nKey)}</span>
+        {inCooldown && (
+          <span className="ml-0.5 text-orange-700 dark:text-orange-400">
+            {t('cooldownRemaining')} {fmtCooldown(cooldownRemaining)}
+          </span>
+        )}
+      </span>
     </Tooltip>
   )
 }

@@ -55,9 +55,7 @@ export function RevealOnView({
 
   const base =
     'transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform motion-reduce:transition-none motion-reduce:translate-y-0 motion-reduce:opacity-100'
-  const state = revealed
-    ? 'opacity-100 translate-y-0'
-    : 'opacity-0 translate-y-2'
+  const state = revealed ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
 
   return React.createElement(
     as,

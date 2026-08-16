@@ -139,25 +139,28 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
             const isDeleting = deletingId === msg.id
             const deleteBtn = (
               <Tooltip content={t('delete')}>
-              <button
-                type="button"
-                aria-label={t('delete')}
-                disabled={isDeleting}
-                onClick={() => setDeleteTarget(msg)}
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-              </button>
+                <button
+                  type="button"
+                  aria-label={t('delete')}
+                  disabled={isDeleting}
+                  onClick={() => setDeleteTarget(msg)}
+                  className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </Tooltip>
             )
             return (
               <div
                 key={msg.id}
-                className={cn('group flex items-end gap-1.5', isMine ? 'justify-end' : 'justify-start')}
+                className={cn(
+                  'group flex items-end gap-1.5',
+                  isMine ? 'justify-end' : 'justify-start',
+                )}
               >
                 {isMine && deleteBtn}
                 <div
@@ -187,7 +190,13 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
       {/* 发送区 */}
       <div className="border-t p-3">
         {sendError && (
-          <Alert variant="danger" description={sendError} className="mb-2" closable onClose={() => setSendError(null)} />
+          <Alert
+            variant="danger"
+            description={sendError}
+            className="mb-2"
+            closable
+            onClose={() => setSendError(null)}
+          />
         )}
         <div className="flex items-center gap-2">
           <Input

@@ -90,9 +90,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     verifyCommands: z.array(z.string()).max(100).default([]),
     constraints: z.string().min(1, '约束边界不能为空'),
     deliverables: z.string().min(1, '交付物不能为空'),
-    agentRole: z
-      .enum(['researcher', 'coder', 'reviewer', 'architect', 'debugger'])
-      .optional(),
+    agentRole: z.enum(['researcher', 'coder', 'reviewer', 'architect', 'debugger']).optional(),
     orchestration: z
       .enum([
         'pipeline',
@@ -242,7 +240,10 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
               : ''
       if (!description) continue
       steps.push({
-        id: typeof record.id === 'string' && record.id.length > 0 ? record.id : `${task.id}-plan-${i}`,
+        id:
+          typeof record.id === 'string' && record.id.length > 0
+            ? record.id
+            : `${task.id}-plan-${i}`,
         description,
         tools: Array.isArray(record.tools)
           ? (record.tools as unknown[]).filter((t): t is string => typeof t === 'string')
@@ -342,8 +343,14 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     // swarm 状态:running > failed > pending > completed > idle(有记录时)
     let swarmStatus = 'idle'
     if (tasks.length > 0) {
-      if (tasks.some((t) => t.status === 'running' || t.status === 'in_progress')) swarmStatus = 'running'
-      else if (tasks.some((t) => t.status === 'failed' || t.status === 'blocked' || t.status === 'cancelled')) swarmStatus = 'failed'
+      if (tasks.some((t) => t.status === 'running' || t.status === 'in_progress'))
+        swarmStatus = 'running'
+      else if (
+        tasks.some(
+          (t) => t.status === 'failed' || t.status === 'blocked' || t.status === 'cancelled',
+        )
+      )
+        swarmStatus = 'failed'
       else if (tasks.some((t) => t.status === 'pending')) swarmStatus = 'pending'
       else swarmStatus = 'completed'
     }
@@ -385,9 +392,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = dispatchSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const input = parsed.data
 
@@ -396,16 +401,12 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
       // 并发超限 → 429
       if (result.outcome === 'concurrent_limit') {
-        return reply.status(429).send(
-          error(429, result.error ?? '并发派单数已达上限'),
-        )
+        return reply.status(429).send(error(429, result.error ?? '并发派单数已达上限'))
       }
 
       // DAG 循环依赖 → 400
       if (result.outcome === 'cyclic_dependency') {
-        return reply.status(400).send(
-          error(400, result.error ?? 'DAG 存在循环依赖'),
-        )
+        return reply.status(400).send(error(400, result.error ?? 'DAG 存在循环依赖'))
       }
 
       return reply.send(success({ dispatch: result.dispatch }))
@@ -437,9 +438,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
     const cancelled = subagentDispatchService.cancel(id)
     if (!cancelled) {
-      return reply
-        .status(404)
-        .send(error(404, '派单不存在或已结束(无法取消)'))
+      return reply.status(404).send(error(404, '派单不存在或已结束(无法取消)'))
     }
     return reply.send(success({ cancelled: true }))
   })

@@ -2,19 +2,29 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAgents, getProfile, type Agent, type AuthUser } from '@ihui/api-client'
-import {
-  CarteScreen as SharedCarteScreen,
-  type CarteCreator,
-  type CarteWork,
-} from '@ihui/rn-app'
+import { CarteScreen as SharedCarteScreen, type CarteCreator, type CarteWork } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-const SKILLS = ['React Native', 'LangGraph', 'RAG', 'Prompt 工程', 'Node.js', 'PostgreSQL', 'Taro', 'Python']
+const SKILLS = [
+  'React Native',
+  'LangGraph',
+  'RAG',
+  'Prompt 工程',
+  'Node.js',
+  'PostgreSQL',
+  'Taro',
+  'Python',
+]
 
-function mapCreator(u: AuthUser, projectCount: number, skillCount: number, rating: number): CarteCreator {
+function mapCreator(
+  u: AuthUser,
+  projectCount: number,
+  skillCount: number,
+  rating: number,
+): CarteCreator {
   return {
     name: u.nickname ?? u.username ?? '未命名创作者',
     title: u.level ? `创作者 · Lv.${u.level}` : '创作者',
@@ -49,7 +59,10 @@ export default function CarteScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const [profileRes, agentsRes] = await Promise.all([getProfile(), getAgents({ pageSize: 100 })])
+      const [profileRes, agentsRes] = await Promise.all([
+        getProfile(),
+        getAgents({ pageSize: 100 }),
+      ])
       if (!profileRes.success) throw new Error(profileRes.error)
       if (!agentsRes.success) throw new Error(agentsRes.error)
       const u = profileRes.data

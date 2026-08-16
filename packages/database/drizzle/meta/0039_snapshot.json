@@ -211,12 +211,8 @@
           "name": "circle_members_circle_id_circles_id_fk",
           "tableFrom": "circle_members",
           "tableTo": "circles",
-          "columnsFrom": [
-            "circle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["circle_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -224,12 +220,8 @@
           "name": "circle_members_user_id_users_id_fk",
           "tableFrom": "circle_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -329,12 +321,8 @@
           "name": "circle_post_likes_post_id_circle_posts_id_fk",
           "tableFrom": "circle_post_likes",
           "tableTo": "circle_posts",
-          "columnsFrom": [
-            "post_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["post_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -342,12 +330,8 @@
           "name": "circle_post_likes_user_id_users_id_fk",
           "tableFrom": "circle_post_likes",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -480,12 +464,8 @@
           "name": "circle_post_comments_post_id_circle_posts_id_fk",
           "tableFrom": "circle_post_comments",
           "tableTo": "circle_posts",
-          "columnsFrom": [
-            "post_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["post_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -493,12 +473,8 @@
           "name": "circle_post_comments_user_id_users_id_fk",
           "tableFrom": "circle_post_comments",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -506,12 +482,8 @@
           "name": "circle_post_comments_reply_user_id_users_id_fk",
           "tableFrom": "circle_post_comments",
           "tableTo": "users",
-          "columnsFrom": [
-            "reply_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reply_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -707,12 +679,8 @@
           "name": "ask_question_categories_ask_id_asks_id_fk",
           "tableFrom": "ask_question_categories",
           "tableTo": "asks",
-          "columnsFrom": [
-            "ask_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ask_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -720,12 +688,8 @@
           "name": "ask_question_categories_category_id_ask_categories_id_fk",
           "tableFrom": "ask_question_categories",
           "tableTo": "ask_categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -835,12 +799,8 @@
           "name": "ask_likes_user_id_users_id_fk",
           "tableFrom": "ask_likes",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -970,12 +930,8 @@
           "name": "ask_favorites_user_id_users_id_fk",
           "tableFrom": "ask_favorites",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1114,12 +1070,8 @@
           "name": "ask_comments_user_id_users_id_fk",
           "tableFrom": "ask_comments",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1344,12 +1296,8 @@
           "name": "search_index_user_id_users_id_fk",
           "tableFrom": "search_index",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }

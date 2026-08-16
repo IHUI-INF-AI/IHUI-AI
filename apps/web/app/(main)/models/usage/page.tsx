@@ -109,7 +109,9 @@ function TrendChart({
         {/* Tokens 趋势 */}
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{t('usage.chart.tokens')}</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {t('usage.chart.tokens')}
+            </span>
           </div>
           <div className="flex items-end gap-[2px]" style={{ height: 100 }}>
             {entries.map(([day, val]) => {
@@ -145,7 +147,9 @@ function TrendChart({
         {/* Calls 趋势 */}
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{t('usage.chart.calls')}</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {t('usage.chart.calls')}
+            </span>
           </div>
           <div className="flex items-end gap-[2px]" style={{ height: 80 }}>
             {entries.map(([day, val]) => {
@@ -338,7 +342,8 @@ export default function UsagePage() {
       icon: Clock,
       label: t('usage.summary.avgLatency'),
       value: formatLatency(avgLatency),
-      sub: avgLatency >= 1000 ? `${(avgLatency / 1000).toFixed(2)}s` : `${Math.round(avgLatency)}ms`,
+      sub:
+        avgLatency >= 1000 ? `${(avgLatency / 1000).toFixed(2)}s` : `${Math.round(avgLatency)}ms`,
     },
   ]
 

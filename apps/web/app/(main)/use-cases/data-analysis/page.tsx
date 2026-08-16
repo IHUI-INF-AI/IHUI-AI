@@ -23,7 +23,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 数据分析', item: 'https://aizhs.top/use-cases/data-analysis' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 数据分析',
+          item: 'https://aizhs.top/use-cases/data-analysis',
+        },
       ],
     },
     {
@@ -41,12 +46,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 异常检测模型' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '接入数据库与数仓', text: '对接 MySQL/PostgreSQL/ClickHouse/Hive/Snowflake,自动读取 schema 与表关系,构建数据字典。' },
-        { '@type': 'HowToStep', position: 2, name: '训练 NL2SQL Agent', text: '上传业务术语表与历史 SQL,Agent 学习表结构语义,自然语言提问即可生成正确 SQL,准确率 95%+。' },
-        { '@type': 'HowToStep', position: 3, name: '配置报表模板', text: '上传历史报表模板,Agent 自动生成日/周/月报,定时推送到飞书/企微/邮件,80% 报表无需手工。' },
-        { '@type': 'HowToStep', position: 4, name: '设置异常检测', text: '基于历史数据训练时序模型,自动检测指标异常波动,5 分钟内预警,召回率 90%+。' },
-        { '@type': 'HowToStep', position: 5, name: '启用归因分析', text: '指标异常时,Agent 自动归因(维度下钻 + 相关性分析),定位根因维度,归因准确率 85%+。' },
-        { '@type': 'HowToStep', position: 6, name: '输出治理建议', text: 'Agent 扫描数据质量(缺失/重复/不一致),每周输出数据治理建议,数据资产可信度提升。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '接入数据库与数仓',
+          text: '对接 MySQL/PostgreSQL/ClickHouse/Hive/Snowflake,自动读取 schema 与表关系,构建数据字典。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '训练 NL2SQL Agent',
+          text: '上传业务术语表与历史 SQL,Agent 学习表结构语义,自然语言提问即可生成正确 SQL,准确率 95%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '配置报表模板',
+          text: '上传历史报表模板,Agent 自动生成日/周/月报,定时推送到飞书/企微/邮件,80% 报表无需手工。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '设置异常检测',
+          text: '基于历史数据训练时序模型,自动检测指标异常波动,5 分钟内预警,召回率 90%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '启用归因分析',
+          text: '指标异常时,Agent 自动归因(维度下钻 + 相关性分析),定位根因维度,归因准确率 85%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '输出治理建议',
+          text: 'Agent 扫描数据质量(缺失/重复/不一致),每周输出数据治理建议,数据资产可信度提升。',
+        },
       ],
     },
   ],
@@ -66,12 +101,30 @@ export const metadata: Metadata = {
 }
 
 const capabilities = [
-  { title: '自然语言取数', desc: '业务方用自然语言提问,Agent 生成正确 SQL 并返回结果,取数效率提升 10 倍,告别排期等数据。' },
-  { title: '报表自动生成', desc: '上传历史报表模板,Agent 自动生成日/周/月报,定时推送飞书/企微/邮件,80% 报表无需手工。' },
-  { title: '异常检测', desc: '基于时序模型自动检测指标异常波动,5 分钟内预警,召回率 90%+,业务问题早发现。' },
-  { title: '归因分析', desc: '指标异常时自动归因(维度下钻 + 相关性分析),定位根因维度,归因准确率 85%+,告别拍脑袋。' },
-  { title: '数据治理', desc: '扫描数据质量(缺失/重复/不一致),每周输出治理建议,数据资产可信度持续提升。' },
-  { title: '分析复盘', desc: '每月生成分析复盘报告,高频问题/取数 TOP10/异常事件一览,数据团队价值可见。' },
+  {
+    title: '自然语言取数',
+    desc: '业务方用自然语言提问,Agent 生成正确 SQL 并返回结果,取数效率提升 10 倍,告别排期等数据。',
+  },
+  {
+    title: '报表自动生成',
+    desc: '上传历史报表模板,Agent 自动生成日/周/月报,定时推送飞书/企微/邮件,80% 报表无需手工。',
+  },
+  {
+    title: '异常检测',
+    desc: '基于时序模型自动检测指标异常波动,5 分钟内预警,召回率 90%+,业务问题早发现。',
+  },
+  {
+    title: '归因分析',
+    desc: '指标异常时自动归因(维度下钻 + 相关性分析),定位根因维度,归因准确率 85%+,告别拍脑袋。',
+  },
+  {
+    title: '数据治理',
+    desc: '扫描数据质量(缺失/重复/不一致),每周输出治理建议,数据资产可信度持续提升。',
+  },
+  {
+    title: '分析复盘',
+    desc: '每月生成分析复盘报告,高频问题/取数 TOP10/异常事件一览,数据团队价值可见。',
+  },
 ]
 
 const steps = [
@@ -93,7 +146,10 @@ const metrics = [
 export default function DataAnalysisPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         <section className="space-y-5 text-center">
@@ -110,15 +166,21 @@ export default function DataAnalysisPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -133,7 +195,9 @@ export default function DataAnalysisPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 步落地</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 步落地
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
               <div key={s.step} className="rounded-2xl border bg-card p-6">
@@ -149,7 +213,9 @@ export default function DataAnalysisPage() {
 
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始构建你的 AI 数据分析助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            开始构建你的 AI 数据分析助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从数据分析场景模板一键 fork,30 分钟体验。
           </p>

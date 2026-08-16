@@ -143,7 +143,9 @@
       "quitRestarting": "更新完成，正在重启...",
       "quitQuitting": "正在退出...",
       "quitSkip": "跳过，直接退出",
-      "autoRestart": "即将自动重启...",
+      "autoRestartIn": "即将自动重启...({countdown} 秒后)",
+      "restartLater": "稍后重启",
+      "restartNow": "立即重启",
       "preparing": "正在准备更新...",
       "autoRetrying": "更新失败，自动重试中..."
     },

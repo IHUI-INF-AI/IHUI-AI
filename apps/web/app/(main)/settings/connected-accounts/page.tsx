@@ -123,49 +123,49 @@ export default function ConnectedAccountsPage() {
 
   return (
     <div className="space-y-4 px-4 py-6">
-        <BackButton />
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Link2 className="h-4 w-4" />
-              {t('connectedAccountsPlatform')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isLoading ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                {t('connectedAccountsLoading')}
-              </div>
-            ) : error ? (
-              <div className="py-10 text-center text-sm text-destructive">
-                {(error as Error).message}
-              </div>
-            ) : (
-              PLATFORMS.map(renderRow)
-            )}
-          </CardContent>
-        </Card>
+      <BackButton />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Link2 className="h-4 w-4" />
+            {t('connectedAccountsPlatform')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              {t('connectedAccountsLoading')}
+            </div>
+          ) : error ? (
+            <div className="py-10 text-center text-sm text-destructive">
+              {(error as Error).message}
+            </div>
+          ) : (
+            PLATFORMS.map(renderRow)
+          )}
+        </CardContent>
+      </Card>
 
-        <ConfirmDialog
-          open={!!confirmId}
-          title={t('connectedAccountsUnbind')}
-          content={
-            pendingBinding
-              ? t('connectedAccountsUnbindConfirm', {
-                  platform:
-                    PLATFORMS.find((p) => p.key === pendingBinding.platform)?.label ??
-                    pendingBinding.platform,
-                })
-              : t('connectedAccountsUnbindConfirm', { platform: '' })
-          }
-          confirmText={t('connectedAccountsUnbind')}
-          cancelText={t('connectedAccountsCancel')}
-          variant="danger"
-          loading={unbindMut.isPending}
-          onConfirm={onConfirmUnbind}
-          onCancel={() => setConfirmId(null)}
-        />
+      <ConfirmDialog
+        open={!!confirmId}
+        title={t('connectedAccountsUnbind')}
+        content={
+          pendingBinding
+            ? t('connectedAccountsUnbindConfirm', {
+                platform:
+                  PLATFORMS.find((p) => p.key === pendingBinding.platform)?.label ??
+                  pendingBinding.platform,
+              })
+            : t('connectedAccountsUnbindConfirm', { platform: '' })
+        }
+        confirmText={t('connectedAccountsUnbind')}
+        cancelText={t('connectedAccountsCancel')}
+        variant="danger"
+        loading={unbindMut.isPending}
+        onConfirm={onConfirmUnbind}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   )
 }

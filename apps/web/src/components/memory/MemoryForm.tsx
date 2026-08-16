@@ -62,7 +62,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor={`${fid}-scope`} className={labelCls}>作用域</label>
+          <label htmlFor={`${fid}-scope`} className={labelCls}>
+            作用域
+          </label>
           <select
             id={`${fid}-scope`}
             value={scope}
@@ -77,7 +79,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor={`${fid}-type`} className={labelCls}>类型</label>
+          <label htmlFor={`${fid}-type`} className={labelCls}>
+            类型
+          </label>
           <select
             id={`${fid}-type`}
             value={type}
@@ -94,7 +98,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor={`${fid}-category`} className={labelCls}>分类</label>
+        <label htmlFor={`${fid}-category`} className={labelCls}>
+          分类
+        </label>
         <Input
           id={`${fid}-category`}
           value={category}
@@ -119,7 +125,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor={`${fid}-session`} className={labelCls}>会话 ID(可选)</label>
+          <label htmlFor={`${fid}-session`} className={labelCls}>
+            会话 ID(可选)
+          </label>
           <Input
             id={`${fid}-session`}
             value={sessionId}
@@ -128,7 +136,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
           />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor={`${fid}-project`} className={labelCls}>项目标识(可选)</label>
+          <label htmlFor={`${fid}-project`} className={labelCls}>
+            项目标识(可选)
+          </label>
           <Input
             id={`${fid}-project`}
             value={projectKey}

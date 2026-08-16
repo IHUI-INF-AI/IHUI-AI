@@ -338,12 +338,7 @@ export async function getMemberRole(
   const [row] = await dbRead
     .select({ role: apiKeyGroupMembers.role })
     .from(apiKeyGroupMembers)
-    .where(
-      and(
-        eq(apiKeyGroupMembers.groupId, groupId),
-        eq(apiKeyGroupMembers.apiKeyId, apiKeyId),
-      ),
-    )
+    .where(and(eq(apiKeyGroupMembers.groupId, groupId), eq(apiKeyGroupMembers.apiKeyId, apiKeyId)))
     .limit(1)
   const role = row?.role
   if (role === 'owner' || role === 'admin' || role === 'member') return role
@@ -384,12 +379,7 @@ export async function getUserApiKeyInGroup(
     .select({ apiKeyId: apiKeyGroupMembers.apiKeyId })
     .from(apiKeyGroupMembers)
     .innerJoin(developerApiKeys, eq(apiKeyGroupMembers.apiKeyId, developerApiKeys.id))
-    .where(
-      and(
-        eq(developerApiKeys.userId, userId),
-        eq(apiKeyGroupMembers.groupId, groupId),
-      ),
-    )
+    .where(and(eq(developerApiKeys.userId, userId), eq(apiKeyGroupMembers.groupId, groupId)))
     .limit(1)
   return row?.apiKeyId ?? null
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 
 // Mock config: csrf 依赖 config.JWT_SECRET 签名

@@ -366,20 +366,29 @@ export default function MessageIndex() {
           onClear={() => setKeyword('')}
         />
         {loading ? (
-          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">{t('common.loading')}</Text>
+          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+            {t('common.loading')}
+          </Text>
         ) : filtered.length ? (
           filtered.map((room) => (
-            <View key={(room.id || room.name) as string} className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <View
+              key={(room.id || room.name) as string}
+              className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+            >
               <View className="flex-1 min-w-0">
                 <View className="flex items-center">
-                  <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">{room.name || t('message.unnamedRoom')}</Text>
+                  <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">
+                    {room.name || t('message.unnamedRoom')}
+                  </Text>
                   {(room.unreadCount ?? room.unread ?? 0) > 0 && (
                     <View className="ml-2">
                       <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
                     </View>
                   )}
                 </View>
-                <Text className="text-[26rpx] text-muted-foreground">{room.lastMessage || t('message.empty')}</Text>
+                <Text className="text-[26rpx] text-muted-foreground">
+                  {room.lastMessage || t('message.empty')}
+                </Text>
               </View>
               <MessageActions
                 onMarkRead={() =>
@@ -391,7 +400,9 @@ export default function MessageIndex() {
             </View>
           ))
         ) : (
-          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">{keyword ? t('message.notFound') : t('message.empty')}</Text>
+          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+            {keyword ? t('message.notFound') : t('message.empty')}
+          </Text>
         )}
       </View>
     )
@@ -441,7 +452,10 @@ export default function MessageIndex() {
               <Text className="text-sm font-medium text-foreground">
                 {t('message.notificationSettings')}
               </Text>
-              <Text className="text-sm text-muted-foreground" onClick={() => setShowSettings(false)}>
+              <Text
+                className="text-sm text-muted-foreground"
+                onClick={() => setShowSettings(false)}
+              >
                 {t('message.close')}
               </Text>
             </View>

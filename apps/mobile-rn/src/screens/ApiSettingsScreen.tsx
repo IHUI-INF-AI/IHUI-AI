@@ -14,8 +14,12 @@ import {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
-  COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, clearCozeConfig,
-  loadCozeConfig, saveCozeConfig, testConnection,
+  COZE_DEFAULT_BASE_URL,
+  COZE_DEFAULT_TIMEOUT,
+  clearCozeConfig,
+  loadCozeConfig,
+  saveCozeConfig,
+  testConnection,
 } from '../api/coze'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>

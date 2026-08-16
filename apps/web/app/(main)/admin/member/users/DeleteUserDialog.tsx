@@ -27,9 +27,7 @@ export function DeleteUserDialog({ target, onOpenChange, submitting, onConfirm }
         <p className="text-sm text-muted-foreground">
           确认要删除用户
           <span className="mx-1 font-medium text-foreground">
-            "
-            {target?.nickname || target?.phone || target?.email || target?.id}
-            "
+            "{target?.nickname || target?.phone || target?.email || target?.id}"
           </span>
           吗?此操作不可恢复。
         </p>

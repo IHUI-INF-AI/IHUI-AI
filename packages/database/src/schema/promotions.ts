@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, boolean, jsonb, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  text,
+  boolean,
+  jsonb,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 邀请码表。
@@ -21,7 +31,7 @@ export const invitationCodes = pgTable('invitation_codes', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   usedAt: timestamp('used_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 活动表。
@@ -41,7 +51,7 @@ export const activities = pgTable('activities', {
   rules: jsonb('rules').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 活动参与表。
@@ -63,7 +73,7 @@ export const activityParticipants = pgTable(
   (t) => ({
     activityUserUnique: unique().on(t.activityId, t.userId),
   }),
-);
+)
 
 /**
  * 优惠券表。
@@ -84,13 +94,13 @@ export const coupons = pgTable('coupons', {
   endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type InvitationCode = typeof invitationCodes.$inferSelect;
-export type NewInvitationCode = typeof invitationCodes.$inferInsert;
-export type Activity = typeof activities.$inferSelect;
-export type NewActivity = typeof activities.$inferInsert;
-export type ActivityParticipant = typeof activityParticipants.$inferSelect;
-export type NewActivityParticipant = typeof activityParticipants.$inferInsert;
-export type Coupon = typeof coupons.$inferSelect;
-export type NewCoupon = typeof coupons.$inferInsert;
+export type InvitationCode = typeof invitationCodes.$inferSelect
+export type NewInvitationCode = typeof invitationCodes.$inferInsert
+export type Activity = typeof activities.$inferSelect
+export type NewActivity = typeof activities.$inferInsert
+export type ActivityParticipant = typeof activityParticipants.$inferSelect
+export type NewActivityParticipant = typeof activityParticipants.$inferInsert
+export type Coupon = typeof coupons.$inferSelect
+export type NewCoupon = typeof coupons.$inferInsert

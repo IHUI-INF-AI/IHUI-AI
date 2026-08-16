@@ -59,11 +59,7 @@ export default function SkillVersionsPage() {
         </Button>
       </div>
 
-      <VersionTable
-        skills={skills}
-        loading={isLoading}
-        error={error as Error | null}
-      />
+      <VersionTable skills={skills} loading={isLoading} error={error as Error | null} />
     </div>
   )
 }

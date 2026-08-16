@@ -40,7 +40,10 @@ export function PointsMallScreen() {
     [t],
   )
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsMallItem>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsMallItem>(
+    fetcher,
+    PAGE_SIZE,
+  )
 
   const onRedeem = async (item: PointsMallItem) => {
     if (balance < item.pointsCost) {
@@ -48,7 +51,9 @@ export function PointsMallScreen() {
       return
     }
     setRedeemingId(item.id)
-    const res = await fetchApi<{ ok: boolean }>(`/points-mall/${item.id}/redeem`, { method: 'POST' })
+    const res = await fetchApi<{ ok: boolean }>(`/points-mall/${item.id}/redeem`, {
+      method: 'POST',
+    })
     setRedeemingId(null)
     if (res.success) {
       Alert.alert(t('pointsMall.redeemSuccess'), `${item.name}`)

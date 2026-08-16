@@ -12,9 +12,12 @@ export async function fetchCategories(): Promise<SkillCategory[]> {
   return data?.categories ?? []
 }
 
-export async function createCategory(
-  data: { name: string; slug: string; icon?: string; sort?: number },
-): Promise<SkillCategory> {
+export async function createCategory(data: {
+  name: string
+  slug: string
+  icon?: string
+  sort?: number
+}): Promise<SkillCategory> {
   return api<SkillCategory>('/api/skill-categories', {
     method: 'POST',
     body: JSON.stringify(data),

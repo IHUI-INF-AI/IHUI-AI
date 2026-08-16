@@ -17,14 +17,17 @@ const { mockUpdateStatus } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../db/live-queries.js', () => {
-  return new Proxy({ updateLiveChannelStatusByStreamName: mockUpdateStatus }, {
-    get(target, prop: string | symbol) {
-      if (typeof prop === 'symbol') return undefined
-      if (prop === 'then') return undefined
-      if (prop in target) return (target as Record<string, unknown>)[prop]
-      return vi.fn()
+  return new Proxy(
+    { updateLiveChannelStatusByStreamName: mockUpdateStatus },
+    {
+      get(target, prop: string | symbol) {
+        if (typeof prop === 'symbol') return undefined
+        if (prop === 'then') return undefined
+        if (prop in target) return (target as Record<string, unknown>)[prop]
+        return vi.fn()
+      },
     },
-  })
+  )
 })
 
 import { liveRoutes } from '../live.js'
@@ -35,7 +38,10 @@ import {
 
 const CALLBACK_KEY = 'test-callback-key'
 
-function buildHeaders(rawBody: string, opts?: { timestamp?: string; nonce?: string; key?: string; tamper?: boolean }) {
+function buildHeaders(
+  rawBody: string,
+  opts?: { timestamp?: string; nonce?: string; key?: string; tamper?: boolean },
+) {
   const timestamp = opts?.timestamp ?? String(Date.now())
   const nonce = opts?.nonce ?? 'nonce-abc'
   const key = opts?.key ?? CALLBACK_KEY

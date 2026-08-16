@@ -565,8 +565,6 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
-
-
   it('焦点在 INPUT 时不拦截快捷键', () => {
     render(
       <div>
@@ -2416,41 +2414,25 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
 
   it('v15.5 完成度:FoldableSection 传入 doneCount + count 时显示 X/Y 文本', () => {
     const { container } = render(
-      <FoldableSection
-        title="测试"
-        count={10}
-        doneCount={3}
-        data-testid="prog-section"
-      >
+      <FoldableSection title="测试" count={10} doneCount={3} data-testid="prog-section">
         <span>内容</span>
       </FoldableSection>,
     )
-    const progressText = container.querySelector(
-      '[data-testid="prog-section-progress-text"]',
-    )
+    const progressText = container.querySelector('[data-testid="prog-section-progress-text"]')
     expect(progressText).toBeTruthy()
     expect(progressText?.textContent).toBe('3/10')
   })
 
   it('v15.5 完成度:FoldableSection 全部完成时文本含 emerald 颜色类', () => {
     const { container } = render(
-      <FoldableSection
-        title="测试"
-        count={5}
-        doneCount={5}
-        data-testid="prog-done"
-      >
+      <FoldableSection title="测试" count={5} doneCount={5} data-testid="prog-done">
         <span>内容</span>
       </FoldableSection>,
     )
-    const progressText = container.querySelector(
-      '[data-testid="prog-done-progress-text"]',
-    )
+    const progressText = container.querySelector('[data-testid="prog-done-progress-text"]')
     expect(progressText?.className).toContain('text-emerald-500')
     // 进度条存在
-    const progressBar = container.querySelector(
-      '[data-testid="prog-done-progress-bar"]',
-    )
+    const progressBar = container.querySelector('[data-testid="prog-done-progress-bar"]')
     expect(progressBar).toBeTruthy()
   })
 
@@ -2460,12 +2442,8 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
         <span>内容</span>
       </FoldableSection>,
     )
-    expect(
-      container.querySelector('[data-testid="no-prog-progress-text"]'),
-    ).toBeNull()
-    expect(
-      container.querySelector('[data-testid="no-prog-progress-bar"]'),
-    ).toBeNull()
+    expect(container.querySelector('[data-testid="no-prog-progress-text"]')).toBeNull()
+    expect(container.querySelector('[data-testid="no-prog-progress-bar"]')).toBeNull()
   })
 
   // ─── 6. 空状态 ───

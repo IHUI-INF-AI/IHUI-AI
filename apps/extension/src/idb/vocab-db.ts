@@ -58,7 +58,10 @@ export interface IDBOpenDBRequestLike {
 
 export interface IDBDatabaseLike {
   transaction(stores: string | string[], mode?: 'readonly' | 'readwrite'): IDBTransactionLike
-  createObjectStore(name: string, options?: { keyPath?: string; autoIncrement?: boolean }): IDBObjectStoreLike
+  createObjectStore(
+    name: string,
+    options?: { keyPath?: string; autoIncrement?: boolean },
+  ): IDBObjectStoreLike
   deleteObjectStore(name: string): void
   objectStoreNames: { contains(name: string): boolean }
   createIndex(name: string, keyPath: string, options?: { unique?: boolean }): IDBIndexLike
@@ -82,11 +85,18 @@ export interface IDBObjectStoreLike {
   count(query?: IDBValidKeyLike | IDBKeyRangeLike): IDBRequestLike
   clear(): IDBRequestLike
   index(name: string): IDBIndexLike
-  createIndex(name: string, keyPath: string, options?: { unique?: boolean; multiEntry?: boolean }): IDBIndexLike
+  createIndex(
+    name: string,
+    keyPath: string,
+    options?: { unique?: boolean; multiEntry?: boolean },
+  ): IDBIndexLike
 }
 
 export interface IDBIndexLike {
-  openCursor(range?: IDBValidKeyLike | IDBKeyRangeLike | null, direction?: 'next' | 'prev'): IDBRequestLike
+  openCursor(
+    range?: IDBValidKeyLike | IDBKeyRangeLike | null,
+    direction?: 'next' | 'prev',
+  ): IDBRequestLike
   getAll(query?: IDBValidKeyLike | IDBKeyRangeLike, count?: number): IDBRequestLike
   count(query?: IDBValidKeyLike | IDBKeyRangeLike): IDBRequestLike
 }
@@ -311,10 +321,7 @@ export async function searchWords(
         return
       }
       const entry = cursor.value
-      if (
-        entry.word.toLowerCase().includes(q) ||
-        entry.translation.toLowerCase().includes(q)
-      ) {
+      if (entry.word.toLowerCase().includes(q) || entry.translation.toLowerCase().includes(q)) {
         out.push(entry)
         if (typeof options.limit === 'number' && out.length >= options.limit) {
           db.close()

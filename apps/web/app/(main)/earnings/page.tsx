@@ -74,9 +74,7 @@ export default function EarningsPage() {
       </Card>
 
       {/* 加载失败提示(真实数据加载失败时,刷新页面重试) */}
-      {error && !loading && (
-        <Alert variant="danger" title="加载失败" description={error.message} />
-      )}
+      {error && !loading && <Alert variant="danger" title="加载失败" description={error.message} />}
 
       {loading && (
         <div className="flex items-center justify-center py-4 text-muted-foreground">

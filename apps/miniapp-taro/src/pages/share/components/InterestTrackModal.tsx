@@ -161,7 +161,9 @@ export default function InterestTrackModal({
                     <Text
                       style={{
                         fontSize: rpx(22),
-                        color: isSelected ? 'rgba(255,255,255,0.8)' : 'var(--color-muted-foreground)',
+                        color: isSelected
+                          ? 'rgba(255,255,255,0.8)'
+                          : 'var(--color-muted-foreground)',
                       }}
                     >
                       {track.desc}
@@ -174,7 +176,9 @@ export default function InterestTrackModal({
         </ScrollView>
 
         {/* 底部按钮 */}
-        <View style={{ padding: `${rpx(16)} ${rpx(32)} ${rpx(32)}`, display: 'flex', gap: rpx(16) }}>
+        <View
+          style={{ padding: `${rpx(16)} ${rpx(32)} ${rpx(32)}`, display: 'flex', gap: rpx(16) }}
+        >
           <View
             style={{
               flex: 1,

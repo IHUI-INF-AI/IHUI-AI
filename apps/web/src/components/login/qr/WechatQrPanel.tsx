@@ -17,7 +17,9 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   const t = useTranslations('auth')
   const containerRef = React.useRef<HTMLDivElement>(null)
   const containerId = React.useId().replace(/[:]/g, '')
-  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>('loading')
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>(
+    'loading',
+  )
   const [errorMsg, setErrorMsg] = React.useState('')
 
   React.useEffect(() => {
@@ -90,7 +92,11 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
     <div className="relative mx-auto flex h-[280px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
-      <div ref={containerRef} id={containerId} className="absolute inset-0 flex items-center justify-center [&_iframe]:block [&_iframe]:mx-auto [&_iframe]:static [&_iframe]:max-w-full" />
+      <div
+        ref={containerRef}
+        id={containerId}
+        className="absolute inset-0 flex items-center justify-center [&_iframe]:block [&_iframe]:mx-auto [&_iframe]:static [&_iframe]:max-w-full"
+      />
       {status === 'loading' && (
         <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
@@ -102,9 +108,7 @@ export function UnconfiguredState({ platform }: { platform: string }) {
   const t = useTranslations('auth')
   return (
     <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-muted/30 px-4 text-center">
-      <p className="text-sm text-muted-foreground">
-        {t('qrNotConfigured', { platform })}
-      </p>
+      <p className="text-sm text-muted-foreground">{t('qrNotConfigured', { platform })}</p>
     </div>
   )
 }

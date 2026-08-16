@@ -75,7 +75,9 @@ export function getAiSkillRecommendations(params?: { context?: string; top_k?: n
   if (params?.context) qs.set('context', params.context)
   if (params?.top_k) qs.set('top_k', String(params.top_k))
   const qstr = qs.toString()
-  return fetchApi<AiSkillRecommendation[]>(`/api/ai-skills/recommendations${qstr ? `?${qstr}` : ''}`)
+  return fetchApi<AiSkillRecommendation[]>(
+    `/api/ai-skills/recommendations${qstr ? `?${qstr}` : ''}`,
+  )
 }
 
 /** 获取单个 AI Skill 详情 */

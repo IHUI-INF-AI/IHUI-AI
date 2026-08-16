@@ -69,7 +69,12 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-card-foreground', type: 'color', defaultValue: 'hsl(0 0% 3.9%)' },
   { name: '--color-popover', type: 'color', defaultValue: 'hsl(0 0% 100%)' },
   { name: '--color-popover-foreground', type: 'color', defaultValue: 'hsl(0 0% 3.9%)' },
-  { name: '--color-primary', type: 'color', defaultValue: 'hsl(0 0% 0%)', description: '亮色纯黑底' },
+  {
+    name: '--color-primary',
+    type: 'color',
+    defaultValue: 'hsl(0 0% 0%)',
+    description: '亮色纯黑底',
+  },
   { name: '--color-primary-foreground', type: 'color', defaultValue: 'hsl(0 0% 100%)' },
   { name: '--color-secondary', type: 'color', defaultValue: 'hsl(0 0% 96.1%)' },
   { name: '--color-secondary-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
@@ -134,7 +139,11 @@ const BUSINESS_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-rank-gold', type: 'color', defaultValue: '#ffd700' },
   { name: '--color-rank-silver', type: 'color', defaultValue: '#c0c0c0' },
   { name: '--color-rank-bronze', type: 'color', defaultValue: '#cd7f32' },
-  { name: '--color-miniapp-green', type: 'gradient', defaultValue: 'linear-gradient(135deg, #07c160, #06ad56)' },
+  {
+    name: '--color-miniapp-green',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(135deg, #07c160, #06ad56)',
+  },
   { name: '--color-miniapp-green-dark', type: 'color', defaultValue: '#06ad56' },
   { name: '--color-miniapp-green-darker', type: 'color', defaultValue: '#059a4c' },
   { name: '--color-miniapp-green-darkest', type: 'color', defaultValue: '#048040' },
@@ -157,8 +166,16 @@ const RADIUS_ENTRIES: ReadonlyArray<TokenEntry> = [
 
 /** 字体 token(web 独占,miniapp-taro / mobile-rn 用系统字体)。 */
 const FONT_ENTRIES: ReadonlyArray<TokenEntry> = [
-  { name: '--font-sans', type: 'font', defaultValue: "'HarmonyOS Sans SC', ui-sans-serif, system-ui, sans-serif" },
-  { name: '--font-sans-sc', type: 'font', defaultValue: "'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif" },
+  {
+    name: '--font-sans',
+    type: 'font',
+    defaultValue: "'HarmonyOS Sans SC', ui-sans-serif, system-ui, sans-serif",
+  },
+  {
+    name: '--font-sans-sc',
+    type: 'font',
+    defaultValue: "'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+  },
 ]
 
 /** 动画 token(web 独占)。 */
@@ -207,7 +224,11 @@ const SHADOW_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--shadow-premium', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
   { name: '--shadow-premium-lg', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
   { name: '--shadow-premium-xl', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  { name: '--shadow-premium-hover', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
+  {
+    name: '--shadow-premium-hover',
+    type: 'shadow',
+    defaultValue: '0 2px 8px var(--color-black-6)',
+  },
 ]
 
 /** 图表色板 token(8 主色 + 文字/轴线/成功色,跨端共享)。 */
@@ -227,7 +248,12 @@ const CHART_ENTRIES: ReadonlyArray<TokenEntry> = [
 
 /** 中文字体垂直对齐偏移 token(AGENTS.md §4 硬约束)。 */
 const VCENTER_ENTRIES: ReadonlyArray<TokenEntry> = [
-  { name: '--text-vcenter-offset', type: 'vcenter', defaultValue: '0.3px', description: '14px 字号 icon+中文同行偏移' },
+  {
+    name: '--text-vcenter-offset',
+    type: 'vcenter',
+    defaultValue: '0.3px',
+    description: '14px 字号 icon+中文同行偏移',
+  },
 ]
 
 /** 布局 token(web 独占,sidebar / header / 全局尺寸)。 */
@@ -248,17 +274,45 @@ const EASING_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--ease-premium', type: 'easing', defaultValue: 'cubic-bezier(0.4, 0, 0.2, 1)' },
   { name: '--ease-premium-in', type: 'easing', defaultValue: 'cubic-bezier(0.4, 0, 1, 1)' },
   { name: '--ease-premium-out', type: 'easing', defaultValue: 'cubic-bezier(0, 0, 0.2, 1)' },
-  { name: '--ease-premium-bounce', type: 'easing', defaultValue: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+  {
+    name: '--ease-premium-bounce',
+    type: 'easing',
+    defaultValue: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
 ]
 
 /** 装饰性渐变 token(web 独占)。 */
 const GRADIENT_ENTRIES: ReadonlyArray<TokenEntry> = [
-  { name: '--color-gradient-purple-yellow', type: 'gradient', defaultValue: 'linear-gradient(112deg, rgba(205,208,255,0.7) 0%, rgba(253,255,225,0.7) 100%)' },
-  { name: '--color-gradient-purple-deep', type: 'gradient', defaultValue: 'linear-gradient(269deg, rgba(217,219,254,0.8) 219%, rgba(144,125,255,0.8) 219%)' },
-  { name: '--color-gradient-white-blue', type: 'gradient', defaultValue: 'linear-gradient(0deg, rgba(255,255,255,1) 1%, rgba(77,180,232,1) 77%)' },
-  { name: '--color-gradient-card-left', type: 'gradient', defaultValue: 'linear-gradient(116deg, rgba(217,219,255,0.8) 3%, rgba(253,255,220,0.8) 104%)' },
-  { name: '--color-gradient-card-right', type: 'gradient', defaultValue: 'linear-gradient(116deg, rgba(0,0,0,0.8) 3%, rgba(0,109,11,0.8) 104%)' },
-  { name: '--color-gradient-group', type: 'gradient', defaultValue: 'linear-gradient(106deg, rgba(228,229,255,0.25) 4%, rgba(254,255,236,0.25) 104%)' },
+  {
+    name: '--color-gradient-purple-yellow',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(112deg, rgba(205,208,255,0.7) 0%, rgba(253,255,225,0.7) 100%)',
+  },
+  {
+    name: '--color-gradient-purple-deep',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(269deg, rgba(217,219,254,0.8) 219%, rgba(144,125,255,0.8) 219%)',
+  },
+  {
+    name: '--color-gradient-white-blue',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(0deg, rgba(255,255,255,1) 1%, rgba(77,180,232,1) 77%)',
+  },
+  {
+    name: '--color-gradient-card-left',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(116deg, rgba(217,219,255,0.8) 3%, rgba(253,255,220,0.8) 104%)',
+  },
+  {
+    name: '--color-gradient-card-right',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(116deg, rgba(0,0,0,0.8) 3%, rgba(0,109,11,0.8) 104%)',
+  },
+  {
+    name: '--color-gradient-group',
+    type: 'gradient',
+    defaultValue: 'linear-gradient(106deg, rgba(228,229,255,0.25) 4%, rgba(254,255,236,0.25) 104%)',
+  },
 ]
 
 /** 智能圆角 token(web 独占,统一引用 --global-border-radius)。 */
@@ -403,10 +457,7 @@ export function listMissingTokens(cssContent: string): string[] {
  * @param rnContent mobile-rn/global.css 内容(副本)
  * @returns 一致性校验结果
  */
-export function validateTokenConsistency(
-  cssContent: string,
-  rnContent: string,
-): ConsistencyResult {
+export function validateTokenConsistency(cssContent: string, rnContent: string): ConsistencyResult {
   const cssVars = extractCssVars(cssContent)
   const rnVars = extractCssVars(rnContent)
 

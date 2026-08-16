@@ -37,9 +37,7 @@ import {
 } from '@/hooks/use-saas-tenant-mutations'
 import type { Tenant } from '../types'
 
-type ConfirmAction =
-  | { type: 'pause' | 'resume' | 'backup' | 'delete'; tenant: Tenant }
-  | null
+type ConfirmAction = { type: 'pause' | 'resume' | 'backup' | 'delete'; tenant: Tenant } | null
 
 export default function TenantDetailPage() {
   const t = useTranslations('admin.saas')
@@ -219,13 +217,9 @@ export default function TenantDetailPage() {
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           <InfoCard
             label={t('detail.status')}
-            value={
-              <StateBadge state={tenant.state} />
-            }
+            value={<StateBadge state={tenant.state} />}
             hint={t('detail.statusHint', {
-              time: tenant.stateChangedAt
-                ? dateFmt.format(new Date(tenant.stateChangedAt))
-                : '—',
+              time: tenant.stateChangedAt ? dateFmt.format(new Date(tenant.stateChangedAt)) : '—',
             })}
           />
           <InfoCard

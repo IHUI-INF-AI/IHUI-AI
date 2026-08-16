@@ -59,7 +59,6 @@ sqlEventBus.on((e) => {
 
 // 把 unhandled rejection 打到 stderr,方便定位 500 原因(测试需要时启用 TEST_DEBUG_LOG)
 process.on('unhandledRejection', (err) => {
-   
   console.error('UNHANDLED REJECTION:', err)
   if (debugLogPath) {
     try {

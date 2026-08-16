@@ -195,11 +195,15 @@ export interface KnowledgeModule {
 export function createKnowledgeModule(client: BaseClient): KnowledgeModule {
   return {
     health: () => client.request<V1KnowledgeHealthResponse>('GET', '/knowledge/health'),
-    listDocuments: () => client.request<V1KnowledgeDocumentsResponse>('GET', '/knowledge/documents'),
+    listDocuments: () =>
+      client.request<V1KnowledgeDocumentsResponse>('GET', '/knowledge/documents'),
     ingestDocument: (req) =>
       client.request<V1IngestDocumentResponse>('POST', '/knowledge/documents', req),
     getDocument: (id) =>
-      client.request<V1KnowledgeDocumentDetail>('GET', `/knowledge/documents/${encodeURIComponent(id)}`),
+      client.request<V1KnowledgeDocumentDetail>(
+        'GET',
+        `/knowledge/documents/${encodeURIComponent(id)}`,
+      ),
     getDocumentChunks: (id) =>
       client.request<V1DocumentChunksResponse>(
         'GET',
@@ -208,14 +212,20 @@ export function createKnowledgeModule(client: BaseClient): KnowledgeModule {
     deleteDocument: (id) =>
       client.request<void>('DELETE', `/knowledge/documents/${encodeURIComponent(id)}`),
     batchDeleteDocuments: (req) =>
-      client.request<V1BatchDeleteDocumentsResponse>('POST', '/knowledge/documents/batch-delete', req),
+      client.request<V1BatchDeleteDocumentsResponse>(
+        'POST',
+        '/knowledge/documents/batch-delete',
+        req,
+      ),
     search: (req) => client.request<V1KnowledgeSearchResponse>('POST', '/knowledge/search', req),
-    ragContext: (req) => client.request<V1RagContextResponse>('POST', '/knowledge/rag-context', req),
+    ragContext: (req) =>
+      client.request<V1RagContextResponse>('POST', '/knowledge/rag-context', req),
     extractGraph: (req) =>
       client.request<V1KnowledgeGraphExtractResponse>('POST', '/knowledge-graph/extract', req),
     buildGraph: (req) =>
       client.request<V1KnowledgeGraphBuildResponse>('POST', '/knowledge-graph/build', req),
-    getGraphData: () => client.request<V1KnowledgeGraphDataResponse>('GET', '/knowledge-graph/data'),
+    getGraphData: () =>
+      client.request<V1KnowledgeGraphDataResponse>('GET', '/knowledge-graph/data'),
     clearGraph: () => client.request<void>('DELETE', '/knowledge-graph/data'),
   }
 }

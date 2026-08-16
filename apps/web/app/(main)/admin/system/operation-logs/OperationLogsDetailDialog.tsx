@@ -1,7 +1,14 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { BIZ_TYPE, STATUS_LABEL } from './helpers'
 import type { OperLog } from './types'
 import { formatDate } from '@/lib/date-utils'
@@ -43,7 +50,9 @@ export function OperationLogsDetailDialog({ detail, onClose }: OperationLogsDeta
               {detail.operUrl}
             </div>
             <div>
-              <span className="text-muted-foreground">{t('operationLogs.detail.requestMethod')}</span>
+              <span className="text-muted-foreground">
+                {t('operationLogs.detail.requestMethod')}
+              </span>
               {detail.requestMethod}
             </div>
             <div>

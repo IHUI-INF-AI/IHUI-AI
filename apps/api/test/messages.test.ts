@@ -580,7 +580,13 @@ describe('message routes', () => {
       enqueue([{ id: UUID, userId: 'user-001' }]) // chatConversations
       enqueue([
         { id: 'm2', conversationId: UUID, role: 'assistant', content: '你好', createdAt: NOW },
-        { id: 'm1', conversationId: UUID, role: 'user', content: 'hi', createdAt: new Date(NOW.getTime() - 1000) },
+        {
+          id: 'm1',
+          conversationId: UUID,
+          role: 'user',
+          content: 'hi',
+          createdAt: new Date(NOW.getTime() - 1000),
+        },
       ]) // chatMessages
       const res = await app.inject({
         method: 'GET',
@@ -748,7 +754,12 @@ describe('message routes', () => {
   describe('GET /api/messages/aggregate (聚合消息)', () => {
     it('返回聚合消息(公告+私信+系统通知+未读数)', async () => {
       authAs()
-      mockFindAnnouncements.mockResolvedValueOnce({ list: [makeAnnouncement()], total: 1, page: 1, pageSize: 5 })
+      mockFindAnnouncements.mockResolvedValueOnce({
+        list: [makeAnnouncement()],
+        total: 1,
+        page: 1,
+        pageSize: 5,
+      })
       enqueue([{ id: 1, content: '私信', senderId: 'user-002', receiverId: 'user-001' }]) // privateMessages
       enqueue([{ id: 1, content: '系统通知', createdAt: NOW }]) // systemNotices
       enqueue([{ count: 2 }]) // unreadAnn

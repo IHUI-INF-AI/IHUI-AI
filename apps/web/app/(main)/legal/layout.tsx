@@ -6,7 +6,11 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, BookOpen, FileText, Globe, Shield } from 'lucide-react'
 
-const NAV_ITEMS: readonly { href: string; key: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const NAV_ITEMS: readonly {
+  href: string
+  key: string
+  icon: React.ComponentType<{ className?: string }>
+}[] = [
   { href: '/legal/terms', key: 'terms', icon: FileText },
   { href: '/legal/usage-policy', key: 'usagePolicy', icon: Shield },
   { href: '/legal/supported-regions', key: 'supportedRegions', icon: Globe },

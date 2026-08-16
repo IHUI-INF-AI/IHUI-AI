@@ -5,7 +5,17 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText, ChevronRight, Upload } from 'lucide-react'
+import {
+  Search,
+  Sparkles,
+  ExternalLink,
+  Loader2,
+  Wand2,
+  Code,
+  FileText,
+  ChevronRight,
+  Upload,
+} from 'lucide-react'
 
 import {
   listAiSkills,
@@ -238,7 +248,12 @@ export default function AiSkillsPageClient() {
       )}
 
       {/* 导入对话框 */}
-      <Dialog open={importOpen} onOpenChange={(v) => { if (!v) setImportOpen(false) }}>
+      <Dialog
+        open={importOpen}
+        onOpenChange={(v) => {
+          if (!v) setImportOpen(false)
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t('importTitle')}</DialogTitle>
@@ -263,10 +278,7 @@ export default function AiSkillsPageClient() {
             >
               {t('importCancel')}
             </Button>
-            <Button
-              onClick={handleImport}
-              disabled={importing}
-            >
+            <Button onClick={handleImport} disabled={importing}>
               {importing ? (
                 <>
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -430,7 +442,11 @@ function RecommendSection() {
                     {skill.name}
                   </span>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                    {t(CATEGORY_LABEL_KEY[skill.category as keyof typeof CATEGORY_LABEL_KEY] as 'categoryCode')}
+                    {t(
+                      CATEGORY_LABEL_KEY[
+                        skill.category as keyof typeof CATEGORY_LABEL_KEY
+                      ] as 'categoryCode',
+                    )}
                   </div>
                 </div>
               </div>

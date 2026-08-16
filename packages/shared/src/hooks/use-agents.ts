@@ -132,10 +132,7 @@ export function useAgents<TAgent extends Agent = Agent>(
     return load()
   }, [load])
 
-  const findById = React.useCallback(
-    (id: string) => agents.find((a) => a.id === id),
-    [agents],
-  )
+  const findById = React.useCallback((id: string) => agents.find((a) => a.id === id), [agents])
 
   const selectById = React.useCallback(
     async (id: string) => {

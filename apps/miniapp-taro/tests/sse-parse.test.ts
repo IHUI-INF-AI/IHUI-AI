@@ -207,8 +207,15 @@ describe('miniapp-taro SSE 流解析', () => {
     })
 
     it('error 事件携带 code 和 errorCode', () => {
-      const { events } = parseSSEChunk('data: {"error":"rate limit","code":429,"errorCode":"RATE_LIMIT"}\n')
-      expect(events[0]).toEqual({ type: 'error', content: 'rate limit', code: 429, errorCode: 'RATE_LIMIT' })
+      const { events } = parseSSEChunk(
+        'data: {"error":"rate limit","code":429,"errorCode":"RATE_LIMIT"}\n',
+      )
+      expect(events[0]).toEqual({
+        type: 'error',
+        content: 'rate limit',
+        code: 429,
+        errorCode: 'RATE_LIMIT',
+      })
     })
 
     it('error 事件携带 statusCode 作为 code', () => {
@@ -224,7 +231,9 @@ describe('miniapp-taro SSE 流解析', () => {
 
   describe('compaction 事件', () => {
     it('compaction 事件解析', () => {
-      const { events } = parseSSEChunk('data: {"compaction":{"triggered":true,"tokensBefore":10000,"tokensAfter":5000,"removedCount":50,"usageRatio":0.88}}\n')
+      const { events } = parseSSEChunk(
+        'data: {"compaction":{"triggered":true,"tokensBefore":10000,"tokensAfter":5000,"removedCount":50,"usageRatio":0.88}}\n',
+      )
       expect(events[0]).toEqual({
         type: 'compaction',
         compaction: {

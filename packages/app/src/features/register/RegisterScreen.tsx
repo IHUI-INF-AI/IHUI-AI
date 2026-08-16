@@ -126,12 +126,24 @@ export function RegisterScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48, paddingBottom: 32 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 10,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
     header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, marginBottom: 12 },
     back: { fontSize: 16, color: tk.text.secondary, marginRight: 12 },
     title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: 12 },
-    label: { fontSize: 14, fontWeight: '600', color: tk.text.secondary, marginBottom: 8, marginTop: 12 },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: tk.text.secondary,
+      marginBottom: 8,
+      marginTop: 12,
+    },
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,

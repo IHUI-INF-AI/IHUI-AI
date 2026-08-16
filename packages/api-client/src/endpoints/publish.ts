@@ -45,7 +45,10 @@ export async function updatePublishAccount(
   accountId: number,
   body: { display_name?: string; credentials?: Record<string, string> },
 ): Promise<ApiResult<PublishAccount>> {
-  return fetchApi(`/api/publish/accounts/${accountId}`, { method: 'PUT', body: JSON.stringify(body) })
+  return fetchApi(`/api/publish/accounts/${accountId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function deletePublishAccount(accountId: number): Promise<ApiResult<unknown>> {
@@ -135,13 +138,17 @@ export interface ScanLoginTask {
   completed_at: number | null
 }
 
-export async function listScanLoginPlatforms(): Promise<ApiResult<{ platforms: ScanLoginPlatform[] }>> {
+export async function listScanLoginPlatforms(): Promise<
+  ApiResult<{ platforms: ScanLoginPlatform[] }>
+> {
   return fetchApi('/api/publish/scan-login/platforms')
 }
 
 export async function startScanLogin(
   platform: string,
-): Promise<ApiResult<{ task_id: string; platform: string; status: string; snapshot: ScanLoginTask }>> {
+): Promise<
+  ApiResult<{ task_id: string; platform: string; status: string; snapshot: ScanLoginTask }>
+> {
   return fetchApi('/api/publish/scan-login/start', {
     method: 'POST',
     body: JSON.stringify({ platform }),
@@ -162,8 +169,12 @@ export async function fetchScanLoginQr(taskId: string): Promise<Blob> {
   return fetchRaw(`/api/publish/scan-login/${encodeURIComponent(taskId)}/qr`)
 }
 
-export async function cancelScanLogin(taskId: string): Promise<ApiResult<{ task_id: string; cancelled: boolean }>> {
-  return fetchApi(`/api/publish/scan-login/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' })
+export async function cancelScanLogin(
+  taskId: string,
+): Promise<ApiResult<{ task_id: string; cancelled: boolean }>> {
+  return fetchApi(`/api/publish/scan-login/${encodeURIComponent(taskId)}/cancel`, {
+    method: 'POST',
+  })
 }
 
 // =============================================================================
@@ -213,7 +224,9 @@ export interface PublishAccountGroup {
   updated_at: string
 }
 
-export async function listPublishGroups(): Promise<ApiResult<{ items: PublishAccountGroup[]; count: number }>> {
+export async function listPublishGroups(): Promise<
+  ApiResult<{ items: PublishAccountGroup[]; count: number }>
+> {
   return fetchApi('/api/publish/groups')
 }
 
@@ -228,7 +241,10 @@ export async function updatePublishGroup(
   groupId: string,
   body: { name?: string; description?: string },
 ): Promise<ApiResult<PublishAccountGroup>> {
-  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}`, { method: 'PATCH', body: JSON.stringify(body) })
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function deletePublishGroup(groupId: string): Promise<ApiResult<unknown>> {
@@ -274,12 +290,20 @@ export async function publishToGroup(
     extra?: Record<string, unknown>
     platform_config?: Record<string, unknown>
   },
-): Promise<ApiResult<{
-  results: Array<{ account_id: number; platform: string; success: boolean; error?: string; published_url?: string }>
-  success_count: number
-  failed_count: number
-  total: number
-}>> {
+): Promise<
+  ApiResult<{
+    results: Array<{
+      account_id: number
+      platform: string
+      success: boolean
+      error?: string
+      published_url?: string
+    }>
+    success_count: number
+    failed_count: number
+    total: number
+  }>
+> {
   return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}/publish`, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -302,7 +326,9 @@ export interface BatchImportResult {
   total: number
 }
 
-export async function batchImportAccounts(rows: BatchImportRow[]): Promise<ApiResult<BatchImportResult>> {
+export async function batchImportAccounts(
+  rows: BatchImportRow[],
+): Promise<ApiResult<BatchImportResult>> {
   return fetchApi('/api/publish/accounts/batch-import', {
     method: 'POST',
     body: JSON.stringify({ rows }),

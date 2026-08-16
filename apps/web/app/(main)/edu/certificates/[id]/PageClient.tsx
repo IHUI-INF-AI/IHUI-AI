@@ -118,7 +118,9 @@ export default function EduCertificateDetailPage() {
             <Award className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">{cert.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t('certificateNo', { no: cert.certificateNo })}</p>
+          <p className="text-sm text-muted-foreground">
+            {t('certificateNo', { no: cert.certificateNo })}
+          </p>
           <span
             className={cn(
               'mx-auto mt-2 inline-block rounded-md px-3 py-0.5 text-xs',
@@ -136,7 +138,9 @@ export default function EduCertificateDetailPage() {
             <p className="text-sm text-muted-foreground">{t('completed')}</p>
             <p className="text-base font-medium">{cert.courseName ?? cert.name}</p>
             <p className="text-sm text-muted-foreground">{t('issuanceText')}</p>
-            <p className="pt-2 text-sm text-muted-foreground">{t('issuedAt', { date: fmt(cert.issuedAt) })}</p>
+            <p className="pt-2 text-sm text-muted-foreground">
+              {t('issuedAt', { date: fmt(cert.issuedAt) })}
+            </p>
           </div>
 
           {cert.description && (

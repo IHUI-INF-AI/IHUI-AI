@@ -17,14 +17,7 @@ import {
   CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-  Button,
-} from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } from '@ihui/ui-react'
 
 export const metadata: Metadata = {
   title: 'AI Agent Marketplace — 200+ Agent Templates | IHUI AI',
@@ -152,8 +145,7 @@ export default function EnglishAgentsPage() {
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            200+ pre-built agent templates. Visual orchestration. One-click
-            deploy to 8 platforms.
+            200+ pre-built agent templates. Visual orchestration. One-click deploy to 8 platforms.
           </p>
           <div className="mt-8">
             <Button asChild variant="default" size="lg">
@@ -177,18 +169,13 @@ export default function EnglishAgentsPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {USE_CASES.map((useCase) => (
-              <Card
-                key={useCase.title}
-                className="transition-colors hover:bg-accent/50"
-              >
+              <Card key={useCase.title} className="transition-colors hover:bg-accent/50">
                 <CardHeader>
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <useCase.icon className="h-5 w-5" />
                   </div>
                   <CardTitle className="text-lg">{useCase.title}</CardTitle>
-                  <CardDescription className="mt-2 leading-relaxed">
-                    {useCase.desc}
-                  </CardDescription>
+                  <CardDescription className="mt-2 leading-relaxed">{useCase.desc}</CardDescription>
                 </CardHeader>
               </Card>
             ))}
@@ -209,13 +196,9 @@ export default function EnglishAgentsPage() {
             {STEPS.map((step) => (
               <Card key={step.number}>
                 <CardHeader>
-                  <span className="text-sm font-bold text-primary">
-                    {step.number}
-                  </span>
+                  <span className="text-sm font-bold text-primary">{step.number}</span>
                   <CardTitle className="mt-2 text-lg">{step.title}</CardTitle>
-                  <CardDescription className="mt-2 leading-relaxed">
-                    {step.desc}
-                  </CardDescription>
+                  <CardDescription className="mt-2 leading-relaxed">{step.desc}</CardDescription>
                 </CardHeader>
               </Card>
             ))}
@@ -234,9 +217,8 @@ export default function EnglishAgentsPage() {
                   MCP Tool Protocol Native Support
                 </h2>
                 <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-                  Agents can securely call external tools and data sources via
-                  the Model Context Protocol. Connect your infrastructure
-                  without writing custom integrations.
+                  Agents can securely call external tools and data sources via the Model Context
+                  Protocol. Connect your infrastructure without writing custom integrations.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -249,12 +231,8 @@ export default function EnglishAgentsPage() {
                       <tool.icon className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {tool.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {tool.desc}
-                      </p>
+                      <p className="text-sm font-medium text-foreground">{tool.name}</p>
+                      <p className="text-xs text-muted-foreground">{tool.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -282,9 +260,7 @@ export default function EnglishAgentsPage() {
           <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             Ready to build your agent?
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Start from a template or create your own.
-          </p>
+          <p className="mt-3 text-muted-foreground">Start from a template or create your own.</p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Button asChild variant="default" size="lg">
               <Link href="/agents/create">

@@ -107,10 +107,8 @@ export const useInlineEditStore = create<InlineEditState>((set, get) => ({
   setInstruction: (instruction) => set({ instruction }),
   setStatus: (status) => set({ status }),
   setGeneratedPatch: (patch) => set({ generatedPatch: patch }),
-  appendPatchDelta: (delta) =>
-    set((s) => ({ generatedPatch: s.generatedPatch + delta })),
-  setError: (error) =>
-    set((s) => ({ status: error ? 'error' : s.status, error })),
+  appendPatchDelta: (delta) => set((s) => ({ generatedPatch: s.generatedPatch + delta })),
+  setError: (error) => set((s) => ({ status: error ? 'error' : s.status, error })),
 
   reset: () =>
     set({

@@ -27,7 +27,9 @@ export default function ProgressBar({
         />
       </View>
       {showText && (
-        <Text className="block text-xs text-muted-foreground mt-1 text-right">{Math.floor(clamped)}%</Text>
+        <Text className="block text-xs text-muted-foreground mt-1 text-right">
+          {Math.floor(clamped)}%
+        </Text>
       )}
     </View>
   )

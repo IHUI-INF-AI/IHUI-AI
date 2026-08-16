@@ -61,7 +61,9 @@ describe('message-router', () => {
 
     it('chrome.runtime.lastError 抛错', async () => {
       chromeSendMessage.mockImplementation((_msg: unknown, cb: (r: unknown) => void) => {
-        ;(globalThis as unknown as { chrome: { runtime: { lastError: { message: string } } } }).chrome.runtime.lastError = { message: 'channel closed' }
+        ;(
+          globalThis as unknown as { chrome: { runtime: { lastError: { message: string } } } }
+        ).chrome.runtime.lastError = { message: 'channel closed' }
         cb(undefined)
       })
       const { sendMessage } = await import('../lib/message-router')

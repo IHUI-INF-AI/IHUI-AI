@@ -37,8 +37,7 @@ export function WalletScreen() {
 
   // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
   const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) =>
-      UNIAPP_TEXT[key] ?? t(key, params),
+    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
     [t],
   )
 

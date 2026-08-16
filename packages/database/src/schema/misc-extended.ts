@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * 需求广场智能体条目表。
@@ -14,7 +14,7 @@ export const plazaItems = pgTable('plaza_items', {
   sort: integer('sort').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * Coze 变量表。
@@ -29,9 +29,9 @@ export const cozeVariables = pgTable('coze_variables', {
   dataType: varchar('data_type', { length: 20 }).default('string').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type PlazaItem = typeof plazaItems.$inferSelect;
-export type NewPlazaItem = typeof plazaItems.$inferInsert;
-export type CozeVariable = typeof cozeVariables.$inferSelect;
-export type NewCozeVariable = typeof cozeVariables.$inferInsert;
+export type PlazaItem = typeof plazaItems.$inferSelect
+export type NewPlazaItem = typeof plazaItems.$inferInsert
+export type CozeVariable = typeof cozeVariables.$inferSelect
+export type NewCozeVariable = typeof cozeVariables.$inferInsert

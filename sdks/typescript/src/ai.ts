@@ -185,10 +185,14 @@ export interface AiModule {
 
 export function createAiModule(client: BaseClient): AiModule {
   return {
-    completions: (req) => client.request<V1ChatCompletionResponse>('POST', '/chat/completions', req),
+    completions: (req) =>
+      client.request<V1ChatCompletionResponse>('POST', '/chat/completions', req),
 
     async *completionsStream(req) {
-      const stream = await client.requestStream('POST', '/chat/completions', { ...req, stream: true })
+      const stream = await client.requestStream('POST', '/chat/completions', {
+        ...req,
+        stream: true,
+      })
       yield* parseChatStream(stream)
     },
 
@@ -198,13 +202,17 @@ export function createAiModule(client: BaseClient): AiModule {
     listModels: () => client.request<V1ModelsResponse>('GET', '/models'),
     getModel: (id) => client.request<V1ModelInfo>('GET', `/models/${encodeURIComponent(id)}`),
     listVendorModels: (vendor) =>
-      client.request<V1VendorModelsResponse>('GET', `/vendors/${encodeURIComponent(vendor)}/models`),
+      client.request<V1VendorModelsResponse>(
+        'GET',
+        `/vendors/${encodeURIComponent(vendor)}/models`,
+      ),
     listMoaPresets: () => client.request<V1MoaPresetsResponse>('GET', '/moa-presets'),
     createMoaPreset: (req) => client.request<V1MoaPresetsResponse>('POST', '/moa-presets', req),
     listUserModels: () => client.request<V1UserModelsResponse>('GET', '/user/models'),
     createUserModel: (req) => client.request<V1UserModelConfig>('POST', '/user/models', req),
     updateUserModel: (id, req) =>
       client.request<V1UserModelConfig>('PUT', `/user/models/${encodeURIComponent(id)}`, req),
-    deleteUserModel: (id) => client.request<void>('DELETE', `/user/models/${encodeURIComponent(id)}`),
+    deleteUserModel: (id) =>
+      client.request<void>('DELETE', `/user/models/${encodeURIComponent(id)}`),
   }
 }

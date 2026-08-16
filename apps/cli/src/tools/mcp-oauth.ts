@@ -74,6 +74,8 @@ interface CallbackHandle {
   waitForCode: Promise<string>;
   /** 关闭 server(成功或失败后都必须调用) */
   close: () => void;
+  /** 实际监听的端口(port=0 时由 OS 分配,否则与入参一致) */
+  actualPort: number;
 }
 
 /**
@@ -86,13 +88,29 @@ interface CallbackHandle {
  *
  * 任意步骤失败均释放 lock(避免死锁)。
  */
-export async function startOAuthFlow(config: OAuthConfig): Promise<OAuthResult> {
+export async function startOAuthFlow(
+  config: OAuthConfig,
+  portOverride?: number,
+  /**
+   * 依赖注入(测试用):可替换内部 startLocalCallbackServer / exchangeCodeForToken 的实现。
+   * 生产代码无需传,默认走模块内导出。
+   */
+  deps?: {
+    startLocalCallbackServer?: typeof startLocalCallbackServer;
+  },
+): Promise<OAuthResult> {
   // 1. 跨进程 dedup:已有 lock 且 PID 存活 → 等待其他进程完成
   await acquireLock(config.serverUrl);
 
+  // 1.5 依赖注入默认值(测试可替换,生产用原实现)
+  const _startLocalCallbackServer = deps?.startLocalCallbackServer ?? startLocalCallbackServer;
+
   try {
-    // 2. 从 redirectUri 解析端口
-    const port = extractPort(config.redirectUri);
+    // 2. 从 redirectUri 解析端口(portOverride 优先:用于测试场景下用 0 让 OS 分配空闲端口)
+    const port =
+      typeof portOverride === 'number' && portOverride >= 0
+        ? portOverride
+        : extractPort(config.redirectUri);
     if (port === null) {
       throw new Error(`redirectUri 缺少端口: ${config.redirectUri}`);
     }
@@ -102,8 +120,8 @@ export async function startOAuthFlow(config: OAuthConfig): Promise<OAuthResult> 
     const codeVerifier = randomBytes(32).toString('base64url');
     const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
 
-    // 4. 启动本地 callback server
-    const handle = startLocalCallbackServer(port, state, OAUTH_TIMEOUT_MS);
+    // 4. 启动本地 callback server(可被测试替换)
+    const handle = _startLocalCallbackServer(port, state, OAUTH_TIMEOUT_MS);
 
     // 5. 构造授权 URL + 打开浏览器
     const authUrl = buildFullAuthorizationUrl(config, state, codeChallenge);
@@ -150,22 +168,22 @@ export function startLocalCallbackServer(
   let settled = false;
   let timer: NodeJS.Timeout | null = null;
 
-  const waitForCode = new Promise<string>((resolve, reject) => {
-    const cleanup = (): void => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+  const cleanup = (): void => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (server) {
+      try {
+        server.close();
+      } catch {
+        // 忽略
       }
-      if (server) {
-        try {
-          server.close();
-        } catch {
-          // 忽略
-        }
-        server = null;
-      }
-    };
+      server = null;
+    }
+  };
 
+  const waitForCode = new Promise<string>((resolve, reject) => {
     timer = setTimeout(() => {
       if (settled) return;
       settled = true;
@@ -230,21 +248,22 @@ export function startLocalCallbackServer(
   });
 
   const close = (): void => {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    if (server) {
-      try {
-        server.close();
-      } catch {
-        // 忽略
-      }
-      server = null;
-    }
+    cleanup();
   };
 
-  return { waitForCode, close };
+  // 拿到 OS 实际分配的端口(port=0 时由系统决定)。
+  // 注意:此处 server 在 Promise executor 内部被赋值,TS 控制流分析看不到,
+  // 所以使用强类型转换保留 narrow 类型(避免被推成 never)。
+  const serverRef = server as Server | null;
+  let actualPort = port;
+  if (serverRef !== null) {
+    const addr = serverRef.address();
+    if (addr && typeof addr === 'object' && typeof addr.port === 'number') {
+      actualPort = addr.port;
+    }
+  }
+
+  return { waitForCode, close, actualPort };
 }
 
 /**

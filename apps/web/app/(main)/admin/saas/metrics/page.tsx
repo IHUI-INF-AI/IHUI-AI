@@ -67,12 +67,7 @@ export default function MetricsComparisonPage() {
               <CenteredText>{t('compareTitle')}</CenteredText>
             </CardTitle>
             <Tooltip content={t('openNewWindow')}>
-              <Button
-                size="sm"
-                variant="ghost"
-                asChild
-                className="h-7 px-2 text-xs"
-              >
+              <Button size="sm" variant="ghost" asChild className="h-7 px-2 text-xs">
                 <a
                   href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'}/d/saas-tenant-comparison`}
                   target="_blank"

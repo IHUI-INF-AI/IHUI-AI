@@ -142,10 +142,20 @@ export interface TrackVisualizationInput {
 }
 
 /** 上下文源类型元数据(供 UI 选择器使用) */
-export const CONTEXT_TYPE_OPTIONS: Array<{ value: ContextType; label: string; color: string; icon: string }> = [
+export const CONTEXT_TYPE_OPTIONS: Array<{
+  value: ContextType
+  label: string
+  color: string
+  icon: string
+}> = [
   { value: 'file', label: '文件', color: 'bg-slate-100 text-slate-700', icon: 'File' },
   { value: 'folder', label: '目录', color: 'bg-slate-100 text-slate-700', icon: 'Folder' },
   { value: 'symbol', label: '符号', color: 'bg-indigo-100 text-indigo-700', icon: 'Code' },
-  { value: 'database', label: '数据库', color: 'bg-emerald-100 text-emerald-700', icon: 'Database' },
+  {
+    value: 'database',
+    label: '数据库',
+    color: 'bg-emerald-100 text-emerald-700',
+    icon: 'Database',
+  },
   { value: 'web', label: '网页', color: 'bg-blue-100 text-blue-700', icon: 'Globe' },
 ]

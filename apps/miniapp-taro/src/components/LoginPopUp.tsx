@@ -89,10 +89,7 @@ export default function LoginPopUp({
   }
 
   return (
-    <View
-      className="fixed inset-0 z-[1500] flex items-center justify-center"
-      onClick={onClose}
-    >
+    <View className="fixed inset-0 z-[1500] flex items-center justify-center" onClick={onClose}>
       {/* 遮罩层 */}
       <View className="absolute inset-0 bg-black/50" />
       {/* 弹窗主体 */}
@@ -155,13 +152,8 @@ export default function LoginPopUp({
         <View className="flex items-center justify-between mb-4">
           <Text className={`text-sm font-medium ${roleClass}`}>{roleText}</Text>
           {showUpgrade && (
-            <View
-              className="bg-warning rounded-md px-4 py-2"
-              onClick={onUpgrade}
-            >
-              <Text className="text-sm text-white">
-                {tt('vip.upgradeNow', '立即升级')}
-              </Text>
+            <View className="bg-warning rounded-md px-4 py-2" onClick={onUpgrade}>
+              <Text className="text-sm text-white">{tt('vip.upgradeNow', '立即升级')}</Text>
             </View>
           )}
         </View>
@@ -205,13 +197,8 @@ export default function LoginPopUp({
         ) : null}
 
         {/* 关闭按钮 */}
-        <View
-          className="w-full py-2 rounded-md bg-muted text-center"
-          onClick={onClose}
-        >
-          <Text className="text-sm text-foreground">
-            {tt('common.close', '关闭')}
-          </Text>
+        <View className="w-full py-2 rounded-md bg-muted text-center" onClick={onClose}>
+          <Text className="text-sm text-foreground">{tt('common.close', '关闭')}</Text>
         </View>
       </View>
     </View>

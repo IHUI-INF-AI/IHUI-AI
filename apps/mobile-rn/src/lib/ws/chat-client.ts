@@ -25,11 +25,7 @@
  * unsub()
  * ```
  */
-import {
-  WebSocketClient,
-  type WebSocketLike,
-  type WebSocketClientHandlers,
-} from '@ihui/api-client'
+import { WebSocketClient, type WebSocketLike, type WebSocketClientHandlers } from '@ihui/api-client'
 
 export interface ChatMessage {
   id: string

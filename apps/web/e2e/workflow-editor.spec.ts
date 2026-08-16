@@ -79,7 +79,9 @@ test.describe('工作流编辑器', () => {
 
     // 验证调色板节点类型可见(至少一个节点类型)
     const nodeType = dialog.locator('text=测试回显').first()
-    await expect(nodeType).toBeVisible({ timeout: 5000 }).catch(() => {})
+    await expect(nodeType)
+      .toBeVisible({ timeout: 5000 })
+      .catch(() => {})
   })
 
   test('节点选中后显示属性面板', async ({ page }) => {
@@ -115,7 +117,9 @@ test.describe('工作流编辑器', () => {
     } else {
       // 没有节点时,属性面板显示"选择一个节点编辑属性"
       const selectNodeText = dialog.locator('text=选择一个节点编辑属性').first()
-      await expect(selectNodeText).toBeVisible({ timeout: 3000 }).catch(() => {})
+      await expect(selectNodeText)
+        .toBeVisible({ timeout: 3000 })
+        .catch(() => {})
     }
   })
 

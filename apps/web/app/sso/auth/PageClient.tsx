@@ -93,7 +93,9 @@ export default function SsoAuthPage() {
       <div className="w-full max-w-sm rounded-xl border bg-card p-6 text-center shadow-sm">
         <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-primary" />
         <h1 className="mb-1 text-base font-semibold">{t('redirecting')}</h1>
-        <p className="text-xs text-muted-foreground">{t('redirectingDesc', { platform: platform ?? '' })}</p>
+        <p className="text-xs text-muted-foreground">
+          {t('redirectingDesc', { platform: platform ?? '' })}
+        </p>
       </div>
     </div>
   )

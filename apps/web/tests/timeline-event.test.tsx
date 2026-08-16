@@ -27,10 +27,7 @@ import type { TimelineEvent } from '../src/stores/timeline-store'
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, string | number>) => {
     if (!params) return key
-    return Object.entries(params).reduce(
-      (acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)),
-      key,
-    )
+    return Object.entries(params).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), key)
   },
   useLocale: () => 'zh-CN',
   NextIntlClientProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -228,7 +225,13 @@ describe('TimelineEventRow — children 展开/折叠', () => {
     const event = makeEvent({
       id: 'parent-1',
       children: [
-        { id: 'child-1', type: 'tool', status: 'done', title: '子事件', timestamp: new Date().toISOString() },
+        {
+          id: 'child-1',
+          type: 'tool',
+          status: 'done',
+          title: '子事件',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -242,8 +245,20 @@ describe('TimelineEventRow — children 展开/折叠', () => {
     const event = makeEvent({
       id: 'parent-2',
       children: [
-        { id: 'child-a', type: 'tool', status: 'done', title: '子 A', timestamp: new Date().toISOString() },
-        { id: 'child-b', type: 'tool', status: 'done', title: '子 B', timestamp: new Date().toISOString() },
+        {
+          id: 'child-a',
+          type: 'tool',
+          status: 'done',
+          title: '子 A',
+          timestamp: new Date().toISOString(),
+        },
+        {
+          id: 'child-b',
+          type: 'tool',
+          status: 'done',
+          title: '子 B',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -260,7 +275,13 @@ describe('TimelineEventRow — children 展开/折叠', () => {
     const event = makeEvent({
       id: 'parent-3',
       children: [
-        { id: 'child-c', type: 'tool', status: 'done', title: '子 C', timestamp: new Date().toISOString() },
+        {
+          id: 'child-c',
+          type: 'tool',
+          status: 'done',
+          title: '子 C',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -276,7 +297,13 @@ describe('TimelineEventRow — children 展开/折叠', () => {
       id: 'parent-4',
       description: '详情描述',
       children: [
-        { id: 'child-d', type: 'tool', status: 'done', title: '子 D', timestamp: new Date().toISOString() },
+        {
+          id: 'child-d',
+          type: 'tool',
+          status: 'done',
+          title: '子 D',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -449,7 +476,13 @@ describe('TimelineEventRow — snapshot 测试', () => {
       type: 'subagent',
       status: 'failed',
       children: [
-        { id: 'snap-1-c1', type: 'tool', status: 'failed', title: '失败工具', timestamp: new Date().toISOString() },
+        {
+          id: 'snap-1-c1',
+          type: 'tool',
+          status: 'failed',
+          title: '失败工具',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -475,7 +508,13 @@ describe('TimelineEventRow — ChevronRight 展开旋转', () => {
     const event = makeEvent({
       id: 'rotate-1',
       children: [
-        { id: 'r-c1', type: 'tool', status: 'done', title: '子 R1', timestamp: new Date().toISOString() },
+        {
+          id: 'r-c1',
+          type: 'tool',
+          status: 'done',
+          title: '子 R1',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -487,7 +526,13 @@ describe('TimelineEventRow — ChevronRight 展开旋转', () => {
     const event = makeEvent({
       id: 'rotate-2',
       children: [
-        { id: 'r-c2', type: 'tool', status: 'done', title: '子 R2', timestamp: new Date().toISOString() },
+        {
+          id: 'r-c2',
+          type: 'tool',
+          status: 'done',
+          title: '子 R2',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     const { container } = render(<TimelineEventRow event={event} />)
@@ -507,9 +552,7 @@ describe('TimelineEventRow — data-testid 透传', () => {
 
   it('自定义 data-testid 覆盖默认值 "timeline-event-row"', () => {
     const event = makeEvent({ id: 'tid-1' })
-    const { container } = render(
-      <TimelineEventRow event={event} data-testid="my-custom-row" />,
-    )
+    const { container } = render(<TimelineEventRow event={event} data-testid="my-custom-row" />)
     expect(container.querySelector('[data-testid="my-custom-row"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="timeline-event-row"]')).toBeFalsy()
   })
@@ -546,7 +589,13 @@ describe('TimelineEventRow — store 预展开状态', () => {
     const event = makeEvent({
       id: 'preset-expanded',
       children: [
-        { id: 'p-c1', type: 'tool', status: 'done', title: '预展开子项', timestamp: new Date().toISOString() },
+        {
+          id: 'p-c1',
+          type: 'tool',
+          status: 'done',
+          title: '预展开子项',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     // 预设 store 展开状态
@@ -561,7 +610,13 @@ describe('TimelineEventRow — store 预展开状态', () => {
     const event = makeEvent({
       id: 'preset-collapse',
       children: [
-        { id: 'p-c2', type: 'tool', status: 'done', title: '子 C', timestamp: new Date().toISOString() },
+        {
+          id: 'p-c2',
+          type: 'tool',
+          status: 'done',
+          title: '子 C',
+          timestamp: new Date().toISOString(),
+        },
       ],
     })
     useTimelineStore.getState().setExpanded('preset-collapse', true)

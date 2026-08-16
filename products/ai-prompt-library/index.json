@@ -16,32 +16,227 @@
     "homepage": "https://github.com/ihui-ai/ihui-ai",
     "release_date": "2026-07-27",
     "pricing_tiers": [
-      { "name": "个人版", "price": "¥99", "license": "Single User", "features": ["200+ prompts", "20 categories", "JSON format", "Free updates for 1 year"] },
-      { "name": "团队版", "price": "¥299", "license": "Up to 10 users", "features": ["All Personal features", "Team license", "Priority support"] },
-      { "name": "企业版", "price": "¥999", "license": "Unlimited users", "features": ["All Team features", "Custom prompts", "Commercial redistribution"] }
+      {
+        "name": "个人版",
+        "price": "¥99",
+        "license": "Single User",
+        "features": ["200+ prompts", "20 categories", "JSON format", "Free updates for 1 year"]
+      },
+      {
+        "name": "团队版",
+        "price": "¥299",
+        "license": "Up to 10 users",
+        "features": ["All Personal features", "Team license", "Priority support"]
+      },
+      {
+        "name": "企业版",
+        "price": "¥999",
+        "license": "Unlimited users",
+        "features": ["All Team features", "Custom prompts", "Commercial redistribution"]
+      }
     ]
   },
   "categories": [
-    { "id": "01", "category": "coding-development", "category_zh": "编程开发", "category_en": "Coding & Development", "icon": "💻", "file": "prompts/01-coding-development.json", "count": 11, "id_range": "1-11" },
-    { "id": "02", "category": "content-creation", "category_zh": "内容创作", "category_en": "Content Creation", "icon": "✍️", "file": "prompts/02-content-creation.json", "count": 11, "id_range": "12-22" },
-    { "id": "03", "category": "marketing-sales", "category_zh": "市场营销", "category_en": "Marketing & Sales", "icon": "📢", "file": "prompts/03-marketing-sales.json", "count": 11, "id_range": "23-33" },
-    { "id": "04", "category": "business-strategy", "category_zh": "商业战略", "category_en": "Business Strategy", "icon": "🎯", "file": "prompts/04-business-strategy.json", "count": 11, "id_range": "34-44" },
-    { "id": "05", "category": "education-learning", "category_zh": "教育培训", "category_en": "Education & Learning", "icon": "📚", "file": "prompts/05-education-learning.json", "count": 11, "id_range": "45-55" },
-    { "id": "06", "category": "personal-productivity", "category_zh": "个人效率", "category_en": "Personal Productivity", "icon": "⚡", "file": "prompts/06-personal-productivity.json", "count": 11, "id_range": "56-66" },
-    { "id": "07", "category": "creative-writing", "category_zh": "创意写作", "category_en": "Creative Writing", "icon": "🎨", "file": "prompts/07-creative-writing.json", "count": 11, "id_range": "67-77" },
-    { "id": "08", "category": "data-analysis", "category_zh": "数据分析", "category_en": "Data Analysis", "icon": "📊", "file": "prompts/08-data-analysis.json", "count": 11, "id_range": "78-88" },
-    { "id": "09", "category": "customer-service", "category_zh": "客户服务", "category_en": "Customer Service", "icon": "🎧", "file": "prompts/09-customer-service.json", "count": 11, "id_range": "89-99" },
-    { "id": "10", "category": "research-analysis", "category_zh": "研究分析", "category_en": "Research & Analysis", "icon": "🔬", "file": "prompts/10-research-analysis.json", "count": 11, "id_range": "100-110" },
-    { "id": "11", "category": "hr-recruitment", "category_zh": "HR 招聘", "category_en": "HR & Recruitment", "icon": "👥", "file": "prompts/11-hr-recruitment.json", "count": 11, "id_range": "111-121" },
-    { "id": "12", "category": "legal-compliance", "category_zh": "法律合规", "category_en": "Legal & Compliance", "icon": "⚖️", "file": "prompts/12-legal-compliance.json", "count": 10, "id_range": "122-131" },
-    { "id": "13", "category": "finance-accounting", "category_zh": "财务会计", "category_en": "Finance & Accounting", "icon": "💰", "file": "prompts/13-finance-accounting.json", "count": 10, "id_range": "132-141" },
-    { "id": "14", "category": "product-management", "category_zh": "产品管理", "category_en": "Product Management", "icon": "📦", "file": "prompts/14-product-management.json", "count": 10, "id_range": "142-151" },
-    { "id": "15", "category": "design-creative", "category_zh": "设计创意", "category_en": "Design & Creative", "icon": "🎨", "file": "prompts/15-design-creative.json", "count": 11, "id_range": "149-159" },
-    { "id": "16", "category": "project-management", "category_zh": "项目管理", "category_en": "Project Management", "icon": "📋", "file": "prompts/16-project-management.json", "count": 11, "id_range": "160-170" },
-    { "id": "17", "category": "operations-growth", "category_zh": "运营增长", "category_en": "Operations & Growth", "icon": "📈", "file": "prompts/17-operations-growth.json", "count": 10, "id_range": "171-180" },
-    { "id": "18", "category": "healthcare-wellness", "category_zh": "健康医疗", "category_en": "Healthcare & Wellness", "icon": "🏥", "file": "prompts/18-healthcare-wellness.json", "count": 10, "id_range": "181-190" },
-    { "id": "19", "category": "ecommerce-retail", "category_zh": "电商零售", "category_en": "E-commerce & Retail", "icon": "🛍️", "file": "prompts/19-ecommerce-retail.json", "count": 10, "id_range": "191-200" },
-    { "id": "20", "category": "travel-lifestyle", "category_zh": "旅游生活方式", "category_en": "Travel & Lifestyle", "icon": "✈️", "file": "prompts/20-travel-lifestyle.json", "count": 10, "id_range": "201-210" }
+    {
+      "id": "01",
+      "category": "coding-development",
+      "category_zh": "编程开发",
+      "category_en": "Coding & Development",
+      "icon": "💻",
+      "file": "prompts/01-coding-development.json",
+      "count": 11,
+      "id_range": "1-11"
+    },
+    {
+      "id": "02",
+      "category": "content-creation",
+      "category_zh": "内容创作",
+      "category_en": "Content Creation",
+      "icon": "✍️",
+      "file": "prompts/02-content-creation.json",
+      "count": 11,
+      "id_range": "12-22"
+    },
+    {
+      "id": "03",
+      "category": "marketing-sales",
+      "category_zh": "市场营销",
+      "category_en": "Marketing & Sales",
+      "icon": "📢",
+      "file": "prompts/03-marketing-sales.json",
+      "count": 11,
+      "id_range": "23-33"
+    },
+    {
+      "id": "04",
+      "category": "business-strategy",
+      "category_zh": "商业战略",
+      "category_en": "Business Strategy",
+      "icon": "🎯",
+      "file": "prompts/04-business-strategy.json",
+      "count": 11,
+      "id_range": "34-44"
+    },
+    {
+      "id": "05",
+      "category": "education-learning",
+      "category_zh": "教育培训",
+      "category_en": "Education & Learning",
+      "icon": "📚",
+      "file": "prompts/05-education-learning.json",
+      "count": 11,
+      "id_range": "45-55"
+    },
+    {
+      "id": "06",
+      "category": "personal-productivity",
+      "category_zh": "个人效率",
+      "category_en": "Personal Productivity",
+      "icon": "⚡",
+      "file": "prompts/06-personal-productivity.json",
+      "count": 11,
+      "id_range": "56-66"
+    },
+    {
+      "id": "07",
+      "category": "creative-writing",
+      "category_zh": "创意写作",
+      "category_en": "Creative Writing",
+      "icon": "🎨",
+      "file": "prompts/07-creative-writing.json",
+      "count": 11,
+      "id_range": "67-77"
+    },
+    {
+      "id": "08",
+      "category": "data-analysis",
+      "category_zh": "数据分析",
+      "category_en": "Data Analysis",
+      "icon": "📊",
+      "file": "prompts/08-data-analysis.json",
+      "count": 11,
+      "id_range": "78-88"
+    },
+    {
+      "id": "09",
+      "category": "customer-service",
+      "category_zh": "客户服务",
+      "category_en": "Customer Service",
+      "icon": "🎧",
+      "file": "prompts/09-customer-service.json",
+      "count": 11,
+      "id_range": "89-99"
+    },
+    {
+      "id": "10",
+      "category": "research-analysis",
+      "category_zh": "研究分析",
+      "category_en": "Research & Analysis",
+      "icon": "🔬",
+      "file": "prompts/10-research-analysis.json",
+      "count": 11,
+      "id_range": "100-110"
+    },
+    {
+      "id": "11",
+      "category": "hr-recruitment",
+      "category_zh": "HR 招聘",
+      "category_en": "HR & Recruitment",
+      "icon": "👥",
+      "file": "prompts/11-hr-recruitment.json",
+      "count": 11,
+      "id_range": "111-121"
+    },
+    {
+      "id": "12",
+      "category": "legal-compliance",
+      "category_zh": "法律合规",
+      "category_en": "Legal & Compliance",
+      "icon": "⚖️",
+      "file": "prompts/12-legal-compliance.json",
+      "count": 10,
+      "id_range": "122-131"
+    },
+    {
+      "id": "13",
+      "category": "finance-accounting",
+      "category_zh": "财务会计",
+      "category_en": "Finance & Accounting",
+      "icon": "💰",
+      "file": "prompts/13-finance-accounting.json",
+      "count": 10,
+      "id_range": "132-141"
+    },
+    {
+      "id": "14",
+      "category": "product-management",
+      "category_zh": "产品管理",
+      "category_en": "Product Management",
+      "icon": "📦",
+      "file": "prompts/14-product-management.json",
+      "count": 10,
+      "id_range": "142-151"
+    },
+    {
+      "id": "15",
+      "category": "design-creative",
+      "category_zh": "设计创意",
+      "category_en": "Design & Creative",
+      "icon": "🎨",
+      "file": "prompts/15-design-creative.json",
+      "count": 11,
+      "id_range": "149-159"
+    },
+    {
+      "id": "16",
+      "category": "project-management",
+      "category_zh": "项目管理",
+      "category_en": "Project Management",
+      "icon": "📋",
+      "file": "prompts/16-project-management.json",
+      "count": 11,
+      "id_range": "160-170"
+    },
+    {
+      "id": "17",
+      "category": "operations-growth",
+      "category_zh": "运营增长",
+      "category_en": "Operations & Growth",
+      "icon": "📈",
+      "file": "prompts/17-operations-growth.json",
+      "count": 10,
+      "id_range": "171-180"
+    },
+    {
+      "id": "18",
+      "category": "healthcare-wellness",
+      "category_zh": "健康医疗",
+      "category_en": "Healthcare & Wellness",
+      "icon": "🏥",
+      "file": "prompts/18-healthcare-wellness.json",
+      "count": 10,
+      "id_range": "181-190"
+    },
+    {
+      "id": "19",
+      "category": "ecommerce-retail",
+      "category_zh": "电商零售",
+      "category_en": "E-commerce & Retail",
+      "icon": "🛍️",
+      "file": "prompts/19-ecommerce-retail.json",
+      "count": 10,
+      "id_range": "191-200"
+    },
+    {
+      "id": "20",
+      "category": "travel-lifestyle",
+      "category_zh": "旅游生活方式",
+      "category_en": "Travel & Lifestyle",
+      "icon": "✈️",
+      "file": "prompts/20-travel-lifestyle.json",
+      "count": 10,
+      "id_range": "201-210"
+    }
   ],
   "stats": {
     "total_prompts": 210,
@@ -61,7 +256,18 @@
   },
   "usage": {
     "how_to_use": "1. 选择分类 → 2. 选择 prompt → 3. 替换变量 → 4. 复制到 AI 工具 → 5. 获得专业输出",
-    "supported_tools": ["ChatGPT", "Claude", "Gemini", "文心一言", "通义千问", "智谱清言", "Kimi", "DeepSeek", "Doubao", "任何支持 prompt 的 AI 工具"],
+    "supported_tools": [
+      "ChatGPT",
+      "Claude",
+      "Gemini",
+      "文心一言",
+      "通义千问",
+      "智谱清言",
+      "Kimi",
+      "DeepSeek",
+      "Doubao",
+      "任何支持 prompt 的 AI 工具"
+    ],
     "variable_format": "{variable_name}",
     "example": "查看 README.md 获取详细使用说明"
   },

@@ -1111,9 +1111,7 @@ export function AgentTaskProgressPane() {
           -- v18 设计选择:header 整体是拖动 handle,内嵌 button 用 closest('button') 早退
           保留独立 onClick。已通过测试用例 pane-minimize.test.tsx 的 click 路径纯粹性验证。 */}
       <div
-        className={cn(
-          'flex h-8 shrink-0 select-none items-center gap-1.5 px-2',
-        )}
+        className={cn('flex h-8 shrink-0 select-none items-center gap-1.5 px-2')}
         onMouseDown={onHandleMouseDown}
         data-testid="pane-header"
       >
@@ -1197,7 +1195,9 @@ export function AgentTaskProgressPane() {
           </button>
         </Tooltip>
         <Tooltip
-          content={pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`}
+          content={
+            pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`
+          }
         >
           <button
             type="button"
@@ -1376,13 +1376,12 @@ export function AgentTaskProgressPane() {
           </div>
         )}
 
-        {threadId && planSteps.length === 0 && isStreaming && (
+        {threadId && planSteps.length === 0 && (
           // v20(2026-08-02):删除 v13 假 skeleton 4 行(50/62/74/86% 宽度假数据),
           // 改为 1 行真实"等待 AI 规划"状态。语义:
-          // - threadId 存在 + AI 已连接(isStreaming) + plan 还没下发
-          //   → 用户看到的是"AI 在思考,plan 即将到来"真实信号
-          // - 非 streaming + planSteps.length === 0 → 啥都不渲染(让 sections-container 的
-          //   实时数据 / empty state 主导显示),杜绝"假空行"
+          // - threadId 存在 + plan 还没下发 → 用户看到的是"AI 在思考,plan 即将到来"真实信号
+          // - 无论 isStreaming 与否,只要有 threadId 且 planSteps 为空,就显示等待提示,
+          //   避免点击 trigger 后 pane 完全空白(用户反馈"点 button 也没有显示任务计划列表")
           <div
             className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground/70"
             data-testid="pane-waiting-for-plan"

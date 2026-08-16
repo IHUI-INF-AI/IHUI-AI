@@ -1,6 +1,15 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { projects } from './projects.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { projects } from './projects.js'
 
 /**
  * 工作流定义表。
@@ -21,7 +30,7 @@ export const workflows = pgTable('workflows', {
     .notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 工作流实例表。
@@ -40,7 +49,7 @@ export const workflowInstances = pgTable('workflow_instances', {
   completedAt: timestamp('completed_at', { withTimezone: true }),
   error: text('error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 工作流任务表（实例的每一步执行记录）。
@@ -62,7 +71,7 @@ export const workflowTasks = pgTable('workflow_tasks', {
   completedAt: timestamp('completed_at', { withTimezone: true }),
   error: text('error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 工作流日志表。
@@ -78,13 +87,13 @@ export const workflowLogs = pgTable('workflow_logs', {
   message: text('message').notNull(),
   data: jsonb('data'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Workflow = typeof workflows.$inferSelect;
-export type NewWorkflow = typeof workflows.$inferInsert;
-export type WorkflowInstance = typeof workflowInstances.$inferSelect;
-export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
-export type WorkflowTask = typeof workflowTasks.$inferSelect;
-export type NewWorkflowTask = typeof workflowTasks.$inferInsert;
-export type WorkflowLog = typeof workflowLogs.$inferSelect;
-export type NewWorkflowLog = typeof workflowLogs.$inferInsert;
+export type Workflow = typeof workflows.$inferSelect
+export type NewWorkflow = typeof workflows.$inferInsert
+export type WorkflowInstance = typeof workflowInstances.$inferSelect
+export type NewWorkflowInstance = typeof workflowInstances.$inferInsert
+export type WorkflowTask = typeof workflowTasks.$inferSelect
+export type NewWorkflowTask = typeof workflowTasks.$inferInsert
+export type WorkflowLog = typeof workflowLogs.$inferSelect
+export type NewWorkflowLog = typeof workflowLogs.$inferInsert

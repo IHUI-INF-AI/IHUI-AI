@@ -22,13 +22,17 @@ function makeText(text: string): ParserInput {
 
 describe('aider parser — 双 provider 组合', () => {
   it('OpenAI + Anthropic 双 provider + model=claude-* → anthropic isCurrent', async () => {
-    const res = await parseAider(makeText([
-      'model: claude-3-opus',
-      'openai-api-key: sk-openai',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-ant-xxx',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: claude-3-opus',
+          'openai-api-key: sk-openai',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-ant-xxx',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers).toHaveLength(2)
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
@@ -39,13 +43,17 @@ describe('aider parser — 双 provider 组合', () => {
   })
 
   it('双 provider + model=gpt-* → openai isCurrent', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4',
-      'openai-api-key: sk-a',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-b',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: gpt-4',
+          'openai-api-key: sk-a',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-b',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(openai?.isCurrent).toBe(true)
@@ -54,12 +62,16 @@ describe('aider parser — 双 provider 组合', () => {
 
   it('双 provider + 无 model → openai isCurrent(默认)', async () => {
     // model 未设置时 targetId='aider::openai',走 findIndex 找不到时 idx=-1 → Math.max(0, -1)=0
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-a',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-b',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'openai-api-key: sk-a',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-b',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers).toHaveLength(2)
     // model 未设 → defaultModel undefined → targetId='aider::openai'
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
@@ -68,64 +80,69 @@ describe('aider parser — 双 provider 组合', () => {
 
   it('双 provider + model=其他(gemini-*) → openai isCurrent(兜底)', async () => {
     // model=gemini-1.5-pro 不匹配 claude-* → targetId='aider::openai'
-    const res = await parseAider(makeText([
-      'model: gemini-1.5-pro',
-      'openai-api-key: sk-a',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-b',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: gemini-1.5-pro',
+          'openai-api-key: sk-a',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-b',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     expect(openai?.isCurrent).toBe(true)
   })
 
   it('双 provider + model=claude-3-haiku(短名) → anthropic isCurrent', async () => {
-    const res = await parseAider(makeText([
-      'model: claude-3-haiku',
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        ['model: claude-3-haiku', 'openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n'),
+      ),
+    )
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(anthropic?.isCurrent).toBe(true)
   })
 
   it('双 provider 顺序固定(openai 先,anthropic 后)', async () => {
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n')),
+    )
     expect(res.providers[0]!.sourceId).toBe('aider::openai')
     expect(res.providers[1]!.sourceId).toBe('aider::anthropic')
   })
 
   it('双 provider + model=gpt-4o → openai modelIdForTest=gpt-4o', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4o',
-      'openai-api-key: sk-a',
-      'openai-api-base: https://api.openai.com/v1',
-      'anthropic-api-key: sk-b',
-      'anthropic-api-base: https://api.anthropic.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'model: gpt-4o',
+          'openai-api-key: sk-a',
+          'openai-api-base: https://api.openai.com/v1',
+          'anthropic-api-key: sk-b',
+          'anthropic-api-base: https://api.anthropic.com',
+        ].join('\n'),
+      ),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     expect(openai?.modelIdForTest).toBe('gpt-4o')
   })
 
   it('双 provider + model=claude-* → anthropic modelIdForTest=claude-*', async () => {
-    const res = await parseAider(makeText([
-      'model: claude-3-sonnet',
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        ['model: claude-3-sonnet', 'openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n'),
+      ),
+    )
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(anthropic?.modelIdForTest).toBe('claude-3-sonnet')
   })
 
   it('双 provider + model=gpt-* → openai modelIdForTest=gpt-*, anthropic undefined', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4',
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['model: gpt-4', 'openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n')),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(openai?.modelIdForTest).toBe('gpt-4')
@@ -133,11 +150,11 @@ describe('aider parser — 双 provider 组合', () => {
   })
 
   it('双 provider + model 不匹配任何前缀 → 两边 modelIdForTest undefined', async () => {
-    const res = await parseAider(makeText([
-      'model: custom-model',
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        ['model: custom-model', 'openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n'),
+      ),
+    )
     const openai = res.providers.find((p) => p.sourceId === 'aider::openai')
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(openai?.modelIdForTest).toBeUndefined()
@@ -190,18 +207,21 @@ describe('aider parser — 默认 baseUrl fallback', () => {
   })
 
   it('自定义 openai-api-base → 覆盖默认', async () => {
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-xxx',
-      'openai-api-base: https://api.deepseek.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['openai-api-key: sk-xxx', 'openai-api-base: https://api.deepseek.com'].join('\n')),
+    )
     expect(res.providers[0]!.baseUrl).toBe('https://api.deepseek.com')
   })
 
   it('自定义 anthropic-api-base → 覆盖默认', async () => {
-    const res = await parseAider(makeText([
-      'anthropic-api-key: sk-ant-xxx',
-      'anthropic-api-base: https://custom.anthropic.proxy.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'anthropic-api-key: sk-ant-xxx',
+          'anthropic-api-base: https://custom.anthropic.proxy.com',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers[0]!.baseUrl).toBe('https://custom.anthropic.proxy.com')
   })
 })
@@ -239,17 +259,23 @@ describe('aider parser — YAML 格式变体', () => {
   })
 
   it('注释行被忽略', async () => {
-    const res = await parseAider(makeText([
-      '# This is a comment',
-      'openai-api-key: sk-xxx',
-      '// double slash comment not ignored',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          '# This is a comment',
+          'openai-api-key: sk-xxx',
+          '// double slash comment not ignored',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
     expect(res.providers[0]!.apiKey).toBe('sk-xxx')
   })
 
   it('CRLF 换行兼容', async () => {
-    const res = await parseAider(makeText('openai-api-key: sk-crlf\r\nopenai-api-base: https://api.openai.com/v1'))
+    const res = await parseAider(
+      makeText('openai-api-key: sk-crlf\r\nopenai-api-base: https://api.openai.com/v1'),
+    )
     expect(res.providers[0]!.apiKey).toBe('sk-crlf')
   })
 
@@ -264,23 +290,27 @@ describe('aider parser — YAML 格式变体', () => {
   })
 
   it('空行被忽略', async () => {
-    const res = await parseAider(makeText([
-      '',
-      'openai-api-key: sk-xxx',
-      '',
-      '',
-      'openai-api-base: https://api.openai.com/v1',
-      '',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          '',
+          'openai-api-key: sk-xxx',
+          '',
+          '',
+          'openai-api-base: https://api.openai.com/v1',
+          '',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers).toHaveLength(1)
   })
 
   it('model 字段也支持引号', async () => {
-    const res = await parseAider(makeText([
-      'model: "claude-3-opus"',
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        ['model: "claude-3-opus"', 'openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n'),
+      ),
+    )
     const anthropic = res.providers.find((p) => p.sourceId === 'aider::anthropic')
     expect(anthropic?.isCurrent).toBe(true)
   })
@@ -328,18 +358,14 @@ describe('aider parser — 空值与异常边界', () => {
   })
 
   it('无效 YAML 行(无冒号)被忽略', async () => {
-    const res = await parseAider(makeText([
-      'invalid line without colon',
-      'openai-api-key: sk-xxx',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['invalid line without colon', 'openai-api-key: sk-xxx'].join('\n')),
+    )
     expect(res.providers).toHaveLength(1)
   })
 
   it('只有冒号的行被忽略', async () => {
-    const res = await parseAider(makeText([
-      ':',
-      'openai-api-key: sk-xxx',
-    ].join('\n')))
+    const res = await parseAider(makeText([':', 'openai-api-key: sk-xxx'].join('\n')))
     expect(res.providers).toHaveLength(1)
   })
 })
@@ -351,18 +377,14 @@ describe('aider parser — providerCode 推断', () => {
   })
 
   it('OpenAI provider + api.deepseek.com URL → providerCode=deepseek', async () => {
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-xxx',
-      'openai-api-base: https://api.deepseek.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['openai-api-key: sk-xxx', 'openai-api-base: https://api.deepseek.com'].join('\n')),
+    )
     expect(res.providers[0]!.providerCode).toBe('deepseek')
   })
 
   it('OpenAI provider + model=gpt-4o + openai URL → providerCode=openai', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4o',
-      'openai-api-key: sk-xxx',
-    ].join('\n')))
+    const res = await parseAider(makeText(['model: gpt-4o', 'openai-api-key: sk-xxx'].join('\n')))
     expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
@@ -372,18 +394,21 @@ describe('aider parser — providerCode 推断', () => {
   })
 
   it('Anthropic provider + 自定义 URL → providerCode=anthropic(URL 含 anthropic.com)', async () => {
-    const res = await parseAider(makeText([
-      'anthropic-api-key: sk-ant-xxx',
-      'anthropic-api-base: https://proxy.anthropic.com/v1',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(
+        [
+          'anthropic-api-key: sk-ant-xxx',
+          'anthropic-api-base: https://proxy.anthropic.com/v1',
+        ].join('\n'),
+      ),
+    )
     expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('OpenAI provider + 未知 URL + 无 model → providerCode=custom', async () => {
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-xxx',
-      'openai-api-base: https://api.unknown.com',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['openai-api-key: sk-xxx', 'openai-api-base: https://api.unknown.com'].join('\n')),
+    )
     expect(res.providers[0]!.providerCode).toBe('custom')
   })
 })
@@ -405,10 +430,7 @@ describe('aider parser — meta + name 验证', () => {
   })
 
   it('有 model 时 meta.models = [model]', async () => {
-    const res = await parseAider(makeText([
-      'model: gpt-4o',
-      'openai-api-key: sk-xxx',
-    ].join('\n')))
+    const res = await parseAider(makeText(['model: gpt-4o', 'openai-api-key: sk-xxx'].join('\n')))
     expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
   })
 
@@ -456,10 +478,9 @@ describe('aider parser — 跨平台不搞混', () => {
   })
 
   it('aider 双 provider sourceId 不同(aider::openai ≠ aider::anthropic)', async () => {
-    const res = await parseAider(makeText([
-      'openai-api-key: sk-a',
-      'anthropic-api-key: sk-b',
-    ].join('\n')))
+    const res = await parseAider(
+      makeText(['openai-api-key: sk-a', 'anthropic-api-key: sk-b'].join('\n')),
+    )
     const ids = res.providers.map((p) => p.sourceId)
     expect(ids).toContain('aider::openai')
     expect(ids).toContain('aider::anthropic')

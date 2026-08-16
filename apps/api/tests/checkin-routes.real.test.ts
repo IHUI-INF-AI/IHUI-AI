@@ -3,7 +3,13 @@ import Fastify from 'fastify'
 import { sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { users, signInRecords, signInRules } from '@ihui/database'
-import { mockAuthenticate, setMockUser, setMockAdmin, setMockUnauthorized, resetMockAuth } from './helpers/mock-auth.js'
+import {
+  mockAuthenticate,
+  setMockUser,
+  setMockAdmin,
+  setMockUnauthorized,
+  resetMockAuth,
+} from './helpers/mock-auth.js'
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
@@ -27,7 +33,12 @@ function shiftDate(date: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function createSignInRecord(data: { userId: string; signInDate: string; consecutiveDays?: number; rewardPoints?: number }) {
+async function createSignInRecord(data: {
+  userId: string
+  signInDate: string
+  consecutiveDays?: number
+  rewardPoints?: number
+}) {
   const [row] = await db
     .insert(signInRecords)
     .values({
@@ -106,7 +117,12 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('POST /api/checkin — 昨日已签到,今日连续天数 +1', async () => {
     const user = await createUser('1001', '用户')
     const yesterday = shiftDate(todayStr(), -1)
-    await createSignInRecord({ userId: user.id, signInDate: yesterday, consecutiveDays: 3, rewardPoints: 20 })
+    await createSignInRecord({
+      userId: user.id,
+      signInDate: yesterday,
+      consecutiveDays: 3,
+      rewardPoints: 20,
+    })
     setMockUser(user.id)
     const res = await server.inject({ method: 'POST', url: '/api/checkin' })
     const body = res.json()
@@ -117,7 +133,12 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('POST /api/checkin — 连续签到第 7 天起奖励封顶 50 分', async () => {
     const user = await createUser('1001', '用户')
     const yesterday = shiftDate(todayStr(), -1)
-    await createSignInRecord({ userId: user.id, signInDate: yesterday, consecutiveDays: 6, rewardPoints: 35 })
+    await createSignInRecord({
+      userId: user.id,
+      signInDate: yesterday,
+      consecutiveDays: 6,
+      rewardPoints: 35,
+    })
     setMockUser(user.id)
     const res = await server.inject({ method: 'POST', url: '/api/checkin' })
     const body = res.json()
@@ -161,7 +182,12 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('GET /api/checkin/today — 昨日有签到,今日未签到,返回连续天数+预估奖励', async () => {
     const user = await createUser('1001', '用户')
     const yesterday = shiftDate(todayStr(), -1)
-    await createSignInRecord({ userId: user.id, signInDate: yesterday, consecutiveDays: 2, rewardPoints: 15 })
+    await createSignInRecord({
+      userId: user.id,
+      signInDate: yesterday,
+      consecutiveDays: 2,
+      rewardPoints: 15,
+    })
     setMockUser(user.id)
     const res = await server.inject({ method: 'GET', url: '/api/checkin/today' })
     const body = res.json()
@@ -210,7 +236,10 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('GET /api/checkin/history — 非法 yearMonth 返回 400', async () => {
     const user = await createUser('1001', '用户')
     setMockUser(user.id)
-    const res = await server.inject({ method: 'GET', url: '/api/checkin/history?yearMonth=invalid' })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/checkin/history?yearMonth=invalid',
+    })
     expect(res.statusCode).toBe(400)
   })
 
@@ -220,7 +249,10 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
       await createSignInRecord({ userId: user.id, signInDate: shiftDate(todayStr(), -i) })
     }
     setMockUser(user.id)
-    const res = await server.inject({ method: 'GET', url: '/api/checkin/history?page=1&pageSize=2' })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/checkin/history?page=1&pageSize=2',
+    })
     const body = res.json()
     expect(body.data.list).toHaveLength(2)
     expect(body.data.total).toBe(5)
@@ -292,7 +324,10 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
     await createSignInRecord({ userId: userA.id, signInDate: todayStr() })
     await createSignInRecord({ userId: userB.id, signInDate: todayStr() })
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'GET', url: `/api/admin/checkin/list?userId=${userA.id}` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/admin/checkin/list?userId=${userA.id}`,
+    })
     const body = res.json()
     expect(body.data.list).toHaveLength(1)
   })
@@ -385,7 +420,10 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
       .values({ name: '待删除', consecutiveDays: 1, rewardPoints: 10 })
       .returning()
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'DELETE', url: `/api/admin/checkin/rules/${rule.id}` })
+    const res = await server.inject({
+      method: 'DELETE',
+      url: `/api/admin/checkin/rules/${rule.id}`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.data.deleted).toBe(true)
@@ -394,7 +432,10 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('DELETE /api/admin/checkin/rules/:id — 不存在返回 404', async () => {
     const admin = await createUser('admin', '管理员')
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'DELETE', url: '/api/admin/checkin/rules/00000000-0000-4000-8000-000000000000' })
+    const res = await server.inject({
+      method: 'DELETE',
+      url: '/api/admin/checkin/rules/00000000-0000-4000-8000-000000000000',
+    })
     expect(res.statusCode).toBe(404)
   })
 

@@ -145,16 +145,16 @@ describe('miniapp-taro · next-intl ICU 反模式回归', () => {
         /tt?\(\s*['"][^'"]+['"]\s*,\s*['"][^'"]*\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}[^'"]*['"]\s*\)\s*\.replace/,
       )
       // Pattern B: t(key).replace("{{n}}", val) — 任何 t/tt 后跟 .replace("{{
-      expect(content, `${rel} 不应含 .replace("{{ 反模式`).not.toMatch(
-        /\.replace\s*\(\s*['"]\{\{/,
-      )
+      expect(content, `${rel} 不应含 .replace("{{ 反模式`).not.toMatch(/\.replace\s*\(\s*['"]\{\{/)
     })
 
     it('ai/history.tsx 第 271 行附近已修复为 t(key, { n: count })', async () => {
       const abs = join(process.cwd(), 'src/pages/ai/history.tsx')
       const content = await readFile(abs, 'utf-8')
       // 找修复后调用 — 单行 t('ai.historyPage.msgCount', { n: count })
-      expect(content).toMatch(/t\(\s*['"]ai\.historyPage\.msgCount['"]\s*,\s*\{\s*n:\s*count\s*\}\s*\)/)
+      expect(content).toMatch(
+        /t\(\s*['"]ai\.historyPage\.msgCount['"]\s*,\s*\{\s*n:\s*count\s*\}\s*\)/,
+      )
     })
   })
 

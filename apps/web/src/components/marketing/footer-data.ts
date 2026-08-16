@@ -111,7 +111,11 @@ export const DATABASES: readonly Icon[] = [
 export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.xiaohongshu', src: '/footer/tuiguangpingtai/xiaohongshu.png' },
   { nameKey: 'promos.douyin', src: '/footer/tuiguangpingtai/douyin.png', mono: true },
-  { nameKey: 'promos.wechatChannels', src: '/footer/tuiguangpingtai/wechat-channels.png', mono: true },
+  {
+    nameKey: 'promos.wechatChannels',
+    src: '/footer/tuiguangpingtai/wechat-channels.png',
+    mono: true,
+  },
   { nameKey: 'promos.kuaishou', src: '/footer/tuiguangpingtai/kuaishou.png', mono: true },
   { nameKey: 'promos.wechat', src: '/footer/tuiguangpingtai/wechat.png', mono: true },
   { nameKey: 'promos.qq', src: '/footer/tuiguangpingtai/qq.png', mono: true },

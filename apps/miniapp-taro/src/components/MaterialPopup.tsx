@@ -81,10 +81,7 @@ export default function MaterialPopup({
         </View>
       </View>
 
-      <ScrollView
-        scrollX
-        className="whitespace-nowrap px-3 py-2 mb-2"
-      >
+      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 mb-2">
         {TABS.map((tabItem) => (
           <View
             key={tabItem.key}
@@ -143,7 +140,13 @@ export default function MaterialPopup({
                       {item.thumbnail ? null : (
                         <Image
                           className="w-5 h-5"
-                          src={isTextTab ? icon('addText') : tab === 3 ? icon('addVideo') : icon('addAudio')}
+                          src={
+                            isTextTab
+                              ? icon('addText')
+                              : tab === 3
+                                ? icon('addVideo')
+                                : icon('addAudio')
+                          }
                           mode="aspectFit"
                         />
                       )}

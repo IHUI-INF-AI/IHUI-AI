@@ -75,7 +75,10 @@ interface BudgetSummary {
   cost?: number
   cost_limit?: number
   usage_pct?: number
-  pillars?: Record<string, { used?: number; limit?: number; tokens_used?: number; token_limit?: number; cost?: number }>
+  pillars?: Record<
+    string,
+    { used?: number; limit?: number; tokens_used?: number; token_limit?: number; cost?: number }
+  >
 }
 
 interface BudgetTrendPoint {
@@ -136,7 +139,11 @@ function eventTypeStyle(eventType?: string): string {
 
 const SEVERITY_STYLE: Record<Severity, { dot: string; text: string; icon: React.ReactNode }> = {
   info: { dot: 'bg-zinc-400', text: 'text-zinc-400', icon: null },
-  warning: { dot: 'bg-amber-400', text: 'text-amber-400', icon: <AlertTriangle className="h-3 w-3" /> },
+  warning: {
+    dot: 'bg-amber-400',
+    text: 'text-amber-400',
+    icon: <AlertTriangle className="h-3 w-3" />,
+  },
   critical: { dot: 'bg-red-500', text: 'text-red-400', icon: <AlertCircle className="h-3 w-3" /> },
 }
 
@@ -259,7 +266,15 @@ function Unavailable({ message }: { message: string }) {
   )
 }
 
-function ProgressBar({ value, max, className }: { value: number; max: number; className?: string }) {
+function ProgressBar({
+  value,
+  max,
+  className,
+}: {
+  value: number
+  max: number
+  className?: string
+}) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
   return (
     <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
@@ -286,10 +301,9 @@ function EventFeedTab() {
     return base
   }, [pillarFilter])
 
-  const { data, loading, error, refresh } = useOrchFetch<HubEvent[] | { events?: HubEvent[] } | null>(
-    url,
-    5000,
-  )
+  const { data, loading, error, refresh } = useOrchFetch<
+    HubEvent[] | { events?: HubEvent[] } | null
+  >(url, 5000)
 
   const events = React.useMemo<HubEvent[]>(() => {
     if (!data) return []
@@ -638,7 +652,9 @@ function DecisionsTab() {
 
 function BudgetTab() {
   const t = useTranslations('orchestration')
-  const summaryState = useOrchFetch<BudgetSummary | null>('/orchestration/budget/summary?period=today')
+  const summaryState = useOrchFetch<BudgetSummary | null>(
+    '/orchestration/budget/summary?period=today',
+  )
   const trendState = useOrchFetch<BudgetTrendPoint[] | { trend?: BudgetTrendPoint[] } | null>(
     '/orchestration/budget/trend?days=7',
   )
@@ -680,9 +696,7 @@ function BudgetTab() {
         </div>
         <div className="mb-2 flex items-end gap-4">
           <div className="flex flex-col">
-            <span className="text-lg font-semibold tabular-nums">
-              {formatNumber(tokensUsed)}
-            </span>
+            <span className="text-lg font-semibold tabular-nums">{formatNumber(tokensUsed)}</span>
             <span className="text-[10px] text-muted-foreground">{t('budget.tokens')}</span>
           </div>
           <div className="flex flex-col">
@@ -695,7 +709,11 @@ function BudgetTab() {
             <span
               className={cn(
                 'text-lg font-semibold tabular-nums',
-                usagePct >= 90 ? 'text-red-400' : usagePct >= 70 ? 'text-amber-400' : 'text-emerald-400',
+                usagePct >= 90
+                  ? 'text-red-400'
+                  : usagePct >= 70
+                    ? 'text-amber-400'
+                    : 'text-emerald-400',
               )}
             >
               {usagePct.toFixed(1)}%
@@ -751,7 +769,9 @@ function BudgetTab() {
 
       {/* 支柱预算 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">{t('budget.pillarBudget')}</div>
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
+          {t('budget.pillarBudget')}
+        </div>
         {Object.keys(pillars).length === 0 ? (
           <Unavailable message={t('unavailable')} />
         ) : (
@@ -789,7 +809,9 @@ function BudgetTab() {
 
       {/* 成本分解 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">{t('budget.costBreakdown')}</div>
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
+          {t('budget.costBreakdown')}
+        </div>
         {!breakdown ? (
           <Unavailable message={t('unavailable')} />
         ) : (
@@ -831,10 +853,7 @@ function BreakdownColumn({ title, entries }: { title: string; entries: Array<[st
                 <span className="shrink-0 tabular-nums text-foreground">${val.toFixed(4)}</span>
               </div>
               <div className="h-1 w-full overflow-hidden rounded bg-muted">
-                <div
-                  className="h-full rounded bg-cyan-500/60"
-                  style={{ width: `${pct}%` }}
-                />
+                <div className="h-full rounded bg-cyan-500/60" style={{ width: `${pct}%` }} />
               </div>
             </div>
           )
@@ -881,7 +900,9 @@ function TelemetryTab() {
     <div className="flex flex-col gap-3">
       {/* 支柱健康卡片 */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">{t('telemetry.pillarHealth')}</div>
+        <div className="text-xs font-medium text-muted-foreground">
+          {t('telemetry.pillarHealth')}
+        </div>
         {pillars.length === 0 ? (
           <Unavailable message={t('unavailable')} />
         ) : (
@@ -897,7 +918,12 @@ function TelemetryTab() {
                 >
                   <div className="flex items-center gap-1.5">
                     <span className={cn('h-1.5 w-1.5 rounded-full', hs.dot)} />
-                    <span className={cn('truncate text-xs font-medium', pillarStyle(p.pillar).split(' ')[0])}>
+                    <span
+                      className={cn(
+                        'truncate text-xs font-medium',
+                        pillarStyle(p.pillar).split(' ')[0],
+                      )}
+                    >
                       {p.pillar ?? '-'}
                     </span>
                   </div>
@@ -906,12 +932,17 @@ function TelemetryTab() {
                   </div>
                   {p.metrics && (
                     <div className="mt-1 flex flex-col gap-0.5">
-                      {Object.entries(p.metrics).slice(0, 3).map(([mk, mv]) => (
-                        <div key={mk} className="flex justify-between text-[9px] text-muted-foreground">
-                          <span className="truncate">{mk}</span>
-                          <span className="shrink-0 tabular-nums">{String(mv)}</span>
-                        </div>
-                      ))}
+                      {Object.entries(p.metrics)
+                        .slice(0, 3)
+                        .map(([mk, mv]) => (
+                          <div
+                            key={mk}
+                            className="flex justify-between text-[9px] text-muted-foreground"
+                          >
+                            <span className="truncate">{mk}</span>
+                            <span className="shrink-0 tabular-nums">{String(mv)}</span>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
@@ -923,7 +954,9 @@ function TelemetryTab() {
 
       {/* 最近 Trace */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">{t('telemetry.recentTraces')}</div>
+        <div className="text-xs font-medium text-muted-foreground">
+          {t('telemetry.recentTraces')}
+        </div>
         {traces.length === 0 ? (
           <Unavailable message={t('unavailable')} />
         ) : (
@@ -946,15 +979,14 @@ function TelemetryTab() {
                   </span>
                 </Tooltip>
                 <span
-                  className={cn(
-                    'rounded border px-1.5 py-0.5 text-[10px]',
-                    pillarStyle(tr.pillar),
-                  )}
+                  className={cn('rounded border px-1.5 py-0.5 text-[10px]', pillarStyle(tr.pillar))}
                 >
                   {tr.pillar ?? '-'}
                 </span>
                 <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                  {tr.duration_ms !== null && tr.duration_ms !== undefined ? `${formatNumber(tr.duration_ms)}ms` : ''}
+                  {tr.duration_ms !== null && tr.duration_ms !== undefined
+                    ? `${formatNumber(tr.duration_ms)}ms`
+                    : ''}
                 </span>
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
                   {relativeTime(tr.ts)}

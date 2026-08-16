@@ -83,9 +83,7 @@ export function CircleChatScreen({
         }
         renderItem={({ item }) => (
           <View style={[styles.msg, item.role === 'user' ? styles.msgUser : styles.msgOther]}>
-            {item.role === 'other' ? (
-              <Text style={styles.msgAuthor}>{item.author}</Text>
-            ) : null}
+            {item.role === 'other' ? <Text style={styles.msgAuthor}>{item.author}</Text> : null}
             <Text
               style={[
                 styles.msgText,

@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, timestamp, jsonb, char, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, timestamp, jsonb, char, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 国安级审计日志链表。
@@ -27,7 +27,7 @@ export const auditLogsChain = pgTable(
     userIdx: index('idx_audit_chain_user').on(t.userId),
     actIdx: index('idx_audit_chain_act').on(t.action),
   }),
-);
+)
 
-export type AuditLogChain = typeof auditLogsChain.$inferSelect;
-export type NewAuditLogChain = typeof auditLogsChain.$inferInsert;
+export type AuditLogChain = typeof auditLogsChain.$inferSelect
+export type NewAuditLogChain = typeof auditLogsChain.$inferInsert

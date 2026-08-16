@@ -4,13 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Receipt, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui-react'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 
 import { BillingSummaryCards } from './BillingSummaryCards'
 import { BillingRecordsTable } from './BillingRecordsTable'

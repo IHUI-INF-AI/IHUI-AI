@@ -69,18 +69,14 @@ export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
           }
           return
         }
-        void chatServer
-          .handleMessage(room, socket, raw, userId!)
-          .catch((err) => {
-            request.log.warn({ err, roomId }, 'live-chat handleMessage error')
-            try {
-              socket.send(
-                JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }),
-              )
-            } catch {
-              /* ignore */
-            }
-          })
+        void chatServer.handleMessage(room, socket, raw, userId!).catch((err) => {
+          request.log.warn({ err, roomId }, 'live-chat handleMessage error')
+          try {
+            socket.send(JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }))
+          } catch {
+            /* ignore */
+          }
+        })
       })
 
       socket.on('close', () => {

@@ -1,11 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  jsonb,
-  index,
-} from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 
 /**
  * 统计快照表 - 周期性保存各业务模块的聚合统计指标。
@@ -26,7 +19,7 @@ export const statisticsSnapshots = pgTable(
     typeIdx: index('statistics_snapshots_type_idx').on(t.type),
     createdIdx: index('statistics_snapshots_created_idx').on(t.createdAt),
   }),
-);
+)
 
-export type StatisticsSnapshot = typeof statisticsSnapshots.$inferSelect;
-export type NewStatisticsSnapshot = typeof statisticsSnapshots.$inferInsert;
+export type StatisticsSnapshot = typeof statisticsSnapshots.$inferSelect
+export type NewStatisticsSnapshot = typeof statisticsSnapshots.$inferInsert

@@ -631,7 +631,10 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     reply.send(success(data))
   })
 
-  server.post('/chat-audio/one-to-one', async (request, reply) => {
+  server.post(
+    '/chat-audio/one-to-one',
+    { compression: false },
+    async (request, reply) => {
     const b = z
       .object({
         bot_id: z.string().min(1),
@@ -1012,7 +1015,10 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     reply.send(success(data))
   })
 
-  server.post('/workflows/runs/stream', async (request, reply) => {
+  server.post(
+    '/workflows/runs/stream',
+    { compression: false },
+    async (request, reply) => {
     const b = z
       .object({
         workflow_id: z.string().min(1),
@@ -1027,7 +1033,10 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     })
   })
 
-  server.post('/workflows/runs/resume', async (request, reply) => {
+  server.post(
+    '/workflows/runs/resume',
+    { compression: false },
+    async (request, reply) => {
     const b = z
       .object({
         workflow_id: z.string().min(1),
@@ -1122,7 +1131,10 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     reply.send(success(data))
   })
 
-  server.post('/workflows/async/stream', async (request, reply) => {
+  server.post(
+    '/workflows/async/stream',
+    { compression: false },
+    async (request, reply) => {
     const b = z
       .object({
         workflow_id: z.string().min(1),

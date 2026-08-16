@@ -93,7 +93,9 @@ export default function BusinessCardIndex() {
 
       <View className="card-entry" onClick={buyToken}>
         <Text className="card-entry-icon">👤</Text>
-        <Text className="card-entry-text">{tt('businessCard.customEntry', '社区名片定制入口')}</Text>
+        <Text className="card-entry-text">
+          {tt('businessCard.customEntry', '社区名片定制入口')}
+        </Text>
         <Text className="card-entry-arrow">›</Text>
       </View>
 

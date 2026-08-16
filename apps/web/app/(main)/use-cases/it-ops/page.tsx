@@ -23,7 +23,12 @@ const jsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI IT 运维', item: 'https://aizhs.top/use-cases/it-ops' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI IT 运维',
+          item: 'https://aizhs.top/use-cases/it-ops',
+        },
       ],
     },
     {
@@ -41,12 +46,42 @@ const jsonLd = {
         { '@type': 'HowToTool', name: 'IHUI AI 日志分析器' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '接入监控系统', text: '对接 Prometheus/Zabbix/Datadog/云监控,统一告警 schema,Agent 接收所有告警事件。' },
-        { '@type': 'HowToStep', position: 2, name: '训练诊断 Agent', text: '导入历史故障工单与解决方案,Agent 学习根因分析模式,新故障 30 秒内给出定位建议。' },
-        { '@type': 'HowToStep', position: 3, name: '配置工单分诊', text: '基于故障类型/影响范围/紧急度,Agent 自动分诊到对应团队,80% 工单无需人工分流。' },
-        { '@type': 'HowToStep', position: 4, name: '集成日志分析', text: '对接 ELK/Loki/Splunk,Agent 自动关联多服务日志,定位异常 span,日志分析准确率 90%+。' },
-        { '@type': 'HowToStep', position: 5, name: '设置变更审核', text: 'PR/变更单提交时,Agent 基于历史故障库自动识别高风险变更,阻塞或要求二次 review。' },
-        { '@type': 'HowToStep', position: 6, name: '启用容量预测', text: '基于历史资源使用趋势,Agent 预测 30/60/90 天容量瓶颈,提前扩容,避免雪崩。' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '接入监控系统',
+          text: '对接 Prometheus/Zabbix/Datadog/云监控,统一告警 schema,Agent 接收所有告警事件。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '训练诊断 Agent',
+          text: '导入历史故障工单与解决方案,Agent 学习根因分析模式,新故障 30 秒内给出定位建议。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '配置工单分诊',
+          text: '基于故障类型/影响范围/紧急度,Agent 自动分诊到对应团队,80% 工单无需人工分流。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '集成日志分析',
+          text: '对接 ELK/Loki/Splunk,Agent 自动关联多服务日志,定位异常 span,日志分析准确率 90%+。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '设置变更审核',
+          text: 'PR/变更单提交时,Agent 基于历史故障库自动识别高风险变更,阻塞或要求二次 review。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '启用容量预测',
+          text: '基于历史资源使用趋势,Agent 预测 30/60/90 天容量瓶颈,提前扩容,避免雪崩。',
+        },
       ],
     },
   ],
@@ -66,12 +101,30 @@ export const metadata: Metadata = {
 }
 
 const capabilities = [
-  { title: '故障诊断', desc: 'AI 学习历史故障模式,新告警 30 秒内给出根因定位建议与修复方案,MTTR 降低 60%。' },
-  { title: '工单自动分诊', desc: '基于故障类型/影响范围/紧急度自动分诊到对应团队,80% 工单无需人工分流,oncall 减负。' },
-  { title: '日志智能分析', desc: '对接 ELK/Loki/Splunk,自动关联多服务日志,定位异常 span,日志分析准确率 90%+。' },
-  { title: '变更审核', desc: 'PR/变更单提交时,基于历史故障库自动识别高风险变更,阻塞或要求二次 review,防患于未然。' },
-  { title: '容量预测', desc: '基于历史资源使用趋势,预测 30/60/90 天容量瓶颈,提前扩容,避免雪崩与服务降级。' },
-  { title: '运维复盘', desc: '每周生成运维复盘报告,故障频次/MTTR/根因 TOP10 一览,持续优化稳定性。' },
+  {
+    title: '故障诊断',
+    desc: 'AI 学习历史故障模式,新告警 30 秒内给出根因定位建议与修复方案,MTTR 降低 60%。',
+  },
+  {
+    title: '工单自动分诊',
+    desc: '基于故障类型/影响范围/紧急度自动分诊到对应团队,80% 工单无需人工分流,oncall 减负。',
+  },
+  {
+    title: '日志智能分析',
+    desc: '对接 ELK/Loki/Splunk,自动关联多服务日志,定位异常 span,日志分析准确率 90%+。',
+  },
+  {
+    title: '变更审核',
+    desc: 'PR/变更单提交时,基于历史故障库自动识别高风险变更,阻塞或要求二次 review,防患于未然。',
+  },
+  {
+    title: '容量预测',
+    desc: '基于历史资源使用趋势,预测 30/60/90 天容量瓶颈,提前扩容,避免雪崩与服务降级。',
+  },
+  {
+    title: '运维复盘',
+    desc: '每周生成运维复盘报告,故障频次/MTTR/根因 TOP10 一览,持续优化稳定性。',
+  },
 ]
 
 const steps = [
@@ -93,7 +146,10 @@ const metrics = [
 export default function ItOpsPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <BackButton />
         <section className="space-y-5 text-center">
@@ -110,15 +166,21 @@ export default function ItOpsPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 大核心能力
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -133,7 +195,9 @@ export default function ItOpsPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 步落地</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6 步落地
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
               <div key={s.step} className="rounded-2xl border bg-card p-6">
@@ -149,7 +213,9 @@ export default function ItOpsPage() {
 
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">开始构建你的 AI IT 运维助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            开始构建你的 AI IT 运维助手
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从 IT 运维场景模板一键 fork,30 分钟体验。
           </p>

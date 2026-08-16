@@ -24,10 +24,7 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import {
-  getPlatformSchema,
-  type PlatformCredentialField,
-} from '@/lib/publish/platform-schemas'
+import { getPlatformSchema, type PlatformCredentialField } from '@/lib/publish/platform-schemas'
 import { BrowserAuthHelper } from './BrowserAuthHelper'
 
 interface PlatformCredentialFormProps {
@@ -110,14 +107,7 @@ interface FieldRendererProps {
   disabled?: boolean
 }
 
-function FieldRenderer({
-  field,
-  value,
-  onChange,
-  onPaste,
-  onClear,
-  disabled,
-}: FieldRendererProps) {
+function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: FieldRendererProps) {
   const [show, setShow] = React.useState(false)
   const isPassword = field.type === 'password'
   const isTextarea = field.type === 'textarea'
@@ -131,21 +121,21 @@ function FieldRenderer({
         {field.required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
       {field.helpText && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={`帮助:${field.label}`}
-              >
-                <Info className="h-3 w-3" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              {field.helpText}
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label={`帮助:${field.label}`}
+            >
+              <Info className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-xs">
+            {field.helpText}
+          </TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 
@@ -153,11 +143,7 @@ function FieldRenderer({
     return (
       <div className="space-y-1">
         {labelEl}
-        <Select
-          value={value}
-          onValueChange={onChange}
-          disabled={disabled}
-        >
+        <Select value={value} onValueChange={onChange} disabled={disabled}>
           <SelectTrigger className="h-8 text-xs">
             <SelectValue placeholder={field.placeholder ?? '请选择'} />
           </SelectTrigger>

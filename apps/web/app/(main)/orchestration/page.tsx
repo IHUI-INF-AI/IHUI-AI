@@ -132,10 +132,7 @@ async function apiFetch<T>(path: string, token: string | null): Promise<T> {
     json = null
   }
   if (!res.ok) {
-    const message =
-      isRecord(json) && typeof json.message === 'string'
-        ? json.message
-        : undefined
+    const message = isRecord(json) && typeof json.message === 'string' ? json.message : undefined
     throw new Error(message ?? `编排请求失败:${res.status}`)
   }
   if (!isRecord(json)) throw new Error('编排服务响应格式异常')
@@ -173,7 +170,10 @@ export default function OrchestrationPage() {
     setDashboardLoading(true)
     setDashboardError(null)
     try {
-      const data = await apiFetch<Dashboard>('/api/orchestration/dashboard', useAuthStore.getState().token)
+      const data = await apiFetch<Dashboard>(
+        '/api/orchestration/dashboard',
+        useAuthStore.getState().token,
+      )
       setDashboard(data)
     } catch (e) {
       setDashboardError((e as Error).message)
@@ -186,7 +186,10 @@ export default function OrchestrationPage() {
     setEventsLoading(true)
     setEventsError(null)
     try {
-      const data = await apiFetch<HubEvent[]>('/api/orchestration/events?limit=50', useAuthStore.getState().token)
+      const data = await apiFetch<HubEvent[]>(
+        '/api/orchestration/events?limit=50',
+        useAuthStore.getState().token,
+      )
       setEvents(Array.isArray(data) ? data : [])
     } catch (e) {
       setEventsError((e as Error).message)
@@ -203,11 +206,12 @@ export default function OrchestrationPage() {
   React.useEffect(() => {
     void loadDashboard()
     void loadEvents()
-    }, [])
+  }, [])
 
   const status = dashboard?.status
 
-  const statItemClass = 'flex flex-col items-center justify-center gap-1 rounded-lg border bg-muted/40 p-4'
+  const statItemClass =
+    'flex flex-col items-center justify-center gap-1 rounded-lg border bg-muted/40 p-4'
 
   return (
     <div className="space-y-4">
@@ -231,7 +235,9 @@ export default function OrchestrationPage() {
           disabled={dashboardLoading || eventsLoading}
           onClick={handleRefresh}
         >
-          <RefreshCw className={cn('h-4 w-4', (dashboardLoading || eventsLoading) && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-4 w-4', (dashboardLoading || eventsLoading) && 'animate-spin')}
+          />
           {t('refresh')}
         </Button>
       </div>
@@ -255,7 +261,12 @@ export default function OrchestrationPage() {
           ) : status ? (
             <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
               <div className={statItemClass}>
-                <HeartPulse className={cn('h-5 w-5', status.running ? 'text-emerald-600' : 'text-muted-foreground')} />
+                <HeartPulse
+                  className={cn(
+                    'h-5 w-5',
+                    status.running ? 'text-emerald-600' : 'text-muted-foreground',
+                  )}
+                />
                 <p className="text-xs text-muted-foreground">{t('status')}</p>
                 <span
                   className={cn(
@@ -391,14 +402,9 @@ export default function OrchestrationPage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-4">
                   {Object.entries(dashboard.pillar_health ?? {}).map(([pillar, health]) => (
-                    <div
-                      key={pillar}
-                      className="space-y-1.5 rounded-lg border bg-muted/40 p-3"
-                    >
+                    <div key={pillar} className="space-y-1.5 rounded-lg border bg-muted/40 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">
-                          {PILLAR_LABELS[pillar] ?? pillar}
-                        </p>
+                        <p className="text-sm font-medium">{PILLAR_LABELS[pillar] ?? pillar}</p>
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium',

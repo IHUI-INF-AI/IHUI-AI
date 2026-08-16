@@ -1,11 +1,5 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 访问记录表 - 记录页面访问日志。
@@ -30,7 +24,7 @@ export const visitLogs = pgTable(
     dateIdx: index('visit_logs_date_idx').on(t.visitDate),
     ipCityIdx: index('visit_logs_ip_city_idx').on(t.ip, t.city),
   }),
-);
+)
 
-export type VisitLog = typeof visitLogs.$inferSelect;
-export type NewVisitLog = typeof visitLogs.$inferInsert;
+export type VisitLog = typeof visitLogs.$inferSelect
+export type NewVisitLog = typeof visitLogs.$inferInsert

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, timestamp, index } from 'drizzle-orm/pg-core'
 
 /**
  * OAuth 私钥表（多租户 JWT/RS256 签名密钥管理）。
@@ -37,7 +37,7 @@ export const oauthPrivateKeys = pgTable(
     clientIdx: index('oauth_private_keys_client_idx').on(t.clientId),
     activeIdx: index('oauth_private_keys_active_idx').on(t.isActive),
   }),
-);
+)
 
-export type OauthPrivateKey = typeof oauthPrivateKeys.$inferSelect;
-export type NewOauthPrivateKey = typeof oauthPrivateKeys.$inferInsert;
+export type OauthPrivateKey = typeof oauthPrivateKeys.$inferSelect
+export type NewOauthPrivateKey = typeof oauthPrivateKeys.$inferInsert

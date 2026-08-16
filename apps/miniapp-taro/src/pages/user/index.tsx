@@ -1,13 +1,23 @@
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
-import { isLoggedIn, getUserInfo, clearAuth, setToken, setUserInfo as persistUserInfo, type UserInfo } from '@/utils/auth'
+import {
+  isLoggedIn,
+  getUserInfo,
+  clearAuth,
+  setToken,
+  setUserInfo as persistUserInfo,
+  type UserInfo,
+} from '@/utils/auth'
 import { getShareInfo } from '@/utils/share'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
-import DrawerComponent, { type DrawerModelGroup, type DrawerChatItem } from '@/components/DrawerComponent'
+import DrawerComponent, {
+  type DrawerModelGroup,
+  type DrawerChatItem,
+} from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
 import StudyBar from '@/components/StudyBar'
@@ -48,7 +58,6 @@ interface BindUserParams {
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 const statusBarHeight = menuButton.top
 
-
 // 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
 function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
@@ -83,7 +92,6 @@ const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: s
   { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: '建立专属知识库' },
 ]
 
-
 // 格式化音频时间（秒 → mm:ss）
 function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
@@ -113,8 +121,19 @@ function renderMarkdown(content: string): ReactNode {
     // 代码块 ```...```
     if (line.startsWith('```')) {
       return (
-        <View key={idx} style={{ background: 'var(--color-muted)', padding: rpx(12), borderRadius: rpx(8), marginTop: rpx(8), marginBottom: rpx(8) }}>
-          <Text style={{ fontSize: rpx(24), fontFamily: 'monospace', color: 'var(--color-foreground)' }}>
+        <View
+          key={idx}
+          style={{
+            background: 'var(--color-muted)',
+            padding: rpx(12),
+            borderRadius: rpx(8),
+            marginTop: rpx(8),
+            marginBottom: rpx(8),
+          }}
+        >
+          <Text
+            style={{ fontSize: rpx(24), fontFamily: 'monospace', color: 'var(--color-foreground)' }}
+          >
             {line.replace(/```/g, '')}
           </Text>
         </View>
@@ -124,16 +143,33 @@ function renderMarkdown(content: string): ReactNode {
     const boldParts = line.split(/\*\*(.+?)\*\*/)
     if (boldParts.length > 1) {
       return (
-        <Text key={idx} style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}>
-          {boldParts.map((part, i) => i % 2 === 1 ? (
-            <Text key={i} style={{ fontWeight: 'bold' }}>{part}</Text>
-          ) : part)}
+        <Text
+          key={idx}
+          style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
+        >
+          {boldParts.map((part, i) =>
+            i % 2 === 1 ? (
+              <Text key={i} style={{ fontWeight: 'bold' }}>
+                {part}
+              </Text>
+            ) : (
+              part
+            ),
+          )}
         </Text>
       )
     }
     // 普通行
     return (
-      <Text key={idx} style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6, display: 'block' }}>
+      <Text
+        key={idx}
+        style={{
+          fontSize: rpx(26),
+          color: 'var(--color-muted-foreground)',
+          lineHeight: 1.6,
+          display: 'block',
+        }}
+      >
         {line || ' '}
       </Text>
     )
@@ -154,10 +190,18 @@ export default function UserIndex() {
     }
   })
   const [activeTab, setActiveTab] = useState<number>(1)
-  const [textContentList, setTextContentList] = useState<Array<{title: string; time: string; content: string}>>([])
-  const [imageContentList, setImageContentList] = useState<Array<{title: string; time: string; imageList: string[]}>>([])
-  const [videoContentList, setVideoContentList] = useState<Array<{title: string; time: string; videoUrl: string}>>([])
-  const [audioContentList, setAudioContentList] = useState<Array<{title: string; time: string; audioUrl: string}>>([])
+  const [textContentList, setTextContentList] = useState<
+    Array<{ title: string; time: string; content: string }>
+  >([])
+  const [imageContentList, setImageContentList] = useState<
+    Array<{ title: string; time: string; imageList: string[] }>
+  >([])
+  const [videoContentList, setVideoContentList] = useState<
+    Array<{ title: string; time: string; videoUrl: string }>
+  >([])
+  const [audioContentList, setAudioContentList] = useState<
+    Array<{ title: string; time: string; audioUrl: string }>
+  >([])
   const [contentLoading, setContentLoading] = useState<boolean>(false)
   // 音频播放状态
   const [audioPlayStates, setAudioPlayStates] = useState<Record<number, boolean>>({})
@@ -187,14 +231,20 @@ export default function UserIndex() {
     (
       chats: Array<{ id: string; title: string; time: string; modelName?: string }>,
     ): DrawerModelGroup[] => {
-      const modelMap = new Map<string, Array<{ id: string; title: string; time: string; modelName?: string }>>()
+      const modelMap = new Map<
+        string,
+        Array<{ id: string; title: string; time: string; modelName?: string }>
+      >()
       for (const chat of chats) {
         const modelName = chat.modelName || '默认模型'
         if (!modelMap.has(modelName)) modelMap.set(modelName, [])
         modelMap.get(modelName)!.push(chat)
       }
       return Array.from(modelMap.entries()).map(([modelName, modelChats]) => {
-        const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
+        const dateMap = new Map<
+          string,
+          Array<{ id: string | number; title: string; date: string }>
+        >()
         for (const chat of modelChats) {
           const dateKey = chat.time ? chat.time.slice(0, 7) : '最近' // YYYY-MM 分组
           if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
@@ -202,7 +252,10 @@ export default function UserIndex() {
         }
         return {
           modelName,
-          dateGroups: Array.from(dateMap.entries()).map(([date, items]) => ({ date, chats: items })),
+          dateGroups: Array.from(dateMap.entries()).map(([date, items]) => ({
+            date,
+            chats: items,
+          })),
         }
       })
     },
@@ -537,14 +590,17 @@ export default function UserIndex() {
   }, [])
 
   // 历史对话项点击回调（对齐原项目 onChatItemClick）
-  const handleChatItemClick = useCallback((chat: DrawerChatItem) => {
-    toggleDrawer()
-    // 对齐原项目 handleShowFullList:携带 chatId + title 参数
-    Taro.navigateTo({
-      url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-      fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
-    })
-  }, [toggleDrawer])
+  const handleChatItemClick = useCallback(
+    (chat: DrawerChatItem) => {
+      toggleDrawer()
+      // 对齐原项目 handleShowFullList:携带 chatId + title 参数
+      Taro.navigateTo({
+        url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+        fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+      })
+    },
+    [toggleDrawer],
+  )
 
   // 会员权益点击跳转
   const goVipDetail = useCallback(() => {
@@ -715,7 +771,9 @@ export default function UserIndex() {
                         const contractsRes = (await api.listRecurringContracts()) as {
                           list?: Array<{ id: number; status: string }>
                         }
-                        const activeContract = contractsRes?.list?.find((c) => c.status === 'active')
+                        const activeContract = contractsRes?.list?.find(
+                          (c) => c.status === 'active',
+                        )
                         if (activeContract) {
                           await api.cancelRecurringContract(activeContract.id, '用户主动退订')
                         } else {
@@ -832,7 +890,10 @@ export default function UserIndex() {
               refresh()
               Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
             } else {
-              Taro.showToast({ title: tf('login.noToken', '登录失败,未获取到 token'), icon: 'none' })
+              Taro.showToast({
+                title: tf('login.noToken', '登录失败,未获取到 token'),
+                icon: 'none',
+              })
             }
           } catch {
             Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
@@ -870,18 +931,9 @@ export default function UserIndex() {
       {!isshow ? (
         <View className="membership-benefits-container mx-[20rpx] mt-[24rpx] mb-0">
           {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
-          <View
-            className="membership-benefits-header"
-            onClick={toggleBenefits}
-          >
-            <View
-              className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}
-            >
-              <Image
-                className="arrow-icon"
-                src={backSvg}
-                mode="aspectFit"
-              />
+          <View className="membership-benefits-header" onClick={toggleBenefits}>
+            <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
+              <Image className="arrow-icon" src={backSvg} mode="aspectFit" />
             </View>
           </View>
           {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
@@ -928,9 +980,14 @@ export default function UserIndex() {
                 </View>
               ) : (
                 textContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text">
+                  <View
+                    key={index}
+                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text"
+                  >
                     <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[28rpx] font-semibold text-foreground">
+                        {item.title}
+                      </Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
                     {renderMarkdown(item.content)}
@@ -951,9 +1008,14 @@ export default function UserIndex() {
                 </View>
               ) : (
                 imageContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image">
+                  <View
+                    key={index}
+                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image"
+                  >
                     <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[28rpx] font-semibold text-foreground">
+                        {item.title}
+                      </Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
                     <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
@@ -984,9 +1046,14 @@ export default function UserIndex() {
                 </View>
               ) : (
                 videoContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video">
+                  <View
+                    key={index}
+                    className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video"
+                  >
                     <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[28rpx] font-semibold text-foreground">
+                        {item.title}
+                      </Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
                     <View
@@ -1025,9 +1092,14 @@ export default function UserIndex() {
                 </View>
               ) : (
                 audioContentList.map((item, index) => (
-                  <View key={index} className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio">
+                  <View
+                    key={index}
+                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio"
+                  >
                     <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                      <Text className="text-[28rpx] font-semibold text-foreground">
+                        {item.title}
+                      </Text>
                       <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
                     <View className="flex-row items-center gap-[12rpx]">
@@ -1057,7 +1129,10 @@ export default function UserIndex() {
                         />
                       </View>
                       {/* 当前时间 */}
-                      <Text className="text-[22rpx] text-muted-foreground" style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}>
+                      <Text
+                        className="text-[22rpx] text-muted-foreground"
+                        style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
+                      >
                         {formatAudioTime(audioCurrentTime[index] || 0)}
                       </Text>
                       {/* 下载按钮 */}
@@ -1122,27 +1197,15 @@ export default function UserIndex() {
 
       {/* 官网链接 */}
       <View className="w-full flex items-center justify-center pb-[20rpx]">
-        <Image
-          src={yejiaoIcon}
-          mode="widthFix"
-          className="w-[348rpx]"
-          onClick={copyWebsiteLink}
-        />
+        <Image src={yejiaoIcon} mode="widthFix" className="w-[348rpx]" onClick={copyWebsiteLink} />
       </View>
 
       {/* ===== 视频播放弹窗（对齐原项目 showVideoPlayer，使用 VideoPlayer 组件） ===== */}
       {showVideoPlayer ? (
         <View className="fixed inset-0 z-[2000] flex items-center justify-center">
-          <View
-            className="absolute inset-0 bg-black/80"
-            onClick={closeVideoPlayer}
-          />
+          <View className="absolute inset-0 bg-black/80" onClick={closeVideoPlayer} />
           <View className="relative w-[90%] rounded-lg overflow-hidden">
-            <VideoPlayer
-              src={currentVideoUrl}
-              controls
-              onError={closeVideoPlayer}
-            />
+            <VideoPlayer src={currentVideoUrl} controls onError={closeVideoPlayer} />
             {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
             <CoverView
               style={{
@@ -1184,7 +1247,9 @@ export default function UserIndex() {
             </View>
             {/* 分享卡片预览 */}
             <View className="share-popup-image">
-              <Text className="share-popup-title">{tf('user.share.cardTitle', 'AI IHUI 智能平台')}</Text>
+              <Text className="share-popup-title">
+                {tf('user.share.cardTitle', 'AI IHUI 智能平台')}
+              </Text>
               <Text className="share-popup-subtitle">
                 {tf('user.share.cardDesc', '开启智能学习之旅，探索无限可能')}
               </Text>
@@ -1232,7 +1297,6 @@ export default function UserIndex() {
           </View>
         </View>
       ) : null}
-
     </View>
   )
 }

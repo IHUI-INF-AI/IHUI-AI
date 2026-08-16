@@ -138,7 +138,8 @@ export default function ModelPlazaScreen() {
   const providers = buildProviders(models)
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(models), [models])
 
-  const handleCompare = () => Alert.alert(t('modelPlaza.compare.title'), '模型对比功能即将上线,敬请期待')
+  const handleCompare = () =>
+    Alert.alert(t('modelPlaza.compare.title'), '模型对比功能即将上线,敬请期待')
   const handleDetail = (m: ModelPlazaItem) =>
     Alert.alert(t('modelPlaza.detail.title'), `模型「${m.name}」详情功能即将上线,敬请期待`)
 
@@ -159,9 +160,7 @@ export default function ModelPlazaScreen() {
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            分组浏览
-          </Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>分组浏览</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>

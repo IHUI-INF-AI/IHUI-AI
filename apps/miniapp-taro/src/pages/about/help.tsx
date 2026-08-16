@@ -108,10 +108,18 @@ export default function HelpPage() {
       {filtered.length ? (
         <View className="px-[24rpx]">
           {filtered.map((h) => (
-            <View key={h.id} className="bg-card rounded-[16rpx] mb-[16rpx] overflow-hidden" onClick={() => toggle(h.id)}>
+            <View
+              key={h.id}
+              className="bg-card rounded-[16rpx] mb-[16rpx] overflow-hidden"
+              onClick={() => toggle(h.id)}
+            >
               <View className="flex justify-between items-center p-[32rpx]">
                 <Text className="text-[28rpx] text-foreground flex-1">{h.title}</Text>
-                <Text className={`text-muted-foreground text-[32rpx] ${opened === h.id ? '-rotate-90' : 'rotate-90'}`}>›</Text>
+                <Text
+                  className={`text-muted-foreground text-[32rpx] ${opened === h.id ? '-rotate-90' : 'rotate-90'}`}
+                >
+                  ›
+                </Text>
               </View>
               {opened === h.id ? (
                 <View className="px-[32rpx] pb-[32rpx] text-[26rpx] text-muted-foreground leading-[1.6]">
@@ -171,10 +179,7 @@ export default function HelpPage() {
           />
         </View>
         <Text className="block text-[22rpx] text-muted-foreground leading-[1.6] mb-[24rpx]">
-          {tt(
-            'about.help.submitTip',
-            '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理',
-          )}
+          {tt('about.help.submitTip', '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理')}
         </Text>
         <Button
           className="w-full h-[80rpx] leading-[80rpx] bg-primary text-white text-[28rpx] rounded-[8rpx] m-0 disabled:opacity-60"

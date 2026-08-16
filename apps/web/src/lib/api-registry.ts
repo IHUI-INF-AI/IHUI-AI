@@ -33,8 +33,7 @@ function qs(query: Record<string, unknown>): string {
 export const registryApi = {
   listItems: (query: RegistryItemListQuery) =>
     api<RegistryItemListResponse>(`/items${qs(query as Record<string, unknown>)}`),
-  getItem: (id: string) =>
-    api<RegistryItemDetailResponse>(`/items/${encodeURIComponent(id)}`),
+  getItem: (id: string) => api<RegistryItemDetailResponse>(`/items/${encodeURIComponent(id)}`),
   listSyncLogs: (query: { page?: number; pageSize?: number }) =>
     api<RegistrySyncLogListResponse>(`/sync-logs${qs(query)}`),
   triggerSync: (body: { sourceType?: RegistrySourceType; source?: string; force?: boolean }) =>

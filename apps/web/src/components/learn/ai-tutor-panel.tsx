@@ -135,11 +135,7 @@ export function AiTutorPanel() {
                 handleAsk()
               }
             }}
-            placeholder={
-              mode === 'quiz'
-                ? '如:二次函数图像性质'
-                : '如:勾股定理怎么证明?'
-            }
+            placeholder={mode === 'quiz' ? '如:二次函数图像性质' : '如:勾股定理怎么证明?'}
             className="h-9 text-sm"
           />
           <Button
@@ -177,10 +173,7 @@ export function AiTutorPanel() {
                   <div className="text-xs text-muted-foreground">知识点</div>
                   <div className="flex flex-wrap gap-1.5">
                     {explain.knowledge_points.map((k, i) => (
-                      <span
-                        key={i}
-                        className="rounded-md bg-muted px-2 py-0.5 text-xs"
-                      >
+                      <span key={i} className="rounded-md bg-muted px-2 py-0.5 text-xs">
                         {k}
                       </span>
                     ))}
@@ -219,9 +212,7 @@ export function AiTutorPanel() {
                 </div>
               )}
               {hint.encouragement && (
-                <div className="text-xs italic text-muted-foreground">
-                  {hint.encouragement}
-                </div>
+                <div className="text-xs italic text-muted-foreground">{hint.encouragement}</div>
               )}
             </div>
           )}
@@ -243,15 +234,9 @@ export function AiTutorPanel() {
                       ))}
                     </div>
                   )}
-                  {item.answer && (
-                    <div className="text-xs text-emerald-700">
-                      答:{item.answer}
-                    </div>
-                  )}
+                  {item.answer && <div className="text-xs text-emerald-700">答:{item.answer}</div>}
                   {item.explanation && (
-                    <div className="text-xs text-muted-foreground">
-                      {item.explanation}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{item.explanation}</div>
                   )}
                 </div>
               ))}

@@ -138,7 +138,9 @@ export default function MyCommissionPage() {
               {summaryQ.isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : (
-                <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{s.value}</div>
+                <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                  {s.value}
+                </div>
               )}
             </CardContent>
           </Card>

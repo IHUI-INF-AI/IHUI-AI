@@ -62,7 +62,11 @@ export async function parseAider(input: ParserInput): Promise<ParserResult> {
         apiKey: openaiKey,
         apiFormat,
         modelIdForTest: model,
-        meta: { category: 'Aider', websiteUrl: 'https://aider.chat', models: model ? [model] : undefined },
+        meta: {
+          category: 'Aider',
+          websiteUrl: 'https://aider.chat',
+          models: model ? [model] : undefined,
+        },
         isCurrent: false,
         warnings: [],
       }),
@@ -84,7 +88,11 @@ export async function parseAider(input: ParserInput): Promise<ParserResult> {
         apiKey: anthropicKey,
         apiFormat,
         modelIdForTest: model,
-        meta: { category: 'Aider', websiteUrl: 'https://aider.chat', models: model ? [model] : undefined },
+        meta: {
+          category: 'Aider',
+          websiteUrl: 'https://aider.chat',
+          models: model ? [model] : undefined,
+        },
         isCurrent: false,
         warnings: [],
       }),
@@ -94,7 +102,10 @@ export async function parseAider(input: ParserInput): Promise<ParserResult> {
   // 根据 defaultModel 前缀设置 isCurrent
   if (providers.length > 0) {
     const targetId = defaultModel?.startsWith('claude-') ? 'aider::anthropic' : 'aider::openai'
-    const idx = Math.max(0, providers.findIndex((p) => p.sourceId === targetId))
+    const idx = Math.max(
+      0,
+      providers.findIndex((p) => p.sourceId === targetId),
+    )
     const target = providers[idx]
     if (target) {
       providers[idx] = { ...target, isCurrent: true }

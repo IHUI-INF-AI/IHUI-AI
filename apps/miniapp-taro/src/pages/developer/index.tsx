@@ -221,7 +221,9 @@ export default function DeveloperIndex() {
   return (
     <View className="min-h-screen bg-background flex flex-col">
       <View className="px-[30rpx] py-[20rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">{tt('developer.index.myAgents', '我的智能体')}</Text>
+        <Text className="text-[36rpx] font-bold text-foreground">
+          {tt('developer.index.myAgents', '我的智能体')}
+        </Text>
       </View>
 
       <View
@@ -229,8 +231,12 @@ export default function DeveloperIndex() {
         onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
       >
         <View className="flex-1">
-          <Text className="block text-[32rpx] font-semibold text-foreground">{t('developer.index.subscribeTitle')}</Text>
-          <Text className="block text-[24rpx] text-[rgba(255,255,255,0.85)] mt-[8rpx]">{t('developer.index.subscribeDesc')}</Text>
+          <Text className="block text-[32rpx] font-semibold text-foreground">
+            {t('developer.index.subscribeTitle')}
+          </Text>
+          <Text className="block text-[24rpx] text-[rgba(255,255,255,0.85)] mt-[8rpx]">
+            {t('developer.index.subscribeDesc')}
+          </Text>
         </View>
         <Text className="text-[40rpx] text-foreground opacity-80">›</Text>
       </View>
@@ -279,10 +285,15 @@ export default function DeveloperIndex() {
         onScrollToLower={onScrollToLower}
       >
         {loading && list.length === 0 ? (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('common.loading')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            {t('common.loading')}
+          </Text>
         ) : list.length ? (
           list.map((agent) => (
-            <View key={String(agent.agent_id ?? agent.id)} className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <View
+              key={String(agent.agent_id ?? agent.id)}
+              className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+            >
               <Image
                 className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-background flex-shrink-0"
                 src={agent.agent_avatar || '/static/default-agent.png'}
@@ -292,7 +303,11 @@ export default function DeveloperIndex() {
                 <Text className="block text-[30rpx] text-foreground font-medium mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
                   {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                 </Text>
-                {agent.prologue ? <Text className="block text-[24rpx] text-muted-foreground mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">{agent.prologue}</Text> : null}
+                {agent.prologue ? (
+                  <Text className="block text-[24rpx] text-muted-foreground mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                    {agent.prologue}
+                  </Text>
+                ) : null}
                 <Text className="text-[24rpx] text-muted-foreground">
                   {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
                 </Text>
@@ -302,12 +317,18 @@ export default function DeveloperIndex() {
                   {statusText(agent.status ?? status)}
                 </Text>
                 <View className="flex gap-[16rpx]">
-                  <Text className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-[rgba(78,140,255,0.1)]" onClick={() => onEdit(agent)}>
+                  <Text
+                    className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-[rgba(78,140,255,0.1)]"
+                    onClick={() => onEdit(agent)}
+                  >
                     {status === 2
                       ? tt('developer.index.editBtn2', '修改')
                       : tt('developer.index.editBtn', '设置')}
                   </Text>
-                  <Text className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]" onClick={() => onDelete(agent)}>
+                  <Text
+                    className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]"
+                    onClick={() => onDelete(agent)}
+                  >
                     {tt('developer.index.deleteBtn', '删除')}
                   </Text>
                 </View>
@@ -315,10 +336,14 @@ export default function DeveloperIndex() {
             </View>
           ))
         ) : (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('developer.index.empty')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            {t('developer.index.empty')}
+          </Text>
         )}
         {list.length > 0 && !hasMore ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{tt('developer.index.noMore', '没有更多了')}</Text>
+          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            {tt('developer.index.noMore', '没有更多了')}
+          </Text>
         ) : null}
       </ScrollView>
     </View>

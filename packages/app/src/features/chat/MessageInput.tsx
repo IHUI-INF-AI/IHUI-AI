@@ -11,11 +11,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  MessageInputAgentVariable,
-  MessageInputFile,
-  MessageInputProps,
-} from '../../types'
+import type { MessageInputAgentVariable, MessageInputFile, MessageInputProps } from '../../types'
 
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
 
@@ -76,7 +72,10 @@ export function MessageInput({
       {/* 全屏模式 header(返回按钮 + 提示) */}
       {isFullscreen ? (
         <View style={styles.fullscreenHeader}>
-          <TouchableOpacity onPress={onFullscreenToggle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={onFullscreenToggle}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.fullscreenBackText}>{t('messageInput.fullscreenBack')}</Text>
           </TouchableOpacity>
           <Text style={styles.fullscreenHint}>{t('messageInput.fullscreenHint')}</Text>
@@ -106,7 +105,11 @@ export function MessageInput({
                   activeOpacity={0.7}
                 >
                   {v.value ? (
-                    <Image source={{ uri: v.value }} style={styles.agentVarImage} resizeMode="cover" />
+                    <Image
+                      source={{ uri: v.value }}
+                      style={styles.agentVarImage}
+                      resizeMode="cover"
+                    />
                   ) : (
                     <Text style={styles.agentVarImageText}>+ {v.description}</Text>
                   )}
@@ -120,7 +123,11 @@ export function MessageInput({
       {/* 附件预览区(图片/文档/视频) */}
       {showFiles ? (
         <View style={styles.filesWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filesRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filesRow}
+          >
             {files.map((f: MessageInputFile) => (
               <View key={f.id} style={styles.fileItem}>
                 {f.type === 'image' ? (
@@ -152,7 +159,11 @@ export function MessageInput({
       {/* 主输入行 */}
       <View style={[styles.inputRow, isFocused && styles.inputRowFocused]}>
         {/* 语音/键盘切换按钮 */}
-        <TouchableOpacity style={styles.iconBtn} onPress={onVoiceToggle} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={onVoiceToggle}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
           <Text style={styles.iconBtnText}>{isVoiceMode ? '⌨' : '🎙'}</Text>
         </TouchableOpacity>
 
@@ -203,22 +214,38 @@ export function MessageInput({
         {/* 右侧操作区(全屏切换 + 附件 + 发送/停止) */}
         <View style={styles.rightActions}>
           {isFocused ? (
-            <TouchableOpacity style={styles.iconBtn} onPress={onFullscreenToggle} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={onFullscreenToggle}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
               <Text style={styles.iconBtnText}>{isFullscreen ? '⊟' : '⛶'}</Text>
             </TouchableOpacity>
           ) : null}
           {showAddFileBtn && !isFocused ? (
-            <TouchableOpacity style={styles.iconBtn} onPress={onAddImage} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={onAddImage}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
               <Text style={styles.iconBtnText}>+</Text>
             </TouchableOpacity>
           ) : null}
           {showAddFileBtn && isFocused ? (
-            <TouchableOpacity style={styles.iconBtn} onPress={onAddFile} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={onAddFile}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
               <Text style={styles.iconBtnText}>📎</Text>
             </TouchableOpacity>
           ) : null}
           {text.length > 0 && !isStreaming ? (
-            <TouchableOpacity style={styles.iconBtn} onPress={onClear} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={onClear}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
               <Text style={styles.iconBtnText}>×</Text>
             </TouchableOpacity>
           ) : null}

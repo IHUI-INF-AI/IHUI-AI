@@ -268,6 +268,5 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!deleted) return reply.status(404).send(error(404, '类目关系不存在'))
     return reply.send(success({ id: ridNum, deleted: true }))
   })
-
 }
 export default topicsRoutes

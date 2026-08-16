@@ -299,11 +299,7 @@ class ContextEngineService {
       const files = await findRecentFiles(userId, Math.max(limit * 3, 50))
       const q = query.trim().toLowerCase()
       const filtered = q
-        ? files.filter(
-            (f) =>
-              f.name.toLowerCase().includes(q) ||
-              f.path.toLowerCase().includes(q),
-          )
+        ? files.filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
         : files
       return filtered.slice(0, limit).map((f) => ({
         id: `file:${f.id}`,
@@ -417,18 +413,18 @@ class ContextEngineService {
       const entries = this.scanFolders(workspacePath, 2)
       const q = query.trim().toLowerCase()
       const filtered = q
-        ? entries.filter((e) => e.name.toLowerCase().includes(q) || e.path.toLowerCase().includes(q))
+        ? entries.filter(
+            (e) => e.name.toLowerCase().includes(q) || e.path.toLowerCase().includes(q),
+          )
         : entries
-      const result: ContextMention[] = filtered
-        .slice(0, limit)
-        .map((e) => ({
-          id: `folder:${e.path}`,
-          type: 'folder' as const,
-          label: e.name,
-          detail: relative(workspacePath, e.path).split(sep).join('/'),
-          insertText: `@${relative(workspacePath, e.path).split(sep).join('/')}/`,
-          meta: { path: e.path },
-        }))
+      const result: ContextMention[] = filtered.slice(0, limit).map((e) => ({
+        id: `folder:${e.path}`,
+        type: 'folder' as const,
+        label: e.name,
+        detail: relative(workspacePath, e.path).split(sep).join('/'),
+        insertText: `@${relative(workspacePath, e.path).split(sep).join('/')}/`,
+        meta: { path: e.path },
+      }))
       this.cache.set(cacheKey, result)
       return result
     } catch {
@@ -604,19 +600,19 @@ class ContextEngineService {
     if (!resp.ok) {
       throw new Error(`ai-service /api/context/sources PUT HTTP ${resp.status}`)
     }
-    const json = (await resp.json()) as { code: number; message?: string; data?: { saved?: number } }
+    const json = (await resp.json()) as {
+      code: number
+      message?: string
+      data?: { saved?: number }
+    }
     if (json.code !== 0) {
       throw new Error(json.message || '保存上下文源偏好失败')
     }
     return { saved: json.data?.saved ?? updates.length }
   }
 
-
   /** 降级:仅用 @ 提及内容拼接 enrichedContext(无 RAG 检索) */
-  private _fallbackEnrich(
-    mentions: ContextMention[],
-    conversationId: string,
-  ): EnrichedContext {
+  private _fallbackEnrich(mentions: ContextMention[], conversationId: string): EnrichedContext {
     const sources: EnrichedContextSource[] = mentions.map((m) => ({
       type: 'mention',
       content: this._mentionToText(m),
@@ -628,9 +624,7 @@ class ContextEngineService {
         insert_text: m.insertText,
       },
     }))
-    const enrichedContext = sources
-      .map((s) => `[${s.source}]\n${s.content}`)
-      .join('\n\n')
+    const enrichedContext = sources.map((s) => `[${s.source}]\n${s.content}`).join('\n\n')
     // 粗略 token 估算(中文 ~1.5 char/token,英文 ~4 char/token,取 3.5 折中)
     const tokenCount = Math.max(1, Math.ceil(enrichedContext.length / 3.5))
     return { enrichedContext, tokenCount, sources, conversationId }

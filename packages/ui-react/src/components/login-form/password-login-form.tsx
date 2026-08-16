@@ -141,7 +141,6 @@ export function PasswordLoginForm({
       formRef.current?.requestSubmit()
     }, 300)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // 仅 mount 时执行一次
 
   const onSubmit = async (e: React.FormEvent) => {

@@ -76,9 +76,7 @@ export default function OrderPage() {
             <CardContent>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{getStatusLabel(o.status)}</span>
-                <span>
-                  {fmtDate(o.createdAt)}
-                </span>
+                <span>{fmtDate(o.createdAt)}</span>
               </div>
               <div className="text-sm font-semibold tabular-nums mt-1">¥ {fmt(o.payAmount)}</div>
             </CardContent>

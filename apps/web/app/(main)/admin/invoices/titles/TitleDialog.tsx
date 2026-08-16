@@ -45,16 +45,25 @@ export function TitleDialog(props: TitleDialogProps) {
             <DialogTitle>{editing ? '编辑抬头' : '新建抬头'}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {err}
+            </div>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="it-name">抬头名称</Label>
-              <Input id="it-name" value={form.titleName} onChange={(e) => setForm({ ...form, titleName: e.target.value })} />
+              <Input
+                id="it-name"
+                value={form.titleName}
+                onChange={(e) => setForm({ ...form, titleName: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="it-type">类型</Label>
-              <Select value={form.titleType} onValueChange={(v) => setForm({ ...form, titleType: v as 'company' | 'personal' })}>
+              <Select
+                value={form.titleType}
+                onValueChange={(v) => setForm({ ...form, titleType: v as 'company' | 'personal' })}
+              >
                 <SelectTrigger className={selectClass} id="it-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -67,26 +76,46 @@ export function TitleDialog(props: TitleDialogProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="it-tax">税号</Label>
-            <Input id="it-tax" value={form.taxNo} onChange={(e) => setForm({ ...form, taxNo: e.target.value })} />
+            <Input
+              id="it-tax"
+              value={form.taxNo}
+              onChange={(e) => setForm({ ...form, taxNo: e.target.value })}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="it-bank">开户银行</Label>
-              <Input id="it-bank" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
+              <Input
+                id="it-bank"
+                value={form.bankName}
+                onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="it-account">银行账号</Label>
-              <Input id="it-account" value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} />
+              <Input
+                id="it-account"
+                value={form.bankAccount}
+                onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="it-address">地址</Label>
-              <Input id="it-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <Input
+                id="it-address"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="it-phone">电话</Label>
-              <Input id="it-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <Input
+                id="it-phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">

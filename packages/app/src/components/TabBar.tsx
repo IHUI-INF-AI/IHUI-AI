@@ -62,10 +62,7 @@ const DEFAULT_TABS: readonly TabBarItemConfig[] = [
 ] as const
 
 const viewStyles = {
-  container: (
-    tk: ReturnType<typeof getTokens>,
-    safeAreaBottom: number,
-  ): CSSProperties => ({
+  container: (tk: ReturnType<typeof getTokens>, safeAreaBottom: number): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -138,20 +135,13 @@ export function TabBar({
   colorScheme = 'light',
 }: TabBarProps) {
   const tk = getTokens(colorScheme)
-  const handlePress = useCallback(
-    (key: TabBarKey) => () => onChange(key),
-    [onChange],
-  )
+  const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
   const list: readonly TabBarItemConfig[] = items ?? DEFAULT_TABS
   const finalList = list.map(withFallbackIcon)
 
   return (
-    <div
-      className={className}
-      role="tablist"
-      style={viewStyles.container(tk, safeAreaBottom)}
-    >
+    <div className={className} role="tablist" style={viewStyles.container(tk, safeAreaBottom)}>
       {finalList.map((tab) => {
         const isActive = tab.key === activeTab
         return (
@@ -170,10 +160,13 @@ export function TabBar({
             }}
             style={viewStyles.item()}
           >
-            <TabBarIcon tab={tab} isActive={isActive} activeColor={tk.brand.DEFAULT} inactiveColor={tk.text.tertiary} />
-            <span
-              style={textStyles.label(isActive ? tk.brand.DEFAULT : tk.text.tertiary)}
-            >
+            <TabBarIcon
+              tab={tab}
+              isActive={isActive}
+              activeColor={tk.brand.DEFAULT}
+              inactiveColor={tk.text.tertiary}
+            />
+            <span style={textStyles.label(isActive ? tk.brand.DEFAULT : tk.text.tertiary)}>
               {tab.label}
             </span>
           </div>

@@ -1,5 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@ihui/ui-react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@ihui/ui-react'
 import { Button } from '@ihui/ui-react'
 
 /**

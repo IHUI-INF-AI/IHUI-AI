@@ -76,7 +76,9 @@ const updateBodySchema = z.object({
 })
 
 const listQuerySchema = paginationSchema.extend({
-  type: z.transform(emptyToUndefined).pipe(z.enum(['discount', 'deduction', 'referral']).optional()),
+  type: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['discount', 'deduction', 'referral']).optional()),
   // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
   enabled: booleanStringSchemaOptional,
 })

@@ -1,7 +1,14 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { STATUS_LABEL } from './helpers'
 import type { JobLog } from './types'
 import { formatDate } from '@/lib/date-utils'

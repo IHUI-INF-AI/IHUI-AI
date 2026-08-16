@@ -207,13 +207,16 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     const level = await findVipLevel(vipLevelId)
     if (!level || level.status !== 1) return reply.status(404).send(error(404, 'VIP 等级不存在'))
     // 创建订单
-    const order = await createOrder({
-      userId: request.userId!,
-      amount: level.price,
-      orderType: 2,
-      productId: level.id,
-      payType: paymentMethod,
-    }, request.userId ?? null)
+    const order = await createOrder(
+      {
+        userId: request.userId!,
+        amount: level.price,
+        orderType: 2,
+        productId: level.id,
+        payType: paymentMethod,
+      },
+      request.userId ?? null,
+    )
     // 开发环境直接激活方便测试，生产环境应等支付回调后激活
     if (process.env.NODE_ENV === 'development') {
       await purchaseVip({ userId: request.userId!, vipLevelId: level.id, orderId: order.id })
@@ -261,13 +264,16 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     if (!level || level.status !== 1) {
       return reply.status(404).send(error(404, 'VIP 等级不存在'))
     }
-    const order = await createOrder({
-      userId: request.userId!,
-      amount: level.price * quantity,
-      orderType: 2,
-      productId: level.id,
-      payType: paymentMethod,
-    }, request.userId ?? null)
+    const order = await createOrder(
+      {
+        userId: request.userId!,
+        amount: level.price * quantity,
+        orderType: 2,
+        productId: level.id,
+        payType: paymentMethod,
+      },
+      request.userId ?? null,
+    )
     const resolvedOpenId = await resolveOpenId(request.userId!, openId)
     const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
     return reply.send(
@@ -316,7 +322,11 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
           // 发卡(如果还没发过)
           if (order.orderType === 2 && order.productId) {
             try {
-              await purchaseVip({ userId: order.userId!, vipLevelId: order.productId, orderId: order.id })
+              await purchaseVip({
+                userId: order.userId!,
+                vipLevelId: order.productId,
+                orderId: order.id,
+              })
             } catch {
               // 已发过卡会唯一约束冲突,忽略
             }

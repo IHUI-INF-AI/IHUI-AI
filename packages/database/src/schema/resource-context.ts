@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  timestamp,
-  index,
-  jsonb,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, timestamp, index, jsonb } from 'drizzle-orm/pg-core'
 
 /**
  * 资源上下文表 (2026-07-24 新增)。

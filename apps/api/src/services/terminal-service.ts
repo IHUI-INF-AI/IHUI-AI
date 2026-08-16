@@ -522,10 +522,13 @@ function registerLocalSession(
   })
 
   // P2 修复:1 小时硬超时,防止 PTY 进程被 kill -9 或父进程崩溃未触发 exit 事件,导致 scrollbackTimer 永久运行
-  entry.sessionTimeout = setTimeout(() => {
-    console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
-    handlePtyExit(entry, { exitCode: -1, signal: 9 })
-  }, 60 * 60 * 1000)
+  entry.sessionTimeout = setTimeout(
+    () => {
+      console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
+      handlePtyExit(entry, { exitCode: -1, signal: 9 })
+    },
+    60 * 60 * 1000,
+  )
   entry.sessionTimeout.unref() // 不阻止进程退出
 
   sessions.set(sessionId, entry)
@@ -647,10 +650,13 @@ function createSshSession(
   client.connect(connectOpts)
 
   // P2 修复:1 小时硬超时,防止 SSH stream 异常断开未触发 close 事件,导致 scrollbackTimer 永久运行
-  entry.sessionTimeout = setTimeout(() => {
-    console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
-    handlePtyExit(entry, { exitCode: -1, signal: 9 })
-  }, 60 * 60 * 1000)
+  entry.sessionTimeout = setTimeout(
+    () => {
+      console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
+      handlePtyExit(entry, { exitCode: -1, signal: 9 })
+    },
+    60 * 60 * 1000,
+  )
   entry.sessionTimeout.unref() // 不阻止进程退出
 
   sessions.set(sessionId, entry)

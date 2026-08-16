@@ -57,7 +57,7 @@ export default function ModelIncomeScreen() {
         }))
         setRecords(items)
       } else {
-        errMsg = errMsg || (listRes.error || t('modelIncome.loadListFailed'))
+        errMsg = errMsg || listRes.error || t('modelIncome.loadListFailed')
       }
       if (dayMonthRes.success) setDayMonth(dayMonthRes.data)
       if (errMsg) setError(errMsg)

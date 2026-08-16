@@ -301,7 +301,9 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
       .limit(1)
     return member?.tenantId
   } catch (err) {
-    logger.warn(`[ai-cost] resolveTenantIdForUser 失败,跳过租户归集: userId=${userId} err=${String(err)}`)
+    logger.warn(
+      `[ai-cost] resolveTenantIdForUser 失败,跳过租户归集: userId=${userId} err=${String(err)}`,
+    )
     return undefined
   }
 }
@@ -327,7 +329,8 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
     }
     cost = result.totalCost
   }
-  const tenantId = input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
+  const tenantId =
+    input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
   await db.insert(aiCostRecords).values({
     userId: input.userId,
     tenantId,
@@ -652,77 +655,78 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       // P0-3e: 字段名含 "token" 命中 response-sanitizer 遮蔽为 "***"(同 vip-quotas),admin 路由直接跳过整端点脱敏
       request.skipResponseSanitization = true
       // 1. 取所有 scope='user' 的预算
-    const userBudgets = await db.select().from(aiBudgets).where(eq(aiBudgets.scope, 'user'))
+      const userBudgets = await db.select().from(aiBudgets).where(eq(aiBudgets.scope, 'user'))
 
-    if (userBudgets.length === 0) return success([])
+      if (userBudgets.length === 0) return success([])
 
-    // 2. 取今日 0 点 + 本月 1 点
-    const now = new Date()
-    const todayStart = new Date(now)
-    todayStart.setHours(0, 0, 0, 0)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      // 2. 取今日 0 点 + 本月 1 点
+      const now = new Date()
+      const todayStart = new Date(now)
+      todayStart.setHours(0, 0, 0, 0)
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    // 3. 批量查今日 token + 本月 cost
-    const alerts: Array<{
-      userId: string
-      scopeKey: string
-      dailyTokenLimit: number
-      dailyTokenUsed: number
-      dailyTokenPercent: number
-      monthlyCostLimit: number
-      monthlyCostUsed: number
-      monthlyCostPercent: number
-      severity: 'warning' | 'critical'
-    }> = []
+      // 3. 批量查今日 token + 本月 cost
+      const alerts: Array<{
+        userId: string
+        scopeKey: string
+        dailyTokenLimit: number
+        dailyTokenUsed: number
+        dailyTokenPercent: number
+        monthlyCostLimit: number
+        monthlyCostUsed: number
+        monthlyCostPercent: number
+        severity: 'warning' | 'critical'
+      }> = []
 
-    for (const b of userBudgets) {
-      const userId = b.scopeKey
-      const [todayRow] = await db
-        .select({ used: sum(aiCostRecords.totalTokens) })
-        .from(aiCostRecords)
-        .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, todayStart)))
-      const [monthRow] = await db
-        .select({ used: sum(aiCostRecords.cost) })
-        .from(aiCostRecords)
-        .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, monthStart)))
+      for (const b of userBudgets) {
+        const userId = b.scopeKey
+        const [todayRow] = await db
+          .select({ used: sum(aiCostRecords.totalTokens) })
+          .from(aiCostRecords)
+          .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, todayStart)))
+        const [monthRow] = await db
+          .select({ used: sum(aiCostRecords.cost) })
+          .from(aiCostRecords)
+          .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, monthStart)))
 
-      const dailyTokenUsed = Number(todayRow?.used ?? 0)
-      const monthlyCostUsed = Number(monthRow?.used ?? 0)
-      const dailyTokenPercent =
-        b.dailyTokenLimit > 0 ? Math.round((dailyTokenUsed / b.dailyTokenLimit) * 10000) / 100 : 0
-      const monthlyCostPercent =
-        Number(b.monthlyCostLimit) > 0
-          ? Math.round((monthlyCostUsed / Number(b.monthlyCostLimit)) * 10000) / 100
-          : 0
+        const dailyTokenUsed = Number(todayRow?.used ?? 0)
+        const monthlyCostUsed = Number(monthRow?.used ?? 0)
+        const dailyTokenPercent =
+          b.dailyTokenLimit > 0 ? Math.round((dailyTokenUsed / b.dailyTokenLimit) * 10000) / 100 : 0
+        const monthlyCostPercent =
+          Number(b.monthlyCostLimit) > 0
+            ? Math.round((monthlyCostUsed / Number(b.monthlyCostLimit)) * 10000) / 100
+            : 0
 
-      // 阈值:任一维度 >= 80% warning,>= 100% critical
-      const maxPercent = Math.max(dailyTokenPercent, monthlyCostPercent)
-      if (maxPercent < 80) continue
+        // 阈值:任一维度 >= 80% warning,>= 100% critical
+        const maxPercent = Math.max(dailyTokenPercent, monthlyCostPercent)
+        if (maxPercent < 80) continue
 
-      alerts.push({
-        userId,
-        scopeKey: b.scopeKey,
-        dailyTokenLimit: b.dailyTokenLimit,
-        dailyTokenUsed,
-        dailyTokenPercent,
-        monthlyCostLimit: Number(b.monthlyCostLimit),
-        monthlyCostUsed,
-        monthlyCostPercent,
-        severity: maxPercent >= 100 ? 'critical' : 'warning',
+        alerts.push({
+          userId,
+          scopeKey: b.scopeKey,
+          dailyTokenLimit: b.dailyTokenLimit,
+          dailyTokenUsed,
+          dailyTokenPercent,
+          monthlyCostLimit: Number(b.monthlyCostLimit),
+          monthlyCostUsed,
+          monthlyCostPercent,
+          severity: maxPercent >= 100 ? 'critical' : 'warning',
+        })
+      }
+
+      // 按严重度 + 百分比降序
+      alerts.sort((a, b) => {
+        if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1
+        return (
+          Math.max(b.dailyTokenPercent, b.monthlyCostPercent) -
+          Math.max(a.dailyTokenPercent, a.monthlyCostPercent)
+        )
       })
-    }
 
-    // 按严重度 + 百分比降序
-    alerts.sort((a, b) => {
-      if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1
-      return (
-        Math.max(b.dailyTokenPercent, b.monthlyCostPercent) -
-        Math.max(a.dailyTokenPercent, a.monthlyCostPercent)
-      )
-    })
-
-    return success(alerts)
-  })
+      return success(alerts)
+    },
+  )
 
   // GET /api/admin/ai/cost/vip-quotas — VIP 档位配额视图
   // 返回每档 VIP 的配额配置 + 当前生效用户数

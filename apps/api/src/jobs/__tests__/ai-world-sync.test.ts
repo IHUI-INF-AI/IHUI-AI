@@ -10,14 +10,29 @@ const mocks = vi.hoisted(() => {
 
   const mockOnConflictDoNothing = vi.fn(() => undefined)
   const mockReturning = vi.fn(() => [])
-  const mockValues = vi.fn(() => ({ onConflictDoNothing: mockOnConflictDoNothing, returning: mockReturning }))
+  const mockValues = vi.fn(() => ({
+    onConflictDoNothing: mockOnConflictDoNothing,
+    returning: mockReturning,
+  }))
   const mockInsert = vi.fn(() => ({ values: mockValues }))
 
   const mockUpdateWhere = vi.fn(() => undefined)
   const mockSet = vi.fn(() => ({ where: mockUpdateWhere }))
   const mockUpdate = vi.fn(() => ({ set: mockSet }))
 
-  return { mockSelect, mockInsert, mockUpdate, mockLimit, mockWhere, mockFrom, mockValues, mockReturning, mockOnConflictDoNothing, mockSet, mockUpdateWhere }
+  return {
+    mockSelect,
+    mockInsert,
+    mockUpdate,
+    mockLimit,
+    mockWhere,
+    mockFrom,
+    mockValues,
+    mockReturning,
+    mockOnConflictDoNothing,
+    mockSet,
+    mockUpdateWhere,
+  }
 })
 
 vi.mock('../../db/index.js', () => ({
@@ -29,10 +44,61 @@ vi.mock('../../db/index.js', () => ({
 }))
 
 vi.mock('@ihui/database', () => ({
-  aiWorldCategories: { id: 'id', slug: 'slug', name: 'name', description: 'description', icon: 'icon', sort: 'sort', status: 'status' },
-  aiWorldItems: { id: 'id', kind: 'kind', sourceUrl: 'source_url', title: 'title', summary: 'summary', content: 'content', url: 'url', coverImage: 'cover_image', publishedAt: 'published_at', fetchedAt: 'fetched_at', metadata: 'metadata', status: 'status', updatedAt: 'updated_at', likeCount: 'like_count', viewCount: 'view_count', categoryId: 'category_id', source: 'source', trendingScore: 'trending_score', trendingMetrics: 'trending_metrics', trendingUpdatedAt: 'trending_updated_at' },
-  aiWorldSyncLog: { source: 'source', kind: 'kind', status: 'status', startedAt: 'started_at', finishedAt: 'finished_at', itemCount: 'item_count', error: 'error' },
-  aiWorldRankings: { id: 'id', leaderboard: 'leaderboard', category: 'category', rank: 'rank', modelName: 'model_name', provider: 'provider', score: 'score', scores: 'scores', metadata: 'metadata', publishedAt: 'published_at', fetchedAt: 'fetched_at', createdAt: 'created_at', updatedAt: 'updated_at' },
+  aiWorldCategories: {
+    id: 'id',
+    slug: 'slug',
+    name: 'name',
+    description: 'description',
+    icon: 'icon',
+    sort: 'sort',
+    status: 'status',
+  },
+  aiWorldItems: {
+    id: 'id',
+    kind: 'kind',
+    sourceUrl: 'source_url',
+    title: 'title',
+    summary: 'summary',
+    content: 'content',
+    url: 'url',
+    coverImage: 'cover_image',
+    publishedAt: 'published_at',
+    fetchedAt: 'fetched_at',
+    metadata: 'metadata',
+    status: 'status',
+    updatedAt: 'updated_at',
+    likeCount: 'like_count',
+    viewCount: 'view_count',
+    categoryId: 'category_id',
+    source: 'source',
+    trendingScore: 'trending_score',
+    trendingMetrics: 'trending_metrics',
+    trendingUpdatedAt: 'trending_updated_at',
+  },
+  aiWorldSyncLog: {
+    source: 'source',
+    kind: 'kind',
+    status: 'status',
+    startedAt: 'started_at',
+    finishedAt: 'finished_at',
+    itemCount: 'item_count',
+    error: 'error',
+  },
+  aiWorldRankings: {
+    id: 'id',
+    leaderboard: 'leaderboard',
+    category: 'category',
+    rank: 'rank',
+    modelName: 'model_name',
+    provider: 'provider',
+    score: 'score',
+    scores: 'scores',
+    metadata: 'metadata',
+    publishedAt: 'published_at',
+    fetchedAt: 'fetched_at',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
 }))
 
 // Import after mocks are in place
@@ -73,7 +139,13 @@ describe('AI World Sync — 数据完整性', () => {
   })
 
   it('不包含 ai-bot.cn 的英文 slug 命名(反抄袭边界)', () => {
-    const forbiddenSlugs = ['ai-writing-tools', 'ai-chatbots', 'ai-image-tools', 'ai-video-tools', 'ai-programming-tools']
+    const forbiddenSlugs = [
+      'ai-writing-tools',
+      'ai-chatbots',
+      'ai-image-tools',
+      'ai-video-tools',
+      'ai-programming-tools',
+    ]
     for (const cat of AI_WORLD_CATEGORIES) {
       expect(forbiddenSlugs).not.toContain(cat.slug)
     }
@@ -121,11 +193,12 @@ describe('AI World Sync — 同步主流程', () => {
   it('syncAllSources 应返回 SyncSourceResult[] 数组,支持 success/partial/failed 三态', async () => {
     const originalFetch = globalThis.fetch
     // mock fetch 返回空数据(不阻塞流程,所有源走 success 但 itemCount=0)
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ items: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
     ) as unknown as typeof fetch
 
     try {
@@ -145,11 +218,12 @@ describe('AI World Sync — 同步主流程', () => {
 
   it('syncAllSources 应覆盖所有 kind 类型(news/paper/project/tool/app)', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ items: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
     ) as unknown as typeof fetch
 
     try {
@@ -208,7 +282,13 @@ describe('AI World Sync — FetchedItem 类型契约', () => {
 
 describe('AI World Sync — 模型排行榜(2026-07-22 新增)', () => {
   it('LeaderboardEntry 类型契约:5 种 leaderboard id,必填字段齐全', () => {
-    const validIds: LeaderboardId[] = ['lmsys', 'opencompass', 'hf-open-llm', 'superclue', 'artificial-analysis']
+    const validIds: LeaderboardId[] = [
+      'lmsys',
+      'opencompass',
+      'hf-open-llm',
+      'superclue',
+      'artificial-analysis',
+    ]
     expect(validIds).toHaveLength(5)
     for (const leaderboard of validIds) {
       const entry: LeaderboardEntry = {
@@ -231,11 +311,12 @@ describe('AI World Sync — 模型排行榜(2026-07-22 新增)', () => {
   it('syncRankings 应返回 SyncSourceResult[] 数组,失败不阻塞(mock fetch 返回空 HTML)', async () => {
     const originalFetch = globalThis.fetch
     // mock fetch 返回空 HTML(模拟 JS 渲染页面拿不到表格,所有榜单返回空数组但 success)
-    globalThis.fetch = vi.fn(async () =>
-      new Response('<html><body></body></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response('<html><body></body></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
     ) as unknown as typeof fetch
 
     try {
@@ -267,11 +348,12 @@ describe('AI World Sync — 模型排行榜(2026-07-22 新增)', () => {
 
   it('syncRankings 应对每个榜单写同步日志(writeSyncLog 调 db.insert)', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn(async () =>
-      new Response('<html></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response('<html></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
     ) as unknown as typeof fetch
 
     try {
@@ -298,11 +380,12 @@ describe('AI World Sync — Dry-run 模式(2026-07-22 新增)', () => {
   it('runDryRun 应返回预计条目数数组,不写库(db.insert/update 未被调用)', async () => {
     const originalFetch = globalThis.fetch
     // mock fetch 返回空 HTML/JSON,所有 fetcher 返回空或抛错(被 runDryRun try/catch 捕获)
-    globalThis.fetch = vi.fn(async () =>
-      new Response('<html><body></body></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response('<html><body></body></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
     ) as unknown as typeof fetch
 
     try {
@@ -325,11 +408,12 @@ describe('AI World Sync — Dry-run 模式(2026-07-22 新增)', () => {
 
   it('runDryRun 应覆盖所有数据源类型(rss/paper/project/app/tool/ranking/trending)', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn(async () =>
-      new Response('<html></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response('<html></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
     ) as unknown as typeof fetch
 
     try {

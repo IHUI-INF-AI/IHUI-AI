@@ -144,15 +144,11 @@ export default function CircleIndexPage() {
 
   const followUser = useCallback(async (u: RecommendUser) => {
     const prev = !!u.followed
-    setRecommendUsers((list) =>
-      list.map((x) => (x.id === u.id ? { ...x, followed: !prev } : x)),
-    )
+    setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: !prev } : x)))
     try {
       await post('/circles/follow', { userId: u.id })
     } catch {
-      setRecommendUsers((list) =>
-        list.map((x) => (x.id === u.id ? { ...x, followed: prev } : x)),
-      )
+      setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: prev } : x)))
     }
   }, [])
 
@@ -193,7 +189,11 @@ export default function CircleIndexPage() {
           <View className="ci-users-list">
             {recommendUsers.map((u) => (
               <View key={u.id} className="ci-user-card">
-                <Image className="ci-user-avatar" src={u.avatar || defaultAvatar} mode="aspectFill" />
+                <Image
+                  className="ci-user-avatar"
+                  src={u.avatar || defaultAvatar}
+                  mode="aspectFill"
+                />
                 <Text className="ci-user-name">{u.nickname}</Text>
                 {u.bio ? <Text className="ci-user-bio">{u.bio}</Text> : null}
                 <View
@@ -219,11 +219,7 @@ export default function CircleIndexPage() {
             return (
               <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
                 <View className="ci-item-head">
-                  <Image
-                    className="ci-avatar"
-                    src={c.avatar || defaultAvatar}
-                    mode="aspectFill"
-                  />
+                  <Image className="ci-avatar" src={c.avatar || defaultAvatar} mode="aspectFill" />
                   <Text className="ci-author">
                     {c.author || tt('circle.index.anonymous', '匿名用户')}
                   </Text>

@@ -76,7 +76,10 @@ export default function DeveloperSubscribePage() {
       if (profileRes) {
         setDev({
           id: devId,
-          name: toStr(profileRes.name ?? profileRes.nickname, tf('developer.subscribe.devName', '开发者')),
+          name: toStr(
+            profileRes.name ?? profileRes.nickname,
+            tf('developer.subscribe.devName', '开发者'),
+          ),
           avatar: toStr(profileRes.avatar),
           bio: toStr(profileRes.bio ?? profileRes.description),
           subscribed: Boolean(profileRes.subscribed ?? profileRes.isSubscribed),
@@ -157,10 +160,16 @@ export default function DeveloperSubscribePage() {
       <View className="flex items-start gap-[24rpx] px-[28rpx] py-[32rpx] m-[24rpx] bg-secondary border border-border rounded-[12rpx]">
         <View className="flex-shrink-0">
           {dev.avatar ? (
-            <Image className="w-[112rpx] h-[112rpx] rounded-[12rpx] bg-muted" src={dev.avatar} mode="aspectFill" />
+            <Image
+              className="w-[112rpx] h-[112rpx] rounded-[12rpx] bg-muted"
+              src={dev.avatar}
+              mode="aspectFill"
+            />
           ) : (
             <View className="w-[112rpx] h-[112rpx] rounded-[12rpx] bg-muted flex items-center justify-center">
-              <Text className="text-[40rpx] font-bold text-primary">{dev.name.charAt(0) || '?'}</Text>
+              <Text className="text-[40rpx] font-bold text-primary">
+                {dev.name.charAt(0) || '?'}
+              </Text>
             </View>
           )}
         </View>
@@ -190,7 +199,9 @@ export default function DeveloperSubscribePage() {
         </View>
         <View className="flex-1 flex flex-col items-center gap-[8rpx]">
           <Text className="text-[36rpx] font-bold text-primary">{stats.modelCount}</Text>
-          <Text className="text-[22rpx] text-muted-foreground">{tt('developer.subscribe.statModels', '模型数')}</Text>
+          <Text className="text-[22rpx] text-muted-foreground">
+            {tt('developer.subscribe.statModels', '模型数')}
+          </Text>
         </View>
         <View className="flex-1 flex flex-col items-center gap-[8rpx]">
           <Text className="text-[36rpx] font-bold text-primary">{stats.totalUses}</Text>
@@ -207,10 +218,17 @@ export default function DeveloperSubscribePage() {
         {models.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
             {models.map((m) => (
-              <View key={m.id} className="flex items-center gap-[20rpx] p-[24rpx] bg-card border border-border rounded-[12rpx]">
+              <View
+                key={m.id}
+                className="flex items-center gap-[20rpx] p-[24rpx] bg-card border border-border rounded-[12rpx]"
+              >
                 <View className="flex-shrink-0">
                   {m.icon ? (
-                    <Image className="w-[88rpx] h-[88rpx] rounded-[10rpx] bg-muted" src={m.icon} mode="aspectFill" />
+                    <Image
+                      className="w-[88rpx] h-[88rpx] rounded-[10rpx] bg-muted"
+                      src={m.icon}
+                      mode="aspectFill"
+                    />
                   ) : (
                     <View className="w-[88rpx] h-[88rpx] rounded-[10rpx] bg-muted flex items-center justify-center text-[32rpx] font-semibold text-primary">
                       <Text>{m.name.charAt(0) || '?'}</Text>
@@ -228,14 +246,19 @@ export default function DeveloperSubscribePage() {
                     {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                   </Text>
                 </View>
-                <Text className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]" onClick={() => handleUseModel(m)}>
+                <Text
+                  className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]"
+                  onClick={() => handleUseModel(m)}
+                >
                   {tt('developer.subscribe.use', '使用')}
                 </Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">{tt('developer.subscribe.noModels', '暂无模型')}</Text>
+          <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">
+            {tt('developer.subscribe.noModels', '暂无模型')}
+          </Text>
         )}
       </View>
 
@@ -274,21 +297,34 @@ export default function DeveloperSubscribePage() {
             {posts.map((p) => (
               <View key={p.id} className="p-[24rpx] bg-card border border-border rounded-[10rpx]">
                 <Text className="block text-[28rpx] font-semibold text-foreground">{p.title}</Text>
-                <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">{p.content}</Text>
-                <Text className="block mt-[12rpx] text-[22rpx] text-muted-foreground">{p.createTime}</Text>
+                <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">
+                  {p.content}
+                </Text>
+                <Text className="block mt-[12rpx] text-[22rpx] text-muted-foreground">
+                  {p.createTime}
+                </Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">{tt('developer.subscribe.noPosts', '暂无动态')}</Text>
+          <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">
+            {tt('developer.subscribe.noPosts', '暂无动态')}
+          </Text>
         )}
       </View>
 
-      <Button className="m-[24rpx] h-[84rpx] leading-[84rpx] text-[30rpx] text-foreground bg-primary rounded-[10rpx] border-none" onClick={contactDev}>
+      <Button
+        className="m-[24rpx] h-[84rpx] leading-[84rpx] text-[30rpx] text-foreground bg-primary rounded-[10rpx] border-none"
+        onClick={contactDev}
+      >
         {tt('developer.subscribe.contact', '联系开发者')}
       </Button>
 
-      {loading && <Text className="block text-center text-[26rpx] text-muted-foreground py-[40rpx]">{tt('common.loading', '加载中…')}</Text>}
+      {loading && (
+        <Text className="block text-center text-[26rpx] text-muted-foreground py-[40rpx]">
+          {tt('common.loading', '加载中…')}
+        </Text>
+      )}
     </View>
   )
 }

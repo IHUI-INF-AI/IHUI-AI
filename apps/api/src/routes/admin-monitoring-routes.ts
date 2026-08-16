@@ -509,7 +509,10 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(apiLogs.createdAt))
         .limit(pageSize)
         .offset((page - 1) * pageSize),
-      db.select({ c: sql<number>`count(*)::int` }).from(apiLogs).where(where),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(apiLogs)
+        .where(where),
     ])
     return reply.send(success({ list, total: totalRow[0]?.c ?? 0 }))
   })

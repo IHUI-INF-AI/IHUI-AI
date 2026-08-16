@@ -580,18 +580,18 @@ export default function DocumentsPage() {
                           }}
                         >
                           <Tooltip content={item.text}>
-                          <button
-                            type="button"
-                            onClick={() => scrollToHeading(item.id)}
-                            className={
-                              'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
-                              (activeHeadingId === item.id
-                                ? 'bg-primary/10 font-medium text-primary'
-                                : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                            }
-                          >
-                            {item.text}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => scrollToHeading(item.id)}
+                              className={
+                                'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
+                                (activeHeadingId === item.id
+                                  ? 'bg-primary/10 font-medium text-primary'
+                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                              }
+                            >
+                              {item.text}
+                            </button>
                           </Tooltip>
                         </li>
                       ))}
@@ -624,7 +624,13 @@ export default function DocumentsPage() {
                           </h3>
                         )
                       },
-                      img: ({ src, alt, width: mdWidth, height: mdHeight, ...props }: React.ComponentProps<'img'>) => {
+                      img: ({
+                        src,
+                        alt,
+                        width: mdWidth,
+                        height: mdHeight,
+                        ...props
+                      }: React.ComponentProps<'img'>) => {
                         // next/image 要求合法 src,无 src 的 markdown 图片直接跳过(原空 img 无视觉输出)
                         if (!src) return null
                         // next/image 的 width/height 只接受 number 或数字字符串;markdown 里可能是任意值,取有效值否则用默认占位
@@ -722,21 +728,21 @@ export default function DocumentsPage() {
                           }}
                         >
                           <Tooltip content={item.text}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              scrollToHeading(item.id)
-                              setShowTocDrawer(false)
-                            }}
-                            className={
-                              'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
-                              (activeHeadingId === item.id
-                                ? 'bg-primary/10 font-medium text-primary'
-                                : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                            }
-                          >
-                            {item.text}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                scrollToHeading(item.id)
+                                setShowTocDrawer(false)
+                              }}
+                              className={
+                                'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
+                                (activeHeadingId === item.id
+                                  ? 'bg-primary/10 font-medium text-primary'
+                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                              }
+                            >
+                              {item.text}
+                            </button>
                           </Tooltip>
                         </li>
                       ))}

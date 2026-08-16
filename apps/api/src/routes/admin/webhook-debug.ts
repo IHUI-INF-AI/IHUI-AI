@@ -32,9 +32,9 @@ const subscriptionsQuerySchema = paginationSchema.extend({
 
 const logsQuerySchema = paginationSchema.extend({
   /** 按状态筛选:pending/success/failed/retrying */
-  status: z.transform(emptyToUndefined).pipe(
-    z.enum(['pending', 'success', 'failed', 'retrying']).optional(),
-  ),
+  status: z
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['pending', 'success', 'failed', 'retrying']).optional()),
   /** 按订阅筛选 */
   subscriptionId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })

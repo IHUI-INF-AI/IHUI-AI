@@ -50,7 +50,8 @@ async function createCertificate(data: {
     .values({
       userId: data.userId,
       title: data.title,
-      certificateNo: data.certificateNo ?? `CERT-TEST-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      certificateNo:
+        data.certificateNo ?? `CERT-TEST-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       templateId: data.templateId ?? null,
       recipientName: data.recipientName ?? null,
       status: data.status ?? 1,
@@ -132,7 +133,10 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
       status: 0,
     })
     setMockUser(user.id)
-    const res = await server.inject({ method: 'GET', url: `/api/certificates/verify?no=${cert.certificateNo}` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/certificates/verify?no=${cert.certificateNo}`,
+    })
     expect(res.statusCode).toBe(404)
   })
 
@@ -145,7 +149,10 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
       recipientName: '张三',
     })
     setMockUser(user.id)
-    const res = await server.inject({ method: 'GET', url: `/api/certificates/verify?no=${cert.certificateNo}` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/certificates/verify?no=${cert.certificateNo}`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
@@ -210,7 +217,10 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     const userB = await createUser('1002', '用户B')
     const cert = await createCertificate({ userId: userA.id, title: 'A的证书' })
     setMockUser(userB.id)
-    const res = await server.inject({ method: 'POST', url: `/api/certificates/${cert.id}/download` })
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/certificates/${cert.id}/download`,
+    })
     expect(res.statusCode).toBe(403)
   })
 
@@ -222,7 +232,10 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
       recipientName: '李四',
     })
     setMockUser(user.id)
-    const res = await server.inject({ method: 'POST', url: `/api/certificates/${cert.id}/download` })
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/certificates/${cert.id}/download`,
+    })
     expect(res.statusCode).toBe(200)
     expect(res.headers['content-type']).toBe('application/pdf')
     expect(res.headers['content-disposition']).toContain('attachment')
@@ -442,7 +455,10 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     await createCertificate({ userId: userA.id, title: 'A证书' })
     await createCertificate({ userId: userB.id, title: 'B证书' })
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'GET', url: `/api/admin/certificates?userId=${userA.id}` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/admin/certificates?userId=${userA.id}`,
+    })
     const body = res.json()
     expect(body.data.list).toHaveLength(1)
     expect(body.data.list[0].title).toBe('A证书')

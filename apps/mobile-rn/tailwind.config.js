@@ -6,10 +6,7 @@ const sharedPreset = _sharedPreset.default || _sharedPreset
 
 module.exports = {
   content: ['./App.tsx', './src/**/*.{ts,tsx}', '../../packages/ui-native/src/**/*.{ts,tsx}'],
-  presets: [
-    require('nativewind/preset'),
-    sharedPreset,
-  ],
+  presets: [require('nativewind/preset'), sharedPreset],
   theme: {
     extend: {
       colors: {

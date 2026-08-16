@@ -1,6 +1,6 @@
-import { eq, and, desc, asc, gte, lt, sql } from 'drizzle-orm';
-import { db } from './index.js';
-import { shiftDate } from '../utils/checkin-helpers.js';
+import { eq, and, desc, asc, gte, lt, sql } from 'drizzle-orm'
+import { db } from './index.js'
+import { shiftDate } from '../utils/checkin-helpers.js'
 import {
   userPoints,
   pointTransactions,
@@ -11,7 +11,7 @@ import {
   type PointTransaction,
   type SignInRecord,
   type Level,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // 字段选择（与 $inferSelect 等价的完整列集合）
@@ -26,7 +26,7 @@ const userPointsFields = {
   level: userPoints.level,
   experience: userPoints.experience,
   updatedAt: userPoints.updatedAt,
-};
+}
 
 const transactionFields = {
   id: pointTransactions.id,
@@ -38,7 +38,7 @@ const transactionFields = {
   description: pointTransactions.description,
   referenceId: pointTransactions.referenceId,
   createdAt: pointTransactions.createdAt,
-};
+}
 
 const signInFields = {
   id: signInRecords.id,
@@ -47,7 +47,7 @@ const signInFields = {
   consecutiveDays: signInRecords.consecutiveDays,
   rewardPoints: signInRecords.rewardPoints,
   createdAt: signInRecords.createdAt,
-};
+}
 
 const levelFields = {
   id: levels.id,
@@ -58,16 +58,61 @@ const levelFields = {
   icon: levels.icon,
   benefits: levels.benefits,
   createdAt: levels.createdAt,
-};
+}
 
 // 等级默认配置（DB 未 seed 时使用，保证“可配置”同时具备开箱默认）
 const DEFAULT_LEVELS: Level[] = [
-  { id: 'default-1', level: 1, name: '新手', minExperience: 0, maxExperience: 99, icon: null, benefits: {}, createdAt: new Date(0) },
-  { id: 'default-2', level: 2, name: '学徒', minExperience: 100, maxExperience: 499, icon: null, benefits: {}, createdAt: new Date(0) },
-  { id: 'default-3', level: 3, name: '行家', minExperience: 500, maxExperience: 1499, icon: null, benefits: {}, createdAt: new Date(0) },
-  { id: 'default-4', level: 4, name: '专家', minExperience: 1500, maxExperience: 4999, icon: null, benefits: {}, createdAt: new Date(0) },
-  { id: 'default-5', level: 5, name: '大师', minExperience: 5000, maxExperience: Number.MAX_SAFE_INTEGER, icon: null, benefits: {}, createdAt: new Date(0) },
-];
+  {
+    id: 'default-1',
+    level: 1,
+    name: '新手',
+    minExperience: 0,
+    maxExperience: 99,
+    icon: null,
+    benefits: {},
+    createdAt: new Date(0),
+  },
+  {
+    id: 'default-2',
+    level: 2,
+    name: '学徒',
+    minExperience: 100,
+    maxExperience: 499,
+    icon: null,
+    benefits: {},
+    createdAt: new Date(0),
+  },
+  {
+    id: 'default-3',
+    level: 3,
+    name: '行家',
+    minExperience: 500,
+    maxExperience: 1499,
+    icon: null,
+    benefits: {},
+    createdAt: new Date(0),
+  },
+  {
+    id: 'default-4',
+    level: 4,
+    name: '专家',
+    minExperience: 1500,
+    maxExperience: 4999,
+    icon: null,
+    benefits: {},
+    createdAt: new Date(0),
+  },
+  {
+    id: 'default-5',
+    level: 5,
+    name: '大师',
+    minExperience: 5000,
+    maxExperience: Number.MAX_SAFE_INTEGER,
+    icon: null,
+    benefits: {},
+    createdAt: new Date(0),
+  },
+]
 
 // =============================================================================
 // User Points
@@ -78,24 +123,24 @@ export async function findUserPoints(userId: string): Promise<UserPoints | undef
     .select(userPointsFields)
     .from(userPoints)
     .where(eq(userPoints.userId, userId))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 /** 确保用户积分行存在，不存在则按默认值创建。 */
 export async function ensureUserPoints(userId: string): Promise<UserPoints> {
-  const existing = await findUserPoints(userId);
-  if (existing) return existing;
+  const existing = await findUserPoints(userId)
+  if (existing) return existing
   try {
-    const rows = await db.insert(userPoints).values({ userId }).returning(userPointsFields);
-    const inserted = rows[0];
-    if (inserted) return inserted;
+    const rows = await db.insert(userPoints).values({ userId }).returning(userPointsFields)
+    const inserted = rows[0]
+    if (inserted) return inserted
   } catch {
     // 并发插入冲突 → 回退查询
   }
-  const fallback = await findUserPoints(userId);
-  if (!fallback) throw new Error('初始化用户积分失败');
-  return fallback;
+  const fallback = await findUserPoints(userId)
+  if (!fallback) throw new Error('初始化用户积分失败')
+  return fallback
 }
 
 /** 仅更新用户等级字段（由 points-service.updateLevel 调用）。 */
@@ -103,7 +148,7 @@ export async function setUserLevel(userId: string, level: number): Promise<void>
   await db
     .update(userPoints)
     .set({ level, updatedAt: new Date() })
-    .where(eq(userPoints.userId, userId));
+    .where(eq(userPoints.userId, userId))
 }
 
 // =============================================================================
@@ -111,16 +156,18 @@ export async function setUserLevel(userId: string, level: number): Promise<void>
 // =============================================================================
 
 export interface CreateTransactionInput {
-  userId: string;
-  type: 'earn' | 'spend';
-  source: string;
-  amount: number;
-  balanceAfter: number;
-  description?: string;
-  referenceId?: string;
+  userId: string
+  type: 'earn' | 'spend'
+  source: string
+  amount: number
+  balanceAfter: number
+  description?: string
+  referenceId?: string
 }
 
-export async function createPointTransaction(data: CreateTransactionInput): Promise<PointTransaction> {
+export async function createPointTransaction(
+  data: CreateTransactionInput,
+): Promise<PointTransaction> {
   const rows = await db
     .insert(pointTransactions)
     .values({
@@ -132,19 +179,19 @@ export async function createPointTransaction(data: CreateTransactionInput): Prom
       description: data.description,
       referenceId: data.referenceId,
     })
-    .returning(transactionFields);
-  const row = rows[0];
-  if (!row) throw new Error('创建积分流水失败');
-  return row;
+    .returning(transactionFields)
+  const row = rows[0]
+  if (!row) throw new Error('创建积分流水失败')
+  return row
 }
 
 export interface AdjustPointsInput {
-  userId: string;
-  type: 'earn' | 'spend';
-  amount: number; // 正数
-  source: string;
-  description?: string;
-  referenceId?: string;
+  userId: string
+  type: 'earn' | 'spend'
+  amount: number // 正数
+  source: string
+  description?: string
+  referenceId?: string
 }
 
 /**
@@ -154,11 +201,11 @@ export interface AdjustPointsInput {
 export async function adjustPoints(
   data: AdjustPointsInput,
 ): Promise<{ points: UserPoints; transaction: PointTransaction }> {
-  const amount = Math.abs(data.amount);
-  if (amount === 0) throw new Error('调整积分数不能为 0');
+  const amount = Math.abs(data.amount)
+  if (amount === 0) throw new Error('调整积分数不能为 0')
 
   // 仅用于确保积分行存在;核心增减用原子 UPDATE,不依赖此快照计算新值(防 lost update)
-  await ensureUserPoints(data.userId);
+  await ensureUserPoints(data.userId)
 
   return db.transaction(async (tx) => {
     if (data.type === 'earn') {
@@ -172,20 +219,20 @@ export async function adjustPoints(
           updatedAt: new Date(),
         })
         .where(eq(userPoints.userId, data.userId))
-        .returning(userPointsFields);
-      const pointsRow = updated[0];
-      if (!pointsRow) throw new Error('用户积分记录不存在');
+        .returning(userPointsFields)
+      const pointsRow = updated[0]
+      if (!pointsRow) throw new Error('用户积分记录不存在')
 
       // 等级更新:用 RETURNING 拿到新 experience 再查 levels 表,避免内存计算脏读
-      const levelRow = await findLevelByExperience(pointsRow.experience);
-      let finalPoints = pointsRow;
+      const levelRow = await findLevelByExperience(pointsRow.experience)
+      let finalPoints = pointsRow
       if (levelRow.level !== pointsRow.level) {
         const reUpdated = await tx
           .update(userPoints)
           .set({ level: levelRow.level, updatedAt: new Date() })
           .where(eq(userPoints.userId, data.userId))
-          .returning(userPointsFields);
-        finalPoints = reUpdated[0] ?? pointsRow;
+          .returning(userPointsFields)
+        finalPoints = reUpdated[0] ?? pointsRow
       }
 
       const transaction = await tx
@@ -199,11 +246,11 @@ export async function adjustPoints(
           description: data.description,
           referenceId: data.referenceId,
         })
-        .returning(transactionFields);
-      const txRow = transaction[0];
-      if (!txRow) throw new Error('创建积分流水失败');
+        .returning(transactionFields)
+      const txRow = transaction[0]
+      if (!txRow) throw new Error('创建积分流水失败')
 
-      return { points: finalPoints, transaction: txRow };
+      return { points: finalPoints, transaction: txRow }
     }
 
     // spend 路径:原子 UPDATE 扣减 + WHERE 余额检查(0 行影响 = 余额不足或用户不存在)
@@ -214,20 +261,17 @@ export async function adjustPoints(
         totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
         updatedAt: new Date(),
       })
-      .where(and(
-        eq(userPoints.userId, data.userId),
-        sql`${userPoints.points} >= ${amount}`,
-      ))
-      .returning(userPointsFields);
-    const pointsRow = updated[0];
+      .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+      .returning(userPointsFields)
+    const pointsRow = updated[0]
     if (!pointsRow) {
       const [existing] = await tx
         .select(userPointsFields)
         .from(userPoints)
         .where(eq(userPoints.userId, data.userId))
-        .limit(1);
-      if (!existing) throw new Error('用户积分记录不存在');
-      throw new Error('积分余额不足');
+        .limit(1)
+      if (!existing) throw new Error('用户积分记录不存在')
+      throw new Error('积分余额不足')
     }
 
     const transaction = await tx
@@ -241,29 +285,29 @@ export async function adjustPoints(
         description: data.description,
         referenceId: data.referenceId,
       })
-      .returning(transactionFields);
-    const txRow = transaction[0];
-    if (!txRow) throw new Error('创建积分流水失败');
+      .returning(transactionFields)
+    const txRow = transaction[0]
+    if (!txRow) throw new Error('创建积分流水失败')
 
-    return { points: pointsRow, transaction: txRow };
-  });
+    return { points: pointsRow, transaction: txRow }
+  })
 }
 
 export interface FindTransactionsInput {
-  userId: string;
-  page: number;
-  pageSize: number;
-  type?: string;
-  source?: string;
+  userId: string
+  page: number
+  pageSize: number
+  type?: string
+  source?: string
 }
 
 export async function findPointTransactions(
   input: FindTransactionsInput,
 ): Promise<{ list: PointTransaction[]; total: number }> {
-  const conds = [eq(pointTransactions.userId, input.userId)];
-  if (input.type) conds.push(eq(pointTransactions.type, input.type));
-  if (input.source) conds.push(eq(pointTransactions.source, input.source));
-  const where = and(...conds);
+  const conds = [eq(pointTransactions.userId, input.userId)]
+  if (input.type) conds.push(eq(pointTransactions.type, input.type))
+  if (input.source) conds.push(eq(pointTransactions.source, input.source))
+  const where = and(...conds)
   const [list, totalRows] = await Promise.all([
     db
       .select(transactionFields)
@@ -272,9 +316,12 @@ export async function findPointTransactions(
       .orderBy(desc(pointTransactions.createdAt))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(pointTransactions).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(pointTransactions)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 // =============================================================================
@@ -282,25 +329,31 @@ export async function findPointTransactions(
 // =============================================================================
 
 /** 按 (userId, signInDate) 查找签到记录。signInDate 为 'YYYY-MM-DD'。 */
-export async function findSignInRecord(userId: string, signInDate: string): Promise<SignInRecord | undefined> {
+export async function findSignInRecord(
+  userId: string,
+  signInDate: string,
+): Promise<SignInRecord | undefined> {
   const rows = await db
     .select(signInFields)
     .from(signInRecords)
     .where(and(eq(signInRecords.userId, userId), eq(signInRecords.signInDate, signInDate)))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 /** 今日是否已签到。 */
-export async function findTodaySignIn(userId: string, today: string): Promise<SignInRecord | undefined> {
-  return findSignInRecord(userId, today);
+export async function findTodaySignIn(
+  userId: string,
+  today: string,
+): Promise<SignInRecord | undefined> {
+  return findSignInRecord(userId, today)
 }
 
 export interface CreateSignInInput {
-  userId: string;
-  signInDate: string;
-  consecutiveDays: number;
-  rewardPoints: number;
+  userId: string
+  signInDate: string
+  consecutiveDays: number
+  rewardPoints: number
 }
 
 export async function createSignInRecord(data: CreateSignInInput): Promise<SignInRecord> {
@@ -312,39 +365,39 @@ export async function createSignInRecord(data: CreateSignInInput): Promise<SignI
       consecutiveDays: data.consecutiveDays,
       rewardPoints: data.rewardPoints,
     })
-    .returning(signInFields);
-  const row = rows[0];
-  if (!row) throw new Error('创建签到记录失败');
-  return row;
+    .returning(signInFields)
+  const row = rows[0]
+  if (!row) throw new Error('创建签到记录失败')
+  return row
 }
 
 /**
  * 计算连续签到天数：查询昨日记录，若存在则 +1，否则重置为 1。
  */
 export async function calculateConsecutiveDays(userId: string, today: string): Promise<number> {
-  const yesterday = shiftDate(today, -1);
-  const yesterdayRecord = await findSignInRecord(userId, yesterday);
-  if (yesterdayRecord) return yesterdayRecord.consecutiveDays + 1;
-  return 1;
+  const yesterday = shiftDate(today, -1)
+  const yesterdayRecord = await findSignInRecord(userId, yesterday)
+  if (yesterdayRecord) return yesterdayRecord.consecutiveDays + 1
+  return 1
 }
 
 export interface FindSignInHistoryInput {
-  userId: string;
-  page: number;
-  pageSize: number;
-  yearMonth?: string; // 'YYYY-MM'
+  userId: string
+  page: number
+  pageSize: number
+  yearMonth?: string // 'YYYY-MM'
 }
 
 export async function findSignInHistory(
   input: FindSignInHistoryInput,
 ): Promise<{ list: SignInRecord[]; total: number }> {
-  const conds = [eq(signInRecords.userId, input.userId)];
+  const conds = [eq(signInRecords.userId, input.userId)]
   if (input.yearMonth) {
     // 以月份区间过滤：[月初, 下月初)
-    conds.push(gte(signInRecords.signInDate, input.yearMonth + '-01'));
-    conds.push(lt(signInRecords.signInDate, nextMonthStart(input.yearMonth)));
+    conds.push(gte(signInRecords.signInDate, input.yearMonth + '-01'))
+    conds.push(lt(signInRecords.signInDate, nextMonthStart(input.yearMonth)))
   }
-  const where = and(...conds);
+  const where = and(...conds)
   const [list, totalRows] = await Promise.all([
     db
       .select(signInFields)
@@ -353,9 +406,12 @@ export async function findSignInHistory(
       .orderBy(desc(signInRecords.signInDate))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(signInRecords).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(signInRecords)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 /** 查询最近 N 天的签到记录（含今天），按 signInDate 升序。 */
@@ -374,7 +430,7 @@ export async function findRecentSignInRecords(
         lt(signInRecords.signInDate, endDate),
       ),
     )
-    .orderBy(asc(signInRecords.signInDate));
+    .orderBy(asc(signInRecords.signInDate))
 }
 
 // =============================================================================
@@ -382,48 +438,50 @@ export async function findRecentSignInRecords(
 // =============================================================================
 
 export async function findLevels(): Promise<Level[]> {
-  const rows = await db.select(levelFields).from(levels).orderBy(asc(levels.level));
-  return rows.length > 0 ? rows : DEFAULT_LEVELS;
+  const rows = await db.select(levelFields).from(levels).orderBy(asc(levels.level))
+  return rows.length > 0 ? rows : DEFAULT_LEVELS
 }
 
 /** 根据经验值返回对应等级（min_experience <= experience 的最高等级）。 */
 export async function findLevelByExperience(experience: number): Promise<Level> {
-  const all = await findLevels();
-  const first = all[0];
-  if (!first) throw new Error('等级配置为空');
-  let matched = first;
+  const all = await findLevels()
+  const first = all[0]
+  if (!first) throw new Error('等级配置为空')
+  let matched = first
   for (const lv of all) {
-    if (lv.minExperience <= experience) matched = lv;
-    else break;
+    if (lv.minExperience <= experience) matched = lv
+    else break
   }
-  return matched;
+  return matched
 }
 
 export interface CurrentLevelInfo {
-  current: Level;
-  next: Level | null;
-  experience: number;
-  progress: number; // 0 ~ 1，到下一等级的进度
+  current: Level
+  next: Level | null
+  experience: number
+  progress: number // 0 ~ 1，到下一等级的进度
 }
 
 export async function findCurrentLevel(experience: number): Promise<CurrentLevelInfo> {
-  const all = await findLevels();
-  const first = all[0];
-  if (!first) throw new Error('等级配置为空');
-  let current = first;
-  let next: Level | null = null;
+  const all = await findLevels()
+  const first = all[0]
+  if (!first) throw new Error('等级配置为空')
+  let current = first
+  let next: Level | null = null
   for (const lv of all) {
     if (lv.minExperience <= experience) {
-      current = lv;
+      current = lv
     } else {
-      next = lv;
-      break;
+      next = lv
+      break
     }
   }
-  const span = next ? next.minExperience - current.minExperience : Math.max(0, current.maxExperience - current.minExperience);
-  const done = experience - current.minExperience;
-  const progress = span > 0 ? Math.min(1, Math.max(0, done / span)) : 1;
-  return { current, next, experience, progress };
+  const span = next
+    ? next.minExperience - current.minExperience
+    : Math.max(0, current.maxExperience - current.minExperience)
+  const done = experience - current.minExperience
+  const progress = span > 0 ? Math.min(1, Math.max(0, done / span)) : 1
+  return { current, next, experience, progress }
 }
 
 // =============================================================================
@@ -431,12 +489,12 @@ export async function findCurrentLevel(experience: number): Promise<CurrentLevel
 // =============================================================================
 
 export interface LeaderboardRow {
-  userId: string;
-  nickname: string | null;
-  avatar: string | null;
-  points: number;
-  level: number;
-  experience: number;
+  userId: string
+  nickname: string | null
+  avatar: string | null
+  points: number
+  level: number
+  experience: number
 }
 
 export async function findLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
@@ -452,7 +510,7 @@ export async function findLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
     .from(userPoints)
     .leftJoin(users, eq(userPoints.userId, users.id))
     .orderBy(desc(userPoints.points), desc(userPoints.experience))
-    .limit(limit);
+    .limit(limit)
 }
 
 // =============================================================================
@@ -461,11 +519,11 @@ export async function findLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 
 /** 由 'YYYY-MM' 计算下个月月初的 'YYYY-MM-DD'。 */
 function nextMonthStart(yearMonth: string): string {
-  const parts = yearMonth.split('-').map(Number);
-  const y = parts[0];
-  const m = parts[1];
-  if (y === undefined || m === undefined) throw new Error('yearMonth 格式错误');
-  const d = new Date(Date.UTC(y, m - 1, 1));
-  d.setUTCMonth(d.getUTCMonth() + 1);
-  return d.toISOString().slice(0, 10);
+  const parts = yearMonth.split('-').map(Number)
+  const y = parts[0]
+  const m = parts[1]
+  if (y === undefined || m === undefined) throw new Error('yearMonth 格式错误')
+  const d = new Date(Date.UTC(y, m - 1, 1))
+  d.setUTCMonth(d.getUTCMonth() + 1)
+  return d.toISOString().slice(0, 10)
 }

@@ -30,12 +30,19 @@ const CN_FONT_CANDIDATES = [
     bold: 'C:/Windows/Fonts/simhei.ttf',
     name: 'cnhei',
   },
-  { regular: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', bold: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', name: 'wqy' },
-  { regular: '/System/Library/Fonts/PingFang.ttc', bold: '/System/Library/Fonts/PingFang.ttc', name: 'pingfang' },
+  {
+    regular: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+    bold: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+    name: 'wqy',
+  },
+  {
+    regular: '/System/Library/Fonts/PingFang.ttc',
+    bold: '/System/Library/Fonts/PingFang.ttc',
+    name: 'pingfang',
+  },
 ]
 
-const cnFont =
-  CN_FONT_CANDIDATES.find((f) => existsSync(f.regular) && existsSync(f.bold)) ?? null
+const cnFont = CN_FONT_CANDIDATES.find((f) => existsSync(f.regular) && existsSync(f.bold)) ?? null
 
 /** 注册中文字体到 pdfkit 文档(注册后可用 doc.font(name) 切换)。 */
 function registerChineseFonts(doc: PDFDocumentLike): void {
@@ -274,7 +281,10 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
         // 章节卡片背景(浅蓝底色,高度自适应估算:每 25 字符 +1 行,行高 18pt)
         const contentLines = Math.ceil(section.content.length / 35)
         const cardHeight = Math.min(220, 40 + contentLines * 18 + 16)
-        doc.rect(50, y - 8, 495, cardHeight).fill(COLOR_ACCENT).fillColor(COLOR_TEXT)
+        doc
+          .rect(50, y - 8, 495, cardHeight)
+          .fill(COLOR_ACCENT)
+          .fillColor(COLOR_TEXT)
 
         // 左侧品牌色竖线(3pt 宽,与卡片同高)
         doc.rect(50, y - 8, 3, cardHeight).fill(COLOR_PRIMARY)
@@ -304,7 +314,12 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
 
       // ====================== 页脚(最后一页) ======================
       // 顶部细分隔线
-      doc.moveTo(50, y + 10).lineTo(545, y + 10).strokeColor(COLOR_BORDER).lineWidth(0.5).stroke()
+      doc
+        .moveTo(50, y + 10)
+        .lineTo(545, y + 10)
+        .strokeColor(COLOR_BORDER)
+        .lineWidth(0.5)
+        .stroke()
       // 页脚文字
       doc
         .fontSize(9)

@@ -136,7 +136,10 @@ export default function CachePage() {
       {clearing ? (
         <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
           <View className="w-full h-[12rpx] bg-border rounded-[6rpx] overflow-hidden">
-            <View className="h-full bg-primary transition-[width] duration-100" style={{ width: `${progress}%` }} />
+            <View
+              className="h-full bg-primary transition-[width] duration-100"
+              style={{ width: `${progress}%` }}
+            />
           </View>
           <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx] text-center">
             {tt('setting.cache.clearing', '清理中')} {progress}%
@@ -149,7 +152,10 @@ export default function CachePage() {
           <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearImage')}</Text>
           <Text className="text-muted-foreground">›</Text>
         </View>
-        <View className="flex justify-between items-center p-[32rpx] mt-[16rpx]" onClick={onClearFile}>
+        <View
+          className="flex justify-between items-center p-[32rpx] mt-[16rpx]"
+          onClick={onClearFile}
+        >
           <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearFile')}</Text>
           <Text className="text-muted-foreground">›</Text>
         </View>
@@ -165,8 +171,12 @@ export default function CachePage() {
       </Button>
 
       <View className="px-[32rpx]">
-        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">{t('setting.cache.tip1')}</Text>
-        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">{t('setting.cache.tip2')}</Text>
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+          {t('setting.cache.tip1')}
+        </Text>
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+          {t('setting.cache.tip2')}
+        </Text>
       </View>
     </View>
   )

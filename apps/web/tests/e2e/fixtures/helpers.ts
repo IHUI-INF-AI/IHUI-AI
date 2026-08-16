@@ -31,9 +31,18 @@ export function attachErrorGuards(page: Page): {
 const WHITELISTED_5XX_PATH = new RegExp(
   [
     // AI / Agent / Workflow
-    'ai', 'llm', 'agents', 'tools', 'mcp', 'a2a', 'workflow', 'llm-tools',
+    'ai',
+    'llm',
+    'agents',
+    'tools',
+    'mcp',
+    'a2a',
+    'workflow',
+    'llm-tools',
     // 业务侧已知会 5xx(后端 schema 漂移 / 端点暂未接入)
-    'news', 'analytics', 'user/llm-configs',
+    'news',
+    'analytics',
+    'user/llm-configs',
   ].join('|'),
 )
 export function filterRealErrors(errors: string[]): string[] {
@@ -79,7 +88,10 @@ export async function setLocaleCookie(
 export async function waitForAnyText(page: Page, keywords: string[], timeout = 5000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
-    const body = await page.locator('body').innerText().catch(() => '')
+    const body = await page
+      .locator('body')
+      .innerText()
+      .catch(() => '')
     if (keywords.some((k) => body.includes(k))) return true
     await page.waitForTimeout(150)
   }

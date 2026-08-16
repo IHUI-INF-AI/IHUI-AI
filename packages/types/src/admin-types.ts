@@ -23,31 +23,15 @@
  * admin/orders/types.ts 原仅 4 值(pending/paid/cancelled/refunded),此处采用完整枚举。
  */
 export type OrderStatus =
-  | 'pending'
-  | 'paid'
-  | 'cancelled'
-  | 'refunding'
-  | 'refunded'
-  | 'completed'
-  | 'failed'
+  'pending' | 'paid' | 'cancelled' | 'refunding' | 'refunded' | 'completed' | 'failed'
 
 /** 退款状态(6 值,与 @ihui/api-client endpoints/payment.ts RefundStatus 同集合) */
 export type RefundStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'processing'
-  | 'completed'
-  | 'failed'
+  'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed'
 
 /** 发票申请状态 */
 export type InvoiceAppStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'invoicing'
-  | 'invoiced'
-  | 'canceled'
+  'pending' | 'approved' | 'rejected' | 'invoicing' | 'invoiced' | 'canceled'
 
 /** 教务订单(admin/orders EduOrder) */
 export interface EduOrder {

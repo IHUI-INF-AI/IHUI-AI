@@ -444,7 +444,14 @@ describe('codex++ parser — providerCode 推断', () => {
     const res = parseCodexPlus(
       makeText(
         makeSettings({
-          profiles: [{ id: 'p1', name: 'P1', apiBaseUrl: 'https://api.example.com', model: 'gemini-2.0-flash' }],
+          profiles: [
+            {
+              id: 'p1',
+              name: 'P1',
+              apiBaseUrl: 'https://api.example.com',
+              model: 'gemini-2.0-flash',
+            },
+          ],
         }),
       ),
     )
@@ -455,7 +462,9 @@ describe('codex++ parser — providerCode 推断', () => {
     const res = parseCodexPlus(
       makeText(
         makeSettings({
-          profiles: [{ id: 'p1', name: 'P1', apiBaseUrl: 'https://api.example.com', model: 'gpt-5' }],
+          profiles: [
+            { id: 'p1', name: 'P1', apiBaseUrl: 'https://api.example.com', model: 'gpt-5' },
+          ],
         }),
       ),
     )

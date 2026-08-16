@@ -1,15 +1,7 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  integer,
-  timestamp,
-  index,
-  unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { lessons } from './learn.js';
-import { lessonChapters, lessonChapterSections } from './learn.js';
+import { pgTable, uuid, varchar, integer, timestamp, index, unique } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { lessons } from './learn.js'
+import { lessonChapters, lessonChapterSections } from './learn.js'
 
 /**
  * 学习记录表 (对应 Java t_record)。
@@ -22,10 +14,16 @@ export const lessonRecords = pgTable(
   'lesson_records',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    lessonId: uuid('lesson_id')
+      .notNull()
+      .references(() => lessons.id, { onDelete: 'cascade' }),
     chapterId: uuid('chapter_id').references(() => lessonChapters.id, { onDelete: 'set null' }),
-    sectionId: uuid('section_id').references(() => lessonChapterSections.id, { onDelete: 'set null' }),
+    sectionId: uuid('section_id').references(() => lessonChapterSections.id, {
+      onDelete: 'set null',
+    }),
     watchDuration: integer('watch_duration').default(0).notNull(),
     totalDuration: integer('total_duration').default(0).notNull(),
     progress: integer('progress').default(0).notNull(),
@@ -44,7 +42,7 @@ export const lessonRecords = pgTable(
       t.sectionId,
     ),
   }),
-);
+)
 
 /**
  * 学习记录日志表 (对应 Java t_record_log)。
@@ -56,8 +54,12 @@ export const lessonRecordLogs = pgTable(
   'lesson_record_logs',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    recordId: uuid('record_id').notNull().references(() => lessonRecords.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => lessonRecords.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     action: varchar('action', { length: 20 }).default('heartbeat').notNull(),
     position: integer('position').default(0).notNull(),
     duration: integer('duration').default(0).notNull(),
@@ -67,9 +69,9 @@ export const lessonRecordLogs = pgTable(
     recordIdx: index('lesson_record_logs_record_idx').on(t.recordId),
     userIdx: index('lesson_record_logs_user_idx').on(t.userId),
   }),
-);
+)
 
-export type LessonRecord = typeof lessonRecords.$inferSelect;
-export type NewLessonRecord = typeof lessonRecords.$inferInsert;
-export type LessonRecordLog = typeof lessonRecordLogs.$inferSelect;
-export type NewLessonRecordLog = typeof lessonRecordLogs.$inferInsert;
+export type LessonRecord = typeof lessonRecords.$inferSelect
+export type NewLessonRecord = typeof lessonRecords.$inferInsert
+export type LessonRecordLog = typeof lessonRecordLogs.$inferSelect
+export type NewLessonRecordLog = typeof lessonRecordLogs.$inferInsert

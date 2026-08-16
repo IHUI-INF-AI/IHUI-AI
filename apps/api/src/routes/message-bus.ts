@@ -66,9 +66,7 @@ export async function messageBusRoutes(server: FastifyInstance) {
   server.post('/message-bus/send', async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = sendSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const input = parsed.data as MessageBusSendInput
     const adapter = getMessageBusAdapter(input.channel)

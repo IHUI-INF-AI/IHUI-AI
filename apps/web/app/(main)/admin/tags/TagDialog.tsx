@@ -65,10 +65,7 @@ export function TagFormDialog({
           <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={form.handleSubmit(onValid)}
-          className="space-y-4"
-        >
+        <form onSubmit={form.handleSubmit(onValid)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="tag-name">{t('name')}</Label>
             <Input

@@ -24,7 +24,10 @@ export interface BlogPost extends BlogPostMeta {
 const BLOG_DIR = path.resolve(process.cwd(), '..', '..', 'docs', 'blog')
 
 /** 解析 markdown frontmatter(简单 key: value / key: [...] 格式,够用) */
-function parseFrontmatter(raw: string): { data: Record<string, string | string[]>; content: string } {
+function parseFrontmatter(raw: string): {
+  data: Record<string, string | string[]>
+  content: string
+} {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(raw)
   if (!match || !match[1] || !match[2]) return { data: {}, content: raw }
 
@@ -49,9 +52,7 @@ function parseFrontmatter(raw: string): { data: Record<string, string | string[]
 
 /** 文件名 → slug(去前缀编号 + .md) */
 function fileToSlug(filename: string): string {
-  return filename
-    .replace(/^\d+-/, '')
-    .replace(/\.md$/, '')
+  return filename.replace(/^\d+-/, '').replace(/\.md$/, '')
 }
 
 /** 估算阅读时长(中文按 350 字/分钟,英文按 200 词/分钟,取大者) */
@@ -65,9 +66,7 @@ function estimateReadMinutes(content: string): number {
 /** 列出所有 blog 文章(按日期降序) */
 export function listBlogPosts(): BlogPostMeta[] {
   if (!fs.existsSync(BLOG_DIR)) return []
-  const files = fs
-    .readdirSync(BLOG_DIR)
-    .filter((f) => f.endsWith('.md'))
+  const files = fs.readdirSync(BLOG_DIR).filter((f) => f.endsWith('.md'))
   const posts: BlogPostMeta[] = files.map((file) => {
     const raw = fs.readFileSync(path.join(BLOG_DIR, file), 'utf-8')
     const { data, content } = parseFrontmatter(raw)
@@ -88,9 +87,7 @@ export function listBlogPosts(): BlogPostMeta[] {
 /** 读取单篇文章(完整 markdown 正文) */
 export function getBlogPost(slug: string): BlogPost | null {
   if (!fs.existsSync(BLOG_DIR)) return null
-  const file = fs
-    .readdirSync(BLOG_DIR)
-    .find((f) => f.endsWith('.md') && fileToSlug(f) === slug)
+  const file = fs.readdirSync(BLOG_DIR).find((f) => f.endsWith('.md') && fileToSlug(f) === slug)
   if (!file) return null
   const raw = fs.readFileSync(path.join(BLOG_DIR, file), 'utf-8')
   const { data, content } = parseFrontmatter(raw)

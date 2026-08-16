@@ -345,17 +345,18 @@ class NewsScheduler:
         """从 LLM 输出中提取 JSON 数组(与 news.py _extract_json_array 一致)."""
         import json
         import re
+        from typing import cast
 
         try:
             result = json.loads(text)
             if isinstance(result, list):
-                return result
+                return cast(list[dict[str, Any]], result)
         except json.JSONDecodeError:
             pass
         fence = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.DOTALL)
         if fence:
             try:
-                return json.loads(fence.group(1))
+                return cast(list[dict[str, Any]], json.loads(fence.group(1)))
             except json.JSONDecodeError:
                 pass
         for m in re.finditer(r"\[\s*\{", text):
@@ -363,14 +364,14 @@ class NewsScheduler:
             bracket_end = text.rfind("]")
             if bracket_end > obj_start:
                 try:
-                    return json.loads(text[obj_start : bracket_end + 1])
+                    return cast(list[dict[str, Any]], json.loads(text[obj_start : bracket_end + 1]))
                 except json.JSONDecodeError:
                     pass
         bracket_start = text.find("[")
         bracket_end = text.rfind("]")
         if bracket_start != -1 and bracket_end > bracket_start:
             try:
-                return json.loads(text[bracket_start : bracket_end + 1])
+                return cast(list[dict[str, Any]], json.loads(text[bracket_start : bracket_end + 1]))
             except json.JSONDecodeError:
                 pass
         raise ValueError(f"无法从 LLM 输出提取 JSON 数组: {text[:200]}")

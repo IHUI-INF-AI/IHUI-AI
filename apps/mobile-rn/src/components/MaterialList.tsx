@@ -1,29 +1,24 @@
 /**
  * MaterialList 素材列表 (mobile-rn 端)
  *
- * 用途:AI 生成的图片 / 视频 / 文档素材展示,顶部分类 Tab 横条 +
- *      主体 2 列网格缩略图。
+ * 1:1 复刻 uniapp src/components/MaterialList.vue 结构:
+ *   - 标题头「我的创作」
+ *   - 分类 Tab(文本 / 图片 / 视频 / 音频,由 categories prop 驱动,向后兼容 all/doc)
+ *   - 单列列表:文本带 30 字预览;图片/视频真实缩略图(Image uri);音频/文档用图标
+ *   - 空态 + 分页提示(loading → 加载中…;!hasMore 且列表非空 → 没有更多了)
  *
- * 视觉规范:
- *   - 顶部分类 Tab:水平 ScrollView,chip 形,paddingHorizontal 12,
- *     paddingVertical 6,borderRadius 16;选中态 bgColor brand.DEFAULT +
- *     白字,未选 bgColor surface.muted + text.secondary。
- *   - 主体:FlatList numColumns=2,3:4 缩略图,卡片 8 圆角 + 1px 浅边框 +
- *     surface.card 背景。
- *   - 缩略图:高度按宽度 3:4 等比,surface.muted 背景,居中 emoji(图 / 视频 /
- *     文档分类)。
- *   - 底部:padding 8,标题 12px text.primary numberOfLines=1 +
- *     元数据 11px text.secondary。
- *
- * 约束:
- *   - 浅色优雅风,无霓虹/无渐变;系统字体,无 ttf;颜色全部用 rnLightTokens。
- *   - 触底加载用 useState + useEffect 双重护栏:避免 loading 状态下重入 +
- *     loading 翻 false 后再真正派发 onLoadMore。
- *   - 类型零 any,精确标注。
+ * 视觉规范(rpx→dp 2:1):
+ *   - 标题头 16 / 行标题 14 / 预览 12 / 时间 11 / tab 13
+ *   - 缩略图 50×50(原 100rpx),圆角 4
+ *   - 颜色全部走 rnLightTokens:选中 tab = brand 黑底白字;禁用 purple/indigo
+ *   - 触底加载用 useState + useEffect 双重护栏:避免 loading 重入 + 翻 false 后才真正派发
+ *   - 类型零 any
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react-native'
 import {
   FlatList,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -33,8 +28,8 @@ import {
 } from 'react-native'
 import { useCallback, useEffect, useState } from 'react'
 
-/** 素材类型(决定缩略图占位 emoji) */
-export type MaterialType = 'image' | 'video' | 'doc'
+/** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
+export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
 
 /** 顶部分类 chip */
 export interface MaterialCategory {
@@ -47,7 +42,11 @@ export interface MaterialItem {
   id: string
   title: string
   type: MaterialType
-  /** 可选创建时间(ISO 字符串或本地化字符串均可) */
+  /** 缩略图 URL(图片/视频展示真实缩略图;音频/文档忽略) */
+  url?: string
+  /** 文本内容(文本 tab 展示 30 字预览) */
+  text?: string
+  /** 创建时间 */
   createdAt?: string
 }
 
@@ -57,63 +56,118 @@ export interface MaterialListProps {
   onCategoryChange: (key: string) => void
   items: MaterialItem[]
   onPress?: (id: string) => void
-  /** 触底回调;loading=true 时不重复触发 */
+  /** 触底回调;loading=true 或 hasMore=false 时不重复触发 */
   onLoadMore?: () => void
-  /** 父级声明当前是否正在分页加载(用于控制 onLoadMore 防重入) */
+  /** 父级声明当前是否正在分页加载 */
   loading?: boolean
+  /** 是否还有更多分页数据;false 且列表非空时显示「没有更多了」 */
+  hasMore?: boolean
 }
 
-const THUMB_RATIO = 4 / 3
-const GRID_GAP = 8
-const CONTAINER_PADDING = 12
-const TAB_BAR_PADDING = 12
-const TAB_GAP = 8
-
-/** 类型 → 缩略图居中 emoji */
-const TYPE_EMOJI: Record<MaterialType, string> = {
-  image: '🖼️',
-  video: '🎬',
-  doc: '📄',
-}
-
-/** 类型 → 列表底部元数据文字 */
-const TYPE_META: Record<MaterialType, string> = {
-  image: '图片',
-  video: '视频',
-  doc: '文档',
-}
+/** 文本预览截断长度(对齐原版 slice(0, 30)) */
+const PREVIEW_LEN = 30
 
 function keyExtractor(item: MaterialItem): string {
   return item.id
 }
 
-function MaterialCard({
+/** 文本 30 字预览,超出补省略号 */
+function previewText(text?: string): string {
+  const s = text ?? ''
+  return s.length > PREVIEW_LEN ? `${s.slice(0, PREVIEW_LEN)}...` : s
+}
+
+/** 类型 → 默认标题(对齐原版) */
+function defaultTitleForType(type: MaterialType): string {
+  switch (type) {
+    case 'text':
+      return '文本内容'
+    case 'image':
+      return '图片内容'
+    case 'video':
+      return '视频内容'
+    case 'audio':
+      return '音频内容'
+    default:
+      return '素材内容'
+  }
+}
+
+/** 分类 → 空态文案(对齐原版 per-tab 空态) */
+function emptyTextForCategory(key: string): string {
+  switch (key) {
+    case 'text':
+      return '暂无文本内容'
+    case 'image':
+      return '暂无图片内容'
+    case 'video':
+      return '暂无视频内容'
+    case 'audio':
+      return '暂无音频内容'
+    default:
+      return '暂无内容'
+  }
+}
+
+/** 单行素材:文本带预览,图片/视频带真实缩略图,音频/文档带图标 */
+function MaterialRow({
   item,
   onPress,
 }: {
   item: MaterialItem
   onPress?: (id: string) => void
 }): React.JSX.Element {
-  const emoji = TYPE_EMOJI[item.type]
-  const meta = item.createdAt ? `${TYPE_META[item.type]} · ${item.createdAt}` : TYPE_META[item.type]
+  const title = item.title || defaultTitleForType(item.type)
+  const time = item.createdAt ?? ''
+
+  // 文本:标题 + 时间 + 30 字预览(无缩略图)
+  if (item.type === 'text') {
+    return (
+      <TouchableOpacity activeOpacity={0.7} onPress={() => onPress?.(item.id)} style={styles.row}>
+        <View style={styles.rowTop}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          {time ? <Text style={styles.rowTime}>{time}</Text> : null}
+        </View>
+        <Text style={styles.rowPreview} numberOfLines={1}>
+          {previewText(item.text)}
+        </Text>
+      </TouchableOpacity>
+    )
+  }
+
+  // 图片/视频:有 url 用真实缩略图,否则占位图标;音频/文档:图标
+  const thumb =
+    (item.type === 'image' || item.type === 'video') && item.url ? (
+      <Image source={{ uri: item.url }} style={styles.thumb} resizeMode="cover" />
+    ) : (
+      <View style={[styles.thumb, styles.thumbPlaceholder]}>
+        {item.type === 'audio' ? (
+          <Music size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : item.type === 'video' ? (
+          <Video size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : item.type === 'image' ? (
+          <ImageIcon size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : (
+          <FileText size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        )}
+      </View>
+    )
 
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       onPress={() => onPress?.(item.id)}
-      style={styles.card}
+      style={[styles.row, styles.rowWithThumb]}
     >
-      <View style={styles.thumb}>
-        <Text style={styles.thumbEmoji}>{emoji}</Text>
-      </View>
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title}
+      <View style={styles.rowMain}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {title}
         </Text>
-        <Text style={styles.meta} numberOfLines={1}>
-          {meta}
-        </Text>
+        {time ? <Text style={styles.rowTime}>{time}</Text> : null}
       </View>
+      {thumb}
     </TouchableOpacity>
   )
 }
@@ -126,14 +180,15 @@ export default function MaterialList({
   onPress,
   onLoadMore,
   loading = false,
+  hasMore = true,
 }: MaterialListProps): React.JSX.Element {
   /** 触底触发标记:仅当 useEffect 看到 trigger=true 且 loading 翻 false 才真正派发回调 */
   const [endReachedTrigger, setEndReachedTrigger] = useState<boolean>(false)
 
   const handleEndReached = useCallback((): void => {
-    if (loading || !onLoadMore) return
+    if (loading || !onLoadMore || !hasMore) return
     setEndReachedTrigger(true)
-  }, [loading, onLoadMore])
+  }, [loading, onLoadMore, hasMore])
 
   useEffect(() => {
     if (endReachedTrigger && !loading) {
@@ -143,13 +198,30 @@ export default function MaterialList({
   }, [endReachedTrigger, loading, onLoadMore])
 
   const renderItem: ListRenderItem<MaterialItem> = useCallback(
-    ({ item }) => <MaterialCard item={item} onPress={onPress} />,
+    ({ item }) => <MaterialRow item={item} onPress={onPress} />,
     [onPress],
   )
 
+  const emptyText = emptyTextForCategory(activeCategory)
+
+  const footer = loading ? (
+    <View style={styles.footer}>
+      <Text style={styles.loadingMore}>加载中...</Text>
+    </View>
+  ) : !hasMore && items.length > 0 ? (
+    <View style={styles.footer}>
+      <Text style={styles.noMore}>没有更多了</Text>
+    </View>
+  ) : null
+
   return (
     <View style={styles.root}>
-      {/* 顶部分类 Tab 横条 */}
+      {/* 标题头(对齐原版 material-header) */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>我的创作</Text>
+      </View>
+
+      {/* 分类 tab(对齐原版 material-tabs,由 categories 驱动) */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -172,14 +244,14 @@ export default function MaterialList({
         })}
       </ScrollView>
 
-      {/* 主体 2 列网格 */}
+      {/* 单列列表(对齐原版 scroll-view 单列) */}
       <FlatList
         data={items}
-        numColumns={2}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={styles.gridContent}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={!loading ? <Text style={styles.empty}>{emptyText}</Text> : null}
+        ListFooterComponent={footer}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
       />
@@ -192,10 +264,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.surface.bg,
   },
+  header: {
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: tokens.text.primary,
+  },
   tabBar: {
-    paddingHorizontal: TAB_BAR_PADDING,
-    paddingVertical: 10,
-    gap: TAB_GAP,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
   },
   chip: {
     paddingHorizontal: 12,
@@ -209,51 +293,83 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   chipTextActive: {
-    fontSize: 12,
+    fontSize: 13,
     color: tokens.surface.light,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   chipTextInactive: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  listContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  row: {
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  },
+  rowWithThumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  rowTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  rowTime: {
+    flexShrink: 0,
+    marginLeft: 6,
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  rowPreview: {
+    marginTop: 3,
     fontSize: 12,
     color: tokens.text.secondary,
   },
-  gridContent: {
-    paddingHorizontal: CONTAINER_PADDING,
-    paddingBottom: 12,
-  },
-  gridRow: {
-    gap: GRID_GAP,
-    marginBottom: GRID_GAP,
-  },
-  card: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: tokens.surface.card,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-  },
   thumb: {
-    width: '100%',
-    aspectRatio: THUMB_RATIO,
+    width: 50,
+    height: 50,
+    borderRadius: 4,
     backgroundColor: tokens.surface.muted,
+  },
+  thumbPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbEmoji: {
-    fontSize: 36,
+  empty: {
+    paddingVertical: 30,
+    textAlign: 'center',
+    fontSize: 14,
+    color: tokens.text.tertiary,
   },
-  info: {
-    padding: 8,
+  footer: {
+    paddingVertical: 10,
   },
-  title: {
-    fontSize: 12,
-    color: tokens.text.primary,
-    fontWeight: '500',
-  },
-  meta: {
-    marginTop: 2,
-    fontSize: 11,
+  loadingMore: {
+    textAlign: 'center',
+    fontSize: 13,
     color: tokens.text.secondary,
+  },
+  noMore: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: tokens.text.tertiary,
   },
 })

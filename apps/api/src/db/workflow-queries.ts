@@ -1,5 +1,5 @@
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   workflows,
   workflowInstances,
@@ -9,28 +9,28 @@ import {
   type WorkflowInstance,
   type WorkflowTask,
   type WorkflowLog,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // Workflows
 // =============================================================================
 
 export interface CreateWorkflowInput {
-  name: string;
-  description?: string;
-  triggerType: string;
-  triggerConfig?: unknown;
-  steps: unknown;
-  createdBy: string;
+  name: string
+  description?: string
+  triggerType: string
+  triggerConfig?: unknown
+  steps: unknown
+  createdBy: string
 }
 
 export interface UpdateWorkflowInput {
-  name?: string;
-  description?: string;
-  triggerType?: string;
-  triggerConfig?: unknown;
-  steps?: unknown;
-  isActive?: boolean;
+  name?: string
+  description?: string
+  triggerType?: string
+  triggerConfig?: unknown
+  steps?: unknown
+  isActive?: boolean
 }
 
 export async function createWorkflow(data: CreateWorkflowInput): Promise<Workflow> {
@@ -44,15 +44,16 @@ export async function createWorkflow(data: CreateWorkflowInput): Promise<Workflo
       steps: data.steps as never,
       createdBy: data.createdBy,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建工作流失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建工作流失败')
+  return row
 }
 
-export async function findWorkflows(
-  opts: { page: number; pageSize: number },
-): Promise<{ list: Workflow[]; total: number }> {
+export async function findWorkflows(opts: {
+  page: number
+  pageSize: number
+}): Promise<{ list: Workflow[]; total: number }> {
   const [list, totalRows] = await Promise.all([
     db
       .select()
@@ -61,13 +62,13 @@ export async function findWorkflows(
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db.select({ count: sql<number>`COUNT(*)` }).from(workflows),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findWorkflowById(id: string): Promise<Workflow | undefined> {
-  const rows = await db.select().from(workflows).where(eq(workflows.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(workflows).where(eq(workflows.id, id)).limit(1)
+  return rows[0]
 }
 
 export async function updateWorkflow(
@@ -86,12 +87,12 @@ export async function updateWorkflow(
       updatedAt: new Date(),
     })
     .where(eq(workflows.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteWorkflow(id: string): Promise<void> {
-  await db.delete(workflows).where(eq(workflows.id, id));
+  await db.delete(workflows).where(eq(workflows.id, id))
 }
 
 // =============================================================================
@@ -99,9 +100,9 @@ export async function deleteWorkflow(id: string): Promise<void> {
 // =============================================================================
 
 export interface CreateInstanceInput {
-  workflowId: string;
-  projectId?: string;
-  context?: unknown;
+  workflowId: string
+  projectId?: string
+  context?: unknown
 }
 
 export async function createInstance(data: CreateInstanceInput): Promise<WorkflowInstance> {
@@ -112,19 +113,22 @@ export async function createInstance(data: CreateInstanceInput): Promise<Workflo
       projectId: data.projectId,
       context: data.context as never,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建工作流实例失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建工作流实例失败')
+  return row
 }
 
-export async function findInstances(
-  opts: { page: number; pageSize: number; workflowId?: string; status?: string },
-): Promise<{ list: WorkflowInstance[]; total: number }> {
-  const conds = [];
-  if (opts.workflowId) conds.push(eq(workflowInstances.workflowId, opts.workflowId));
-  if (opts.status) conds.push(eq(workflowInstances.status, opts.status));
-  const where = conds.length ? and(...conds) : undefined;
+export async function findInstances(opts: {
+  page: number
+  pageSize: number
+  workflowId?: string
+  status?: string
+}): Promise<{ list: WorkflowInstance[]; total: number }> {
+  const conds = []
+  if (opts.workflowId) conds.push(eq(workflowInstances.workflowId, opts.workflowId))
+  if (opts.status) conds.push(eq(workflowInstances.status, opts.status))
+  const where = conds.length ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -134,16 +138,21 @@ export async function findInstances(
       .orderBy(desc(workflowInstances.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(workflowInstances).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(workflowInstances)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
-export async function findInstanceById(
-  id: string,
-): Promise<WorkflowInstance | undefined> {
-  const rows = await db.select().from(workflowInstances).where(eq(workflowInstances.id, id)).limit(1);
-  return rows[0];
+export async function findInstanceById(id: string): Promise<WorkflowInstance | undefined> {
+  const rows = await db
+    .select()
+    .from(workflowInstances)
+    .where(eq(workflowInstances.id, id))
+    .limit(1)
+  return rows[0]
 }
 
 export async function updateInstanceStatus(
@@ -160,19 +169,17 @@ export async function updateInstanceStatus(
       ...(extra?.error !== undefined && { error: extra.error }),
     })
     .where(eq(workflowInstances.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
-export async function cancelInstance(
-  id: string,
-): Promise<WorkflowInstance | undefined> {
+export async function cancelInstance(id: string): Promise<WorkflowInstance | undefined> {
   const rows = await db
     .update(workflowInstances)
     .set({ status: 'cancelled', completedAt: new Date() })
     .where(eq(workflowInstances.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -180,15 +187,15 @@ export async function cancelInstance(
 // =============================================================================
 
 export interface CreateTaskInput {
-  instanceId: string;
-  stepIndex: number;
-  name: string;
-  type: string;
-  input?: unknown;
+  instanceId: string
+  stepIndex: number
+  name: string
+  type: string
+  input?: unknown
 }
 
 export async function createTasks(tasks: CreateTaskInput[]): Promise<WorkflowTask[]> {
-  if (tasks.length === 0) return [];
+  if (tasks.length === 0) return []
   const rows = await db
     .insert(workflowTasks)
     .values(
@@ -200,8 +207,8 @@ export async function createTasks(tasks: CreateTaskInput[]): Promise<WorkflowTas
         input: t.input as never,
       })),
     )
-    .returning();
-  return rows;
+    .returning()
+  return rows
 }
 
 export async function findTasks(instanceId: string): Promise<WorkflowTask[]> {
@@ -209,22 +216,27 @@ export async function findTasks(instanceId: string): Promise<WorkflowTask[]> {
     .select()
     .from(workflowTasks)
     .where(eq(workflowTasks.instanceId, instanceId))
-    .orderBy(sql`step_index ASC`);
+    .orderBy(sql`step_index ASC`)
 }
 
 export async function findTasksByInstanceIds(instanceIds: string[]): Promise<WorkflowTask[]> {
-  if (instanceIds.length === 0) return [];
+  if (instanceIds.length === 0) return []
   return db
     .select()
     .from(workflowTasks)
     .where(inArray(workflowTasks.instanceId, instanceIds))
-    .orderBy(sql`instance_id ASC, step_index ASC`);
+    .orderBy(sql`instance_id ASC, step_index ASC`)
 }
 
 export async function updateTaskStatus(
   id: string,
   status: string,
-  extra?: { output?: unknown; error?: string | null; startedAt?: Date | null; completedAt?: Date | null },
+  extra?: {
+    output?: unknown
+    error?: string | null
+    startedAt?: Date | null
+    completedAt?: Date | null
+  },
 ): Promise<WorkflowTask | undefined> {
   const rows = await db
     .update(workflowTasks)
@@ -236,8 +248,8 @@ export async function updateTaskStatus(
       ...(extra?.completedAt !== undefined && { completedAt: extra.completedAt }),
     })
     .where(eq(workflowTasks.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -245,11 +257,11 @@ export async function updateTaskStatus(
 // =============================================================================
 
 export interface CreateLogInput {
-  instanceId: string;
-  taskId?: string;
-  level: string;
-  message: string;
-  data?: unknown;
+  instanceId: string
+  taskId?: string
+  level: string
+  message: string
+  data?: unknown
 }
 
 export async function createLog(data: CreateLogInput): Promise<WorkflowLog> {
@@ -262,17 +274,17 @@ export async function createLog(data: CreateLogInput): Promise<WorkflowLog> {
       message: data.message,
       data: data.data as never,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建工作流日志失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建工作流日志失败')
+  return row
 }
 
 export async function findLogs(
   instanceId: string,
   opts: { page: number; pageSize: number },
 ): Promise<{ list: WorkflowLog[]; total: number }> {
-  const where = eq(workflowLogs.instanceId, instanceId);
+  const where = eq(workflowLogs.instanceId, instanceId)
   const [list, totalRows] = await Promise.all([
     db
       .select()
@@ -281,7 +293,10 @@ export async function findLogs(
       .orderBy(desc(workflowLogs.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(workflowLogs).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(workflowLogs)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }

@@ -19,9 +19,9 @@
  *       className 为变量/拼接时无法静态分析,跳过。
  */
 
-const P_DIGIT_RE = /\bp-(?:0|[1-9]|1\d|2\d)\b/;
-const MIN_640_P_RE = /\bmin-\[640px\]:p-(?:0|[1-9]|1\d|2\d)\b/;
-const MIN_PT_RE = /\bmin-\[640px\]:(pt|pb)-(?:0|[1-9]|1\d|2\d)\b/;
+const P_DIGIT_RE = /\bp-(?:0|[1-9]|1\d|2\d)\b/
+const MIN_640_P_RE = /\bmin-\[640px\]:p-(?:0|[1-9]|1\d|2\d)\b/
+const MIN_PT_RE = /\bmin-\[640px\]:(pt|pb)-(?:0|[1-9]|1\d|2\d)\b/
 
 const rule = {
   meta: {
@@ -38,68 +38,70 @@ const rule = {
   },
   create(context) {
     function isCardContentName(nameNode) {
-      if (!nameNode) return false;
-      if (nameNode.type === 'JSXIdentifier') return nameNode.name === 'CardContent';
+      if (!nameNode) return false
+      if (nameNode.type === 'JSXIdentifier') return nameNode.name === 'CardContent'
       if (nameNode.type === 'JSXMemberExpression') {
-        const propName = nameNode.property?.name;
-        return propName === 'CardContent';
+        const propName = nameNode.property?.name
+        return propName === 'CardContent'
       }
-      if (typeof nameNode.name === 'string') return nameNode.name === 'CardContent';
-      return false;
+      if (typeof nameNode.name === 'string') return nameNode.name === 'CardContent'
+      return false
     }
 
     function lintJSXElement(node) {
       // ESLint espree AST 字段名是 openingElement / closingElement, 不是 opening / closing
-      const openingElement = node.openingElement;
-      if (!openingElement) return;
-      if (!isCardContentName(openingElement.name)) return;
-      const attrs = openingElement.attributes || [];
-      if (!attrs.length) return;
-      let classAttrValue = null;
-      let skipDynamic = false;
+      const openingElement = node.openingElement
+      if (!openingElement) return
+      if (!isCardContentName(openingElement.name)) return
+      const attrs = openingElement.attributes || []
+      if (!attrs.length) return
+      let classAttrValue = null
+      let skipDynamic = false
       for (const attr of attrs) {
-        if (attr.type !== 'JSXAttribute') continue;
-        if (!attr.name || attr.name.name !== 'className') continue;
-        const v = attr.value;
-        if (!v) return;
+        if (attr.type !== 'JSXAttribute') continue
+        if (!attr.name || attr.name.name !== 'className') continue
+        const v = attr.value
+        if (!v) return
         if (v.type === 'Literal' && typeof v.value === 'string') {
-          classAttrValue = v.value;
-          break;
+          classAttrValue = v.value
+          break
         }
         if (v.type === 'JSXExpressionContainer') {
-          const e = v.expression;
+          const e = v.expression
           if (e && e.type === 'Literal' && typeof e.value === 'string') {
-            classAttrValue = e.value;
-            break;
+            classAttrValue = e.value
+            break
           }
           if (e && e.type === 'TemplateLiteral' && e.quasis && e.quasis.length === 1) {
-            classAttrValue = e.quasis[0].value.cooked || '';
-            break;
+            classAttrValue = e.quasis[0].value.cooked || ''
+            break
           }
           // 动态值(变量/拼接/三目): 无法静态分析,跳过
-          skipDynamic = true;
-          break;
+          skipDynamic = true
+          break
         }
-        return;
+        return
       }
-      if (skipDynamic) return;
-      if (typeof classAttrValue !== 'string') return;
-      if (!P_DIGIT_RE.test(classAttrValue)) return;
-      if (MIN_640_P_RE.test(classAttrValue) || MIN_PT_RE.test(classAttrValue)) return;
-      const paddingClasses = (classAttrValue.match(/\bp-(?:0|[1-9]|1\d|2\d)\b/g) || []).filter(Boolean);
+      if (skipDynamic) return
+      if (typeof classAttrValue !== 'string') return
+      if (!P_DIGIT_RE.test(classAttrValue)) return
+      if (MIN_640_P_RE.test(classAttrValue) || MIN_PT_RE.test(classAttrValue)) return
+      const paddingClasses = (classAttrValue.match(/\bp-(?:0|[1-9]|1\d|2\d)\b/g) || []).filter(
+        Boolean,
+      )
       // 例外: padding 类中没有 X≠0 且 X≠4 的(即全部都是 p-0 / p-4)
       // 注:p-0 与 p-4 同时出现是 CSS 异常用法,但仍视为允许(显式把 padding 拉到 0/4 不需响应式)
-      const hasNonDefault = paddingClasses.some((c) => c !== 'p-0' && c !== 'p-4');
-      if (!hasNonDefault) return;
-      context.report({ node, messageId: 'unpairedPadding' });
+      const hasNonDefault = paddingClasses.some((c) => c !== 'p-0' && c !== 'p-4')
+      if (!hasNonDefault) return
+      context.report({ node, messageId: 'unpairedPadding' })
     }
 
     return {
       JSXElement: lintJSXElement,
-    };
+    }
   },
-};
+}
 
-export const noUnpairedCardContentPadding = rule;
+export const noUnpairedCardContentPadding = rule
 
-export default { rules: { 'no-unpaired-card-content-padding': rule } };
+export default { rules: { 'no-unpaired-card-content-padding': rule } }

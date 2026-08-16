@@ -47,11 +47,24 @@ const TEMPLATES = [
 const FIELDS: { key: keyof CardForm; labelKey: string; placeholderKey: string; type?: string }[] = [
   { key: 'name', labelKey: 'fields.name.label', placeholderKey: 'fields.name.placeholder' },
   { key: 'title', labelKey: 'fields.title.label', placeholderKey: 'fields.title.placeholder' },
-  { key: 'company', labelKey: 'fields.company.label', placeholderKey: 'fields.company.placeholder' },
+  {
+    key: 'company',
+    labelKey: 'fields.company.label',
+    placeholderKey: 'fields.company.placeholder',
+  },
   { key: 'phone', labelKey: 'fields.phone.label', placeholderKey: 'fields.phone.placeholder' },
-  { key: 'email', labelKey: 'fields.email.label', placeholderKey: 'fields.email.placeholder', type: 'email' },
+  {
+    key: 'email',
+    labelKey: 'fields.email.label',
+    placeholderKey: 'fields.email.placeholder',
+    type: 'email',
+  },
   { key: 'wechat', labelKey: 'fields.wechat.label', placeholderKey: 'fields.wechat.placeholder' },
-  { key: 'address', labelKey: 'fields.address.label', placeholderKey: 'fields.address.placeholder' },
+  {
+    key: 'address',
+    labelKey: 'fields.address.label',
+    placeholderKey: 'fields.address.placeholder',
+  },
   { key: 'avatar', labelKey: 'fields.avatar.label', placeholderKey: 'fields.avatar.placeholder' },
 ]
 

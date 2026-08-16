@@ -50,9 +50,7 @@ vi.mock('react-native', async () => {
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       const { style: rawStyle, onPress, ...rest } = props
       const style = typeof rawStyle === 'function' ? rawStyle({ pressed: false }) : rawStyle
-      const mergedStyle = Array.isArray(style)
-        ? Object.assign({}, ...style.filter(Boolean))
-        : style
+      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
       return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
     }
   const FlatList = (props: {

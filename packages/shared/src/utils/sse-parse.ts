@@ -117,10 +117,14 @@ function parseLine(line: string): SSEEvent | null {
       const rawUsage = json.usage as Record<string, unknown> | undefined
       const usage = rawUsage
         ? {
-            promptTokens: typeof rawUsage.prompt_tokens === 'number' ? rawUsage.prompt_tokens : undefined,
+            promptTokens:
+              typeof rawUsage.prompt_tokens === 'number' ? rawUsage.prompt_tokens : undefined,
             completionTokens:
-              typeof rawUsage.completion_tokens === 'number' ? rawUsage.completion_tokens : undefined,
-            totalTokens: typeof rawUsage.total_tokens === 'number' ? rawUsage.total_tokens : undefined,
+              typeof rawUsage.completion_tokens === 'number'
+                ? rawUsage.completion_tokens
+                : undefined,
+            totalTokens:
+              typeof rawUsage.total_tokens === 'number' ? rawUsage.total_tokens : undefined,
           }
         : undefined
       return {

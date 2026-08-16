@@ -1,5 +1,12 @@
 import { useMemo } from 'react'
-import { ScrollView, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertApplyScreenProps } from '../../types'
 
@@ -63,14 +70,42 @@ export function CertApplyScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48, paddingBottom: 32 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 10,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
     back: { fontSize: 16, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 8,
+    },
     label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
-    input: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light, fontSize: 16, color: tk.text.primary, backgroundColor: '#f5f5f5' },
+    input: {
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: 16,
+      color: tk.text.primary,
+      backgroundColor: '#f5f5f5',
+    },
     error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
     success: { marginTop: 12, fontSize: 14, color: tk.success.DEFAULT },
-    submitBtn: { marginTop: 16, paddingVertical: 15, borderRadius: 12, backgroundColor: tk.brand.DEFAULT, alignItems: 'center' },
+    submitBtn: {
+      marginTop: 16,
+      paddingVertical: 15,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+    },
     btnDisabled: { opacity: 0.6 },
     submitText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
   })

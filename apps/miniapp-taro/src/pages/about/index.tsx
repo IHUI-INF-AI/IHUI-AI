@@ -44,8 +44,16 @@ export default function AboutIndexPage() {
 
   const menus = useMemo<MenuItem[]>(
     () => [
-      { key: 'protocol', label: tt('about.protocol.title', '用户协议'), url: '/pages/about/protocol' },
-      { key: 'privacy', label: tt('about.privacy.mainTitle', '隐私政策'), url: '/pages/about/privacy' },
+      {
+        key: 'protocol',
+        label: tt('about.protocol.title', '用户协议'),
+        url: '/pages/about/protocol',
+      },
+      {
+        key: 'privacy',
+        label: tt('about.privacy.mainTitle', '隐私政策'),
+        url: '/pages/about/privacy',
+      },
       {
         key: 'businessLicense',
         label: tt('about.businessLicense.title', '营业执照'),
@@ -88,14 +96,24 @@ export default function AboutIndexPage() {
     <View className="min-h-screen bg-background pb-[60rpx]">
       {info.name ? (
         <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
-          <Image className="w-[160rpx] h-[160rpx]" src={info.logo || '/static/logo.png'} mode="aspectFit" />
-          <Text className="block text-[32rpx] text-foreground font-semibold mt-[24rpx]">{info.name}</Text>
-          <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">{t('about.version', { version: info.version })}</Text>
+          <Image
+            className="w-[160rpx] h-[160rpx]"
+            src={info.logo || '/static/logo.png'}
+            mode="aspectFit"
+          />
+          <Text className="block text-[32rpx] text-foreground font-semibold mt-[24rpx]">
+            {info.name}
+          </Text>
+          <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
+            {t('about.version', { version: info.version })}
+          </Text>
         </View>
       ) : null}
 
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[12rpx]">
-        <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}</Text>
+        <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
+          {info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}
+        </Text>
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[12rpx] overflow-hidden">

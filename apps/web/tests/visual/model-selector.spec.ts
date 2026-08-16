@@ -248,7 +248,9 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     //   - className 必须含 bg-primary/10 + text-primary + rounded-md
     //   - computedStyle.backgroundColor 不能是 transparent(色块必须实际渲染)
     //   - computedStyle.color 应为 primary 色(rgb 非 muted gray)
-    const iconWrapper = firstItem.locator('div.bg-primary\\/10, div[class*="bg-primary/10"]').first()
+    const iconWrapper = firstItem
+      .locator('div.bg-primary\\/10, div[class*="bg-primary/10"]')
+      .first()
     expect(await iconWrapper.count(), '图标色块应含 bg-primary/10 类').toBeGreaterThan(0)
     const wrapperClass = (await iconWrapper.getAttribute('class')) ?? ''
     expect(wrapperClass, '色块应含 text-primary').toContain('text-primary')

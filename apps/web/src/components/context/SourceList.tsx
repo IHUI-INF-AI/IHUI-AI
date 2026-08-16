@@ -29,15 +29,8 @@ interface SourceListProps {
   className?: string
 }
 
-export function SourceList({
-  sources,
-  onToggle,
-  onBudgetChange,
-  className,
-}: SourceListProps) {
-  const enabledTotal = sources
-    .filter((s) => s.enabled)
-    .reduce((s, x) => s + x.budgetPercent, 0)
+export function SourceList({ sources, onToggle, onBudgetChange, className }: SourceListProps) {
+  const enabledTotal = sources.filter((s) => s.enabled).reduce((s, x) => s + x.budgetPercent, 0)
 
   return (
     <div className={cn('space-y-2', className)}>

@@ -41,7 +41,8 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
     token = header.slice('Bearer '.length).trim()
   } else {
     // 兜底:从 auth_token cookie 读 token(浏览器同源请求自动附带)
-    const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies?.auth_token
+    const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+      ?.auth_token
     if (cookieToken && cookieToken.length > 0) {
       // 2026-08-02 修复:Cookie 认证路径加 CSRF 防护
       // 状态变更方法(POST/PUT/DELETE/PATCH)用 Cookie 认证时,要求 X-Requested-With header
@@ -147,9 +148,8 @@ export async function checkAuthOrInternalService(
   reply: FastifyReply,
 ): Promise<boolean> {
   // 延迟导入避免循环依赖
-  const { hasInternalServiceToken, checkInternalServiceToken } = await import(
-    './internal-service-token.js'
-  )
+  const { hasInternalServiceToken, checkInternalServiceToken } =
+    await import('./internal-service-token.js')
 
   if (hasInternalServiceToken(request)) {
     return checkInternalServiceToken(request, reply)

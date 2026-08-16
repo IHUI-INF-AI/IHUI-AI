@@ -5,17 +5,13 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { BarChart3, CheckCircle2, Clock, Zap, AlertTriangle, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-import { getAiSkillStats, type AiSkillStatsData, type PerSkillStats } from '@ihui/api-client/endpoints/ai-skills'
+import {
+  getAiSkillStats,
+  type AiSkillStatsData,
+  type PerSkillStats,
+} from '@ihui/api-client/endpoints/ai-skills'
 import { StatCard } from '@/components/data'
 import { DataTable, type Column } from '@/components/data'
 import { Badge } from '@/components/data'
@@ -183,9 +179,24 @@ export default function AdminAiSkillStatsPage() {
                     fontSize: 12,
                   }}
                 />
-                <Bar dataKey="calls" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name={t('callCount')} />
-                <Bar dataKey="success" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} name={t('successCount')} />
-                <Bar dataKey="failures" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} name={t('failureCount')} />
+                <Bar
+                  dataKey="calls"
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                  name={t('callCount')}
+                />
+                <Bar
+                  dataKey="success"
+                  fill="hsl(142, 76%, 36%)"
+                  radius={[4, 4, 0, 0]}
+                  name={t('successCount')}
+                />
+                <Bar
+                  dataKey="failures"
+                  fill="hsl(0, 84%, 60%)"
+                  radius={[4, 4, 0, 0]}
+                  name={t('failureCount')}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -228,8 +239,12 @@ export default function AdminAiSkillStatsPage() {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>{t('callCount')}: {skill.callCount}</span>
-                  <span>{t('avgDuration')}: {skill.avgDurationMs}ms</span>
+                  <span>
+                    {t('callCount')}: {skill.callCount}
+                  </span>
+                  <span>
+                    {t('avgDuration')}: {skill.avgDurationMs}ms
+                  </span>
                   <ArrowUpRight className="h-3 w-3" />
                 </div>
               </Link>

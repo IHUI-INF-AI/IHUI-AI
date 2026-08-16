@@ -31,6 +31,7 @@ param(
   [string[]]$Services,
   [switch]$All,
   [switch]$Default,
+  [switch]$Desktop,
   [switch]$Foreground,
   [switch]$Status,
   [switch]$Stop,
@@ -421,9 +422,10 @@ function Show-Help {
   Write-Hdr "start-dev.ps1 用法"
   Write-Host @"
   启动模式(默认后台模式,SIGINT 免疫):
-    pwsh -File scripts/start-dev.ps1                        # 启动默认组 web+api
+    pwsh -File scripts/start-dev.ps1                        # 启动默认组 web+api+ai-service
     pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service
-    pwsh -File scripts/start-dev.ps1 -All                   # 启动全部 8 端
+    pwsh -File scripts/start-dev.ps1 -Desktop              # 桌面端:api+ai-service+desktop(desktop 自带 web 8801,自动注入 cargo PATH)
+    pwsh -File scripts/start-dev.ps1 -All                   # 启动全部 8 端(注意:含 desktop 时需先 -Stop 停掉 web,两者互斥)
     pwsh -File scripts/start-dev.ps1 -Foreground            # 前台(不推荐,会被 SIGINT 杀)
 
   管理命令:
@@ -513,15 +515,40 @@ if ($All) {
     }
     $toStart += $s
   }
+} elseif ($Desktop) {
+  # 桌面端模式:desktop 自带 web dev(8801),只需 api + ai-service 作为后端
+  $toStart = @('api', 'ai-service', 'desktop')
 } else {
   # 默认:registry.default
   $toStart = $registry.default
 }
 
 if ($toStart.Count -eq 0) {
-  Write-Err "无服务可启动。请用 -Services <name> 或 -All"
+  Write-Err "无服务可启动。请用 -Services <name> / -All / -Desktop"
   Show-Help
   exit 1
+}
+
+# desktop 与 web 互斥:desktop 的 beforeDevCommand 自起 web(8801),
+# 同时启动 web 会触发 next dev 端口冲突(交互询问导致卡死)。
+if ($toStart -contains 'desktop' -and $toStart -contains 'web') {
+  Write-Err "desktop 自带 web dev(8801),不能与 web 同时启动。"
+  Write-Err "  仅桌面端:  pwsh -File scripts/start-dev.ps1 -Desktop"
+  Write-Err "  仅 Web 端:  pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service"
+  exit 1
+}
+
+# Tauri 桌面端需要 cargo 在 PATH(Rust 工具链位于 D:\caches\cargo\bin,不在默认 PATH)
+if ($toStart -contains 'desktop') {
+  $cargoBin = 'D:\caches\cargo\bin'
+  if (Test-Path (Join-Path $cargoBin 'cargo.exe')) {
+    if ($env:PATH -notlike "*$cargoBin*") {
+      $env:PATH = "$cargoBin;$env:PATH"
+      Write-Ok "已注入 cargo PATH: $cargoBin"
+    }
+  } else {
+    Write-Warn "未找到 cargo($cargoBin),桌面端 Rust 编译将失败。请先安装 Rust 工具链(或检查 CARGO_HOME)。"
+  }
 }
 
 # 硬门禁:env 一致性(仅实际启动时执行,-Status/-Stop/-Clean 跳过)

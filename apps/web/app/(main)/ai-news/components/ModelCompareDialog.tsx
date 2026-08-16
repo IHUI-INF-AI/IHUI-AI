@@ -36,17 +36,41 @@ function MultiRadar({ entries }: { entries: LeaderboardEntry[] }) {
   if (models.length === 0) return null
 
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[220px]" preserveAspectRatio="xMidYMid meet">
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      className="w-full max-w-[220px]"
+      preserveAspectRatio="xMidYMid meet"
+    >
       {gridLevels.map((level, idx) => {
         const pts = RADAR_LABELS.map((_, i) => {
           const angle = startAngle + i * angleStep
           return `${cx + Math.cos(angle) * radius * level},${cy + Math.sin(angle) * radius * level}`
         }).join(' ')
-        return <polygon key={idx} points={pts} fill="none" className="stroke-muted" strokeWidth={0.5} opacity={0.4} />
+        return (
+          <polygon
+            key={idx}
+            points={pts}
+            fill="none"
+            className="stroke-muted"
+            strokeWidth={0.5}
+            opacity={0.4}
+          />
+        )
       })}
       {RADAR_LABELS.map((_, i) => {
         const angle = startAngle + i * angleStep
-        return <line key={i} x1={cx} y1={cy} x2={cx + Math.cos(angle) * radius} y2={cy + Math.sin(angle) * radius} className="stroke-muted" strokeWidth={0.5} opacity={0.4} />
+        return (
+          <line
+            key={i}
+            x1={cx}
+            y1={cy}
+            x2={cx + Math.cos(angle) * radius}
+            y2={cy + Math.sin(angle) * radius}
+            className="stroke-muted"
+            strokeWidth={0.5}
+            opacity={0.4}
+          />
+        )
       })}
       {models.map((entry, mi) => {
         const caps = entry.capabilities!
@@ -56,16 +80,35 @@ function MultiRadar({ entries }: { entries: LeaderboardEntry[] }) {
           return `${cx + Math.cos(angle) * radius * val},${cy + Math.sin(angle) * radius * val}`
         }).join(' ')
         const color = RADAR_COLORS[mi % RADAR_COLORS.length]
-        return <polygon key={entry.id} points={pts} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={1.5} />
+        return (
+          <polygon
+            key={entry.id}
+            points={pts}
+            fill={color}
+            fillOpacity={0.12}
+            stroke={color}
+            strokeWidth={1.5}
+          />
+        )
       })}
       {RADAR_LABELS.map((l, i) => {
         const angle = startAngle + i * angleStep
         const labelR = radius + 14
         const x = cx + Math.cos(angle) * labelR
         const y = cy + Math.sin(angle) * labelR
-        const anchor = Math.abs(Math.cos(angle)) < 0.1 ? 'middle' : Math.cos(angle) > 0 ? 'start' : 'end'
+        const anchor =
+          Math.abs(Math.cos(angle)) < 0.1 ? 'middle' : Math.cos(angle) > 0 ? 'start' : 'end'
         return (
-          <text key={i} x={x} y={y} textAnchor={anchor} dominantBaseline="middle" className="fill-muted-foreground" fontSize={9} fontWeight={500}>
+          <text
+            key={i}
+            x={x}
+            y={y}
+            textAnchor={anchor}
+            dominantBaseline="middle"
+            className="fill-muted-foreground"
+            fontSize={9}
+            fontWeight={500}
+          >
             {l.label}
           </text>
         )
@@ -80,27 +123,56 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
 
   React.useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
   if (!open) return null
 
-  const inputs = entries.map((e) => ({ id: e.id, val: parseNumeric(e.inputPrice) })).filter((x) => x.val !== null && x.val > 0)
-  const outputs = entries.map((e) => ({ id: e.id, val: parseNumeric(e.outputPrice) })).filter((x) => x.val !== null && x.val > 0)
-  const minInputId = inputs.length > 0 ? inputs.reduce((m, x) => x.val! < m.val! ? x : m).id : null
-  const minOutputId = outputs.length > 0 ? outputs.reduce((m, x) => x.val! < m.val! ? x : m).id : null
+  const inputs = entries
+    .map((e) => ({ id: e.id, val: parseNumeric(e.inputPrice) }))
+    .filter((x) => x.val !== null && x.val > 0)
+  const outputs = entries
+    .map((e) => ({ id: e.id, val: parseNumeric(e.outputPrice) }))
+    .filter((x) => x.val !== null && x.val > 0)
+  const minInputId =
+    inputs.length > 0 ? inputs.reduce((m, x) => (x.val! < m.val! ? x : m)).id : null
+  const minOutputId =
+    outputs.length > 0 ? outputs.reduce((m, x) => (x.val! < m.val! ? x : m)).id : null
 
-  const rows: Array<{ label: string; render: (e: LeaderboardEntry) => string; hl?: (e: LeaderboardEntry) => boolean }> = [
-    { label: t('detailDialog.rank'), render: (e) => e.arenaRank ? `#${e.arenaRank}` : '-' },
-    { label: t('detailDialog.arenaScore'), render: (e) => e.arenaScore ? `${e.arenaScore}${e.scoreCi ? ` ±${e.scoreCi}` : ''}` : '-' },
-    { label: t('detailDialog.winRate'), render: (e) => e.winRate !== null ? `${e.winRate.toFixed(1)}%` : '-' },
-    { label: t('detailDialog.voteCount'), render: (e) => e.voteCount ? e.voteCount.toLocaleString() : '-' },
+  const rows: Array<{
+    label: string
+    render: (e: LeaderboardEntry) => string
+    hl?: (e: LeaderboardEntry) => boolean
+  }> = [
+    { label: t('detailDialog.rank'), render: (e) => (e.arenaRank ? `#${e.arenaRank}` : '-') },
+    {
+      label: t('detailDialog.arenaScore'),
+      render: (e) => (e.arenaScore ? `${e.arenaScore}${e.scoreCi ? ` ±${e.scoreCi}` : ''}` : '-'),
+    },
+    {
+      label: t('detailDialog.winRate'),
+      render: (e) => (e.winRate !== null ? `${e.winRate.toFixed(1)}%` : '-'),
+    },
+    {
+      label: t('detailDialog.voteCount'),
+      render: (e) => (e.voteCount ? e.voteCount.toLocaleString() : '-'),
+    },
     { label: t('detailDialog.contextWindow'), render: (e) => e.contextWindow ?? '-' },
     { label: t('detailDialog.maxOutput'), render: (e) => e.maxOutput ?? '-' },
-    { label: t('detailDialog.inputPrice'), render: (e) => e.inputPrice ?? '-', hl: (e) => e.id === minInputId },
-    { label: t('detailDialog.outputPrice'), render: (e) => e.outputPrice ?? '-', hl: (e) => e.id === minOutputId },
+    {
+      label: t('detailDialog.inputPrice'),
+      render: (e) => e.inputPrice ?? '-',
+      hl: (e) => e.id === minInputId,
+    },
+    {
+      label: t('detailDialog.outputPrice'),
+      render: (e) => e.outputPrice ?? '-',
+      hl: (e) => e.id === minOutputId,
+    },
     { label: t('detailDialog.releaseDate'), render: (e) => e.releaseDate ?? '-' },
     { label: t('detailDialog.license'), render: (e) => e.license ?? '-' },
   ]
@@ -110,14 +182,26 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl border bg-card shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl border bg-card shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 头部 */}
         <div className="flex items-center gap-2 bg-muted/30 px-5 py-3">
           <h3 className="text-sm font-semibold">{t('compare.label')}</h3>
-          <span className="text-[10px] text-muted-foreground">{t('compare.selected', { count: entries.length })}</span>
-          <button type="button" onClick={onClose} className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <span className="text-[10px] text-muted-foreground">
+            {t('compare.selected', { count: entries.length })}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -127,7 +211,9 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
           <table className="w-full text-xs">
             <thead>
               <tr>
-                <th className="w-28 px-2 py-2 text-left text-[10px] font-medium uppercase text-muted-foreground">{t('compare.colModel')}</th>
+                <th className="w-28 px-2 py-2 text-left text-[10px] font-medium uppercase text-muted-foreground">
+                  {t('compare.colModel')}
+                </th>
                 {entries.map((e) => (
                   <th key={e.id} className="min-w-[120px] px-2 py-2 text-left">
                     <div className="text-xs font-semibold leading-tight">{e.modelName}</div>
@@ -141,9 +227,16 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
                 <tr key={ri} className={ri % 2 === 0 ? 'bg-muted/10' : ''}>
                   <td className="px-2 py-2 text-muted-foreground">{row.label}</td>
                   {entries.map((e) => (
-                    <td key={e.id} className={`px-2 py-2 tabular-nums ${row.hl?.(e) ? 'font-bold text-emerald-600' : ''}`}>
+                    <td
+                      key={e.id}
+                      className={`px-2 py-2 tabular-nums ${row.hl?.(e) ? 'font-bold text-emerald-600' : ''}`}
+                    >
                       {row.render(e)}
-                      {row.hl?.(e) ? <span className="ml-1 text-[9px] text-emerald-500">{t('compare.cheapest')}</span> : null}
+                      {row.hl?.(e) ? (
+                        <span className="ml-1 text-[9px] text-emerald-500">
+                          {t('compare.cheapest')}
+                        </span>
+                      ) : null}
                     </td>
                   ))}
                 </tr>
@@ -154,7 +247,9 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
 
         {/* 价格柱状图 */}
         <div className="px-5 py-3">
-          <h4 className="mb-1 text-xs font-semibold text-muted-foreground">{t('compare.priceChartTitle')}</h4>
+          <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
+            {t('compare.priceChartTitle')}
+          </h4>
           <p className="mb-2 text-[10px] text-muted-foreground">{t('compare.priceChartHint')}</p>
           <PriceChart entries={entries} />
         </div>
@@ -162,13 +257,18 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
         {/* 能力雷达叠加 */}
         {hasCaps ? (
           <div className="px-5 py-3">
-            <h4 className="mb-2 text-xs font-semibold text-muted-foreground">{t('compare.capabilityOverlay')}</h4>
+            <h4 className="mb-2 text-xs font-semibold text-muted-foreground">
+              {t('compare.capabilityOverlay')}
+            </h4>
             <div className="flex flex-wrap items-center gap-4">
               <MultiRadar entries={entries} />
               <div className="flex flex-col gap-1">
                 {capsModels.map((e, i) => (
                   <div key={e.id} className="flex items-center gap-1.5 text-xs">
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: RADAR_COLORS[i % RADAR_COLORS.length] }} />
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-sm"
+                      style={{ backgroundColor: RADAR_COLORS[i % RADAR_COLORS.length] }}
+                    />
                     <span className="min-w-0 max-w-[140px] truncate">{e.modelName}</span>
                   </div>
                 ))}

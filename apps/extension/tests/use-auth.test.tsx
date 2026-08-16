@@ -112,8 +112,8 @@ class ShimNode {
       // 2026-08-06 修复:noUncheckedIndexedAccess 下索引访问可能 undefined
       const c = this.childNodes[i]
       if (!c) continue
-      c.previousSibling = i > 0 ? this.childNodes[i - 1] ?? null : null
-      c.nextSibling = i < this.childNodes.length - 1 ? this.childNodes[i + 1] ?? null : null
+      c.previousSibling = i > 0 ? (this.childNodes[i - 1] ?? null) : null
+      c.nextSibling = i < this.childNodes.length - 1 ? (this.childNodes[i + 1] ?? null) : null
     }
   }
   get firstChild(): ShimNode | null {
@@ -152,7 +152,13 @@ class ShimElement extends ShimNode {
   tagName: string
   attributes: Record<string, string> = {}
   style: Record<string, string> = {}
-  classList = { add() {}, remove() {}, contains() { return false } }
+  classList = {
+    add() {},
+    remove() {},
+    contains() {
+      return false
+    },
+  }
   dataset: Record<string, string> = {}
   constructor(tagName: string, ownerDocument: ShimDocument) {
     super()
@@ -243,7 +249,11 @@ class ShimWindow {
   requestAnimationFrame = (cb: (t: number) => void) => setTimeout(() => cb(Date.now()), 0)
   cancelAnimationFrame = (id: ReturnType<typeof setTimeout>) => clearTimeout(id)
   getComputedStyle(): { getPropertyValue(): string } {
-    return { getPropertyValue() { return '' } }
+    return {
+      getPropertyValue() {
+        return ''
+      },
+    }
   }
   getSelection(): { rangeCount: number; toString(): string } {
     return { rangeCount: 0, toString: () => '' }
@@ -325,13 +335,16 @@ defineGlobal('Node', ShimNode)
 defineGlobal('DocumentFragment', ShimDocumentFragment)
 defineGlobal('requestAnimationFrame', shimDoc.defaultView.requestAnimationFrame)
 defineGlobal('cancelAnimationFrame', shimDoc.defaultView.cancelAnimationFrame)
-defineGlobal('MutationObserver', class MutationObserverShim {
-  observe(): void {}
-  disconnect(): void {}
-  takeRecords(): unknown[] {
-    return []
-  }
-})
+defineGlobal(
+  'MutationObserver',
+  class MutationObserverShim {
+    observe(): void {}
+    disconnect(): void {}
+    takeRecords(): unknown[] {
+      return []
+    }
+  },
+)
 defineGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 // === renderHook / act / waitFor 自包含实现(仅依赖 react + react-dom)===
@@ -586,8 +599,8 @@ describe('useAuth 跨端共享 hook — extension 端集成测试', () => {
   })
 
   it('11. logout 不传 logoutApi 时:跳过后端调用,直接清本地', async () => {
-    const { result } = await renderHook(() =>
-      useAuth<TestUser>({ store, bindTransport, fetchProfile }), // 不传 logoutApi
+    const { result } = await renderHook(
+      () => useAuth<TestUser>({ store, bindTransport, fetchProfile }), // 不传 logoutApi
     )
     await waitFor(() => expect(result.current.ready).toBe(true))
     await act(async () => {

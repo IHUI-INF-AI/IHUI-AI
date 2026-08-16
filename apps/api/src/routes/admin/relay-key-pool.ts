@@ -59,7 +59,8 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /admin/relay/key-pool — Key 池列表(apiKeyEnc 脱敏) =====
   server.get('/admin/relay/key-pool', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize, search, provider, enabled } = q.data
 
     const conds: SQL[] = []

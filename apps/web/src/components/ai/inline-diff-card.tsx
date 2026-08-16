@@ -139,10 +139,7 @@ export function InlineDiffCard({
       <CardHeader className="gap-2 p-3">
         <div className="flex w-full items-center gap-2">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <CardTitle
-            className="flex-1 break-all text-xs font-medium"
-            title={diffInfo.file_path}
-          >
+          <CardTitle className="flex-1 break-all text-xs font-medium" title={diffInfo.file_path}>
             {diffInfo.file_path}
             {diffInfo.is_new_file && (
               <span className="ml-1.5 rounded-sm bg-blue-500/15 px-1 py-0.5 text-[10px] text-blue-600">
@@ -209,9 +206,7 @@ export function InlineDiffCard({
         )}
         {applyStatus === 'error' && applyError && (
           <Tooltip content={applyError}>
-            <span className="ml-auto truncate text-xs text-red-600">
-              {applyError}
-            </span>
+            <span className="ml-auto truncate text-xs text-red-600">{applyError}</span>
           </Tooltip>
         )}
       </CardFooter>
@@ -224,13 +219,7 @@ function DiffRow({ row }: { row: DiffRow }) {
   const isAdd = row.op === 'insert'
   const isDel = row.op === 'delete'
   return (
-    <div
-      className={cn(
-        'flex',
-        isAdd && 'bg-green-500/15',
-        isDel && 'bg-red-500/15',
-      )}
-    >
+    <div className={cn('flex', isAdd && 'bg-green-500/15', isDel && 'bg-red-500/15')}>
       <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">
         {row.oldNum ?? ''}
       </span>
@@ -247,9 +236,7 @@ function DiffRow({ row }: { row: DiffRow }) {
       >
         {isAdd ? '+' : isDel ? '-' : ''}
       </span>
-      <span className="whitespace-pre pr-2 text-zinc-300">
-        {isAdd ? row.newLine : row.oldLine}
-      </span>
+      <span className="whitespace-pre pr-2 text-zinc-300">{isAdd ? row.newLine : row.oldLine}</span>
     </div>
   )
 }

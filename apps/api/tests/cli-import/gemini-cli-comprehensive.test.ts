@@ -111,9 +111,7 @@ describe('gemini-cli parser — .env 行格式', () => {
 
 describe('gemini-cli parser — GEMINI_API_KEY / GOOGLE_API_KEY 别名优先级', () => {
   it('GEMINI_API_KEY 优先于 GOOGLE_API_KEY', () => {
-    const res = parseGeminiCli(
-      makeInput('GEMINI_API_KEY=sk-gemini\nGOOGLE_API_KEY=sk-google'),
-    )
+    const res = parseGeminiCli(makeInput('GEMINI_API_KEY=sk-gemini\nGOOGLE_API_KEY=sk-google'))
     expect(res.providers[0].apiKey).toBe('sk-gemini')
   })
 
@@ -148,9 +146,7 @@ describe('gemini-cli parser — Vertex AI 模式切换', () => {
   })
 
   it('GOOGLE_GENAI_USE_VERTEXAI=TRUE 大写 → 不匹配(只匹配小写 true)', () => {
-    const res = parseGeminiCli(
-      makeInput('GOOGLE_GENAI_USE_VERTEXAI=TRUE\nGEMINI_API_KEY=sk-xxx'),
-    )
+    const res = parseGeminiCli(makeInput('GOOGLE_GENAI_USE_VERTEXAI=TRUE\nGEMINI_API_KEY=sk-xxx'))
     // 严格 === 'true',大写不匹配 → useVertex=false
     expect(res.providers[0].baseUrl).toBe('https://generativelanguage.googleapis.com')
   })

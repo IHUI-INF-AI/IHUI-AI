@@ -220,10 +220,14 @@ function SidepanelInner() {
             <TooltipTrigger asChild>
               <span
                 className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`}
-                aria-label={wsConnected ? t('notification.connected') : t('notification.disconnected')}
+                aria-label={
+                  wsConnected ? t('notification.connected') : t('notification.disconnected')
+                }
               />
             </TooltipTrigger>
-            <TooltipContent>{wsConnected ? t('notification.connected') : t('notification.disconnected')}</TooltipContent>
+            <TooltipContent>
+              {wsConnected ? t('notification.connected') : t('notification.disconnected')}
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-[120px]">

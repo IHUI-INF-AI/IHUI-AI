@@ -53,13 +53,7 @@ export function SelectedToolsPanel({ tools, onRemove }: SelectedToolsPanelProps)
   )
 }
 
-function ToolChip({
-  tool,
-  onRemove,
-}: {
-  tool: SelectedToolItem
-  onRemove?: (id: string) => void
-}) {
+function ToolChip({ tool, onRemove }: { tool: SelectedToolItem; onRemove?: (id: string) => void }) {
   const t = useTranslations('chat')
   const isReal = tool.integration === true
   const isModel = tool.integration === 'model'

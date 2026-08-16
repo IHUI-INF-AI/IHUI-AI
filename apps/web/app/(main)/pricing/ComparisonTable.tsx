@@ -79,10 +79,7 @@ export function ComparisonTable(): React.JSX.Element {
                 {row.cells.map((status, idx) => (
                   <td
                     key={idx}
-                    className={cn(
-                      'border border-border p-3',
-                      idx === 0 && 'bg-primary/5',
-                    )}
+                    className={cn('border border-border p-3', idx === 0 && 'bg-primary/5')}
                   >
                     <StatusCell status={status} />
                   </td>

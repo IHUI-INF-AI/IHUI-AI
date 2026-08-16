@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index, unique } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  timestamp,
+  jsonb,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
 
 /**
  * AI World 分类表 - AI 工具集分类(可借鉴 ai-bot.cn 但重命名)。
@@ -119,7 +129,11 @@ export const aiWorldRankings = pgTable(
     leaderboardIdx: index('ix_ai_world_rankings_leaderboard').on(t.leaderboard),
     categoryIdx: index('ix_ai_world_rankings_category').on(t.category),
     rankIdx: index('ix_ai_world_rankings_rank').on(t.rank),
-    leaderboardCategoryModelUniq: unique('uq_ai_world_rankings_lb_cat_model').on(t.leaderboard, t.category, t.modelName),
+    leaderboardCategoryModelUniq: unique('uq_ai_world_rankings_lb_cat_model').on(
+      t.leaderboard,
+      t.category,
+      t.modelName,
+    ),
   }),
 )
 

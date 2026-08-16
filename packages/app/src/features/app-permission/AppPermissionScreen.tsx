@@ -45,7 +45,11 @@ const PERMISSIONS: PermissionItem[] = [
   },
 ]
 
-export function AppPermissionScreen({ t, onBack, colorScheme = 'light' }: AppPermissionScreenProps) {
+export function AppPermissionScreen({
+  t,
+  onBack,
+  colorScheme = 'light',
+}: AppPermissionScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -60,7 +64,8 @@ export function AppPermissionScreen({ t, onBack, colorScheme = 'light' }: AppPer
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>
           {t('appPermission.intro', {
-            fallback: '本 APP 严格遵循最小必要原则申请系统权限，所有权限均由您主动授权，您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。撤回非必要权限不影响 APP 其他功能的正常使用。',
+            fallback:
+              '本 APP 严格遵循最小必要原则申请系统权限，所有权限均由您主动授权，您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。撤回非必要权限不影响 APP 其他功能的正常使用。',
           })}
         </Text>
         {PERMISSIONS.map((item) => (

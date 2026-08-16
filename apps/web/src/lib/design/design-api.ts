@@ -9,7 +9,11 @@
  * 复用 @/lib/api 的 fetchApi(自动注入 token + base url + 重试 + 熔断)。
  */
 import { fetchApi } from '@/lib/api'
-import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared/design/element'
+import type {
+  DesignComment,
+  DesignPreview,
+  DesignPreviewResponse,
+} from '@ihui/shared/design/element'
 import { deriveComponentName, exportCode as convertCode } from './code-exporter'
 
 export type { ExportFormat } from './code-exporter'
@@ -28,7 +32,9 @@ interface DesignPreviewsResponse {
 
 /** 列出指定预览的所有评论(最新在头部)。 */
 export async function listComments(previewId: string): Promise<DesignComment[]> {
-  const res = await fetchApi<DesignCommentsResponse>(`/design/comments/${encodeURIComponent(previewId)}`)
+  const res = await fetchApi<DesignCommentsResponse>(
+    `/design/comments/${encodeURIComponent(previewId)}`,
+  )
   if (res.success) return res.data.comments ?? []
   throw new Error(res.error)
 }

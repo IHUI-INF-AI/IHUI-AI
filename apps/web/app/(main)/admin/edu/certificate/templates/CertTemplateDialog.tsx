@@ -263,7 +263,13 @@ export function CertTemplateDialog({
               </Button>
             )}
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={savePending} className="shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={savePending}
+                className="shrink-0"
+              >
                 <span className="whitespace-nowrap">{t('cancel')}</span>
               </Button>
               <Button type="submit" disabled={savePending} className="shrink-0">

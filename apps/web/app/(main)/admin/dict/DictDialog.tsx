@@ -181,27 +181,15 @@ export function DictItemDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-value">{t('dict.fieldValue')}</Label>
-            <Input
-              id="di-value"
-              {...form.register('value')}
-              placeholder="pending"
-            />
+            <Input id="di-value" {...form.register('value')} placeholder="pending" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-sort">{t('dict.fieldSort')}</Label>
-            <Input
-              id="di-sort"
-              type="number"
-              {...form.register('sort', { valueAsNumber: true })}
-            />
+            <Input id="di-sort" type="number" {...form.register('sort', { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-dictType">{t('dict.fieldDictType')}</Label>
-            <Input
-              id="di-dictType"
-              {...form.register('dictType')}
-              placeholder="order_status"
-            />
+            <Input id="di-dictType" {...form.register('dictType')} placeholder="order_status" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -237,20 +225,14 @@ export function DictItemDialog({
                   }
                 />
                 <span className="text-sm text-muted-foreground">
-                  {form.watch('status') === 1
-                    ? t('dict.statusEnabled')
-                    : t('dict.statusDisabled')}
+                  {form.watch('status') === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
                 </span>
               </div>
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-cssClass">{t('dict.fieldCssClass')}</Label>
-            <Input
-              id="di-cssClass"
-              {...form.register('cssClass')}
-              placeholder="custom-class"
-            />
+            <Input id="di-cssClass" {...form.register('cssClass')} placeholder="custom-class" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-remark">{t('dict.fieldRemark')}</Label>

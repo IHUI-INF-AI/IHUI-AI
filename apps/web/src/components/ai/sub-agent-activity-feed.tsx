@@ -30,11 +30,7 @@ const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
 }
 
 function isAgentActive(agent: SubAgentActivity): boolean {
-  return (
-    agent.status !== 'completed' &&
-    agent.status !== 'failed' &&
-    agent.status !== 'cancelled'
-  )
+  return agent.status !== 'completed' && agent.status !== 'failed' && agent.status !== 'cancelled'
 }
 
 interface SubAgentCardProps {
@@ -79,7 +75,9 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
               active && 'animate-pulse',
             )}
           />
-          <span className="font-medium text-foreground/80">{agent.name || agent.type || defaultName}</span>
+          <span className="font-medium text-foreground/80">
+            {agent.name || agent.type || defaultName}
+          </span>
           <span className="rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground/70">
             {badgeLabel}
           </span>

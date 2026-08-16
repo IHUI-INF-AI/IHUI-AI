@@ -602,7 +602,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
           if (!aiCallRateLimiter.allow(userId)) {
-            send(socket, { event: 'capability.error', provider, message: 'AI 调用频率超限,请稍后重试' })
+            send(socket, {
+              event: 'capability.error',
+              provider,
+              message: 'AI 调用频率超限,请稍后重试',
+            })
             return
           }
           controller?.abort()
