@@ -64,14 +64,14 @@ func main() {
 
 所有配置通过函数式选项(`Option`)传入 `NewIhuiClient`:
 
-| 选项                 | 默认值                   | 说明                                           |
-| -------------------- | ------------------------ | ---------------------------------------------- |
-| `WithAPIKey`         | (必需)                  | API Key,格式 `ihui_xxx`                        |
-| `WithSecret`         | (空)                    | 可选 API Secret(创建 / 轮换时返回)            |
-| `WithBaseURL`        | `http://localhost:8802`  | 平台基础 URL                                   |
-| `WithTimeout`        | `30s`                    | 请求超时;流式请求不受此限制                    |
-| `WithMaxRetries`     | `2`                      | 最大重试次数(网络错误 + 5xx 重试,429 不重试) |
-| `WithHTTPClient`     | 默认 `http.Client`       | 自定义 `*http.Client`(测试 / 拦截用)          |
+| 选项             | 默认值                  | 说明                                         |
+| ---------------- | ----------------------- | -------------------------------------------- |
+| `WithAPIKey`     | (必需)                  | API Key,格式 `ihui_xxx`                      |
+| `WithSecret`     | (空)                    | 可选 API Secret(创建 / 轮换时返回)           |
+| `WithBaseURL`    | `http://localhost:8802` | 平台基础 URL                                 |
+| `WithTimeout`    | `30s`                   | 请求超时;流式请求不受此限制                  |
+| `WithMaxRetries` | `2`                     | 最大重试次数(网络错误 + 5xx 重试,429 不重试) |
+| `WithHTTPClient` | 默认 `http.Client`      | 自定义 `*http.Client`(测试 / 拦截用)         |
 
 ```go
 client := ihui.NewIhuiClient(
@@ -85,22 +85,22 @@ client := ihui.NewIhuiClient(
 
 ## 13 个功能模块
 
-| 模块         | 字段         | 端点数 | 说明                                          |
-| ------------ | ------------ | ------ | --------------------------------------------- |
-| AI 核心      | `AI`         | 13     | chat / embeddings / vision / moa / models     |
-| Agents       | `Agents`     | 12     | 列表 / 调用 / 高级执行 / Pipeline / 并行 / 分解 |
-| Audio        | `Audio`      | 8      | TTS / ASR / 语音对话 / 声纹 / 音乐             |
-| Images       | `Images`     | 6      | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
-| Videos       | `Videos`     | 3      | 生成 / 任务查询 / 编排                         |
-| 3D           | `ThreeD`     | 1      | 3D 模型生成                                   |
-| Generation   | `Generation` | 3      | 生成队列:入队 / 状态 / 取消                   |
-| Knowledge    | `Knowledge`  | 13     | 文档 / 搜索 / RAG / 知识图谱                   |
-| Tools        | `Tools`      | 16     | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图       |
-| Memory       | `Memory`     | 8      | 保存 / 召回 / 搜索 / Dream / 分类记忆          |
-| Messages     | `Messages`   | 4      | 发布 / 订阅 / 状态                            |
-| Files        | `Files`      | 9      | 列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片 |
-| User         | `User`       | 9      | 用户 / 项目 / 工作流 / 用量统计                |
-| **合计**     |              | **106**|                                               |
+| 模块       | 字段         | 端点数  | 说明                                              |
+| ---------- | ------------ | ------- | ------------------------------------------------- |
+| AI 核心    | `AI`         | 13      | chat / embeddings / vision / moa / models         |
+| Agents     | `Agents`     | 12      | 列表 / 调用 / 高级执行 / Pipeline / 并行 / 分解   |
+| Audio      | `Audio`      | 8       | TTS / ASR / 语音对话 / 声纹 / 音乐                |
+| Images     | `Images`     | 6       | 文生图 / 编辑 / 修复 / 风格迁移 / 虚拟试穿 / 背景 |
+| Videos     | `Videos`     | 3       | 生成 / 任务查询 / 编排                            |
+| 3D         | `ThreeD`     | 1       | 3D 模型生成                                       |
+| Generation | `Generation` | 3       | 生成队列:入队 / 状态 / 取消                       |
+| Knowledge  | `Knowledge`  | 13      | 文档 / 搜索 / RAG / 知识图谱                      |
+| Tools      | `Tools`      | 16      | MCP 工具 / 技能 / 人格 / 代码搜索 / 截图          |
+| Memory     | `Memory`     | 8       | 保存 / 召回 / 搜索 / Dream / 分类记忆             |
+| Messages   | `Messages`   | 4       | 发布 / 订阅 / 状态                                |
+| Files      | `Files`      | 9       | 列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片    |
+| User       | `User`       | 9       | 用户 / 项目 / 工作流 / 用量统计                   |
+| **合计**   |              | **106** |                                                   |
 
 ## 模块调用示例
 
@@ -302,6 +302,7 @@ SdkError                // 基类
 ```
 
 每个错误都携带:
+
 - `Status`:HTTP 状态码(网络错误为 0)
 - `Code`:错误码字符串(如 `auth_invalid_api_key`)
 - `Details`:错误详情(通常包含 `message` 字段)
@@ -396,15 +397,15 @@ packages/sdk/go/
 
 ## 与其他 SDK 对比
 
-| 特性         | Go SDK         | TypeScript SDK | Java SDK        | Python SDK      |
-| ------------ | -------------- | -------------- | --------------- | --------------- |
-| 依赖         | 零依赖(标准库) | fetch          | OkHttp + Jackson | httpx           |
-| 端点数       | 106            | 106            | 106             | 106             |
-| 模块数       | 13             | 13             | 13              | 13              |
-| 流式响应     | `<-chan map`   | AsyncGenerator | Iterator        | async generator |
-| 同步 / 异步  | 同步(Context) | 异步           | 同步            | sync + async    |
-| 重试机制     | 500ms / 1000ms | 500ms / 1000ms | 500ms / 1000ms  | 500ms / 1000ms  |
-| 错误层级     | 5 子类         | SdkError       | 5 子类          | 5 子类          |
+| 特性        | Go SDK         | TypeScript SDK | Java SDK         | Python SDK      |
+| ----------- | -------------- | -------------- | ---------------- | --------------- |
+| 依赖        | 零依赖(标准库) | fetch          | OkHttp + Jackson | httpx           |
+| 端点数      | 106            | 106            | 106              | 106             |
+| 模块数      | 13             | 13             | 13               | 13              |
+| 流式响应    | `<-chan map`   | AsyncGenerator | Iterator         | async generator |
+| 同步 / 异步 | 同步(Context)  | 异步           | 同步             | sync + async    |
+| 重试机制    | 500ms / 1000ms | 500ms / 1000ms | 500ms / 1000ms   | 500ms / 1000ms  |
+| 错误层级    | 5 子类         | SdkError       | 5 子类           | 5 子类          |
 
 ## 许可证
 

@@ -157,8 +157,12 @@ describe('HoverPreviewCard a11y — 焦点陷阱', () => {
         role="dialog"
         content={
           <>
-            <button type="button" data-testid="btn-1">1</button>
-            <button type="button" data-testid="btn-2">2</button>
+            <button type="button" data-testid="btn-1">
+              1
+            </button>
+            <button type="button" data-testid="btn-2">
+              2
+            </button>
           </>
         }
       />,
@@ -181,8 +185,12 @@ describe('HoverPreviewCard a11y — 焦点陷阱', () => {
         role="dialog"
         content={
           <>
-            <button type="button" data-testid="btn-1">1</button>
-            <button type="button" data-testid="btn-2">2</button>
+            <button type="button" data-testid="btn-1">
+              1
+            </button>
+            <button type="button" data-testid="btn-2">
+              2
+            </button>
           </>
         }
       />,
@@ -303,8 +311,12 @@ describe('HoverPreviewCard a11y — 综合', () => {
         role="dialog"
         content={
           <>
-            <button type="button" data-testid="btn-first">First</button>
-            <button type="button" data-testid="btn-second">Second</button>
+            <button type="button" data-testid="btn-first">
+              First
+            </button>
+            <button type="button" data-testid="btn-second">
+              Second
+            </button>
           </>
         }
       />,
@@ -322,9 +334,15 @@ describe('HoverPreviewCard a11y — 综合', () => {
         role="dialog"
         content={
           <>
-            <button type="button" data-testid="btn-a">A</button>
-            <button type="button" data-testid="btn-b">B</button>
-            <button type="button" data-testid="btn-c">C</button>
+            <button type="button" data-testid="btn-a">
+              A
+            </button>
+            <button type="button" data-testid="btn-b">
+              B
+            </button>
+            <button type="button" data-testid="btn-c">
+              C
+            </button>
           </>
         }
       />,
@@ -369,11 +387,7 @@ describe('HoverPreviewCard a11y — 综合', () => {
   // 18. role="tooltip"(默认)+ 不传 onClose:Esc 不报错
   it('role="tooltip"(默认)+ 不传 onClose:Esc 不报错(向后兼容)', () => {
     const { container } = render(
-      <HoverPreviewCard
-        visible={true}
-        position={{ x: 0, y: 0 }}
-        content={<span>preview</span>}
-      />,
+      <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>preview</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(() => {

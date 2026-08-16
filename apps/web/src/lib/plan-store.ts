@@ -127,9 +127,16 @@ export const usePlanStore = create<PlanState>()(
         })),
       getStats: (planId) => {
         const plan = get().plans.find((p) => p.id === planId)
-        return plan ? computeStats(plan.steps) : {
-          total: 0, completed: 0, inProgress: 0, blocked: 0, pending: 0, completionPercent: 0,
-        }
+        return plan
+          ? computeStats(plan.steps)
+          : {
+              total: 0,
+              completed: 0,
+              inProgress: 0,
+              blocked: 0,
+              pending: 0,
+              completionPercent: 0,
+            }
       },
     }),
     createPersistConfig<PlanState>('ihui-plans', (s) => ({ plans: s.plans })),

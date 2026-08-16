@@ -119,9 +119,7 @@ export const ProgressRing = React.memo(function ProgressRing({
           stroke="currentColor"
           className={cn(
             'transition-all duration-300',
-            state === 'completed'
-              ? 'text-emerald-500 animate-ring-celebrate'
-              : 'text-emerald-500',
+            state === 'completed' ? 'text-emerald-500 animate-ring-celebrate' : 'text-emerald-500',
             state === 'in_progress' && 'text-primary',
           )}
           strokeDasharray={circumference}

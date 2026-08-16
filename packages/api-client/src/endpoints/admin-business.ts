@@ -114,7 +114,9 @@ export async function getAdminNewsArticle(id: string): Promise<ApiResult<NewsArt
   return fetchApi<NewsArticle>(`/api/admin/news/articles/${id}`)
 }
 
-export async function createAdminNewsArticle(body: Record<string, unknown>): Promise<ApiResult<NewsArticle>> {
+export async function createAdminNewsArticle(
+  body: Record<string, unknown>,
+): Promise<ApiResult<NewsArticle>> {
   return fetchApi<NewsArticle>('/api/admin/news/articles', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -191,7 +193,9 @@ export async function getAdminMember(id: string): Promise<ApiResult<AdminMember>
   return fetchApi<AdminMember>(`/api/admin/members/by-id?id=${id}`)
 }
 
-export async function createAdminMember(body: Record<string, unknown>): Promise<ApiResult<AdminMember>> {
+export async function createAdminMember(
+  body: Record<string, unknown>,
+): Promise<ApiResult<AdminMember>> {
   return fetchApi<AdminMember>('/api/admin/members', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -228,9 +232,7 @@ export async function listAdminCompanies(
   return fetchApi<AdminCompaniesData>(`/api/admin/members/companies${buildQs(query)}`)
 }
 
-export async function batchImportAdminMembers(
-  file: File,
-): Promise<ApiResult<AdminImportResult>> {
+export async function batchImportAdminMembers(file: File): Promise<ApiResult<AdminImportResult>> {
   const form = new FormData()
   form.append('file', file)
   return fetchApi<AdminImportResult>('/api/admin/members/batch-import', {
@@ -259,7 +261,9 @@ export async function getAdminLiveChannel(id: string): Promise<ApiResult<LiveCha
   return fetchApi<LiveChannel>(`/api/admin/live/channels/${id}`)
 }
 
-export async function createAdminLiveChannel(body: Record<string, unknown>): Promise<ApiResult<LiveChannel>> {
+export async function createAdminLiveChannel(
+  body: Record<string, unknown>,
+): Promise<ApiResult<LiveChannel>> {
   return fetchApi<LiveChannel>('/api/admin/live/channels', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -315,7 +319,9 @@ export async function getAdminResource(id: string): Promise<ApiResult<AdminResou
   return fetchApi<AdminResource>(`/api/admin/resources/${id}`)
 }
 
-export async function createAdminResource(body: Record<string, unknown>): Promise<ApiResult<AdminResource>> {
+export async function createAdminResource(
+  body: Record<string, unknown>,
+): Promise<ApiResult<AdminResource>> {
   return fetchApi<AdminResource>('/api/admin/resources', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -422,7 +428,9 @@ export async function updateAdminInvoiceTitle(
   })
 }
 
-export async function deleteAdminInvoiceTitle(id: string): Promise<ApiResult<{ success: boolean }>> {
+export async function deleteAdminInvoiceTitle(
+  id: string,
+): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/admin/invoices/titles/${id}`, { method: 'DELETE' })
 }
 
@@ -481,7 +489,9 @@ export async function auditAdminRefund(
 export async function listAdminInvoiceApplications(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<EduInvoiceApplication>>> {
-  return fetchApi<PageData<EduInvoiceApplication>>(`/api/admin/invoices/applications${buildQs(query)}`)
+  return fetchApi<PageData<EduInvoiceApplication>>(
+    `/api/admin/invoices/applications${buildQs(query)}`,
+  )
 }
 
 // ===================== shop/withdrawals(提现管理) =====================

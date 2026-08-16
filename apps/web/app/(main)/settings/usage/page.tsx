@@ -35,7 +35,8 @@ function formatTokens(n: number): string {
 
 function UsageBarChart({ data }: { data: Record<string, { total_tokens: number; cost: number }> }) {
   const entries = Object.entries(data)
-  if (entries.length === 0) return <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
+  if (entries.length === 0)
+    return <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
   const maxTokens = Math.max(...entries.map(([, v]) => v.total_tokens), 1)
   return (
     <div className="flex items-end gap-1" style={{ height: 120 }}>
@@ -43,14 +44,18 @@ function UsageBarChart({ data }: { data: Record<string, { total_tokens: number; 
         const pct = (stats.total_tokens / maxTokens) * 100
         return (
           <div key={day} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] text-muted-foreground">{formatTokens(stats.total_tokens)}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {formatTokens(stats.total_tokens)}
+            </span>
             <div className="flex w-full items-end justify-center" style={{ height: 80 }}>
-              <Tooltip content={`${day}: ${formatTokens(stats.total_tokens)} tokens, $${stats.cost.toFixed(4)}`}>
+              <Tooltip
+                content={`${day}: ${formatTokens(stats.total_tokens)} tokens, $${stats.cost.toFixed(4)}`}
+              >
                 <div
                   className="w-full max-w-[24px] rounded-t-sm bg-primary/70 transition-colors hover:bg-primary"
                   style={{ height: `${Math.max(pct, 2)}%` }}
                 />
-                </Tooltip>
+              </Tooltip>
             </div>
             <span className="text-[10px] text-muted-foreground">{day.slice(5)}</span>
           </div>
@@ -80,26 +85,36 @@ export default function UsagePage() {
         else setError(statsRes.error)
         if (quotaRes.success) setQuota(quotaRes.data)
       })
-      .catch(() => { if (!cancelled) setError('数据加载失败') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setError('数据加载失败')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  if (loading) return (
-    <div className="space-y-4 px-4 py-6">
-      <BackButton />
-      <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>
-    </div>
-  )
+  if (loading)
+    return (
+      <div className="space-y-4 px-4 py-6">
+        <BackButton />
+        <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>
+      </div>
+    )
 
-  if (error) return (
-    <div className="space-y-4 px-4 py-6">
-      <BackButton />
-      <p className="py-8 text-center text-sm text-destructive">{error}</p>
-    </div>
-  )
+  if (error)
+    return (
+      <div className="space-y-4 px-4 py-6">
+        <BackButton />
+        <p className="py-8 text-center text-sm text-destructive">{error}</p>
+      </div>
+    )
 
-  const modelEntries = stats ? Object.entries(stats.model_breakdown).sort((a, b) => b[1].total_tokens - a[1].total_tokens) : []
+  const modelEntries = stats
+    ? Object.entries(stats.model_breakdown).sort((a, b) => b[1].total_tokens - a[1].total_tokens)
+    : []
   const totalTokens = stats?.total_tokens ?? 0
   const totalCost = stats?.total_cost ?? 0
   const totalCalls = stats?.total_calls ?? 0
@@ -117,7 +132,10 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatTokens(totalTokens)}</p>
-            <p className="text-xs text-muted-foreground">输入: {formatTokens(stats?.total_input_tokens ?? 0)} / 输出: {formatTokens(stats?.total_output_tokens ?? 0)}</p>
+            <p className="text-xs text-muted-foreground">
+              输入: {formatTokens(stats?.total_input_tokens ?? 0)} / 输出:{' '}
+              {formatTokens(stats?.total_output_tokens ?? 0)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -139,7 +157,9 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatTokens(quota?.used_tokens ?? 0)}</p>
-            <p className="text-xs text-muted-foreground">剩余 {formatTokens(quota?.remaining ?? 0)}</p>
+            <p className="text-xs text-muted-foreground">
+              剩余 {formatTokens(quota?.remaining ?? 0)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -154,7 +174,11 @@ export default function UsagePage() {
               <div
                 className={cn(
                   'h-full rounded-sm transition-all',
-                  usagePercent > 80 ? 'bg-destructive' : usagePercent > 50 ? 'bg-orange-500' : 'bg-primary',
+                  usagePercent > 80
+                    ? 'bg-destructive'
+                    : usagePercent > 50
+                      ? 'bg-orange-500'
+                      : 'bg-primary',
                 )}
                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
               />
@@ -170,13 +194,19 @@ export default function UsagePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {stats?.daily_breakdown ? <UsageBarChart data={stats.daily_breakdown} /> : <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>}
+          {stats?.daily_breakdown ? (
+            <UsageBarChart data={stats.daily_breakdown} />
+          ) : (
+            <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">模型用量分布</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            模型用量分布
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {modelEntries.length === 0 ? (
@@ -189,10 +219,15 @@ export default function UsagePage() {
                   <div key={model}>
                     <div className="flex justify-between text-xs">
                       <span className="truncate">{model}</span>
-                      <span className="text-muted-foreground">{formatTokens(m.total_tokens)} (${m.cost.toFixed(4)})</span>
+                      <span className="text-muted-foreground">
+                        {formatTokens(m.total_tokens)} (${m.cost.toFixed(4)})
+                      </span>
                     </div>
                     <div className="mt-1 h-2 w-full rounded-sm bg-muted">
-                      <div className="h-full rounded-sm bg-primary/70" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-sm bg-primary/70"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </div>
                 )

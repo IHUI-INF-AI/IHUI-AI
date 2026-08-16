@@ -56,10 +56,7 @@ export function formatTokenCount(tokens: number): string {
  * 跨端统一:mobile-rn 6 screens + UserInfoCard 共用。
  * IncomeScreen 等需空值返回 '0.00' 的场景,传 fallback = '0.00'。
  */
-export function formatAmount(
-  n: number | string | undefined | null,
-  fallback = '—',
-): string {
+export function formatAmount(n: number | string | undefined | null, fallback = '—'): string {
   const num = typeof n === 'string' ? Number(n) : n
   if (typeof num !== 'number' || isNaN(num)) return fallback
   return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

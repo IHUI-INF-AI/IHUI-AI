@@ -2,9 +2,7 @@ import { createDb } from '../src/client.js'
 import { aiFeedSource } from '../src/schema/ai-feed.js'
 import { eq, notInArray } from 'drizzle-orm'
 
-const db = createDb(
-  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:8810/ihui',
-)
+const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:8810/ihui')
 
 /**
  * AI 资讯信源种子数据(参考 aihot.virxact.com/all 信源结构 + 权威扩充)。

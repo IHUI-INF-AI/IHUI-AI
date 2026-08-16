@@ -40,7 +40,10 @@ export const tCourseRecommendLog = pgTable(
   't_course_recommend_log',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
-    recommendId: bigserial('recommend_id', { mode: 'number' }).references(() => tCourseRecommend.id, { onDelete: 'cascade' }),
+    recommendId: bigserial('recommend_id', { mode: 'number' }).references(
+      () => tCourseRecommend.id,
+      { onDelete: 'cascade' },
+    ),
     action: varchar('action', { length: 50 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

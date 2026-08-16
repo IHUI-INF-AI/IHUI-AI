@@ -40,15 +40,7 @@ import { useIsMobile } from '@/hooks/use-media-query'
 
 type PlusMenuAction = {
   /** 唯一 key,i18n 标签用 `topBar.<key>` 解析 */
-  key:
-    | 'document'
-    | 'browser'
-    | 'terminal'
-    | 'editor'
-    | 'codeChanges'
-    | 'agent'
-    | 'mcp'
-    | 'skill'
+  key: 'document' | 'browser' | 'terminal' | 'editor' | 'codeChanges' | 'agent' | 'mcp' | 'skill'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
   href?: string

@@ -47,11 +47,7 @@ export const SM2_EASE_FACTOR_DEFAULT = 2.5
  * @returns 新的 SM-2 状态 + nextReviewDate + quality
  * @throws {Error} quality 不在 0-5 范围内
  */
-export function sm2Calculate(
-  state: SM2State,
-  quality: number,
-  now: Date = new Date(),
-): SM2Result {
+export function sm2Calculate(state: SM2State, quality: number, now: Date = new Date()): SM2Result {
   if (quality < 0 || quality > 5) {
     throw new Error(`quality must be 0-5, got ${quality}`)
   }

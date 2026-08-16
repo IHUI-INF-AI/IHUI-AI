@@ -59,10 +59,7 @@ type DrawerMode = 'menu' | 'fenlei'
 export default function RankingDetailPage() {
   const { t } = useI18n()
   /** i18n 兜底:key 未命中时返回 fallback */
-  const tt = useCallback(
-    (k: string, fb: string) => (t(k) === k ? fb : t(k)),
-    [t],
-  )
+  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
   const router = useRouter()
   const [data, setData] = useState<RankingDetail>({})
@@ -82,11 +79,8 @@ export default function RankingDetailPage() {
       let raw: Record<string, unknown> = {}
       try {
         const res = (await api.get('/ranking/detail', { id })) as
-          | Record<string, unknown>
-          | undefined
-        const candidate = (res?.detail || res?.data || res) as
-          | Record<string, unknown>
-          | undefined
+          Record<string, unknown> | undefined
+        const candidate = (res?.detail || res?.data || res) as Record<string, unknown> | undefined
         if (candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) {
           raw = candidate
         }
@@ -303,9 +297,7 @@ export default function RankingDetailPage() {
       <DrawerComponent visible={drawerVisible} onClose={closeDrawer}>
         <View className="drawer-content">
           <Text className="drawer-title">
-            {drawerMode === 'fenlei'
-              ? tt('ranking.fenlei', '分类')
-              : tt('ranking.menu', '菜单')}
+            {drawerMode === 'fenlei' ? tt('ranking.fenlei', '分类') : tt('ranking.menu', '菜单')}
           </Text>
           {relatedList.length ? (
             <ScrollView scrollY className="drawer-list">

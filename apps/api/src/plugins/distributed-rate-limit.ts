@@ -165,7 +165,10 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
       // 2026-07-22 P0 Round 3 鲁棒性加固:Redis 故障降级本地 token bucket
       // 原:fail-open 直接放行(限流失效,攻击者可无限调用)
       // 新:降级到进程内 token bucket(单实例限流,多实例下不如 Redis 精确但有保护)
-      server.log.warn({ err: e }, 'distributed rate limit redis failed, fallback to local token bucket')
+      server.log.warn(
+        { err: e },
+        'distributed rate limit redis failed, fallback to local token bucket',
+      )
       return localTokenBucket(bucketKey, effectiveLimit, windowMs, nowMs, ruleName)
     }
   }
@@ -199,7 +202,14 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
     windowMs: number,
     nowMs: number,
     ruleName: string,
-  ): { allowed: boolean; count: number; limit: number; retryAfterMs: number; remaining: number; rule: string } {
+  ): {
+    allowed: boolean
+    count: number
+    limit: number
+    retryAfterMs: number
+    remaining: number
+    rule: string
+  } {
     const bucket = localBuckets.get(bucketKey) ?? { timestamps: [] as number[] }
     // 清理窗口外时间戳
     const cutoff = nowMs - windowMs

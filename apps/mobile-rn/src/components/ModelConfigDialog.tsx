@@ -2,8 +2,8 @@
  * 模型配置弹窗(mobile-rn 端)
  *
  * 3 变体(对齐历史 Uniapp 项目):
- * - index(默认):基础模型配置弹窗(模型选择 + 参数调节)
- * - indexa:带高级设置的模型配置弹窗(数字人上传 + 音色克隆录音 + 参数调节)
+ * - index(默认):基础模型配置弹窗(模型选择 + 参数调节 + 动态配置项)
+ * - indexa:带高级设置的模型配置弹窗(数字人上传 + 音色克隆录音 + 参数调节 + 动态配置项)
  * - selecter:纯模型选择器(无参数调节)
  *
  * 对齐历史项目:
@@ -16,13 +16,20 @@
  * - 图片:aspectRatio / resolution
  * - 视频:frameCount
  * - 音频:timbre(CosyVoice 音色)
+ * - 动态配置项:variables(对齐原 index.vue 的 modelInfo.variables,
+ *   支持 boolean 开关 / 数组选择器 / 输入框 / 尺寸 ratio 两级选择)
  *
  * 仅当 modelType 为 image/video/audio 时条件渲染媒体参数。
+ *
+ * 后端依赖回调预留(不引入原生依赖,由父组件注入):
+ * - 系统音色:原版 GET /ali/audio/sys(fetchSystemVoices),RN 端由 systemVoices prop 注入
+ * - 文件上传:原版 uni.chooseImage/chooseMessageFile/chooseVideo,RN 端由 onUpload* 回调注入
+ * - 音色克隆:原版 recorderManager + aliGenerateTimbre,RN 端由 onStart/StopRecording 回调注入
  *
  * 设计:参考 AgentRuntimePanel / ChatScreen 的 Modal+TouchableOpacity 关闭层模式,
  *      媒体参数用 Chip 选择器,音色用下拉展开列表(替代旧 Vue picker)。
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Modal,
   View,
@@ -61,6 +68,17 @@ export interface ModelOption {
   id: string
   name: string
   description?: string
+}
+
+/**
+ * 动态配置变量(对齐原 index.vue parseModelInfo 解析出的 {name, desc, value})。
+ * value 支持:字符串 / 数字 / [true,false](布尔开关) / 数组(选项列表) /
+ * 尺寸对象数组(如 [{ '1k': { '1:1': '1024x1024', ... } }],触发 ratio 两级选择)。
+ */
+export interface ModelConfigVariable {
+  name: string
+  desc: string
+  value: string | number | boolean | unknown[]
 }
 
 export interface ModelConfigDialogProps {
@@ -111,6 +129,20 @@ export interface ModelConfigDialogProps {
   selectedModelId?: string
   /** 选择模型回调 */
   onSelectModel?: (id: string) => void
+
+  // ===== 动态配置(对齐原 index.vue 的 variables)=====
+  /** 动态配置变量列表(原 modelInfo.variables;不传则仅渲染基础参数) */
+  variables?: ModelConfigVariable[]
+  /** 动态配置变更回调(对齐原 $emit('change', { setVariables })) */
+  onConfigChange?: (configParams: Record<string, unknown>) => void
+  /** 系统音色列表(对齐原 fetchSystemVoices → GET /ali/audio/sys;RN 端由父组件注入) */
+  systemVoices?: Array<{ id: string; name: string }>
+
+  // ===== 删除回调(对齐原 deleteFirstFrame/deleteLastFrame/deleteAudio/deleteVideo)=====
+  onDeleteFirstFrame?: () => void
+  onDeleteLastFrame?: () => void
+  onDeleteAudio?: () => void
+  onDeleteVideo?: () => void
 }
 
 const ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16'] as const
@@ -125,15 +157,45 @@ const TIMBRES = [
   { id: 'longmiao', name: '龙妙 · 女 · 甜美' },
 ] as const
 
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string
-  active: boolean
-  onPress: () => void
-}) {
+/** 视频特有配置项(对齐原 shouldShowItem,仅在视频模型下显示) */
+const VIDEO_ONLY_VARIABLES = ['duration', 'movement', 'frames', 'enhanceClarity']
+
+/** 判断是否为布尔选项 [true, false](对齐原 isBooleanOption) */
+function isBooleanOption(value: unknown): value is [true, false] {
+  return Array.isArray(value) && value.length === 2 && value[0] === true && value[1] === false
+}
+
+/** 判断是否为数组选项(对齐原 isArrayOption) */
+function isArrayOption(value: unknown): value is unknown[] {
+  return Array.isArray(value)
+}
+
+/** 判断是否为尺寸类型(数组元素为对象且含 1k/2k/4k 等键,对齐原 isSizeType) */
+function isSizeType(value: unknown[]): boolean {
+  if (value.length === 0) return false
+  const first = value[0]
+  if (first && typeof first === 'object' && !Array.isArray(first)) {
+    return Object.keys(first as object).some((k) => k.toLowerCase().includes('k'))
+  }
+  return false
+}
+
+/** 计算动态变量初始值(对齐原 initSetVariables) */
+function buildInitialValues(variables: ModelConfigVariable[]): Record<string, unknown> {
+  const init: Record<string, unknown> = {}
+  variables.forEach((v) => {
+    if (isBooleanOption(v.value)) {
+      init[v.name] = false
+    } else if (isArrayOption(v.value) && (v.value as unknown[]).length > 0) {
+      init[v.name] = (v.value as unknown[])[0]
+    } else {
+      init[v.name] = typeof v.value === 'string' || typeof v.value === 'number' ? v.value : ''
+    }
+  })
+  return init
+}
+
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -143,19 +205,195 @@ function Chip({
           : 'mr-1.5 mb-1.5 rounded-md bg-gray-50 px-2.5 py-1.5'
       }
     >
-      <Text className={active ? 'text-xs text-emerald-700' : 'text-xs text-gray-600'}>
-        {label}
-      </Text>
+      <Text className={active ? 'text-xs text-emerald-700' : 'text-xs text-gray-600'}>{label}</Text>
     </Pressable>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="mb-3">
       <Text className="mb-1.5 text-xs font-medium text-gray-500">{label}</Text>
       {children}
     </View>
+  )
+}
+
+// ===== 动态配置项渲染(对齐原 index.vue 动态 v-for variables)=====
+
+/** 尺寸 ratio 两级选择器(对齐原 selecter.vue type='ratio') */
+function RatioSelector({
+  options,
+  value,
+  onSelect,
+}: {
+  options: unknown[]
+  value: unknown
+  onSelect: (v: unknown) => void
+}) {
+  const [sizeIndex, setSizeIndex] = useState<number | null>(null)
+
+  const sizeObj =
+    sizeIndex !== null && sizeIndex >= 0 && sizeIndex < options.length
+      ? (options[sizeIndex] as Record<string, unknown>)
+      : null
+  const sizeKey = sizeObj ? Object.keys(sizeObj)[0] : ''
+  const ratioMap = sizeObj && sizeKey ? (sizeObj[sizeKey] as Record<string, string>) : null
+  const selectedRatio =
+    value && typeof value === 'object' ? ((value as { ratio?: string }).ratio ?? '') : ''
+
+  // 第一级:选择尺寸(1k / 2k / 4k)
+  if (!sizeObj) {
+    return (
+      <View className="flex-row flex-wrap">
+        {options.map((opt, idx) => {
+          const key =
+            opt && typeof opt === 'object'
+              ? (Object.keys(opt as object)[0] ?? String(opt))
+              : String(opt)
+          return (
+            <Chip
+              key={key}
+              label={key}
+              active={sizeIndex === idx}
+              onPress={() => setSizeIndex(idx)}
+            />
+          )
+        })}
+      </View>
+    )
+  }
+
+  // 第二级:选择比例
+  return (
+    <View>
+      <View className="mb-1.5 flex-row items-center">
+        <Pressable
+          onPress={() => setSizeIndex(null)}
+          className="mr-1.5 rounded-md bg-gray-100 px-2.5 py-1.5"
+        >
+          <Text className="text-xs text-gray-600">← 返回</Text>
+        </Pressable>
+        <Text className="text-xs font-medium text-gray-500">{sizeKey}</Text>
+      </View>
+      <View className="flex-row flex-wrap">
+        {ratioMap
+          ? Object.keys(ratioMap).map((ratio) => (
+              <Chip
+                key={ratio}
+                label={`${ratio} (${ratioMap[ratio]})`}
+                active={selectedRatio === ratio}
+                onPress={() => onSelect({ size: sizeKey, ratio, resolution: ratioMap[ratio] })}
+              />
+            ))
+          : null}
+      </View>
+    </View>
+  )
+}
+
+function DynamicVariables({
+  variables,
+  isVideoModel,
+  onChange,
+}: {
+  variables: ModelConfigVariable[]
+  isVideoModel: boolean
+  onChange: (setVariables: ModelConfigVariable[]) => void
+}) {
+  const [values, setValues] = useState<Record<string, unknown>>(() => buildInitialValues(variables))
+  const valuesRef = useRef(values)
+  valuesRef.current = values
+
+  // 变量列表变化时重置(对齐原 modelInfo watch → parseModelInfo → initSetVariables)
+  useEffect(() => {
+    const next = buildInitialValues(variables)
+    valuesRef.current = next
+    setValues(next)
+  }, [variables])
+
+  const emit = (patch: Record<string, unknown>) => {
+    const next = { ...valuesRef.current, ...patch }
+    valuesRef.current = next
+    setValues(next)
+    onChange(
+      variables.map((v) => ({
+        name: v.name,
+        desc: v.desc,
+        value: (next[v.name] ?? '') as ModelConfigVariable['value'],
+      })),
+    )
+  }
+
+  return (
+    <>
+      {variables
+        .filter((v) => (VIDEO_ONLY_VARIABLES.includes(v.name) ? isVideoModel : true))
+        .map((v) => {
+          const cur = values[v.name]
+
+          // 布尔选项 → 开关
+          if (isBooleanOption(v.value)) {
+            return (
+              <Row key={v.name} label={v.desc}>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs text-gray-600">{cur ? '已启用' : '未启用'}</Text>
+                  <Switch value={!!cur} onValueChange={(nv) => emit({ [v.name]: nv })} />
+                </View>
+              </Row>
+            )
+          }
+
+          const arr = isArrayOption(v.value) ? (v.value as unknown[]) : null
+
+          // 数组选项 → 选择器(尺寸类型走 ratio 两级)
+          if (arr && arr.length > 0) {
+            if (isSizeType(arr)) {
+              return (
+                <Row key={v.name} label={v.desc}>
+                  <RatioSelector
+                    options={arr}
+                    value={cur}
+                    onSelect={(val) => emit({ [v.name]: val })}
+                  />
+                </Row>
+              )
+            }
+            return (
+              <Row key={v.name} label={v.desc}>
+                <View className="flex-row flex-wrap">
+                  {arr.map((opt) => {
+                    const label =
+                      opt && typeof opt === 'object' && !Array.isArray(opt)
+                        ? ((opt as { desc?: string }).desc ?? String(opt))
+                        : String(opt)
+                    return (
+                      <Chip
+                        key={label}
+                        label={label}
+                        active={cur === opt}
+                        onPress={() => emit({ [v.name]: cur === opt ? '' : opt })}
+                      />
+                    )
+                  })}
+                </View>
+              </Row>
+            )
+          }
+
+          // 其他 → 输入框
+          return (
+            <Row key={v.name} label={v.desc}>
+              <TextInput
+                value={String(cur ?? '')}
+                onChangeText={(t) => emit({ [v.name]: t })}
+                placeholder={`请输入${v.desc}`}
+                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+              />
+            </Row>
+          )
+        })}
+    </>
   )
 }
 
@@ -178,6 +416,9 @@ function BasicModelConfigDialog({
   config,
   onChange,
   onClose,
+  variables = [],
+  onConfigChange,
+  systemVoices,
 }: ModelConfigDialogProps) {
   const { t } = useI18n()
   const [timbreOpen, setTimbreOpen] = useState(false)
@@ -187,17 +428,22 @@ function BasicModelConfigDialog({
     [config, onChange],
   )
 
+  const handleVariableChange = useCallback(
+    (setVariables: ModelConfigVariable[]) => onConfigChange?.({ setVariables }),
+    [onConfigChange],
+  )
+
   const isImage = modelType === 'image' || modelType === 'multimodal'
   const isVideo = modelType === 'video'
   const isAudio = modelType === 'audio'
+  // 视频模型:动态变量里的视频特有项才显示
+  const isVideoModel = isVideo
+  // 系统音色:优先用父组件注入(对齐原 fetchSystemVoices),否则用内置默认列表
+  const voiceList = systemVoices && systemVoices.length > 0 ? systemVoices : TIMBRES
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        className="flex-1 bg-black/20"
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
         <View className="mt-auto bg-white">
           <View className="flex-row items-center justify-between px-4 py-3">
             <Text className="text-sm font-semibold text-gray-900">{t('agent.config')}</Text>
@@ -311,12 +557,12 @@ function BasicModelConfigDialog({
                   className="rounded-md bg-gray-50 px-2.5 py-2"
                 >
                   <Text className="text-xs text-gray-900">
-                    {TIMBRES.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
+                    {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
                   </Text>
                 </Pressable>
                 {timbreOpen ? (
                   <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
-                    {TIMBRES.map((tb) => (
+                    {voiceList.map((tb) => (
                       <Pressable
                         key={tb.id}
                         onPress={() => {
@@ -340,6 +586,13 @@ function BasicModelConfigDialog({
                 ) : null}
               </Row>
             ) : null}
+
+            {/* 动态配置项(对齐原 index.vue variables) */}
+            <DynamicVariables
+              variables={variables}
+              isVideoModel={isVideoModel}
+              onChange={handleVariableChange}
+            />
           </ScrollView>
 
           <View className="flex-row gap-2 px-4 pb-4 pt-2">
@@ -385,6 +638,13 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
     onStopRecording,
     isRecording = false,
     recordDuration = 0,
+    variables = [],
+    onConfigChange,
+    systemVoices,
+    onDeleteFirstFrame,
+    onDeleteLastFrame,
+    onDeleteAudio,
+    onDeleteVideo,
   } = props
 
   const { t } = useI18n()
@@ -397,9 +657,17 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
     [config, onChange],
   )
 
+  const handleVariableChange = useCallback(
+    (setVariables: ModelConfigVariable[]) => onConfigChange?.({ setVariables }),
+    [onConfigChange],
+  )
+
   const isImage = modelType === 'image' || modelType === 'multimodal'
   const isVideo = modelType === 'video'
   const isAudio = modelType === 'audio'
+  // 视频模型判断(对齐原 watch modelName:含 t2v/i2v 为视频模型)
+  const isVideoModel = isVideo || !!modelName?.includes('t2v') || !!modelName?.includes('i2v')
+  const voiceList = systemVoices && systemVoices.length > 0 ? systemVoices : TIMBRES
 
   // 数字人模型:显示首帧图/尾帧图/克隆数字人按钮
   const isDigitalHuman = modelName?.includes('数字人') ?? false
@@ -437,11 +705,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        className="flex-1 bg-black/20"
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
         <View className="mt-auto bg-white">
           {/* 头部 */}
           <View className="flex-row items-center justify-between px-4 py-3">
@@ -461,6 +725,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     label="添加首帧图"
                     url={firstFrameUrl}
                     onPress={onUploadFirstFrame}
+                    onDelete={onDeleteFirstFrame}
                   />
                 ) : null}
 
@@ -470,6 +735,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     label="添加尾帧图"
                     url={lastFrameUrl}
                     onPress={onUploadLastFrame}
+                    onDelete={onDeleteLastFrame}
                   />
                 ) : null}
 
@@ -479,6 +745,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     label="参考音色"
                     url={audioUrl}
                     onPress={handleAudioMenu}
+                    onDelete={onDeleteAudio}
                   />
                 ) : null}
 
@@ -488,6 +755,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     label="克隆数字人"
                     url={videoUrl}
                     onPress={onUploadVideo}
+                    onDelete={onDeleteVideo}
                   />
                 ) : null}
               </View>
@@ -598,12 +866,12 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   className="rounded-md bg-gray-50 px-2.5 py-2"
                 >
                   <Text className="text-xs text-gray-900">
-                    {TIMBRES.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
+                    {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
                   </Text>
                 </Pressable>
                 {timbreOpen ? (
                   <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
-                    {TIMBRES.map((tb) => (
+                    {voiceList.map((tb) => (
                       <Pressable
                         key={tb.id}
                         onPress={() => {
@@ -627,6 +895,13 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 ) : null}
               </Row>
             ) : null}
+
+            {/* 动态配置项(对齐原 index.vue variables) */}
+            <DynamicVariables
+              variables={variables}
+              isVideoModel={isVideoModel}
+              onChange={handleVariableChange}
+            />
           </ScrollView>
 
           {/* 底部按钮 */}
@@ -668,11 +943,8 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
               </View>
 
               {/* 菜单项 */}
-              <Pressable
-                onPress={handleSelectVoice}
-                className="flex-row items-center px-5 py-3"
-              >
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
+              <Pressable onPress={handleSelectVoice} className="flex-row items-center px-5 py-3">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                   <Text className="text-lg">🎵</Text>
                 </View>
                 <View className="flex-1">
@@ -684,11 +956,8 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 <Text className="text-xs text-gray-300">›</Text>
               </Pressable>
 
-              <Pressable
-                onPress={handleCloneVoice}
-                className="flex-row items-center px-5 py-3"
-              >
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
+              <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                   <Text className="text-lg">🎙️</Text>
                 </View>
                 <View className="flex-1">
@@ -704,8 +973,12 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
       {/* 录音弹窗 */}
       {showRecordDialog ? (
-        <Modal visible={showRecordDialog} transparent animationType="fade"
-          onRequestClose={handleCloseRecordDialog}>
+        <Modal
+          visible={showRecordDialog}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseRecordDialog}
+        >
           <TouchableOpacity
             className="flex-1 bg-black/50"
             activeOpacity={1}
@@ -730,7 +1003,8 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   <Text className="mb-1.5 text-xs text-gray-500">请朗读以下文本:</Text>
                   <View className="mb-4 rounded-lg bg-gray-50 p-3">
                     <Text className="text-xs leading-5 text-gray-700">
-                      我正在录制智汇 AI 定制克隆声音。通过这段录制,你将拥有一个与自己声音高度相似的 AI 语音模型。
+                      我正在录制智汇 AI 定制克隆声音。通过这段录制,你将拥有一个与自己声音高度相似的
+                      AI 语音模型。
                     </Text>
                   </View>
 
@@ -748,12 +1022,10 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       className={
                         isRecording
                           ? 'h-16 w-16 items-center justify-center rounded-xl bg-red-500'
-                          : 'h-16 w-16 items-center justify-center rounded-xl bg-indigo-500'
+                          : 'h-16 w-16 items-center justify-center rounded-xl bg-emerald-500'
                       }
                     >
-                      <Text className="text-2xl text-white">
-                        {isRecording ? '⏹' : '🎙️'}
-                      </Text>
+                      <Text className="text-2xl text-white">{isRecording ? '⏹' : '🎙️'}</Text>
                     </Pressable>
                     <Text className="mt-2 text-xs text-gray-500">
                       {isRecording ? '停止录音' : '开始录音'}
@@ -774,28 +1046,44 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
   )
 }
 
-/** indexa 变体:上传按钮(虚线边框 + 图标 + 标签) */
+/** indexa 变体:上传按钮(虚线边框 + 图标 + 标签 + 可选删除) */
 function UploadButton({
   label,
   url,
   onPress,
+  onDelete,
 }: {
   label: string
   url?: string
   onPress?: () => void
+  onDelete?: () => void
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      className="mr-1.5 mb-1.5 w-[80px] items-center rounded-lg border border-dashed border-purple-200 bg-purple-50 py-2"
-    >
-      <View className="mb-1 h-8 w-8 items-center justify-center">
-        <Text className="text-lg">{url ? '✓' : '＋'}</Text>
-      </View>
-      <Text className="text-xs text-gray-600" numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
+    <View className="mr-1.5 mb-1.5 w-[80px]">
+      <Pressable
+        onPress={onPress}
+        className="items-center rounded-lg border border-dashed border-emerald-200 bg-emerald-50 py-2"
+      >
+        <View className="mb-1 h-8 w-8 items-center justify-center">
+          <Text className="text-lg">{url ? '✓' : '＋'}</Text>
+        </View>
+        <Text className="text-xs text-gray-600" numberOfLines={1}>
+          {label}
+        </Text>
+      </Pressable>
+      {url && onDelete ? (
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          hitSlop={4}
+          className="absolute -top-2 -right-2 h-5 w-5 items-center justify-center rounded-full bg-white"
+        >
+          <Text className="text-xs text-gray-500">×</Text>
+        </Pressable>
+      ) : null}
+    </View>
   )
 }
 
@@ -817,11 +1105,7 @@ function ModelSelecterDialog({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        className="flex-1 bg-black/20"
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
         <View className="mt-auto bg-white">
           {/* 头部 */}
           <View className="flex-row items-center justify-between px-4 py-3">
@@ -860,9 +1144,7 @@ function ModelSelecterDialog({
                       {model.name}
                     </Text>
                     {model.description ? (
-                      <Text className="mt-0.5 text-xs text-gray-400">
-                        {model.description}
-                      </Text>
+                      <Text className="mt-0.5 text-xs text-gray-400">{model.description}</Text>
                     ) : null}
                   </Pressable>
                 )
@@ -872,10 +1154,7 @@ function ModelSelecterDialog({
 
           {/* 底部关闭按钮 */}
           <View className="px-4 pb-4 pt-2">
-            <Pressable
-              onPress={onClose}
-              className="items-center rounded-md bg-gray-100 py-2.5"
-            >
+            <Pressable onPress={onClose} className="items-center rounded-md bg-gray-100 py-2.5">
               <Text className="text-xs text-gray-700">{t('common.cancel')}</Text>
             </Pressable>
           </View>

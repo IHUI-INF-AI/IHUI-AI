@@ -308,7 +308,11 @@ export function Selecter({
                 key={it.val}
                 role="button"
                 tabIndex={0}
-                style={viewStyles.item(tk, active, false, { height: 32, paddingLeft: 10, paddingRight: 10 })}
+                style={viewStyles.item(tk, active, false, {
+                  height: 32,
+                  paddingLeft: 10,
+                  paddingRight: 10,
+                })}
                 onClick={() => selectVideo(it.val)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {

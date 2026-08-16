@@ -24,4 +24,3 @@ export type { ToolbarProps, ToolbarItem } from './Toolbar'
 
 export { UserInfoCard } from './UserInfoCard'
 export type { UserInfoCardProps } from './UserInfoCard'
-

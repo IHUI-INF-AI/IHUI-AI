@@ -7,8 +7,8 @@ import {
   timestamp,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 教育积分渠道表 - edu_platform 特有,区别于 gamification.ts 通用积分。
@@ -21,7 +21,7 @@ export const eduPointChannels = pgTable('edu_point_channels', {
   sort: integer('sort').default(0).notNull(),
   status: integer('status').default(1).notNull(), // 1=启用 0=禁用
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 教育积分规则表 - 定义各行为积分值。
@@ -42,7 +42,7 @@ export const eduPoints = pgTable(
   (t) => ({
     chanIdx: index('edu_points_channel_idx').on(t.channelId),
   }),
-);
+)
 
 /**
  * 积分渠道关联表 - 规则与渠道多对多。
@@ -64,7 +64,7 @@ export const eduPointChannelRelations = pgTable(
     pointIdx: index('edu_point_channel_relations_point_idx').on(t.pointId),
     chanIdx: index('edu_point_channel_relations_channel_idx').on(t.channelId),
   }),
-);
+)
 
 /**
  * 教育积分记录表 - 用户积分变动流水。
@@ -85,13 +85,13 @@ export const eduPointRecords = pgTable(
   (t) => ({
     memberIdx: index('edu_point_records_member_idx').on(t.memberId),
   }),
-);
+)
 
-export type EduPointChannel = typeof eduPointChannels.$inferSelect;
-export type NewEduPointChannel = typeof eduPointChannels.$inferInsert;
-export type EduPoint = typeof eduPoints.$inferSelect;
-export type NewEduPoint = typeof eduPoints.$inferInsert;
-export type EduPointChannelRelation = typeof eduPointChannelRelations.$inferSelect;
-export type NewEduPointChannelRelation = typeof eduPointChannelRelations.$inferInsert;
-export type EduPointRecord = typeof eduPointRecords.$inferSelect;
-export type NewEduPointRecord = typeof eduPointRecords.$inferInsert;
+export type EduPointChannel = typeof eduPointChannels.$inferSelect
+export type NewEduPointChannel = typeof eduPointChannels.$inferInsert
+export type EduPoint = typeof eduPoints.$inferSelect
+export type NewEduPoint = typeof eduPoints.$inferInsert
+export type EduPointChannelRelation = typeof eduPointChannelRelations.$inferSelect
+export type NewEduPointChannelRelation = typeof eduPointChannelRelations.$inferInsert
+export type EduPointRecord = typeof eduPointRecords.$inferSelect
+export type NewEduPointRecord = typeof eduPointRecords.$inferInsert

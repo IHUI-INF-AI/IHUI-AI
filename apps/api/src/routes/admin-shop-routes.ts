@@ -419,7 +419,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
             processedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)))
+          .where(
+            and(
+              eq(withdrawalFlows.id, p.data.id),
+              eq(withdrawalFlows.status, WITHDRAWAL_INT.pending),
+            ),
+          )
           .returning()
         if (!flow) return undefined // 已被处理或不存在
         // flow.userId 可空(用户删除时 SET NULL),null 时无法更新余额,跳过(等待人工对账)
@@ -430,7 +435,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
               frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
               updatedAt: new Date(),
             })
-            .where(and(eq(userMargins.userId, flow.userId), sql`${userMargins.frozenQuantity} >= ${flow.amount}`))
+            .where(
+              and(
+                eq(userMargins.userId, flow.userId),
+                sql`${userMargins.frozenQuantity} >= ${flow.amount}`,
+              ),
+            )
             .returning()
           if (!margin) {
             // frozen 已被释放(如回调已处理),资金守恒不允许负数,整体回滚
@@ -462,7 +472,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
             processedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)))
+          .where(
+            and(
+              eq(withdrawalFlows.id, p.data.id),
+              eq(withdrawalFlows.status, WITHDRAWAL_INT.pending),
+            ),
+          )
           .returning()
         if (!flow) return undefined // 已被处理或不存在
         if (flow.userId) {
@@ -473,7 +488,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
               frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
               updatedAt: new Date(),
             })
-            .where(and(eq(userMargins.userId, flow.userId), sql`${userMargins.frozenQuantity} >= ${flow.amount}`))
+            .where(
+              and(
+                eq(userMargins.userId, flow.userId),
+                sql`${userMargins.frozenQuantity} >= ${flow.amount}`,
+              ),
+            )
             .returning()
           if (!margin) {
             // frozen 已被释放(如回调已处理),资金守恒不允许负数,整体回滚

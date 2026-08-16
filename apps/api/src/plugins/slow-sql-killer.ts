@@ -1,8 +1,8 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import fp from 'fastify-plugin';
-import { sqlEventBus } from '../db/sql-event-bus.js';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import fp from 'fastify-plugin'
+import { sqlEventBus } from '../db/sql-event-bus.js'
 
-const SLOW_SQL_THRESHOLD_MS = parseInt(process.env.SLOW_SQL_THRESHOLD_MS ?? '1000', 10);
+const SLOW_SQL_THRESHOLD_MS = parseInt(process.env.SLOW_SQL_THRESHOLD_MS ?? '1000', 10)
 
 /**
  * 慢 SQL 杀手插件。
@@ -13,14 +13,14 @@ const SLOW_SQL_THRESHOLD_MS = parseInt(process.env.SLOW_SQL_THRESHOLD_MS ?? '100
  * 无需在各业务代码手动调用 slowSqlStats.increment()。
  */
 const slowSqlKillerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  let slowQueryCount = 0;
+  let slowQueryCount = 0
 
-  server.log.info({ thresholdMs: SLOW_SQL_THRESHOLD_MS }, 'slow-sql-killer plugin registered');
+  server.log.info({ thresholdMs: SLOW_SQL_THRESHOLD_MS }, 'slow-sql-killer plugin registered')
 
   // 订阅 SQL 事件,慢查询自动计数 + 即时告警
   const unsubscribe = sqlEventBus.on((event) => {
     if (event.durationMs !== undefined && event.durationMs > SLOW_SQL_THRESHOLD_MS) {
-      slowQueryCount++;
+      slowQueryCount++
       server.log.warn(
         {
           query: event.query.slice(0, 500), // 截断防日志爆炸
@@ -28,44 +28,47 @@ const slowSqlKillerPlugin: FastifyPluginAsync = async (server: FastifyInstance) 
           requestId: event.requestId,
         },
         'slow SQL detected',
-      );
+      )
     }
-  });
+  })
 
   // 定期输出慢查询统计
   const interval = setInterval(() => {
     if (slowQueryCount > 0) {
-      server.log.warn({ count: slowQueryCount, thresholdMs: SLOW_SQL_THRESHOLD_MS }, 'slow SQL queries in last 60s');
-      slowQueryCount = 0;
+      server.log.warn(
+        { count: slowQueryCount, thresholdMs: SLOW_SQL_THRESHOLD_MS },
+        'slow SQL queries in last 60s',
+      )
+      slowQueryCount = 0
     }
-  }, 60_000);
-  interval.unref();
+  }, 60_000)
+  interval.unref()
 
   server.decorate('slowSqlStats', {
     get count() {
-      return slowQueryCount;
+      return slowQueryCount
     },
     increment() {
-      slowQueryCount++;
+      slowQueryCount++
     },
-  });
+  })
 
   server.addHook('onClose', async () => {
-    clearInterval(interval);
-    unsubscribe();
-  });
-};
+    clearInterval(interval)
+    unsubscribe()
+  })
+}
 
 export const slowSqlKiller = fp(slowSqlKillerPlugin, {
   name: 'slow-sql-killer',
   fastify: '5.x',
-});
+})
 
 declare module 'fastify' {
   interface FastifyInstance {
     slowSqlStats: {
-      readonly count: number;
-      increment(): void;
-    };
+      readonly count: number
+      increment(): void
+    }
   }
 }

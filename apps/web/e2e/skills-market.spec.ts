@@ -108,7 +108,10 @@ test.describe('技能市场页', () => {
     }
 
     // 点击"全部"恢复
-    const allBtn = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて|all/i }).first()
+    const allBtn = page
+      .getByRole('button')
+      .filter({ hasText: /全部|All|모두|すべて|all/i })
+      .first()
     const allVisible = await allBtn.isVisible({ timeout: 3000 }).catch(() => false)
     if (allVisible) {
       await allBtn.click()
@@ -126,7 +129,10 @@ test.describe('技能市场页', () => {
     })
 
     // 查找下一页按钮
-    const nextBtn = page.getByRole('button').filter({ hasText: /下一页|Next|다음|次へ|next/i }).first()
+    const nextBtn = page
+      .getByRole('button')
+      .filter({ hasText: /下一页|Next|다음|次へ|next/i })
+      .first()
     const nextEnabled = await nextBtn.isEnabled({ timeout: 5000 }).catch(() => false)
     if (!nextEnabled) return // 只有一页数据则跳过
 
@@ -140,7 +146,10 @@ test.describe('技能市场页', () => {
     ).toHaveLength(0)
 
     // 查找上一页按钮
-    const prevBtn = page.getByRole('button').filter({ hasText: /上一页|Prev|이전|前へ|prev/i }).first()
+    const prevBtn = page
+      .getByRole('button')
+      .filter({ hasText: /上一页|Prev|이전|前へ|prev/i })
+      .first()
     const prevEnabled = await prevBtn.isEnabled({ timeout: 3000 }).catch(() => false)
     if (prevEnabled) {
       await prevBtn.click()

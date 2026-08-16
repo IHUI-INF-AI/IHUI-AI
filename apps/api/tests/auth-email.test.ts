@@ -164,12 +164,7 @@ describe('email-service — sendVerificationEmail (3 scenes + default)', () => {
   })
 
   it('带 nickname 的 stub 模式也成功', async () => {
-    const result = await sendVerificationEmail(
-      'test@example.com',
-      '654321',
-      'register',
-      'Alice',
-    )
+    const result = await sendVerificationEmail('test@example.com', '654321', 'register', 'Alice')
     expect(result.provider).toBe('stub')
     expect(result.stub).toBe(true)
   })

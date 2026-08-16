@@ -76,9 +76,7 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = applyDiffSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const body = parsed.data
 
@@ -103,12 +101,7 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
           if (readResult.content !== body.oldContent) {
             return reply
               .status(409)
-              .send(
-                error(
-                  409,
-                  '文件已被修改,与 Apply 时的旧内容不一致,请刷新 diff 后重试',
-                ),
-              )
+              .send(error(409, '文件已被修改,与 Apply 时的旧内容不一致,请刷新 diff 后重试'))
           }
         } catch {
           // 文件不存在:write_file 新建场景,跳过 oldContent 校验
@@ -122,9 +115,7 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
         createDirs: true,
       })
 
-      return reply.send(
-        success({ applied: true, path: result.path }),
-      )
+      return reply.send(success({ applied: true, path: result.path }))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }

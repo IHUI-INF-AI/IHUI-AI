@@ -334,7 +334,8 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     note: '硅基流动,国内主流开源模型聚合,OpenAI 格式兼容,国内直连速度快',
   },
   'Baidu ERNIE': {
-    officialKeyUrl: 'https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application',
+    officialKeyUrl:
+      'https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application',
     docsUrl: 'https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html',
     defaultBaseUrl: 'https://qianfan.baidubce.com/v2',
     providerCode: 'ernie',
@@ -373,7 +374,7 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: 'NVIDIA 推理微服务,支持 GPU 加速 + 自部署,OpenAI 兼容接口',
   },
-  'Databricks': {
+  Databricks: {
     officialKeyUrl: 'https://docs.databricks.com/en/machine-learning/foundation-models/',
     docsUrl: 'https://docs.databricks.com/en/generative-ai/',
     defaultBaseUrl: 'https://databricks-prod-12345.svc.databricks.com/serving-endpoints',
@@ -389,7 +390,7 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: 'AI21 Labs Jamba 模型,Mamba + Transformer 混合架构,OpenAI 兼容',
   },
-  'Replit': {
+  Replit: {
     officialKeyUrl: 'https://replit.com/@me/api-keys',
     docsUrl: 'https://docs.replit.com/replit-ai/',
     defaultBaseUrl: 'https://api.replit.com/v1',

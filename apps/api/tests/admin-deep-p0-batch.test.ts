@@ -107,9 +107,7 @@ describe('admin deep P0 batch operations', () => {
   beforeAll(async () => {
     server.setErrorHandler((err, _request, reply) => {
       const statusCode =
-        err.statusCode && err.statusCode >= 400 && err.statusCode < 600
-          ? err.statusCode
-          : 500
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({
         code: statusCode,
         message: statusCode >= 500 ? '服务器错误' : err.message,
@@ -138,7 +136,10 @@ describe('admin deep P0 batch operations', () => {
   describe('POST /api/admin/orders/batch-cancel', () => {
     it('成功取消全部 pending 订单', async () => {
       enqueue(
-        [{ id: O1, status: 'pending' }, { id: O2, status: 'pending' }],
+        [
+          { id: O1, status: 'pending' },
+          { id: O2, status: 'pending' },
+        ],
         [],
       )
       const res = await server.inject({
@@ -176,7 +177,10 @@ describe('admin deep P0 batch operations', () => {
     })
 
     it('全部跳过:无 pending 订单', async () => {
-      enqueue([{ id: O1, status: 'paid' }, { id: O2, status: 'refunded' }])
+      enqueue([
+        { id: O1, status: 'paid' },
+        { id: O2, status: 'refunded' },
+      ])
       const res = await server.inject({
         method: 'POST',
         url: `${ADMIN_PREFIX}/orders/batch-cancel`,
@@ -237,7 +241,10 @@ describe('admin deep P0 batch operations', () => {
   describe('POST /api/admin/refunds/batch-audit', () => {
     it('成功审核全部 pending (approve)', async () => {
       enqueue(
-        [{ id: R1, status: 'pending' }, { id: R2, status: 'pending' }],
+        [
+          { id: R1, status: 'pending' },
+          { id: R2, status: 'pending' },
+        ],
         [{ id: R1, status: 'approved' }],
         [],
         [{ id: R2, status: 'approved' }],
@@ -256,7 +263,10 @@ describe('admin deep P0 batch operations', () => {
 
     it('成功审核全部 pending (reject)', async () => {
       enqueue(
-        [{ id: R1, status: 'pending' }, { id: R2, status: 'pending' }],
+        [
+          { id: R1, status: 'pending' },
+          { id: R2, status: 'pending' },
+        ],
         [{ id: R1, status: 'rejected' }],
         [],
         [{ id: R2, status: 'rejected' }],
@@ -315,11 +325,7 @@ describe('admin deep P0 batch operations', () => {
     })
 
     it('验证 logAction 被调用:action=refund.batch_approve', async () => {
-      enqueue(
-        [{ id: R1, status: 'pending' }],
-        [{ id: R1, status: 'approved' }],
-        [],
-      )
+      enqueue([{ id: R1, status: 'pending' }], [{ id: R1, status: 'approved' }], [])
       await server.inject({
         method: 'POST',
         url: `${ADMIN_PREFIX}/refunds/batch-audit`,
@@ -338,11 +344,7 @@ describe('admin deep P0 batch operations', () => {
 
   describe('POST /api/admin/users/batch-status', () => {
     it('成功更新全部用户 status', async () => {
-      enqueue(
-        [{ id: U1 }, { id: U2 }],
-        [{ id: U1 }],
-        [{ id: U2 }],
-      )
+      enqueue([{ id: U1 }, { id: U2 }], [{ id: U1 }], [{ id: U2 }])
       const res = await server.inject({
         method: 'POST',
         url: `${USER_PREFIX}/admin/users/batch-status`,
@@ -393,7 +395,10 @@ describe('admin deep P0 batch operations', () => {
   describe('POST /api/admin/users/batch-review', () => {
     it('成功审核 status=0 用户', async () => {
       enqueue(
-        [{ id: U1, status: 0 }, { id: U2, status: 0 }],
+        [
+          { id: U1, status: 0 },
+          { id: U2, status: 0 },
+        ],
         [{ id: U1 }],
         [{ id: U2 }],
       )
@@ -440,10 +445,7 @@ describe('admin deep P0 batch operations', () => {
     })
 
     it('验证 logAction:action=user.batch_review', async () => {
-      enqueue(
-        [{ id: U1, status: 0 }],
-        [{ id: U1 }],
-      )
+      enqueue([{ id: U1, status: 0 }], [{ id: U1 }])
       await server.inject({
         method: 'POST',
         url: `${USER_PREFIX}/admin/users/batch-review`,

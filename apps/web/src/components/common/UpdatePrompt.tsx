@@ -26,7 +26,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
  * - available:下拉窗 + "正在准备更新..."(自动进入下载)
  * - downloading:进度环 + 百分比 + 下载量
  * - installing:旋转图标 + "安装中"
- * - done:勾选 + "即将自动重启..."(3秒后自动重启)
+ * - done:勾选 + "即将自动重启..."(60 秒倒计时,提供"稍后重启" / "立即重启"按钮)
  * - error:错误提示 + "自动重试中..."(最多3次,之后自动消失)
  *
  * 浏览器端 useUpdater 返回 idle,组件渲染 null。
@@ -37,7 +37,7 @@ export function UpdatePrompt() {
   const updater = useUpdater()
 
   const { status, session, progress, downloaded, total, error, retryCount, maxRetries } = updater
-
+  const { restartNow, postponeRestart, restartCountdown } = updater
   // 强制更新:弹窗始终可见(不可关闭),直到更新完成自动重启或失败后自动重试/自动消失
   const visible =
     status === 'available' ||
@@ -96,19 +96,12 @@ export function UpdatePrompt() {
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold leading-tight text-foreground">
-                {status === 'error'
-                  ? t('error')
-                  : status === 'done'
-                    ? t('done')
-                    : t('available')}
+                {status === 'error' ? t('error') : status === 'done' ? t('done') : t('available')}
               </p>
               {version && status !== 'error' && (
-                <p className="text-xs text-muted-foreground leading-tight mt-0.5">
-                  v{version}
-                </p>
+                <p className="text-xs text-muted-foreground leading-tight mt-0.5">v{version}</p>
               )}
             </div>
-
           </div>
 
           {/* 更新说明(release notes,最多 3 行) */}
@@ -130,20 +123,14 @@ export function UpdatePrompt() {
             {status === 'available' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  {t('preparing')}
-                </span>
+                <span className="text-sm font-medium text-primary">{t('preparing')}</span>
               </div>
             )}
 
             {status === 'downloading' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
                 {/* 进度环 */}
-                <svg
-                  className="h-5 w-5 -rotate-90"
-                  viewBox="0 0 36 36"
-                  fill="none"
-                >
+                <svg className="h-5 w-5 -rotate-90" viewBox="0 0 36 36" fill="none">
                   <circle
                     cx="18"
                     cy="18"
@@ -166,9 +153,7 @@ export function UpdatePrompt() {
                     className="text-primary transition-[stroke-dashoffset] duration-300 ease-out"
                   />
                 </svg>
-                <span className="text-sm font-medium text-primary tabular-nums">
-                  {percent}%
-                </span>
+                <span className="text-sm font-medium text-primary tabular-nums">{percent}%</span>
                 {total > 0 && (
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {formatFileSize(downloaded)} / {formatFileSize(total)}
@@ -180,17 +165,33 @@ export function UpdatePrompt() {
             {status === 'installing' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  {t('installing')}
-                </span>
+                <span className="text-sm font-medium text-primary">{t('installing')}</span>
               </div>
             )}
 
             {status === 'done' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-green-600/10 px-4">
-                <span className="text-sm font-medium text-green-600">
-                  {t('autoRestart')}
-                </span>
+              <div className="flex flex-col gap-2">
+                <div className="flex h-9 items-center justify-center gap-2 rounded-lg bg-green-600/10 px-4">
+                  <span className="text-sm font-medium text-green-600 tabular-nums">
+                    {t('autoRestartIn', { countdown: restartCountdown })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void postponeRestart()}
+                    className="h-8 flex-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    {t('restartLater')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void restartNow()}
+                    className="h-8 flex-1 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    {t('restartNow')}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -199,9 +200,7 @@ export function UpdatePrompt() {
                 {retryCount < maxRetries ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin text-red-500" />
-                    <span className="text-sm font-medium text-red-500">
-                      {t('autoRetrying')}
-                    </span>
+                    <span className="text-sm font-medium text-red-500">{t('autoRetrying')}</span>
                   </>
                 ) : (
                   <span className="text-sm font-medium text-red-500">

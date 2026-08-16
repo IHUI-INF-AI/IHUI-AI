@@ -15,10 +15,7 @@ export interface QrTabProps {
    * extension 不传时显示默认"打开网页完成扫码"占位。
    * 接收当前选中的 platform key + refreshKey,返回 ReactNode。
    */
-  QrComponent?: (props: {
-    platform: ThirdPartyPlatform
-    refreshKey: number
-  }) => React.ReactNode
+  QrComponent?: (props: { platform: ThirdPartyPlatform; refreshKey: number }) => React.ReactNode
   /** 自定义平台列表(默认 4 个 wechat/wecom/dingtalk/feishu) */
   platforms?: QrPlatformConfig[]
   /** 初始选中的平台(默认 list[0]?.key;用于 URL参数 ?platform=xxx 自动选中) */
@@ -30,7 +27,12 @@ export interface QrTabProps {
 
 /** 默认 4 个扫码登录平台(对标 web 端 QrCodeLogin.tsx) */
 const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
-  { key: 'wechat', labelKey: 'auth.wechatLogin', icon: '💬', webUrl: '/login?method=qr&platform=wechat' },
+  {
+    key: 'wechat',
+    labelKey: 'auth.wechatLogin',
+    icon: '💬',
+    webUrl: '/login?method=qr&platform=wechat',
+  },
   {
     key: 'enterpriseWechat',
     labelKey: 'auth.enterpriseWechat',
@@ -43,7 +45,12 @@ const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
     icon: '📌',
     webUrl: '/login?method=qr&platform=dingtalk',
   },
-  { key: 'feishu', labelKey: 'auth.feishuLogin', icon: '✈️', webUrl: '/login?method=qr&platform=feishu' },
+  {
+    key: 'feishu',
+    labelKey: 'auth.feishuLogin',
+    icon: '✈️',
+    webUrl: '/login?method=qr&platform=feishu',
+  },
 ]
 
 /**
@@ -62,12 +69,19 @@ const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
  *   - 默认显示占位 + 打开网页按钮
  *   - web 端可注入 QrComponent 接管渲染逻辑,实现完全兼容旧行为
  */
-export function QrTab({ t, QrComponent, platforms, defaultPlatform, onSwitchMethod, className }: QrTabProps) {
+export function QrTab({
+  t,
+  QrComponent,
+  platforms,
+  defaultPlatform,
+  onSwitchMethod,
+  className,
+}: QrTabProps) {
   const list = platforms ?? DEFAULT_PLATFORMS
   const [platform, setPlatform] = React.useState<ThirdPartyPlatform>(
     defaultPlatform && list.some((p) => p.key === defaultPlatform)
       ? defaultPlatform
-      : list[0]?.key ?? 'wechat',
+      : (list[0]?.key ?? 'wechat'),
   )
   const [refreshKey, setRefreshKey] = React.useState(0)
   const [loading, setLoading] = React.useState(false)

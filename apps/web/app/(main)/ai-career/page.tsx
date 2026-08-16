@@ -297,7 +297,9 @@ export default function AICareerPage() {
                     ) : (
                       <Download className="mr-2 h-4 w-4 shrink-0" />
                     )}
-                    <span className="whitespace-nowrap">{exporting ? t('export.exporting') : t('export.button')}</span>
+                    <span className="whitespace-nowrap">
+                      {exporting ? t('export.exporting') : t('export.button')}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

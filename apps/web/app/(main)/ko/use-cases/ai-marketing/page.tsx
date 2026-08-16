@@ -1,6 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, ArrowRight, Megaphone, AlertTriangle, Wrench, MessageSquare, GraduationCap, Palette, Globe } from 'lucide-react'
+import {
+  Sparkles,
+  ArrowRight,
+  Megaphone,
+  AlertTriangle,
+  Wrench,
+  MessageSquare,
+  GraduationCap,
+  Palette,
+  Globe,
+} from 'lucide-react'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -21,8 +31,18 @@ const jsonLd = {
       '@id': 'https://aizhs.top/ko/use-cases/ai-marketing#breadcrumb',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 마케팅', item: 'https://aizhs.top/ko/use-cases/ai-marketing' },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: '사용 사례',
+          item: 'https://aizhs.top/use-cases',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'AI 마케팅',
+          item: 'https://aizhs.top/ko/use-cases/ai-marketing',
+        },
       ],
     },
     {
@@ -34,18 +54,53 @@ const jsonLd = {
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
       totalTime: 'PT30M',
       estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
-      supply: [{ '@type': 'HowToSupply', name: '브랜드 가이드 / 과거 히트 글 / 제품 매뉴얼 / 타겟 페르소나' }],
+      supply: [
+        {
+          '@type': 'HowToSupply',
+          name: '브랜드 가이드 / 과거 히트 글 / 제품 매뉴얼 / 타겟 페르소나',
+        },
+      ],
       tool: [
         { '@type': 'HowToTool', name: 'IHUI AI 멀티 플랫폼 카피 엔진' },
         { '@type': 'HowToTool', name: 'IHUI AI 브랜드 톤 모듈' },
       ],
       step: [
-        { '@type': 'HowToStep', position: 1, name: '브랜드 가이드 업로드', text: '브랜드 스토리/톤 문서/과거 히트 글을 업로드, AI가 어조와 금기 표현을 학습합니다.' },
-        { '@type': 'HowToStep', position: 2, name: '톤 모델 학습', text: '과거 브랜드 콘텐츠로 LLM을 미세 조정, 수동 리뷰 80% 감소하면서도 브랜드 정체성 유지.' },
-        { '@type': 'HowToStep', position: 3, name: '멀티 플랫폼 API 연결', text: 'XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter Open API를 원클릭 연결, 도구 전환 불필요.' },
-        { '@type': 'HowToStep', position: 4, name: 'A/B 테스트 설정', text: '주제별 3-5개의 제목과 커버 후보 자동 생성, Agent가 A/B 테스트 실행, 72시간 내 고CTR 버전 식별.' },
-        { '@type': 'HowToStep', position: 5, name: '페르소나 임포트', text: 'CRM의 페르소나(연령/지역/소비력/관심사)를 임포트, Agent가 어조/각도/CTA를 자동 매칭, 전환율 35% 향상.' },
-        { '@type': 'HowToStep', position: 6, name: '데이터 피드백', text: '플랫폼 지표(조회/좋아요/전환)를 가져오고, AI가 고성과 패턴을 리뷰하여 다음 생성에 반영합니다.' },
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '브랜드 가이드 업로드',
+          text: '브랜드 스토리/톤 문서/과거 히트 글을 업로드, AI가 어조와 금기 표현을 학습합니다.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '톤 모델 학습',
+          text: '과거 브랜드 콘텐츠로 LLM을 미세 조정, 수동 리뷰 80% 감소하면서도 브랜드 정체성 유지.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '멀티 플랫폼 API 연결',
+          text: 'XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter Open API를 원클릭 연결, 도구 전환 불필요.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: 'A/B 테스트 설정',
+          text: '주제별 3-5개의 제목과 커버 후보 자동 생성, Agent가 A/B 테스트 실행, 72시간 내 고CTR 버전 식별.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 5,
+          name: '페르소나 임포트',
+          text: 'CRM의 페르소나(연령/지역/소비력/관심사)를 임포트, Agent가 어조/각도/CTA를 자동 매칭, 전환율 35% 향상.',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 6,
+          name: '데이터 피드백',
+          text: '플랫폼 지표(조회/좋아요/전환)를 가져오고, AI가 고성과 패턴을 리뷰하여 다음 생성에 반영합니다.',
+        },
       ],
     },
   ],
@@ -74,12 +129,30 @@ const problems = [
 ]
 
 const capabilities = [
-  { title: '멀티 플랫폼 카피 생성', desc: 'XHS/Douyin/Weibo/WeChat/LinkedIn 등 6대 메인 플랫폼의 톤 규칙을 내장, 원클릭으로 6개 버전 카피를 생성, 톤 일치율 95% 이상.' },
-  { title: 'SEO 블로그 자동 생성', desc: '키워드 트렌드와 경쟁사 콘텐츠 갭을 분석, SEO 친화적 블로그 자동 생성, 자연 유입 40% 향상.' },
-  { title: '브랜드 톤 일관성', desc: '브랜드 가이드/과거 히트 글 기반 LLM 미세 조정, 산출물이 브랜드 정체성과 일치, 수동 리뷰 80% 감소.' },
-  { title: 'A/B 테스트 자동화', desc: '주제당 3-5개의 제목/커버 후보 생성, Agent가 A/B 테스트 실행, 72시간 내 고CTR 버전 식별, 카피 학습 사이클 5배 가속.' },
-  { title: '페르소나 기반 콘텐츠', desc: 'CRM 페르소나 임포트, Agent가 자동으로 어조/각도/CTA를 매칭, 전환율 35% 향상.' },
-  { title: '성과 피드백 루프', desc: '플랫폼 지표 자동 수집, AI가 고성과 패턴 리뷰, 다음 생성 라운드에 반영, 콘텐츠 ROI 200% 향상.' },
+  {
+    title: '멀티 플랫폼 카피 생성',
+    desc: 'XHS/Douyin/Weibo/WeChat/LinkedIn 등 6대 메인 플랫폼의 톤 규칙을 내장, 원클릭으로 6개 버전 카피를 생성, 톤 일치율 95% 이상.',
+  },
+  {
+    title: 'SEO 블로그 자동 생성',
+    desc: '키워드 트렌드와 경쟁사 콘텐츠 갭을 분석, SEO 친화적 블로그 자동 생성, 자연 유입 40% 향상.',
+  },
+  {
+    title: '브랜드 톤 일관성',
+    desc: '브랜드 가이드/과거 히트 글 기반 LLM 미세 조정, 산출물이 브랜드 정체성과 일치, 수동 리뷰 80% 감소.',
+  },
+  {
+    title: 'A/B 테스트 자동화',
+    desc: '주제당 3-5개의 제목/커버 후보 생성, Agent가 A/B 테스트 실행, 72시간 내 고CTR 버전 식별, 카피 학습 사이클 5배 가속.',
+  },
+  {
+    title: '페르소나 기반 콘텐츠',
+    desc: 'CRM 페르소나 임포트, Agent가 자동으로 어조/각도/CTA를 매칭, 전환율 35% 향상.',
+  },
+  {
+    title: '성과 피드백 루프',
+    desc: '플랫폼 지표 자동 수집, AI가 고성과 패턴 리뷰, 다음 생성 라운드에 반영, 콘텐츠 ROI 200% 향상.',
+  },
 ]
 
 const cases = [
@@ -100,7 +173,10 @@ const cases = [
 const toolchain = [
   { name: 'Next.js 15 + React 19', purpose: 'Web 엔드 마케팅 콘솔과 콘텐츠 캘린더' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 엔드 콘텐츠 자산/페르소나 데이터' },
-  { name: 'FastAPI + LangGraph + LiteLLM', purpose: '멀티 플랫폼 카피 + A/B 테스트 + SEO 추천 엔진' },
+  {
+    name: 'FastAPI + LangGraph + LiteLLM',
+    purpose: '멀티 플랫폼 카피 + A/B 테스트 + SEO 추천 엔진',
+  },
   { name: 'MCP 도구 프로토콜', purpose: 'XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter 플랫폼 어댑터' },
   { name: 'Tauri 2 데스크톱', purpose: '오프라인 콘텐츠 에디터와 로컬 자료庫' },
   { name: 'WXT 브라우저 확장', purpose: '경쟁사 페이지/트렌드 페이지 원클릭 수집' },
@@ -118,7 +194,10 @@ const metrics = [
 export default function AiMarketingPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -130,13 +209,18 @@ export default function AiMarketingPage() {
             AI 마케팅 콘텐츠:6개 플랫폼 동시 발행, 산출 10배
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원, 브랜드 톤 일관성과 A/B 테스트로 ROI 향상.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 배포, Apache 2.0 오픈소스, 온프레미스 지원,
+            브랜드 톤 일관성과 A/B 테스트로 ROI 향상.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -146,11 +230,16 @@ export default function AiMarketingPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">마케팅 팀의 실제 페인 포인트</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              마케팅 팀의 실제 페인 포인트
+            </h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,7 +249,9 @@ export default function AiMarketingPage() {
 
         {/* 능력 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6대 핵심 능력</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            6대 핵심 능력
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +267,9 @@ export default function AiMarketingPage() {
 
         {/* 사례 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">고객 도입 사례</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            고객 도입 사례
+          </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,10 +284,13 @@ export default function AiMarketingPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">기술 스택과 툴체인</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              기술 스택과 툴체인
+            </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스. XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter 6대 플랫폼과 깊이 통합.
+            IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스.
+            XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter 6대 플랫폼과 깊이 통합.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
@@ -209,9 +305,12 @@ export default function AiMarketingPage() {
         {/* 문의 / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI 마케팅 어시스턴트 구축을 시작하세요</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            AI 마케팅 어시스턴트 구축을 시작하세요
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            가입 시 1000 크레딧 증정, 마케팅 시나리오 템플릿에서 원클릭 fork, 30분 만에 멀티 플랫폼 동시 발행을 체험.
+            가입 시 1000 크레딧 증정, 마케팅 시나리오 템플릿에서 원클릭 fork, 30분 만에 멀티 플랫폼
+            동시 발행을 체험.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -228,10 +327,18 @@ export default function AiMarketingPage() {
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 마케팅 상담 8801</span>
-            <span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> 톤 트레이닝 8805</span>
-            <span className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> 온프레미스 8806</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> 플랫폼 확장 8809</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> 마케팅 상담 8801
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> 톤 트레이닝 8805
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> 온프레미스 8806
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> 플랫폼 확장 8809
+            </span>
           </div>
         </section>
       </main>

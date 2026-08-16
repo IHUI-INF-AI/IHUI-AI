@@ -105,10 +105,7 @@ export default function ColorsPage() {
               <div className="flex gap-1">
                 {c.colors.map((color, i) => (
                   <Tooltip key={i} content={color}>
-                    <div
-                      className="h-8 flex-1 rounded border"
-                      style={{ backgroundColor: color }}
-                    />
+                    <div className="h-8 flex-1 rounded border" style={{ backgroundColor: color }} />
                   </Tooltip>
                 ))}
               </div>

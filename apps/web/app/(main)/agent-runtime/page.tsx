@@ -85,7 +85,9 @@ export default function AgentRuntimePage() {
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
           <div className="flex items-center gap-2">
-            <label htmlFor="rt-agent" className="text-sm text-muted-foreground">Agent</label>
+            <label htmlFor="rt-agent" className="text-sm text-muted-foreground">
+              Agent
+            </label>
             <Select value={agentId} onValueChange={setAgentId}>
               <SelectTrigger id="rt-agent" className="w-48">
                 <SelectValue placeholder="选择 Agent" />
@@ -101,7 +103,9 @@ export default function AgentRuntimePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label htmlFor="rt-time" className="text-sm text-muted-foreground">时间范围</label>
+            <label htmlFor="rt-time" className="text-sm text-muted-foreground">
+              时间范围
+            </label>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger id="rt-time" className="w-40">
                 <SelectValue />
@@ -122,7 +126,9 @@ export default function AgentRuntimePage() {
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="rt-auto" className="text-sm text-muted-foreground">自动刷新(5s)</label>
+            <label htmlFor="rt-auto" className="text-sm text-muted-foreground">
+              自动刷新(5s)
+            </label>
             <Switch id="rt-auto" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
           </div>
         </CardContent>

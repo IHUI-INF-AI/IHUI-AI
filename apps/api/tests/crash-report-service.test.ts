@@ -41,7 +41,9 @@ describe('recordCrash', () => {
 
   it('成功写入返回落库 id', async () => {
     mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'crash-1' }]) }),
+      values: vi
+        .fn()
+        .mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'crash-1' }]) }),
     })
     const result = await recordCrash({
       platform: 'ios',

@@ -52,9 +52,7 @@ export async function exportMyReport(
  * 内部调用 fetchApi,返回 ApiResult<StudentReportData>;失败抛 ApiResult.error。
  * pdf/excel 模式请用 exportMyReport 拿原生 Response 自行处理 blob 下载。
  */
-export async function exportMyReportJson<T = unknown>(
-  config: ReportConfig,
-): Promise<ApiResult<T>> {
+export async function exportMyReportJson<T = unknown>(config: ReportConfig): Promise<ApiResult<T>> {
   return fetchApi<T>('/api/edu/my-report/export', {
     method: 'POST',
     body: JSON.stringify(config),

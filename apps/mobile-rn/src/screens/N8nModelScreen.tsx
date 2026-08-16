@@ -127,18 +127,14 @@ export default function N8nModelScreen() {
           onPress={() => setViewMode('shared')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-            工作流
-          </Text>
+          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>工作流</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'local' && styles.tabActive]}
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            列表视图
-          </Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>列表视图</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>

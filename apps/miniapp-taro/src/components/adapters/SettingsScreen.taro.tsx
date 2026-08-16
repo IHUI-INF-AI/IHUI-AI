@@ -377,9 +377,7 @@ export function SettingsScreen({
               <Text style={textStyles.nickname(tk)}>
                 {user.nickname || tr('profile.nickname', '昵称')}
               </Text>
-              <Text style={textStyles.subText(tk)}>
-                {tr('profile.editProfile', '编辑资料')}
-              </Text>
+              <Text style={textStyles.subText(tk)}>{tr('profile.editProfile', '编辑资料')}</Text>
             </View>
             <Text style={textStyles.arrow(tk)}>{'›'}</Text>
           </View>
@@ -424,17 +422,11 @@ export function SettingsScreen({
 
         <Section title={tr('settings.account', '账户')} tk={tk}>
           <View style={viewStyles.plainRow()} onTap={openPwdModal}>
-            <Text style={textStyles.rowLabel(tk)}>
-              {tr('settings.changePassword', '修改密码')}
-            </Text>
+            <Text style={textStyles.rowLabel(tk)}>{tr('settings.changePassword', '修改密码')}</Text>
             <Text style={textStyles.arrow(tk)}>{'›'}</Text>
           </View>
           {menuItems.map((item) => (
-            <View
-              key={item.key}
-              style={viewStyles.plainRow()}
-              onTap={() => onMenuPress(item.key)}
-            >
+            <View key={item.key} style={viewStyles.plainRow()} onTap={() => onMenuPress(item.key)}>
               <Text style={textStyles.rowLabel(tk)}>{item.label}</Text>
               <Text style={textStyles.arrow(tk)}>{'›'}</Text>
             </View>
@@ -501,9 +493,7 @@ export function SettingsScreen({
                 onTap={changingPwd ? undefined : submitChangePassword}
               >
                 <Text style={textStyles.modalBtnPrimaryText(tk)}>
-                  {changingPwd
-                    ? tr('common.loading', '加载中...')
-                    : tr('common.confirm', '确认')}
+                  {changingPwd ? tr('common.loading', '加载中...') : tr('common.confirm', '确认')}
                 </Text>
               </View>
             </View>

@@ -93,7 +93,9 @@ function layout(topology: SwarmTopology): {
 export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProps) {
   if (!topology || topology.nodes.length === 0) {
     return (
-      <div className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}>
+      <div
+        className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}
+      >
         Swarm 拓扑为空
       </div>
     )
@@ -137,13 +139,7 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
                 markerEnd="url(#swarm-arrow)"
               />
               {edge.condition && (
-                <text
-                  x={mx}
-                  y={(y1 + y2) / 2 - 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#64748b"
-                >
+                <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fontSize="10" fill="#64748b">
                   {edge.condition}
                 </text>
               )}

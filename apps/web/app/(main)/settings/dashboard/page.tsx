@@ -37,27 +37,27 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 px-4 py-6">
-        <BackButton />
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
-          {LINKS.map((item) => {
-            const Icon = item.icon
-            return (
-              <Link key={item.href} href={item.href}>
-                <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="flex items-start gap-3 p-4">
-                    <div className="rounded-lg bg-muted p-2">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{t(item.titleKey)}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
+      <BackButton />
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
+        {LINKS.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link key={item.href} href={item.href}>
+              <Card className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </div>
   )
 }

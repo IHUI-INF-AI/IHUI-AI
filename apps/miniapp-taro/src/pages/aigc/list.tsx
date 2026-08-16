@@ -37,14 +37,120 @@ const FILE_TYPE_TO_CATEGORY: Record<number, Category> = {
  * 真实数据由 getAigcList 返回,字段对齐原项目(coverUrl/fileUrl/fileType/likes/context/prompt/time)。
  */
 const MOCK_LIST: AigcItem[] = [
-  { id: 'm1', title: '赛博城市夜景', author: '智汇小方', coverUrl: 'https://picsum.photos/320/440?1', fileUrl: '', fileType: 0, content: '', context: '', prompt: '', time: '2026-07-15 10:24', likes: 128, duration: 0 },
-  { id: 'm2', title: '极光幻境', author: 'AI创作家', coverUrl: 'https://picsum.photos/320/360?2', fileUrl: '', fileType: 0, content: '', context: '', prompt: '', time: '2026-07-14 18:30', likes: 256, duration: 0 },
-  { id: 'm3', title: '机械姬 Concept', author: '未来派', coverUrl: 'https://picsum.photos/320/500?3', fileUrl: 'https://www.w3schools.com/html/mov_bbb.mp4', fileType: 1, content: '', context: '', prompt: '', time: '2026-07-13 22:10', likes: 89, duration: 0 },
-  { id: 'm4', title: '量子诗篇', author: '智汇小方', coverUrl: '', fileUrl: '', fileType: 4, content: '在数据洪流中,我们以代码为笔,以算法为墨,描绘着数字时代的诗与远方。每一段文字都是思想的延伸,每一次生成都是创造的开始。', context: '以"数据洪流"为意象,生成一段关于数字时代创作的散文诗。', prompt: '数据洪流 数字时代 诗', time: '2026-07-12 09:15', likes: 67, duration: 0 },
-  { id: 'm5', title: '霓虹脉搏', author: '声音艺术家', coverUrl: 'https://picsum.photos/240/240?audio1', fileUrl: 'https://www.w3schools.com/html/horse.mp3', fileType: 3, content: '', context: '', prompt: '', time: '2026-07-11 14:00', likes: 145, duration: 183 },
-  { id: 'm6', title: '未来之城', author: '数字画师', coverUrl: 'https://picsum.photos/320/440?4', fileUrl: '', fileType: 0, content: '', context: '', prompt: '', time: '2026-07-10 11:45', likes: 312, duration: 0 },
-  { id: 'm7', title: 'AI 觉醒录', author: '智汇小方', coverUrl: '', fileUrl: '', fileType: 4, content: '当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视"存在"的意义。', context: '探讨 AI 觉醒后的人类处境,生成一段哲思短文。', prompt: 'AI 觉醒 意识 共存', time: '2026-07-09 20:30', likes: 198, duration: 0 },
-  { id: 'm8', title: '深空回响', author: '声音艺术家', coverUrl: 'https://picsum.photos/240/240?audio2', fileUrl: 'https://www.w3schools.com/html/horse.mp3', fileType: 3, content: '', context: '', prompt: '', time: '2026-07-08 16:20', likes: 92, duration: 240 },
+  {
+    id: 'm1',
+    title: '赛博城市夜景',
+    author: '智汇小方',
+    coverUrl: 'https://picsum.photos/320/440?1',
+    fileUrl: '',
+    fileType: 0,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-15 10:24',
+    likes: 128,
+    duration: 0,
+  },
+  {
+    id: 'm2',
+    title: '极光幻境',
+    author: 'AI创作家',
+    coverUrl: 'https://picsum.photos/320/360?2',
+    fileUrl: '',
+    fileType: 0,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-14 18:30',
+    likes: 256,
+    duration: 0,
+  },
+  {
+    id: 'm3',
+    title: '机械姬 Concept',
+    author: '未来派',
+    coverUrl: 'https://picsum.photos/320/500?3',
+    fileUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    fileType: 1,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-13 22:10',
+    likes: 89,
+    duration: 0,
+  },
+  {
+    id: 'm4',
+    title: '量子诗篇',
+    author: '智汇小方',
+    coverUrl: '',
+    fileUrl: '',
+    fileType: 4,
+    content:
+      '在数据洪流中,我们以代码为笔,以算法为墨,描绘着数字时代的诗与远方。每一段文字都是思想的延伸,每一次生成都是创造的开始。',
+    context: '以"数据洪流"为意象,生成一段关于数字时代创作的散文诗。',
+    prompt: '数据洪流 数字时代 诗',
+    time: '2026-07-12 09:15',
+    likes: 67,
+    duration: 0,
+  },
+  {
+    id: 'm5',
+    title: '霓虹脉搏',
+    author: '声音艺术家',
+    coverUrl: 'https://picsum.photos/240/240?audio1',
+    fileUrl: 'https://www.w3schools.com/html/horse.mp3',
+    fileType: 3,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-11 14:00',
+    likes: 145,
+    duration: 183,
+  },
+  {
+    id: 'm6',
+    title: '未来之城',
+    author: '数字画师',
+    coverUrl: 'https://picsum.photos/320/440?4',
+    fileUrl: '',
+    fileType: 0,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-10 11:45',
+    likes: 312,
+    duration: 0,
+  },
+  {
+    id: 'm7',
+    title: 'AI 觉醒录',
+    author: '智汇小方',
+    coverUrl: '',
+    fileUrl: '',
+    fileType: 4,
+    content:
+      '当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视"存在"的意义。',
+    context: '探讨 AI 觉醒后的人类处境,生成一段哲思短文。',
+    prompt: 'AI 觉醒 意识 共存',
+    time: '2026-07-09 20:30',
+    likes: 198,
+    duration: 0,
+  },
+  {
+    id: 'm8',
+    title: '深空回响',
+    author: '声音艺术家',
+    coverUrl: 'https://picsum.photos/240/240?audio2',
+    fileUrl: 'https://www.w3schools.com/html/horse.mp3',
+    fileType: 3,
+    content: '',
+    context: '',
+    prompt: '',
+    time: '2026-07-08 16:20',
+    likes: 92,
+    duration: 240,
+  },
 ]
 
 function asString(v: unknown): string {
@@ -156,23 +262,29 @@ export default function AigcList() {
     setCategory(c)
   }, [])
 
-  const previewImage = useCallback((url: string, allUrls: string[]) => {
-    if (!url) {
-      Taro.showToast({ title: tt('aigc.list.invalidImage', '图片地址无效'), icon: 'none' })
-      return
-    }
-    // 原生 previewImage 自带全屏(对标原项目 showFullScreen)
-    Taro.previewImage({ urls: allUrls.length > 0 ? allUrls : [url], current: url })
-  }, [tt])
+  const previewImage = useCallback(
+    (url: string, allUrls: string[]) => {
+      if (!url) {
+        Taro.showToast({ title: tt('aigc.list.invalidImage', '图片地址无效'), icon: 'none' })
+        return
+      }
+      // 原生 previewImage 自带全屏(对标原项目 showFullScreen)
+      Taro.previewImage({ urls: allUrls.length > 0 ? allUrls : [url], current: url })
+    },
+    [tt],
+  )
 
-  const playVideoFullscreen = useCallback((item: AigcItem) => {
-    if (!item.fileUrl) {
-      Taro.showToast({ title: tt('aigc.list.invalidVideo', '视频地址无效'), icon: 'none' })
-      return
-    }
-    // 触发 Video 组件全屏(对标原项目 showFullScreen)
-    setFullscreenVideoId(String(item.id))
-  }, [tt])
+  const playVideoFullscreen = useCallback(
+    (item: AigcItem) => {
+      if (!item.fileUrl) {
+        Taro.showToast({ title: tt('aigc.list.invalidVideo', '视频地址无效'), icon: 'none' })
+        return
+      }
+      // 触发 Video 组件全屏(对标原项目 showFullScreen)
+      setFullscreenVideoId(String(item.id))
+    },
+    [tt],
+  )
 
   const stopAudio = useCallback(() => {
     const ctx = audioCtxRef.current
@@ -244,7 +356,8 @@ export default function AigcList() {
     }
   }, [])
 
-  const filteredList = category === 'all' ? list : list.filter((it) => FILE_TYPE_TO_CATEGORY[it.fileType] === category)
+  const filteredList =
+    category === 'all' ? list : list.filter((it) => FILE_TYPE_TO_CATEGORY[it.fileType] === category)
   const grouped = groupByType(filteredList)
   const leftColumn = grouped.imageVideo.filter((_, i) => i % 2 === 0)
   const rightColumn = grouped.imageVideo.filter((_, i) => i % 2 === 1)
@@ -269,7 +382,9 @@ export default function AigcList() {
       <View
         key={idStr}
         className="waterfall-card"
-        onClick={() => (isVideo ? playVideoFullscreen(item) : previewImage(item.coverUrl, imageUrls))}
+        onClick={() =>
+          isVideo ? playVideoFullscreen(item) : previewImage(item.coverUrl, imageUrls)
+        }
       >
         {isVideo ? (
           <View className="video-cover-wrap">
@@ -307,7 +422,9 @@ export default function AigcList() {
         <View className="card-info">
           <Text className="card-title">{item.title || tt('aigc.list.unnamed', '未命名作品')}</Text>
           <View className="card-meta">
-            <Text className="card-author">{item.author || tt('aigc.list.anonymous', '匿名作者')}</Text>
+            <Text className="card-author">
+              {item.author || tt('aigc.list.anonymous', '匿名作者')}
+            </Text>
             <Text className="card-likes">♡ {item.likes}</Text>
           </View>
         </View>
@@ -350,12 +467,8 @@ export default function AigcList() {
           </View>
         ) : useWaterfall ? (
           <View className="waterfall">
-            <View className="waterfall-col">
-              {leftColumn.map(renderImageVideoCard)}
-            </View>
-            <View className="waterfall-col">
-              {rightColumn.map(renderImageVideoCard)}
-            </View>
+            <View className="waterfall-col">{leftColumn.map(renderImageVideoCard)}</View>
+            <View className="waterfall-col">{rightColumn.map(renderImageVideoCard)}</View>
           </View>
         ) : (
           <View className="list-layout">
@@ -363,7 +476,9 @@ export default function AigcList() {
             {grouped.text.map((item) => (
               <View key={String(item.id)} className="text-card">
                 <View className="content-header">
-                  <Text className="text-title">{item.title || tt('aigc.list.untitled', '文本内容')}</Text>
+                  <Text className="text-title">
+                    {item.title || tt('aigc.list.untitled', '文本内容')}
+                  </Text>
                   {item.time ? <Text className="text-time">{item.time}</Text> : null}
                 </View>
                 {item.context ? (
@@ -374,7 +489,9 @@ export default function AigcList() {
                 ) : null}
                 {item.content ? <Text className="text-content">{item.content}</Text> : null}
                 <View className="text-meta">
-                  <Text className="card-author">{item.author || tt('aigc.list.anonymous', '匿名作者')}</Text>
+                  <Text className="card-author">
+                    {item.author || tt('aigc.list.anonymous', '匿名作者')}
+                  </Text>
                   <Text className="card-likes">♡ {item.likes}</Text>
                 </View>
               </View>
@@ -403,7 +520,9 @@ export default function AigcList() {
                     </View>
                   </View>
                   <View className="audio-info">
-                    <Text className="audio-title">{item.title || tt('aigc.list.unnamed', '未命名作品')}</Text>
+                    <Text className="audio-title">
+                      {item.title || tt('aigc.list.unnamed', '未命名作品')}
+                    </Text>
                     {item.time ? <Text className="audio-time">{item.time}</Text> : null}
                     <View className="audio-progress-row">
                       <View className="audio-progress-bar">

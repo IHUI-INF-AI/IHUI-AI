@@ -109,7 +109,9 @@ export default function ZhsUserPage() {
     <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><span className="truncate">ZHS用户管理</span></h1>
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <span className="truncate">ZHS用户管理</span>
+        </h1>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" className="shrink-0" onClick={handleExport}>
             <Download className="h-4 w-4 shrink-0" />
@@ -129,7 +131,9 @@ export default function ZhsUserPage() {
       <ZhsUserTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+          共 {total} 条
+        </span>
         <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <Button
             variant="outline"

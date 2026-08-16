@@ -1105,7 +1105,12 @@ interface AiSkillResultDialogProps {
 }
 
 /** AI Skill 调用结果展示(支持 text/html/json 三种 contentType) */
-export function AiSkillResultDialog({ result, onClose, onFillInput, onSendToChat }: AiSkillResultDialogProps) {
+export function AiSkillResultDialog({
+  result,
+  onClose,
+  onFillInput,
+  onSendToChat,
+}: AiSkillResultDialogProps) {
   const t = useTranslations('chat.skillLibrary')
   return (
     <div className="space-y-2 rounded-md border border-border bg-card p-2">

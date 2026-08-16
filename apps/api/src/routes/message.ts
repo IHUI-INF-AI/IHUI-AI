@@ -1092,10 +1092,12 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
       const parsed = z
         .object({
           ...paginationQuery,
-          memberId: z.transform(emptyToUndefined).pipe(z.uuid({ error: '无效的用户 ID' }).optional()),
+          memberId: z
+            .transform(emptyToUndefined)
+            .pipe(z.uuid({ error: '无效的用户 ID' }).optional()),
           msgType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
           // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
-  isRead: booleanStringSchemaOptional,
+          isRead: booleanStringSchemaOptional,
         })
         .safeParse(request.query)
       if (!parsed.success) {

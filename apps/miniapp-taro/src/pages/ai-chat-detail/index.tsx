@@ -278,12 +278,16 @@ export default function AiChatDetail() {
   return (
     <View className="flex flex-col h-screen bg-background">
       <View className="p-[24rpx] bg-card flex-shrink-0">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiChatDetail.title')}</Text>
+        <Text className="text-[36rpx] font-semibold text-foreground">
+          {t('aiChatDetail.title')}
+        </Text>
       </View>
       <ScrollView scrollY className="flex-1 min-h-0" scrollTop={scrollTop} scrollWithAnimation>
         {loading ? (
           <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">{t('common.loading')}</Text>
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {t('common.loading')}
+            </Text>
           </View>
         ) : error ? (
           <View className="flex flex-col items-center py-[80rpx]">
@@ -339,7 +343,10 @@ export default function AiChatDetail() {
               key={f.id}
               className="relative w-[96rpx] h-[96rpx] rounded-[8rpx] bg-muted flex items-center justify-center"
             >
-              <Text className="text-[20rpx] text-foreground px-[8rpx] text-center" numberOfLines={1}>
+              <Text
+                className="text-[20rpx] text-foreground px-[8rpx] text-center"
+                numberOfLines={1}
+              >
                 {f.filename || f.type}
               </Text>
               <View
@@ -356,7 +363,9 @@ export default function AiChatDetail() {
       {isInputFullscreen ? (
         <View className="flex flex-row items-center justify-between px-[24rpx] py-[12rpx] bg-card border-t border-border">
           <View onClick={handleFullscreenToggle}>
-            <Text className="text-[26rpx] text-foreground">← {t('messageInput.fullscreenBack')}</Text>
+            <Text className="text-[26rpx] text-foreground">
+              ← {t('messageInput.fullscreenBack')}
+            </Text>
           </View>
           <Text className="text-[22rpx] text-muted-foreground">
             {t('messageInput.fullscreenHint')}

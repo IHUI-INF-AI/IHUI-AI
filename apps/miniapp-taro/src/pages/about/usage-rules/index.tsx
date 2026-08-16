@@ -394,10 +394,7 @@ export default function UsageRules() {
           ),
         },
         {
-          text: tt(
-            'about.usageRules.s10.p3',
-            '本规范自 2025 年 2 月 4 日起正式生效。',
-          ),
+          text: tt('about.usageRules.s10.p3', '本规范自 2025 年 2 月 4 日起正式生效。'),
         },
       ],
     },
@@ -408,7 +405,10 @@ export default function UsageRules() {
       <View className="px-[24rpx] pt-[24rpx] pb-[60rpx]">
         <View className="mb-[32rpx] py-[28rpx] px-[24rpx] bg-card rounded-[16rpx] flex flex-col gap-[16rpx]">
           {introParagraphs.map((p, i) => (
-            <Text key={i} className="block text-[26rpx] text-muted-foreground leading-[1.75] text-justify">
+            <Text
+              key={i}
+              className="block text-[26rpx] text-muted-foreground leading-[1.75] text-justify"
+            >
               {p}
             </Text>
           ))}
@@ -416,19 +416,28 @@ export default function UsageRules() {
 
         {sections.map((section, sIdx) => (
           <View key={sIdx} className="mb-[32rpx] py-[28rpx] px-[24rpx] bg-card rounded-[16rpx]">
-            <Text className="block text-[32rpx] font-semibold text-foreground mb-[20rpx] leading-[1.4]">{section.title}</Text>
+            <Text className="block text-[32rpx] font-semibold text-foreground mb-[20rpx] leading-[1.4]">
+              {section.title}
+            </Text>
             {section.blocks.map((block, bIdx) => (
               <View key={bIdx} className="mb-[16rpx]">
                 {block.subtitle ? (
-                  <Text className="block text-[28rpx] font-semibold text-foreground mb-[12rpx] mt-[8rpx]">{block.subtitle}</Text>
+                  <Text className="block text-[28rpx] font-semibold text-foreground mb-[12rpx] mt-[8rpx]">
+                    {block.subtitle}
+                  </Text>
                 ) : null}
-                <Text className="block text-[26rpx] text-muted-foreground leading-[1.75] text-justify">{block.text}</Text>
+                <Text className="block text-[26rpx] text-muted-foreground leading-[1.75] text-justify">
+                  {block.text}
+                </Text>
               </View>
             ))}
             {sIdx === sections.length - 1 ? (
               <View className="mt-[24rpx] pt-[20rpx] flex flex-col gap-[8rpx]">
                 {FOOTER_ITEMS.map((item, fIdx) => (
-                  <Text key={fIdx} className="block text-[24rpx] text-muted-foreground leading-[1.8]">
+                  <Text
+                    key={fIdx}
+                    className="block text-[24rpx] text-muted-foreground leading-[1.8]"
+                  >
                     {item}
                   </Text>
                 ))}

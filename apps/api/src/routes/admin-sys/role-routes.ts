@@ -135,9 +135,7 @@ export const roleRoutes: FastifyPluginAsync = async (s) => {
           })
           .safeParse(request.body)
         if (!parsed.success) {
-          return reply
-            .status(400)
-            .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
         }
         const { roleId, userId } = parsed.data
         if (roleId < 1) {

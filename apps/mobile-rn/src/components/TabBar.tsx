@@ -77,10 +77,7 @@ const TABS: readonly TabBarItemConfig[] = [
 export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   const insets = useSafeAreaInsets()
 
-  const handlePress = useCallback(
-    (key: TabBarKey) => () => onChange(key),
-    [onChange],
-  )
+  const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
   return (
     <View
@@ -140,9 +137,6 @@ function TabBarIcon({ tab, isActive }: TabBarIconProps) {
     )
   }
   return (
-    <Image
-      source={isActive ? tab.iconActive : tab.iconInactive}
-      style={tabBarStyleSheet.icon}
-    />
+    <Image source={isActive ? tab.iconActive : tab.iconInactive} style={tabBarStyleSheet.icon} />
   )
 }

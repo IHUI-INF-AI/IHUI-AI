@@ -54,7 +54,8 @@ describe('embedding-provider 工厂', () => {
 
   it('MINIMAX_EMBEDDING_URL 自定义端点可覆盖默认', () => {
     process.env.MINIMAX_API_KEY = 'eyJ-minimax-test'
-    process.env.MINIMAX_EMBEDDING_URL = process.env.MINIMAX_EMBEDDING_URL || 'https://custom.example.com/v1/embeddings'
+    process.env.MINIMAX_EMBEDDING_URL =
+      process.env.MINIMAX_EMBEDDING_URL || 'https://custom.example.com/v1/embeddings'
     const provider = getEmbeddingProvider()
     expect(provider?.name).toBe('minimax')
     // 注: endpoint 是 private 字段, 通过行为间接验证

@@ -19,7 +19,9 @@ export function IcpRecordScreen({ t, onBack, colorScheme = 'light' }: IcpRecordS
       </View>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.label}>{t('icpRecord.licenseLabel', { fallback: 'ICP备案/许可证号' })}</Text>
+          <Text style={styles.label}>
+            {t('icpRecord.licenseLabel', { fallback: 'ICP备案/许可证号' })}
+          </Text>
           <Text style={styles.value}>吉ICP备2025027274号-7A</Text>
         </View>
       </ScrollView>

@@ -1,21 +1,18 @@
-import { and, eq, desc, sql } from 'drizzle-orm';
-import { db } from './index.js';
-import {
-  behaviorWatchRecords,
-  type BehaviorWatchRecord,
-} from '@ihui/database';
+import { and, eq, desc, sql } from 'drizzle-orm'
+import { db } from './index.js'
+import { behaviorWatchRecords, type BehaviorWatchRecord } from '@ihui/database'
 
 // =============================================================================
 // 浏览记录
 // =============================================================================
 
 export interface RecordWatchInput {
-  userId: string;
-  topicId: string;
-  topicType: string;
-  topicTitle?: string;
-  watchDuration?: number;
-  lastPosition?: number;
+  userId: string
+  topicId: string
+  topicType: string
+  topicTitle?: string
+  watchDuration?: number
+  lastPosition?: number
 }
 
 /**
@@ -25,8 +22,8 @@ export interface RecordWatchInput {
 export async function recordWatch(
   input: RecordWatchInput,
 ): Promise<{ id: string; updated: boolean }> {
-  const watchDuration = input.watchDuration ?? 0;
-  const lastPosition = input.lastPosition ?? 0;
+  const watchDuration = input.watchDuration ?? 0
+  const lastPosition = input.lastPosition ?? 0
   const existing = await db
     .select()
     .from(behaviorWatchRecords)
@@ -37,9 +34,9 @@ export async function recordWatch(
         eq(behaviorWatchRecords.topicType, input.topicType),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  const row = existing[0];
+  const row = existing[0]
   if (row) {
     await db
       .update(behaviorWatchRecords)
@@ -49,8 +46,8 @@ export async function recordWatch(
         ...(input.topicTitle ? { topicTitle: input.topicTitle } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(behaviorWatchRecords.id, row.id));
-    return { id: row.id, updated: true };
+      .where(eq(behaviorWatchRecords.id, row.id))
+    return { id: row.id, updated: true }
   }
 
   const rows = await db
@@ -63,36 +60,30 @@ export async function recordWatch(
       watchDuration,
       lastPosition,
     })
-    .returning();
-  const created = rows[0];
-  if (!created) throw new Error('记录浏览失败');
-  return { id: created.id, updated: false };
+    .returning()
+  const created = rows[0]
+  if (!created) throw new Error('记录浏览失败')
+  return { id: created.id, updated: false }
 }
 
 /**
  * 浏览计数 - 统计指定目标的浏览次数(浏览记录条数)。
  */
-export async function getWatchCount(
-  topicId: string,
-  topicType: string,
-): Promise<number> {
+export async function getWatchCount(topicId: string, topicType: string): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(behaviorWatchRecords)
     .where(
-      and(
-        eq(behaviorWatchRecords.topicId, topicId),
-        eq(behaviorWatchRecords.topicType, topicType),
-      ),
-    );
-  return rows[0]?.count ?? 0;
+      and(eq(behaviorWatchRecords.topicId, topicId), eq(behaviorWatchRecords.topicType, topicType)),
+    )
+  return rows[0]?.count ?? 0
 }
 
 export interface FindWatchListOpts {
-  userId: string;
-  topicType?: string;
-  page: number;
-  pageSize: number;
+  userId: string
+  topicType?: string
+  page: number
+  pageSize: number
 }
 
 /**
@@ -106,7 +97,7 @@ export async function findWatchList(
         eq(behaviorWatchRecords.userId, opts.userId),
         eq(behaviorWatchRecords.topicType, opts.topicType),
       )
-    : eq(behaviorWatchRecords.userId, opts.userId);
+    : eq(behaviorWatchRecords.userId, opts.userId)
   const [list, countRows] = await Promise.all([
     db
       .select()
@@ -115,23 +106,23 @@ export async function findWatchList(
       .orderBy(desc(behaviorWatchRecords.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(behaviorWatchRecords).where(where),
-  ]);
-  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize };
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(behaviorWatchRecords)
+      .where(where),
+  ])
+  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
 }
 
 /**
  * 删除浏览记录。可选传入 userId 校验归属。返回是否删除。
  */
-export async function deleteWatch(
-  id: string,
-  userId?: string,
-): Promise<boolean> {
+export async function deleteWatch(id: string, userId?: string): Promise<boolean> {
   const where = userId
     ? and(eq(behaviorWatchRecords.id, id), eq(behaviorWatchRecords.userId, userId))
-    : eq(behaviorWatchRecords.id, id);
-  const rows = await db.delete(behaviorWatchRecords).where(where).returning();
-  return rows.length > 0;
+    : eq(behaviorWatchRecords.id, id)
+  const rows = await db.delete(behaviorWatchRecords).where(where).returning()
+  return rows.length > 0
 }
 
 /**
@@ -141,8 +132,8 @@ export async function clearAllWatch(userId: string): Promise<number> {
   const rows = await db
     .delete(behaviorWatchRecords)
     .where(eq(behaviorWatchRecords.userId, userId))
-    .returning();
-  return rows.length;
+    .returning()
+  return rows.length
 }
 
 // =============================================================================
@@ -150,8 +141,8 @@ export async function clearAllWatch(userId: string): Promise<number> {
 // =============================================================================
 
 export interface BehaviorStatistics {
-  watchTotal: number;
-  userTotal: number;
+  watchTotal: number
+  userTotal: number
 }
 
 /**
@@ -163,17 +154,17 @@ export async function getBehaviorStatistics(): Promise<BehaviorStatistics> {
     db
       .select({ count: sql<number>`count(distinct ${behaviorWatchRecords.userId})::int` })
       .from(behaviorWatchRecords),
-  ]);
+  ])
   return {
     watchTotal: totalRows[0]?.count ?? 0,
     userTotal: userRows[0]?.count ?? 0,
-  };
+  }
 }
 
 export interface FindAllWatchOpts {
-  topicType?: string;
-  page: number;
-  pageSize: number;
+  topicType?: string
+  page: number
+  pageSize: number
 }
 
 /**
@@ -182,9 +173,7 @@ export interface FindAllWatchOpts {
 export async function findAllWatchList(
   opts: FindAllWatchOpts,
 ): Promise<{ list: BehaviorWatchRecord[]; total: number; page: number; pageSize: number }> {
-  const where = opts.topicType
-    ? eq(behaviorWatchRecords.topicType, opts.topicType)
-    : undefined;
+  const where = opts.topicType ? eq(behaviorWatchRecords.topicType, opts.topicType) : undefined
   const [list, countRows] = await Promise.all([
     db
       .select()
@@ -193,7 +182,10 @@ export async function findAllWatchList(
       .orderBy(desc(behaviorWatchRecords.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(behaviorWatchRecords).where(where),
-  ]);
-  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize };
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(behaviorWatchRecords)
+      .where(where),
+  ])
+  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
 }

@@ -44,7 +44,9 @@ function Clock() {
     const id = setInterval(update, 30 * 1000)
     return () => clearInterval(id)
   }, [locale])
-  return <span className="ml-auto shrink-0 tabular-nums text-[11px] text-muted-foreground">{time}</span>
+  return (
+    <span className="ml-auto shrink-0 tabular-nums text-[11px] text-muted-foreground">{time}</span>
+  )
 }
 
 export function IDETopBar() {

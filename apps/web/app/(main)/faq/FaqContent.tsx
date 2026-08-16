@@ -43,7 +43,9 @@ export function FaqContent(): React.JSX.Element {
           <HelpCircle className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -108,7 +110,9 @@ export function FaqContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
         <MessageCircle className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          {t('ctaTitle')}
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>

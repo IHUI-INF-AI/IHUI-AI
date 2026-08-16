@@ -62,11 +62,7 @@ vi.mock('../src/services/wechat-pay.js', () => ({
 }))
 
 // ---------- 支付宝 mock ----------
-const {
-  mockIsAlipayConfigured,
-  mockVerifyNotify,
-  mockAliRefundOrder,
-} = vi.hoisted(() => ({
+const { mockIsAlipayConfigured, mockVerifyNotify, mockAliRefundOrder } = vi.hoisted(() => ({
   mockIsAlipayConfigured: vi.fn().mockReturnValue(false),
   mockVerifyNotify: vi.fn(),
   mockAliRefundOrder: vi.fn(),
@@ -207,7 +203,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     mockIsWechatPayConfigured.mockReturnValue(false)
     mockIsAlipayConfigured.mockReturnValue(false)
     // 重置 idempotency 默认值
-    ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 'new' })
+    ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: 'new',
+    })
     ;(app.paymentIdempotency.complete as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     ;(app.paymentIdempotency.fail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
   })
@@ -249,9 +247,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)
-      expect(mockPlaceOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 100000000 }),
-      )
+      expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100000000 }))
     })
 
     it('负金额返回 400', async () => {
@@ -297,9 +293,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)
-      expect(mockPlaceOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 500 }),
-      )
+      expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 500 }))
     })
 
     it('VIP DB 反查金额超过上限返回 400', async () => {
@@ -387,9 +381,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)
-      expect(mockPlaceOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 100 }),
-      )
+      expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }))
     })
 
     it('课程无视频价格记录使用客户端金额', async () => {
@@ -402,9 +394,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)
-      expect(mockPlaceOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 200 }),
-      )
+      expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 200 }))
     })
   })
 

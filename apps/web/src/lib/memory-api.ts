@@ -53,11 +53,23 @@ export const MEMORY_SCOPE_OPTIONS = [
 
 export const MEMORY_TYPE_OPTIONS = [
   { value: 'preference', label: '偏好', color: 'bg-blue-500/10 text-blue-700 dark:text-blue-300' },
-  { value: 'convention', label: '约定', color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+  {
+    value: 'convention',
+    label: '约定',
+    color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  },
   { value: 'decision', label: '决策', color: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
-  { value: 'fact', label: '事实', color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  {
+    value: 'fact',
+    label: '事实',
+    color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  },
   { value: 'feedback', label: '反馈', color: 'bg-rose-500/10 text-rose-700 dark:text-rose-300' },
-  { value: 'skill_ref', label: '技能引用', color: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' },
+  {
+    value: 'skill_ref',
+    label: '技能引用',
+    color: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  },
 ] as const
 
 // === 工具函数 ===

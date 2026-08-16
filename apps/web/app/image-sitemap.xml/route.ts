@@ -55,9 +55,7 @@ function collectImages(): Array<{ url: string; relPath: string }> {
 function deriveTitle(relPath: string): string {
   const base = path.basename(relPath, path.extname(relPath))
   // 把 kebab-case / snake_case 转成标题
-  const titled = base
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  const titled = base.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   return `${titled} — 智汇 AI 官方素材`
 }
 

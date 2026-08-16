@@ -4,7 +4,10 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { success } from '../../utils/response.js'
-import { findGenerationHistory, findGenerationTemplates } from '../../db/content-generation-queries.js'
+import {
+  findGenerationHistory,
+  findGenerationTemplates,
+} from '../../db/content-generation-queries.js'
 import { parsePagination } from './_shared.js'
 
 export const v1ContentRoutes: FastifyPluginAsync = async (server) => {

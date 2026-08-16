@@ -21,14 +21,17 @@ export function PostDetailScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      setLoading(true); setError('')
+      setLoading(true)
+      setError('')
       const res = await fetchApi<PostDetailItem>(`/api/posts/${encodeURIComponent(id)}`)
       if (cancelled) return
       if (res.success) setPost(res.data)
       else setError(res.error || t('postDetail.loadFailed'))
       setLoading(false)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [id, t])
 
   return (

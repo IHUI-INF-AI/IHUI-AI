@@ -99,10 +99,14 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
   const todayStr = toDateString(today)
 
   function prevMonth() {
-    setCursor((c) => (c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 }))
+    setCursor((c) =>
+      c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 },
+    )
   }
   function nextMonth() {
-    setCursor((c) => (c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 }))
+    setCursor((c) =>
+      c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 },
+    )
   }
 
   function handleDrop(date: Date) {
@@ -119,11 +123,23 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={prevMonth}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={prevMonth}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm font-semibold">{monthLabel}</span>
-            <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={nextMonth}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={nextMonth}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -138,7 +154,11 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">
-          {WEEKDAYS.map((w) => <div key={w} className="py-1">{w}</div>)}
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="py-1">
+              {w}
+            </div>
+          ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
           {grid.map((date, i) => {
@@ -184,7 +204,9 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                         STATUS_BADGE[task.status],
                       )}
                     >
-                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', STATUS_COLOR[task.status])} />
+                      <span
+                        className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', STATUS_COLOR[task.status])}
+                      />
                       <span className="truncate">{task.title}</span>
                     </div>
                   ))}
@@ -200,8 +222,16 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
         {selectedDate && (
           <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">{selectedDate} · {t('calendar.taskCount', { count: selectedTasks.length })}</span>
-              <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => onCreateTask(new Date(selectedDate))}>
+              <span className="text-xs font-medium">
+                {selectedDate} · {t('calendar.taskCount', { count: selectedTasks.length })}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => onCreateTask(new Date(selectedDate))}
+              >
                 <Plus className="mr-1 h-3 w-3" />
                 {t('calendar.createTask')}
               </Button>
@@ -211,12 +241,23 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
             ) : (
               <div className="space-y-1">
                 {selectedTasks.map((task) => (
-                  <div key={task.id} className="flex items-center gap-2 rounded-sm bg-card px-2 py-1 text-xs">
-                    <Badge variant="secondary" className={cn('h-1.5 w-1.5 rounded-sm p-0', STATUS_COLOR[task.status])} />
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-2 rounded-sm bg-card px-2 py-1 text-xs"
+                  >
+                    <Badge
+                      variant="secondary"
+                      className={cn('h-1.5 w-1.5 rounded-sm p-0', STATUS_COLOR[task.status])}
+                    />
                     <span className="flex-1 truncate">{task.title}</span>
-                    {task.platform && <span className="text-[10px] text-muted-foreground">{task.platform}</span>}
+                    {task.platform && (
+                      <span className="text-[10px] text-muted-foreground">{task.platform}</span>
+                    )}
                     <span className="text-[10px] text-muted-foreground">
-                      {new Date(task.scheduledAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(task.scheduledAt).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
                 ))}

@@ -12,22 +12,34 @@
 
 /** 导入来源工具 */
 export type CliConfigSource =
-  'cc-switch' | 'codex++' | 'claude-cli' | 'codex-cli' | 'gemini-cli' | 'hermes'
-  | 'cursor' | 'windsurf' | 'cline' | 'aider' | 'env-file'
-  | 'trae' | 'trae-work' | 'qoder' | 'qoder-work'
-  | 'codex-desktop' | 'claude-code-desktop'
-  | 'github-copilot' | 'amazon-q' | 'continue' | 'tabnine' | 'cody' | 'zed'
+  | 'cc-switch'
+  | 'codex++'
+  | 'claude-cli'
+  | 'codex-cli'
+  | 'gemini-cli'
+  | 'hermes'
+  | 'cursor'
+  | 'windsurf'
+  | 'cline'
+  | 'aider'
+  | 'env-file'
+  | 'trae'
+  | 'trae-work'
+  | 'qoder'
+  | 'qoder-work'
+  | 'codex-desktop'
+  | 'claude-code-desktop'
+  | 'github-copilot'
+  | 'amazon-q'
+  | 'continue'
+  | 'tabnine'
+  | 'cody'
+  | 'zed'
   | 'antigravity'
 
 /** cc-switch 的 app_type(严格对齐 cc-switch Rust AppType 枚举) */
 export type CliAppType =
-  | 'claude'
-  | 'claude-desktop'
-  | 'codex'
-  | 'gemini'
-  | 'opencode'
-  | 'openclaw'
-  | 'hermes'
+  'claude' | 'claude-desktop' | 'codex' | 'gemini' | 'opencode' | 'openclaw' | 'hermes'
 
 /** API 协议格式(扩展自 ApiFormat,加 gemini_native) */
 export type CliApiFormat =

@@ -146,9 +146,12 @@ export default function CircleCreatePage() {
     setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))
   }, [])
 
-  const previewImg = useCallback((i: number) => {
-    Taro.previewImage({ urls: form.images, current: form.images[i] })
-  }, [form.images])
+  const previewImg = useCallback(
+    (i: number) => {
+      Taro.previewImage({ urls: form.images, current: form.images[i] })
+    },
+    [form.images],
+  )
 
   const selectTopic = useCallback((topic: HotTopic) => {
     setForm((f) => ({ ...f, topicId: topic.id, topicName: topic.name }))
@@ -313,7 +316,9 @@ export default function CircleCreatePage() {
                 onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
               >
                 <Text className="cc-vis-icon">{opt.icon}</Text>
-                <Text className="cc-vis-text">{tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}</Text>
+                <Text className="cc-vis-text">
+                  {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}
+                </Text>
               </View>
             ))}
           </View>

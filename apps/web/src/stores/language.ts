@@ -36,6 +36,7 @@ export const useLanguageStore = create<LanguageState>()(
 // 避免生产 bundle 多余的全局属性。E2E 通过 useLanguageStore.getState().setLocale()
 // 直接更新 locale,无需 reload 等待 zustand persist rehydrate。
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-  ;(window as unknown as { __IHUI_LANGUAGE_STORE__?: typeof useLanguageStore }).__IHUI_LANGUAGE_STORE__ =
-    useLanguageStore
+  ;(
+    window as unknown as { __IHUI_LANGUAGE_STORE__?: typeof useLanguageStore }
+  ).__IHUI_LANGUAGE_STORE__ = useLanguageStore
 }

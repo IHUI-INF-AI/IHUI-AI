@@ -92,7 +92,9 @@ function parseRoles(
     try {
       parsed = JSON.parse(input)
     } catch (err) {
-      logger.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, { err: err as Error })
+      logger.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, {
+        err: err as Error,
+      })
       return FALLBACK_ROLES
     }
   } else {
@@ -138,7 +140,9 @@ function loadBuiltin(): Record<string, AgentRoleConfig> {
     const json = require('./crew-roles.json') as Record<string, unknown>
     return parseRoles(json, '内置 crew-roles.json')
   } catch (err) {
-    logger.warn('[crew-role-loader] 加载内置 crew-roles.json 失败, 使用 fallback:', { err: err as Error })
+    logger.warn('[crew-role-loader] 加载内置 crew-roles.json 失败, 使用 fallback:', {
+      err: err as Error,
+    })
     return FALLBACK_ROLES
   }
 }

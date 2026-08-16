@@ -113,7 +113,9 @@ export default function AgentListPanel({
                         style={VIP_TAG_STYLES[agent.vipType]}
                       >
                         {VIP_TAG_LABELS[agent.vipType]}
-                        {agent.vipType === 4 && agent.price ? ` ¥${formatPrice(agent.price)}/月` : ''}
+                        {agent.vipType === 4 && agent.price
+                          ? ` ¥${formatPrice(agent.price)}/月`
+                          : ''}
                       </Text>
                     ) : agent.isVipExclusive ? (
                       <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">

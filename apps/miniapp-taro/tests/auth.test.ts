@@ -7,22 +7,35 @@ const { taroStorage, mockReLaunch } = vi.hoisted(() => ({
 
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',
-  setStorageSync: (key: string, val: unknown) => { taroStorage[key] = val },
-  removeStorageSync: (key: string) => { delete taroStorage[key] },
+  setStorageSync: (key: string, val: unknown) => {
+    taroStorage[key] = val
+  },
+  removeStorageSync: (key: string) => {
+    delete taroStorage[key]
+  },
   reLaunch: (opts: { url: string }) => mockReLaunch(opts),
   default: {
     getStorageSync: (key: string) => taroStorage[key] ?? '',
-    setStorageSync: (key: string, val: unknown) => { taroStorage[key] = val },
-    removeStorageSync: (key: string) => { delete taroStorage[key] },
+    setStorageSync: (key: string, val: unknown) => {
+      taroStorage[key] = val
+    },
+    removeStorageSync: (key: string) => {
+      delete taroStorage[key]
+    },
     reLaunch: (opts: { url: string }) => mockReLaunch(opts),
   },
 }))
 
 import {
-  getToken, setToken,
-  getRefreshToken, setRefreshToken,
-  getUserInfo, setUserInfo,
-  clearAuth, isLoggedIn, checkLoginStatus,
+  getToken,
+  setToken,
+  getRefreshToken,
+  setRefreshToken,
+  getUserInfo,
+  setUserInfo,
+  clearAuth,
+  isLoggedIn,
+  checkLoginStatus,
   type UserInfo,
 } from '../src/utils/auth'
 

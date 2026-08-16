@@ -14,7 +14,9 @@ export function InquiryContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('enterpriseInquiry.title')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          {t('enterpriseInquiry.title')}
+        </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('enterpriseInquiry.subtitle')}
         </p>
@@ -51,7 +53,9 @@ export function InquiryContent(): React.JSX.Element {
                 <Headphones className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-semibold">{t('enterpriseInquiry.sidebar.salesTitle')}</h3>
-              <p className="text-xs text-muted-foreground">{t('enterpriseInquiry.sidebar.salesDesc')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('enterpriseInquiry.sidebar.salesDesc')}
+              </p>
             </CardContent>
           </Card>
           <Card className="transition-colors hover:bg-accent">
@@ -59,8 +63,12 @@ export function InquiryContent(): React.JSX.Element {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Clock className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold">{t('enterpriseInquiry.sidebar.workHoursTitle')}</h3>
-              <p className="text-xs text-muted-foreground">{t('enterpriseInquiry.sidebar.workHours')}</p>
+              <h3 className="text-sm font-semibold">
+                {t('enterpriseInquiry.sidebar.workHoursTitle')}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {t('enterpriseInquiry.sidebar.workHours')}
+              </p>
             </CardContent>
           </Card>
           <Card className="transition-colors hover:bg-accent">

@@ -134,18 +134,9 @@ describe('model-mapping-service', () => {
     })
 
     it('4. Key 级映射覆盖用户级映射', async () => {
-      const globalRow = makeRow(
-        { userId: null, apiKeyId: null, targetModel: 'deepseek-chat' },
-        0,
-      )
-      const userRow = makeRow(
-        { userId: 'user-1', apiKeyId: null, targetModel: 'glm-4-flash' },
-        1,
-      )
-      const keyRow = makeRow(
-        { userId: 'user-1', apiKeyId: 'key-1', targetModel: 'qwen-max' },
-        2,
-      )
+      const globalRow = makeRow({ userId: null, apiKeyId: null, targetModel: 'deepseek-chat' }, 0)
+      const userRow = makeRow({ userId: 'user-1', apiKeyId: null, targetModel: 'glm-4-flash' }, 1)
+      const keyRow = makeRow({ userId: 'user-1', apiKeyId: 'key-1', targetModel: 'qwen-max' }, 2)
       mockSelectReturning([globalRow, userRow, keyRow])
       const result = await resolveModelMapping('gpt-4o', 'user-1', 'key-1')
       expect(result.mapped).toBe(true)
@@ -194,7 +185,9 @@ describe('model-mapping-service', () => {
 
     it('8. 重复 source_model 报错(scope unique)', async () => {
       mockInsertThrow(
-        new Error('duplicate key value violates unique constraint "ai_model_mappings_scope_unique"'),
+        new Error(
+          'duplicate key value violates unique constraint "ai_model_mappings_scope_unique"',
+        ),
       )
       await expect(
         createMapping({

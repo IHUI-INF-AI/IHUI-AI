@@ -116,7 +116,9 @@ export default function BehaviorAnalyticsPage() {
   const listQ = useQuery({
     queryKey: ['admin', 'analytics', 'list', start, end],
     queryFn: async () => {
-      const r = await eduApi<{ list: EventRow[]; total: number }>(`/api/admin/analytics/events/list${qs()}&page=1&pageSize=15`)
+      const r = await eduApi<{ list: EventRow[]; total: number }>(
+        `/api/admin/analytics/events/list${qs()}&page=1&pageSize=15`,
+      )
       return r ?? { list: [], total: 0 }
     },
   })
@@ -137,13 +139,35 @@ export default function BehaviorAnalyticsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">行为埋点分析</h1>
-          <p className="text-sm text-muted-foreground">用户行为事件统计:点击 / 搜索 / 下载 / 表单 / 停留</p>
+          <p className="text-sm text-muted-foreground">
+            用户行为事件统计:点击 / 搜索 / 下载 / 表单 / 停留
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
+          <input
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className={inputCls}
+          />
           <span className="text-muted-foreground">至</span>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
-          <Button variant="outline" size="sm" onClick={() => { summaryQ.refetch(); rankQ.refetch(); pagesQ.refetch(); trendQ.refetch(); listQ.refetch() }}>
+          <input
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            className={inputCls}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              summaryQ.refetch()
+              rankQ.refetch()
+              pagesQ.refetch()
+              trendQ.refetch()
+              listQ.refetch()
+            }}
+          >
             <RefreshCw className="h-3.5 w-3.5" />
             刷新
           </Button>
@@ -151,10 +175,26 @@ export default function BehaviorAnalyticsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="事件总数" value={numFmt.format(summary?.summary?.totalEvents ?? 0)} icon={BarChart3} />
-        <StatCard title="事件类型" value={numFmt.format(summary?.summary?.eventTypes ?? 0)} icon={MousePointerClick} />
-        <StatCard title="今日事件" value={numFmt.format(summary?.todayEvents ?? 0)} icon={RefreshCw} />
-        <StatCard title="活跃用户" value={numFmt.format(summary?.summary?.uniqueUsers ?? 0)} icon={Users2} />
+        <StatCard
+          title="事件总数"
+          value={numFmt.format(summary?.summary?.totalEvents ?? 0)}
+          icon={BarChart3}
+        />
+        <StatCard
+          title="事件类型"
+          value={numFmt.format(summary?.summary?.eventTypes ?? 0)}
+          icon={MousePointerClick}
+        />
+        <StatCard
+          title="今日事件"
+          value={numFmt.format(summary?.todayEvents ?? 0)}
+          icon={RefreshCw}
+        />
+        <StatCard
+          title="活跃用户"
+          value={numFmt.format(summary?.summary?.uniqueUsers ?? 0)}
+          icon={Users2}
+        />
       </div>
 
       {loading ? (
@@ -166,17 +206,28 @@ export default function BehaviorAnalyticsPage() {
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle className="text-sm font-medium">事件类型排行</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">事件类型排行</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2">
-                {rank.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">暂无数据(埋点自 08-10 起采集)</p>}
+                {rank.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    暂无数据(埋点自 08-10 起采集)
+                  </p>
+                )}
                 {rank.slice(0, 12).map((r) => (
                   <div key={r.event} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className={`font-medium ${evColor(r.event)}`}>{evLabel(r.event)}</span>
-                      <span className="text-muted-foreground">{numFmt.format(r.count)} 次 / {numFmt.format(r.uniqueUsers)} 用户</span>
+                      <span className="text-muted-foreground">
+                        {numFmt.format(r.count)} 次 / {numFmt.format(r.uniqueUsers)} 用户
+                      </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded bg-muted">
-                      <div className="h-full rounded bg-primary/70" style={{ width: `${(r.count / maxRank) * 100}%` }} />
+                      <div
+                        className="h-full rounded bg-primary/70"
+                        style={{ width: `${(r.count / maxRank) * 100}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -184,11 +235,18 @@ export default function BehaviorAnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-sm font-medium">页面行为热度 Top 10</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">页面行为热度 Top 10</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2">
-                {pages.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">暂无数据</p>}
+                {pages.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">暂无数据</p>
+                )}
                 {pages.slice(0, 10).map((p, i) => (
-                  <div key={p.path} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+                  <div
+                    key={p.path}
+                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
+                  >
                     <span className="flex items-center gap-2 truncate">
                       <span className="text-xs font-semibold text-muted-foreground">{i + 1}</span>
                       <span className="truncate">{p.path}</span>
@@ -201,19 +259,29 @@ export default function BehaviorAnalyticsPage() {
           </div>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm font-medium">按天事件趋势</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">按天事件趋势</CardTitle>
+            </CardHeader>
             <CardContent>
               {(() => {
                 const byDay = new Map<string, number>()
                 for (const t of trend) byDay.set(t.day, (byDay.get(t.day) ?? 0) + t.count)
                 const days = Array.from(byDay.entries()).sort((a, b) => a[0].localeCompare(b[0]))
                 const max = Math.max(1, ...days.map(([, c]) => c))
-                if (days.length === 0) return <p className="py-4 text-center text-sm text-muted-foreground">暂无趋势数据</p>
+                if (days.length === 0)
+                  return (
+                    <p className="py-4 text-center text-sm text-muted-foreground">暂无趋势数据</p>
+                  )
                 return (
                   <div className="flex items-end gap-1.5" style={{ height: 80 }}>
                     {days.map(([day, count]) => (
-                      <div key={day} className="group relative flex flex-1 flex-col items-center justify-end gap-1">
-                        <span className="text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">{count}</span>
+                      <div
+                        key={day}
+                        className="group relative flex flex-1 flex-col items-center justify-end gap-1"
+                      >
+                        <span className="text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                          {count}
+                        </span>
                         <div
                           className="w-full rounded-t bg-primary/60 transition-colors hover:bg-primary"
                           style={{ height: `${Math.max(4, (count / max) * 100)}%` }}
@@ -228,7 +296,9 @@ export default function BehaviorAnalyticsPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm font-medium">最近事件明细</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">最近事件明细</CardTitle>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
@@ -242,16 +312,28 @@ export default function BehaviorAnalyticsPage() {
                 <TableBody>
                   {evList.slice(0, 10).map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell><span className={evColor(row.event)}>{evLabel(row.event)}</span></TableCell>
-                      <TableCell className="max-w-[260px] truncate text-muted-foreground">
-                        {typeof row.properties?.label === 'string' ? row.properties.label : String(row.properties?.category ?? '')}
+                      <TableCell>
+                        <span className={evColor(row.event)}>{evLabel(row.event)}</span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{row.userId ? String(row.userId).slice(0, 8) : '匿名'}</TableCell>
-                      <TableCell className="text-muted-foreground">{new Date(row.createdAt).toLocaleString('zh-CN')}</TableCell>
+                      <TableCell className="max-w-[260px] truncate text-muted-foreground">
+                        {typeof row.properties?.label === 'string'
+                          ? row.properties.label
+                          : String(row.properties?.category ?? '')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.userId ? String(row.userId).slice(0, 8) : '匿名'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(row.createdAt).toLocaleString('zh-CN')}
+                      </TableCell>
                     </TableRow>
                   ))}
                   {evList.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">暂无事件记录</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                        暂无事件记录
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>

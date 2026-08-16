@@ -72,10 +72,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
   return (
     <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
-        className={cn(
-          'flex items-center gap-1.5 px-1 py-0.5',
-          hasDetail && 'cursor-pointer',
-        )}
+        className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDetail && 'cursor-pointer')}
         onClick={toggleExpand}
         role={hasDetail ? 'button' : undefined}
         aria-expanded={hasDetail ? expanded : undefined}
@@ -115,20 +112,16 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
         </span>
         {sa.failureReason && (sa.status === 'failed' || sa.status === 'dead') ? (
           <Tooltip content={sa.failureReason}>
-            <span className="flex-1 break-all text-[10px] text-red-500/80">
-              {sa.failureReason}
-            </span>
+            <span className="flex-1 break-all text-[10px] text-red-500/80">{sa.failureReason}</span>
           </Tooltip>
         ) : sa.currentTask ? (
           <span className="flex-1 break-all text-muted-foreground/70">{sa.currentTask}</span>
         ) : null}
-        {sa.durationMs !== undefined &&
-          sa.status !== 'running' &&
-          sa.status !== 'spawned' && (
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-              {formatDuration(sa.durationMs)}
-            </span>
-          )}
+        {sa.durationMs !== undefined && sa.status !== 'running' && sa.status !== 'spawned' && (
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+            {formatDuration(sa.durationMs)}
+          </span>
+        )}
         {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
           <Tooltip content={t('subagent.toolCallsTitle', { n: sa.toolCalls })}>
             <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
@@ -153,32 +146,45 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
               {/* 元信息行 */}
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
                 <span>
-                  {t('subagent.state')}<span className={SUBAGENT_STATUS_CLS[sa.status]}>{t(SUBAGENT_STATUS_TKEY[sa.status])}</span>
+                  {t('subagent.state')}
+                  <span className={SUBAGENT_STATUS_CLS[sa.status]}>
+                    {t(SUBAGENT_STATUS_TKEY[sa.status])}
+                  </span>
                 </span>
-                {sa.role && <span>{t('subagent.role')}<span className="font-mono">{sa.role}</span></span>}
+                {sa.role && (
+                  <span>
+                    {t('subagent.role')}
+                    <span className="font-mono">{sa.role}</span>
+                  </span>
+                )}
                 {sa.pendingApproval && (
                   <span className="text-amber-500">{t('subagent.pendingApproval')}</span>
                 )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
-                        {sa.spawnedAt && (
-                          <Tooltip content={formatTime(sa.spawnedAt)}>
-                            <span>
-                              {t('subagent.startedAt')}{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt, t)})
-                            </span>
-                          </Tooltip>
-                        )}
-                        {sa.endedAt && (
-                          <Tooltip content={formatTime(sa.endedAt)}>
-                            <span>
-                              {t('subagent.endedAt')}{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt, t)})
-                            </span>
-                          </Tooltip>
-                        )}
-                        {sa.durationMs !== undefined && sa.status !== 'running' && (
-                          <span>{t('subagent.duration')}{formatDuration(sa.durationMs)}</span>
-                        )}
-                      </div>
+                {sa.spawnedAt && (
+                  <Tooltip content={formatTime(sa.spawnedAt)}>
+                    <span>
+                      {t('subagent.startedAt')}
+                      {formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt, t)})
+                    </span>
+                  </Tooltip>
+                )}
+                {sa.endedAt && (
+                  <Tooltip content={formatTime(sa.endedAt)}>
+                    <span>
+                      {t('subagent.endedAt')}
+                      {formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt, t)})
+                    </span>
+                  </Tooltip>
+                )}
+                {sa.durationMs !== undefined && sa.status !== 'running' && (
+                  <span>
+                    {t('subagent.duration')}
+                    {formatDuration(sa.durationMs)}
+                  </span>
+                )}
+              </div>
               {sa.threadId && (
                 <div className="flex items-center gap-1 break-all text-muted-foreground/60">
                   <span className="font-mono">threadId: {sa.threadId}</span>
@@ -227,9 +233,7 @@ export const SubagentSection = React.memo(function SubagentSection({
   // v10: 摘要统计(活跃/死亡/失败)— useMemo 必须在 early return 之前
   const summary = React.useMemo(() => {
     if (subagents.length === 0) return ''
-    const active = subagents.filter(
-      (s) => s.status === 'running' || s.status === 'spawned',
-    ).length
+    const active = subagents.filter((s) => s.status === 'running' || s.status === 'spawned').length
     const done = subagents.filter((s) => s.status === 'done').length
     const failed = subagents.filter((s) => s.status === 'failed' || s.status === 'dead').length
     const parts: string[] = []

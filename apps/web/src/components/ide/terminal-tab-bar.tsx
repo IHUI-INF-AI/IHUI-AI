@@ -1,7 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check, Server, FileText, Circle, Video, Play, Trash2, Clock } from 'lucide-react'
+import {
+  Plus,
+  X,
+  Terminal as TerminalIcon,
+  ChevronDown,
+  Check,
+  Server,
+  FileText,
+  Circle,
+  Video,
+  Play,
+  Trash2,
+  Clock,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import type {
@@ -344,7 +357,9 @@ export function TerminalTabBar({
             )}
             <span className="max-w-24 truncate text-[10px] opacity-50">{cwdShort}</span>
             {session.status === 'exited' && (
-              <span className="text-[10px] text-muted-foreground/60">{t('terminalTabBar.exited')}</span>
+              <span className="text-[10px] text-muted-foreground/60">
+                {t('terminalTabBar.exited')}
+              </span>
             )}
             <button
               type="button"
@@ -369,7 +384,10 @@ export function TerminalTabBar({
       <div className="relative flex items-center" ref={shellMenuRef}>
         <Tooltip
           content={t('terminalTabBar.newTerminalTitle', {
-            shell: connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell',
+            shell:
+              connectKind === 'ssh'
+                ? 'SSH'
+                : (SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell'),
           })}
         >
           <button
@@ -466,7 +484,9 @@ export function TerminalTabBar({
             {connectKind === 'ssh' && (
               <div className="flex flex-col gap-1.5 px-2 py-1.5">
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.host')}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('terminalTabBar.host')}
+                  </span>
                   <input
                     type="text"
                     value={sshHost}
@@ -476,7 +496,9 @@ export function TerminalTabBar({
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.port')}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('terminalTabBar.port')}
+                  </span>
                   <input
                     type="number"
                     min={1}
@@ -487,7 +509,9 @@ export function TerminalTabBar({
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.username')}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('terminalTabBar.username')}
+                  </span>
                   <input
                     type="text"
                     value={sshUsername}
@@ -525,7 +549,9 @@ export function TerminalTabBar({
                 </div>
                 {sshAuthMethod === 'password' ? (
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.password')}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {t('terminalTabBar.password')}
+                    </span>
                     <input
                       type="password"
                       value={sshPassword}
@@ -535,7 +561,9 @@ export function TerminalTabBar({
                   </label>
                 ) : (
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.privateKeyPem')}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {t('terminalTabBar.privateKeyPem')}
+                    </span>
                     <textarea
                       value={sshPrivateKey}
                       onChange={(e) => setSshPrivateKey(e.target.value)}
@@ -588,7 +616,11 @@ export function TerminalTabBar({
                 disabled={loading}
               >
                 <Plus className="h-3 w-3" />
-                <span>{connectKind === 'ssh' ? t('terminalTabBar.newSshSession') : t('terminalTabBar.newSession')}</span>
+                <span>
+                  {connectKind === 'ssh'
+                    ? t('terminalTabBar.newSshSession')
+                    : t('terminalTabBar.newSession')}
+                </span>
               </button>
             </div>
           </div>
@@ -596,7 +628,9 @@ export function TerminalTabBar({
       </div>
 
       {loading && (
-        <span className="ml-1 text-[10px] text-muted-foreground/60">{t('terminalTabBar.creating')}</span>
+        <span className="ml-1 text-[10px] text-muted-foreground/60">
+          {t('terminalTabBar.creating')}
+        </span>
       )}
 
       {/* 右侧:录制控制 + 回放徽章 + 录制列表抽屉(2026-07-23 立) */}
@@ -692,7 +726,10 @@ export function TerminalTabBar({
                       <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-foreground">
-                          {rec.title || t('terminalTabBar.defaultRecTitle', { time: formatStartedAt(rec.startedAt) })}
+                          {rec.title ||
+                            t('terminalTabBar.defaultRecTitle', {
+                              time: formatStartedAt(rec.startedAt),
+                            })}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           <span>{formatStartedAt(rec.startedAt)}</span>

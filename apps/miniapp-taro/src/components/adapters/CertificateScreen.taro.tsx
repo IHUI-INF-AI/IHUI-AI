@@ -42,7 +42,8 @@ export function CertificateScreen({
 
   // i18n 三级降级:prop t > I18nContext tt > 硬编码中文(CertificateScreenProps.t 必填,useTt 防御性兜底)
   const tFn: TFunction =
-    tProp ?? ((key, options) => tt(key, key, options as Record<string, string | number> | undefined))
+    tProp ??
+    ((key, options) => tt(key, key, options as Record<string, string | number> | undefined))
   /** t(key) 未命中(返回 key 原值)时降级到硬编码 fallback */
   const tr = (key: string, fallback: string): string => {
     const v = tFn(key)
@@ -116,11 +117,7 @@ export function CertificateScreen({
             </View>
           ) : (
             items.map((item) => (
-              <View
-                key={item.id}
-                style={viewStyles.card(tk)}
-                onTap={() => onPressItem(item)}
-              >
+              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
                 <View style={viewStyles.titleRow()}>
                   <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                   <View

@@ -10,13 +10,13 @@
 
 ## 1. 总览
 
-| 评估项类别 | 评估数 | 补开发/补迁移 | 设计风格差异/已迁移 | 废弃 |
-|----------|-------|-------------|------------------|------|
-| API 端点(唯一路径) | 114 | 2 | 86 | 26 |
-| API 端点(原始行数) | 147 | — | — | — |
-| ZHS AI 业务表 | 6 | 0 | 6 | 0 |
-| RuoYi 框架表 | 2 | — | 0 | 2 |
-| RuoYi 框架页 | 18 | — | 13 | 5 |
+| 评估项类别         | 评估数 | 补开发/补迁移 | 设计风格差异/已迁移 | 废弃 |
+| ------------------ | ------ | ------------- | ------------------- | ---- |
+| API 端点(唯一路径) | 114    | 2             | 86                  | 26   |
+| API 端点(原始行数) | 147    | —             | —                   | —    |
+| ZHS AI 业务表      | 6      | 0             | 6                   | 0    |
+| RuoYi 框架表       | 2      | —             | 0                   | 2    |
+| RuoYi 框架页       | 18     | —             | 13                  | 5    |
 
 ---
 
@@ -76,15 +76,15 @@
 | /follows/fans/list | [GET] | FollowController | Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数 |
 | /follows/list | [GET] | FollowController | Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数 |
 | /follows/member/count | [GET] | FollowController | Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数 |
-| /invoices/application | [POST/PUT/GET/DELETE] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/approved | [POST] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/canceled | [POST] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/invoiced | [POST] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/invoicing | [POST] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/list | [GET] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/application/rejected | [POST] | InvoiceApplicationController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/title | [POST/PUT/GET/DELETE] | InvoiceTitleController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
-| /invoices/title/list | [GET] | InvoiceTitleController | Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application | [POST/PUT/GET/DELETE] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/approved | [POST] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/canceled | [POST] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/invoiced | [POST] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/invoicing | [POST] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/list | [GET] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/application/rejected | [POST] | InvoiceApplicationController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/title | [POST/PUT/GET/DELETE] | InvoiceTitleController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
+| /invoices/title/list | [GET] | InvoiceTitleController | Java /invoice/_,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化) |
 | /like | [PUT] | LikeController | Java /auth-api/like (PUT),IHUI-AI 用 /api/interactions/like (POST)(interactions.ts 统一入口) |
 | /notifications/{param} | [GET/DELETE] | SysNoticeController | Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一) |
 | /notifications/list | [GET] | NoticeController | Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一) |
@@ -92,22 +92,22 @@
 | /permissions/tree | [GET] | AuthorityController | Java /authorities/tree,IHUI-AI 用 /permissions(已迁移)+ /permissions/tree 子路径 |
 | /reply-comment/list/by-ids | [GET] | CommentController | Java 拆分 reply/comment 路径,IHUI-AI 统一在 /comments 模块(parentCommentId 字段) |
 | /reply/comment | [POST/DELETE] | CommentController | Java /reply/comment 拆分,IHUI-AI 统一在 /comments 模块 |
-| /reports/company/member/signup | [GET] | ReportController | Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化) |
-| /reports/lesson/sign | [GET] | ReportController | Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化) |
-| /reports/lesson/study | [GET] | ReportController | Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化) |
-| /reports/member/study | [GET] | ReportController | Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化) |
+| /reports/company/member/signup | [GET] | ReportController | Java /report/_,IHUI-AI 用 /reports(report→reports 单复数规范化) |
+| /reports/lesson/sign | [GET] | ReportController | Java /report/_,IHUI-AI 用 /reports(report→reports 单复数规范化) |
+| /reports/lesson/study | [GET] | ReportController | Java /report/_,IHUI-AI 用 /reports(report→reports 单复数规范化) |
+| /reports/member/study | [GET] | ReportController | Java /report/_,IHUI-AI 用 /reports(report→reports 单复数规范化) |
 | /review/list | [GET] | MemberController | Java /unaudited/list,IHUI-AI 用 /review 或 /admin/members/unaudited |
 | /settlement/{param} | [DELETE] | ZhsAgentSettlementController | Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化) |
 | /settlement/export | [POST] | ZhsAgentSettlementController | Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化) |
-| /system-login-logs/{param} | [DELETE/GET] | SysLogininforController | Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
-| /system-login-logs/clean | [DELETE] | SysLogininforController | Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
-| /system-login-logs/export | [POST] | SysLogininforController | Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
-| /system-login-logs/list | [GET] | SysLogininforController | Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
-| /system-login-logs/unlock/{param} | [GET] | SysLogininforController | Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
-| /system-operation-logs/{param} | [DELETE] | SysOperlogController | Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
-| /system-operation-logs/clean | [DELETE] | SysOperlogController | Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
-| /system-operation-logs/export | [POST] | SysOperlogController | Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
-| /system-operation-logs/list | [GET] | SysOperlogController | Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
+| /system-login-logs/{param} | [DELETE/GET] | SysLogininforController | Java /system-login-logs/_,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
+| /system-login-logs/clean | [DELETE] | SysLogininforController | Java /system-login-logs/_,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
+| /system-login-logs/export | [POST] | SysLogininforController | Java /system-login-logs/_,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
+| /system-login-logs/list | [GET] | SysLogininforController | Java /system-login-logs/_,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
+| /system-login-logs/unlock/{param} | [GET] | SysLogininforController | Java /system-login-logs/_,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested) |
+| /system-operation-logs/{param} | [DELETE] | SysOperlogController | Java /system-operation-logs/_,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
+| /system-operation-logs/clean | [DELETE] | SysOperlogController | Java /system-operation-logs/_,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
+| /system-operation-logs/export | [POST] | SysOperlogController | Java /system-operation-logs/_,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
+| /system-operation-logs/list | [GET] | SysOperlogController | Java /system-operation-logs/_,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts) |
 | /vip/list | [GET] | MemberLevelController | Java /level/list,IHUI-AI 用 /vip 模块(vip.ts 14 个路由承载等级体系) |
 | /visit-tracking/day/pv/list | [GET] | VisitLogController | Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合) |
 | /visit-tracking/day/uv/list | [GET] | VisitLogController | Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合) |
@@ -172,7 +172,6 @@
 
 _无_(所有 6 张 ZHS AI 业务表均已在当前仓库 schema 中迁移)_
 
-
 ### 3.3 已迁移清单(6 个)
 
 - `zhs_knowledge_planet` → `packages/database/src/schema/zhs-full.ts`(`zhs_knowledge_planet` 原名保留):已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsKnowledgePlanet),字段在 Java 基础上扩展(如 16 → 11 字段)
@@ -184,17 +183,17 @@ _无_(所有 6 张 ZHS AI 业务表均已在当前仓库 schema 中迁移)_
 
 ### 3.4 字段映射示例(以 zhs_operate_token_flow 为例)
 
-| Java 字段 | IHUI-AI Drizzle 字段 | 类型映射 |
-|----------|--------------------|---------|
-| id (Long) | id (serial) | bigint PK → serial PK |
-| userId (Integer) | userId (varchar(64)) | int → varchar(扩大容量支持 UUID) |
-| tokenQuantity (Long) | tokenQuantity (bigint) | bigint 保留 |
-| type (Integer) | type (integer) | int → integer |
-| createdAt (Long) | createdAt (timestamp) | Unix 时间戳 → PG timestamp |
-| operateDesc (String) | operateDesc (varchar(255)) | text → varchar(255) |
-| tokenFree (Integer) | tokenFree (bigint) | int → bigint(扩展容量) |
-| userUuid (String) | userUuid (varchar(64)) | 直接保留 |
-| — | updatedAt (timestamp) | IHUI-AI 新增(updated_at 审计字段) |
+| Java 字段            | IHUI-AI Drizzle 字段       | 类型映射                          |
+| -------------------- | -------------------------- | --------------------------------- |
+| id (Long)            | id (serial)                | bigint PK → serial PK             |
+| userId (Integer)     | userId (varchar(64))       | int → varchar(扩大容量支持 UUID)  |
+| tokenQuantity (Long) | tokenQuantity (bigint)     | bigint 保留                       |
+| type (Integer)       | type (integer)             | int → integer                     |
+| createdAt (Long)     | createdAt (timestamp)      | Unix 时间戳 → PG timestamp        |
+| operateDesc (String) | operateDesc (varchar(255)) | text → varchar(255)               |
+| tokenFree (Integer)  | tokenFree (bigint)         | int → bigint(扩展容量)            |
+| userUuid (String)    | userUuid (varchar(64))     | 直接保留                          |
+| —                    | updatedAt (timestamp)      | IHUI-AI 新增(updated_at 审计字段) |
 
 ---
 

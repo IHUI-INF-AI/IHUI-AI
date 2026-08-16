@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, numeric, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer, timestamp, numeric, index } from 'drizzle-orm/pg-core'
 
 /**
  * 会员等级表。
@@ -15,7 +15,7 @@ export const eduMemberLevels = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ sortIdx: index('edu_member_levels_sort_idx').on(t.sort) }),
-);
+)
 
 /**
  * 企业表（教育会员体系）。
@@ -35,7 +35,7 @@ export const eduCompanies = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ sortIdx: index('edu_companies_sort_idx').on(t.sort) }),
-);
+)
 
 /**
  * 部门表（教育会员体系，隶属企业）。
@@ -44,7 +44,9 @@ export const eduDepartments = pgTable(
   'edu_departments',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    companyId: uuid('company_id').notNull().references(() => eduCompanies.id, { onDelete: 'cascade' }),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => eduCompanies.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 200 }).notNull(),
     pid: uuid('pid'), // 父部门(树形结构)
     sort: integer('sort').default(0).notNull(),
@@ -55,7 +57,7 @@ export const eduDepartments = pgTable(
     companyIdx: index('edu_departments_company_idx').on(t.companyId),
     pidIdx: index('edu_departments_pid_idx').on(t.pid),
   }),
-);
+)
 
 /**
  * 会员表（教育会员体系）。
@@ -77,7 +79,9 @@ export const eduMembers = pgTable(
     status: integer('status').default(0).notNull(),
     levelId: uuid('level_id').references(() => eduMemberLevels.id, { onDelete: 'set null' }),
     companyId: uuid('company_id').references(() => eduCompanies.id, { onDelete: 'set null' }),
-    departmentId: uuid('department_id').references(() => eduDepartments.id, { onDelete: 'set null' }),
+    departmentId: uuid('department_id').references(() => eduDepartments.id, {
+      onDelete: 'set null',
+    }),
     growthValue: integer('growth_value').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -86,13 +90,13 @@ export const eduMembers = pgTable(
     mobileIdx: index('edu_members_mobile_idx').on(t.mobile),
     levelIdx: index('edu_members_level_idx').on(t.levelId),
   }),
-);
+)
 
-export type EduMember = typeof eduMembers.$inferSelect;
-export type NewEduMember = typeof eduMembers.$inferInsert;
-export type EduMemberLevel = typeof eduMemberLevels.$inferSelect;
-export type NewEduMemberLevel = typeof eduMemberLevels.$inferInsert;
-export type EduCompany = typeof eduCompanies.$inferSelect;
-export type NewEduCompany = typeof eduCompanies.$inferInsert;
-export type EduDepartment = typeof eduDepartments.$inferSelect;
-export type NewEduDepartment = typeof eduDepartments.$inferInsert;
+export type EduMember = typeof eduMembers.$inferSelect
+export type NewEduMember = typeof eduMembers.$inferInsert
+export type EduMemberLevel = typeof eduMemberLevels.$inferSelect
+export type NewEduMemberLevel = typeof eduMemberLevels.$inferInsert
+export type EduCompany = typeof eduCompanies.$inferSelect
+export type NewEduCompany = typeof eduCompanies.$inferInsert
+export type EduDepartment = typeof eduDepartments.$inferSelect
+export type NewEduDepartment = typeof eduDepartments.$inferInsert

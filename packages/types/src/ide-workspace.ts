@@ -10,12 +10,7 @@
  */
 
 /** 左侧 activity bar 视图类型 */
-export type ViewPanelType =
-  | 'files'
-  | 'search'
-  | 'source-control'
-  | 'debug'
-  | 'applications'
+export type ViewPanelType = 'files' | 'search' | 'source-control' | 'debug' | 'applications'
 
 /** 顶部 tab 栏类型(编辑器 + 8 项下拉) */
 export type IDETabType =

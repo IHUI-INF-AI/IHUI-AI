@@ -115,9 +115,7 @@ export function SearchBar({
   const filteredSuggestions = React.useMemo(
     () =>
       value
-        ? suggestions
-            .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
-            .slice(0, 8)
+        ? suggestions.filter((s) => s.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
         : [],
     [value, suggestions],
   )
@@ -195,7 +193,10 @@ export function SearchBar({
               <PopularSection items={popular} onItemClick={handlePopularItemClick} />
             </>
           ) : (
-            <SuggestionsSection items={filteredSuggestions} onItemClick={handleSuggestionItemClick} />
+            <SuggestionsSection
+              items={filteredSuggestions}
+              onItemClick={handleSuggestionItemClick}
+            />
           )}
         </div>
       )}

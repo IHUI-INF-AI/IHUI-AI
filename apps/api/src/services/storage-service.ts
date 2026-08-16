@@ -8,7 +8,14 @@
  * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
  */
 
-import { createHash, createHmac, createPublicKey, createVerify, randomUUID, timingSafeEqual } from 'node:crypto'
+import {
+  createHash,
+  createHmac,
+  createPublicKey,
+  createVerify,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto'
 import {
   existsSync,
   mkdirSync,

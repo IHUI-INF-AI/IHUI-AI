@@ -93,11 +93,7 @@ export function LearnCategoryTable({
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(cat)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(cat)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

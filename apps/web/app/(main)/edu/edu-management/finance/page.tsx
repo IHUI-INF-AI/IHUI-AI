@@ -129,7 +129,9 @@ const BILLING_CYCLES = [
   { value: 'yearly', label: '按年' },
 ] as const
 
-const BILLING_CYCLE_MAP: Map<string, string> = new Map(BILLING_CYCLES.map((c) => [c.value, c.label]))
+const BILLING_CYCLE_MAP: Map<string, string> = new Map(
+  BILLING_CYCLES.map((c) => [c.value, c.label]),
+)
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: '现金' },
@@ -138,7 +140,9 @@ const PAYMENT_METHODS = [
   { value: 'alipay', label: '支付宝' },
 ] as const
 
-const PAYMENT_METHOD_MAP: Map<string, string> = new Map(PAYMENT_METHODS.map((m) => [m.value, m.label]))
+const PAYMENT_METHOD_MAP: Map<string, string> = new Map(
+  PAYMENT_METHODS.map((m) => [m.value, m.label]),
+)
 
 const PAYMENT_STATUSES = [
   { value: 'paid', label: '已支付', color: 'bg-green-500' },
@@ -146,16 +150,24 @@ const PAYMENT_STATUSES = [
   { value: 'cancelled', label: '已取消', color: 'bg-red-500' },
 ] as const
 
-const PAYMENT_STATUS_MAP: Map<string, string> = new Map(PAYMENT_STATUSES.map((s) => [s.value, s.label]))
-const PAYMENT_STATUS_COLOR_MAP: Map<string, string> = new Map(PAYMENT_STATUSES.map((s) => [s.value, s.color]))
+const PAYMENT_STATUS_MAP: Map<string, string> = new Map(
+  PAYMENT_STATUSES.map((s) => [s.value, s.label]),
+)
+const PAYMENT_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  PAYMENT_STATUSES.map((s) => [s.value, s.color]),
+)
 
 const TUITION_STATUSES = [
   { value: 'active', label: '生效', color: 'bg-green-500' },
   { value: 'inactive', label: '失效', color: 'bg-gray-500' },
 ] as const
 
-const TUITION_STATUS_MAP: Map<string, string> = new Map(TUITION_STATUSES.map((s) => [s.value, s.label]))
-const TUITION_STATUS_COLOR_MAP: Map<string, string> = new Map(TUITION_STATUSES.map((s) => [s.value, s.color]))
+const TUITION_STATUS_MAP: Map<string, string> = new Map(
+  TUITION_STATUSES.map((s) => [s.value, s.label]),
+)
+const TUITION_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  TUITION_STATUSES.map((s) => [s.value, s.color]),
+)
 
 const REFUND_STATUSES = [
   { value: 'pending', label: '待审批', color: 'bg-yellow-500' },
@@ -165,8 +177,12 @@ const REFUND_STATUSES = [
   { value: 'cancelled', label: '已取消', color: 'bg-gray-500' },
 ] as const
 
-const REFUND_STATUS_MAP: Map<string, string> = new Map(REFUND_STATUSES.map((s) => [s.value, s.label]))
-const REFUND_STATUS_COLOR_MAP: Map<string, string> = new Map(REFUND_STATUSES.map((s) => [s.value, s.color]))
+const REFUND_STATUS_MAP: Map<string, string> = new Map(
+  REFUND_STATUSES.map((s) => [s.value, s.label]),
+)
+const REFUND_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  REFUND_STATUSES.map((s) => [s.value, s.color]),
+)
 
 /* ─── Tuition Standard Dialog ─── */
 
@@ -271,7 +287,9 @@ function TuitionDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -284,7 +302,9 @@ function TuitionDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {terms.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -317,7 +337,9 @@ function TuitionDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {BILLING_CYCLES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -335,11 +357,20 @@ function TuitionDialog({
         <DialogFooter>
           {initial && onDelete && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1 h-4 w-4" />
+              )}
               删除
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !form.feeName.trim() || !form.classId || !form.termId || !form.effectiveDate}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saving || !form.feeName.trim() || !form.classId || !form.termId || !form.effectiveDate
+            }
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {initial ? '保存' : '添加'}
           </Button>
@@ -475,7 +506,9 @@ function PaymentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -499,7 +532,12 @@ function PaymentDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentName.trim() || !form.feeName.trim() || !form.paymentDate}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saving || !form.studentName.trim() || !form.feeName.trim() || !form.paymentDate
+            }
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             添加缴费
           </Button>
@@ -623,7 +661,9 @@ function RefundDialog({
               </SelectTrigger>
               <SelectContent>
                 {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -646,7 +686,10 @@ function RefundDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentName.trim() || !form.reason.trim() || !form.refundDate}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.studentName.trim() || !form.reason.trim() || !form.refundDate}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             提交申请
           </Button>
@@ -696,10 +739,22 @@ function ApproveRefundDialog({
         {refund && (
           <div className="space-y-3 py-2">
             <div className="rounded-md border p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">学员：</span>{refund.studentName}</p>
-              <p><span className="text-muted-foreground">班级：</span>{refund.className}</p>
-              <p><span className="text-muted-foreground">金额：</span><span className="font-medium">{refund.amount.toLocaleString()}元</span></p>
-              <p><span className="text-muted-foreground">原因：</span>{refund.reason}</p>
+              <p>
+                <span className="text-muted-foreground">学员：</span>
+                {refund.studentName}
+              </p>
+              <p>
+                <span className="text-muted-foreground">班级：</span>
+                {refund.className}
+              </p>
+              <p>
+                <span className="text-muted-foreground">金额：</span>
+                <span className="font-medium">{refund.amount.toLocaleString()}元</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">原因：</span>
+                {refund.reason}
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label>审批意见</Label>
@@ -717,15 +772,19 @@ function ApproveRefundDialog({
             onClick={() => handleAction('rejected')}
             disabled={processing}
           >
-            {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+            {processing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="mr-1 h-4 w-4" />
+            )}
             驳回
           </Button>
-          <Button
-            variant="default"
-            onClick={() => handleAction('approved')}
-            disabled={processing}
-          >
-            {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
+          <Button variant="default" onClick={() => handleAction('approved')} disabled={processing}>
+            {processing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+            )}
             批准
           </Button>
         </DialogFooter>
@@ -776,7 +835,9 @@ export default function FinancePage() {
       if (paymentClassFilter) params.set('classId', paymentClassFilter)
       if (paymentStatusFilter) params.set('status', paymentStatusFilter)
       const qs = params.toString()
-      return api<{ list: PaymentRecord[] }>(`/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`)
+      return api<{ list: PaymentRecord[] }>(
+        `/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`,
+      )
     },
   })
   const payments = (paymentQuery.data?.list ?? []).filter((p) => !p.deletedAt)
@@ -787,7 +848,9 @@ export default function FinancePage() {
       const params = new URLSearchParams()
       if (paymentClassFilter) params.set('classId', paymentClassFilter)
       const qs = params.toString()
-      return api<PaymentSummary>(`/api/edu-ai-management/payment-record/summary${qs ? `?${qs}` : ''}`)
+      return api<PaymentSummary>(
+        `/api/edu-ai-management/payment-record/summary${qs ? `?${qs}` : ''}`,
+      )
     },
   })
   const summary = summaryQuery.data
@@ -846,7 +909,15 @@ export default function FinancePage() {
   })
 
   const approveRefund = useMutation({
-    mutationFn: ({ id, status, remark }: { id: string; status: 'approved' | 'rejected'; remark: string }) =>
+    mutationFn: ({
+      id,
+      status,
+      remark,
+    }: {
+      id: string
+      status: 'approved' | 'rejected'
+      remark: string
+    }) =>
       api(`/api/edu-ai-management/refund/${id}/approve`, {
         method: 'PUT',
         body: JSON.stringify({ status, approveRemark: remark || null }),
@@ -879,7 +950,11 @@ export default function FinancePage() {
     await createRefund.mutateAsync(data)
   }
 
-  const handleApproveRefund = async (id: string, status: 'approved' | 'rejected', remark: string) => {
+  const handleApproveRefund = async (
+    id: string,
+    status: 'approved' | 'rejected',
+    remark: string,
+  ) => {
     await approveRefund.mutateAsync({ id, status, remark })
   }
 
@@ -912,7 +987,13 @@ export default function FinancePage() {
         <TabsContent value="tuition" className="space-y-4">
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Button size="sm" onClick={() => { setEditingTuition(null); setTuitionDialogOpen(true) }}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingTuition(null)
+                  setTuitionDialogOpen(true)
+                }}
+              >
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 添加学费标准
               </Button>
@@ -947,14 +1028,30 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">班级</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">费用名称</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">金额</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">计费周期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">生效日期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          费用名称
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          金额
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          计费周期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          生效日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -985,7 +1082,10 @@ export default function FinancePage() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs"
-                                onClick={() => { setEditingTuition(t); setTuitionDialogOpen(true) }}
+                                onClick={() => {
+                                  setEditingTuition(t)
+                                  setTuitionDialogOpen(true)
+                                }}
                               >
                                 <Pencil className="mr-1 h-3 w-3" />
                                 编辑
@@ -1028,7 +1128,9 @@ export default function FinancePage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">已缴费人数</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  已缴费人数
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{summary?.paidCount ?? '-'}</p>
@@ -1036,7 +1138,9 @@ export default function FinancePage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">欠费人数</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  欠费人数
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-orange-500">{summary?.unpaidCount ?? '-'}</p>
@@ -1044,7 +1148,9 @@ export default function FinancePage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">欠费总额</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  欠费总额
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-red-500">
@@ -1056,25 +1162,35 @@ export default function FinancePage() {
 
           <Card>
             <CardContent className="flex flex-wrap items-center gap-3 p-4">
-              <Select value={paymentClassFilter} onValueChange={(v) => setPaymentClassFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={paymentClassFilter}
+                onValueChange={(v) => setPaymentClassFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-36">
                   <SelectValue placeholder="全部班级" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部班级</SelectItem>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={paymentStatusFilter} onValueChange={(v) => setPaymentStatusFilter(v === 'all' ? '' : v)}>
+              <Select
+                value={paymentStatusFilter}
+                onValueChange={(v) => setPaymentStatusFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {PAYMENT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1113,14 +1229,30 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学员</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">班级</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">费用名称</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">金额</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">缴费日期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">缴费方式</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">收据号</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          费用名称
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          金额
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          缴费日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          缴费方式
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          收据号
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1129,7 +1261,9 @@ export default function FinancePage() {
                           <td className="px-4 py-3 text-xs font-medium">{p.studentName}</td>
                           <td className="px-4 py-3 text-xs">{p.className}</td>
                           <td className="px-4 py-3 text-xs">{p.feeName}</td>
-                          <td className="px-4 py-3 text-xs font-medium">{p.amount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {p.amount.toLocaleString()}
+                          </td>
                           <td className="px-4 py-3 text-xs">{p.paymentDate}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {PAYMENT_METHOD_MAP.get(p.paymentMethod) ?? p.paymentMethod}
@@ -1145,7 +1279,9 @@ export default function FinancePage() {
                               {PAYMENT_STATUS_MAP.get(p.status) ?? p.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{p.receiptNo || '-'}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {p.receiptNo || '-'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1195,14 +1331,30 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">学员</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">班级</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">金额</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">退费日期</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">退费方式</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">原因</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          金额
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          退费日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          退费方式
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          原因
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1210,7 +1362,9 @@ export default function FinancePage() {
                         <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs">{r.className}</td>
-                          <td className="px-4 py-3 text-xs font-medium">{r.amount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {r.amount.toLocaleString()}
+                          </td>
                           <td className="px-4 py-3 text-xs">{r.refundDate}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {PAYMENT_METHOD_MAP.get(r.refundMethod) ?? r.refundMethod}

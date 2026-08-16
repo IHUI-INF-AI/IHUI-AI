@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, timestamp, text, integer, jsonb, unique, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp,
+  text,
+  integer,
+  jsonb,
+  unique,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 租户主表。
@@ -19,7 +29,7 @@ export const tenants = pgTable('tenants', {
   settings: jsonb('settings').default({}).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 租户成员表。
@@ -45,7 +55,7 @@ export const tenantMembers = pgTable(
     // 按 user_id 查询无法利用,需独立索引(2026-08-06 recordAiCost 自动解析 tenantId 配套)。
     userIdIdx: index('tenant_members_user_id_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * 租户配额表。
@@ -69,11 +79,11 @@ export const tenantQuotas = pgTable('tenant_quotas', {
   periodEnd: timestamp('period_end', { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Tenant = typeof tenants.$inferSelect;
-export type NewTenant = typeof tenants.$inferInsert;
-export type TenantMember = typeof tenantMembers.$inferSelect;
-export type NewTenantMember = typeof tenantMembers.$inferInsert;
-export type TenantQuota = typeof tenantQuotas.$inferSelect;
-export type NewTenantQuota = typeof tenantQuotas.$inferInsert;
+export type Tenant = typeof tenants.$inferSelect
+export type NewTenant = typeof tenants.$inferInsert
+export type TenantMember = typeof tenantMembers.$inferSelect
+export type NewTenantMember = typeof tenantMembers.$inferInsert
+export type TenantQuota = typeof tenantQuotas.$inferSelect
+export type NewTenantQuota = typeof tenantQuotas.$inferInsert

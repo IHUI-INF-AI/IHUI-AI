@@ -52,20 +52,174 @@ const PROVIDER_ORDER = [
  * 字段含 Input/Output 价格(¥/千token)、标签、计费模式。
  */
 const MOCK_MODELS: ModelDisplay[] = [
-  { id: 'm1', name: 'gpt-4-turbo', provider: 'OpenAI', desc: '最新一代多模态大模型,支持文本/图像/代码生成', inputPrice: '0.06', outputPrice: '0.12', tags: ['GPT-4', '128K上下文', '多模态'], payMode: '按量计费', type: 'text', contextLength: 128000 },
-  { id: 'm2', name: 'gpt-4-vision', provider: 'OpenAI', desc: '视觉理解模型,可解析图像内容', inputPrice: '0.08', outputPrice: '0.16', tags: ['视觉', '多模态'], payMode: '按量计费', type: 'image', contextLength: 128000 },
-  { id: 'm3', name: 'dall-e-3', provider: 'OpenAI', desc: '高质量图像生成模型', inputPrice: '0.04', outputPrice: '-', tags: ['绘图', '1024P'], payMode: '按次计费', type: 'image', contextLength: 0 },
-  { id: 'm4', name: 'claude-3-opus', provider: 'Anthropic', desc: 'Anthropic 旗舰大模型,长文理解优秀', inputPrice: '0.015', outputPrice: '0.075', tags: ['Claude 3', '200K上下文'], payMode: '按量计费', type: 'text', contextLength: 200000 },
-  { id: 'm5', name: 'claude-3-sonnet', provider: 'Anthropic', desc: '平衡速度与能力的中间型号', inputPrice: '0.003', outputPrice: '0.015', tags: ['Claude 3', '快速'], payMode: '按量计费', type: 'text', contextLength: 200000 },
-  { id: 'm6', name: 'gemini-1.5-pro', provider: 'Google', desc: 'Google 多模态大模型,支持超长上下文', inputPrice: '0.0125', outputPrice: '0.05', tags: ['Gemini', '1M上下文', '多模态'], payMode: '按量计费', type: 'text', contextLength: 1000000 },
-  { id: 'm7', name: 'gemini-1.5-flash', provider: 'Google', desc: '快速响应的轻量级 Gemini 模型', inputPrice: '0.0005', outputPrice: '0.0015', tags: ['Gemini', '快速'], payMode: '按量计费', type: 'text', contextLength: 1000000 },
-  { id: 'm8', name: 'step-2-16k', provider: 'StepFun', desc: '阶跃星辰大模型', inputPrice: '0.005', outputPrice: '0.02', tags: ['Step', '16K上下文'], payMode: '按量计费', type: 'text', contextLength: 16000 },
-  { id: 'm9', name: 'qwen-max', provider: '阿里云', desc: '通义千问旗舰模型', inputPrice: '0.04', outputPrice: '0.12', tags: ['Qwen', '8K上下文'], payMode: '按量计费', type: 'text', contextLength: 8000 },
-  { id: 'm10', name: 'qwen-vl-max', provider: '阿里云', desc: '通义千问 VL 视觉理解模型', inputPrice: '0.02', outputPrice: '0.06', tags: ['Qwen-VL', '视觉'], payMode: '按量计费', type: 'image', contextLength: 8000 },
-  { id: 'm11', name: 'wenxin-4', provider: '百度', desc: '百度文心一言旗舰模型', inputPrice: '0.03', outputPrice: '0.09', tags: ['ERNIE', '8K上下文'], payMode: '按量计费', type: 'text', contextLength: 8000 },
-  { id: 'm12', name: 'doubao-pro-4k', provider: '字节', desc: '字节豆包大模型,性价比之选', inputPrice: '0.001', outputPrice: '0.002', tags: ['豆包', '4K上下文', '性价比'], payMode: '按量计费', type: 'text', contextLength: 4000 },
-  { id: 'm13', name: 'doubao-voice', provider: '字节', desc: '豆包语音合成模型', inputPrice: '0.002', outputPrice: '-', tags: ['TTS', '语音'], payMode: '按次计费', type: 'av', contextLength: 0 },
-  { id: 'm14', name: 'glm-4', provider: '智谱', desc: '智谱清言 GLM-4 旗舰大模型', inputPrice: '0.05', outputPrice: '0.15', tags: ['GLM-4', '128K上下文'], payMode: '按量计费', type: 'text', contextLength: 128000 },
+  {
+    id: 'm1',
+    name: 'gpt-4-turbo',
+    provider: 'OpenAI',
+    desc: '最新一代多模态大模型,支持文本/图像/代码生成',
+    inputPrice: '0.06',
+    outputPrice: '0.12',
+    tags: ['GPT-4', '128K上下文', '多模态'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 128000,
+  },
+  {
+    id: 'm2',
+    name: 'gpt-4-vision',
+    provider: 'OpenAI',
+    desc: '视觉理解模型,可解析图像内容',
+    inputPrice: '0.08',
+    outputPrice: '0.16',
+    tags: ['视觉', '多模态'],
+    payMode: '按量计费',
+    type: 'image',
+    contextLength: 128000,
+  },
+  {
+    id: 'm3',
+    name: 'dall-e-3',
+    provider: 'OpenAI',
+    desc: '高质量图像生成模型',
+    inputPrice: '0.04',
+    outputPrice: '-',
+    tags: ['绘图', '1024P'],
+    payMode: '按次计费',
+    type: 'image',
+    contextLength: 0,
+  },
+  {
+    id: 'm4',
+    name: 'claude-3-opus',
+    provider: 'Anthropic',
+    desc: 'Anthropic 旗舰大模型,长文理解优秀',
+    inputPrice: '0.015',
+    outputPrice: '0.075',
+    tags: ['Claude 3', '200K上下文'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 200000,
+  },
+  {
+    id: 'm5',
+    name: 'claude-3-sonnet',
+    provider: 'Anthropic',
+    desc: '平衡速度与能力的中间型号',
+    inputPrice: '0.003',
+    outputPrice: '0.015',
+    tags: ['Claude 3', '快速'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 200000,
+  },
+  {
+    id: 'm6',
+    name: 'gemini-1.5-pro',
+    provider: 'Google',
+    desc: 'Google 多模态大模型,支持超长上下文',
+    inputPrice: '0.0125',
+    outputPrice: '0.05',
+    tags: ['Gemini', '1M上下文', '多模态'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 1000000,
+  },
+  {
+    id: 'm7',
+    name: 'gemini-1.5-flash',
+    provider: 'Google',
+    desc: '快速响应的轻量级 Gemini 模型',
+    inputPrice: '0.0005',
+    outputPrice: '0.0015',
+    tags: ['Gemini', '快速'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 1000000,
+  },
+  {
+    id: 'm8',
+    name: 'step-2-16k',
+    provider: 'StepFun',
+    desc: '阶跃星辰大模型',
+    inputPrice: '0.005',
+    outputPrice: '0.02',
+    tags: ['Step', '16K上下文'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 16000,
+  },
+  {
+    id: 'm9',
+    name: 'qwen-max',
+    provider: '阿里云',
+    desc: '通义千问旗舰模型',
+    inputPrice: '0.04',
+    outputPrice: '0.12',
+    tags: ['Qwen', '8K上下文'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 8000,
+  },
+  {
+    id: 'm10',
+    name: 'qwen-vl-max',
+    provider: '阿里云',
+    desc: '通义千问 VL 视觉理解模型',
+    inputPrice: '0.02',
+    outputPrice: '0.06',
+    tags: ['Qwen-VL', '视觉'],
+    payMode: '按量计费',
+    type: 'image',
+    contextLength: 8000,
+  },
+  {
+    id: 'm11',
+    name: 'wenxin-4',
+    provider: '百度',
+    desc: '百度文心一言旗舰模型',
+    inputPrice: '0.03',
+    outputPrice: '0.09',
+    tags: ['ERNIE', '8K上下文'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 8000,
+  },
+  {
+    id: 'm12',
+    name: 'doubao-pro-4k',
+    provider: '字节',
+    desc: '字节豆包大模型,性价比之选',
+    inputPrice: '0.001',
+    outputPrice: '0.002',
+    tags: ['豆包', '4K上下文', '性价比'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 4000,
+  },
+  {
+    id: 'm13',
+    name: 'doubao-voice',
+    provider: '字节',
+    desc: '豆包语音合成模型',
+    inputPrice: '0.002',
+    outputPrice: '-',
+    tags: ['TTS', '语音'],
+    payMode: '按次计费',
+    type: 'av',
+    contextLength: 0,
+  },
+  {
+    id: 'm14',
+    name: 'glm-4',
+    provider: '智谱',
+    desc: '智谱清言 GLM-4 旗舰大模型',
+    inputPrice: '0.05',
+    outputPrice: '0.15',
+    tags: ['GLM-4', '128K上下文'],
+    payMode: '按量计费',
+    type: 'text',
+    contextLength: 128000,
+  },
 ]
 
 function inferType(model: LlmModel): ModelType {
@@ -87,39 +241,49 @@ export default function ModelPlazaIndex() {
     { key: 'av', label: tt('modelPlaza.tabAv', '音视频') },
   ]
 
-  const inferTags = useCallback((model: LlmModel): string[] => {
-    const tags: string[] = []
-    const name = (model.name || '').toLowerCase()
-    if (/gpt-?4|gpt4/.test(name)) tags.push('GPT-4')
-    else if (/gpt-?3/.test(name)) tags.push('GPT-3.5')
-    else if (/claude/.test(name)) tags.push('Claude')
-    else if (/gemini/.test(name)) tags.push('Gemini')
-    else if (/qwen/.test(name)) tags.push('Qwen')
-    else if (/glm/.test(name)) tags.push('GLM')
-    else if (/doubao/.test(name)) tags.push('Doubao')
-    else if (/ernie|wenxin/.test(name)) tags.push('ERNIE')
-    else if (/step/.test(name)) tags.push('Step')
-    if (model.context_length > 0) {
-      const k = model.context_length / 1000
-      tags.push(k >= 1000 ? `${k / 1000}M${tt('modelPlaza.contextLength', '上下文')}` : `${k}K${tt('modelPlaza.contextLength', '上下文')}`)
-    }
-    return tags
-  }, [tt])
+  const inferTags = useCallback(
+    (model: LlmModel): string[] => {
+      const tags: string[] = []
+      const name = (model.name || '').toLowerCase()
+      if (/gpt-?4|gpt4/.test(name)) tags.push('GPT-4')
+      else if (/gpt-?3/.test(name)) tags.push('GPT-3.5')
+      else if (/claude/.test(name)) tags.push('Claude')
+      else if (/gemini/.test(name)) tags.push('Gemini')
+      else if (/qwen/.test(name)) tags.push('Qwen')
+      else if (/glm/.test(name)) tags.push('GLM')
+      else if (/doubao/.test(name)) tags.push('Doubao')
+      else if (/ernie|wenxin/.test(name)) tags.push('ERNIE')
+      else if (/step/.test(name)) tags.push('Step')
+      if (model.context_length > 0) {
+        const k = model.context_length / 1000
+        tags.push(
+          k >= 1000
+            ? `${k / 1000}M${tt('modelPlaza.contextLength', '上下文')}`
+            : `${k}K${tt('modelPlaza.contextLength', '上下文')}`,
+        )
+      }
+      return tags
+    },
+    [tt],
+  )
 
-  const normalizeModel = useCallback((raw: LlmModel): ModelDisplay => {
-    return {
-      id: String(raw.id ?? Math.random().toString(36).slice(2)),
-      name: raw.name || '',
-      provider: raw.provider || 'Unknown',
-      desc: `${raw.provider || ''} ${raw.name || ''} ${tt('modelPlaza.providerModel', '模型')}`,
-      inputPrice: String(raw.input_price ?? 0),
-      outputPrice: '-',
-      tags: inferTags(raw),
-      payMode: tt('modelPlaza.payMode', '按量计费'),
-      type: inferType(raw),
-      contextLength: raw.context_length ?? 0,
-    }
-  }, [inferTags, tt])
+  const normalizeModel = useCallback(
+    (raw: LlmModel): ModelDisplay => {
+      return {
+        id: String(raw.id ?? Math.random().toString(36).slice(2)),
+        name: raw.name || '',
+        provider: raw.provider || 'Unknown',
+        desc: `${raw.provider || ''} ${raw.name || ''} ${tt('modelPlaza.providerModel', '模型')}`,
+        inputPrice: String(raw.input_price ?? 0),
+        outputPrice: '-',
+        tags: inferTags(raw),
+        payMode: tt('modelPlaza.payMode', '按量计费'),
+        type: inferType(raw),
+        contextLength: raw.context_length ?? 0,
+      }
+    },
+    [inferTags, tt],
+  )
 
   function typeLabel(type: ModelType): string {
     if (type === 'image') return tt('modelPlaza.tabImage', '图像')
@@ -181,9 +345,7 @@ export default function ModelPlazaIndex() {
   // 当前厂商 + 类型双过滤
   const filteredList = useMemo(() => {
     return models.filter(
-      (m) =>
-        m.provider === providerId &&
-        (typeFilter === 'all' || m.type === typeFilter),
+      (m) => m.provider === providerId && (typeFilter === 'all' || m.type === typeFilter),
     )
   }, [models, providerId, typeFilter])
 
@@ -220,7 +382,11 @@ export default function ModelPlazaIndex() {
                 className={`provider-tab${providerId === p ? ' active' : ''}`}
                 onClick={() => setProviderId(p)}
               >
-                <Image className="provider-icon" src={PROVIDER_ICONS[p] || '/static/images/icons/bot.svg'} mode="aspectFit" />
+                <Image
+                  className="provider-icon"
+                  src={PROVIDER_ICONS[p] || '/static/images/icons/bot.svg'}
+                  mode="aspectFit"
+                />
                 <Text className="provider-name">{p}</Text>
               </View>
             ))}
@@ -230,12 +396,12 @@ export default function ModelPlazaIndex() {
 
       {/* 厂商头部 */}
       <View className="provider-header">
-        <Text className="provider-name">
-          {providerId || '-'}
-        </Text>
+        <Text className="provider-name">{providerId || '-'}</Text>
         <Text className="provider-meta">
           {t('modelPlaza.modelCount', { n: currentProviderCount })}
-          {currentProviderCount > filteredList.length ? t('modelPlaza.synced', { n: filteredList.length }) : ''}
+          {currentProviderCount > filteredList.length
+            ? t('modelPlaza.synced', { n: filteredList.length })
+            : ''}
         </Text>
       </View>
 
@@ -271,12 +437,16 @@ export default function ModelPlazaIndex() {
               </View>
               <View className="card-price">
                 <Text className="price-label">Input</Text>
-                <Text className="price-value">¥{m.inputPrice}/{tt('modelPlaza.perKTokens', '千token')}</Text>
+                <Text className="price-value">
+                  ¥{m.inputPrice}/{tt('modelPlaza.perKTokens', '千token')}
+                </Text>
                 {m.outputPrice !== '-' ? (
                   <>
                     <Text className="price-divider">|</Text>
                     <Text className="price-label">Output</Text>
-                    <Text className="price-value">¥{m.outputPrice}/{tt('modelPlaza.perKTokens', '千token')}</Text>
+                    <Text className="price-value">
+                      ¥{m.outputPrice}/{tt('modelPlaza.perKTokens', '千token')}
+                    </Text>
                   </>
                 ) : (
                   <Text className="price-extra">({m.payMode})</Text>
@@ -286,7 +456,9 @@ export default function ModelPlazaIndex() {
               {m.tags.length > 0 ? (
                 <View className="card-tags">
                   {m.tags.map((tag, i) => (
-                    <Text key={i} className="tag-item">{tag}</Text>
+                    <Text key={i} className="tag-item">
+                      {tag}
+                    </Text>
                   ))}
                 </View>
               ) : null}

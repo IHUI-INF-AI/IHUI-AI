@@ -40,9 +40,7 @@ export function getRefreshTokenCookie(): string | null {
   // P2-18 修复(2026-08-06):httpOnly cookie JS 读不到,新部署恒返回 null。
   // 保留实现作为旧版本降级通道(后端仍下发非 httpOnly refresh_token 时可读)。
   if (typeof document === 'undefined') return null
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${REFRESH_TOKEN_COOKIE}=([^;]+)`),
-  )
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${REFRESH_TOKEN_COOKIE}=([^;]+)`))
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
@@ -58,8 +56,6 @@ export function clearRefreshTokenCookie(): void {
  */
 export function getAuthCookie(): string | null {
   if (typeof document === 'undefined') return null
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${AUTH_TOKEN_COOKIE}=([^;]+)`),
-  )
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${AUTH_TOKEN_COOKIE}=([^;]+)`))
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }

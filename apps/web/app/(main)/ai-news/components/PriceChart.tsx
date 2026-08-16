@@ -50,14 +50,34 @@ export function PriceChart({ entries }: Props) {
   const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => (maxVal * i) / yTicks)
 
   return (
-    <svg viewBox={`0 0 ${chartW} ${CHART_H}`} className="w-full" style={{ maxHeight: CHART_H }} preserveAspectRatio="xMidYMid meet">
+    <svg
+      viewBox={`0 0 ${chartW} ${CHART_H}`}
+      className="w-full"
+      style={{ maxHeight: CHART_H }}
+      preserveAspectRatio="xMidYMid meet"
+    >
       {/* Y 轴刻度 + 网格线 */}
       {tickVals.map((v, i) => {
         const y = PAD_T + plotH - (v / maxVal) * plotH
         return (
           <g key={i}>
-            <line x1={PAD_L} y1={y} x2={chartW - PAD_R} y2={y} className="stroke-muted" strokeWidth={0.5} opacity={0.3} />
-            <text x={PAD_L - 4} y={y} textAnchor="end" dominantBaseline="middle" className="fill-muted-foreground" fontSize={8}>
+            <line
+              x1={PAD_L}
+              y1={y}
+              x2={chartW - PAD_R}
+              y2={y}
+              className="stroke-muted"
+              strokeWidth={0.5}
+              opacity={0.3}
+            />
+            <text
+              x={PAD_L - 4}
+              y={y}
+              textAnchor="end"
+              dominantBaseline="middle"
+              className="fill-muted-foreground"
+              fontSize={8}
+            >
               {v.toFixed(v >= 10 ? 0 : 1)}
             </text>
           </g>
@@ -71,16 +91,36 @@ export function PriceChart({ entries }: Props) {
         return (
           <g key={i}>
             {inH > 0 ? (
-              <rect x={gx} y={PAD_T + plotH - inH} width={BAR_W} height={inH} fill="#3b82f6" rx={1.5}>
+              <rect
+                x={gx}
+                y={PAD_T + plotH - inH}
+                width={BAR_W}
+                height={inH}
+                fill="#3b82f6"
+                rx={1.5}
+              >
                 <title>{`${d.name} · 输入价: ${d.inputRaw}`}</title>
               </rect>
             ) : null}
             {outH > 0 ? (
-              <rect x={gx + BAR_W + BAR_GAP} y={PAD_T + plotH - outH} width={BAR_W} height={outH} fill="#f97316" rx={1.5}>
+              <rect
+                x={gx + BAR_W + BAR_GAP}
+                y={PAD_T + plotH - outH}
+                width={BAR_W}
+                height={outH}
+                fill="#f97316"
+                rx={1.5}
+              >
                 <title>{`${d.name} · 输出价: ${d.outputRaw}`}</title>
               </rect>
             ) : null}
-            <text x={gx + BAR_W + BAR_GAP / 2} y={PAD_T + plotH + 13} textAnchor="middle" className="fill-muted-foreground" fontSize={8}>
+            <text
+              x={gx + BAR_W + BAR_GAP / 2}
+              y={PAD_T + plotH + 13}
+              textAnchor="middle"
+              className="fill-muted-foreground"
+              fontSize={8}
+            >
               {d.name}
             </text>
           </g>
@@ -89,9 +129,13 @@ export function PriceChart({ entries }: Props) {
       {/* 图例 */}
       <g>
         <rect x={PAD_L} y={2} width={8} height={8} fill="#3b82f6" rx={1} />
-        <text x={PAD_L + 12} y={9} className="fill-muted-foreground" fontSize={8}>输入</text>
+        <text x={PAD_L + 12} y={9} className="fill-muted-foreground" fontSize={8}>
+          输入
+        </text>
         <rect x={PAD_L + 44} y={2} width={8} height={8} fill="#f97316" rx={1} />
-        <text x={PAD_L + 56} y={9} className="fill-muted-foreground" fontSize={8}>输出</text>
+        <text x={PAD_L + 56} y={9} className="fill-muted-foreground" fontSize={8}>
+          输出
+        </text>
       </g>
     </svg>
   )

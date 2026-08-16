@@ -41,9 +41,7 @@ export const vector1536 = customType<{
       throw new Error('vector1536.toDriver: value must be number[]')
     }
     if (value.length !== 1536) {
-      throw new Error(
-        `vector1536.toDriver: dimension mismatch, expected 1536 got ${value.length}`,
-      )
+      throw new Error(`vector1536.toDriver: dimension mismatch, expected 1536 got ${value.length}`)
     }
     return `[${value.join(',')}]`
   },

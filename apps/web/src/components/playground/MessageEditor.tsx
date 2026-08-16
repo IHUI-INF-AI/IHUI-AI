@@ -6,7 +6,17 @@
 
 import * as React from 'react'
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
-import { Button, Card, CardContent, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ihui/ui-react'
 import type { PlaygroundMessage, PlaygroundRole } from './PlaygroundTypes'
 
 interface MessageEditorProps {

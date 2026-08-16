@@ -14,18 +14,18 @@
 
 ### 模块分布
 
-| 模块       | 数量 |   | 模块          | 数量 |
-| ---------- | ---- |--- | ------------- | ---- |
-| member     | 26   |   | circle        | 4    |
-| learn      | 24   |   | comment       | 2    |
-| exam       | 19   |   | ask           | 2    |
-| resource   | 6    |   | setting       | 2    |
-| live       | 7    |   | account       | 1    |
-| message    | 7    |   | announcement  | 1    |
-| auth       | 5    |   | certificate   | 1    |
-| article    | 3    |   | search        | 1    |
-| news       | 3    |   |               |      |
-| point      | 3    |   | **总计**      | **117** |
+| 模块     | 数量 |     | 模块         | 数量    |
+| -------- | ---- | --- | ------------ | ------- |
+| member   | 26   |     | circle       | 4       |
+| learn    | 24   |     | comment      | 2       |
+| exam     | 19   |     | ask          | 2       |
+| resource | 6    |     | setting      | 2       |
+| live     | 7    |     | account      | 1       |
+| message  | 7    |     | announcement | 1       |
+| auth     | 5    |     | certificate  | 1       |
+| article  | 3    |     | search       | 1       |
+| news     | 3    |     |              |         |
+| point    | 3    |     | **总计**     | **117** |
 
 ### 完整清单
 
@@ -33,21 +33,26 @@
 <summary>展开查看 117 个 edu 业务编辑/分类子页完整清单</summary>
 
 #### account (1)
+
 - `/account/security`
 
 #### announcement (1)
+
 - `/announcement/detail`
 
 #### article (3)
+
 - `/article/category`
 - `/article/detail`
 - `/article/list`
 
 #### ask (2)
+
 - `/ask/category`
 - `/ask/question`
 
 #### auth (5)
+
 - `/auth/authority`
 - `/auth/organizational`
 - `/auth/organizational/department`
@@ -55,19 +60,23 @@
 - `/auth/role`
 
 #### certificate (1)
+
 - `/certificate/download`
 
 #### circle (4)
+
 - `/circle/category`
 - `/circle/detail`
 - `/circle/dynamics`
 - `/circle/list`
 
 #### comment (2)
+
 - `/comment/list`
 - `/comment/sensitive-word`
 
 #### exam (19)
+
 - `/exam/answer`
 - `/exam/answer/mark`
 - `/exam/detail`
@@ -89,6 +98,7 @@
 - `/exam/question-lib/subjective`
 
 #### learn (24)
+
 - `/learn/buyconfirm`
 - `/learn/certificate`
 - `/learn/certificate/template`
@@ -115,6 +125,7 @@
 - `/learn/topic/edit`
 
 #### live (7)
+
 - `/live/channel`
 - `/live/channel/category`
 - `/live/channel/edit`
@@ -124,6 +135,7 @@
 - `/live/play`
 
 #### member (26)
+
 - `/member/article`
 - `/member/ask`
 - `/member/certificate`
@@ -152,6 +164,7 @@
 - `/member/unaudited`
 
 #### message (7)
+
 - `/message/announcement`
 - `/message/comment`
 - `/message/fans`
@@ -161,16 +174,19 @@
 - `/message/private-letter`
 
 #### news (3)
+
 - `/news/detail`
 - `/news/edit`
 - `/news/list`
 
 #### point (3)
+
 - `/point/channel`
 - `/point/list`
 - `/point/record`
 
 #### resource (6)
+
 - `/resource/category`
 - `/resource/detail`
 - `/resource/edit`
@@ -179,9 +195,11 @@
 - `/resource/tag`
 
 #### search (1)
+
 - `/search/hot-word`
 
 #### setting (2)
+
 - `/setting/agreement`
 - `/setting/carousel`
 
@@ -193,23 +211,23 @@
 
 ### 总体决策分布
 
-| 决策       | 数量 | 占比   |
-| ---------- | ---- | ------ |
-| 已迁移     | 18   | 60.0%  |
-| 部分迁移   | 11   | 36.7%  |
-| 真实缺失   | 1    | 3.3%   |
-| **总计**   | **30** | **100%** |
+| 决策     | 数量   | 占比     |
+| -------- | ------ | -------- |
+| 已迁移   | 18     | 60.0%    |
+| 部分迁移 | 11     | 36.7%    |
+| 真实缺失 | 1      | 3.3%     |
+| **总计** | **30** | **100%** |
 
 ### 按模块统计
 
-| 模块   | 抽样 | 已迁移 | 部分迁移 | 真实缺失 |
-| ------ | ---- | ------ | -------- | -------- |
-| exam   | 10   | 8      | 2        | 0        |
-| learn  | 8    | 3      | 4        | 1        |
-| live   | 4    | 1      | 3        | 0        |
-| member | 5    | 4      | 1        | 0        |
-| order  | 3    | 2      | 1        | 0        |
-| **总计** | **30** | **18** | **11** | **1**  |
+| 模块     | 抽样   | 已迁移 | 部分迁移 | 真实缺失 |
+| -------- | ------ | ------ | -------- | -------- |
+| exam     | 10     | 8      | 2        | 0        |
+| learn    | 8      | 3      | 4        | 1        |
+| live     | 4      | 1      | 3        | 0        |
+| member   | 5      | 4      | 1        | 0        |
+| order    | 3      | 2      | 1        | 0        |
+| **总计** | **30** | **18** | **11**   | **1**    |
 
 ### 抽样核心结论
 
@@ -224,26 +242,26 @@
 
 > 判定标准: 在 `apps/web/app/(main)/admin/**` 下存在路径 slug 直接对应的 `page.tsx`(或动态路由 `[type]` 覆盖)。
 
-| #  | Vue 路径                              | 模块   | 描述         | Next.js 等价路径                              | 匹配方式            |
-| -- | ------------------------------------- | ------ | ------------ | --------------------------------------------- | ------------------- |
-| 1  | /exam/question-lib/single-choice      | exam   | 单选题编辑   | /admin/edu/exam/questions/[type]              | dynamic-route-match |
-| 2  | /exam/question-lib/multi-choice       | exam   | 多选题编辑   | /admin/edu/exam/questions/[type]              | dynamic-route-match |
-| 3  | /exam/question-lib/judgment           | exam   | 判断题编辑   | /admin/edu/exam/questions/[type]              | dynamic-route-match |
-| 4  | /exam/question-lib/fill-blank         | exam   | 填空题编辑   | /admin/edu/exam/questions/[type]              | dynamic-route-match |
-| 5  | /exam/question-lib/subjective         | exam   | 主观题编辑   | /admin/edu/exam/questions/[type]              | dynamic-route-match |
-| 6  | /exam/paper/normal                    | exam   | 正常试卷编辑 | /admin/edu/exam/papers-manual                 | path-slug-match     |
-| 7  | /exam/paper/random                    | exam   | 随机试卷编辑 | /admin/edu/exam/papers-random                 | path-slug-match     |
-| 8  | /exam/answer/mark                     | exam   | 阅卷         | /admin/exam-marking                           | path-slug-match     |
-| 9  | /learn/lesson/category                | learn  | 课时分类     | /admin/learn/categories                       | path-slug-match     |
-| 10 | /learn/lesson/trash                   | learn  | 课时回收站   | /admin/edu/course/trash                       | path-slug-match     |
-| 11 | /learn/data/sign                      | learn  | 学习签到数据 | /admin/edu/learn/signup-batch                 | path-slug-match     |
-| 12 | /live/lecturer/list                   | live   | 讲师列表     | /admin/live/lecturers                         | path-slug-match     |
-| 13 | /member/group                         | member | 会员分组     | /admin/member-groups                          | path-slug-match     |
-| 14 | /member/level                         | member | 会员等级     | /admin/edu/student/levels                     | path-slug-match     |
-| 15 | /member/tag                           | member | 会员标签     | /admin/tags                                   | path-slug-match     |
-| 16 | /member/company                       | member | 会员公司     | /admin/member/companies                       | path-slug-match     |
-| 17 | /learn/order                          | order  | 订单列表     | /admin/distribution/orders                    | path-slug-match     |
-| 18 | /learn/order/invoice/application      | order  | 发票申请     | /admin/edu/finance/invoices                   | path-slug-match     |
+| #   | Vue 路径                         | 模块   | 描述         | Next.js 等价路径                 | 匹配方式            |
+| --- | -------------------------------- | ------ | ------------ | -------------------------------- | ------------------- |
+| 1   | /exam/question-lib/single-choice | exam   | 单选题编辑   | /admin/edu/exam/questions/[type] | dynamic-route-match |
+| 2   | /exam/question-lib/multi-choice  | exam   | 多选题编辑   | /admin/edu/exam/questions/[type] | dynamic-route-match |
+| 3   | /exam/question-lib/judgment      | exam   | 判断题编辑   | /admin/edu/exam/questions/[type] | dynamic-route-match |
+| 4   | /exam/question-lib/fill-blank    | exam   | 填空题编辑   | /admin/edu/exam/questions/[type] | dynamic-route-match |
+| 5   | /exam/question-lib/subjective    | exam   | 主观题编辑   | /admin/edu/exam/questions/[type] | dynamic-route-match |
+| 6   | /exam/paper/normal               | exam   | 正常试卷编辑 | /admin/edu/exam/papers-manual    | path-slug-match     |
+| 7   | /exam/paper/random               | exam   | 随机试卷编辑 | /admin/edu/exam/papers-random    | path-slug-match     |
+| 8   | /exam/answer/mark                | exam   | 阅卷         | /admin/exam-marking              | path-slug-match     |
+| 9   | /learn/lesson/category           | learn  | 课时分类     | /admin/learn/categories          | path-slug-match     |
+| 10  | /learn/lesson/trash              | learn  | 课时回收站   | /admin/edu/course/trash          | path-slug-match     |
+| 11  | /learn/data/sign                 | learn  | 学习签到数据 | /admin/edu/learn/signup-batch    | path-slug-match     |
+| 12  | /live/lecturer/list              | live   | 讲师列表     | /admin/live/lecturers            | path-slug-match     |
+| 13  | /member/group                    | member | 会员分组     | /admin/member-groups             | path-slug-match     |
+| 14  | /member/level                    | member | 会员等级     | /admin/edu/student/levels        | path-slug-match     |
+| 15  | /member/tag                      | member | 会员标签     | /admin/tags                      | path-slug-match     |
+| 16  | /member/company                  | member | 会员公司     | /admin/member/companies          | path-slug-match     |
+| 17  | /learn/order                     | order  | 订单列表     | /admin/distribution/orders       | path-slug-match     |
+| 18  | /learn/order/invoice/application | order  | 发票申请     | /admin/edu/finance/invoices      | path-slug-match     |
 
 ### 关键迁移模式
 
@@ -257,19 +275,19 @@
 
 > 判定标准: 在 `/admin/**` 下找到业务关键词或 `*Dialog.tsx` 组件,功能等价但路径/模式不同。常见模式: Vue 独立 edit 页 → Next.js 列表页 + Dialog 弹窗编辑(更现代 UX)。
 
-| #  | Vue 路径                              | 模块   | 描述         | Next.js 等价实现                                          | 匹配方式                   |
-| -- | ------------------------------------- | ------ | ------------ | --------------------------------------------------------- | -------------------------- |
-| 1  | /exam/paper/category                  | exam   | 试卷分类     | /admin/edu/exam/categories + CategoriesDialog             | admin-page-keyword-match   |
-| 2  | /exam/exam/edit                       | exam   | 考试编辑     | /admin/edu/exam + ExamDialog.tsx                          | admin-component-name-match |
-| 3  | /learn/lesson/edit                    | learn  | 课时编辑     | /admin/edu/learn + LearnDialog.tsx                        | admin-component-name-match |
-| 4  | /learn/topic/edit                     | learn  | 专题编辑     | /admin/edu/learn/topics + TopicsDialog.tsx                | admin-component-name-match |
-| 5  | /learn/certificate/template           | learn  | 证书模板列表 | /admin/edu/certificate/templates + CertTemplateDialog.tsx | admin-component-name-match |
-| 6  | /learn/certificate/template/edit      | learn  | 证书模板编辑 | /admin/edu/certificate/templates + CertTemplateDialog.tsx | admin-component-name-match |
-| 7  | /live/channel/edit                    | live   | 频道编辑     | /admin/live + ChannelFormDialog.tsx                       | admin-component-name-match |
-| 8  | /live/channel/category                | live   | 频道分类     | /admin/live/categories + LiveCategoryDialog.tsx           | admin-component-name-match |
-| 9  | /live/lecturer/edit                   | live   | 讲师编辑     | /admin/live/lecturers + LecturerDialog.tsx                | admin-component-name-match |
-| 10 | /member/edit                          | member | 会员编辑     | /admin/members + MemberCreateDialog.tsx                   | admin-component-name-match |
-| 11 | /learn/order/invoice/title            | order  | 发票抬头     | /admin/invoices/titles                                    | admin-content-keyword-match |
+| #   | Vue 路径                         | 模块   | 描述         | Next.js 等价实现                                          | 匹配方式                    |
+| --- | -------------------------------- | ------ | ------------ | --------------------------------------------------------- | --------------------------- |
+| 1   | /exam/paper/category             | exam   | 试卷分类     | /admin/edu/exam/categories + CategoriesDialog             | admin-page-keyword-match    |
+| 2   | /exam/exam/edit                  | exam   | 考试编辑     | /admin/edu/exam + ExamDialog.tsx                          | admin-component-name-match  |
+| 3   | /learn/lesson/edit               | learn  | 课时编辑     | /admin/edu/learn + LearnDialog.tsx                        | admin-component-name-match  |
+| 4   | /learn/topic/edit                | learn  | 专题编辑     | /admin/edu/learn/topics + TopicsDialog.tsx                | admin-component-name-match  |
+| 5   | /learn/certificate/template      | learn  | 证书模板列表 | /admin/edu/certificate/templates + CertTemplateDialog.tsx | admin-component-name-match  |
+| 6   | /learn/certificate/template/edit | learn  | 证书模板编辑 | /admin/edu/certificate/templates + CertTemplateDialog.tsx | admin-component-name-match  |
+| 7   | /live/channel/edit               | live   | 频道编辑     | /admin/live + ChannelFormDialog.tsx                       | admin-component-name-match  |
+| 8   | /live/channel/category           | live   | 频道分类     | /admin/live/categories + LiveCategoryDialog.tsx           | admin-component-name-match  |
+| 9   | /live/lecturer/edit              | live   | 讲师编辑     | /admin/live/lecturers + LecturerDialog.tsx                | admin-component-name-match  |
+| 10  | /member/edit                     | member | 会员编辑     | /admin/members + MemberCreateDialog.tsx                   | admin-component-name-match  |
+| 11  | /learn/order/invoice/title       | order  | 发票抬头     | /admin/invoices/titles                                    | admin-content-keyword-match |
 
 ### 部分迁移模式分析
 
@@ -277,16 +295,16 @@
 
 Vue 时代是独立的 `/xxx/edit` 页面,Next.js 改为列表页 + `*Dialog.tsx` 弹窗。这是**现代 admin UI 最佳实践**(减少页面跳转,保持列表上下文),功能完全等价:
 
-| Vue 独立 edit 页         | Next.js Dialog 组件                    |
-| ------------------------ | -------------------------------------- |
-| /exam/exam/edit          | admin/edu/exam/ExamDialog.tsx          |
-| /learn/lesson/edit       | admin/edu/learn/LearnDialog.tsx        |
-| /learn/topic/edit        | admin/edu/learn/topics/TopicsDialog.tsx|
+| Vue 独立 edit 页                 | Next.js Dialog 组件                                    |
+| -------------------------------- | ------------------------------------------------------ |
+| /exam/exam/edit                  | admin/edu/exam/ExamDialog.tsx                          |
+| /learn/lesson/edit               | admin/edu/learn/LearnDialog.tsx                        |
+| /learn/topic/edit                | admin/edu/learn/topics/TopicsDialog.tsx                |
 | /learn/certificate/template/edit | admin/edu/certificate/templates/CertTemplateDialog.tsx |
-| /live/channel/edit       | admin/live/ChannelFormDialog.tsx       |
-| /live/lecturer/edit      | admin/live/lecturers/LecturerDialog.tsx|
-| /member/edit             | admin/members/MemberCreateDialog.tsx   |
-| /exam/paper/category     | admin/edu/exam/categories/CategoriesDialog.tsx |
+| /live/channel/edit               | admin/live/ChannelFormDialog.tsx                       |
+| /live/lecturer/edit              | admin/live/lecturers/LecturerDialog.tsx                |
+| /member/edit                     | admin/members/MemberCreateDialog.tsx                   |
+| /exam/paper/category             | admin/edu/exam/categories/CategoriesDialog.tsx         |
 
 **模式 2: 路径分散/重新归类(3 个)**
 
@@ -300,19 +318,22 @@ Vue 时代是独立的 `/xxx/edit` 页面,Next.js 改为列表页 + `*Dialog.tsx
 
 > 判定标准: rg + path slug + 组件名 + Dialog 模式回退 全部未命中。
 
-| #  | Vue 路径                | 模块  | 描述     | 优先级 | 建议补开发位置                                |
-| -- | ----------------------- | ----- | -------- | ------ | --------------------------------------------- |
-| 1  | /learn/topic/category   | learn | 专题分类 | P2     | `apps/web/app/(main)/admin/edu/learn/topic-categories/page.tsx` |
+| #   | Vue 路径              | 模块  | 描述     | 优先级 | 建议补开发位置                                                  |
+| --- | --------------------- | ----- | -------- | ------ | --------------------------------------------------------------- |
+| 1   | /learn/topic/category | learn | 专题分类 | P2     | `apps/web/app/(main)/admin/edu/learn/topic-categories/page.tsx` |
 
 ### 补开发优先级建议
 
 #### P0(紧急,无替代,影响核心业务)
+
 - 无(本批次未发现 P0 级缺失)
 
 #### P1(重要,影响业务完整性)
+
 - 无(本批次未发现 P1 级缺失)
 
 #### P2(次要,功能可暂缓或用现有分类系统兜底)
+
 - **`/learn/topic/category`(专题分类)**
   - 现状: Next.js 有 `admin/learn/categories/`(课时分类)和 `admin/edu/learn/topics/`(专题列表),但**没有专题分类管理页**
   - 影响: 无法在 admin 端管理专题的分类标签(只能编辑专题本身)
@@ -322,6 +343,7 @@ Vue 时代是独立的 `/xxx/edit` 页面,Next.js 改为列表页 + `*Dialog.tsx
 ### 未抽样页面风险提示
 
 本审计抽样 30 / 117 = 25.6%,以下未抽样模块建议后续补抽:
+
 - **message (7 个)**: 涉及私信用例,需确认 `admin/messages` 是否完整覆盖
 - **auth (5 个)**: 权限/组织架构管理,需确认 `admin/auth-role` / `admin/auth-dept` 是否等价
 - **resource (6 个)**: 资源管理 edit/category,需确认 `admin/resources` 是否完整
@@ -353,12 +375,12 @@ Vue 时代是独立的 `/xxx/edit` 页面,Next.js 改为列表页 + `*Dialog.tsx
 
 ## 7. 交付物清单
 
-| 文件                                                                              | 用途                          |
-| --------------------------------------------------------------------------------- | ----------------------------- |
-| `g:/IHUI-AI/scripts/audit-edu-pages-sample-check.mjs`                             | 抽样核对脚本                  |
-| `g:/IHUI-AI/reports/migration-audit-edu-pages-sample-2026-07-19T15-24-29.csv`     | 30 个抽样逐条决策 CSV(最新)  |
-| `g:/IHUI-AI/reports/migration-audit-edu-pages-sample-summary.json`                | 三分类统计 + 模块统计 JSON    |
-| `g:/IHUI-AI/reports/edu-pages-sample-check-report.md`                             | 本报告                        |
+| 文件                                                                          | 用途                        |
+| ----------------------------------------------------------------------------- | --------------------------- |
+| `g:/IHUI-AI/scripts/audit-edu-pages-sample-check.mjs`                         | 抽样核对脚本                |
+| `g:/IHUI-AI/reports/migration-audit-edu-pages-sample-2026-07-19T15-24-29.csv` | 30 个抽样逐条决策 CSV(最新) |
+| `g:/IHUI-AI/reports/migration-audit-edu-pages-sample-summary.json`            | 三分类统计 + 模块统计 JSON  |
+| `g:/IHUI-AI/reports/edu-pages-sample-check-report.md`                         | 本报告                      |
 
 ### 验证命令(均已通过,退出码 0)
 

@@ -52,16 +52,11 @@ export default function MyStudy() {
     setActiveTab(key)
   }, [])
 
-  const inProgressList = useMemo(
-    () => list.filter((item) => item.progress < 100),
-    [list],
-  )
-  const completedList = useMemo(
-    () => list.filter((item) => item.progress >= 100),
-    [list],
-  )
+  const inProgressList = useMemo(() => list.filter((item) => item.progress < 100), [list])
+  const completedList = useMemo(() => list.filter((item) => item.progress >= 100), [list])
 
-  const displayList = activeTab === 'inProgress' ? inProgressList : activeTab === 'completed' ? completedList : []
+  const displayList =
+    activeTab === 'inProgress' ? inProgressList : activeTab === 'completed' ? completedList : []
 
   const onContinue = useCallback((item: StudyRecord) => {
     Taro.navigateTo({ url: `/pages/course/detail?id=${item.courseId || item.id}` })
@@ -69,10 +64,8 @@ export default function MyStudy() {
 
   const getEmptyText = useCallback(
     (tab: TabKey) => {
-      if (tab === 'inProgress')
-        return tt('study.myStudy.inProgressEmpty', '暂无进行中课程')
-      if (tab === 'completed')
-        return tt('study.myStudy.completedEmpty', '暂无已完成课程')
+      if (tab === 'inProgress') return tt('study.myStudy.inProgressEmpty', '暂无进行中课程')
+      if (tab === 'completed') return tt('study.myStudy.completedEmpty', '暂无已完成课程')
       return tt('study.myStudy.favoritedEmpty', '暂无收藏课程')
     },
     [tt],
@@ -150,10 +143,7 @@ export default function MyStudy() {
                     {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
                   </Text>
                 ) : null}
-                <Text
-                  className="continue-btn"
-                  onClick={() => onContinue(item)}
-                >
+                <Text className="continue-btn" onClick={() => onContinue(item)}>
                   {t('study.continueLearning')}
                 </Text>
               </View>

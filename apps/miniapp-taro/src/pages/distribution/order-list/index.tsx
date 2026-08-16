@@ -139,7 +139,8 @@ export default function DistributionOrderList() {
       </View>
 
       <View className="ol-total">
-        {tt('distribution.orderList.totalCount', '共')} {list.length} {tt('distribution.orderList.orders', '笔')},
+        {tt('distribution.orderList.totalCount', '共')} {list.length}{' '}
+        {tt('distribution.orderList.orders', '笔')},
         {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
       </View>
 
@@ -152,11 +153,7 @@ export default function DistributionOrderList() {
               cls: 'ol-status-pending',
             }
             return (
-              <View
-                key={o.id}
-                className="ol-card"
-                onClick={() => onItemClick(o.id)}
-              >
+              <View key={o.id} className="ol-card" onClick={() => onItemClick(o.id)}>
                 <View className="ol-card-header">
                   <Text className="ol-order-no">
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
@@ -189,23 +186,15 @@ export default function DistributionOrderList() {
 
       {error && !loading && (
         <View className="ol-error" onClick={() => load(true)}>
-          <Text className="ol-error-text">
-            {tt('distribution.orderList.error', '加载失败')}
-          </Text>
-          <Text className="ol-error-retry">
-            {tt('distribution.orderList.retry', '点击重试')}
-          </Text>
+          <Text className="ol-error-text">{tt('distribution.orderList.error', '加载失败')}</Text>
+          <Text className="ol-error-retry">{tt('distribution.orderList.retry', '点击重试')}</Text>
         </View>
       )}
 
-      {loading && (
-        <Text className="ol-loading">{t('distribution.orderList.loading')}</Text>
-      )}
+      {loading && <Text className="ol-loading">{t('distribution.orderList.loading')}</Text>}
 
       {!loading && !hasMore && list.length > 0 && (
-        <Text className="ol-no-more">
-          {tt('distribution.orderList.noMore', '没有更多了')}
-        </Text>
+        <Text className="ol-no-more">{tt('distribution.orderList.noMore', '没有更多了')}</Text>
       )}
     </View>
   )

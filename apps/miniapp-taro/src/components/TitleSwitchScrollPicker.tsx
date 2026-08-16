@@ -1,10 +1,7 @@
 import { View, PickerView, PickerViewColumn, Text } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
-import type {
-  TitleSwitchScrollPickerItem,
-  TitleSwitchScrollPickerProps,
-} from '@ihui/types'
+import type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps } from '@ihui/types'
 
 // 共享类型 TitleSwitchScrollPickerItem / TitleSwitchScrollPickerProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。

@@ -1,4 +1,4 @@
-import { pgTable, bigserial, varchar, integer, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, bigserial, varchar, integer, text, timestamp, index } from 'drizzle-orm/pg-core'
 
 /**
  * 用户 Agent 免费次数/配额表（user_agent_free_times）。
@@ -20,7 +20,7 @@ export const userAgentFreeTimes = pgTable(
     userUuidIdx: index('user_agent_free_times_user_uuid_idx').on(t.userUuid),
     agentIdIdx: index('user_agent_free_times_agent_id_idx').on(t.agentId),
   }),
-);
+)
 
 /**
  * Agent 上下文 KV 存储表（zhs_user_agent_context）。
@@ -50,7 +50,7 @@ export const zhsUserAgentContext = pgTable(
     userIdIdx: index('zhs_user_agent_context_user_id_idx').on(t.userId),
     agentIdIdx: index('zhs_user_agent_context_agent_id_idx').on(t.agentId),
   }),
-);
+)
 
 /**
  * Agent 音频记录表（zhs_user_agent_audio）。
@@ -69,7 +69,7 @@ export const zhsUserAgentAudio = pgTable(
     userUuidIdx: index('zhs_user_agent_audio_user_uuid_idx').on(t.userUuid),
     agentIdIdx: index('zhs_user_agent_audio_agent_id_idx').on(t.agentId),
   }),
-);
+)
 
 /**
  * Agent 图像记录表（zhs_user_agent_image）。
@@ -101,13 +101,13 @@ export const zhsUserAgentImage = pgTable(
     userIdIdx: index('zhs_user_agent_image_user_id_idx').on(t.userId),
     agentIdIdx: index('zhs_user_agent_image_agent_id_idx').on(t.agentId),
   }),
-);
+)
 
-export type UserAgentFreeTime = typeof userAgentFreeTimes.$inferSelect;
-export type NewUserAgentFreeTime = typeof userAgentFreeTimes.$inferInsert;
-export type ZhsUserAgentContext = typeof zhsUserAgentContext.$inferSelect;
-export type NewZhsUserAgentContext = typeof zhsUserAgentContext.$inferInsert;
-export type ZhsUserAgentAudio = typeof zhsUserAgentAudio.$inferSelect;
-export type NewZhsUserAgentAudio = typeof zhsUserAgentAudio.$inferInsert;
-export type ZhsUserAgentImage = typeof zhsUserAgentImage.$inferSelect;
-export type NewZhsUserAgentImage = typeof zhsUserAgentImage.$inferInsert;
+export type UserAgentFreeTime = typeof userAgentFreeTimes.$inferSelect
+export type NewUserAgentFreeTime = typeof userAgentFreeTimes.$inferInsert
+export type ZhsUserAgentContext = typeof zhsUserAgentContext.$inferSelect
+export type NewZhsUserAgentContext = typeof zhsUserAgentContext.$inferInsert
+export type ZhsUserAgentAudio = typeof zhsUserAgentAudio.$inferSelect
+export type NewZhsUserAgentAudio = typeof zhsUserAgentAudio.$inferInsert
+export type ZhsUserAgentImage = typeof zhsUserAgentImage.$inferSelect
+export type NewZhsUserAgentImage = typeof zhsUserAgentImage.$inferInsert

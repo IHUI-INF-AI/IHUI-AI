@@ -37,11 +37,7 @@ export function PlatformSelectorCard({
         <div className="flex items-center justify-between">
           <Label>{t('new.selectPlatforms')}</Label>
           <div className="flex gap-2 text-xs">
-            <button
-              type="button"
-              onClick={onSelectAll}
-              className="text-primary hover:underline"
-            >
+            <button type="button" onClick={onSelectAll} className="text-primary hover:underline">
               {t('new.selectAll')}
             </button>
             <button

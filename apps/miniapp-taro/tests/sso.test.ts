@@ -7,13 +7,21 @@ const { taroStorage, mockFetch } = vi.hoisted(() => ({
 
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',
-  removeStorageSync: (key: string) => { delete taroStorage[key] },
-  setStorageSync: (key: string, val: unknown) => { taroStorage[key] = val },
+  removeStorageSync: (key: string) => {
+    delete taroStorage[key]
+  },
+  setStorageSync: (key: string, val: unknown) => {
+    taroStorage[key] = val
+  },
   reLaunch: vi.fn(),
   default: {
     getStorageSync: (key: string) => taroStorage[key] ?? '',
-    removeStorageSync: (key: string) => { delete taroStorage[key] },
-    setStorageSync: (key: string, val: unknown) => { taroStorage[key] = val },
+    removeStorageSync: (key: string) => {
+      delete taroStorage[key]
+    },
+    setStorageSync: (key: string, val: unknown) => {
+      taroStorage[key] = val
+    },
     reLaunch: vi.fn(),
   },
 }))
@@ -73,9 +81,13 @@ describe('miniapp-taro SSO 流程', () => {
       expiresIn: 7200,
       refreshExpiresIn: 2592000,
       user: {
-        id: 'u-001', phone: '13800138000', email: 'test@test.com',
-        nickname: 'Test', avatar: 'https://avatar.png',
-        roleId: 1, status: 1,
+        id: 'u-001',
+        phone: '13800138000',
+        email: 'test@test.com',
+        nickname: 'Test',
+        avatar: 'https://avatar.png',
+        roleId: 1,
+        status: 1,
       },
     }
 

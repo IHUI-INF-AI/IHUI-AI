@@ -22,11 +22,24 @@ export function NoteCreateScreen() {
   const [error, setError] = useState('')
 
   const onSubmit = async () => {
-    if (!title.trim() || !content.trim()) { setError(t('noteCreate.required')); return }
-    setSaving(true); setError('')
+    if (!title.trim() || !content.trim()) {
+      setError(t('noteCreate.required'))
+      return
+    }
+    setSaving(true)
+    setError('')
     const res = await fetchApi<{ id: string }>('/api/notes', {
       method: 'POST',
-      body: JSON.stringify({ title: title.trim(), content: content.trim(), courseId, isPublic, tags: tags.split(',').map((s) => s.trim()).filter(Boolean) }),
+      body: JSON.stringify({
+        title: title.trim(),
+        content: content.trim(),
+        courseId,
+        isPublic,
+        tags: tags
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }),
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('NoteDetail', { id: res.data.id })

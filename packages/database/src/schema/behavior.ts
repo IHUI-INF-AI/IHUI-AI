@@ -1,13 +1,5 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  integer,
-  timestamp,
-  unique,
-  index,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, integer, timestamp, unique, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 浏览记录表 - 记录用户对各类资源(课程/资讯/文章/资源)的浏览行为。
@@ -33,7 +25,7 @@ export const behaviorWatchRecords = pgTable(
     topicIdx: index('behavior_watch_records_topic_idx').on(t.topicId, t.topicType),
     userIdx: index('behavior_watch_records_user_idx').on(t.userId),
   }),
-);
+)
 
-export type BehaviorWatchRecord = typeof behaviorWatchRecords.$inferSelect;
-export type NewBehaviorWatchRecord = typeof behaviorWatchRecords.$inferInsert;
+export type BehaviorWatchRecord = typeof behaviorWatchRecords.$inferSelect
+export type NewBehaviorWatchRecord = typeof behaviorWatchRecords.$inferInsert

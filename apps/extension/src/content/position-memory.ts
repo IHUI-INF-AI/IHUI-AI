@@ -100,8 +100,7 @@ export function computePositionWithMemory(
     : ['top', 'bottom']
 
   for (const placement of order) {
-    const top =
-      placement === 'top' ? rect.top - toolbarHeight - offset : rect.bottom + offset
+    const top = placement === 'top' ? rect.top - toolbarHeight - offset : rect.bottom + offset
     // 横向:以 rect 中点居中
     const idealLeft = rect.left + rect.width / 2 - toolbarWidth / 2
     const clampedLeft = clampHorizontal(idealLeft, toolbarWidth, viewport, margin)
@@ -211,7 +210,8 @@ function applyJitterGuard(
   if (!anchor) return candidate
   if (Math.abs(candidate.left - anchor.left) >= threshold) return candidate
   // anchor.left 仍在 viewport 内才使用
-  const stillIn = anchor.left >= (viewport.scrollX ?? 0) + margin &&
+  const stillIn =
+    anchor.left >= (viewport.scrollX ?? 0) + margin &&
     anchor.left + toolbarWidth <= (viewport.scrollX ?? 0) + viewport.width - margin
   if (!stillIn) return candidate
   return { top: candidate.top, left: anchor.left }
@@ -221,11 +221,7 @@ function applyJitterGuard(
  * 判断两个 selection rect 是否"足够近",触发相同锚点(防抖判断依据)。
  * 用 rect 中心点距离衡量。
  */
-export function isNearbyRect(
-  a: RectLike,
-  b: RectLike,
-  threshold = 24,
-): boolean {
+export function isNearbyRect(a: RectLike, b: RectLike, threshold = 24): boolean {
   const ax = a.left + a.width / 2
   const ay = a.top + a.height / 2
   const bx = b.left + b.width / 2

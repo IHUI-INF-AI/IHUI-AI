@@ -29,8 +29,11 @@ vi.mock('../../../src/plugins/require-permission.js', () => ({
   },
 }))
 
-const queues: { type: string; method: 'select' | 'insert' | 'update' | 'delete'; result: unknown }[] =
-  []
+const queues: {
+  type: string
+  method: 'select' | 'insert' | 'update' | 'delete'
+  result: unknown
+}[] = []
 let cursor = 0
 
 const { dbMock } = vi.hoisted(() => {

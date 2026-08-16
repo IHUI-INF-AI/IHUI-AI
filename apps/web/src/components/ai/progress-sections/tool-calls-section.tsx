@@ -153,10 +153,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
   return (
     <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
-        className={cn(
-          'flex items-center gap-1.5 px-1 py-0.5',
-          hasDetail && 'cursor-pointer',
-        )}
+        className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDetail && 'cursor-pointer')}
         onClick={toggleExpand}
         role={hasDetail ? 'button' : undefined}
         aria-expanded={hasDetail ? expanded : undefined}
@@ -239,7 +236,9 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               {resultText && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-muted-foreground/60">{t('tools.result')}</span>
+                    <span className="font-medium text-muted-foreground/60">
+                      {t('tools.result')}
+                    </span>
                     <CopyButton
                       text={resultText}
                       aria-label={t('tools.copyResult')}

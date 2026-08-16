@@ -22,16 +22,16 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8803
 
 ### 事件契约
 
-| 方向 | 事件 | 说明 |
-| --- | --- | --- |
-| C → S | `connect` | 握手鉴权,从 `auth.token` 或 `?token=` 提取 JWT |
-| C → S | `join_room` | `{"chat_id": "xxx"}` 加入 chat 房间(同 chat 多端订阅) |
-| C → S | `leave_room` | `{"chat_id": "xxx"}` 离开房间 |
-| C → S | `chat_message` | `{"message": "...", "chat_id": "xxx", "model": "...", "history": [...]}` 触发 AI 流式回复 |
-| S → C | `chat_stream_chunk` | 逐 token 推送 `{chat_id, session_id, content}` |
-| S → C | `chat_stream_done` | 完成事件 `{chat_id, session_id, content, model, usage, stub}` |
-| S → C | `chat_error` | 异常 `{chat_id, session_id, message, code}` |
-| S → C | `join_room_ack` / `leave_room_ack` | 加入/离开房间 ACK |
+| 方向  | 事件                               | 说明                                                                                      |
+| ----- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| C → S | `connect`                          | 握手鉴权,从 `auth.token` 或 `?token=` 提取 JWT                                            |
+| C → S | `join_room`                        | `{"chat_id": "xxx"}` 加入 chat 房间(同 chat 多端订阅)                                     |
+| C → S | `leave_room`                       | `{"chat_id": "xxx"}` 离开房间                                                             |
+| C → S | `chat_message`                     | `{"message": "...", "chat_id": "xxx", "model": "...", "history": [...]}` 触发 AI 流式回复 |
+| S → C | `chat_stream_chunk`                | 逐 token 推送 `{chat_id, session_id, content}`                                            |
+| S → C | `chat_stream_done`                 | 完成事件 `{chat_id, session_id, content, model, usage, stub}`                             |
+| S → C | `chat_error`                       | 异常 `{chat_id, session_id, message, code}`                                               |
+| S → C | `join_room_ack` / `leave_room_ack` | 加入/离开房间 ACK                                                                         |
 
 ### 鉴权策略
 
@@ -43,31 +43,31 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8803
 ### 客户端示例
 
 ```js
-import { io } from "socket.io-client";
+import { io } from 'socket.io-client'
 
-const socket = io("http://localhost:8803", {
-  auth: { token: "<your-access-token>" },  // JWT access token
-});
+const socket = io('http://localhost:8803', {
+  auth: { token: '<your-access-token>' }, // JWT access token
+})
 
-socket.on("connect", () => console.log("connected", socket.id));
+socket.on('connect', () => console.log('connected', socket.id))
 
-socket.emit("join_room", { chat_id: "demo-chat" });
+socket.emit('join_room', { chat_id: 'demo-chat' })
 
-socket.emit("chat_message", {
-  message: "你好,介绍一下你自己",
-  chat_id: "demo-chat",
-  model: "stepfun/step-3.7-flash",  // 可选
-});
+socket.emit('chat_message', {
+  message: '你好,介绍一下你自己',
+  chat_id: 'demo-chat',
+  model: 'stepfun/step-3.7-flash', // 可选
+})
 
-socket.on("chat_stream_chunk", (data) => {
-  if (data.content) process.stdout.write(data.content);
-});
+socket.on('chat_stream_chunk', (data) => {
+  if (data.content) process.stdout.write(data.content)
+})
 
-socket.on("chat_stream_done", (data) => {
-  console.log("\n[done]", data.model, data.usage);
-});
+socket.on('chat_stream_done', (data) => {
+  console.log('\n[done]', data.model, data.usage)
+})
 
-socket.on("chat_error", (err) => console.error("[error]", err));
+socket.on('chat_error', (err) => console.error('[error]', err))
 ```
 
 ### 多端隔离

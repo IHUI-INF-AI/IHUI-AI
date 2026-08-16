@@ -6,7 +6,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use base64::Engine;
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
@@ -48,6 +48,9 @@ struct WindowInfo {
     title: String,
     app_name: String,
     window_id: String,
+    /// 窗口在屏幕上的 [x, y, width, height](物理像素),2026-08-16 立。
+    /// 此前前端收到占位 [0,0,0,0],LLM 无法据此判断窗口位置/大小。
+    bounds: [i32; 4],
 }
 
 #[derive(Serialize)]
@@ -395,6 +398,10 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.quit" => {
                 // 2026-07-31:退出前先持久化窗口状态,然后 emit 事件给前端。
                 // 前端会检查更新:有更新则下载+安装+重启,无更新则调 quit_app 退出。
+                // 2026-08-16 修订:不做"emit 后定时强退"兜底——此前 2s 强退实现
+                // 有缺陷:get_webview_window 在进程存活期间恒为 Some,前端处理 quit
+                // (检查/安装更新可能数十秒)必然被 2s 强杀,中断更新流程甚至损坏安装。
+                // 正确兜底:仅当 main 窗口对象不存在(异常状态)时直接退出。
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
                 if let Some(window) = app.get_webview_window("main") {
@@ -413,13 +420,19 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     button: MouseButton::Left,
                     ..
                 } => {
-                    // 双击:切换显示/隐藏(原有行为)
-                    if let Some(window) = app.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
-                            let _ = window.hide();
-                        } else {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    // 双击:切换显示/隐藏(仅非 Windows 平台)
+                    // 2026-08-16 修复:Windows 双击会先派发 Click(已显示窗口),再派发
+                    // DoubleClick,若在此 hide 会把"单击唤起"的窗口隐藏 → 双击永远=隐藏,
+                    // 与预期相反。Windows 上保留单击显示行为,双击不额外处理。
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        if let Some(window) = app.get_webview_window("main") {
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
                     }
                 }
@@ -496,7 +509,7 @@ fn parse_key(key: &str) -> Result<Key, String> {
 }
 
 #[tauri::command]
-fn screenshot_screen(
+async fn screenshot_screen(
     display_index: Option<usize>,
     region: Option<Vec<f64>>,
 ) -> Result<ScreenshotResult, String> {
@@ -508,6 +521,13 @@ fn screenshot_screen(
     let img = if let Some(r) = region {
         if r.len() < 4 {
             return Err("region must be [x, y, w, h]".to_string());
+        }
+        // 2026-08-16 防御:负值/零尺寸会被截断成 u32 导致回绕成巨大区域,加显式校验
+        if r[2] <= 0.0 || r[3] <= 0.0 || r[0] < 0.0 || r[1] < 0.0 {
+            return Err(format!(
+                "region 必须为屏幕内非负坐标且宽高为正,got [{}, {}, {}, {}]",
+                r[0], r[1], r[2], r[3]
+            ));
         }
         screen
             .capture_area(r[0] as i32, r[1] as i32, r[2] as u32, r[3] as u32)
@@ -525,7 +545,7 @@ fn screenshot_screen(
 }
 
 #[tauri::command]
-fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String> {
+async fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String> {
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let coord = if absolute.unwrap_or(true) {
         Coordinate::Abs
@@ -539,7 +559,7 @@ fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String
 }
 
 #[tauri::command]
-fn mouse_click(
+async fn mouse_click(
     x: f64,
     y: f64,
     button: Option<String>,
@@ -566,20 +586,31 @@ fn mouse_click(
 }
 
 #[tauri::command]
-fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
+async fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
     // 2026-07-22 P1 鲁棒性加固:防止超长 text 卡死 UI
     const MAX_TEXT_LEN: usize = 10000;
     if text.chars().count() > MAX_TEXT_LEN {
         return Err(format!("text too long: max {} chars", MAX_TEXT_LEN));
     }
+    // 2026-08-16 加固:delay 无上限 + 同步命令在主线程执行,大 delay(如 5000ms)
+    // 可让 UI 假死数小时。单字符间隔上限 100ms,总耗时上限 10s,超出后停止输入
+    // (返回成功,避免调用方收到 Err 后重试造成重复输入)。
+    const MAX_DELAY_MS: u64 = 100;
+    const MAX_TOTAL_MS: u64 = 10_000;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     if let Some(ms) = delay {
+        let ms = ms.min(MAX_DELAY_MS);
         if ms > 0 {
+            let mut elapsed = 0u64;
             for ch in text.chars() {
                 enigo
                     .text(&ch.to_string())
                     .map_err(|e| e.to_string())?;
+                if elapsed + ms > MAX_TOTAL_MS {
+                    break;
+                }
                 std::thread::sleep(std::time::Duration::from_millis(ms));
+                elapsed += ms;
             }
             return Ok(OkResult { ok: true });
         }
@@ -589,7 +620,7 @@ fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
 }
 
 #[tauri::command]
-fn mouse_scroll(
+async fn mouse_scroll(
     delta_y: f64,
     x: Option<f64>,
     y: Option<f64>,
@@ -607,7 +638,7 @@ fn mouse_scroll(
 }
 
 #[tauri::command]
-fn keyboard_press(key: String) -> Result<OkResult, String> {
+async fn keyboard_press(key: String) -> Result<OkResult, String> {
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let k = parse_key(&key)?;
     enigo.key(k, Direction::Click).map_err(|e| e.to_string())?;
@@ -615,7 +646,7 @@ fn keyboard_press(key: String) -> Result<OkResult, String> {
 }
 
 #[tauri::command]
-fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
+async fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
     // 2026-07-22 P1 鲁棒性加固:防止超多 keys 长时间占用
     if keys.len() > 10 {
         return Err("too many keys: max 10".to_string());
@@ -638,14 +669,16 @@ fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
     Ok(OkResult { ok: true })
 }
 
-/// Windows: winapi(GetForegroundWindow + GetWindowTextW + 进程映像名);其他平台未实现。
+/// Windows: winapi(GetForegroundWindow + GetWindowTextW + GetWindowRect + 进程映像名);其他平台未实现。
 #[cfg(windows)]
 mod active_window_impl {
+    use winapi::shared::windef::RECT;
     use winapi::um::handleapi::CloseHandle;
     use winapi::um::processthreadsapi::OpenProcess;
     use winapi::um::winbase::QueryFullProcessImageNameW;
     use winapi::um::winuser::{
-        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+        GetForegroundWindow, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId,
     };
 
     const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
@@ -669,10 +702,27 @@ mod active_window_impl {
                 String::new()
             };
 
+            // 2026-08-16:获取前台窗口在屏幕上的矩形 [x, y, width, height]。
+            // GetWindowRect 返回屏幕坐标(left/top/right/bottom);最小化窗口的坐标是 -32000,
+            // 且 width/height 非正,此时返回占位 [0,0,0,0],避免前端拿到异常坐标。
+            let mut rect: RECT = std::mem::zeroed();
+            let bounds = if GetWindowRect(hwnd, &mut rect) != 0 {
+                let w = rect.right - rect.left;
+                let h = rect.bottom - rect.top;
+                if w > 0 && h > 0 {
+                    [rect.left, rect.top, w, h]
+                } else {
+                    [0, 0, 0, 0]
+                }
+            } else {
+                [0, 0, 0, 0]
+            };
+
             Ok(super::WindowInfo {
                 title,
                 app_name,
                 window_id: format!("{}", hwnd as usize),
+                bounds,
             })
         }
     }
@@ -745,39 +795,92 @@ struct DirListResult {
     entries: Vec<FileInfo>,
 }
 
-/// 读取文本文件(UTF-8)。
+/// 词法规范化路径:解析 `.` / `..`,不做 IO(不存在的路径也能规范化)。
+fn normalize_path(p: &std::path::Path) -> std::path::PathBuf {
+    use std::path::Component;
+    let mut out = std::path::PathBuf::new();
+    for comp in p.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// 2026-08-16 安全加固:自定义文件命令不受 capabilities 约束(仅约束插件命令),
+/// 此前 read/write/list/stat 接受任意路径,webview 被 XSS(应用渲染 LLM 内容)
+/// 后可读写/外带用户任意文件。统一限制在 app_data_dir 内。
+fn ensure_in_app_data(
+    app: &tauri::AppHandle,
+    path: &str,
+) -> Result<std::path::PathBuf, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir 解析失败: {}", e))?;
+    let p = std::path::Path::new(path);
+    if !p.is_absolute() {
+        return Err(format!("路径必须是绝对路径(拒绝): {}", path));
+    }
+    let p_norm = normalize_path(p);
+    let app_data_norm = normalize_path(&app_data);
+    if !p_norm.starts_with(&app_data_norm) {
+        return Err(format!("路径不在应用数据目录内(拒绝): {}", path));
+    }
+    Ok(p_norm)
+}
+
+/// 读取文本文件(UTF-8)。路径仅允许 app_data_dir 内。
 #[tauri::command]
-fn read_text_file(path: String) -> Result<ReadTextResult, String> {
+async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, String> {
+    let path = ensure_in_app_data(&app, &path)?;
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     let size = metadata.len();
     let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     Ok(ReadTextResult { content, size })
 }
 
-/// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。
+/// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。路径仅允许 app_data_dir 内。
+/// 2026-08-16 加固:限制文件大小上限 50MB,防止大文件 OOM
+/// (base64 编码会膨胀约 4/3,GB 级文件会把内存直接打爆)。
+const MAX_BINARY_FILE_SIZE: u64 = 50 * 1024 * 1024;
+
 #[tauri::command]
-fn read_binary_file(path: String) -> Result<ReadBinaryResult, String> {
+async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBinaryResult, String> {
+    let path = ensure_in_app_data(&app, &path)?;
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     let size = metadata.len();
+    if size > MAX_BINARY_FILE_SIZE {
+        return Err(format!(
+            "file too large: max 50MB ({} bytes), got {} bytes",
+            MAX_BINARY_FILE_SIZE, size
+        ));
+    }
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    let mime = mime_from_extension(&path);
+    let mime = mime_from_extension(&path.to_string_lossy());
     Ok(ReadBinaryResult { base64, size, mime })
 }
 
-/// 写入文本文件(覆盖)。父目录不存在时自动创建。
+/// 写入文本文件(覆盖)。父目录不存在时自动创建。路径仅允许 app_data_dir 内。
 #[tauri::command]
-fn write_text_file(path: String, content: String) -> Result<OkResult, String> {
-    if let Some(parent) = std::path::Path::new(&path).parent() {
+async fn write_text_file(app: tauri::AppHandle, path: String, content: String) -> Result<OkResult, String> {
+    let path = ensure_in_app_data(&app, &path)?;
+    if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(OkResult { ok: true })
 }
 
-/// 列出目录下的文件/子目录(非递归)。
+/// 列出目录下的文件/子目录(非递归)。路径仅允许 app_data_dir 内。
 #[tauri::command]
-fn list_dir(path: String) -> Result<DirListResult, String> {
+async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, String> {
+    let path = ensure_in_app_data(&app, &path)?;
     let mut entries = Vec::new();
     let dir = std::fs::read_dir(&path).map_err(|e| e.to_string())?;
     for entry in dir {
@@ -808,9 +911,10 @@ fn list_dir(path: String) -> Result<DirListResult, String> {
     Ok(DirListResult { entries })
 }
 
-/// 获取单个文件/目录的元信息。
+/// 获取单个文件/目录的元信息。路径仅允许 app_data_dir 内。
 #[tauri::command]
-fn stat_file(path: String) -> Result<FileInfo, String> {
+async fn stat_file(app: tauri::AppHandle, path: String) -> Result<FileInfo, String> {
+    let path = ensure_in_app_data(&app, &path)?;
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     let path_obj = std::path::Path::new(&path);
     let name = path_obj
@@ -822,7 +926,7 @@ fn stat_file(path: String) -> Result<FileInfo, String> {
         .map(|e| e.to_string_lossy().to_string())
         .unwrap_or_default();
     Ok(FileInfo {
-        path,
+        path: path.to_string_lossy().to_string(),
         name,
         size: metadata.len(),
         is_dir: metadata.is_dir(),
@@ -862,7 +966,8 @@ const WINDOW_STORE_FILE: &str = "window-state.json";
 
 /// 窗口状态写盘节流:Resized/Moved 事件每帧触发,记录 label → 上次写盘时刻,
 /// 同一窗口 300ms 内最多合并写一次盘(注释与实现一致:避免拖动过程中高频写盘)。
-static WINDOW_STATE_LAST_SAVE: Mutex<HashMap<String, Instant>> = Mutex::new(HashMap::new());
+static WINDOW_STATE_LAST_SAVE: LazyLock<Mutex<HashMap<String, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 节流保存窗口状态:300ms 内同一窗口的 Resized/Moved 重复事件直接忽略。
 fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
@@ -1065,7 +1170,7 @@ fn set_tray_status(app: tauri::AppHandle, status: String) -> Result<(), String> 
 }
 
 #[tauri::command]
-fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
+async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     let fmt = format.as_deref().unwrap_or("text");
     let result = match fmt {
@@ -1091,7 +1196,7 @@ fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
 }
 
 #[tauri::command]
-fn clipboard_set(
+async fn clipboard_set(
     content: String,
     format: Option<String>,
 ) -> Result<OkResult, String> {
@@ -1189,6 +1294,12 @@ pub fn run() {
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
                     let _ = save_window_state(Some(label.clone()), app);
+                } else if label == "admin" {
+                    // 2026-08-16 修复:admin 在 CloseRequested 时就持久化窗口状态。
+                    // 此前依赖 Destroyed 事件,但销毁后 get_webview_window 可能返回 None,
+                    // 且 debounce 300ms 窗口内最后一次 Moved 位置可能被跳过 → 落点漏存。
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(Some(label.clone()), app);
                 }
             }
             // 窗口移动 / 缩放过程中防抖持久化(300ms 内合并,避免每次拖动都写盘)
@@ -1220,10 +1331,11 @@ pub fn run() {
                 }
             }
             // 2026-08-01 立:注册 deep-link scheme + 监听 ihui:// 回调
-            // - dev 模式下 Windows 需要 register_all() 才能接收 ihui:// scheme
             // - on_open_url 监听外部浏览器 / 其他应用打开的 ihui://sso?sso_code=xxx
             // - emit "desktop-deep-link" 事件给前端 webview,前端 useDesktopDeepLink 完成 SSO 闭环
-            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            // 2026-08-16 修复:此前 cfg 排除 Windows release(仅 debug 注册),
+            // 生产版 Windows 不写注册表 → ihui:// SSO 扫码登录闭环失效。
+            #[cfg(any(target_os = "linux", windows))]
             {
                 let _ = app.deep_link().register_all();
             }
@@ -1254,6 +1366,13 @@ pub fn run() {
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
+            // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
+            // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
+            if std::env::args().any(|a| a == "--minimized") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
             // 注册全局快捷键(2026-07-29 扩充:3 个系统级快捷键)
             // 系统级 = 窗口失焦也能触发(与浏览器内 keydown 互补)
             // Ctrl+K 不注册(浏览器内 use-global-shortcuts.ts 已处理,窗口聚焦时用)

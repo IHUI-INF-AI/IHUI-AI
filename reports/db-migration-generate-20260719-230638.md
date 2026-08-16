@@ -10,20 +10,21 @@
 
 ## 1. 运行命令清单 + 退出码
 
-| 序号 | 命令 | 退出码 | 备注 |
-| --- | --- | --- | --- |
-| 1 | `pnpm --filter @ihui/database build` | 0 | 编译 TS → dist/schema/index.js(drizzle.config 引用 dist) |
-| 2 | `pnpm --filter @ihui/database db:generate`(原始) | 1 | 失败:drizzle-kit 检测到列冲突,需要 TTY 交互式确认,非 TTY 环境报错 |
-| 3 | `node --require <patch.cjs> drizzle-kit/bin.cjs generate --name r83_supplement_27_tables` | 0 | 通过 TTY mock + 自动回车提交 prompt,成功生成 SQL |
-| 4 | `pnpm --filter @ihui/database db:check` | 0 | "Everything's fine 🐶🔥" |
-| 5 | `pnpm --filter @ihui/database typecheck` | 0 | tsc --noEmit 通过 |
-| 6 | `pnpm --filter @ihui/database build` | 0 | tsc --build --force 通过 |
+| 序号 | 命令                                                                                      | 退出码 | 备注                                                              |
+| ---- | ----------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------- |
+| 1    | `pnpm --filter @ihui/database build`                                                      | 0      | 编译 TS → dist/schema/index.js(drizzle.config 引用 dist)          |
+| 2    | `pnpm --filter @ihui/database db:generate`(原始)                                          | 1      | 失败:drizzle-kit 检测到列冲突,需要 TTY 交互式确认,非 TTY 环境报错 |
+| 3    | `node --require <patch.cjs> drizzle-kit/bin.cjs generate --name r83_supplement_27_tables` | 0      | 通过 TTY mock + 自动回车提交 prompt,成功生成 SQL                  |
+| 4    | `pnpm --filter @ihui/database db:check`                                                   | 0      | "Everything's fine 🐶🔥"                                          |
+| 5    | `pnpm --filter @ihui/database typecheck`                                                  | 0      | tsc --noEmit 通过                                                 |
+| 6    | `pnpm --filter @ihui/database build`                                                      | 0      | tsc --build --force 通过                                          |
 
 ### 步骤 2 失败原因(已绕过)
 
 drizzle-kit 0.31.10 的 `promptColumnsConflicts` 在检测到列变更(新增+删除)时,会调用 `@hanji` 的 `render()` 函数弹出交互式选择菜单。该函数在 `bin.cjs:1449` 处硬性检查 `process.stdin.isTTY && process.stdout.isTTY`,非 TTY 环境直接 reject。
 
 报错栈:
+
 ```
 Error: Interactive prompts require a TTY terminal
   at render10 (bin.cjs:1450:31)
@@ -51,11 +52,11 @@ Error: Interactive prompts require a TTY terminal
 
 ### 2.1 新生成的文件
 
-| 文件 | 路径 | 大小 | 行数 |
-| --- | --- | --- | --- |
-| `0108_r83_supplement_27_tables.sql` | `g:\IHUI-AI\packages\database\drizzle\0108_r83_supplement_27_tables.sql` | 21,360 bytes | 404 |
-| `0108_snapshot.json` | `g:\IHUI-AI\packages\database\drizzle\meta\0108_snapshot.json` | 1,434,037 bytes | - |
-| `_journal.json`(更新) | `g:\IHUI-AI\packages\database\drizzle\meta\_journal.json` | 追加 idx=108 条目 | - |
+| 文件                                | 路径                                                                     | 大小              | 行数 |
+| ----------------------------------- | ------------------------------------------------------------------------ | ----------------- | ---- |
+| `0108_r83_supplement_27_tables.sql` | `g:\IHUI-AI\packages\database\drizzle\0108_r83_supplement_27_tables.sql` | 21,360 bytes      | 404  |
+| `0108_snapshot.json`                | `g:\IHUI-AI\packages\database\drizzle\meta\0108_snapshot.json`           | 1,434,037 bytes   | -    |
+| `_journal.json`(更新)               | `g:\IHUI-AI\packages\database\drizzle\meta\_journal.json`                | 追加 idx=108 条目 | -    |
 
 ### 2.2 SQL 文件结构统计
 
@@ -74,45 +75,45 @@ Error: Interactive prompts require a TTY terminal
 
 ### 3.1 social-supplement.ts(6 张)
 
-| 表名 | 字段数 | 索引数 | 主键类型 |
-| --- | --- | --- | --- |
-| `t_dynamic` | 8 | 2(circle_id, member_id) | bigserial |
-| `t_favorite` | 6 | 2((topic_id,topic_type), member_id) | bigserial |
-| `t_follow` | 6 | 2(member_id, follow_member_id) | bigserial |
-| `t_like` | 7 | 2((topic_id,topic_type), member_id) | bigserial |
-| `t_private_letter` | 9 | 2(sender_id, receiver_id) | bigserial |
-| `t_content` | 6 | 2((topic_id,topic_type), topic_type) | bigserial |
+| 表名               | 字段数 | 索引数                               | 主键类型  |
+| ------------------ | ------ | ------------------------------------ | --------- |
+| `t_dynamic`        | 8      | 2(circle_id, member_id)              | bigserial |
+| `t_favorite`       | 6      | 2((topic_id,topic_type), member_id)  | bigserial |
+| `t_follow`         | 6      | 2(member_id, follow_member_id)       | bigserial |
+| `t_like`           | 7      | 2((topic_id,topic_type), member_id)  | bigserial |
+| `t_private_letter` | 9      | 2(sender_id, receiver_id)            | bigserial |
+| `t_content`        | 6      | 2((topic_id,topic_type), topic_type) | bigserial |
 
 ### 3.2 live-supplement.ts(1 张)
 
-| 表名 | 字段数 | 索引数 | 主键类型 |
-| --- | --- | --- | --- |
-| `t_tencent_cloud_live_stream` | 6 | 1(channel_id) | bigserial |
+| 表名                          | 字段数 | 索引数        | 主键类型  |
+| ----------------------------- | ------ | ------------- | --------- |
+| `t_tencent_cloud_live_stream` | 6      | 1(channel_id) | bigserial |
 
 ### 3.3 learn-homework.ts(2 张)
 
-| 表名 | 字段数 | 索引数 | 主键类型 |
-| --- | --- | --- | --- |
-| `t_homework` | 6 | 1(lesson_id) | bigserial |
-| `t_check_in_record` | 5 | 1(member_id) | bigserial |
+| 表名                | 字段数 | 索引数       | 主键类型  |
+| ------------------- | ------ | ------------ | --------- |
+| `t_homework`        | 6      | 1(lesson_id) | bigserial |
+| `t_check_in_record` | 5      | 1(member_id) | bigserial |
 
 ### 3.4 resource-download.ts(2 张)
 
-| 表名 | 字段数 | 索引数 | 主键类型 |
-| --- | --- | --- | --- |
-| `t_resource_download` | 5 | 2(member_id, resource_id) | bigserial |
-| `search_content` | 6 | 2((topic_id,topic_type), topic_type) | bigserial |
+| 表名                  | 字段数 | 索引数                               | 主键类型  |
+| --------------------- | ------ | ------------------------------------ | --------- |
+| `t_resource_download` | 5      | 2(member_id, resource_id)            | bigserial |
+| `search_content`      | 6      | 2((topic_id,topic_type), topic_type) | bigserial |
 
 ### 3.5 admin-extended.ts(6 张)
 
-| 表名 | 字段数 | 索引数 | 主键类型 |
-| --- | --- | --- | --- |
-| `t_certificate` | 29 | 5(certificate_id, member_id, lesson_id, status, company_id) | bigserial |
-| `t_certificate_template` | 17 | 3(status, company_id, create_time) | bigserial |
-| `t_department` | 7 | 0 | bigint DEFAULT 0(非自增,手工分配) |
-| `t_lecturer` | 6 | 1(user_id) | bigserial |
-| `t_manager` | 5 | 2(user_id, manager_id) | bigserial |
-| `t_sensitive_word` | 4 | 1(name) | bigserial |
+| 表名                     | 字段数 | 索引数                                                      | 主键类型                          |
+| ------------------------ | ------ | ----------------------------------------------------------- | --------------------------------- |
+| `t_certificate`          | 29     | 5(certificate_id, member_id, lesson_id, status, company_id) | bigserial                         |
+| `t_certificate_template` | 17     | 3(status, company_id, create_time)                          | bigserial                         |
+| `t_department`           | 7      | 0                                                           | bigint DEFAULT 0(非自增,手工分配) |
+| `t_lecturer`             | 6      | 1(user_id)                                                  | bigserial                         |
+| `t_manager`              | 5      | 2(user_id, manager_id)                                      | bigserial                         |
+| `t_sensitive_word`       | 4      | 1(name)                                                     | bigserial                         |
 
 **17 张表合计**:91 个字段 + 27 个索引,全部正确生成,snapshot 0108 中 17 张表均存在(已通过 Node.js 解析 snapshot 验证)。
 
@@ -124,14 +125,14 @@ Error: Interactive prompts require a TTY terminal
 
 ### 4.1 额外的 CREATE TABLE(6 张,已存在)
 
-| 表名 | 来源迁移 | 备注 |
-| --- | --- | --- |
-| `edu_classes_members` | 0114_r81_edu_classes_tables.sql | R81 教室成员 |
-| `edu_classes_schedules` | 0114_r81_edu_classes_tables.sql | R81 教室课表 |
-| `zhs_agent_examine` | 0109_missing_migrations.sql | 审核 |
-| `zhs_agent_settlement` | 0109_missing_migrations.sql | 结算 |
-| `search_contents` | 0112_r80_new_tables.sql | R80 搜索内容(现代版 UUID) |
-| `agent_billings` | 0112_r80_new_tables.sql | R80 计费 |
+| 表名                    | 来源迁移                        | 备注                      |
+| ----------------------- | ------------------------------- | ------------------------- |
+| `edu_classes_members`   | 0114_r81_edu_classes_tables.sql | R81 教室成员              |
+| `edu_classes_schedules` | 0114_r81_edu_classes_tables.sql | R81 教室课表              |
+| `zhs_agent_examine`     | 0109_missing_migrations.sql     | 审核                      |
+| `zhs_agent_settlement`  | 0109_missing_migrations.sql     | 结算                      |
+| `search_contents`       | 0112_r80_new_tables.sql         | R80 搜索内容(现代版 UUID) |
+| `agent_billings`        | 0112_r80_new_tables.sql         | R80 计费                  |
 
 ### 4.2 额外的 ALTER TABLE(已在手工迁移中应用)
 
@@ -211,14 +212,14 @@ Everything's fine 🐶🔥
 
 ## 7. 交付物清单
 
-| 文件 | 状态 |
-| --- | --- |
-| `g:\IHUI-AI\packages\database\drizzle\0108_r83_supplement_27_tables.sql` | ✅ 已生成(21,360 bytes,404 行) |
-| `g:\IHUI-AI\packages\database\drizzle\meta\0108_snapshot.json` | ✅ 已生成(1.4MB,539 张表) |
-| `g:\IHUI-AI\packages\database\drizzle\meta\_journal.json` | ✅ 已追加 idx=108 |
-| `g:\IHUI-AI\reports\db-migration-generate-20260719-230638.md` | ✅ 本报告 |
-| `g:\IHUI-AI\.trae-cn\tmp\drizzle-patch.cjs` | ✅ TTY mock 临时脚本(gitignore,未污染仓库) |
-| `g:\IHUI-AI\.trae-cn\tmp\db-*.log` | ✅ 命令日志(gitignore) |
+| 文件                                                                     | 状态                                       |
+| ------------------------------------------------------------------------ | ------------------------------------------ |
+| `g:\IHUI-AI\packages\database\drizzle\0108_r83_supplement_27_tables.sql` | ✅ 已生成(21,360 bytes,404 行)             |
+| `g:\IHUI-AI\packages\database\drizzle\meta\0108_snapshot.json`           | ✅ 已生成(1.4MB,539 张表)                  |
+| `g:\IHUI-AI\packages\database\drizzle\meta\_journal.json`                | ✅ 已追加 idx=108                          |
+| `g:\IHUI-AI\reports\db-migration-generate-20260719-230638.md`            | ✅ 本报告                                  |
+| `g:\IHUI-AI\.trae-cn\tmp\drizzle-patch.cjs`                              | ✅ TTY mock 临时脚本(gitignore,未污染仓库) |
+| `g:\IHUI-AI\.trae-cn\tmp\db-*.log`                                       | ✅ 命令日志(gitignore)                     |
 
 ---
 

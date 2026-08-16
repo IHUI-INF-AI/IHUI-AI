@@ -59,17 +59,12 @@ export const customRegistryAdapter: RegistryAdapter = {
   async fetch(sourceType: RegistrySourceType, options?: SyncOptions): Promise<RawRegistryItem[]> {
     const timeoutMs = options?.timeoutMs ?? 15000
     const url =
-      options?.customRegistryUrl ??
-      process.env.IHUI_CUSTOM_REGISTRY_URL ??
-      DEFAULT_REGISTRY_URL
+      options?.customRegistryUrl ?? process.env.IHUI_CUSTOM_REGISTRY_URL ?? DEFAULT_REGISTRY_URL
 
     // SSRF 防护:校验 URL 协议 + 内网地址
     const validation = validateRegistryUrl(url)
     if (!validation.valid) {
-      throw new RegistryAdapterError(
-        `custom registry URL blocked: ${validation.reason}`,
-        'custom',
-      )
+      throw new RegistryAdapterError(`custom registry URL blocked: ${validation.reason}`, 'custom')
     }
 
     try {

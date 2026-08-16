@@ -1,7 +1,15 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
-import { GraduationCap, Sparkles, ArrowRight, BookOpen, Users, BarChart3, Wrench } from 'lucide-react'
+import {
+  GraduationCap,
+  Sparkles,
+  ArrowRight,
+  BookOpen,
+  Users,
+  BarChart3,
+  Wrench,
+} from 'lucide-react'
 import { generateCourseSchema, type CourseSchema } from '@/lib/seo/schema-course'
 import { BackButton } from '@/components/common'
 
@@ -113,8 +121,12 @@ export default async function AiEduPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                  {m.value}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                  {m.label}
+                </div>
               </div>
             ))}
           </div>
@@ -210,7 +222,8 @@ export default async function AiEduPage() {
           <Wrench className="mx-auto h-6 w-6 text-primary" />
           <h2 className="mt-3 text-2xl font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-            注册即用,Apache 2.0 开源,可私有化部署;Web/API/AI Service/Desktop/Extension/Mobile/Miniapp/CLI 8 端同源。
+            注册即用,Apache 2.0 开源,可私有化部署;Web/API/AI
+            Service/Desktop/Extension/Mobile/Miniapp/CLI 8 端同源。
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link

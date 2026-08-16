@@ -61,7 +61,11 @@ export type { UserInfoCardProps } from './UserInfoCard.taro'
 // ===== 三批:9 屏共享组件(P2-F.2 + P2-F.3) =====
 
 export { FeedbackScreen } from './FeedbackScreen.taro'
-export type { FeedbackScreenProps, FeedbackType, FeedbackSubmitPayload } from './FeedbackScreen.taro'
+export type {
+  FeedbackScreenProps,
+  FeedbackType,
+  FeedbackSubmitPayload,
+} from './FeedbackScreen.taro'
 
 export { SettingsScreen } from './SettingsScreen.taro'
 export type { SettingsScreenProps, SharedNotificationToggles } from './SettingsScreen.taro'
@@ -73,17 +77,24 @@ export { WalletScreen } from './WalletScreen.taro'
 export type { WalletScreenProps, WalletBalance } from './WalletScreen.taro'
 
 export { MessageCenterScreen } from './MessageCenterScreen.taro'
-export type { MessageCenterScreenProps, MessageCenterItem, MessageTab } from './MessageCenterScreen.taro'
+export type {
+  MessageCenterScreenProps,
+  MessageCenterItem,
+  MessageTab,
+} from './MessageCenterScreen.taro'
 
 export { StudyPlanScreen } from './StudyPlanScreen.taro'
 export type { StudyPlanScreenProps, PlanStatus, StudyPlanItem } from './StudyPlanScreen.taro'
 
 export { CertificateScreen } from './CertificateScreen.taro'
-export type { CertificateScreenProps, CertificateItem, CertificateStatus } from './CertificateScreen.taro'
+export type {
+  CertificateScreenProps,
+  CertificateItem,
+  CertificateStatus,
+} from './CertificateScreen.taro'
 
 export { NoteListScreen } from './NoteListScreen.taro'
 export type { NoteListScreenProps, NoteListItem } from './NoteListScreen.taro'
 
 export { NoteDetailScreen } from './NoteDetailScreen.taro'
 export type { NoteDetailScreenProps, NoteDetailItem } from './NoteDetailScreen.taro'
-

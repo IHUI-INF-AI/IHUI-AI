@@ -1,13 +1,7 @@
 /** 多通道消息总线跨端契约(Wave 3 W3-2 对标 OpenClaw 多通道消息) */
 
 /** 消息总线支持的外部 IM 渠道 */
-export type MessageChannel =
-  | 'feishu'
-  | 'dingtalk'
-  | 'telegram'
-  | 'slack'
-  | 'discord'
-  | 'wechat'
+export type MessageChannel = 'feishu' | 'dingtalk' | 'telegram' | 'slack' | 'discord' | 'wechat'
 
 /** 已配置的消息总线渠道(一条渠道 = 一个 IM 机器人接入) */
 export interface MessageBusChannel {

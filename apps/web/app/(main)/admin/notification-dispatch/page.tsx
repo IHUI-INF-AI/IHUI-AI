@@ -78,7 +78,12 @@ export default function NotificationDispatchPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('nd.subtitle')}</p>
       </div>
 
-      <DispatchFormView form={form} submitting={sendMut.isPending} onChange={setForm} onSubmit={submit} />
+      <DispatchFormView
+        form={form}
+        submitting={sendMut.isPending}
+        onChange={setForm}
+        onSubmit={submit}
+      />
 
       {result && <DispatchResultView result={result} />}
     </div>

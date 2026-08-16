@@ -147,7 +147,12 @@ export function AsksTable({
         cell: ({ row }) => (
           <div className="flex flex-nowrap items-center justify-end gap-1">
             <Tooltip content={t('edit')}>
-              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onEdit(row.original)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => onEdit(row.original)}
+              >
                 <Edit className="h-4 w-4 shrink-0" />
               </Button>
             </Tooltip>

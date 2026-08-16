@@ -50,7 +50,6 @@ export default function DistributionRank() {
   return (
     <View className="min-h-screen bg-background">
       <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[#ff8e53]">
-
         <Text className="text-primary-foreground text-[36rpx] font-bold">
           {tt('distribution.rankTitle', '分销排行榜')}
         </Text>
@@ -121,7 +120,9 @@ export default function DistributionRank() {
                 mode="aspectFill"
               />
               <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{u.nickname}</Text>
-              <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold">¥{u.commission}</Text>
+              <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold">
+                ¥{u.commission}
+              </Text>
             </View>
           ))}
         </View>

@@ -1,11 +1,6 @@
 import { create } from 'zustand'
 import { logger } from '@/lib/logger'
-import {
-  browseDirectory,
-  readFile,
-  runCommand,
-  type BrowseEntry,
-} from '@ihui/api-client'
+import { browseDirectory, readFile, runCommand, type BrowseEntry } from '@ihui/api-client'
 import type {
   ViewPanelType,
   IDETabType,
@@ -17,10 +12,26 @@ import type {
 
 /** 扩展名 → 语言映射 */
 const EXT_LANG: Record<string, string> = {
-  ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
-  json: 'json', css: 'css', scss: 'scss', html: 'html', md: 'markdown',
-  py: 'python', go: 'go', rs: 'rust', sh: 'shell', yml: 'yaml', yaml: 'yaml',
-  sql: 'sql', xml: 'xml', svg: 'xml', vue: 'vue', svelte: 'svelte',
+  ts: 'typescript',
+  tsx: 'tsx',
+  js: 'javascript',
+  jsx: 'jsx',
+  json: 'json',
+  css: 'css',
+  scss: 'scss',
+  html: 'html',
+  md: 'markdown',
+  py: 'python',
+  go: 'go',
+  rs: 'rust',
+  sh: 'shell',
+  yml: 'yaml',
+  yaml: 'yaml',
+  sql: 'sql',
+  xml: 'xml',
+  svg: 'xml',
+  vue: 'vue',
+  svelte: 'svelte',
 }
 
 /** BrowseEntry → FileNode */
@@ -219,11 +230,13 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       selectedFileId: file.id,
     })
     // 异步加载文件内容
-    get().fetchFileContent(file.path).then((content) => {
-      set((s) => ({
-        openTabs: s.openTabs.map((t) => (t.id === newTab.id ? { ...t, content } : t)),
-      }))
-    })
+    get()
+      .fetchFileContent(file.path)
+      .then((content) => {
+        set((s) => ({
+          openTabs: s.openTabs.map((t) => (t.id === newTab.id ? { ...t, content } : t)),
+        }))
+      })
   },
 
   closeTab: (tabId) => {
@@ -330,7 +343,10 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
         if (!filename) continue
         const ext = filename.split('.').pop()?.toLowerCase() ?? ''
         const statusMap: Record<string, DiffFile['status']> = {
-          A: 'added', M: 'modified', D: 'deleted', R: 'renamed',
+          A: 'added',
+          M: 'modified',
+          D: 'deleted',
+          R: 'renamed',
         }
         // 获取 diff 统计
         const statResult = await runCommand({
@@ -405,7 +421,11 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       if (!result.success) return
       const lines = result.data.stdout.trim().split('\n').filter(Boolean)
       const branches = lines.map((l) => l.replace(/^\*?\s+/, '').trim()).filter(Boolean)
-      const current = lines.find((l) => l.startsWith('*'))?.replace(/^\*\s+/, '').trim() ?? 'main'
+      const current =
+        lines
+          .find((l) => l.startsWith('*'))
+          ?.replace(/^\*\s+/, '')
+          .trim() ?? 'main'
       set({ gitBranches: branches, gitCurrentBranch: current })
     } catch (e) {
       logger.error('fetchGitBranches error:', e)

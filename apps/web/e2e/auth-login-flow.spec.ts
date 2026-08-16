@@ -115,11 +115,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     expect(page.url()).toBeTruthy()
   })
 
-  test('重新登录:再次 API 登录后访问 /dashboard 200', async ({
-    request,
-    baseURL,
-    page,
-  }) => {
+  test('重新登录:再次 API 登录后访问 /dashboard 200', async ({ request, baseURL, page }) => {
     const result = await apiLogin(
       request,
       baseURL ?? 'http://localhost:8801',

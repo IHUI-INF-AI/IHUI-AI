@@ -7,27 +7,27 @@
 
 ## 1. 三分类统计
 
-| 决策 | 数量 | 占比 |
-| --- | --- | --- |
-| 补齐(补迁移) | 4 | 0.4% |
-| 重写已迁移 | 17 | 1.6% |
-| 废弃(不迁移) | 1029 | 98.0% |
-| **总计** | **1050** | **100%** |
+| 决策         | 数量     | 占比     |
+| ------------ | -------- | -------- |
+| 补齐(补迁移) | 4        | 0.4%     |
+| 重写已迁移   | 17       | 1.6%     |
+| 废弃(不迁移) | 1029     | 98.0%    |
+| **总计**     | **1050** | **100%** |
 
 ## 2. Top 10 模块决策明细
 
-| 模块 | 总数 | 补齐 | 重写已迁移 | 废弃 |
-| --- | --- | --- | --- | --- |
-| examine | 79 | 0 | 0 | 79 |
-| agent_withdrawal_detail | 68 | 0 | 0 | 68 |
-| job | 62 | 0 | 0 | 62 |
-| gen_info | 44 | 0 | 0 | 44 |
-| zhs_user | 31 | 0 | 1 | 30 |
-| auth_user | 28 | 0 | 0 | 28 |
-| information | 28 | 0 | 1 | 27 |
-| task_developer | 26 | 0 | 1 | 25 |
-| zhs_product | 24 | 0 | 1 | 23 |
-| course_video | 23 | 0 | 0 | 23 |
+| 模块                    | 总数 | 补齐 | 重写已迁移 | 废弃 |
+| ----------------------- | ---- | ---- | ---------- | ---- |
+| examine                 | 79   | 0    | 0          | 79   |
+| agent_withdrawal_detail | 68   | 0    | 0          | 68   |
+| job                     | 62   | 0    | 0          | 62   |
+| gen_info                | 44   | 0    | 0          | 44   |
+| zhs_user                | 31   | 0    | 1          | 30   |
+| auth_user               | 28   | 0    | 0          | 28   |
+| information             | 28   | 0    | 1          | 27   |
+| task_developer          | 26   | 0    | 1          | 25   |
+| zhs_product             | 24   | 0    | 1          | 23   |
+| course_video            | 23   | 0    | 0          | 23   |
 
 ## 3. 补齐清单(可立即补迁移)
 
@@ -1102,98 +1102,98 @@ message.confirmDeleteItem
 
 ## 6. 评估规则
 
-| 优先级 | 规则 | 决策 |
-| --- | --- | --- |
-| 1 | 单段命名空间根标识(如 "common"、"navbar") | 废弃 |
-| 2 | 模块 ∈ DEPRECATED_MODULES(unified_login_button / header_search / right_toolbar / crontab / image_upload / table_column / validation_message / query / data) | 废弃 |
-| 3 | 原 common.* 命名空间 + leaf 在当前仓库不存在 | 补齐 |
-| 3' | 原 common.* 命名空间 + leaf 在当前仓库已存在 | 重写已迁移 |
-| 4 | leaf 在当前仓库存在(后缀匹配) | 重写已迁移 |
-| 5 | 兜底(模块为旧项目特有功能,新项目无对应实现) | 废弃 |
+| 优先级 | 规则                                                                                                                                                        | 决策       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1      | 单段命名空间根标识(如 "common"、"navbar")                                                                                                                   | 废弃       |
+| 2      | 模块 ∈ DEPRECATED_MODULES(unified_login_button / header_search / right_toolbar / crontab / image_upload / table_column / validation_message / query / data) | 废弃       |
+| 3      | 原 common.* 命名空间 + leaf 在当前仓库不存在                                                                                                                | 补齐       |
+| 3'     | 原 common.* 命名空间 + leaf 在当前仓库已存在                                                                                                                | 重写已迁移 |
+| 4      | leaf 在当前仓库存在(后缀匹配)                                                                                                                               | 重写已迁移 |
+| 5      | 兜底(模块为旧项目特有功能,新项目无对应实现)                                                                                                                 | 废弃       |
 
 ## 7. 全模块决策明细(共 82 个模块)
 
-| 模块 | 总数 | 补齐 | 重写已迁移 | 废弃 |
-| --- | --- | --- | --- | --- |
-| examine | 79 | 0 | 0 | 79 |
-| agent_withdrawal_detail | 68 | 0 | 0 | 68 |
-| job | 62 | 0 | 0 | 62 |
-| gen_info | 44 | 0 | 0 | 44 |
-| zhs_user | 31 | 0 | 1 | 30 |
-| auth_user | 28 | 0 | 0 | 28 |
-| information | 28 | 0 | 1 | 27 |
-| task_developer | 26 | 0 | 1 | 25 |
-| zhs_product | 24 | 0 | 1 | 23 |
-| course_video | 23 | 0 | 0 | 23 |
-| dict_data | 23 | 0 | 0 | 23 |
-| zhs_activity | 21 | 0 | 1 | 20 |
-| zhs_agent | 20 | 0 | 1 | 19 |
-| edit_table | 18 | 0 | 0 | 18 |
-| auth_sms_temp | 17 | 0 | 0 | 17 |
-| auth_user_margin | 17 | 0 | 0 | 17 |
-| agent_rule_param | 17 | 0 | 0 | 17 |
-| user_dept | 16 | 0 | 0 | 16 |
-| auth_account | 16 | 0 | 0 | 16 |
-| user_agent_context | 16 | 0 | 1 | 15 |
-| batch_sms | 16 | 0 | 0 | 16 |
-| vip_level | 16 | 0 | 1 | 15 |
-| auth_token | 15 | 0 | 0 | 15 |
-| auth_veri_code | 15 | 0 | 1 | 14 |
-| auth_info | 15 | 0 | 0 | 15 |
-| course_audit | 14 | 0 | 0 | 14 |
-| course_pay_log | 14 | 0 | 0 | 14 |
-| dictionary | 14 | 0 | 0 | 14 |
-| user_feedback | 14 | 0 | 1 | 13 |
-| user_vip | 14 | 0 | 1 | 13 |
-| withdrawal_flow | 14 | 0 | 0 | 14 |
-| login_log | 13 | 0 | 1 | 12 |
-| user_role | 13 | 0 | 0 | 13 |
-| auth_vip_level | 13 | 0 | 0 | 13 |
-| course_pay | 13 | 0 | 0 | 13 |
-| basic_info_form | 13 | 0 | 0 | 13 |
-| auth_user_vip | 12 | 0 | 0 | 12 |
-| education_platform | 12 | 0 | 0 | 12 |
-| us | 12 | 0 | 1 | 11 |
-| category_dictionary | 11 | 0 | 0 | 11 |
-| zhs_identity | 11 | 0 | 0 | 11 |
-| user_agent_audio | 11 | 0 | 1 | 10 |
-| gen | 11 | 0 | 0 | 11 |
-| crontab | 10 | 0 | 0 | 10 |
-| auth_find_info | 10 | 0 | 0 | 10 |
-| course_platform_log | 9 | 0 | 0 | 9 |
-| user_platform | 9 | 0 | 0 | 9 |
-| auth_user_role | 9 | 0 | 1 | 8 |
-| auth_role | 8 | 0 | 0 | 8 |
-| user_video_log | 8 | 0 | 0 | 8 |
-| user_agent_image | 8 | 0 | 1 | 7 |
-| reset_pwd | 8 | 0 | 0 | 8 |
-| user_comment_log | 7 | 0 | 0 | 7 |
-| user_video_comment | 7 | 0 | 0 | 7 |
-| import_table | 6 | 0 | 0 | 6 |
-| unified_login_button | 5 | 0 | 0 | 5 |
-| auth_dept | 5 | 0 | 0 | 5 |
-| select_user | 5 | 0 | 1 | 4 |
-| query | 4 | 0 | 0 | 4 |
-| validation_message | 3 | 0 | 0 | 3 |
-| user_avatar | 3 | 0 | 0 | 3 |
-| modify_success | 2 | 1 | 0 | 1 |
-| batch_export | 2 | 0 | 0 | 2 |
-| cancel_select | 2 | 0 | 0 | 2 |
-| table_column | 2 | 0 | 0 | 2 |
-| data | 2 | 0 | 0 | 2 |
-| system_tip | 1 | 1 | 0 | 0 |
-| serial_number | 1 | 1 | 0 | 0 |
-| data_item | 1 | 1 | 0 | 0 |
-| header_search | 1 | 0 | 0 | 1 |
-| logout_confirm | 1 | 0 | 0 | 1 |
-| go_to | 1 | 0 | 0 | 1 |
-| page_size | 1 | 0 | 0 | 1 |
-| modify_failed | 1 | 0 | 0 | 1 |
-| delete_success_count | 1 | 0 | 0 | 1 |
-| data_processing | 1 | 0 | 0 | 1 |
-| duplicate_submit | 1 | 0 | 0 | 1 |
-| token_refresh_failed | 1 | 0 | 0 | 1 |
-| login_expired | 1 | 0 | 0 | 1 |
-| re_login | 1 | 0 | 0 | 1 |
-| download_error | 1 | 0 | 0 | 1 |
-| confirm_delete_item | 1 | 0 | 0 | 1 |
+| 模块                    | 总数 | 补齐 | 重写已迁移 | 废弃 |
+| ----------------------- | ---- | ---- | ---------- | ---- |
+| examine                 | 79   | 0    | 0          | 79   |
+| agent_withdrawal_detail | 68   | 0    | 0          | 68   |
+| job                     | 62   | 0    | 0          | 62   |
+| gen_info                | 44   | 0    | 0          | 44   |
+| zhs_user                | 31   | 0    | 1          | 30   |
+| auth_user               | 28   | 0    | 0          | 28   |
+| information             | 28   | 0    | 1          | 27   |
+| task_developer          | 26   | 0    | 1          | 25   |
+| zhs_product             | 24   | 0    | 1          | 23   |
+| course_video            | 23   | 0    | 0          | 23   |
+| dict_data               | 23   | 0    | 0          | 23   |
+| zhs_activity            | 21   | 0    | 1          | 20   |
+| zhs_agent               | 20   | 0    | 1          | 19   |
+| edit_table              | 18   | 0    | 0          | 18   |
+| auth_sms_temp           | 17   | 0    | 0          | 17   |
+| auth_user_margin        | 17   | 0    | 0          | 17   |
+| agent_rule_param        | 17   | 0    | 0          | 17   |
+| user_dept               | 16   | 0    | 0          | 16   |
+| auth_account            | 16   | 0    | 0          | 16   |
+| user_agent_context      | 16   | 0    | 1          | 15   |
+| batch_sms               | 16   | 0    | 0          | 16   |
+| vip_level               | 16   | 0    | 1          | 15   |
+| auth_token              | 15   | 0    | 0          | 15   |
+| auth_veri_code          | 15   | 0    | 1          | 14   |
+| auth_info               | 15   | 0    | 0          | 15   |
+| course_audit            | 14   | 0    | 0          | 14   |
+| course_pay_log          | 14   | 0    | 0          | 14   |
+| dictionary              | 14   | 0    | 0          | 14   |
+| user_feedback           | 14   | 0    | 1          | 13   |
+| user_vip                | 14   | 0    | 1          | 13   |
+| withdrawal_flow         | 14   | 0    | 0          | 14   |
+| login_log               | 13   | 0    | 1          | 12   |
+| user_role               | 13   | 0    | 0          | 13   |
+| auth_vip_level          | 13   | 0    | 0          | 13   |
+| course_pay              | 13   | 0    | 0          | 13   |
+| basic_info_form         | 13   | 0    | 0          | 13   |
+| auth_user_vip           | 12   | 0    | 0          | 12   |
+| education_platform      | 12   | 0    | 0          | 12   |
+| us                      | 12   | 0    | 1          | 11   |
+| category_dictionary     | 11   | 0    | 0          | 11   |
+| zhs_identity            | 11   | 0    | 0          | 11   |
+| user_agent_audio        | 11   | 0    | 1          | 10   |
+| gen                     | 11   | 0    | 0          | 11   |
+| crontab                 | 10   | 0    | 0          | 10   |
+| auth_find_info          | 10   | 0    | 0          | 10   |
+| course_platform_log     | 9    | 0    | 0          | 9    |
+| user_platform           | 9    | 0    | 0          | 9    |
+| auth_user_role          | 9    | 0    | 1          | 8    |
+| auth_role               | 8    | 0    | 0          | 8    |
+| user_video_log          | 8    | 0    | 0          | 8    |
+| user_agent_image        | 8    | 0    | 1          | 7    |
+| reset_pwd               | 8    | 0    | 0          | 8    |
+| user_comment_log        | 7    | 0    | 0          | 7    |
+| user_video_comment      | 7    | 0    | 0          | 7    |
+| import_table            | 6    | 0    | 0          | 6    |
+| unified_login_button    | 5    | 0    | 0          | 5    |
+| auth_dept               | 5    | 0    | 0          | 5    |
+| select_user             | 5    | 0    | 1          | 4    |
+| query                   | 4    | 0    | 0          | 4    |
+| validation_message      | 3    | 0    | 0          | 3    |
+| user_avatar             | 3    | 0    | 0          | 3    |
+| modify_success          | 2    | 1    | 0          | 1    |
+| batch_export            | 2    | 0    | 0          | 2    |
+| cancel_select           | 2    | 0    | 0          | 2    |
+| table_column            | 2    | 0    | 0          | 2    |
+| data                    | 2    | 0    | 0          | 2    |
+| system_tip              | 1    | 1    | 0          | 0    |
+| serial_number           | 1    | 1    | 0          | 0    |
+| data_item               | 1    | 1    | 0          | 0    |
+| header_search           | 1    | 0    | 0          | 1    |
+| logout_confirm          | 1    | 0    | 0          | 1    |
+| go_to                   | 1    | 0    | 0          | 1    |
+| page_size               | 1    | 0    | 0          | 1    |
+| modify_failed           | 1    | 0    | 0          | 1    |
+| delete_success_count    | 1    | 0    | 0          | 1    |
+| data_processing         | 1    | 0    | 0          | 1    |
+| duplicate_submit        | 1    | 0    | 0          | 1    |
+| token_refresh_failed    | 1    | 0    | 0          | 1    |
+| login_expired           | 1    | 0    | 0          | 1    |
+| re_login                | 1    | 0    | 0          | 1    |
+| download_error          | 1    | 0    | 0          | 1    |
+| confirm_delete_item     | 1    | 0    | 0          | 1    |

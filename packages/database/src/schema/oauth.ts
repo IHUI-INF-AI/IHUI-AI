@@ -1,5 +1,16 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, boolean, jsonb, index, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  text,
+  boolean,
+  jsonb,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * OAuth2 应用表（开发者创建的 OAuth 应用）。
@@ -38,7 +49,7 @@ export const oauthApps = pgTable(
     clientIdIdx: unique('oauth_apps_client_id_unique').on(t.clientId),
     ownerIdx: index('oauth_apps_owner_idx').on(t.ownerUuid),
   }),
-);
+)
 
 /**
  * OAuth2 授权码会话表。
@@ -66,7 +77,7 @@ export const oauthSessions = pgTable(
     codeIdx: unique('oauth_sessions_code_unique').on(t.code),
     userIdx: index('oauth_sessions_user_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * OAuth 用户映射表（第三方 provider → 本地 user）。
@@ -91,7 +102,7 @@ export const oauthUsers = pgTable(
     userIdx: index('oauth_users_user_idx').on(t.userId),
     providerIdx: index('oauth_users_provider_idx').on(t.provider, t.providerUserId),
   }),
-);
+)
 
 /**
  * OAuth 审计日志表。
@@ -113,7 +124,7 @@ export const oauthAuditLogs = pgTable(
     clientIdx: index('oauth_audit_logs_client_idx').on(t.clientId),
     userIdx: index('oauth_audit_logs_user_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * OAuth scope 元数据表。
@@ -135,7 +146,7 @@ export const oauthScopeMeta = pgTable(
   (t) => ({
     scopeIdx: unique('oauth_scope_meta_scope_unique').on(t.scope),
   }),
-);
+)
 
 /**
  * 用户第三方账号绑定表（小程序 openid / Google sub 等）。
@@ -163,7 +174,7 @@ export const userThirdPartyAccounts = pgTable(
     userIdx: index('user_third_party_user_idx').on(t.userId),
     platformIdx: index('user_third_party_platform_idx').on(t.platform, t.openId),
   }),
-);
+)
 
 /**
  * 用户 Secret Key 表（API 调用凭据）。
@@ -187,17 +198,17 @@ export const userSk = pgTable(
     userIdx: index('user_sk_user_idx').on(t.userId),
     keyIdx: unique('user_sk_key_unique').on(t.key),
   }),
-);
+)
 
-export type OauthApp = typeof oauthApps.$inferSelect;
-export type NewOauthApp = typeof oauthApps.$inferInsert;
-export type OauthSession = typeof oauthSessions.$inferSelect;
-export type NewOauthSession = typeof oauthSessions.$inferInsert;
-export type OauthUser = typeof oauthUsers.$inferSelect;
-export type NewOauthUser = typeof oauthUsers.$inferInsert;
-export type OauthAuditLog = typeof oauthAuditLogs.$inferSelect;
-export type UserThirdPartyAccount = typeof userThirdPartyAccounts.$inferSelect;
-export type NewUserThirdPartyAccount = typeof userThirdPartyAccounts.$inferInsert;
-export type UserSk = typeof userSk.$inferSelect;
-export type NewUserSk = typeof userSk.$inferInsert;
-export type OauthScopeMeta = typeof oauthScopeMeta.$inferSelect;
+export type OauthApp = typeof oauthApps.$inferSelect
+export type NewOauthApp = typeof oauthApps.$inferInsert
+export type OauthSession = typeof oauthSessions.$inferSelect
+export type NewOauthSession = typeof oauthSessions.$inferInsert
+export type OauthUser = typeof oauthUsers.$inferSelect
+export type NewOauthUser = typeof oauthUsers.$inferInsert
+export type OauthAuditLog = typeof oauthAuditLogs.$inferSelect
+export type UserThirdPartyAccount = typeof userThirdPartyAccounts.$inferSelect
+export type NewUserThirdPartyAccount = typeof userThirdPartyAccounts.$inferInsert
+export type UserSk = typeof userSk.$inferSelect
+export type NewUserSk = typeof userSk.$inferInsert
+export type OauthScopeMeta = typeof oauthScopeMeta.$inferSelect

@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, integer, numeric, boolean, timestamp, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  numeric,
+  boolean,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 模型价格历史表(2026-08-01 立,价格历史 + 限时折扣调度 + 动态调价建议)。

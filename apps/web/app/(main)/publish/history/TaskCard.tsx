@@ -104,11 +104,10 @@ export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               <span>
-                {t('history.time')}: {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
+                {t('history.time')}:{' '}
+                {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
               </span>
-              {typeof task.platformCount === 'number' && (
-                <span>平台数: {task.platformCount}</span>
-              )}
+              {typeof task.platformCount === 'number' && <span>平台数: {task.platformCount}</span>}
               {task.format && <span className="font-mono">{task.format}</span>}
             </div>
           </div>

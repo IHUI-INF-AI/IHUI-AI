@@ -64,8 +64,7 @@ const NEWS_ENTRIES: NewsEntry[] = [
   },
   {
     title: '营销首页迁移到根路径 + enterprise 页补全',
-    description:
-      '营销首页统一到 / 路径,enterprise 完整介绍页同步上线,主流程 Hydration 修复完成。',
+    description: '营销首页统一到 / 路径,enterprise 完整介绍页同步上线,主流程 Hydration 修复完成。',
     path: '/enterprise',
     daysAgo: 4,
     category: 'product',
@@ -91,8 +90,7 @@ const NEWS_ENTRIES: NewsEntry[] = [
   },
   {
     title: 'C 端 resource 字段配套 + 分类 join 修复',
-    description:
-      '前后端字段命名对齐,categoryName join 落地,管理端资源列表查询性能提升 30%。',
+    description: '前后端字段命名对齐,categoryName join 落地,管理端资源列表查询性能提升 30%。',
     path: '/articles',
     daysAgo: 1,
     category: 'product',

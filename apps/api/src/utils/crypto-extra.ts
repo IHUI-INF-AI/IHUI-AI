@@ -57,6 +57,10 @@ export function hmacSHA256(key: string | Buffer, data: string | Buffer): string 
 /**
  * 常量时间验证 HMAC-SHA256 签名。
  */
-export function hmacVerify(key: string | Buffer, data: string | Buffer, signature: string): boolean {
+export function hmacVerify(
+  key: string | Buffer,
+  data: string | Buffer,
+  signature: string,
+): boolean {
   return constantTimeCompare(hmacSHA256(key, data), signature)
 }

@@ -1,4 +1,12 @@
-import { pgTable, bigserial, varchar, integer, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  bigserial,
+  varchar,
+  integer,
+  timestamp,
+  uniqueIndex,
+  index,
+} from 'drizzle-orm/pg-core'
 
 // 搜索热词表 (2026-07-20 补建,迁移报告 P0 缺失)
 // 与 hot_words (misc-extended-2.ts) 并存:本表聚焦搜索统计场景(searchCount + rank),

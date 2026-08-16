@@ -11,7 +11,10 @@ export function AgreementScreen({ t, onBack, colorScheme }: AgreementScreenProps
   const sections: LegalDocSection[] = [
     { title: t('agreementSections.sectionTerms'), body: t('agreementSections.sectionTermsBody') },
     { title: t('agreementSections.sectionRights'), body: t('agreementSections.sectionRightsBody') },
-    { title: t('agreementSections.sectionObligations'), body: t('agreementSections.sectionObligationsBody') },
+    {
+      title: t('agreementSections.sectionObligations'),
+      body: t('agreementSections.sectionObligationsBody'),
+    },
   ]
 
   return (

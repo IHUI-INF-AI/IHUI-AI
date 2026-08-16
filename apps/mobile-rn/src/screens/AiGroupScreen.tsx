@@ -101,7 +101,9 @@ export default function AiGroupScreen() {
       onTabChange={setTab}
       onPressItem={handlePressItem}
       onBackToList={() => setSelectedId(null)}
-      onEnterChat={(g) => Alert.alert(t('aiGroup.enterChat.title'), t('aiGroup.enterChat.message', { name: g.name }))}
+      onEnterChat={(g) =>
+        Alert.alert(t('aiGroup.enterChat.title'), t('aiGroup.enterChat.message', { name: g.name }))
+      }
       onRefresh={onRefresh}
       onRetry={load}
     />

@@ -44,33 +44,36 @@ export default function AnalyticsPage() {
   const [accounts, setAccounts] = React.useState<AccountHealth[]>([])
   const [loading, setLoading] = React.useState(true)
 
-  const load = React.useCallback(async (p: AnalyticsPeriod) => {
-    setLoading(true)
-    try {
-      const [ovRes, acRes] = await Promise.all([
-        api<OverviewResponse>(`/api/publish/analytics/overview?period=${p}`).catch(() => null),
-        api<AccountHealth[]>(`/api/publish/analytics/accounts?period=${p}`).catch(() => []),
-      ])
-      if (ovRes) {
-        setOverview({
-          totalPublished: ovRes.totalPublished,
-          successRate: ovRes.successRate,
-          avgDurationMs: ovRes.avgDurationMs,
-          activeAccounts: ovRes.activeAccounts,
-          trend: ovRes.trend,
-          platformDistribution: ovRes.platformDistribution,
-          failureReasons: ovRes.failureReasons,
-        })
-      } else {
-        setOverview(null)
+  const load = React.useCallback(
+    async (p: AnalyticsPeriod) => {
+      setLoading(true)
+      try {
+        const [ovRes, acRes] = await Promise.all([
+          api<OverviewResponse>(`/api/publish/analytics/overview?period=${p}`).catch(() => null),
+          api<AccountHealth[]>(`/api/publish/analytics/accounts?period=${p}`).catch(() => []),
+        ])
+        if (ovRes) {
+          setOverview({
+            totalPublished: ovRes.totalPublished,
+            successRate: ovRes.successRate,
+            avgDurationMs: ovRes.avgDurationMs,
+            activeAccounts: ovRes.activeAccounts,
+            trend: ovRes.trend,
+            platformDistribution: ovRes.platformDistribution,
+            failureReasons: ovRes.failureReasons,
+          })
+        } else {
+          setOverview(null)
+        }
+        setAccounts(acRes)
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setLoading(false)
       }
-      setAccounts(acRes)
-    } catch (e) {
-      toast.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
+    },
+    [toast],
+  )
 
   React.useEffect(() => {
     void load(period)

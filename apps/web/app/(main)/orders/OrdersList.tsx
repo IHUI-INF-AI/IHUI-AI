@@ -54,10 +54,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       title: t('target'),
       render: (o) => (
         <div className="min-w-0">
-          <TruncatedText
-            value={o.targetTitle ?? '-'}
-            className="max-w-[200px] font-medium"
-          />
+          <TruncatedText value={o.targetTitle ?? '-'} className="max-w-[200px] font-medium" />
           <div className="text-xs text-muted-foreground">
             {t(TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? 'type.card')}
           </div>

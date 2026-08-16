@@ -70,7 +70,8 @@ export function CommandPalette({
     if (!q) return COMMANDS
     return COMMANDS.filter((c) => {
       const keywords = t.raw(COMMAND_KEYWORDS_KEY[c.id] ?? 'commands.unknown.keywords') as string[]
-      const text = `${t(COMMAND_LABEL_KEY[c.id] ?? 'commands.unknown.label')} ${t(COMMAND_DESC_KEY[c.id] ?? 'commands.unknown.description')} ${keywords.join(' ')}`.toLowerCase()
+      const text =
+        `${t(COMMAND_LABEL_KEY[c.id] ?? 'commands.unknown.label')} ${t(COMMAND_DESC_KEY[c.id] ?? 'commands.unknown.description')} ${keywords.join(' ')}`.toLowerCase()
       return text.includes(q)
     })
   }, [query, t])

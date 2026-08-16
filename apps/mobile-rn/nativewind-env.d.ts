@@ -1,2 +1,2 @@
-/// <reference types="nativewind/types" />
-/// <reference path="../node_modules/react-native-css-interop/types.d.ts" />
+import 'nativewind/types'
+import '../node_modules/react-native-css-interop/types.d.ts'
