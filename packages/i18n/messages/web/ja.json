@@ -928,6 +928,20 @@
     "searchNext": "次へ",
     "searchPrev": "前へ",
     "searchClose": "検索を閉じる",
+    "message": {
+      "hideContent": "コンテンツを非表示",
+      "showContent": "コンテンツを表示",
+      "like": "いいね",
+      "copy": "コピー",
+      "downloadImages": "画像をダウンロード",
+      "share": "共有",
+      "toggleMetadata": "メタデータ切替",
+      "regenerate": "再生成",
+      "publishToCommunity": "コミュニティに投稿",
+      "edit": "編集",
+      "reply": "返信",
+      "delete": "削除"
+    },
     "plan": {
       "title": "実行プラン",
       "ariaLabel": "実行プランステップ",

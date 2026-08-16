@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   tagItem: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.surface.muted,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.purple.light,
   },
   tagText: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.secondary,
   },
   tagTextActive: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: tokens.brand.DEFAULT,
   },
   confirmText: {

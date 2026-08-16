@@ -288,18 +288,18 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     searchBar: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 8,
-      backgroundColor: tk.surface.muted,
+      borderRadius: 12,
+      backgroundColor: '#f5f5f5',
       paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 14,
+      paddingVertical: 14,
+      fontSize: 16,
       color: tk.text.primary,
     } as TextStyle,
     chipsBar: {
@@ -309,12 +309,12 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     chipsContent: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       gap: 12,
       paddingVertical: 12,
     } as ViewStyle,
     chip: {
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 16,
       backgroundColor: tk.surface.muted,
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brand.DEFAULT,
     } as ViewStyle,
     chipText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
@@ -334,7 +334,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     } as TextStyle,
     listContent: {
-      padding: 16,
+      padding: 10,
       paddingBottom: 80,
     } as ViewStyle,
     columnWrapper: {
@@ -346,17 +346,17 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 48,
     } as ViewStyle,
     loadingText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
     } as TextStyle,
     loadingMoreText: {
       textAlign: 'center',
       paddingVertical: 16,
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     errorText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.danger.DEFAULT,
       textAlign: 'center',
     } as TextStyle,
@@ -364,11 +364,11 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
-      fontSize: 14,
+      fontSize: 16,
       color: '#fff',
     } as TextStyle,
     emptyWrap: {
@@ -380,7 +380,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 48,
     } as TextStyle,
     emptyText: {
-      fontSize: 14,
+      fontSize: 16,
       color: tk.text.secondary,
       textAlign: 'center',
     } as TextStyle,
@@ -388,11 +388,11 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 10,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     emptyBtnText: {
-      fontSize: 14,
+      fontSize: 16,
       color: '#fff',
       fontWeight: '600',
     } as TextStyle,
@@ -400,8 +400,8 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       marginBottom: 12,
       padding: 12,
-      borderRadius: 10,
-      backgroundColor: tk.surface.card,
+      borderRadius: 12,
+      backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
     } as ViewStyle,
@@ -409,20 +409,20 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     cardTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 6,
+      marginBottom: 8,
     } as TextStyle,
     cardDesc: {
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
-      marginBottom: 6,
+      marginBottom: 8,
     } as TextStyle,
     cardDate: {
       fontSize: 11,
       color: tk.text.tertiary,
-      marginBottom: 4,
+      marginBottom: 8,
     } as TextStyle,
     cardCycle: {
       fontSize: 11,
@@ -449,11 +449,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     avatarText: {
-      fontSize: 12,
+      fontSize: 14,
     } as TextStyle,
     author: {
       flex: 1,
-      fontSize: 12,
+      fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     cardFooter: {
@@ -462,7 +462,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     } as ViewStyle,
     price: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -476,7 +476,7 @@ function createStyles(tk: AppThemeTokens) {
     chatBtn: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 6,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     chatBtnText: {

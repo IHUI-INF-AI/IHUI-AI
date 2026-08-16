@@ -79,31 +79,31 @@ export function AgentReviewDetailScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 16 },
-    muted: { fontSize: 12, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, textAlign: 'center' },
+    muted: { fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: { marginTop: 12 },
-    body: { padding: 16 },
-    agentName: { fontSize: 16, fontWeight: '600', color: tk.purple.DEFAULT },
+    body: { padding: 14 },
+    agentName: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginTop: 8,
     },
-    author: { fontSize: 12, color: tk.text.secondary },
-    rating: { fontSize: 12, color: tk.warning.amber },
-    content: { marginTop: 12, fontSize: 14, lineHeight: 22, color: tk.text.primary },
+    author: { fontSize: 14, color: tk.text.secondary },
+    rating: { fontSize: 14, color: tk.warning.amber },
+    content: { marginTop: 12, fontSize: 16, lineHeight: 22, color: tk.text.primary },
     createdAt: { marginTop: 12, fontSize: 11, color: tk.text.tertiary },
   })
 }

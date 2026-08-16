@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   shieldWrap: {
     width: SHIELD_SIZE,
     height: SHIELD_SIZE,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: SHIELD_BG,

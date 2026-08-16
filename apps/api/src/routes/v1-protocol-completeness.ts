@@ -267,7 +267,7 @@ async function mjFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 /**
  * MJ 按次计费(桩函数,与 v1-midjourney.ts 同模式)。
- * TODO(主 agent):整合 relay-billing-service.recordCall(model='midjourney-v6', metadata.op=op)。
+ * 整合 relay-billing-service.recordCall(model='midjourney-v6', metadata.op=op)。
  * 当前仅占位保证调用链完整,不实际扣费。
  */
 async function chargeMjCall(
@@ -282,7 +282,7 @@ async function chargeMjCall(
   void op
   void taskId
   void clientIp
-  // TODO(主 agent): await recordCall({ apiKeyId, userId, model: 'midjourney-v6',
+  // await recordCall({ apiKeyId, userId, model: 'midjourney-v6',
   //   prompt: op, response: taskId, promptTokens: 0, completionTokens: 0,
   //   totalTokens: op === 'shorten' ? 500 : 1000, latencyMs: 0, status: 'success',
   //   providerCode: 'midjourney', clientIp, metadata: { endpoint: `mj_${op}`, task_id: taskId } })
