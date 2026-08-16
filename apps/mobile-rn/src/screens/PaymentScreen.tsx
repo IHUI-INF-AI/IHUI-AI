@@ -9,12 +9,12 @@ import {
   syncPaymentStatus,
   type PaymentOrder,
 } from '@ihui/api-client'
-import {
-  PaymentScreen as SharedPaymentScreen,
-  type PaymentOrderItem,
-} from '@ihui/rn-app'
+import { PaymentScreen as SharedPaymentScreen, type PaymentOrderItem } from '@ihui/rn-app'
 import { openWeChatPayment } from '../lib/wechat-pay'
-import { ConfirmPurchasePopUp, type ConfirmPurchaseProduct } from '../components/ConfirmPurchasePopUp'
+import {
+  ConfirmPurchasePopUp,
+  type ConfirmPurchaseProduct,
+} from '../components/ConfirmPurchasePopUp'
 import { PayButton } from '../components/PayButton'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
