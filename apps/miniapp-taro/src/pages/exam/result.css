@@ -31,12 +31,12 @@
 
 .exam-result-hero.passed {
   background: linear-gradient(135deg, #4caf50, #66bb6a);
-  /* TODO: custom color: 成绩通过渐变绿色 */
+  /* custom color: 成绩通过渐变绿色 */
 }
 
 .exam-result-hero.failed {
   background: linear-gradient(135deg, #dd524d, #e57373);
-  /* TODO: custom color: 成绩未通过渐变红色 */
+  /* custom color: 成绩未通过渐变红色 */
 }
 
 .exam-result-badge {

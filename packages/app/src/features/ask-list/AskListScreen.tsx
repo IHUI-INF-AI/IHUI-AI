@@ -80,7 +80,7 @@ export function AskListScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
+    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48 },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -88,31 +88,32 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btn: {
       marginTop: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     },
-    btnText: { color: tk.surface.light, fontSize: 14 },
+    btnText: { color: tk.surface.light, fontSize: 16 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-    back: { fontSize: 14, color: tk.text.secondary },
+    back: { fontSize: 16, color: tk.text.secondary },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    action: { fontSize: 24, color: tk.success.DEFAULT, fontWeight: '600' },
+    action: { fontSize: 24, color: tk.brand.DEFAULT, fontWeight: '600' },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      backgroundColor: tk.surface.light,
+      marginBottom: 12,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-    author: { fontSize: 11, color: tk.success.DEFAULT },
+    author: { fontSize: 11, color: tk.text.tertiary },
     meta: { fontSize: 11, color: tk.text.tertiary },
   })
 }

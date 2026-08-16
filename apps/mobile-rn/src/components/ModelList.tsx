@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   sectionHeaderText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: tokens.text.secondary,
     textTransform: 'uppercase',
@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     width: 40,
-    height: 40,
-    borderRadius: 8,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.tertiary,
   },
 })

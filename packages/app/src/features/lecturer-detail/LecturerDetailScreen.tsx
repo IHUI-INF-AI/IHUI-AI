@@ -55,8 +55,8 @@ export function LecturerDetailScreen({
       data={courses}
       keyExtractor={(item) => item.id}
       style={styles.container}
-      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+      contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
+      ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View>
@@ -142,22 +142,22 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    emptyText: { fontSize: 12, color: tk.text.tertiary, marginTop: 8 },
-    errorText: { fontSize: 12, color: tk.danger.DEFAULT, marginTop: 4 },
+    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     header: { paddingTop: 48, paddingBottom: 8 },
-    backText: { fontSize: 14, color: tk.text.secondary },
-    title: { marginTop: 4, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
+    backText: { fontSize: 16, color: tk.text.secondary },
+    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     profileCard: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       backgroundColor: tk.surface.muted,
       marginBottom: 12,
     },
     name: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     bio: {
       marginTop: 6,
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
       lineHeight: 18,
     },
@@ -167,36 +167,36 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     statItem: { alignItems: 'center', flex: 1 },
-    statValue: { fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
+    statValue: { fontSize: 20, fontWeight: '600', color: tk.brand.DEFAULT },
     statLabel: {
-      marginTop: 2,
+      marginTop: 8,
       fontSize: 11,
       color: tk.text.secondary,
     },
     followBtn: {
       marginTop: 14,
       paddingVertical: 10,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
     followingBtn: { backgroundColor: tk.surface.card },
-    followBtnText: { fontSize: 13, color: tk.surface.light },
+    followBtnText: { fontSize: 14, color: tk.surface.light },
     followingBtnText: { color: tk.text.secondary },
     sectionTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
       marginVertical: 8,
     },
     card: {
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -205,14 +205,14 @@ function createStyles(tk: AppThemeTokens) {
       flexWrap: 'wrap',
     },
     cardMetaText: { fontSize: 11, color: tk.text.tertiary },
-    priceText: { fontSize: 13, fontWeight: '600', color: tk.success.DEFAULT },
+    priceText: { fontSize: 16, fontWeight: '700', color: tk.brand.DEFAULT },
     retryBtn: {
       marginTop: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
     },
-    retryBtnText: { color: tk.surface.light, fontSize: 13 },
+    retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })
 }

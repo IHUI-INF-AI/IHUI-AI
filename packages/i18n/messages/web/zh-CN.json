@@ -926,6 +926,20 @@
     "searchNext": "下一个",
     "searchPrev": "上一个",
     "searchClose": "关闭搜索",
+    "message": {
+      "hideContent": "隐藏内容",
+      "showContent": "显示内容",
+      "like": "点赞",
+      "copy": "复制",
+      "downloadImages": "下载图片",
+      "share": "分享",
+      "toggleMetadata": "切换元数据",
+      "regenerate": "重新生成",
+      "publishToCommunity": "发布到社区",
+      "edit": "编辑",
+      "reply": "回复",
+      "delete": "删除"
+    },
     "plan": {
       "title": "执行计划",
       "ariaLabel": "执行计划步骤",
@@ -10863,7 +10877,21 @@
     "exportName": "开发者链接",
     "total": "共 {total} 条",
     "prev": "上一页",
-    "next": "下一页"
+    "next": "下一页",
+    "message": {
+      "hideContent": "隐藏内容",
+      "showContent": "显示内容",
+      "like": "点赞",
+      "copy": "复制",
+      "downloadImages": "下载图片",
+      "share": "分享",
+      "toggleMetadata": "切换元数据",
+      "regenerate": "重新生成",
+      "publishToCommunity": "发布到社区",
+      "edit": "编辑",
+      "reply": "回复",
+      "delete": "删除"
+    }
   },
   "adminApiApps": {
     "title": "API 应用管理",

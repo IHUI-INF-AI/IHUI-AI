@@ -72,17 +72,17 @@ export function FeedbackDetailScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.card },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
     },
-    body: { padding: 16 },
-    back: { fontSize: 14, color: tk.text.medium },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 14 },
+    back: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     typeBadge: {
       fontSize: 11,
@@ -90,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: 12,
       overflow: 'hidden',
     },
     statusBadge: {
@@ -99,22 +99,22 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: 12,
     },
-    labelTitle: { marginTop: 12, fontSize: 13, fontWeight: '600', color: tk.text.secondary },
-    content: { marginTop: 6, fontSize: 14, color: tk.text.medium, lineHeight: 22 },
+    labelTitle: { marginTop: 12, fontSize: 14, fontWeight: '600', color: tk.text.secondary },
+    content: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
     createdAt: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    reply: { marginTop: 6, fontSize: 14, color: tk.text.medium, lineHeight: 22 },
+    reply: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
     replyEmpty: {
-      marginTop: 6,
-      fontSize: 14,
+      marginTop: 8,
+      fontSize: 16,
       color: tk.text.tertiary,
       fontStyle: 'italic',
       lineHeight: 22,
     },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, textAlign: 'center' },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     backBtn: { marginTop: 12 },
   })
 }

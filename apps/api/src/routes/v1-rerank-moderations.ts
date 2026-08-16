@@ -7,7 +7,7 @@
  *
  * 鉴权:复用 plugins/api-key-auth.ts 的 requireApiKeyAuth(Bearer token + developer_api_keys 表)。
  *       模型白名单检查由 requireApiKeyAuth 内置 checkAllowedModels 完成(返回 403)。
- *       TODO(主 agent):若需返回 New API 风格的 1003 业务码,需在 routes/index.ts 整合时
+ *       若需返回 New API 风格的 1003 业务码,需在 routes/index.ts 整合时
  *       替换为自定义 preHandler 或扩展 api-key-auth 支持 businessCode 映射。
  * 上游:fetch 调用 Cohere/Jina/OpenAI,rerank-* → UPSTREAM_RERANK_BASE/KEY,
  *       text-moderation-* → UPSTREAM_MODERATION_BASE/KEY,未配置返回 5013。

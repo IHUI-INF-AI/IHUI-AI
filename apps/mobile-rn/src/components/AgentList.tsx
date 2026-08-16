@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.text.tertiary,
   },
 })

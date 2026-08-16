@@ -474,6 +474,39 @@ export async function clearMessages(conversationId: string): Promise<void> {
   })
 }
 
+/**
+ * 原子性地替换对话的所有消息(用于自动压缩后持久化压缩结果)。
+ * 事务化:删除旧消息 + 批量插入新消息,保证前后一致。
+ */
+export async function replaceMessages(
+  conversationId: string,
+  messages: Array<{
+    id?: string
+    role: string
+    content: string
+    createdAt?: Date | string
+    tokens?: number | null
+    metadata?: Record<string, unknown> | null
+  }>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
+    if (messages.length > 0) {
+      await tx.insert(chatMessages).values(
+        messages.map((m) => ({
+          id: m.id ?? crypto.randomUUID(),
+          conversationId,
+          role: m.role,
+          content: m.content,
+          tokens: m.tokens ?? null,
+          metadata: m.metadata ?? null,
+          createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+        })),
+      )
+    }
+  })
+}
+
 // =============================================================================
 // 收藏
 // =============================================================================

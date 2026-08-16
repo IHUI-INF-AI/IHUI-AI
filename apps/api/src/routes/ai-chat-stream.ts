@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
-import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
+import { compressContextIfNeeded, estimateMessagesTokens, type ChatMessage } from '@ihui/context-compaction'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
-import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
+import { createMessage, patchConversationMetadata, replaceMessages } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
@@ -300,7 +300,21 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (contextLimit && contextLimit > 0) {
+        console.log('[Compaction] before compress:', {
+          contextLimit,
+          messageCount: messages.length,
+          tokens: Math.floor(estimateMessagesTokens(messages)),
+          triggerThreshold: Math.floor(contextLimit * 0.88),
+        })
         const result = compressContextIfNeeded(messages, { contextLimit })
+        console.log('[Compaction] result:', {
+          compressed: result.compressed,
+          trigger: result.trigger,
+          originalTokens: result.originalTokens,
+          compressedTokens: result.compressedTokens,
+          removedCount: result.removedCount,
+          usageRatio: result.usageRatio,
+        })
         if (result.compressed) {
           finalMessages = result.messages
           extraFirstEvents.push({
@@ -311,8 +325,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
               usageRatio: result.usageRatio ?? 0,
+              compressedMessages: result.messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
             },
           })
+
+          // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
+          if (metadata?.conversationId) {
+            void replaceMessages(metadata.conversationId, result.messages)
+          }
         }
       }
 
@@ -464,8 +487,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
               usageRatio: result.usageRatio ?? 0,
+              compressedMessages: result.messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
             },
           })
+
+          // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
+          if (conversationId) {
+            void replaceMessages(conversationId, result.messages)
+          }
         }
       }
 

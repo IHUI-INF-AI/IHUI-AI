@@ -38,10 +38,10 @@ export interface ProtocolExtensionResult {
 
 /**
  * 检测 stream_options.include_usage,标记需要在流式最后一个 chunk 注入 usage。
- * 仅当 stream=true 且 stream_options.include_usage=true 时返回 true。
+ * 仅当 stream=true 且未显式关闭 include_usage 时返回 true。
  */
 export function detectStreamUsage(request: ChatCompletionRequest): boolean {
-  return request.stream === true && request.stream_options?.include_usage === true
+  return request.stream === true && request.stream_options?.include_usage !== false
 }
 
 /**

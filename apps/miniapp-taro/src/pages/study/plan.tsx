@@ -81,7 +81,7 @@ export default function StudyPlan() {
                 <Text className="text-xs text-muted-foreground">
                   {t('study.planPage.completed', { n: p.progress })}
                 </Text>
-                {/* TODO: custom color: #ff9a3c 自定义橙色,无对应 token,保留原值 */}
+
                 <Text
                   className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[#ff9a3c]'}`}
                 >

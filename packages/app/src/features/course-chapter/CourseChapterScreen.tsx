@@ -72,7 +72,7 @@ export function CourseChapterScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
+    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48 },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -80,9 +80,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
-    error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    back: { fontSize: 14, color: tk.text.secondary },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,
@@ -94,23 +94,24 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 16,
-      borderRadius: 8,
+      padding: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      backgroundColor: tk.surface.light,
+      marginBottom: 12,
     },
-    idx: { width: 28, fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
+    idx: { width: 28, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
     cardBody: { flex: 1 },
-    cardTitle: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
-    meta: { marginTop: 2, fontSize: 11, color: tk.text.tertiary },
+    cardTitle: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
+    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     btn: {
       marginTop: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 8,
-      backgroundColor: tk.success.DEFAULT,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
     },
-    btnText: { color: tk.surface.light, fontSize: 14 },
+    btnText: { color: tk.surface.light, fontSize: 16 },
   })
 }
