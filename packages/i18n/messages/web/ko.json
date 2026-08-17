@@ -940,6 +940,7 @@
     "communityPublishSuccess": "게시 성공",
     "communityPublishFailed": "게시 실패",
     "jumpToLatest": "최신으로",
+    "jumpToTop": "맨 위로",
     "latest": "최신",
     "search": "메시지 검색",
     "searchPlaceholder": "키워드 입력...",
@@ -11498,7 +11499,19 @@
       "githubConnectedAs": "GitHub에 연결됨",
       "githubConfigure": "GitHub 저장소 연결 구성",
       "tokenClear": "토큰 지우기",
-      "tokenCleared": "토큰이 지워졌습니다"
+      "tokenCleared": "토큰이 지워졌습니다",
+      "noOAuthConfig": "GitHub OAuth 앱이 구성되지 않았습니다",
+      "authFail": "GitHub 인증에 실패했습니다",
+      "authorizeExpired": "인증이 만료되었습니다. 다시 인증해 주세요",
+      "authSuccess": "GitHub 인증에 성공했습니다",
+      "copied": "복사됨",
+      "authorizing": "인증 중…",
+      "authorize": "인증",
+      "manualToken": "토큰 수동 입력",
+      "userCode": "사용자 코드",
+      "copyCode": "코드 복사",
+      "openAuthPage": "인증 페이지 열기",
+      "authorizePending": "인증 대기 중…"
     },
     "terminalDock": {
       "title": "PowerShell 터미널",

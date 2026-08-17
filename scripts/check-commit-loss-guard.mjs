@@ -111,11 +111,15 @@ function detectResets() {
 
 function isStashSubject(subject) {
   if (!subject) return false
+  // stash-like subject 形如 "WIP on <branch>: <hash> <msg>" / "On <branch>: <hash> <msg>"
+  // / "index on <branch>: <hash> <msg>" / "untracked files on <branch>: <hash> <msg>"
+  // 2026-08-17 修复:原正则只匹配 "index on main:"/"On main:",漏掉其他分支(如
+  // fix/* 分支)产生的 stash 索引快照,导致误报"未备份悬空 commit"阻塞 commit。
+  // 改为匹配任意分支名(冒号前为非空非空白串),与 HASH_EXTRACT_REGEX 保持一致。
   return (
     /^WIP on /.test(subject) ||
-    /^On main: /.test(subject) ||
-    /^index on main: /.test(subject) ||
-    /^untracked files on main: /.test(subject) ||
+    /^On \S+: /.test(subject) ||
+    /^index on \S+: /.test(subject) ||
     /^untracked files on /.test(subject)
   )
 }
