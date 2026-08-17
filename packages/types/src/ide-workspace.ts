@@ -129,9 +129,14 @@ export interface GitStatusSnapshot {
     number: number
     title: string
     url: string
+    state: 'open' | 'merged' | 'closed' | 'draft'
   } | null
   localPath: string
-  remotes: string[]
+  remotes: Array<{
+    name: string
+    url: string
+    type?: string
+  }>
 }
 
 /** 调试断点 */
