@@ -253,6 +253,21 @@ class BrowserSession:
                 return {"url": self._page.url, "title": "", "status": None, "error": str(e)[:200]}
         return await self._run_sync(_sync)
 
+    async def set_viewport_size(self, width: int, height: int) -> dict[str, Any]:
+        """2026-08-17:动态调整视口大小(前端容器 1:1,消除缩放/letterbox)。"""
+        width = max(320, min(int(width), 1920))
+        height = max(240, min(int(height), 1200))
+
+        def _sync() -> dict[str, Any]:
+            try:
+                self._page.set_viewport_size({"width": width, "height": height})
+                return {"width": width, "height": height}
+            except Exception as e:
+                logger.warning(f"[browser_hub] set_viewport 失败: {e}")
+                return {"error": str(e)[:200]}
+
+        return await self._run_sync(_sync)
+
     async def get_current_url(self) -> str:
         def _sync() -> str:
             return self._page.url

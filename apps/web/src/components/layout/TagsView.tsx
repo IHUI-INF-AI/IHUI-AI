@@ -528,19 +528,11 @@ export function TagsView() {
                   // - pl-2.5 (10px) + 图标 (14px) + gap-1 (4px) = 28px 文字到左边缘
                   //   pl-8 → pl-2.5:原 pl-8 为与关闭按钮对称的空白,现改为图标填充左侧空间
                   TOPBAR_BTN_BASE,
-                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-2.5 pr-2.5 text-xs',
+                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
                   active
-                    ? // active(当前显示页面):2026-08-12 用户反馈"内描边改成外描边,色用纯白/纯黑"
-                      //   移除 border(1px 内描边,border-border 灰度低对比度弱),
-                      //   改用 outline(1px 外描边,纯黑亮色 / 纯白暗色),
-                      //   高对比 + 不占元素内部空间,视觉上"当前页"最突出
-                      //   配套 GlobalTopBar.tsx 父容器去掉 overflow-hidden,避免 outline 被裁剪
-                      // 2026-08-13 用户反馈:pure black/white 太突兀,改 outline-border(灰色主题色),
-                      //   同时 scroll 容器加 py-0.5 避免 outline 被 overflow-x-auto 裁剪
-                      // 2026-08-13 第四轮:用户要求描边与背景对比柔和,只做轻微区分。
-                      //   仍用 outline(外描边,不占空间),但改 outline-2(2px 描边),
-                      //   颜色用 --color-border(主题灰,与全局边框同色,对比度刚好可辨)。
-                      'bg-card font-medium text-foreground hover:bg-card outline outline-2 outline-border'
+                    ? // active(当前显示页面):1px 外描边 + 亮色纯黑/暗色纯白,高对比突出当前页,
+                      //   不占元素内部空间。配套 GlobalTopBar 父容器去掉 overflow-hidden 避免裁剪。
+                      'bg-card font-medium text-foreground hover:bg-card outline outline-1 outline-black dark:outline-white'
                     : isPinned
                       ? // pinned 标签(2026-08-07 立):改用专用 token --color-pinned-tag-bg。
                         //   亮色 88% L 接近 muted(92% L)略深;暗色 24% L 与 tag-inactive-bg 同档,
@@ -590,20 +582,14 @@ export function TagsView() {
                     }
                   }}
                   className={cn(
-                    // 2026-08-01 修正:容器 h-9 w-9 (36px) 太大 → h-6 w-6 (24px),
-                    // 与 Chrome 标签页关闭按钮一致;X 图标 h-4 w-4 (16px) 不变
-                    // 2026-08-14 再次修正:关闭按钮 24px 与图标 14px 视觉不对称 → 统一为 14px(h-3.5 w-3.5),
-                    // X 图标同步缩小到 12px(h-3 w-3),与图标尺寸协调。
-                    'inline-flex h-3.5 w-3.5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform ml-0.5',
+                    'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform ml-0.5',
                     'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
-                    // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                     'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
-                    // 键盘焦点态:补齐 a11y,让 Tab 用户能看到关闭按钮
                     'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   )}
                   aria-label={tCommon('close')}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </span>
               </Link>
             )

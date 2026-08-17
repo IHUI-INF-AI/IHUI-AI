@@ -329,6 +329,31 @@ export async function openExternalUrl(url: string): Promise<void> {
   }
 }
 
+/**
+ * 用系统 Google Chrome 以 --app 模式打开 URL(2026-08-17 立,用户要求"内置浏览器要谷歌")。
+ *
+ * - 桌面端:调 Rust 端 open_in_chrome(command 已注册)——Chrome --app 模式弹出
+ *   无地址栏/无标签的独立窗口,100% Google Chrome 本体,登录/点击/输入/视频全支持,
+ *   不受网站 X-Frame-Options / 反自动化拦截。
+ * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
+ *
+ * @returns 桌面端失败(未装 Chrome 等)返回错误消息,成功返回 null;web 端恒返回 null
+ */
+export async function openInGoogleChrome(url: string): Promise<string | null> {
+  if (!isTauri()) {
+    window.open(url, '_blank')
+    return null
+  }
+  try {
+    await invoke('open_in_chrome', { url })
+    return null
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn('[chrome] open_in_chrome failed:', msg)
+    return msg
+  }
+}
+
 // ================== 应用菜单(2026-07-25 立) ==================
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */

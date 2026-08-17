@@ -58,7 +58,8 @@ const ACTION_BADGE_CLASS: Record<HookActionType, string> = {
     'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900',
   script:
     'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900',
-  log: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800',
+  // 2026-08-17 P3:dark 模式徽章统一 zinc-950(深一档,与代码块 token 对齐)
+  log: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800',
   notify:
     'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
 }
@@ -478,7 +479,7 @@ function HookEditor({
                   className={
                     testResult.triggered
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
-                      : 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800'
+                      : 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800'
                   }
                 >
                   {testResult.triggered ? '已触发' : '未匹配'}
