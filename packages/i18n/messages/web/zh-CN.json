@@ -7290,7 +7290,11 @@
       "statusExpired": "已过期",
       "statusUnknown": "未知",
       "batchImport": "批量导入",
-      "batchVerify": "批量验证"
+      "batchVerify": "批量验证",
+      "openExternalBrowser": "在外部浏览器打开",
+      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "scanWithPhoneHint": "打开后请用手机扫二维码,页面无需点击;检测到登录后自动保存账号",
+      "orDivider": "或"
     },
     "cookieHealth": {
       "healthy": "健康",
@@ -12174,7 +12178,16 @@
       "thinkingChars": "字",
       "copyThinking": "复制思考内容",
       "thinkingElapsedTitle": "已思考 {time}",
-      "thinkingCharCountTitle": "{n} 个字符"
+      "thinkingCharCountTitle": "{n} 个字符",
+      "toolSummaryStreaming": "统计工具调用中…",
+      "toolSummaryFilesSearched": "搜索文件",
+      "toolSummaryWebSearched": "搜索网页",
+      "toolSummaryFilesModified": "修改文件",
+      "toolSummaryLinesAdded": "新增行数",
+      "toolSummaryLinesDeleted": "删除行数",
+      "toolSummaryTitle": "工具调用汇总",
+      "toolSummaryDuration": "总耗时",
+      "toolSummaryTotalCalls": "总调用"
     },
     "toolCall": {
       "statusRunning": "执行中",

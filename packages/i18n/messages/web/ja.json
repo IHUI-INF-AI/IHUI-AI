@@ -7312,7 +7312,11 @@
       "statusExpired": "期限切れ",
       "statusUnknown": "不明",
       "batchImport": "一括インポート",
-      "batchVerify": "一括検証"
+      "batchVerify": "一括検証",
+      "openExternalBrowser": "外部ブラウザで開く",
+      "externalBrowserHint": "システムブラウザでログイン(認証コード/パスワード向け);ログイン後、サイトのCookieをコピーしてアカウントフォームに貼り付けて保存",
+      "scanWithPhoneHint": "QRコードはスマホでスキャンしてください — ページ操作は不要;ログイン検出後、自動でアカウントが保存されます",
+      "orDivider": "または"
     },
     "cookieHealth": {
       "healthy": "正常",
@@ -12222,7 +12226,16 @@
       "thinkingChars": "文字",
       "copyThinking": "思考内容をコピー",
       "thinkingElapsedTitle": "{time} 思考中",
-      "thinkingCharCountTitle": "{n} 文字"
+      "thinkingCharCountTitle": "{n} 文字",
+      "toolSummaryStreaming": "ツール呼び出しを集計中…",
+      "toolSummaryFilesSearched": "検索ファイル",
+      "toolSummaryWebSearched": "ウェブ検索",
+      "toolSummaryFilesModified": "変更ファイル",
+      "toolSummaryLinesAdded": "追加行数",
+      "toolSummaryLinesDeleted": "削除行数",
+      "toolSummaryTitle": "ツール呼び出しサマリー",
+      "toolSummaryDuration": "総所要時間",
+      "toolSummaryTotalCalls": "総呼び出し"
     },
     "toolCall": {
       "statusRunning": "実行中",
