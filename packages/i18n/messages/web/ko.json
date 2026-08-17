@@ -961,7 +961,8 @@
       "edit": "편집",
       "reply": "답글",
       "delete": "삭제",
-      "jumpToLatest": "최신으로 이동"
+      "jumpToLatest": "최신으로 이동",
+      "shareLinkCopied": "내용과 링크를 복사했습니다"
     },
     "plan": {
       "title": "실행 계획",

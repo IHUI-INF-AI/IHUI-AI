@@ -122,20 +122,54 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
-vi.mock('@/stores/chat', () => ({
-  useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
-}))
+// 用 zustand-like 模式:内部维护可变 state + setUserScrolledUp 触发订阅者重渲染
+// 用 vi.hoisted 让变量和 mock factory 都被提升,绕开"factory 内不能引用顶层变量"的限制
+const mockChatStore = vi.hoisted(() => {
+  return {
+    state: {
+      messages: [] as unknown[],
+      subAgentActivities: [] as unknown[],
+      conversationId: null as string | null,
+      userScrolledUp: false,
+    },
+    listeners: new Set<() => void>(),
+  }
+})
+vi.mock('@/stores/chat', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactMod = require('react')
+  const { state, listeners } = mockChatStore
+  const subscribe = (l: () => void) => {
+    listeners.add(l)
+    return () => {
+      listeners.delete(l)
+    }
+  }
+  const notify = () => {
+    for (const l of listeners) l()
+  }
+  const setUserScrolledUp = (up: boolean) => {
+    state.userScrolledUp = up
+    notify()
+  }
+  const setState = (partial: Record<string, unknown>) => {
+    Object.assign(state, partial)
+    notify()
+  }
+  const useChatStore: unknown = Object.assign(
+    (selector: (s: typeof state) => unknown) => {
+      const getSnapshot = () => selector(state)
+      return ReactMod.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+    },
+    {
+      getState: () => state,
+      setState,
+      subscribe,
+    },
+  )
+  state.setUserScrolledUp = setUserScrolledUp
+  return { useChatStore }
+})
 
 // progress-jump-store mock
 const progressJumpStoreState = {
@@ -287,6 +321,8 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
     if (!Element.prototype.scrollIntoView) {
       Element.prototype.scrollIntoView = vi.fn()
     }
+    // 重置 chat store mock 状态(避免前一个测试把 userScrolledUp 置为 true 后泄漏)
+    mockChatStore.state.userScrolledUp = false
     progressJumpStoreState.pendingJumpToMessage = null
     progressJumpStoreState.highlightedMessageId = null
     progressJumpStoreState.hoveredMessageId = null

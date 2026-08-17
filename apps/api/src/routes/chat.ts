@@ -25,6 +25,8 @@ import {
   unarchiveConversation,
   findMessagesForExport,
   saveCompressedContext,
+  setConversationShareToken,
+  findConversationByShareToken,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
@@ -899,5 +901,29 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       request.raw.removeListener('close', onClose)
       reply.raw.end()
     }
+  })
+
+  // POST /conversations/:id/share - 生成/获取分享token
+  server.post('/conversations/:id/share', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const result = await setConversationShareToken(id, userId)
+    return reply.send(success({ token: result.token }))
+  })
+
+  // GET /conversations/share/:token - 公开查看分享对话
+  server.get('/conversations/share/:token', async (request, reply) => {
+    const { token } = z.object({ token: z.string() }).parse(request.params)
+    const conversation = await findConversationByShareToken(token)
+    if (!conversation) {
+      return reply.status(404).send(error(404, '对话不存在或已删除'))
+    }
+    const messages = await findMessages(conversation.id)
+    return reply.send(success({ conversation: serializeConversation(conversation), messages }))
   })
 }
