@@ -145,7 +145,10 @@ export function WebWorkPanel() {
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
     // - bottom-2(8px):底部留间距对齐 AISidePanel 底部(AISidePanel 上下各 8px 间距,
     //   WebWorkPanel 外层 absolute 默认 bottom:0 贴 viewport 边缘,比 AISidePanel 低 8px)
-    <div className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel">
+    <div
+      className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel"
+      data-testid="web-work-panel"
+    >
       <WorkPanel
         open={effectiveOpen}
         onClose={closePanel}
