@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "./src/components/GlobalFloatBox.tsx",
+    "./**/*.d.ts"
+  ],
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  }
+}
