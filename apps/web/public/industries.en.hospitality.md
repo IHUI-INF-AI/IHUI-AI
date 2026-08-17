@@ -154,7 +154,7 @@
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
-- **Web** (Next.js 15 + React 19): HQ operations / store dashboard
+- **Web** (Next.js 16 + React 19): HQ operations / store dashboard
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Order / member APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): Store management workstation
@@ -164,7 +164,7 @@
 - **CLI**: Batch menu generation / review analysis
 
 ### Technology Stack
-- Frontend: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI

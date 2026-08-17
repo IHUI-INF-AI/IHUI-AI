@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   createBrowserSession,
@@ -18,6 +18,7 @@ import {
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { openInGoogleChrome } from '@/lib/tauri-bridge'
 import {
   Button,
   Dialog,
@@ -226,7 +227,33 @@ export function ScanLoginDialog({
                 {t('accounts.startScanLogin')}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                点击后将在右侧内置浏览器打开登录页,支持扫码或账号密码登录
+                {t('accounts.scanWithPhoneHint')}
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {t('accounts.orDivider')}
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={!platform || isBusy}
+                onClick={async () => {
+                  // 2026-08-17:内置浏览器仅用于扫码展示;验证码/密码登录用 Google Chrome
+                  // --app 模式打开(桌面端)或系统浏览器新标签(web 端),登录后粘贴 Cookie 保存。
+                  const plat = platforms.find((p) => p.platform === platform)
+                  if (!plat?.login_url) return
+                  const err = await openInGoogleChrome(plat.login_url)
+                  if (err) toast.error(err)
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                {t('accounts.openExternalBrowser')}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                {t('accounts.externalBrowserHint')}
               </p>
             </>
           )}
@@ -244,7 +271,7 @@ export function ScanLoginDialog({
               <div className="space-y-1 text-center">
                 <p className="text-sm font-medium">正在等待扫码登录</p>
                 <p className="text-xs text-muted-foreground">
-                  请在右侧内置浏览器中完成 {platformName} 扫码登录
+                  用手机扫右侧二维码即可,页面无需点击;检测到登录后自动保存账号
                 </p>
               </div>
               <CountdownTimer

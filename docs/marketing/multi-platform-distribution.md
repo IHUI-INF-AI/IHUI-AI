@@ -19,7 +19,7 @@
 | 亮点 | 8 端同源 / 176 模型 / LangGraph+MCP+A2A / P3 深度层 |
 | 对标 | Dify / Coze / FastGPT / n8n / ChatGPT Team / Claude Code |
 | 定价 | Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起 |
-| 技术栈 | Next.js 15 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + Taro 4 |
+| 技术栈 | Next.js 16 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + Taro 4 |
 | 数据 | 340 表 / 144 迁移 / 1300+ API / 5346 测试 / 176 模型 |
 | License | Apache-2.0(商业可用) |
 | 国内镜像 | Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI |
@@ -81,7 +81,7 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 ## 核心架构
 
 - **API**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL(340 表 / 144 迁移 / 30+ 业务域)
-- **Web**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- **Web**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - **AI Service**:FastAPI + LangGraph + LiteLLM + MCP
 - **Miniapp**:Taro 4 + React
 - **Desktop / Extension / Mobile / CLI**:各端独立
@@ -308,7 +308,7 @@ Apache 2.0,商业可用。定价见上。
 ```
 apps/
 ├── api/            Fastify 5 + Drizzle ORM 0.38 + PostgreSQL
-├── web/            Next.js 15 + React 19 + Tailwind 4
+├── web/            Next.js 16 + React 19 + Tailwind 4
 ├── ai-service/     FastAPI + LangGraph + LiteLLM + MCP
 ├── miniapp-taro/   Taro 4 + React
 ├── desktop/        Electron
@@ -590,7 +590,7 @@ IHUI-AI 内置完整商业化模块:
 
 IHUI-AI,Apache 2.0 开源,8 端全栈 AI 操作系统:
 
-- web(Next.js 15 + React 19)
+- web(Next.js 16 + React 19)
 - api(Fastify 5 + Drizzle ORM + PostgreSQL)
 - ai-service(FastAPI + LangGraph + LiteLLM + MCP)
 - miniapp-taro(Taro 4 微信小程序)
@@ -740,7 +740,7 @@ I've been building an open-source full-stack AI platform for the past [X months]
 **IHUI-AI** — Apache 2.0 licensed AI operating system, 8-platform monorepo:
 
 - **API**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL (340 tables / 144 migrations)
-- **Web**: Next.js 15 + React 19 + Tailwind 4
+- **Web**: Next.js 16 + React 19 + Tailwind 4
 - **AI Service**: FastAPI + LangGraph + LiteLLM + MCP
 - **8 platforms**: web, api, ai-service, cli, desktop (Electron), extension (Chrome MV3), mobile (React Native), miniapp (Taro 4)
 
@@ -855,7 +855,7 @@ Live demo: https://aizhs.top
 
 ## What it does
 
-- **8 platforms** from one monorepo: web (Next.js 15), API (Fastify 5), ai-service (FastAPI + LangGraph), CLI, desktop (Electron), browser extension (Chrome MV3), mobile (React Native), miniapp (Taro 4 for WeChat)
+- **8 platforms** from one monorepo: web (Next.js 16), API (Fastify 5), ai-service (FastAPI + LangGraph), CLI, desktop (Electron), browser extension (Chrome MV3), mobile (React Native), miniapp (Taro 4 for WeChat)
 - **176 LLMs** supported via LiteLLM adapter — OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, plus local via Ollama / vLLM / LM Studio
 - **Native MCP + A2A support** — not bolted on, designed from day 1
 - **Built-in commercial layer**: subscriptions, wallet, credits, 3-tier affiliate, payment (WeChat Pay, Alipay, Stripe)
@@ -883,7 +883,7 @@ I wanted one repo covering all 8 platforms + 176 LLMs + commercial layer, Apache
 ## Stack
 
 - API: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15
-- Web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- Web: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - AI: FastAPI + LangGraph + LiteLLM + MCP
 - Mobile: Taro 4 + React Native
 - Build: Turborepo + pnpm workspace
@@ -982,7 +982,7 @@ I wanted ONE repo covering all 8 platforms + 176 LLMs + commercial layer.
 3/ The solution: IHUI-AI
 
 8 platforms from one monorepo:
-- web (Next.js 15)
+- web (Next.js 16)
 - api (Fastify 5)
 - ai-service (FastAPI + LangGraph)
 - cli, desktop, extension, mobile, miniapp
@@ -1119,7 +1119,7 @@ I chose option 3: build once, open-source it, let everyone benefit.
 ## What's included
 
 **8 platforms** from one monorepo:
-- Web (Next.js 15 + React 19)
+- Web (Next.js 16 + React 19)
 - API (Fastify 5 + Drizzle ORM + PostgreSQL)
 - AI Service (FastAPI + LangGraph + LiteLLM + MCP)
 - CLI, Desktop (Electron), Extension (Chrome MV3), Mobile (React Native), Miniapp (Taro 4)

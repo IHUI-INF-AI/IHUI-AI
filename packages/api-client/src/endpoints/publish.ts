@@ -102,16 +102,37 @@ export async function listPublishTasks(params?: {
   return fetchApi(`/api/publish/tasks${qs}`)
 }
 
-export async function getPublishTask(taskId: number): Promise<ApiResult<PublishTask>> {
+/** 任务详情:task_id 为字符串 pub-xxx(2026-08-17 修复:number 类型导致调用方传数字 id → 404) */
+export async function getPublishTask(taskId: string): Promise<ApiResult<PublishTask>> {
   return fetchApi(`/api/publish/tasks/${taskId}`)
 }
 
-export async function cancelPublishTask(taskId: number): Promise<ApiResult<unknown>> {
+/** 取消任务:task_id 为字符串 pub-xxx(2026-08-17 修复:number 类型导致调用方传数字 id → 404) */
+export async function cancelPublishTask(taskId: string): Promise<ApiResult<unknown>> {
   return fetchApi(`/api/publish/tasks/${taskId}/cancel`, { method: 'POST' })
 }
 
-export async function retryPublishTask(taskId: number): Promise<ApiResult<unknown>> {
+/** 重试失败平台:task_id 为字符串 pub-xxx(2026-08-17 修复:number 类型导致调用方传数字 id → 404) */
+export async function retryPublishTask(taskId: string): Promise<ApiResult<unknown>> {
   return fetchApi(`/api/publish/tasks/${taskId}/retry`, { method: 'POST' })
+}
+
+export interface ReschedulePublishTaskResult {
+  ok: boolean
+  task_id: string
+  status: string
+  scheduled_at?: string | null
+}
+
+/** 改期定时任务(2026-08-17 新增):task_id 为字符串 pub-xxx */
+export async function reschedulePublishTask(
+  taskId: string,
+  scheduledAt: string,
+): Promise<ApiResult<ReschedulePublishTaskResult>> {
+  return fetchApi(`/api/publish/tasks/${encodeURIComponent(taskId)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ scheduled_at: scheduledAt }),
+  })
 }
 
 // =============================================================================
@@ -397,6 +418,27 @@ export async function getCookieRefreshStats(): Promise<ApiResult<CookieRefreshSt
 
 export async function triggerCookieRefresh(): Promise<ApiResult<{ triggered: boolean }>> {
   return fetchApi('/api/publish/cookie-refresh/trigger', { method: 'POST' })
+}
+
+// =============================================================================
+// 账号风险评分(2026-08-17 新增,风控引擎)
+// =============================================================================
+export interface AccountRiskInfo {
+  accountId: number
+  platform: string
+  /** 风险评分 0-100,0=安全 100=高危 */
+  score: number
+  level: 'safe' | 'low' | 'medium' | 'high' | 'critical'
+  /** 触发的风险因素列表(人类可读) */
+  factors: string[]
+  /** 冷却截止时间戳(秒级 epoch),无冷却时为 null */
+  cooldownUntil?: number | null
+  /** 剩余冷却秒数(已过则为 0) */
+  cooldownRemaining?: number
+}
+
+export async function getAccountRisk(accountId: number): Promise<ApiResult<AccountRiskInfo>> {
+  return fetchApi(`/api/publish/accounts/${accountId}/risk`)
 }
 
 // =============================================================================

@@ -143,7 +143,7 @@
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
-- **Web** (Next.js 15 + React 19): Traffic command large display
+- **Web** (Next.js 16 + React 19): Traffic command large display
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Real-time traffic APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): Emergency command workstation
@@ -153,7 +153,7 @@
 - **CLI**: Batch data processing / signal optimization simulation
 
 ### Technology Stack
-- Frontend: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI

@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Minus, Pin, PanelLeft, ChevronUp } from 'lucide-react'
+import { X, Plus, Minus, Pin, PanelLeft, ChevronUp, SlidersHorizontal, SquareTerminal, PanelRight } from 'lucide-react'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
@@ -22,6 +22,8 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { CompactionStatusBar } from '@/components/chat/compaction-status-bar'
 import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
+import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover'
+import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
@@ -29,6 +31,8 @@ import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useEnvironmentInfoStore } from '@/stores/environment-info'
+import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getConversation, getMessages } from '@ihui/api-client'
@@ -113,6 +117,14 @@ export function AISidePanel() {
   const isLoginOpen = useLoginDialogStore((s) => s.isOpen)
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
+
+  // 2026-08-17 环境信息 / 终端 / 工作展示区三按钮(用户需求,对标 Cursor 右上角 env info 三件套)
+  const toggleEnvInfo = useEnvironmentInfoStore((s) => s.togglePopover)
+  const envInfoOpen = useEnvironmentInfoStore((s) => s.open)
+  const toggleWorkPanel = useAiPanelStore((s) => s.toggleWorkAreaCollapsed)
+  const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
+  const toggleTerminalDock = useTerminalDockStore((s) => s.toggle)
+  const terminalDockOpen = useTerminalDockStore((s) => s.open)
 
   // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐,2026-08-02 改默认展开,2026-08-02 阈值回退):
   // - isMobileSmall 检测 <768px 视口(真正手机),仅手机端自动切换浮窗全屏模式
@@ -886,7 +898,11 @@ export function AISidePanel() {
             ? isMobileSmall
               ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
               : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:品牌色光晕
-            : 'relative hidden h-full shrink-0 min-[768px]:block mr-1.5 py-2',
+            : cn(
+                'relative hidden h-full min-[768px]:block mr-1.5 py-2',
+                // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
+                workAreaCollapsed ? 'flex-1 min-w-0' : 'shrink-0',
+              ),
         )}
         style={
           floatMode
@@ -911,7 +927,9 @@ export function AISidePanel() {
                       ? 'none'
                       : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
                   }
-            : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
+            : workAreaCollapsed
+              ? { flex: '1 1 0%', width: 'auto', transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
+              : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
         }
       >
         <aside
@@ -1033,6 +1051,49 @@ export function AISidePanel() {
                 </button>
               </Tooltip>
             )}
+            {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
+                ① 环境信息(齿轮+横线 → env info popover)
+                ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
+                ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
+            <Tooltip content={tc('envInfoButton')}>
+              <button
+                type="button"
+                onClick={toggleEnvInfo}
+                aria-label={tc('envInfoButton')}
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  envInfoOpen && 'bg-accent text-accent-foreground',
+                )}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content={tc('openTerminal')}>
+              <button
+                type="button"
+                onClick={toggleTerminalDock}
+                aria-label={tc('openTerminal')}
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  terminalDockOpen && 'bg-accent text-accent-foreground',
+                )}
+              >
+                <SquareTerminal className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content={tc('toggleWorkPanel')}>
+              <button
+                type="button"
+                onClick={toggleWorkPanel}
+                aria-label={tc('toggleWorkPanel')}
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  workAreaCollapsed && 'bg-accent text-accent-foreground',
+                )}
+              >
+                <PanelRight className="h-4 w-4" />
+              </button>
+            </Tooltip>
             <Tooltip content={tcommon('close')}>
               <button
                 type="button"
@@ -1079,6 +1140,8 @@ export function AISidePanel() {
                 双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
                 登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
             {!isLoginOpen && <AgentTaskProgressPane />}
+            {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
+            <EnvironmentInfoPopover />
           </div>
 
           {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
@@ -1128,6 +1191,9 @@ export function AISidePanel() {
               }}
             />
           )}
+
+          {/* 底部 PowerShell 终端停靠面板(2026-08-17 立,open=false 时渲染 null) */}
+          <AiTerminalDock />
         </aside>
         {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
