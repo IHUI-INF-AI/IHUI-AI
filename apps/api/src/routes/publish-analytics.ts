@@ -1,5 +1,5 @@
 /**
- * 发布数据分析 API — 聚合 ai-service 已有 /publish/stats + /publish/history 端点。
+ * 发布数据分析 API — 聚合 ai-service 已有 /publish/stats + /publish/tasks 端点。
  *
  * 端点:
  *   GET /publish/analytics/overview?period=7d|30d|90d  总览(统计卡片 + 趋势 + 平台分布 + 失败原因)
@@ -8,8 +8,12 @@
  *
  * 设计:
  * - 复用 publish-routes.ts 的 authenticate preHandler + ai-service 代理模式
- * - 调 ai-service /publish/stats + /publish/history 聚合(不新增 ai-service 端点)
+ * - 调 ai-service /publish/stats + /publish/tasks 聚合(不新增 ai-service 端点)
  * - period 按 created_at 过滤(7d/30d/90d)
+ *
+ * 注意:任务列表(GET /tasks)返回的 items 含 targets(原始 JSONB)+ platforms(单平台
+ * 执行结果,从 results 映射的 camelCase 数组),是 analytics 统计的唯一数据源;
+ * /history 是单平台粒度、无 targets,不可用于本统计。
  *
  * 注意:本路由需在 routes/index.ts 中注册:
  *   import { publishAnalyticsRoutes } from './publish-analytics.js'
@@ -29,6 +33,16 @@ const PERIOD_MS: Record<Period, number> = {
   '90d': 90 * 24 * 60 * 60 * 1000,
 }
 
+/** 任务列表 GET /tasks items[].platforms 元素:ai-service 从 results(snake_case) 映射的 camelCase 结构。 */
+interface AiServicePlatformResult {
+  platform: string
+  success: boolean
+  publishedUrl?: string | null
+  platformContentId?: string | null
+  errorMessage?: string | null
+  durationMs?: number
+}
+
 interface AiServiceTask {
   id: number
   title: string
@@ -43,6 +57,8 @@ interface AiServiceTask {
     error?: string | null
     durationMs?: number
   }>
+  /** 单平台执行结果(有结果的平台才有元素,任务未执行/无结果时为 []) */
+  platforms?: ReadonlyArray<AiServicePlatformResult>
   error?: string | null
 }
 
@@ -60,6 +76,21 @@ interface AiServiceHistoryResponse {
   list?: AiServiceTask[]
 }
 
+/**
+ * 解析转发给 ai-service 的鉴权头。
+ * 2026-08-17 P0 修复:浏览器同源请求靠 auth_token cookie 认证(无 Authorization header),
+ * 原实现只转发 request.headers.authorization → ai-service 无凭据 → 401 → analytics 数据为空。
+ * 缺省时从 auth_token cookie 提取 token 构造 Bearer(JWT_SECRET 三端一致,可直接验签)。
+ */
+function resolveAuthHeader(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  if (cookieToken && cookieToken.length > 0) return `Bearer ${cookieToken}`
+  return undefined
+}
+
 async function fetchAiService<T>(path: string, authHeader: string | undefined): Promise<T | null> {
   const url = `${config.AI_SERVICE_URL}/api/publish${path}`
   const headers: Record<string, string> = {}
@@ -69,7 +100,14 @@ async function fetchAiService<T>(path: string, authHeader: string | undefined): 
     if (!resp.ok) return null
     const ct = resp.headers.get('content-type') || ''
     if (!ct.includes('application/json')) return null
-    return (await resp.json()) as T
+    const raw = (await resp.json()) as { code?: number; data?: unknown }
+    // ai-service 统一信封 {code, message, data}:业务数据在 data 下。
+    // 解包后 stats 取 .tasks、任务列表取 .items 才能拿到真实数据。
+    // 兼容非信封裸响应(无 data 字段)直接返回。
+    if (raw && typeof raw === 'object' && 'data' in raw) {
+      return raw.data as T
+    }
+    return raw as T
   } catch {
     return null
   }
@@ -123,17 +161,21 @@ function buildTrend(tasks: readonly AiServiceTask[]): Array<{ date: string; coun
 function buildPlatformDistribution(
   tasks: readonly AiServiceTask[],
 ): Array<{ platform: string; count: number; color: string }> {
-  const byPlatform = new Map<string, number>()
+  // 从 platforms(真实单平台执行结果)按平台维度统计成功发布次数。
+  const byPlatform = new Map<string, { total: number; success: number }>()
   for (const t of tasks) {
-    for (const target of t.targets ?? []) {
-      byPlatform.set(target.platform, (byPlatform.get(target.platform) ?? 0) + 1)
+    for (const p of t.platforms ?? []) {
+      const entry = byPlatform.get(p.platform) ?? { total: 0, success: 0 }
+      entry.total++
+      if (p.success) entry.success++
+      byPlatform.set(p.platform, entry)
     }
   }
   return Array.from(byPlatform.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([platform, count], i) => ({
+    .sort((a, b) => b[1].success - a[1].success)
+    .map(([platform, data], i) => ({
       platform,
-      count,
+      count: data.success,
       color: PLATFORM_COLORS[i % PLATFORM_COLORS.length] ?? '',
     }))
 }
@@ -141,14 +183,13 @@ function buildPlatformDistribution(
 function buildFailureReasons(
   tasks: readonly AiServiceTask[],
 ): Array<{ reason: string; count: number }> {
+  // 从 platforms 收集失败的 errorMessage(按非空计数,截断前 60 字符归一化)。
   const byReason = new Map<string, number>()
   for (const t of tasks) {
-    if (t.status !== 'failed' && t.status !== 'partial') continue
-    for (const target of t.targets ?? []) {
-      if (target.status === 'failed' && target.error) {
-        const reason = target.error.slice(0, 60) || '未知错误'
-        byReason.set(reason, (byReason.get(reason) ?? 0) + 1)
-      }
+    for (const p of t.platforms ?? []) {
+      if (p.success || !p.errorMessage) continue
+      const reason = p.errorMessage.slice(0, 60) || '未知错误'
+      byReason.set(reason, (byReason.get(reason) ?? 0) + 1)
     }
   }
   return Array.from(byReason.entries())
@@ -158,12 +199,13 @@ function buildFailureReasons(
 }
 
 function computeAvgDuration(tasks: readonly AiServiceTask[]): number {
+  // 从 platforms 的单平台 durationMs 计算平均耗时。
   let total = 0
   let count = 0
   for (const t of tasks) {
-    for (const target of t.targets ?? []) {
-      if (typeof target.durationMs === 'number' && target.durationMs > 0) {
-        total += target.durationMs
+    for (const p of t.platforms ?? []) {
+      if (typeof p.durationMs === 'number' && p.durationMs > 0) {
+        total += p.durationMs
         count++
       }
     }
@@ -181,13 +223,19 @@ interface AccountHealthRow {
 }
 
 function computeAccountHealth(tasks: readonly AiServiceTask[]): AccountHealthRow[] {
+  // 按 (accountId, platform) 聚合:accountId 来自 targets,执行结果来自 platforms。
+  // 同一任务内 targets 与 results 一一对应(scheduler gather 保序),用 platform 关联。
   const byAccount = new Map<
     number,
     { platform: string; success: number; total: number; lastPublished: string | null }
   >()
   for (const t of tasks) {
+    const platformResults = new Map<string, AiServicePlatformResult>()
+    for (const p of t.platforms ?? []) platformResults.set(p.platform, p)
     for (const target of t.targets ?? []) {
       if (typeof target.accountId !== 'number') continue
+      const result = platformResults.get(target.platform)
+      if (!result) continue // 该平台无执行结果(未开始/未触达),不参与健康度统计
       const existing = byAccount.get(target.accountId) ?? {
         platform: target.platform,
         success: 0,
@@ -195,7 +243,7 @@ function computeAccountHealth(tasks: readonly AiServiceTask[]): AccountHealthRow
         lastPublished: null,
       }
       existing.total++
-      if (target.status === 'success') existing.success++
+      if (result.success) existing.success++
       const ts = t.scheduledAt ?? t.createdAt
       if (ts && (!existing.lastPublished || ts > existing.lastPublished)) {
         existing.lastPublished = ts
@@ -233,10 +281,10 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/overview', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
+    const authHeader = resolveAuthHeader(request)
     const [statsRes, histRes] = await Promise.all([
       fetchAiService<AiServiceStats>('/stats', authHeader),
-      fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader),
+      fetchAiService<AiServiceHistoryResponse>('/tasks?limit=200', authHeader),
     ])
     if (!histRes) {
       return reply.send(
@@ -255,7 +303,9 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
     const tasks = filterByPeriod(allTasks, period)
     const stats = statsRes?.tasks
     const total = stats?.total ?? tasks.length
-    const successCount = stats?.success ?? tasks.filter((t) => t.status === 'success').length
+    // 成功数以真实单平台执行结果(platforms 中 success=true)为准,
+    // 任务级 stats.success 是任务粒度,与平台粒度口径不同,不再混用。
+    const successCount = tasks.flatMap((t) => t.platforms ?? []).filter((p) => p.success).length
     const activeAccountIds = new Set<number>()
     for (const t of tasks) {
       for (const target of t.targets ?? []) {
@@ -277,8 +327,8 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/accounts', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
-    const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
+    const authHeader = resolveAuthHeader(request)
+    const histRes = await fetchAiService<AiServiceHistoryResponse>('/tasks?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))
     }
@@ -289,8 +339,8 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/platforms', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
-    const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
+    const authHeader = resolveAuthHeader(request)
+    const histRes = await fetchAiService<AiServiceHistoryResponse>('/tasks?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))
     }
@@ -300,21 +350,22 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
       string,
       { total: number; success: number; durationSum: number; durationCount: number }
     >()
+    // 直接统计 platforms(真实单平台执行结果),替代原 targets[].status 占位逻辑。
     for (const t of tasks) {
-      for (const target of t.targets ?? []) {
-        const existing = byPlatform.get(target.platform) ?? {
+      for (const p of t.platforms ?? []) {
+        const existing = byPlatform.get(p.platform) ?? {
           total: 0,
           success: 0,
           durationSum: 0,
           durationCount: 0,
         }
         existing.total++
-        if (target.status === 'success') existing.success++
-        if (typeof target.durationMs === 'number' && target.durationMs > 0) {
-          existing.durationSum += target.durationMs
+        if (p.success) existing.success++
+        if (typeof p.durationMs === 'number' && p.durationMs > 0) {
+          existing.durationSum += p.durationMs
           existing.durationCount++
         }
-        byPlatform.set(target.platform, existing)
+        byPlatform.set(p.platform, existing)
       }
     }
     const result = Array.from(byPlatform.entries()).map(([platform, data]) => ({
