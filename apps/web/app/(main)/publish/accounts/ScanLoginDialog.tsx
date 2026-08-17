@@ -18,6 +18,7 @@ import {
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { openInGoogleChrome } from '@/lib/tauri-bridge'
 import {
   Button,
   Dialog,
@@ -238,12 +239,14 @@ export function ScanLoginDialog({
               <Button
                 variant="outline"
                 className="w-full"
-                disabled={!platform}
-                onClick={() => {
-                  // 2026-08-17:内置浏览器仅用于扫码展示;需要验证码/密码登录时
-                  // 用系统默认浏览器打开(完整功能),登录后手动粘贴 Cookie 保存。
+                disabled={!platform || isBusy}
+                onClick={async () => {
+                  // 2026-08-17:内置浏览器仅用于扫码展示;验证码/密码登录用 Google Chrome
+                  // --app 模式打开(桌面端)或系统浏览器新标签(web 端),登录后粘贴 Cookie 保存。
                   const plat = platforms.find((p) => p.platform === platform)
-                  if (plat?.login_url) window.open(plat.login_url, '_blank', 'noopener,noreferrer')
+                  if (!plat?.login_url) return
+                  const err = await openInGoogleChrome(plat.login_url)
+                  if (err) toast.error(err)
                 }}
               >
                 <ExternalLink className="h-4 w-4" />
