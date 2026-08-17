@@ -7507,7 +7507,8 @@
       "noTasks": "이 날에 작업이 없습니다",
       "taskCount": "{count}개 작업",
       "createTask": "새 작업",
-      "dragHint": "작업을 다른 날짜로 드래그하여 일정 변경"
+      "dragHint": "작업을 다른 날짜로 드래그하여 일정 변경",
+      "rescheduled": "작업 일정이 {date}(으)로 변경되었습니다"
     },
     "analytics": {
       "title": "데이터 분석",
@@ -11348,6 +11349,35 @@
       "renameEmpty": "대화 제목을 입력해주세요",
       "exportFailed": "내보내기 실패",
       "compressFailed": "압축 실패"
+    },
+    "envInfoButton": "환경 정보",
+    "openTerminal": "터미널 열기",
+    "toggleWorkPanel": "작업 패널 전환",
+    "envInfo": {
+      "ariaLabel": "환경 정보",
+      "title": "환경 정보",
+      "refresh": "새로고침",
+      "collapse": "접기",
+      "loading": "불러오는 중…",
+      "noWorkspace": "워크스페이스가 선택되지 않았습니다. 상단에서 로컬 워크스페이스를 먼저 바인딩하세요.",
+      "errorTitle": "환경 정보를 불러오지 못했습니다",
+      "notRepo": "현재 디렉터리는 Git 저장소가 아닙니다",
+      "detached": "분리된 HEAD",
+      "changes": "변경",
+      "noChanges": "변경 없음",
+      "local": "로컬",
+      "remote": "원격",
+      "remoteYes": "구성됨",
+      "remoteNo": "구성되지 않음",
+      "aheadBehind": "앞/뒤",
+      "commitPush": "커밋 및 푸시",
+      "commitPlaceholder": "커밋 메시지 입력…",
+      "commitOk": "커밋 성공",
+      "commitFail": "커밋 또는 푸시 실패",
+      "pullRequest": "풀 리퀘스트",
+      "prUnavailable": "풀 리퀘스트 상태를 가져올 수 없습니다",
+      "prNoRemote": "원격 저장소가 구성되지 않았습니다",
+      "compareBranch": "브랜치 비교"
     }
   },
   "refund": {

@@ -160,8 +160,10 @@ describe('fetchApi', () => {
     const r = await promise
     expect(r.success).toBe(false)
     if (!r.success) expect(r.error).toBe('请求已取消')
-    // AbortError 早返回,不重试,实际调用次数为 1
-    expect(global.fetch).toHaveBeenCalledTimes(1)
+    // 2026-08-17 修复:fetchApi 在调用 transport 前先合并 abort signal,
+    // fetchOnce 入口检测到 mergedSignal.aborted 立即短路返回,不发起 fetch。
+    // 这比"先发 fetch 再被 abort reject"更省时(避免 DNS/TCP/TLS 浪费)。
+    expect(global.fetch).toHaveBeenCalledTimes(0)
   })
 
   it('首次请求网络失败时重试一次', async () => {

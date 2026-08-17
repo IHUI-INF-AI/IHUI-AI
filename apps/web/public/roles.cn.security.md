@@ -121,7 +121,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 
 ### 技术栈
 
-- **前端**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- **前端**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - **后端**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI 服务**:FastAPI + LangGraph + LiteLLM + MCP
 - **桌面应用**:Tauri 2

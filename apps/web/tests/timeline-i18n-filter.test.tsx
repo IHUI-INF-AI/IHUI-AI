@@ -96,29 +96,26 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    MessageSquare: Icon,
-    ListTree: Icon,
-    Search: Icon,
-    X: Icon,
-    ChevronRight: Icon,
-    Loader2: Icon,
-    AlertCircle: Icon,
-    Bot: Icon,
-    HelpCircle: Icon,
-    Wrench: Icon,
-    Brain: Icon,
-    FileText: Icon,
-    Circle: Icon,
-    Download: Icon,
-    Check: Icon,
-    Inbox: Icon,
-    FilterX: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    if (typeof actual[key] === 'function' || (typeof actual[key] === 'object' && actual[key] !== null)) {
+      mocked[key] = IconSpan
+    }
   }
+  return mocked
 })
+
+// ─── @radix-ui/react-tooltip mock:@/components/feedback/Tooltip 在无 Provider 时会 throw ───
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
+}))
 
 import { TimelineEventRow } from '../src/components/ai/progress-sections/timeline-event'
 import { TimelineTab } from '../src/components/ai/progress-sections/timeline-tab'
