@@ -122,20 +122,55 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
-vi.mock('@/stores/chat', () => ({
-  useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
-}))
+// 用 zustand-like 模式:内部维护可变 state + setUserScrolledUp 触发订阅者重渲染
+// 暴露到 module 作用域以便 beforeEach 重置 userScrolledUp
+export const chatStoreMockState: {
+  messages: unknown[]
+  subAgentActivities: unknown[]
+  conversationId: string | null
+  userScrolledUp: boolean
+} = {
+  messages: [],
+  subAgentActivities: [],
+  conversationId: null,
+  userScrolledUp: false,
+}
+vi.mock('@/stores/chat', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactMod = require('react')
+  const state = chatStoreMockState
+  const listeners = new Set<() => void>()
+  const subscribe = (l: () => void) => {
+    listeners.add(l)
+    return () => {
+      listeners.delete(l)
+    }
+  }
+  const notify = () => {
+    for (const l of listeners) l()
+  }
+  const setUserScrolledUp = (up: boolean) => {
+    state.userScrolledUp = up
+    notify()
+  }
+  const setState = (partial: Record<string, unknown>) => {
+    Object.assign(state, partial)
+    notify()
+  }
+  const useChatStore: unknown = Object.assign(
+    (selector: (s: typeof state) => unknown) => {
+      const getSnapshot = () => selector(state)
+      return ReactMod.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+    },
+    {
+      getState: () => state,
+      setState,
+      subscribe,
+    },
+  )
+  state.setUserScrolledUp = setUserScrolledUp
+  return { useChatStore }
+})
 
 // progress-jump-store mock
 const progressJumpStoreState = {
