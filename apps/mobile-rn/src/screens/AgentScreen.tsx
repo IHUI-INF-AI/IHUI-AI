@@ -37,6 +37,8 @@ import InputArea from '../components/InputArea'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
+import MyAgents, { type MyAgentItem } from '../components/MyAgents'
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -145,6 +147,10 @@ export function AgentScreen() {
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [banners] = useState<CarouselItem[]>([])
   const [recentAgents] = useState<RecentAgentItem[]>([])
+  // 我的AI APP(对齐 Uniapp tools/index MyAgents.vue):与 items 同源取前 6 条
+  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
+  // 智汇值卡(对齐 Uniapp Intelligent-assistant.vue):暂无 getTokenCount 接口,占位 0
+  const [tokenQuantity] = useState(0)
   // 搜索关键词 + 搜索框显隐(对齐 Uniapp showSearchBox)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [showSearchBox, setShowSearchBox] = useState(true)
@@ -179,7 +185,15 @@ export function AgentScreen() {
         agentCategory: opts?.agentCategory,
         agentMainCategory: opts?.agentMainCategory,
       })
-      if (res.success) setItems((res.data.list ?? []).map(mapToItem))
+      if (res.success) {
+        setItems((res.data.list ?? []).map(mapToItem))
+        // MyAgents 我的AI APP:与智能体列表同源取前 6 条(对齐 uniapp myAgents 独立接口降级)
+        setMyAgents(
+          (res.data.list ?? [])
+            .slice(0, 6)
+            .map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })),
+        )
+      }
       else setError(res.error || t('agentScreen.loadFailed'))
     },
     [t],
