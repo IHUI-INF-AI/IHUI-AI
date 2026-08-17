@@ -129,6 +129,8 @@ interface ChatState {
   setConversationId: (id: string | null) => void
   /** 设置用户是否向上滚动(由 MessageList scroll handler 调用) */
   setUserScrolledUp: (v: boolean) => void
+  /** 设置用户是否已偏离顶部(由 MessageList scroll handler 调用) */
+  setUserScrolledToTop: (v: boolean) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
   /** 设置当前挂起的 AI 提问(收到 SSE question 事件时调用) */
@@ -323,6 +325,8 @@ export const useChatStore = create<ChatState>()(
       setConversationId: (id) => set({ conversationId: id }),
 
       setUserScrolledUp: (v) => set({ userScrolledUp: v }),
+
+      setUserScrolledToTop: (v) => set({ userScrolledToTop: v }),
 
       clearDraftInput: () => set({ draftInput: null }),
 

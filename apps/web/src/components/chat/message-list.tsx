@@ -47,6 +47,7 @@ import { useChatStore } from '@/stores/chat'
 import type { PlanStep } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
+import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -274,18 +275,24 @@ const MessageItem = React.memo(function MessageItem({
       const convId = useChatStore.getState().conversationId
       if (!convId) return
 
+      let shareToken: string | null = null
       try {
-        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
+        const r = await fetchApi<{ token: string }>(`/api/chat/conversations/${convId}/share`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
         })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+        if (!r.success || !r.data?.token) throw new Error(r.error || '获取分享链接失败')
+        shareToken = r.data.token
+      } catch (err: unknown) {
+        // API 错误：直接显示后端返回的具体信息
+        if (err instanceof Error) toast.error(err.message)
+        else toast.error(t('copyFailed'))
+        return
+      }
 
+      try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
-
+        const shareUrl = `${baseUrl}/chat/share/${shareToken}`
         const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
         const finalText = bodyLines.join('\n')
 
@@ -302,9 +309,8 @@ const MessageItem = React.memo(function MessageItem({
           document.execCommand('copy')
           document.body.removeChild(ta)
         }
-
         toast.success(t('message.shareLinkCopied'))
-      } catch (_err) {
+      } catch {
         toast.error(t('copyFailed'))
       }
     },
@@ -869,6 +875,8 @@ export function MessageList({
   // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
   const userScrolledUp = useChatStore((s) => s.userScrolledUp)
   const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
+  const userScrolledToTop = useChatStore((s) => s.userScrolledToTop)
+  const setUserScrolledToTop = useChatStore((s) => s.setUserScrolledToTop)
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
@@ -1034,6 +1042,8 @@ export function MessageList({
     loadingMoreHistory,
     userScrolledUp,
     setUserScrolledUp,
+    userScrolledToTop,
+    setUserScrolledToTop,
   ])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
@@ -1139,6 +1149,8 @@ export function MessageList({
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
       userScrolledUpRef.current = false
       setUserScrolledUp(false)
+      userScrolledToTopRef.current = false
+      setUserScrolledToTop(false)
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }

@@ -24,15 +24,17 @@ export interface GlobalFloatBoxProps {
   onFeedback?: () => void
 }
 
-// 图标资源(拷贝自原 uniapp static/images)
+// 图标资源(位于 apps/mobile-rn/assets/images/common/,原 uniapp static/images 迁移)
+// 2026-08-17 修复:原路径 src/assets/images/floatbox/ 不存在(资源在仓库根 assets/images/common/),
+// CI Metro bundle 报 Unable to resolve module → iOS/Android 构建失败
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ICON_TUIGUANG = require('../../assets/images/floatbox/tuiguang.png')
+const ICON_TUIGUANG = require('../../assets/images/common/tuiguang.png')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ICON_KF = require('../../assets/images/floatbox/kf.png')
+const ICON_KF = require('../../assets/images/common/kf.png')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ICON_FANKUI = require('../../assets/images/floatbox/yijianfankui.png')
+const ICON_FANKUI = require('../../assets/images/common/yijianfankui.png')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ICON_ARROW = require('../../assets/images/floatbox/zhankaiH.png')
+const ICON_ARROW = require('../../assets/images/common/zhankaiH.png')
 
 const FLOAT_BOX_WIDTH = 59 // 118rpx
 const ARROW_WIDTH = 20 // 40rpx
