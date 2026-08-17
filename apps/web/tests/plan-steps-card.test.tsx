@@ -32,7 +32,10 @@ import { PlanStepsCard } from '../src/components/ai/progress-sections/plan-steps
 import type { PlanStep } from '../src/hooks/use-agent-progress'
 
 // ─── lucide-react mock:每个图标用独立 testid(便于断言"正确图标渲染") ──
-vi.mock('lucide-react', () => {
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为带 testid 的 span。
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>()
   const make = (name: string) => {
     const Comp = ({ className }: { className?: string }) => (
       <span data-testid={`icon-${name}`} className={className} aria-hidden />
@@ -42,6 +45,7 @@ vi.mock('lucide-react', () => {
   }
   return {
     __esModule: true,
+    ...actual,
     ListTodo: make('ListTodo'),
     Check: make('Check'),
     Clock: make('Clock'),
