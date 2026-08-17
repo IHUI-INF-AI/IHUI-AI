@@ -26,7 +26,6 @@ import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
-import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
@@ -459,22 +458,11 @@ export function MessageInput({
                 {floatHeader}
               </div>
             )}
-            <div className={cn(INPUT_ATTACHMENT_BAR_CLASS)}>
-              {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
-              {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
-                  盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
-                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。
-                  高度由 PermissionModePopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)。 */}
+            {/* 权限模式按钮组右对齐:PermissionModePopover + PermissionHistoryPanel + AddMenuPopover
+                移入父卡片右侧,去掉独立附加栏 div */}
+            <div className="ml-auto flex items-center gap-1 px-2 py-1">
               <PermissionModePopover disabled={isStreaming} />
-              {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
-                  - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
-                  - 高度走 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7)+ w-7(28×28 正方形),与权限/添加按钮严丝合缝
-                  - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
               <PermissionHistoryPanel />
-              {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
-                  收纳 5 类动作,内部按 mode 切换 content(menu/prompt/skill 三态)
-                  高度由 AddMenuPopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)
-                  行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
               <AddMenuPopover
                 open={addMenuOpen}
                 onOpenChange={setAddMenuOpen}

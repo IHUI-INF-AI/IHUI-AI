@@ -73,6 +73,13 @@ const isBlocking = process.argv.includes('--blocking')
 const isFilterStash = process.argv.includes('--filter-stash')
 const skip = process.env[SKIP_ENV] === '1'
 
+// 本地命令可放宽;网络命令(ls-remote)必须限时,防境外 GitHub 访问挂起阻塞 pre-commit
+// (2026-08-17 实测:execSync 无 timeout 时 git ls-remote origin 可无限阻塞 → [30a] 守门卡死,
+//  commit 永远无法完成;超时后按 allowFail 返回空,远程校验安全降级为跳过)
+const REMOTE_TIMEOUT_MS = 15_000
+// 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
+const LOCAL_GIT_TIMEOUT_MS = 10_000
+
 function run(cmd, opts = {}) {
   try {
     return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim()
@@ -145,10 +152,23 @@ function detectUnreachable() {
 
 function filterStashLike(hashes) {
   // 对每个 hash 取 subject,若是 stash-like 形态(WIP / On main / index on main)则过滤
-  return hashes.filter((c) => {
-    const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
-    return !isStashSubject(subject)
-  })
+  // 2026-08-17 性能修复:原实现对每个 hash 单独 execSync(git log -1),仓库悬空 commit
+  // 数百个时累积 10+ 分钟,阻塞 pre-commit。改为 git log --no-walk 分批批量获取 subject
+  // (一次 execSync 拿一批 hash 的 subject,实测 50 个/批 ≈ 500ms)。
+  const BATCH = 50
+  const subjectByHash = new Map()
+  for (let i = 0; i < hashes.length; i += BATCH) {
+    const batch = hashes.slice(i, i + BATCH)
+    const out = run(
+      `git log --no-walk --format=%s ${batch.join(' ')}`,
+      { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+    )
+    if (!out) continue
+    out.split('\n').forEach((subject, idx) => {
+      if (batch[idx]) subjectByHash.set(batch[idx], subject)
+    })
+  }
+  return hashes.filter((c) => !isStashSubject(subjectByHash.get(c) || ''))
 }
 
 function listLostCommitTags() {
@@ -181,17 +201,22 @@ function listRemoteLostCommitTags() {
   // ls-remote 可能因网络/凭据失败,失败时返回空数组(不抛错)
   // Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,
   // 必须用 shell:true 走 cmd 包装器(参考 PowerShell 调用 git 的成功行为)
+  // 2026-08-17 加 timeout:境外 GitHub 访问慢时 execSync 无限阻塞(实测 >12min),
+  // 导致 pre-commit [30a] 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
   const out = run('git ls-remote origin "refs/tags/lost-commit/*"', {
     allowFail: true,
     shell: true,
+    timeout: REMOTE_TIMEOUT_MS,
   })
   return parseRemoteTagOutput(out)
 }
 
 function listRemoteBackups() {
+  // 同上:加 timeout 防境外网络无限阻塞(2026-08-17)
   const out = run('git ls-remote origin "refs/tags/backup/*"', {
     allowFail: true,
     shell: true,
+    timeout: REMOTE_TIMEOUT_MS,
   })
   return parseRemoteTagOutput(out)
 }

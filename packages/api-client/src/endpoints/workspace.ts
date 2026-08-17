@@ -1,4 +1,4 @@
-import type { ApiResult } from '@ihui/types'
+import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
 
 import { fetchApi } from '../client'
 import { buildQs, type PageData } from '../utils'
@@ -333,6 +333,24 @@ export async function runCommand(params: {
       body: JSON.stringify(params),
     },
   )
+}
+
+/**
+ * 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env info card):
+ * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR 状态 + 最近提交,
+ * 避免前端串行多次 fs/run。
+ *
+ * - workspacePath 必填
+ * - 返回统一信封结构(ApiResult<GitStatusSnapshot>)
+ * - 非 git 仓库 / 命令失败 → isRepo=false,其他字段零/空
+ */
+export async function getGitStatus(params: {
+  workspacePath: string
+}): Promise<ApiResult<GitStatusSnapshot>> {
+  return fetchApi<GitStatusSnapshot>('/api/workspace/git/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 // =============================================================================
