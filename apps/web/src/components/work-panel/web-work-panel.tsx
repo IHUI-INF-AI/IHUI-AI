@@ -6,6 +6,7 @@ import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelTabItem } from '@ihui/ui-react'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
+import { openInGoogleChrome } from '@/lib/tauri-bridge'
 
 import { CdpBrowserView } from './cdp-browser-view'
 
@@ -116,7 +117,9 @@ export function WebWorkPanel() {
   )
 
   const handleOpenExternal = React.useCallback(() => {
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    // 2026-08-17:桌面端用 Google Chrome --app 打开(用户要求"内置浏览器要谷歌"),
+    // web 端降级 window.open 新标签页。
+    if (url) void openInGoogleChrome(url)
   }, [url])
 
   // 收藏切换
