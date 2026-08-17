@@ -157,7 +157,7 @@ console.log(similarCases.summary)
 
 ### 技術スタック
 
-- **フロントエンド**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- **フロントエンド**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - **バックエンド**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI サービス**:FastAPI + LangGraph + LiteLLM + MCP
 - **デスクトップアプリ**:Tauri 2(法務ワークベンチ)
