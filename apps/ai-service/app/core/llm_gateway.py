@@ -976,6 +976,17 @@ class LLMGateway:
                         return None, None, real_model
                     return cfg.api_key, cfg.api_base, f"openai/{real_model}"
                 return cfg.api_key or None, cfg.api_base or default_base, f"openai/{real_model}"
+        # 2026-08-13 修复:deepseek-chat/deepseek-reasoner 无前缀,key 配置在 deepseek provider。
+        # 此前落到 openai 默认分支 → LiteLLM "Provider NOT provided" 502,模型列表可选但一调用即失败。
+        if m.startswith("deepseek-"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("deepseek")
+            return cfg.api_key or None, cfg.api_base or "https://api.deepseek.com", f"openai/{real_model}"
+        # 2026-08-13 修复:glm-4-plus/glm-5 无前缀,key 配置在 zhipu(智谱),此前同样 502。
+        if m.startswith("glm-"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("zhipu")
+            return cfg.api_key or None, cfg.api_base or "https://open.bigmodel.cn/api/paas/v4", f"openai/{real_model}"
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)
         if m.startswith("cerebras/"):
             real_model = model.split("/", 1)[1]
