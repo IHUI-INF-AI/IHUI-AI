@@ -2,7 +2,7 @@ import type { StorybookConfig } from '@storybook/nextjs'
 
 /**
  * Storybook 主配置 — 等价自旧架构 client/.storybook/main.ts
- * 框架：@storybook/nextjs（基于 webpack5，适配 Next.js 15 + React 19）
+ * 框架：@storybook/nextjs（基于 webpack5，适配 Next.js 16 + React 19）
  * stories glob 覆盖 src 下所有 .stories 文件
  *
  * 说明：早期迁移草稿误用 @storybook/nextjs-vite，但该包未在 package.json 声明，

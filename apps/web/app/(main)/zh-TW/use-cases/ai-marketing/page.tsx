@@ -162,7 +162,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端行銷工作台與品牌指南管理' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端行銷工作台與品牌指南管理' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端多平台帳號授權與發布佇列' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '多平台文案改寫 + SEO 優化 + 品牌語調微調' },
   { name: 'MCP 工具協定', purpose: '對接小紅書/抖音/微博/公眾號/LinkedIn 平台適配器' },

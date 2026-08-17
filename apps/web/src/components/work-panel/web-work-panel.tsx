@@ -6,6 +6,7 @@ import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelTabItem } from '@ihui/ui-react'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
+import { openInGoogleChrome } from '@/lib/tauri-bridge'
 
 import { CdpBrowserView } from './cdp-browser-view'
 
@@ -116,7 +117,9 @@ export function WebWorkPanel() {
   )
 
   const handleOpenExternal = React.useCallback(() => {
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    // 2026-08-17:桌面端用 Google Chrome --app 打开(用户要求"内置浏览器要谷歌"),
+    // web 端降级 window.open 新标签页。
+    if (url) void openInGoogleChrome(url)
   }, [url])
 
   // 收藏切换
@@ -145,7 +148,10 @@ export function WebWorkPanel() {
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
     // - bottom-2(8px):底部留间距对齐 AISidePanel 底部(AISidePanel 上下各 8px 间距,
     //   WebWorkPanel 外层 absolute 默认 bottom:0 贴 viewport 边缘,比 AISidePanel 低 8px)
-    <div className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel">
+    <div
+      className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel"
+      data-testid="web-work-panel"
+    >
       <WorkPanel
         open={effectiveOpen}
         onClose={closePanel}
