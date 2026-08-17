@@ -20,6 +20,7 @@ import React from 'react'
 import { render, fireEvent, cleanup } from '@testing-library/react'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
 import { FoldableSection } from '../src/components/ai/progress-sections/foldable-section'
+import { TooltipProvider } from '../src/components/feedback'
 
 // ─── next-intl mock ───────────────────────────────────────────
 const { mockT } = vi.hoisted(() => {
@@ -152,7 +153,7 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     // 默认 pinned=true
     expect(useAgentProgressPaneStore.getState().pinned).toBe(true)
 
-    render(<AgentTaskProgressPane />)
+    render(<TooltipProvider><AgentTaskProgressPane /></TooltipProvider>)
     fireEvent.keyDown(window, { key: 'Escape' })
 
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
@@ -163,7 +164,7 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     useAgentProgressPaneStore.getState().togglePin()
     expect(useAgentProgressPaneStore.getState().pinned).toBe(false)
 
-    render(<AgentTaskProgressPane />)
+    render(<TooltipProvider><AgentTaskProgressPane /></TooltipProvider>)
     fireEvent.keyDown(window, { key: 'Escape' })
 
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
@@ -171,7 +172,7 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
 
   it('按 ? 切换帮助面板开关', () => {
     useAgentProgressPaneStore.getState().openPane()
-    const { container } = render(<AgentTaskProgressPane />)
+    const { container } = render(<TooltipProvider><AgentTaskProgressPane /></TooltipProvider>)
 
     // 初始 help 关闭
     const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
@@ -189,7 +190,7 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
   it('help 打开时按 Esc 仅关 help,pane 仍打开', () => {
     useAgentProgressPaneStore.getState().openPane()
     useAgentProgressPaneStore.getState().togglePin() // pinned=false
-    const { container } = render(<AgentTaskProgressPane />)
+    const { container } = render(<TooltipProvider><AgentTaskProgressPane /></TooltipProvider>)
 
     // 打开 help
     fireEvent.keyDown(window, { key: '?' })
@@ -210,10 +211,12 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
   it('INPUT / TEXTAREA 焦点时按 ? 不打开 help', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(
-      <div>
-        <input data-testid="fake-input" />
-        <AgentTaskProgressPane />
-      </div>,
+      <TooltipProvider>
+        <div>
+          <input data-testid="fake-input" />
+          <AgentTaskProgressPane />
+        </div>
+      </TooltipProvider>,
     )
 
     const input = container.querySelector('[data-testid="fake-input"]') as HTMLElement

@@ -114,6 +114,28 @@ export async function retryPublishTask(taskId: number): Promise<ApiResult<unknow
   return fetchApi(`/api/publish/tasks/${taskId}/retry`, { method: 'POST' })
 }
 
+/** 改期结果(2026-08-17 新增,POST /api/publish/tasks/{task_id}/reschedule) */
+export interface ReschedulePublishTaskResult {
+  ok: boolean
+  task_id: string
+  status: string
+  scheduled_at?: string | null
+}
+
+/**
+ * 调整任务排期(2026-08-17 新增)。
+ * 仅 scheduled/pending 状态任务可改期;任务不存在或非本人任务返回 404,状态不合法返回 400。
+ */
+export async function reschedulePublishTask(
+  taskId: string,
+  scheduledAt: string,
+): Promise<ApiResult<ReschedulePublishTaskResult>> {
+  return fetchApi(`/api/publish/tasks/${encodeURIComponent(taskId)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ scheduled_at: scheduledAt }),
+  })
+}
+
 // =============================================================================
 // 扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies)
 // =============================================================================
