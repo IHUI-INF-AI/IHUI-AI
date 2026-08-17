@@ -1039,7 +1039,8 @@ export function MessageList({
   // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
   React.useEffect(() => {
     const newLen = messages.length
-    const isNewMessage = newLen > prevMessagesLenRef.current
+    const prevLen = prevMessagesLenRef.current
+    const isNewMessage = newLen > prevLen
     prevMessagesLenRef.current = newLen
     // 2026-08-16 修复:流式输出也尊重用户上翻——此前 isStreaming 恒强制滚底,
     // 用户在流式生成时翻看历史会被拉回底部(打断阅读)。
@@ -1049,7 +1050,11 @@ export function MessageList({
 
     const doScroll = () => {
       const el = bottomRef.current
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      if (!el) return
+      // 批量加载(切换会话/首次加载,prev=0 且 newLen>1):auto 无动画直接跳底
+      // 逐条追加/streaming:smooth 平滑跟随新消息
+      const behavior = prevLen === 0 && newLen > 1 ? 'auto' : 'smooth'
+      el.scrollIntoView({ behavior, block: 'end' })
     }
     const st = scrollThrottleRef.current
     const now = Date.now()
