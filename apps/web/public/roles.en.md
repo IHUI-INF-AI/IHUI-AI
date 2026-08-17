@@ -18,7 +18,7 @@
 
 ### Your Priorities (Decision Weight)
 1. **Onboarding cost** (35%): Documentation quality / Quickstart duration / SDK completeness
-2. **Modern tech stack** (25%): TypeScript / React 19 / Next.js 15 / Fastify 5
+2. **Modern tech stack** (25%): TypeScript / React 19 / Next.js 16 / Fastify 5
 3. **Extensibility** (20%): Plugin mechanism / Custom Agents / MCP tool development
 4. **Open-source transparency** (10%): Readable code / No black boxes / PR-friendly
 5. **Active community** (10%): Issue response time / Discord/Slack activity / Release cadence
@@ -124,7 +124,7 @@ server.publish()  // One-click publish to the MCP marketplace
 
 #### 1. Complete technical architecture (directly evaluable)
 ```
-Frontend: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 Backend:  Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 AI:       LangGraph + LiteLLM + MCP protocol
 Deploy:   Docker Compose / Kubernetes / Helm Chart

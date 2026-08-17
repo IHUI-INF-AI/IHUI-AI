@@ -171,7 +171,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web エンドの文献検索・閲覧・執筆ワークベンチ' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web エンドの文献検索・閲覧・執筆ワークベンチ' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API エンドの文献メタデータ管理とアクセス制御' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: 'PDF 解析 + 綜述生成 + ナレッジグラフ抽出' },
   {
