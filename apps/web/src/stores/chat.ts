@@ -89,6 +89,8 @@ interface ChatState {
   conversationId: string | null
   /** 用户是否已手动向上滚动(暂停自动滚动到底部) */
   userScrolledUp: boolean
+  /** 用户是否已手动滚动到顶部(驱动 jump-to-top 按钮显隐) */
+  userScrolledToTop: boolean
   /** 模板选择等外部输入填充值；MessageInput 消费后置 null */
   draftInput: string | null
   /** AI 主动提问挂起态:非 null 表示有未回答的提问,前端弹窗阻塞输入,等待用户回答后调 /chat/answer 续流 */
@@ -129,6 +131,8 @@ interface ChatState {
   setConversationId: (id: string | null) => void
   /** 设置用户是否向上滚动(由 MessageList scroll handler 调用) */
   setUserScrolledUp: (v: boolean) => void
+  /** 设置用户是否已偏离顶部(由 MessageList scroll handler 调用) */
+  setUserScrolledToTop: (v: boolean) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
   /** 设置当前挂起的 AI 提问(收到 SSE question 事件时调用) */
@@ -232,6 +236,7 @@ export const useChatStore = create<ChatState>()(
       error: null,
       conversationId: null,
       userScrolledUp: false,
+      userScrolledToTop: false,
       draftInput: null,
       pendingQuestion: null,
       subAgentActivities: [],
@@ -323,6 +328,8 @@ export const useChatStore = create<ChatState>()(
       setConversationId: (id) => set({ conversationId: id }),
 
       setUserScrolledUp: (v) => set({ userScrolledUp: v }),
+
+      setUserScrolledToTop: (v) => set({ userScrolledToTop: v }),
 
       clearDraftInput: () => set({ draftInput: null }),
 
