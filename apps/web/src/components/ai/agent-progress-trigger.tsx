@@ -5,6 +5,7 @@ import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import {
   hydrateAgentProgressPaneFromStorage,
   useAgentProgressPaneStore,
