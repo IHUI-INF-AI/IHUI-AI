@@ -326,7 +326,7 @@ export function MessageInput({
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl px-4 py-3">
+      <div className="mx-auto max-w-3xl px-4 pt-0">
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
