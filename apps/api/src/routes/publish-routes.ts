@@ -10,6 +10,7 @@
  *   PUT    /publish/accounts/:accountId          更新账号
  *   DELETE /publish/accounts/:accountId          删除账号
  *   POST   /publish/accounts/:accountId/verify   测试连接
+ *   GET    /publish/accounts/:accountId/risk     账号风险评分(风控引擎,2026-08-17)
  *   POST   /publish/tasks                        创建发布任务(支持 dryRun=true 短路:本地返回 adapter 可用性,不转发 ai-service)
  *   GET    /publish/tasks                        列出任务
  *   GET    /publish/tasks/:taskId                任务详情
@@ -624,6 +625,15 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
       request,
       reply,
       `/accounts/${encodeURIComponent(accountId)}/cookie-health`,
+    )
+  })
+
+  server.get('/publish/accounts/:accountId/risk', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(
+      request,
+      reply,
+      `/accounts/${encodeURIComponent(accountId)}/risk`,
     )
   })
 
