@@ -68,7 +68,7 @@
 - **端口**: 8802
 
 ### 前端 Web(`apps/web/`)
-- **Framework**: Next.js 15.1 + React 19
+- **Framework**: Next.js 16.2.12 + React 19
 - **构建**: Turbopack(开发)+ Webpack(生产 standalone 输出)
 - **样式**: Tailwind CSS 4 + shadcn/ui
 - **状态**: @tanstack/react-query 5(服务端状态)+ Zustand(客户端状态)

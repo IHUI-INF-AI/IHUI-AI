@@ -1,4 +1,4 @@
-import type { ApiResult } from '@ihui/types'
+import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
 
 import { fetchApi } from '../client'
 import { buildQs, type PageData } from '../utils'
@@ -333,6 +333,71 @@ export async function runCommand(params: {
       body: JSON.stringify(params),
     },
   )
+}
+
+/**
+ * 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env info card):
+ * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR 状态 + 最近提交,
+ * 避免前端串行多次 fs/run。
+ *
+ * - workspacePath 必填
+ * - 返回统一信封结构(ApiResult<GitStatusSnapshot>)
+ * - 非 git 仓库 / 命令失败 → isRepo=false,其他字段零/空
+ */
+export async function getGitStatus(params: {
+  workspacePath: string
+}): Promise<ApiResult<GitStatusSnapshot>> {
+  return fetchApi<GitStatusSnapshot>('/api/workspace/git/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/**
+ * GitHub 集成(2026-08-17 立,用户需求"GitHub 仓库配置"):
+ * - 检测当前工作区是否为 GitHub 仓库 + 是否已配置 token
+ * - 保存/清除 token(存 ~/.ihui/github_token,复用 githubClient.loadToken)
+ */
+export interface GithubStatus {
+  /** 是否为 GitHub 仓库(origin/upstream remote 是 github.com) */
+  isGithubRepo: boolean
+  /** 仓库 owner/repo(非 GitHub remote 为 null) */
+  owner: string | null
+  repo: string | null
+  /** 是否已配置 GITHUB_TOKEN */
+  ghConfigured: boolean
+  /** 当前分支 */
+  currentBranch: string | null
+  /** 默认分支(origin/HEAD,探测失败为 null) */
+  defaultBranch: string | null
+}
+
+/** 检测工作区 GitHub 状态 + token 配置情况 */
+export async function getGithubStatus(params: {
+  workspacePath: string
+}): Promise<ApiResult<GithubStatus>> {
+  return fetchApi<GithubStatus>('/api/workspace/github/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 保存 GitHub token(校验通过后写入 ~/.ihui/github_token) */
+export async function setGithubToken(params: {
+  workspacePath: string
+  token: string
+}): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/workspace/github/token', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 清除 GitHub token */
+export async function clearGithubToken(): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/workspace/github/token', {
+    method: 'DELETE',
+  })
 }
 
 // =============================================================================
