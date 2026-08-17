@@ -421,18 +421,24 @@ class PublishScheduler:
 
         adapter = get_adapter(platform)
         if adapter is None:
-            return PublishResult(
+            result = PublishResult(
                 success=False, platform=platform,
                 error_message=f"adapter not found for platform: {platform}",
             )
+            # 2026-08-17:失败也写 history,保证任务详情 platforms 完整
+            await self._write_history(task_id, user_id, result)
+            return result
 
         # 取凭证(从 publish_accounts 表解密)
         credentials = await self._load_credentials(account_id, platform)
         if credentials is None:
-            return PublishResult(
+            result = PublishResult(
                 success=False, platform=platform,
                 error_message=f"credentials not found for account_id={account_id}",
             )
+            # 2026-08-17:失败也写 history,保证任务详情 platforms 完整
+            await self._write_history(task_id, user_id, result)
+            return result
 
         # 进度通知
         try:
@@ -979,15 +985,20 @@ class PublishScheduler:
         if conn is None:
             return
         try:
+            # 2026-08-17 修复(第二次):asyncpg 对 UPDATE SET 子句的 $1 推断为 text,
+            # 与 CASE WHEN $1='failed' 的 varchar 比较冲突 → AmbiguousParameterError →
+            # 写库静默失败,任务永远 pending。彻底解法:把"是否 failed"拆成独立布尔参数 $3,
+            # $1 只出现在 SET status=$1(唯一上下文),不再参与比较,无类型歧义。
             await conn.execute(
                 """
                 UPDATE publish_tasks
                 SET status=$1, results=$2::jsonb, finished_at=NOW(), updated_at=NOW(),
-                    error=CASE WHEN $1='failed' THEN $3 ELSE error END
-                WHERE task_id=$4
+                    error=CASE WHEN $3 THEN $4 ELSE error END
+                WHERE task_id=$5
                 """,
                 status,
                 json.dumps(results, ensure_ascii=False),
+                status == "failed",
                 summary,
                 task_id,
             )
@@ -1060,7 +1071,9 @@ class PublishScheduler:
                 images=row["content"].get("images", []) if isinstance(row["content"], dict) else [],
             )
             retry_task_id = f"{task_id}-retry-{int(datetime.now(timezone.utc).timestamp())}"
-            self._spawn_task(self._run_task(row["user_id"] or "", retry_task_id, content, new_targets))
+            # 2026-08-17 修复:参数顺序错误 _run_task(task_id, user_id, content, targets),
+            # 原代码把 user_id 当 task_id、retry_task_id 当 user_id 传入 → retry 任务身份错乱。
+            self._spawn_task(self._run_task(retry_task_id, row["user_id"] or "", content, new_targets))
             return {"ok": True, "retry_task_id": retry_task_id, "targets": len(new_targets)}
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
