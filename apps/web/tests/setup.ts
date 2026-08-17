@@ -100,9 +100,7 @@ Error.prepareStackTrace = safePrepareStackTrace
 
 // 保留 saved reference 用于 debug/testability
 declare global {
-  // eslint-disable-next-line no-var
   var __appsWebVitestPrepare: typeof Error.prepareStackTrace | undefined
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(globalThis as any).__appsWebVitestPrepare = existingPrepare
+;(globalThis as { __appsWebVitestPrepare?: typeof Error.prepareStackTrace }).__appsWebVitestPrepare = existingPrepare
 void globalThis.__appsWebVitestPrepare

@@ -275,18 +275,18 @@ const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 /** 从 SSE 事件提取 PlanStep(支持 plan_updated / plan / node_start / node_end) */
 function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
   // 调试:输出所有事件类型统计
-  console.debug('[PlanDebug] total events:', events.length, 'types:', events.map(e => e.type).join(', '))
+  console.info('[PlanDebug] total events:', events.length, 'types:', events.map(e => e.type).join(', '))
 
   // 优先:Codex 风格 plan_updated 事件(权威快照)
   // 兼容 ai-service langgraph_stream.py 发出的 plan 事件(update 中含 "plan" 字段)
   const planSnapshots = events.filter(
     (e) => (e.type as string) === 'plan_updated' || (e.type as string) === 'plan',
   )
-  console.debug('[PlanDebug] plan/plan_updated snapshots:', planSnapshots.length)
+  console.info('[PlanDebug] plan/plan_updated snapshots:', planSnapshots.length)
   if (planSnapshots.length > 0) {
     const lastSnapshot = planSnapshots[planSnapshots.length - 1]
     if (!lastSnapshot) return []
-    console.debug('[PlanDebug] last plan snapshot data:', JSON.stringify(lastSnapshot.data).slice(0, 500))
+    console.info('[PlanDebug] last plan snapshot data:', JSON.stringify(lastSnapshot.data).slice(0, 500))
     const data = lastSnapshot.data as
       | {
           explanation?: string
@@ -389,19 +389,19 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
       }
       return steps
     }
-    console.debug('[PlanDebug] plan snapshot parsed but rawPlan empty or not array, rawPlan:', rawPlan)
+    console.info('[PlanDebug] plan snapshot parsed but rawPlan empty or not array, rawPlan:', rawPlan)
   }
 
   // 降级1:从 state_update 事件的 data.update 中提取 plan(兼容某些后端)
   const stateUpdateSnapshots = events.filter(
     (e) => (e.type as string) === 'state_update',
   )
-  console.debug('[PlanDebug] state_update snapshots:', stateUpdateSnapshots.length)
+  console.info('[PlanDebug] state_update snapshots:', stateUpdateSnapshots.length)
   if (stateUpdateSnapshots.length > 0) {
     const lastSnapshot = stateUpdateSnapshots[stateUpdateSnapshots.length - 1]
     if (!lastSnapshot) return []
     const update = (lastSnapshot.data as { update?: unknown } | undefined)?.update
-    console.debug('[PlanDebug] last state_update update type:', typeof update, 'is object:', !!update)
+    console.info('[PlanDebug] last state_update update type:', typeof update, 'is object:', !!update)
     if (update && typeof update === 'object') {
       const updateObj = update as {
         plan?: Array<{
@@ -495,7 +495,7 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
         }
         return steps
       }
-      console.debug('[PlanDebug] state_update parsed but rawPlan empty, update keys:', update ? Object.keys(update as Record<string, unknown>) : 'N/A')
+      console.info('[PlanDebug] state_update parsed but rawPlan empty, update keys:', update ? Object.keys(update as Record<string, unknown>) : 'N/A')
     }
   }
 
