@@ -187,7 +187,21 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:透传真实模块全部导出,保证 src/lib/api.ts 等模块导入的
+  // setTokenProvider / setBaseUrl / setStreamBaseUrl / fetchApi 等 API 可用(测试期间不调用真实网络)。
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    // 显式 stub 走真实网络的方法,避免测试意外触发请求
+    setTokenProvider: vi.fn(),
+    setBaseUrl: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    fetchApi: vi.fn(),
+    streamChat: vi.fn(),
+  }
+})
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
@@ -509,7 +523,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(trigger.textContent).toContain('modeBuild')
   })
 
-  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', () => {
+  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', async () => {
     mockAgentProgressRefs.setState({
       planSteps: [
         { id: 's1', step: '分析', status: 'in_progress' },
@@ -524,7 +538,9 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     })
     render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
-    expect(trigger.getAttribute('title')).toContain('01/06')
+    // 2026-08-12 升级:从 native title 改为 <Tooltip>(Radix) 实现,测试断言改为查找 role="tooltip" 内容
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent).toContain('01/06')
   })
 
   it('点击切换面板开关', () => {
@@ -546,8 +562,10 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
   it('trigger 默认态含背景色 + 描边(v6 bg-card + border-border)', () => {
     render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
-    expect(trigger.className).toContain('bg-card')
-    expect(trigger.className).toContain('border-border')
+    // 2026-08 升级:trigger 样式从 v6 的 bg-card + border-border 改为更通用的 bg-muted hover:bg-accent(INPUT_ATTACHMENT_BAR_BTN_BASE),
+    // 测试相应调整:验证有背景色类 + hover 反馈
+    expect(trigger.className).toContain('bg-muted')
+    expect(trigger.className).toContain('hover:bg-accent')
   })
 
   it('Ctrl+Shift+J 切换面板', () => {
@@ -1680,15 +1698,16 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
       <ConnectionStatus state="reconnecting" reconnectAttempt={3} totalAttempts={5} />,
     )
     const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
-    const tooltip = status.getAttribute('title')!
+    // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),测试断言改为查找 role="tooltip" 内容
+    const tooltip = screen.getByRole('tooltip').textContent ?? ''
     expect(tooltip).toContain('重连中')
     expect(tooltip).toContain('(3/5)')
   })
 
   it('error 信息:追加到 tooltip 末尾', () => {
-    const { container } = render(<ConnectionStatus state="disconnected" error="网络超时" />)
-    const status = container.querySelector('[data-testid="connection-status-disconnected"]')!
-    const tooltip = status.getAttribute('title')!
+    render(<ConnectionStatus state="disconnected" error="网络超时" />)
+    // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),测试断言改为查找 role="tooltip" 内容
+    const tooltip = screen.getByRole('tooltip').textContent ?? ''
     expect(tooltip).toContain('已断开')
     expect(tooltip).toContain('网络超时')
   })
@@ -1707,7 +1726,10 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
       <ConnectionStatus state="reconnecting" reconnectAttempt={2} totalAttempts={5} />,
     )
     const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
-    expect(status.getAttribute('aria-label')).toBe(status.getAttribute('title'))
+    // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),aria-label 仍保留(供屏幕阅读器),
+    // 测试改为 aria-label 与 role="tooltip" 内容是否一致
+    const tooltip = screen.getByRole('tooltip').textContent ?? ''
+    expect(status.getAttribute('aria-label')).toBe(tooltip)
   })
 
   it('reconnecting 动画:Icon 含 animate-spin', () => {
@@ -2299,8 +2321,9 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
     const { container } = render(<AgentTaskProgressPane />)
     const elapsed = container.querySelector('[data-testid="pane-elapsed"]')
     expect(elapsed).toBeTruthy()
-    // 标题含 i18n key "已耗时"
-    expect(elapsed?.getAttribute('title')).toContain('已耗时')
+    // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),测试断言改为查找 role="tooltip" 内容含 "已耗时"
+    const tooltip = screen.getByRole('tooltip').textContent ?? ''
+    expect(tooltip).toContain('已耗时')
   })
 
   // ─── 2. 失败条 ───
