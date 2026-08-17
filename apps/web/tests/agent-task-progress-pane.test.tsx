@@ -187,7 +187,10 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual }
+})
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
@@ -212,72 +215,15 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  // 常见 lucide 图标全部映射到 IconSpan,新增组件导入新图标时无需修改此处
-  return {
-    __esModule: true,
-    Pin: Icon,
-    PinOff: Icon,
-    Minimize2: Icon,
-    Circle: Icon,
-    Loader2: Icon,
-    Check: Icon,
-    Copy: Icon,
-    ListTodo: Icon,
-    MessageSquare: Icon,
-    ChevronRight: Icon,
-    Brain: Icon,
-    Wrench: Icon,
-    X: Icon,
-    Users: Icon,
-    AlertTriangle: Icon,
-    FileEdit: Icon,
-    FilePlus: Icon,
-    FileText: Icon,
-    Search: Icon,
-    Terminal: Icon,
-    TerminalSquare: Icon,
-    ChevronsUpDown: Icon,
-    ChevronsDownUp: Icon,
-    Zap: Icon,
-    Activity: Icon,
-    CheckCircle: Icon,
-    CheckCircle2: Icon,
-    XCircle: Icon,
-    AlertCircle: Icon,
-    SignalHigh: Icon,
-    SignalMedium: Icon,
-    RotateCw: Icon,
-    WifiOff: Icon,
-    ArrowDown: Icon,
-    Minus: Icon,
-    Bot: Icon,
-    Clock: Icon,
-    ChevronDown: Icon,
-    ShieldCheck: Icon,
-    ShieldAlert: Icon,
-    Hand: Icon,
-    Info: Icon,
-    ListTree: Icon,
-    Signal: Icon,
-    SignalLow: Icon,
-    Code2: Icon,
-    FileCode: Icon,
-    Sparkles: Icon,
-    GripVertical: Icon,
-    HelpCircle: Icon,
-    Keyboard: Icon,
-    Clipboard: Icon,
-    MessageSquareWarning: Icon,
-    RefreshCw: Icon,
-    Share2: Icon,
-    Trash2: Icon,
-    Timer: Icon, // v15: 实时计时器图标
-    Maximize2: Icon,
-    Hammer: Icon,
-    BookOpen: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    if (typeof actual[key] === 'function' || (typeof actual[key] === 'object' && actual[key] !== null)) {
+      mocked[key] = IconSpan
+    }
   }
+  return mocked
 })
 
 // Mock useChatStore (同时提供 conversationId 和 messages 避免组件内部 .filter 报错)
@@ -509,7 +455,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(trigger.textContent).toContain('modeBuild')
   })
 
-  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', () => {
+  it('有进度时 aria-label 含 "01/06"(2026-08-12 更新:Tooltip 改用 Radix,信息通过 aria-label 暴露)', () => {
     mockAgentProgressRefs.setState({
       planSteps: [
         { id: 's1', step: '分析', status: 'in_progress' },
@@ -524,7 +470,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     })
     render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
-    expect(trigger.getAttribute('title')).toContain('01/06')
+    expect(trigger.getAttribute('aria-label')).toContain('01/06')
   })
 
   it('点击切换面板开关', () => {
@@ -1675,20 +1621,20 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
     expect(labels2.length).toBe(0)
   })
 
-  it('reconnecting 状态:tooltip 含 "重连中" + "(n/max)"', () => {
+  it('reconnecting 状态:tooltip 含 "重连中" + "(n/max)"(2026-08-12 Tooltip 改 Radix,用 aria-label 验证)', () => {
     const { container } = render(
       <ConnectionStatus state="reconnecting" reconnectAttempt={3} totalAttempts={5} />,
     )
     const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
-    const tooltip = status.getAttribute('title')!
+    const tooltip = status.getAttribute('aria-label')!
     expect(tooltip).toContain('重连中')
     expect(tooltip).toContain('(3/5)')
   })
 
-  it('error 信息:追加到 tooltip 末尾', () => {
+  it('error 信息:追加到 tooltip 末尾(2026-08-12 Tooltip 改 Radix,用 aria-label 验证)', () => {
     const { container } = render(<ConnectionStatus state="disconnected" error="网络超时" />)
     const status = container.querySelector('[data-testid="connection-status-disconnected"]')!
-    const tooltip = status.getAttribute('title')!
+    const tooltip = status.getAttribute('aria-label')!
     expect(tooltip).toContain('已断开')
     expect(tooltip).toContain('网络超时')
   })
@@ -1702,12 +1648,15 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
     expect(status.getAttribute('aria-live')).toBe('assertive')
   })
 
-  it('a11y:aria-label === tooltip 内容', () => {
+  it('a11y:aria-label === tooltip 内容(2026-08-12 Tooltip 改 Radix 后,aria-label 承载 tooltip 文本)', () => {
     const { container } = render(
       <ConnectionStatus state="reconnecting" reconnectAttempt={2} totalAttempts={5} />,
     )
     const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
-    expect(status.getAttribute('aria-label')).toBe(status.getAttribute('title'))
+    const ariaLabel = status.getAttribute('aria-label')
+    expect(ariaLabel).toBeTruthy()
+    expect(ariaLabel).toContain('重连中')
+    expect(ariaLabel).toContain('(2/5)')
   })
 
   it('reconnecting 动画:Icon 含 animate-spin', () => {
@@ -2299,8 +2248,8 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
     const { container } = render(<AgentTaskProgressPane />)
     const elapsed = container.querySelector('[data-testid="pane-elapsed"]')
     expect(elapsed).toBeTruthy()
-    // 标题含 i18n key "已耗时"
-    expect(elapsed?.getAttribute('title')).toContain('已耗时')
+    // 2026-08-12 Tooltip 改 Radix:elapsedLabel 通过 aria-label 暴露给 a11y / 测试
+    expect(elapsed?.getAttribute('aria-label')).toContain('已耗时')
   })
 
   // ─── 2. 失败条 ───

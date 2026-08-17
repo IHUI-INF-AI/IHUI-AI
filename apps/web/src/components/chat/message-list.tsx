@@ -18,6 +18,7 @@ import {
   Download,
   Code,
   Megaphone,
+  ArrowDown,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -387,7 +388,7 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-1 px-1',
+        'group/msg relative flex w-full flex-col gap-0.5 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
         isFocused && 'ring-1 ring-ring/40',
@@ -1775,7 +1776,7 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pb-0 pt-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
@@ -1870,6 +1871,29 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
+      {/* 2026-08-17 立:Jump-to-latest 浮动按钮(深度对标 Trae Work)
+        - 仅在 userScrolledUp === true 时显示(用户上翻后)
+        - isStreaming 时显示脉冲红点,引导用户看到"模型还在生成"
+        - 点击:scrollIntoView + setUserScrolledUp(false) + 派发 ihui:jump-to-latest
+        - 测试 testid:message-list-jump-latest / message-list-jump-latest-dot */}
+      {userScrolledUp && (
+        <button
+          type="button"
+          onClick={handleJumpToLatest}
+          aria-label={t('message.jumpToLatest')}
+          data-testid="message-list-jump-latest"
+          className="absolute bottom-4 right-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/95 text-foreground shadow-md backdrop-blur hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowDown className="h-4 w-4" data-testid="lucide-icon" />
+          {isStreaming && (
+            <span
+              data-testid="message-list-jump-latest-dot"
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 animate-pulse"
+            />
+          )}
+        </button>
+      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}
