@@ -923,7 +923,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!conversation) {
       return reply.status(404).send(error(404, '对话不存在或已删除'))
     }
-    const messages = await findMessages(conversation.id)
+    const messages = await findMessages(conversation.id, { page: 1, pageSize: 100 })
     return reply.send(success({ conversation: serializeConversation(conversation), messages }))
   })
 }

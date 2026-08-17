@@ -15,7 +15,7 @@ import {
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
-import { Tooltip } from '@/components/feedback'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 
 interface AgentRuntimePanelProps {
   className?: string
@@ -110,6 +110,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
   return (
     <div className={cn('flex h-full flex-col bg-background', className)}>
+      <TooltipProvider>
       <header className="flex h-12 shrink-0 items-center gap-2 px-3">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Bot className="h-4 w-4" />
@@ -117,7 +118,11 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         <span className="text-sm font-semibold">{t('title')}</span>
         {sessionId && (
           <Tooltip content={sessionId}>
-            <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
+            <span
+              data-testid="session-id"
+              title={sessionId}
+              className="truncate text-xs text-muted-foreground"
+            >
               #{sessionId.slice(0, 8)}
             </span>
           </Tooltip>
@@ -249,6 +254,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           )}
         </div>
       </footer>
+      </TooltipProvider>
     </div>
   )
 }
