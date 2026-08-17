@@ -3442,19 +3442,19 @@
 
 /* ============================================================
    2026-08-06/2026-08-17:消息操作按钮 + 时间戳 hover 显隐
-   桌面:默认隐藏(visibility:hidden保留空间),悬停显示;触屏:常显
+   桌面:默认隐藏(display:none释放空间),悬停显示;触屏:常显
    ============================================================ */
 @media (hover: hover) {
   .msg-hover-reveal {
-    visibility: hidden;
+    display: none;
   }
   .group\/msg:hover .msg-hover-reveal,
   .msg-hover-reveal:focus-within {
-    visibility: visible;
+    display: flex;
   }
 }
 @media (hover: none) {
   .msg-hover-reveal {
-    visibility: visible;
+    display: flex;
   }
 }
