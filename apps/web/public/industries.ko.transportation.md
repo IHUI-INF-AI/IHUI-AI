@@ -142,7 +142,7 @@
 ```
 
 ### IHUI AI 엔드 투 엔드 능력 (8 엔드 커버)
-- **Web** (Next.js 15 + React 19): 교통 지휘 대형 디스플레이
+- **Web** (Next.js 16 + React 19): 교통 지휘 대형 디스플레이
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 실시간 교통 상황 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): 다중 Agent 협조
 - **데스크톱** (Tauri 2): 긴급 지휘 워크스테이션
@@ -152,7 +152,7 @@
 - **CLI**: 배치 데이터 처리 / 신호 최적화 시뮬레이션
 
 ### 기술 스택
-- 프론트엔드: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - 멀티엔드: Tauri 2 (데스크톱) / WXT (확장) / React Native (모바일) / Taro 4 (미니프로그램) / Node.js CLI
