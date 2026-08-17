@@ -38,29 +38,52 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    MessageSquare: Icon,
-    ListTree: Icon,
-    Search: Icon,
-    X: Icon,
-    ChevronRight: Icon,
-    Loader2: Icon,
-    AlertCircle: Icon,
-    Bot: Icon,
-    HelpCircle: Icon,
-    Wrench: Icon,
-    Brain: Icon,
-    FileText: Icon,
-    Circle: Icon,
-    Download: Icon,
-    Check: Icon,
-    Inbox: Icon,
-    FilterX: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    if (typeof actual[key] === 'function' || (typeof actual[key] === 'object' && actual[key] !== null)) {
+      mocked[key] = IconSpan
+    }
   }
+  return mocked
 })
+
+// ─── @radix-ui/react-tooltip mock:TimelineTab 内部用了 Tooltip 组件 ───
+// Trigger 用 asChild 模式,把 aria-describedby 注入 children;Content 提供 id 与 role="tooltip"
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({
+    children,
+    asChild: _asChild,
+    ...rest
+  }: {
+    children: React.ReactElement
+    asChild?: boolean
+    [key: string]: unknown
+  }) => {
+    if (children && typeof children === 'object' && 'type' in children) {
+      return React.cloneElement(children, rest as Record<string, unknown>)
+    }
+    return <>{children}</>
+  },
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({
+    children,
+    id,
+    ...rest
+  }: {
+    children: React.ReactNode
+    id?: string
+    [key: string]: unknown
+  }) => (
+    <div id={id} role="tooltip" {...(rest as Record<string, unknown>)}>
+      {children}
+    </div>
+  ),
+  Arrow: () => null,
+}))
 
 import {
   TimelineTab,
@@ -442,11 +465,16 @@ describe('TimelineTab — 状态计数 chips', () => {
     expect(screen.queryByTestId('timeline-count-running')).toBeNull()
   })
 
-  it('状态计数 chip 含 tooltip(title 属性)', () => {
+  it('状态计数 chip 含 tooltip(2026-08-12 Tooltip 改 Radix:通过 aria-describedby 与 role=tooltip 验证)', () => {
     render(<TimelineTab />)
     const done = screen.getByTestId('timeline-count-done')
-    expect(done.getAttribute('title')).toBeTruthy()
-    expect(done.getAttribute('title')!.length).toBeGreaterThan(0)
+    // Radix Tooltip 通过 aria-describedby 指向 role="tooltip" 的 Content 节点
+    const describedBy = done.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    const tip = document.getElementById(describedBy!)
+    expect(tip).toBeTruthy()
+    expect(tip!.getAttribute('role')).toBe('tooltip')
+    expect(tip!.textContent!.length).toBeGreaterThan(0)
   })
 })
 

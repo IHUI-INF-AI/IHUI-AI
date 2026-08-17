@@ -166,7 +166,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 엔드 교무 관리 콘솔과 학습 대시보드' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 엔드 교무 관리 콘솔과 학습 대시보드' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 엔드 학생 데이터 보관과 권한 격리' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '개인화 + Q&A + 주관식 채점 엔진' },
   { name: 'MCP 도구 프로토콜', purpose: '문제집/교과서/학습 시스템/가정보校 플랫폼 어댑터' },
