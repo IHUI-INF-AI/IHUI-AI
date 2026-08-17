@@ -56,6 +56,8 @@ interface AiPanelState {
   floatCollapsed: boolean
   /** 浮窗位置(视口坐标,持久化) */
   floatPosition: { x: number; y: number }
+  /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
+  workAreaCollapsed: boolean
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
@@ -68,6 +70,7 @@ interface AiPanelState {
   setPendingFullAccess: (v: boolean) => void
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
+  toggleWorkAreaCollapsed: () => void
   setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
 }
@@ -92,6 +95,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatMinimized: false,
       floatCollapsed: false,
       floatPosition: FLOAT_DEFAULT_POSITION,
+      workAreaCollapsed: false,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -106,6 +110,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
       setFloatMode: (v: boolean) => set({ floatMode: v }),
       setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
+      toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
       setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
     }),

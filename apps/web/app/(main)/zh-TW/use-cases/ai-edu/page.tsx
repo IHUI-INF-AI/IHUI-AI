@@ -162,7 +162,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端教學管理後台與學情看板' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端教學管理後台與學情看板' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端學情資料儲存與權限隔離' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '個性化路徑 + 智慧答疑 + 主觀題批改' },
   { name: 'MCP 工具協定', purpose: '對接題庫/教材/學情系統/家校平台' },

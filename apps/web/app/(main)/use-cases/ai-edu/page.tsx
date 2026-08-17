@@ -48,7 +48,7 @@ const capabilities = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端课程工作台与学员门户' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端课程工作台与学员门户' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端课程/作业/成绩数据' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '智能答疑/作业批改/学习推荐引擎' },
   { name: 'MCP 工具协议', purpose: '对接 LMS/Notion/Zoom 直播/题库系统' },

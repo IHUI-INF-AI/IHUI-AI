@@ -5,7 +5,7 @@ import createNextIntlPlugin from 'next-intl/plugin'
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
 const repoName = 'IHUI-AI'
 
-// 2026-07-28 修复:Next.js 15 dev server 启动校验更严,`output: 'export'` + middleware.ts
+// 2026-07-28 修复:Next.js 16 dev server 启动校验更严,`output: 'export'` + middleware.ts
 // 共存直接报错 "Middleware cannot be used with output: export" 并死锁 8801 端口
 // (HTTP 接收但永不响应,前端表现为"页面打不开")。dev 模式不设 output。
 //
@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
   // 显式关闭 server/prerender source map 生成——官方文档明确 source map
   // 是构建内存大户,Next 16 的 cacheComponents/prerender 阶段默认开启。
   enablePrerenderSourceMaps: false,
-  // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
+  // 关闭 Next.js 16 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
   transpilePackages: [
     '@ihui/ui-react',
@@ -74,8 +74,11 @@ const nextConfig: NextConfig = {
       '.js': ['.ts', '.tsx', '.js'],
       '.mjs': ['.mts', '.mjs'],
     }
-    // Next.js 15.5.20 output: 'export' bug:App Router-only 项目不生成 pages-manifest.json,
+    // Next.js 16.2.12 output: 'export' bug:App Router-only 项目不生成 pages-manifest.json,
     // 但 "Collecting page data" 阶段尝试读取它 → ENOENT。用 afterEmit 钩子创建空文件兜底。
+    // 2026-08-17 扩展:同 bug 还影响 app-paths-manifest.json(见 build/index.js:1125,
+    // appDir 存在时无条件 readManifest(APP_PATHS_MANIFEST)),凌晨构建成功因 .next 残留
+    // 旧文件,全量重编译后暴露。两个 manifest 均兜底为空对象,不影响导出页面收集。
     config.plugins = config.plugins || []
     config.plugins.push({
       // 最小化内联类型,避免依赖 @types/webpack(Next.js 内置 webpack 但未导出类型声明)
@@ -85,10 +88,13 @@ const nextConfig: NextConfig = {
           const fs = require('fs') as typeof import('fs')
           // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- next.config webpack 钩子需用 require 加载 fs/path,as typeof import() 是动态类型导入
           const path = require('path') as typeof import('path')
-          const manifestPath = path.join(__dirname, '.next', 'server', 'pages-manifest.json')
-          if (!fs.existsSync(manifestPath)) {
-            fs.mkdirSync(path.dirname(manifestPath), { recursive: true })
-            fs.writeFileSync(manifestPath, '{}')
+          const serverDir = path.join(__dirname, '.next', 'server')
+          for (const name of ['pages-manifest.json', 'app-paths-manifest.json']) {
+            const manifestPath = path.join(serverDir, name)
+            if (!fs.existsSync(manifestPath)) {
+              fs.mkdirSync(path.dirname(manifestPath), { recursive: true })
+              fs.writeFileSync(manifestPath, '{}')
+            }
           }
         })
       },
@@ -128,7 +134,7 @@ const nextConfig: NextConfig = {
     // 2026-08-05 00:15 生产构建排障(P1 项):按内存而非 CPU 计算 worker 数,
     // 更保守,降低并发 worker 叠加的提交量峰值。
     memoryBasedWorkersCount: true,
-    // 2026-08-05 客户端路由缓存:staleTimes 让 Next.js 15 的客户端导航缓存 RSC 数据,
+    // 2026-08-05 客户端路由缓存:staleTimes 让 Next.js 16 的客户端导航缓存 RSC 数据,
     // 避免同一页面在导航中反复重新请求。dynamic=30s,static=5min 提供即时返回体验。
     staleTimes: {
       dynamic: 30,
@@ -196,15 +202,17 @@ const nextConfig: NextConfig = {
         source: '/api/ai-skills/:path*',
         destination: 'http://localhost:8803/api/ai-skills/:path*',
       },
-      // 2026-07-29 新增:publish 多平台分发路由转发到 ai-service 8803
-      // 原因:publish.py 注册在 ai-service(prefix="/publish",应用挂载 /api 前缀),
-      // 完整路径是 /api/publish/*。若不显式转发会被 /api/:path* 通配符转发到 8802(api server),
-      // 而 api server 没有注册 /api/publish 路由 → 404。
-      // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
-      {
-        source: '/api/publish/:path*',
-        destination: 'http://localhost:8803/api/publish/:path*',
-      },
+      // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
+      // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
+      // 把 publish 全量转发 ai-service 8803。此后 api 端已实现完整代理
+      // (apps/api/src/routes/publish-routes.ts 16+ 端点 + publish-analytics.ts),
+      // 但 rewrites 未更新 → 浏览器所有 /api/publish/* 被劫持到 8803:
+      //   1. ai-service JWTAuthMiddleware 只认 Bearer,不认 auth_token cookie,
+      //      浏览器同源请求(主要靠 cookie)大量 401;
+      //   2. analytics 端点只在 8802 注册,走 8803 必 404/401;
+      // 删除后 /api/publish/* 回落 /api/:path* 兜底 → 8802(api 层 cookie 认证 +
+      // 统一信封 + 透传 ai-service),链路稳定。ai-service 的 publish 路由仍经
+      // 8802 proxyToAiService 访问,不受影响。
       // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
       // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
       // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,

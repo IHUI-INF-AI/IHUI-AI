@@ -43,7 +43,15 @@ export default function ChatSharePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['chat', 'share', params.id],
-    queryFn: () => api<ConversationDetail>(`/api/chat/conversations/${params.id}`),
+    queryFn: () => {
+      // 判断是否为token模式（16位字母数字）
+      const isToken = /^[a-zA-Z0-9]{16}$/.test(params.id)
+      if (isToken) {
+        return api<ConversationDetail>(`/api/chat/conversations/share/${params.id}`)
+      }
+      // 原有逻辑：需要登录
+      return api<ConversationDetail>(`/api/chat/conversations/${params.id}/messages`)
+    },
     enabled: !!params.id,
   })
 
