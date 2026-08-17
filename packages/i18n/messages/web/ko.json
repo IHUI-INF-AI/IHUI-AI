@@ -11493,7 +11493,20 @@
       "githubConnectedAs": "GitHub에 연결됨",
       "githubConfigure": "GitHub 저장소 연결 구성",
       "tokenClear": "토큰 지우기",
-      "tokenCleared": "토큰이 지워졌습니다"
+      "tokenCleared": "토큰이 지워졌습니다",
+      "authorize": "GitHub로 인증",
+      "authorizing": "인증 대기 중…",
+      "userCode": "인증 코드",
+      "verificationUri": "인증 페이지",
+      "openAuthPage": "인증 페이지 열기",
+      "authorizePending": "브라우저에서 인증을 확인하세요…",
+      "authorizeExpired": "인증이 만료되었습니다. 다시 시도하세요",
+      "authSuccess": "GitHub 인증 성공, 저장소 연결됨",
+      "authFail": "GitHub 인증 실패",
+      "manualToken": "수동으로 토큰 입력(고급)",
+      "noOAuthConfig": "GitHub OAuth App이 구성되지 않았습니다. 토큰을 수동 입력하거나 관리자에게 문의하세요",
+      "copied": "인증 코드가 복사되었습니다",
+      "copyCode": "코드 복사"
     },
     "terminalDock": {
       "title": "PowerShell 터미널",
