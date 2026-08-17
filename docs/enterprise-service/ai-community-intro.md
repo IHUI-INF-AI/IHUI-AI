@@ -128,7 +128,7 @@
 智汇 AI 社区底层是 **IHUI-AI** 开源项目,GitHub 8,000+ ⭐,核心技术栈:
 
 - **后端**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL(340 张表)
-- **前端**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- **前端**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - **AI 编排**:FastAPI + LangGraph + LiteLLM(支持 176 大模型)
 - **工具协议**:MCP(Model Context Protocol,Anthropic 开源标准)
 - **Agent 互联**:A2A(Agent-to-Agent,自研协议)

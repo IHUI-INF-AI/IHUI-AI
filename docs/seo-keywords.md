@@ -108,7 +108,7 @@
 
 按 8 端拆分,每端 3-5 个,布局在各端文档与对应平台搜索(LangChain Hub / Tauri Apps / WXT Docs 等)。
 
-### Web(Next.js 15)
+### Web(Next.js 16)
 1. next.js 15 ai saas template
 2. next.js 15 react 19 ai dashboard
 3. next.js 15 tailwind 4 shadcn ai app
