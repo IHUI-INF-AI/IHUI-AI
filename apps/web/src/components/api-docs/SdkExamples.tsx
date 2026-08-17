@@ -335,8 +335,10 @@ export function SdkExamples(): React.JSX.Element {
                     <div className="relative">
                       <pre
                         className={cn(
-                          'overflow-x-auto rounded-md bg-zinc-950 p-3 text-xs leading-relaxed text-zinc-100',
-                          'dark:bg-zinc-900',
+                          // 2026-08-17 P3:dark 模式代码块用更深 zinc-950(与 markdown-stream 对齐),
+                          // 原 bg-zinc-950 light + dark:bg-zinc-900 反向(light 比 dark 更深),已修正
+                          'overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-800',
+                          'dark:bg-zinc-950 dark:text-zinc-100',
                         )}
                       >
                         <code className="font-mono">{code}</code>
