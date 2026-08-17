@@ -183,7 +183,11 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
   Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children, ...rest }: { children: React.ReactNode; side?: string }) => (
+    <div role="tooltip" data-side={rest.side ?? 'top'}>
+      {children}
+    </div>
+  ),
   Arrow: () => null,
 }))
 
@@ -523,7 +527,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(trigger.textContent).toContain('modeBuild')
   })
 
-  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', () => {
+  it('有进度时 title 显示 "modeBuild 01/06"(2026-08-05 更新:liveStatusText 在 title 中)', async () => {
     mockAgentProgressRefs.setState({
       planSteps: [
         { id: 's1', step: '分析', status: 'in_progress' },
@@ -537,7 +541,6 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
       overview: { completedSteps: 1 },
     })
     render(<AgentProgressTrigger />)
-    const trigger = screen.getByTestId('agent-progress-trigger')
     // 2026-08-12 升级:从 native title 改为 <Tooltip>(Radix) 实现,测试断言改为查找 role="tooltip" 内容
     const tooltip = await screen.findByRole('tooltip')
     expect(tooltip.textContent).toContain('01/06')
@@ -1694,10 +1697,7 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
   })
 
   it('reconnecting 状态:tooltip 含 "重连中" + "(n/max)"', () => {
-    const { container } = render(
-      <ConnectionStatus state="reconnecting" reconnectAttempt={3} totalAttempts={5} />,
-    )
-    const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
+    render(<ConnectionStatus state="reconnecting" reconnectAttempt={3} totalAttempts={5} />)
     // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),测试断言改为查找 role="tooltip" 内容
     const tooltip = screen.getByRole('tooltip').textContent ?? ''
     expect(tooltip).toContain('重连中')
@@ -2322,8 +2322,10 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
     const elapsed = container.querySelector('[data-testid="pane-elapsed"]')
     expect(elapsed).toBeTruthy()
     // 2026-08 升级:从 native title 改为 <Tooltip>(Radix),测试断言改为查找 role="tooltip" 内容含 "已耗时"
-    const tooltip = screen.getByRole('tooltip').textContent ?? ''
-    expect(tooltip).toContain('已耗时')
+    // Pane 内有多个 Tooltip,需筛选出含 "已耗时" 的那一个
+    const tooltips = screen.getAllByRole('tooltip')
+    const elapsedTooltip = tooltips.find((t) => (t.textContent ?? '').includes('已耗时'))
+    expect(elapsedTooltip).toBeTruthy()
   })
 
   // ─── 2. 失败条 ───
