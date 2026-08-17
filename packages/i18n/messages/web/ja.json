@@ -964,7 +964,8 @@
       "edit": "編集",
       "reply": "返信",
       "delete": "削除",
-      "jumpToLatest": "最新へ"
+      "jumpToLatest": "最新へ",
+      "shareLinkCopied": "コンテンツとリンクをコピーしました"
     },
     "plan": {
       "title": "実行プラン",
