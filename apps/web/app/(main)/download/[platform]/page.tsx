@@ -19,10 +19,21 @@ export const metadata: Metadata = {
   },
 }
 
-// Next.js 15 动态路由 page 组件(server component,仅 params 解析 + 渲染 client content)
-// A 套壳:静态导出要求动态路由提供 generateStaticParams,返回占位参数,运行时客户端渲染
+// Next.js 16.2.12 动态路由 page 组件(server component,仅 params 解析 + 渲染 client content)
+// 2026-08-17 修复:generateStaticParams 原仅返回 desktop,导致静态导出(out/)
+// 缺 android-apk 等平台下载页(线上 /download/android-apk 会 404 或走占位)。
+// 现返回全部 8 端,静态导出将生成各平台独立 HTML,客户端运行时再按 env 渲染。
 export function generateStaticParams() {
-  return [{ platform: 'desktop' }]
+  return [
+    { platform: 'web' },
+    { platform: 'desktop' },
+    { platform: 'ios' },
+    { platform: 'android-apk' },
+    { platform: 'mobile' },
+    { platform: 'wechat-miniapp' },
+    { platform: 'extension' },
+    { platform: 'cli' },
+  ]
 }
 
 export default async function DownloadPage({ params }: DownloadPageProps) {

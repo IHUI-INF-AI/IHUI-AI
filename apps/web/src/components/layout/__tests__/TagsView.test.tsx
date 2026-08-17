@@ -150,6 +150,7 @@ vi.mock('@/lib/path-labels', () => ({
     if (!pathname || pathname === '/') return { ns: 'nav', key: 'home' }
     return null
   },
+  resolvePathIcon: (_pathname: string) => null,
 }))
 
 import { TagsView } from '../TagsView'

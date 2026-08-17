@@ -98,6 +98,8 @@ export function CdpBrowserView({
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const hasFirstFrame = React.useRef(false)
+  // 视口容器 ref(2026-08-17):ResizeObserver 将容器尺寸同步给后端 → 1:1 无缩放
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // hover 节流:last mouseMoved 发送时间(ms),60ms 节流覆盖 CSS hover/dropdown
   const lastMoveRef = React.useRef(0)
@@ -106,12 +108,59 @@ export function CdpBrowserView({
   // 右键菜单状态
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number } | null>(null)
   const [copied, setCopied] = React.useState(false)
+  // 2026-08-17:交互受限提示条(扫码登录只需展示二维码,用户用手机扫;避免误以为可随意点击)
+  const [hintDismissed, setHintDismissed] = React.useState(false)
+
+  // 开发者工具(2026-08-17):控制台日志 + JS 执行(类似 F12)
+  const [devToolsOpen, setDevToolsOpen] = React.useState(false)
+  const [jsCode, setJsCode] = React.useState('')
+  const [jsResult, setJsResult] = React.useState('')
+  const [consoleLogs, setConsoleLogs] = React.useState<string[]>([])
+  const runJs = React.useCallback(() => {
+    const ws = wsRef.current
+    if (!ws || !jsCode.trim()) return
+    const script = jsCode.trim()
+    const onResult = (e: MessageEvent) => {
+      try {
+        const m = JSON.parse(e.data as string)
+        if (m.type === 'execute_result') {
+          setJsResult(typeof m.data === 'string' ? m.data : JSON.stringify(m.data, null, 2))
+          ws.removeEventListener('message', onResult)
+        } else if (m.type === 'error' && m.event === 'execute') {
+          setJsResult(`执行出错: ${m.message ?? '未知错误'}`)
+          ws.removeEventListener('message', onResult)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    ws.addEventListener('message', onResult)
+    ws.send(JSON.stringify({ type: 'execute', script }))
+  }, [jsCode])
 
   // 回调 ref(避免 effect 依赖变化导致 WebSocket 重连)
   const cbRefs = React.useRef({ onNavigation, onLoaded, onFailed })
   React.useEffect(() => {
     cbRefs.current = { onNavigation, onLoaded, onFailed }
   })
+
+  // 视口同步(2026-08-17 1:1 无缩放):前端容器尺寸 → 后端 Playwright 视口。
+  // 关键:仅当 WS 处于 OPEN **且实际发送**后才记录 key —— 否则 mount 时 WS 未连接
+  // 首帧 set_viewport 静默丢失(若提前记录 key,连接后不再补发 → 缩放/letterbox 复现)。
+  // WS onopen 时由连接 effect 调用补发,容器 resize 时由 ResizeObserver 调用。
+  const viewportSentRef = React.useRef('')
+  const syncViewport = React.useCallback(() => {
+    const container = containerRef.current
+    const ws = wsRef.current
+    if (!container || !ws || ws.readyState !== WebSocket.OPEN) return
+    const w = container.clientWidth
+    const h = container.clientHeight
+    if (w <= 0 || h <= 0) return
+    const key = `${w}x${h}`
+    if (viewportSentRef.current === key) return
+    viewportSentRef.current = key
+    ws.send(JSON.stringify({ type: 'set_viewport', width: w, height: h }))
+  }, [])
 
   // 建立 WebSocket 连接 + 接收画面帧
   // disposed flag:防止 React StrictMode 双渲染(dev 模式 mount→unmount→mount)
@@ -121,6 +170,8 @@ export function CdpBrowserView({
     setLoading(true)
     setError(null)
     hasFirstFrame.current = false
+    // 新会话 → 重置已同步视口标记(后端新会话默认视口可能 ≠ 容器尺寸)
+    viewportSentRef.current = ''
 
     // P0-4(2026-08-05):ai-service WS 握手要求 access token,连接前注入当前 token
     setBrowserWsToken(useAuthStore.getState().token ?? '')
@@ -138,6 +189,12 @@ export function CdpBrowserView({
 
     // disposed=true 后所有 ws 回调静默 return,不触发 setState / onFailed
     let disposed = false
+
+    // 2026-08-17:连接建立后再同步视口(mount 时 WS 未 OPEN,syncViewport 跳过且不记录 key)
+    ws.onopen = () => {
+      if (disposed) return
+      syncViewport()
+    }
 
     ws.onmessage = (event) => {
       if (disposed) return
@@ -203,26 +260,23 @@ export function CdpBrowserView({
       ws.close()
       wsRef.current = null
     }
-  }, [sessionId])
+  }, [sessionId, syncViewport])
 
   // 坐标转换:canvas 显示坐标 → 设备坐标(后端 Chromium 视口)
-  // 2026-08-02 fix:canvas 为 object-contain 布局,内容居中于 CSS 盒并保持 16:9,
-  // 面板宽高比 ≠ 16:9 时存在 letterbox 留白;直接按整盒缩放会把点击坐标偏移
-  // (实测 ~40-70px,微信/抖音精确点击落空)。必须先算出实际内容区再映射。
+  // 2026-08-17 重构:视口实时同步为前端容器尺寸(WS set_viewport) → 截图 = 容器 = canvas,
+  // **1:1 无缩放、无 letterbox** —— 像正常浏览器一样,点哪打哪(device = clientX)。
+  // 容器 resize 时通过 WS 通知后端调整 Playwright 视口,截图帧按新尺寸推送。
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const ro = new ResizeObserver(syncViewport)
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [syncViewport])
+
   const toDeviceCoords = React.useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current
-    if (!canvas) return { x: 0, y: 0 }
-    const rect = canvas.getBoundingClientRect()
-    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height)
-    if (!scale || !Number.isFinite(scale)) return { x: 0, y: 0 }
-    const contentW = canvas.width * scale
-    const contentH = canvas.height * scale
-    const offsetX = rect.left + (rect.width - contentW) / 2
-    const offsetY = rect.top + (rect.height - contentH) / 2
-    return {
-      x: (clientX - offsetX) / scale,
-      y: (clientY - offsetY) / scale,
-    }
+    // 视口 = 容器(canvas 1:1),CSS 坐标 = 设备坐标
+    return { x: clientX, y: clientY }
   }, [])
 
   const sendMouse = React.useCallback(
@@ -234,6 +288,10 @@ export function CdpBrowserView({
       e.preventDefault()
       const { x, y } = toDeviceCoords(e.clientX, e.clientY)
       const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left'
+      // 2026-08-17 调试:扫码登录"点不了按钮"排查 — 记录点击坐标与 WS 状态(控制台可见)
+      const log = `[cdp-browser-view] ${eventType} client=(${Math.round(e.clientX)},${Math.round(e.clientY)}) device=(${Math.round(x)},${Math.round(y)}) ws=${wsRef.current ? 'connected' : 'NULL'}`
+      console.info(log)
+      setConsoleLogs((prev) => [...prev, log].slice(-60))
       wsRef.current?.send(
         JSON.stringify({
           type: 'mouse',
@@ -302,7 +360,11 @@ export function CdpBrowserView({
     const key = e.key.toLowerCase()
     if (e.ctrlKey && ['r', 'w', 'n', 't', 'f'].includes(key)) {
       e.preventDefault()
-    } else if (['F5', 'F11', 'F12'].includes(e.key)) {
+    } else if (e.key === 'F12') {
+      // 2026-08-17:F12 切换开发者工具(代替原生 DevTools,与浮动 </> 按钮等价)
+      e.preventDefault()
+      setDevToolsOpen((o) => !o)
+    } else if (['F5', 'F11'].includes(e.key)) {
       e.preventDefault()
     } else {
       e.preventDefault()
@@ -435,10 +497,10 @@ export function CdpBrowserView({
   }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-background">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
       <canvas
         ref={canvasRef}
-        className="h-full w-full cursor-default object-contain"
+        className="h-full w-full cursor-default object-cover"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
@@ -456,6 +518,69 @@ export function CdpBrowserView({
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-4 text-center">
           <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+      {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
+      {!hintDismissed && !error && (
+        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-sm">
+          <span className="flex-1 text-[10px] leading-relaxed text-muted-foreground">
+            此视图为自动化截图,交互受限 — 扫码请用手机扫;完整操作请在外部浏览器打开
+          </span>
+          <button
+            type="button"
+            onClick={() => setHintDismissed(true)}
+            className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground"
+            aria-label="关闭提示"
+          >
+            知道了
+          </button>
+        </div>
+      )}
+      {/* 开发者工具(F12):浮动按钮 + 控制台日志 + JS 执行(2026-08-17) */}
+      <button
+        type="button"
+        onClick={() => setDevToolsOpen((o) => !o)}
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="开发者工具"
+      >
+        <span className="font-mono font-semibold">{'</>'}</span>
+        开发者工具
+      </button>
+      {devToolsOpen && (
+        <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
+          <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
+            <span className="text-[10px] font-semibold">开发者工具</span>
+            <button type="button" onClick={() => setDevToolsOpen(false)} className="text-[10px] text-muted-foreground hover:text-foreground">
+              关闭
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto p-1.5">
+            <div className="mb-1.5 text-[10px] font-medium text-muted-foreground">控制台日志</div>
+            <pre className="thin-scroll max-h-32 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground">
+              {consoleLogs.length === 0 ? '(暂无日志 — 在页面上点击操作后会显示坐标信息)' : consoleLogs.join('\n')}
+            </pre>
+            <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">执行 JavaScript</div>
+            <textarea
+              value={jsCode}
+              onChange={(e) => setJsCode(e.target.value)}
+              placeholder={'document.title  —  输入 JS 后点执行(如: document.querySelector("button").click())'}
+              className="h-14 w-full resize-none rounded border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={runJs}
+              disabled={!jsCode.trim()}
+              className="mt-1 rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
+            >
+              执行
+            </button>
+            {jsResult && (
+              <pre className="thin-scroll mt-1.5 max-h-24 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-foreground">
+                {jsResult}
+              </pre>
+            )}
+          </div>
         </div>
       )}
       {/* 右键菜单(portal 到 body,避免 overflow 裁剪) */}
