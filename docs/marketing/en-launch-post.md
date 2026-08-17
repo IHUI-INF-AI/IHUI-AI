@@ -41,7 +41,7 @@ I've been building an open-source AI platform for the past 18 months. It's Apach
 
 **What it does**:
 
-- 8 platforms from one monorepo: Web (Next.js 15) / API (Fastify 5) / AI Service (FastAPI + LangGraph + LiteLLM + MCP) / CLI / Desktop (Tauri) / Browser Extension (WXT) / Mobile (React Native + Expo) / Mini-program (Taro)
+- 8 platforms from one monorepo: Web (Next.js 16) / API (Fastify 5) / AI Service (FastAPI + LangGraph + LiteLLM + MCP) / CLI / Desktop (Tauri) / Browser Extension (WXT) / Mobile (React Native + Expo) / Mini-program (Taro)
 - 176 LLMs unified routing via LiteLLM (OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, Doubao, etc.)
 - LangGraph + MCP + A2A tri-stack for agents
 - 340 DB tables / 144 migrations / 1300+ API endpoints / 5346 tests / 63 e2e specs
@@ -269,7 +269,7 @@ Numbers (all grep-able):
 
 Tech stack:
 - API: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL
-- Web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- Web: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-platform: Taro / Tauri / WXT / React Native + Expo
 - Shared: 12 packages (database/auth/types/ui/...)
