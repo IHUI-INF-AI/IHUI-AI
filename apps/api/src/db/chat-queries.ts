@@ -73,6 +73,7 @@ export async function findConversationsByUser(
         archivedAt: chatConversations.archivedAt,
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
+        shareToken: chatConversations.shareToken,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
@@ -575,6 +576,7 @@ export async function findFavoriteConversations(
         archivedAt: chatConversations.archivedAt,
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
+        shareToken: chatConversations.shareToken,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
