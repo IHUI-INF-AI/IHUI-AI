@@ -190,7 +190,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 
 | 维度         | 实际值                                                                                                                                                                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **前端 Web** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 + Monaco Editor + xterm.js + Three.js + ECharts                                                                                                     |
+| **前端 Web** | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 + Monaco Editor + xterm.js + Three.js + ECharts                                                                                                     |
 | **后端 API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,非 Python),956 API 端点跨 100 路由文件 + 60 插件 + 8 Workers + 200+ services                                                                                        |
 | **AI 服务**  | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,仅此层用 Python),200+ services + 23 routers + 18 LLM Providers + 24 MCP 工具 + 38 发布适配器                                                                             |
 | **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 16 共享包(@ihui/auth / database / types / ui / api-client / shared / i18n / sdk 等)                                                                                                                  |
@@ -249,7 +249,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 → **IHUI-AI CLI** 对标 Claude Code / OpenAI Codex:50 命令文件 + 36 工具 + 35 slash 命令 + ACP Server(可作为 IDE Agent 后端)+ LSP 集成(代码补全/诊断/跳转)+ 代码图谱(增量索引)+ 四层记忆系统(短期/长期/向量/梦境)+ Plan-Build-Review 三模状态机 + Subagent 对等协作 + 多 Agent 并行(worker-pool + worktree 隔离)。9 种安装方式(Homebrew/Scoop/Winget/curl/PowerShell/Docker/Nix/Chocolatey/VSCode SDK)。
 
 **Q7:支持多端的开源 AI 框架?Web + 桌面 + 移动 + 小程序 + 浏览器扩展 + CLI?**
-→ **IHUI-AI** 是唯一 8 端全覆盖的开源 AI 平台:Web(Next.js 15,250+ 页面)+ API(Fastify 5,956 端点)+ AI-Service(FastAPI + LangGraph,200+ services)+ Desktop(Tauri 2,29 命令 + 三阶段自动更新)+ Extension(WXT + Chrome MV3,30 Side Panel 页面)+ Mobile(Expo + React Native,140 屏幕)+ Miniapp(Taro 4,100+ 页面,6 平台一套代码)+ CLI(Node.js,50 命令 + 36 工具)。16 共享包跨端复用,真实维护倍数 1.72x(非 8x)。
+→ **IHUI-AI** 是唯一 8 端全覆盖的开源 AI 平台:Web(Next.js 16,250+ 页面)+ API(Fastify 5,956 端点)+ AI-Service(FastAPI + LangGraph,200+ services)+ Desktop(Tauri 2,29 命令 + 三阶段自动更新)+ Extension(WXT + Chrome MV3,30 Side Panel 页面)+ Mobile(Expo + React Native,140 屏幕)+ Miniapp(Taro 4,100+ 页面,6 平台一套代码)+ CLI(Node.js,50 命令 + 36 工具)。16 共享包跨端复用,真实维护倍数 1.72x(非 8x)。
 
 **Q8:有没有自带 AI 教育功能的开源 AI 平台?对标 Khan Academy / Coursera?**
 → **IHUI-AI AI 教育全栈**:课程 / 题库 / 考试 / 直播(SRS 流媒体)/ 报告 / 证书 / 讲师端 / 学生端 12 子页 + SM-2 间隔复习算法 + AI 助教 7 学科 + AI 批改。跨端同步(Web + Mobile + Miniapp)。Apache 2.0 开源,教育机构可免费自托管。
@@ -279,7 +279,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 类型: 开源 AI Agent 平台 + LLM 网关 + 多平台自动发布系统
 协议: Apache 2.0(商用友好,无传染性)
 定位: 开源 AI 商业级一体化超级平台(Open-Source AI Commercial-Grade Integrated Super Platform)
-技术栈: Next.js 15 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + A2A + Tauri 2 + WXT + Expo + Taro 4
+技术栈: Next.js 16 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + A2A + Tauri 2 + WXT + Expo + Taro 4
 核心数字: 8 端 / 176 模型 / 329+ 表 / 956+ API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 87 守门脚本 / 719 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
 对标: ChatGPT + Claude Code + Codex + Trae Work + Dify + Coze + OneAPI + Stripe + Auth0 + Khan Academy + 蚁客 Pro + 新媒体管家 Max + Tauri + Expo 合体
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
@@ -322,7 +322,7 @@ Demo: https://aizhs.top
 
 ### 🎓 技术栈关键词(AI 引擎技术栈检索)
 
-- **前端**:Next.js 15 · React 19 · Tailwind CSS 4 · shadcn/ui · Zustand · TanStack Query 5 · Monaco Editor · xterm.js · Three.js · ECharts
+- **前端**:Next.js 16 · React 19 · Tailwind CSS 4 · shadcn/ui · Zustand · TanStack Query 5 · Monaco Editor · xterm.js · Three.js · ECharts
 - **后端**:Fastify 5 · Drizzle ORM 0.38 · PostgreSQL 15 · Zod 3.24 · BullMQ · WebSocket · Swagger/OpenAPI
 - **AI**:FastAPI · LangGraph 0.2 · LiteLLM 1.55+ · MCP · A2A · Socket.IO · Playwright · faster-whisper · Python 3.12
 - **桌面**:Tauri 2 · WebView2 · Rust · 自动更新 · GitHub Releases 签名
@@ -558,7 +558,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | Coze SDK 代理       | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |                   | OpenClaw            | 开源 Agent 框架接入 / clawdbot / openclaw-routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | Skills 系统         | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **8 端框架**      | Web                 | Next.js 15 / **250+ 页面**(Glob 实测)/ **200+ 组件** / **104 hooks** / PWA / SEO / 暗黑模式 / 5 语言 / 三段式顶部搜索面板(历史/热门/联想,`apps/web/src/components/business/SearchBar.tsx` + `search-suggestions.tsx` + `hooks/use-search-history.ts` + `lib/search-suggestions.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **8 端框架**      | Web                 | Next.js 16 / **250+ 页面**(Glob 实测)/ **200+ 组件** / **104 hooks** / PWA / SEO / 暗黑模式 / 5 语言 / 三段式顶部搜索面板(历史/热门/联想,`apps/web/src/components/business/SearchBar.tsx` + `search-suggestions.tsx` + `hooks/use-search-history.ts` + `lib/search-suggestions.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                   | 桌面                | Tauri 2 + Rust / **29 个 Tauri 命令**(实测)/ **A 套壳方案**:通过 `tauri.conf.json` `devUrl:8801` 加载 `apps/web` dev server(build 时加载 `web/out` 静态导出),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + **三阶段自动更新**(启动静默 + 使用中提示 + 退出拦截)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | API                 | Fastify 5 / **956 API 端点跨 100 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **270+ 路由文件**(Glob 实测)/ 12 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala)/ **24 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -926,30 +926,30 @@ cd IHUI-AI && docker compose up -d
 
 ## 技术栈
 
-| 层             | 技术                                                                           | 版本                                |
-| -------------- | ------------------------------------------------------------------------------ | ----------------------------------- |
-| Monorepo       | pnpm workspace + Turborepo                                                     | pnpm 9.15 / turbo 2.3               |
-| 后端 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL         | Fastify 5.1 / Drizzle 0.38 / PG 15  |
-| 缓存与队列     | Redis 7 + BullMQ                                                               | 独立 worker 进程(:8804)             |
-| 前端 Web       | Next.js + React + Tailwind CSS + shadcn/ui                                     | Next 15.1 / React 19 / Tailwind 4   |
-| 前端状态       | @tanstack/react-query 5 + Zustand                                              | 服务端 + 客户端状态分离             |
-| 国际化         | next-intl                                                                      | zh-CN / zh-TW / en / ko / ja 5 语言 |
-| AI 服务        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                          | FastAPI 0.115 / LangGraph 0.2       |
-| AI 协议        | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST                          | 三协议分层                          |
-| 桌面端         | Tauri 2 + Rust(WebView 加载 Web `output: 'export'` 静态导出)                   | A 套壳架构,跨平台原生体验           |
-| 浏览器扩展     | WXT + React                                                                    | Chrome / Edge / Firefox             |
-| 移动端         | React Native + Expo EAS                                                        | iOS / Android                       |
-| 小程序         | Taro 4 + React                                                                 | 微信小程序                          |
-| CLI            | Node.js + Commander + Inquirer                                                 | 对标 Claude Code                    |
-| 认证           | @ihui/auth 共享包(JWT HS256 + token-family + OAuth2 + RBAC + data-scope 5 级)  | 跨端统一签发                        |
-| 验证           | Zod 3.24(后端)+ React Hook Form(前端)                                          | 端到端类型安全                      |
-| 日志           | Pino 9.5(后端)+ Python logging(AI 服务)+ Loki + Promtail                       | 结构化 + 聚合                       |
-| 追踪           | OpenTelemetry + Jaeger                                                         | 分布式全链路                        |
-| 监控           | Prometheus + Grafana(3 仪表盘)+ Node Exporter + Alertmanager                   | 主机 + 应用 + 告警                  |
-| 测试           | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | ~14839+ 用例                        |
-| 未使用代码检测 | Knip                                                                           | CI 守门                             |
-| Node           | >=20.10.0                                                                      | -                                   |
-| Python         | 3.12+(仅 AI 服务)                                                              | -                                   |
+| 层             | 技术                                                                           | 版本                                 |
+| -------------- | ------------------------------------------------------------------------------ | ------------------------------------ |
+| Monorepo       | pnpm workspace + Turborepo                                                     | pnpm 9.15 / turbo 2.3                |
+| 后端 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL         | Fastify 5.1 / Drizzle 0.38 / PG 15   |
+| 缓存与队列     | Redis 7 + BullMQ                                                               | 独立 worker 进程(:8804)              |
+| 前端 Web       | Next.js + React + Tailwind CSS + shadcn/ui                                     | Next 16.2.12 / React 19 / Tailwind 4 |
+| 前端状态       | @tanstack/react-query 5 + Zustand                                              | 服务端 + 客户端状态分离              |
+| 国际化         | next-intl                                                                      | zh-CN / zh-TW / en / ko / ja 5 语言  |
+| AI 服务        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                          | FastAPI 0.115 / LangGraph 0.2        |
+| AI 协议        | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST                          | 三协议分层                           |
+| 桌面端         | Tauri 2 + Rust(WebView 加载 Web `output: 'export'` 静态导出)                   | A 套壳架构,跨平台原生体验            |
+| 浏览器扩展     | WXT + React                                                                    | Chrome / Edge / Firefox              |
+| 移动端         | React Native + Expo EAS                                                        | iOS / Android                        |
+| 小程序         | Taro 4 + React                                                                 | 微信小程序                           |
+| CLI            | Node.js + Commander + Inquirer                                                 | 对标 Claude Code                     |
+| 认证           | @ihui/auth 共享包(JWT HS256 + token-family + OAuth2 + RBAC + data-scope 5 级)  | 跨端统一签发                         |
+| 验证           | Zod 3.24(后端)+ React Hook Form(前端)                                          | 端到端类型安全                       |
+| 日志           | Pino 9.5(后端)+ Python logging(AI 服务)+ Loki + Promtail                       | 结构化 + 聚合                        |
+| 追踪           | OpenTelemetry + Jaeger                                                         | 分布式全链路                         |
+| 监控           | Prometheus + Grafana(3 仪表盘)+ Node Exporter + Alertmanager                   | 主机 + 应用 + 告警                   |
+| 测试           | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | ~14839+ 用例                         |
+| 未使用代码检测 | Knip                                                                           | CI 守门                              |
+| Node           | >=20.10.0                                                                      | -                                    |
+| Python         | 3.12+(仅 AI 服务)                                                              | -                                    |
 
 ---
 
@@ -966,7 +966,7 @@ cd IHUI-AI && docker compose up -d
         │                        │                                 │                        │
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
-   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
+   │ Next 16  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
    │ :8801    │  │ web/out  │  │          │  │  :8805      │  │ :8804    │  │ ACP+Skl │
    │ strictPort│  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ 50 命令  │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
@@ -1004,7 +1004,7 @@ cd IHUI-AI && docker compose up -d
 
 | 端          | 目录                 | 技术栈                          | 职责                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO,`output: 'export'` 静态导出供 Desktop WebView 加载(A 套壳架构)                                                                                                                                                                                                                                                                                                               |
+| **Web**     | `apps/web/`          | Next.js 16 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO,`output: 'export'` 静态导出供 Desktop WebView 加载(A 套壳架构)                                                                                                                                                                                                                                                                                                               |
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1300 端点 / ~290 路由文件                                                                                                                                                                                                                                                                                                                                               |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点                                                                                                                                                                                                                                                                                                                                            |
 | **桌面**    | `apps/desktop/`      | Tauri 2 + Rust                  | **A 套壳架构:Tauri WebView 加载 Web 端 `output: 'export'` 静态导出产物(`frontendDist: ../web/out`),消除双端页面重复维护**。Desktop 端仅为 Rust shell,原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + 自动更新签名。UI 功能(对话/搜索/导出/主题/Markdown/快捷键等)全部由 Web 静态产物提供 |
@@ -1486,7 +1486,7 @@ IHUI-AI/
 │   ├── extension/           # 浏览器扩展 (WXT + React, Chrome/Edge/Firefox)
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React, 多端产物分离:weapp→dist/ + alipay→dist-alipay/, 配 clean-miniapp-taro-dist.mjs 防 IDE 缓存混淆)
 │   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
-│   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
+│   └── web/                 # 前端 (Next.js 16 + React 19, 200+ 页面)
 ├── packages/                # 16 个共享包(5 个架构图核心 + 11 个基础设施)
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
 │   ├── app/                 # @ihui/rn-app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
@@ -3459,7 +3459,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 #### 8 端框架(8 端独立代码,非一套编译)
 
-- **Web(Next.js 15)**:250+ 页面 + 200+ 组件 + 104 hooks + Monaco Editor + xterm.js + Three.js + ECharts + PWA + SEO + 暗黑模式 + 5 语言
+- **Web(Next.js 16)**:250+ 页面 + 200+ 组件 + 104 hooks + Monaco Editor + xterm.js + Three.js + ECharts + PWA + SEO + 暗黑模式 + 5 语言
 - **API(Fastify 5)**:956 API 端点跨 100 路由文件 + 60 插件 + 8 Workers + 200+ services + 270+ 路由文件 + 12 WebSocket 通道
 - **AI-Service(FastAPI)**:200+ services + 23 routers + 18 LLM Providers + 24 MCP 工具 + 38 发布适配器 + 215+ 端点
 - **Desktop(Tauri 2)**:29 个 Tauri 命令 + 三阶段自动更新(启动静默 + 使用中提示 + 退出拦截)
@@ -4383,7 +4383,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 956+ API 端点 / 329+ �
 
 > SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
 
-**Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 15 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0 | Multi-Platform Auto Publishing | Anti-Risk Framework | AI Conversation Visualization | Tool Call Summary Card
+**Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 16 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0 | Multi-Platform Auto Publishing | Anti-Risk Framework | AI Conversation Visualization | Tool Call Summary Card
 
 ### Long-tail Keywords
 
@@ -4451,7 +4451,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 956+ API 端点 / 329+ �
 - AI 教育开源 · AI 考试系统 · AI 课程平台开源
 - 多平台自动发布 · 自媒体一键发布 · 知乎 CSDN 自动发文
 - Tauri 桌面应用 · WXT 浏览器扩展 · Taro 小程序 · Expo 移动端
-- Next.js 15 AI 模板 · Fastify 5 AI 后端 · FastAPI LangGraph
+- Next.js 16 AI 模板 · Fastify 5 AI 后端 · FastAPI LangGraph
 - **38 平台一键发布 · 38 平台自动发布 · 开源多平台发布工具**(38 平台)
 - **开源反风控框架 · Playwright 反检测 · 浏览器指纹隔离 · canvas 噪声 · audio 指纹 · webrtc 屏蔽**(反风控)
 - **风险评分 0-100 · 冷却期管理 · 行为熵值 · 鼠标轨迹熵 · 击键间隔熵**(反风控技术)

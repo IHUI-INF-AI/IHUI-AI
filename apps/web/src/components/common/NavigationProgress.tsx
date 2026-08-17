@@ -8,7 +8,7 @@ import { useNavigationStore } from '@/stores/navigation'
  * NavigationProgress — 全局导航进度条
  *
  * 覆盖层已迁移到 GlobalShell 直接渲染(2026-08-05 根治方案):
- * 根因:条件渲染(if (!pending) return null)依赖 React 渲染周期,在 Next.js 15 导航中
+ * 根因:条件渲染(if (!pending) return null)依赖 React 渲染周期,在 Next.js 16 导航中
  * 点击 Link 后客户端路由立即开始,React 渲染可能滞后,导致覆盖层显示延迟甚至不显示。
  * 用户点击后看不到任何视觉反馈,误以为"没有响应"。
  *
