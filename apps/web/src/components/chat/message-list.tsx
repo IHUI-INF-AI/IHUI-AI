@@ -17,6 +17,7 @@ import {
   Download,
   Code,
   Megaphone,
+  ArrowDown,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -265,18 +266,34 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [m.id, t])
 
-  // 分享 — 复制内容到剪贴板(带完整错误处理 + execCommand 兜底),与 handleCopy 对齐
+  // 分享 — 获取分享链接并复制到剪贴板
   const handleShare = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      const text = plainTextForClipboard(m.content)
+      const convId = useChatStore.getState().conversationId
+      if (!convId) return
+
       try {
+        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        })
+        const data = await res.json()
+        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
+
+        const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
+        const finalText = bodyLines.join('\n')
+
         if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text)
+          await navigator.clipboard.writeText(finalText)
         } else {
           const ta = document.createElement('textarea')
-          ta.value = text
+          ta.value = finalText
           ta.setAttribute('readonly', '')
           ta.style.position = 'absolute'
           ta.style.left = '-9999px'
@@ -285,19 +302,10 @@ const MessageItem = React.memo(function MessageItem({
           document.execCommand('copy')
           document.body.removeChild(ta)
         }
-        const successLabel = t('copied') === 'copied' ? 'Copied' : t('copied')
-        if (successLabel === 'copied') {
-          console.warn('[i18n] Missing translation for key: chat.copied')
-        }
-        toast.success(successLabel)
-      } catch (err) {
-        const errLabel = t('copyFailed') === 'copyFailed' ? 'Copy failed' : t('copyFailed')
-        if (errLabel === 'copyFailed') {
-          console.warn('[i18n] Missing translation for key: chat.copyFailed')
-        }
-        toast.error(errLabel, {
-          description: err instanceof Error ? err.message : String(err),
-        })
+
+        toast.success(t('message.shareLinkCopied'))
+      } catch (_err) {
+        toast.error(t('copyFailed'))
       }
     },
     [m.content, t],
@@ -395,8 +403,8 @@ const MessageItem = React.memo(function MessageItem({
   // 时间戳移到按钮区内部，这里不再常驻计算
 
   // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
-  const copyLabel = t('message.copy') === 'message.copy' ? '复制' : t('message.copy')
-  if (copyLabel === 'message.copy') {
+  const copyLabel = t('copy') === 'copy' ? '复制' : t('copy')
+  if (copyLabel === 'copy') {
     console.warn('[i18n] Missing translation for key: chat.message.copy')
   }
 
@@ -1871,6 +1879,25 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
+      {userScrolledUp && messages.length > 0 && (
+        <button
+          type="button"
+          onClick={handleJumpToLatest}
+          data-testid="message-list-jump-latest"
+          aria-label={t('latest')}
+          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur transition-colors hover:bg-accent"
+        >
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          {t('jumpToLatest')}
+          {isStreaming && (
+            <span
+              data-testid="message-list-jump-latest-dot"
+              className="ml-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
+              aria-hidden
+            />
+          )}
+        </button>
+      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}
