@@ -171,7 +171,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 엔드 마케팅 콘솔과 콘텐츠 캘린더' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 엔드 마케팅 콘솔과 콘텐츠 캘린더' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 엔드 콘텐츠 자산/페르소나 데이터' },
   {
     name: 'FastAPI + LangGraph + LiteLLM',
