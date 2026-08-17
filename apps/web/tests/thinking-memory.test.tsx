@@ -43,17 +43,26 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  return {
-    __esModule: true,
-    Brain: Icon,
-    Loader2: Icon,
-    Copy: Icon,
-    Check: Icon,
-    ChevronRight: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    if (typeof actual[key] === 'function' || (typeof actual[key] === 'object' && actual[key] !== null)) {
+      mocked[key] = IconSpan
+    }
   }
+  return mocked
 })
+
+// ─── @radix-ui/react-tooltip mock:ThinkingSection 用了 Tooltip 组件 ───
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
+}))
 
 const STORAGE_KEY = 'ihui:thinking-expanded'
 

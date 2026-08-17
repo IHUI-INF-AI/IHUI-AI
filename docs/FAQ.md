@@ -57,7 +57,7 @@ Drizzle 是 SQL-first ORM,生成可预测的 SQL,无 N+1 隐藏陷阱,迁移文�
 
 ### Q9:为什么 Next.js 不 Remix?
 
-Next.js 15 App Router + React 19 + RSC 生态最成熟,shadcn/ui / Tailwind 4 配套完善,Vercel 部署零配置。Remix 在 SSR 优势场景本项目用不到。
+Next.js 16 App Router + React 19 + RSC 生态最成熟,shadcn/ui / Tailwind 4 配套完善,Vercel 部署零配置。Remix 在 SSR 优势场景本项目用不到。
 
 ### Q10:为什么 LangGraph 不 LangChain?
 

@@ -25,6 +25,15 @@ interface Target {
   readonly durationMs?: number
 }
 
+interface PlatformResult {
+  readonly platform: string
+  readonly success: boolean
+  readonly publishedUrl?: string | null
+  readonly platformContentId?: string | null
+  readonly errorMessage?: string | null
+  readonly durationMs?: number
+}
+
 export interface TaskCardProps {
   readonly task: {
     readonly id: number
@@ -34,6 +43,7 @@ export interface TaskCardProps {
     readonly platformCount?: number
     readonly format?: string
     readonly targets?: ReadonlyArray<Target>
+    readonly platforms?: ReadonlyArray<PlatformResult>
     readonly error?: string | null
   }
   readonly expanded: boolean
@@ -78,8 +88,16 @@ export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
   const t = useTranslations('publish')
   const statusKey = task.status in STATUS_STYLE ? task.status : 'pending'
   const targets = task.targets ?? []
-  const completed = targets.filter((tg) => TERMINAL_STATUSES.has(tg.status ?? '')).length
-  const failed = targets.filter((tg) => tg.status === 'failed').length
+  const platforms = task.platforms ?? []
+  // 有真实单平台结果(platforms)时优先用它渲染;否则回退到 targets
+  const usePlatforms = platforms.length > 0
+  const completed = usePlatforms
+    ? platforms.filter((p) => p.success).length
+    : targets.filter((tg) => TERMINAL_STATUSES.has(tg.status ?? '')).length
+  const failed = usePlatforms
+    ? platforms.filter((p) => !p.success).length
+    : targets.filter((tg) => tg.status === 'failed').length
+  const total = usePlatforms ? platforms.length : targets.length
   const running = task.status === 'running' || task.status === 'pending'
 
   return (
@@ -120,50 +138,92 @@ export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
 
         {expanded && (
           <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3 text-xs">
-            {targets.length > 0 && (
+            {total > 0 && (
               <>
                 <TaskProgressBar
                   completed={completed}
-                  total={targets.length}
+                  total={total}
                   failed={failed}
                   running={running}
                 />
                 <div className="space-y-1">
-                  {targets.map((tg, i) => (
-                    <div
-                      key={`${tg.accountId ?? tg.platform}-${i}`}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <span className="font-medium">
-                        {t(PLATFORM_KEY[tg.platform] ?? 'platforms.unknown')}
-                      </span>
-                      <span
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px]',
-                          STATUS_STYLE[tg.status ?? 'pending'] ?? STATUS_STYLE.pending,
-                        )}
-                      >
-                        {STATUS_LABEL[tg.status ?? 'pending'] ?? tg.status}
-                      </span>
-                      {tg.durationMs !== undefined && tg.durationMs !== null && (
-                        <span className="text-muted-foreground">{fmtDuration(tg.durationMs)}</span>
-                      )}
-                      {tg.url && (
-                        <a
-                          href={tg.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                  {usePlatforms
+                    ? platforms.map((p, i) => (
+                        <div
+                          key={`${p.platform}-${i}`}
+                          className="flex flex-wrap items-center gap-2"
                         >
-                          <ExternalLink className="h-3 w-3" />
-                          {t('history.openUrl')}
-                        </a>
-                      )}
-                      {tg.error && (
-                        <span className="text-rose-600 dark:text-rose-400">{tg.error}</span>
-                      )}
-                    </div>
-                  ))}
+                          <span className="font-medium">
+                            {t(PLATFORM_KEY[p.platform] ?? 'platforms.unknown')}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[10px]',
+                              STATUS_STYLE[p.success ? 'success' : 'failed'],
+                            )}
+                          >
+                            {STATUS_LABEL[p.success ? 'success' : 'failed']}
+                          </span>
+                          {p.durationMs !== undefined && p.durationMs !== null && (
+                            <span className="text-muted-foreground">
+                              {fmtDuration(p.durationMs)}
+                            </span>
+                          )}
+                          {p.publishedUrl && (
+                            <a
+                              href={p.publishedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {t('history.openUrl')}
+                            </a>
+                          )}
+                          {p.errorMessage && (
+                            <span className="text-rose-600 dark:text-rose-400">
+                              {p.errorMessage}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    : targets.map((tg, i) => (
+                        <div
+                          key={`${tg.accountId ?? tg.platform}-${i}`}
+                          className="flex flex-wrap items-center gap-2"
+                        >
+                          <span className="font-medium">
+                            {t(PLATFORM_KEY[tg.platform] ?? 'platforms.unknown')}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[10px]',
+                              STATUS_STYLE[tg.status ?? 'pending'] ?? STATUS_STYLE.pending,
+                            )}
+                          >
+                            {STATUS_LABEL[tg.status ?? 'pending'] ?? tg.status}
+                          </span>
+                          {tg.durationMs !== undefined && tg.durationMs !== null && (
+                            <span className="text-muted-foreground">
+                              {fmtDuration(tg.durationMs)}
+                            </span>
+                          )}
+                          {tg.url && (
+                            <a
+                              href={tg.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {t('history.openUrl')}
+                            </a>
+                          )}
+                          {tg.error && (
+                            <span className="text-rose-600 dark:text-rose-400">{tg.error}</span>
+                          )}
+                        </div>
+                      ))}
                 </div>
               </>
             )}
