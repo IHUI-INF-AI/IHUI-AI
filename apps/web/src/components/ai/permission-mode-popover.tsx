@@ -123,15 +123,17 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   const updateMode = useMutation({
     mutationFn: async (mode: WorkspacePermissionMode) => {
-      // 未绑定工作区时无需落库(只更新 store,等用户绑定时由 picker 同步给后端)
-      if (!activeWorkspace) return null
+      // 始终从 store 实时读取工作区,避免闭包陈旧导致落库信息错误(2026-08-17 修复)
+      const store = useAiPanelStore.getState()
+      const currentWs = store.activeWorkspace
+      if (!currentWs) return null
       const res = await setWorkspacePermission({
-        workspacePath: activeWorkspace.path,
-        name: activeWorkspace.name,
-        techStack: activeWorkspace.techStack?.join(','),
+        workspacePath: currentWs.path,
+        name: currentWs.name,
+        techStack: currentWs.techStack?.join(','),
         mode,
         // accept-edits 模式 + 首次设置 → 初始化预置安全模板
-        initializeDefaults: mode === 'accept-edits' && !activeWorkspace.mode,
+        initializeDefaults: mode === 'accept-edits' && !currentWs.mode,
       })
       if (!res.success) throw new Error(res.error)
       return res.data.permission
@@ -156,19 +158,22 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
    */
   const handleSelect = React.useCallback(
     (mode: WorkspacePermissionMode) => {
+      // 始终从 store 实时读取最新模式,避免闭包陈旧导致切换失效(2026-08-17 修复)
+      const store = useAiPanelStore.getState()
+      const currentMode = store.activeWorkspace?.mode ?? 'default'
       if (mode === currentMode) return
       if (updateMode.isPending) return // 防止快速连点
       // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
       // 用户必须勾选"我了解"才能点"继续启用",防止误操作
       // 通过 ai-panel store 共享状态,message-input 监听并渲染 FullAccessConfirmDialog
       if (mode === 'bypass-permissions' && !isFullAccessConfirmSuppressed()) {
-        setPendingFullAccess(true)
+        store.setPendingFullAccess(true)
         return
       }
-      const previousMode = activeWorkspace?.mode
+      const previousMode = store.activeWorkspace?.mode
       // 乐观更新:立即写 store,失败回滚
-      if (activeWorkspace) {
-        setActiveWorkspace({ ...activeWorkspace, mode })
+      if (store.activeWorkspace) {
+        store.setActiveWorkspace({ ...store.activeWorkspace, mode })
       } else {
         // 未绑定工作区:写到 sessionStorage 暂存,绑定时由 picker 接管
         try {
@@ -181,8 +186,9 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       }
       updateMode.mutate(mode, {
         onError: (err) => {
-          if (activeWorkspace && previousMode !== undefined) {
-            setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
+          const current = useAiPanelStore.getState().activeWorkspace
+          if (current && previousMode !== undefined) {
+            useAiPanelStore.getState().setActiveWorkspace({ ...current, mode: previousMode })
           }
           // 切模式失败 → 错误 toast(2026-07-25 深化,与 cyclePermissionMode 行为一致)
           // 复用 cycleError key,避免再增 1 个仅 popover 用的 key 引起 i18n 噪声
@@ -230,8 +236,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         },
       })
     },
-    // handleSelect 自身递归调用,useMutation 自带 isPending 闭包,无需在 deps 中重复
-    [activeWorkspace, currentMode, updateMode, setActiveWorkspace, setPendingFullAccess, t],
+    // 不依赖 activeWorkspace/currentMode,全部实时从 store 读取,避免陈旧闭包
+    [updateMode, setPendingFullAccess, t],
   )
 
   // 键盘处理(↑/↓/Enter/1/2/3):只在 popover 打开时启用
