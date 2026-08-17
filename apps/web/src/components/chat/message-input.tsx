@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info, ArrowDown } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -183,8 +183,6 @@ export function MessageInput({
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
-  // 用户是否已向上滚动(控制 jump-to-latest 按钮显隐)
-  const userScrolledUp = useChatStore((s) => s.userScrolledUp)
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
