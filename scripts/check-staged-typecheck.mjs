@@ -7,16 +7,25 @@
  *   原 pre-commit 第 16 项 "条件 typecheck 闸门" 只在 staged 涉及 apps/web 时跑
  *   `pnpm --filter @ihui/web run typecheck` (全包 ~3000+ 文件 typecheck),
  *   包含其他 agent 引入的预存在错误, 多 agent 并行 push 时 100% 误阻塞。
- *   本脚本把 typecheck 范围缩窄到 staged 文件, 降低误阻塞率 80%+。
+ *   本脚本只对 staged 涉及的文件判失败, 其他 agent 的非 staged 错误不阻塞。
  *
- * 核心策略:
+ * 核心策略 (2026-08-18 根治改版, 解决 partial-include 误报):
+ *   旧策略: 临时 tsconfig 只 include staged 文件 → 模块扩展(declare module 'fastify'
+ *   等)未被加载 → 报 TS2339 等假阳性 (如 pushNotification / isMultipart / file)。
+ *   新策略 (根治): 临时 tsconfig 沿用 package 原始 tsconfig 的【全量 include】,
+ *   保证完整加载所有模块扩展与全局类型; 然后把 tsc 输出按行解析,
+ *   只把【错误文件属于 staged 文件】的错误视为失败, 其他 agent 引入的
+ *   非 staged 文件错误被过滤、不阻塞。
+ *
  *   1. git diff --cached --name-only --diff-filter=ACMR 拿 staged 文件
  *   2. 过滤 .ts / .tsx
  *   3. 按文件所属 package 路径前缀 (apps/web, packages/database 等) 分组
  *   4. 对每个 package 写入临时 tsconfig (`<pkg>/tsconfig.staged-typecheck.json`),
- *      extends 原始 tsconfig.json, 但只 include staged 文件
- *   5. `pnpm --filter <pkg> exec -- tsc --noEmit -p <temp>` 在该包内跑 typecheck
- *   6. 清理临时 tsconfig; 任意包失败 → exit 1 + 错误文件路径 + 修复建议
+ *      extends 原始 tsconfig.json, include 沿用原始全量 include (不缩窄),
+ *      仅强制 noEmit + incremental=false 避免污染 .tsbuildinfo 缓存
+ *   5. `pnpm --filter <pkg> exec -- tsc --noEmit -p <temp>` 在该包内跑全量 typecheck
+ *   6. 解析 tsc 输出, 过滤出"错误文件 ∈ staged"的错误; 无 → 通过, 有 → exit 1
+ *   7. 清理临时 tsconfig
  *
  * CLI 用法:
  *   node scripts/check-staged-typecheck.mjs [选项]
@@ -119,9 +128,12 @@ check-staged-typecheck.mjs — 只 typecheck staged 涉及的源代码文件路�
   2. 过滤 .ts / .tsx (其他扩展名 / node_modules 路径直接忽略)
   3. 按文件所属 package 路径前缀 (apps/web, packages/database 等) 分组
   4. 对每个 package 写入临时 tsconfig
-     (<pkg>/tsconfig.staged-typecheck.json, extends 原 tsconfig, include 改为 staged)
-  5. pnpm --filter <pkg> exec -- tsc --noEmit -p <temp> 在该包内跑 typecheck
-  6. 清理临时 tsconfig; 全部通过 → exit 0; 任意失败 → exit 1
+     (<pkg>/tsconfig.staged-typecheck.json, extends 原 tsconfig, include 沿用全量)
+  5. pnpm --filter <pkg> exec -- tsc --noEmit -p <temp> 在该包内跑全量 typecheck
+     (全量 include 保证加载完整模块扩展, 避免 TS2339 假阳性)
+  6. 解析 tsc 输出, 只保留错误文件 ∈ staged 的错误; 无 → exit 0, 有 → exit 1
+     (非 staged 文件错误属其他 agent 在途改动, 自动过滤不阻塞)
+  7. 清理临时 tsconfig
 
 跳过场景 (脚本自动处理, 不阻塞):
   - 无 staged .ts/.tsx 文件 (info 提示, exit 0)
@@ -224,19 +236,37 @@ function groupByPackage(files, pkgs) {
 }
 
 /**
- * 写入临时 tsconfig, extends 原始 tsconfig.json, 但只 include staged 文件。
+ * 读取 package 原始 tsconfig 的 include 模式 (全量源码, 保证加载完整模块扩展)。
+ * 原始 tsconfig 的 include 相对其所在目录 (即 pkg.dir), 临时 tsconfig 也在
+ * 同一目录, 因此可直接沿用; 若无 include (纯 extends) 则回退到默认全量。
+ * @returns {string[]}
+ */
+function getOriginalInclude(pkg) {
+  try {
+    const raw = JSON.parse(readFileSync(pkg.tsconfigPath, 'utf8'))
+    if (Array.isArray(raw.include) && raw.include.length > 0) {
+      return raw.include.map((p) =>
+        p.startsWith('.') ? p : `./${p.replace(/\\/g, '/')}`,
+      )
+    }
+  } catch {
+    /* 读取失败则走默认回退 */
+  }
+  return ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts']
+}
+
+/**
+ * 写入临时 tsconfig, extends 原始 tsconfig.json, include 沿用原始全量模式。
+ * 关键: 不缩窄 include —— 必须加载完整源码, 否则 declare module 等模块扩展
+ * 未被编译, 产生 TS2339 假阳性。错误过滤交给 filterTscOutputForStagedFiles。
  * 强制 noEmit + incremental=false 避免污染原 tsconfig 的 .tsbuildinfo 缓存。
  * @returns {string} 临时文件绝对路径
  */
-function writeTempTsconfig(pkg, files) {
+function writeTempTsconfig(pkg) {
   const tempPath = join(pkg.dir, 'tsconfig.staged-typecheck.json')
-  const relFiles = files
-    .map((f) => relative(pkg.dir, join(ROOT, f)).replace(/\\/g, '/'))
-    // tsc include glob 要求 forward slash, Windows path 已在上面统一
-    .map((p) => (p.startsWith('.') ? p : `./${p}`))
   const config = {
     extends: './tsconfig.json',
-    include: [...relFiles, './**/*.d.ts'],
+    include: getOriginalInclude(pkg),
     compilerOptions: {
       noEmit: true,
       incremental: false,
@@ -244,6 +274,56 @@ function writeTempTsconfig(pkg, files) {
   }
   writeFileSync(tempPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
   return tempPath
+}
+
+/**
+ * 把 Windows/posix 路径统一为 forward slash, 用于字符串比较。
+ * @param {string} p
+ * @returns {string}
+ */
+function normalizePath(p) {
+  return p.replace(/\\/g, '/')
+}
+
+/**
+ * 过滤 tsc 输出, 只保留【错误文件属于 staged 文件】的错误块。
+ * tsc 错误行格式: <path>(<line>,<col>): error TSxxxx: message,
+ * 其后紧跟的 detail 行(如 "The declared type of ..." / "Two different types...")
+ * 属于同一错误块, 一并保留。非 staged 文件错误的块整体丢弃, 不阻塞。
+ * @param {string} tscOutput 原始 tsc stdout+stderr
+ * @param {object} pkg 当前 package (含 dir, 用于解析相对路径)
+ * @param {string[]} files 该 package 的 staged 文件 (仓库根相对路径)
+ * @returns {string} 过滤后的输出 (空串 = 无 staged 文件错误)
+ */
+function filterTscOutputForStagedFiles(tscOutput, pkg, files) {
+  if (!tscOutput.trim()) return ''
+  const stagedAbs = new Set(
+    files.map((f) => normalizePath(join(ROOT, f))),
+  )
+  const lines = tscOutput.split('\n')
+  const out = []
+  // 当前错误块: 从一条错误行起, 到下一个错误行(或输出末尾)为止的连续行
+  let pending = []
+  let pendingIsStaged = false
+  const flush = () => {
+    if (pendingIsStaged) out.push(...pending)
+    pending = []
+    pendingIsStaged = false
+  }
+  for (const line of lines) {
+    const m = line.match(/^(.+?)\(\d+,\d+\): error TS\d+:/)
+    if (m) {
+      flush()
+      // tsc 路径相对 pkg.dir (pnpm --filter exec 的 cwd 为 package 目录)
+      const fileAbs = normalizePath(resolve(pkg.dir, m[1]))
+      pendingIsStaged = stagedAbs.has(fileAbs)
+      pending = [line]
+    } else {
+      pending.push(line)
+    }
+  }
+  flush()
+  return out.join('\n')
 }
 
 function cleanupTempTsconfig(p) {
@@ -255,11 +335,11 @@ function cleanupTempTsconfig(p) {
 }
 
 /**
- * 在指定 package 内跑 tsc --noEmit (针对 staged 文件)。
- * @returns {{ok: boolean, stdout: string, stderr: string, exitCode: number}}
+ * 在指定 package 内跑 tsc --noEmit (全量 include, 输出按 staged 文件过滤)。
+ * @returns {{ok: boolean, filtered: string, exitCode: number, hasNonStagedErrors: boolean}}
  */
 function runPackageTypecheck(pkg, files) {
-  const tempPath = writeTempTsconfig(pkg, files)
+  const tempPath = writeTempTsconfig(pkg)
   try {
     // 临时 tsconfig 相对路径, 相对于 package 根, 用 ./ 前缀
     const tempRel = relative(pkg.dir, tempPath).replace(/\\/g, '/')
@@ -279,11 +359,15 @@ function runPackageTypecheck(pkg, files) {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
     })
+    const raw = (result.stderr || '') + (result.stdout || '')
+    const filtered = filterTscOutputForStagedFiles(raw, pkg, files)
+    const exitCode = result.status ?? -1
     return {
-      ok: result.status === 0,
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      exitCode: result.status ?? -1,
+      // 仅当 filtered 中存在 staged 文件错误才算失败
+      ok: filtered.trim() === '',
+      filtered,
+      exitCode,
+      hasNonStagedErrors: exitCode !== 0 && filtered.trim() === '',
     }
   } finally {
     cleanupTempTsconfig(tempPath)
@@ -405,19 +489,26 @@ function main() {
     )
     const result = runPackageTypecheck(pkg, files)
     if (result.ok) {
-      log.info(`${C.green}  ✅ ${pkg.prefix} 通过${C.reset}`)
+      if (result.hasNonStagedErrors) {
+        // 全量 typecheck 有其他(非 staged)文件错误, 属其他 agent 在途改动, 已过滤不阻塞
+        log.warn(
+          `${C.yellow}  ⚠️ ${pkg.prefix} 全量 typecheck 存在非 staged 文件错误(已过滤, 不阻塞)${C.reset}`,
+        )
+      } else {
+        log.info(`${C.green}  ✅ ${pkg.prefix} 通过${C.reset}`)
+      }
     } else {
       failedCount++
       failedPkgs.push(pkg)
       log.error(
         `${C.red}${C.bold}  ❌ ${pkg.prefix} 失败 (exit ${result.exitCode})${C.reset}`,
       )
-      // tsc 报错通常走 stdout
-      const tscOutput = (result.stderr || '') + (result.stdout || '')
-      if (tscOutput.trim()) {
-        log.error(tscOutput)
+      if (result.filtered.trim()) {
+        log.error(result.filtered)
       } else {
-        log.error(`${C.dim}  (无 tsc 输出, 请在 ${pkg.prefix} 手动跑 pnpm typecheck 排查)${C.reset}`)
+        log.error(
+          `${C.dim}  (无 staged 文件错误输出, 请在 ${pkg.prefix} 手动跑 pnpm typecheck 排查)${C.reset}`,
+        )
       }
       log.error('')
       log.error(
@@ -445,6 +536,9 @@ function main() {
     log.error(`${C.dim}    2. 修复后 git add . && git commit${C.reset}`)
     log.error(
       `${C.dim}    3. 紧急跳过: HUSKY_SKIP_STAGED_TYPECHECK=1 git commit${C.reset}`,
+    )
+    log.error(
+      `${C.dim}    (注: 非 staged 文件错误已被自动过滤, 上列错误均为 staged 文件真实错误)${C.reset}`,
     )
     process.exit(1)
   }
