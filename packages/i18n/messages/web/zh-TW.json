@@ -954,7 +954,8 @@
       "edit": "編輯",
       "reply": "回覆",
       "delete": "刪除",
-      "jumpToLatest": "跳至最新"
+      "jumpToLatest": "跳至最新",
+      "shareLinkCopied": "已複製內容與連結"
     },
     "plan": {
       "title": "執行計劃",
