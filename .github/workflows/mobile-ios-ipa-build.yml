@@ -1,0 +1,119 @@
+name: Build iOS IPA (TrollStore)
+
+# iOS IPA 全自动构建 + 分发(2026-08-17 立,巨魔 TrollStore 安装通道)。
+# 背景:
+#   - iOS 编译只能在 macOS/Xcode 完成,Windows 本机无法产出 .ipa → 用 GitHub Actions macOS runner
+#   - 巨魔(TrollStore)利用 CoreTrust 漏洞绕过签名校验,可安装【未签名】IPA,
+#     因此 CODE_SIGNING_ALLOWED=NO 构建,无需 Apple 开发者账号/证书/付费
+#   - 兼容性:RN 0.86 deployment target = iOS 15.1;TrollStore 支持 iOS 14.0-17.0 → 15.1+ 巨魔用户可装
+# 流程(全自动):
+#   - 手动 workflow_dispatch 或推送 v* tag → macos-15 runner 构建未签名 IPA
+#   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.ipa)
+#   - 下载页 ios 详情页指向该 Release 固定地址(接入 APPSTORE_URL 或直接放 APK 同款直链)
+# 生产配置:API 指向 https://api.aizhs.top(与安卓 workflow 一致)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    # macos-15 = Xcode 16.x,满足 RN 0.86 新架构(Fabric)编译要求
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
+        # 显式 version 会触发 "Multiple versions of pnpm specified" 错误(2026-08-17 实测)
+        # 不叠加 setup-node:pnpm/action-setup 自带 node,安卓 workflow 同模式验证可行
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate iOS project (expo prebuild)
+        working-directory: apps/mobile-rn
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_WEB_URL: https://aizhs.top
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Patch react-native-wechat-lib podspec (RN 0.86 removed RCT-Folly)
+        # RN 0.80+ 移除 RCT-Folly pod,但 react-native-wechat-lib@3.0.7 仍依赖它 →
+        # pod install 报 "Unable to find a specification for RCT-Folly"。
+        # 微信支付/登录功能真实使用该库,不能移除;仅删 podspec 中过时的 RCT-Folly 依赖行
+        # (iOS 编译不需要 Folly;Android 侧同样已在本机构建验证)。
+        working-directory: apps/mobile-rn
+        run: |
+          PODSPEC=node_modules/react-native-wechat-lib/react-native-wechat-lib.podspec
+          if [ -f "$PODSPEC" ]; then
+            grep -n 'RCT-Folly' "$PODSPEC" || echo "(无 RCT-Folly 依赖,跳过)"
+            sed -i '' '/RCT-Folly/d' "$PODSPEC"
+            echo "--- patched ---"
+            grep -n 'RCT-Folly' "$PODSPEC" || echo "✅ RCT-Folly 依赖已移除"
+          else
+            echo "⚠️ 未找到 podspec: $PODSPEC"
+            find node_modules/react-native-wechat-lib -name "*.podspec" | head -3
+          fi
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile-rn/ios
+        run: pod install --repo-update
+
+      - name: List Xcode schemes
+        working-directory: apps/mobile-rn/ios
+        run: xcodebuild -list
+
+      - name: Build unsigned IPA (Release, iphoneos, no code signing)
+        working-directory: apps/mobile-rn/ios
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_WEB_URL: https://aizhs.top
+        run: |
+          SCHEME=$(xcodebuild -list -json | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['project']['schemes'][0])")
+          echo "Using scheme: $SCHEME"
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -allowProvisioningUpdates \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package .ipa (fixed filename)
+        run: |
+          APP_PATH=$(find apps/mobile-rn/ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "App bundle: $APP_PATH"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r -y ihui-ai-latest.ipa Payload
+          ls -lh ihui-ai-latest.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ihui-ai-latest-ipa
+          path: ihui-ai-latest.ipa
+
+      - name: Publish to GitHub Release
+        # 与安卓 workflow 同模式:
+        #   - tag 触发 → 发布到该 tag
+        #   - 手动触发 → 自动创建 nightly 标签发布
+        # 下载页固定地址(指向最新 Release,永远可用):
+        #   https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-ai-latest.ipa
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('nightly-ios-{0}', github.run_id) }}
+          files: ihui-ai-latest.ipa
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+          make_latest: true

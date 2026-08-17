@@ -61,7 +61,7 @@ IndexNow 预期在提交后 24 小时内加速 Bing / Yandex / Naver 对新页�
 
 - **草稿位置**:`.trae-cn/tmp/show-hn-post.md`(内部草稿,待人工 review 后提交)
 - **标题**:`Show HN: IHUI-AI — Open-source 8-platform AI OS with 176 LLMs (LangGraph + MCP + A2A)`
-- **正文**:~290 字英文,涵盖痛点(多端重复造轮子)→ 创新(8 端 + 176 LLM + 三协议栈)→ 技术栈(Next.js 15 / Fastify 5 / FastAPI / Tauri / WXT)→ 差异化(vs LangChain / Dify / OpenWebUI)→ 结尾抛具体问题引导技术讨论
+- **正文**:~290 字英文,涵盖痛点(多端重复造轮子)→ 创新(8 端 + 176 LLM + 三协议栈)→ 技术栈(Next.js 16 / Fastify 5 / FastAPI / Tauri / WXT)→ 差异化(vs LangChain / Dify / OpenWebUI)→ 结尾抛具体问题引导技术讨论
 - **遵循 HN 规范**:标题以 `Show HN:` 开头、无营销话术、主动暴露 trade-off、首小时互动计划
 
 ### 4. 下一步社区运营计划

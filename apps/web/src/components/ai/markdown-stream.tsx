@@ -163,11 +163,12 @@ const CodeBlockImpl = function CodeBlock({
 
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
-  // 2026-08-16:代码块整体背景色与面板背景形成区分,暗色模式用较浅的 zinc-900 避免同色
+  // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
+    // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
   const preClassName = cn(
     'relative my-0 overflow-x-auto rounded-lg border border-zinc-200 p-3 text-[15px]',
     'bg-zinc-100 text-zinc-900',
-    'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+    'dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
   )
 

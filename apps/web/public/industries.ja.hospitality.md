@@ -153,7 +153,7 @@
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
-- **Web** (Next.js 15 + React 19): 本部運用 / 店舗ダッシュボード
+- **Web** (Next.js 16 + React 19): 本部運用 / 店舗ダッシュボード
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 注文/会員 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): マルチエージェント協調
 - **デスクトップ** (Tauri 2): 店舗管理ワークステーション
@@ -163,7 +163,7 @@
 - **CLI**: バッチメニュー生成 / 口コミ分析
 
 ### 技術スタック
-- フロントエンド: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI

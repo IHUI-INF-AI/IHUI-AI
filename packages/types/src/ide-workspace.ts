@@ -104,6 +104,41 @@ export interface GitChange {
   deletions: number
 }
 
+/** 工作区 Git 状态快照(环境信息弹窗专用,2026-08-17 立,对标 Cursor env info card) */
+export interface GitStatusSnapshot {
+  isRepo: boolean
+  branch: string
+  hasRemote: boolean
+  ahead: number
+  behind: number
+  counts: {
+    added: number
+    modified: number
+    deleted: number
+    untracked: number
+    conflicted: number
+    renamed: number
+  }
+  lastCommit: {
+    hash: string
+    message: string
+    author: string
+    date: string
+  }
+  pullRequest: {
+    number: number
+    title: string
+    url: string
+    state: 'open' | 'merged' | 'closed' | 'draft'
+  } | null
+  localPath: string
+  remotes: Array<{
+    name: string
+    url: string
+    type?: string
+  }>
+}
+
 /** 调试断点 */
 export interface Breakpoint {
   id: string

@@ -383,6 +383,7 @@ export function FileExplorer() {
             <button
               onClick={() => void fetchFileTree()}
               aria-label={t('fileExplorer.refresh')}
+              title={t('fileExplorer.refresh')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50"
             >
               <RefreshCw className="h-3.5 w-3.5" />
