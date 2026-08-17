@@ -187,7 +187,10 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual }
+})
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
@@ -212,72 +215,15 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
-  const Icon = IconSpan
-  // 常见 lucide 图标全部映射到 IconSpan,新增组件导入新图标时无需修改此处
-  return {
-    __esModule: true,
-    Pin: Icon,
-    PinOff: Icon,
-    Minimize2: Icon,
-    Circle: Icon,
-    Loader2: Icon,
-    Check: Icon,
-    Copy: Icon,
-    ListTodo: Icon,
-    MessageSquare: Icon,
-    ChevronRight: Icon,
-    Brain: Icon,
-    Wrench: Icon,
-    X: Icon,
-    Users: Icon,
-    AlertTriangle: Icon,
-    FileEdit: Icon,
-    FilePlus: Icon,
-    FileText: Icon,
-    Search: Icon,
-    Terminal: Icon,
-    TerminalSquare: Icon,
-    ChevronsUpDown: Icon,
-    ChevronsDownUp: Icon,
-    Zap: Icon,
-    Activity: Icon,
-    CheckCircle: Icon,
-    CheckCircle2: Icon,
-    XCircle: Icon,
-    AlertCircle: Icon,
-    SignalHigh: Icon,
-    SignalMedium: Icon,
-    RotateCw: Icon,
-    WifiOff: Icon,
-    ArrowDown: Icon,
-    Minus: Icon,
-    Bot: Icon,
-    Clock: Icon,
-    ChevronDown: Icon,
-    ShieldCheck: Icon,
-    ShieldAlert: Icon,
-    Hand: Icon,
-    Info: Icon,
-    ListTree: Icon,
-    Signal: Icon,
-    SignalLow: Icon,
-    Code2: Icon,
-    FileCode: Icon,
-    Sparkles: Icon,
-    GripVertical: Icon,
-    HelpCircle: Icon,
-    Keyboard: Icon,
-    Clipboard: Icon,
-    MessageSquareWarning: Icon,
-    RefreshCw: Icon,
-    Share2: Icon,
-    Trash2: Icon,
-    Timer: Icon, // v15: 实时计时器图标
-    Maximize2: Icon,
-    Hammer: Icon,
-    BookOpen: Icon,
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    if (typeof actual[key] === 'function' || (typeof actual[key] === 'object' && actual[key] !== null)) {
+      mocked[key] = IconSpan
+    }
   }
+  return mocked
 })
 
 // Mock useChatStore (同时提供 conversationId 和 messages 避免组件内部 .filter 报错)
