@@ -1,6 +1,6 @@
 # Vercel 部署详细指南
 
-> **部署目标**:前端 Web(Next.js 15 静态导出)
+> **部署目标**:前端 Web(Next.js 16 静态导出)
 > **免费额度**:100GB 流量/月 · 100h 构建时间/月 · 全球 CDN
 > **配置文件**:`apps/web/vercel.json`
 
