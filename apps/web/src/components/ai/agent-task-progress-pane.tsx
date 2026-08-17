@@ -23,7 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
-import { Tooltip } from '@/components/feedback'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 import {
   useAgentProgressPaneStore,
   hydrateAgentProgressPaneFromStorage,
@@ -1090,6 +1090,7 @@ export function AgentTaskProgressPane() {
   // - 拖动用纯 DOM style.transform(handle 元素 + onHandleMouseDown 启动)
   // - 内部 button click 路径不被污染(handle onMouseDown 用 closest('button') 早退)
   return (
+    <TooltipProvider delayDuration={300}>
     <div
       ref={paneRef}
       className={cn(
@@ -1528,6 +1529,7 @@ export function AgentTaskProgressPane() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   )
 }
 
