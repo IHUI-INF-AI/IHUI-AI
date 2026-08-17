@@ -60,6 +60,9 @@ import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 // 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
 import AgentShopList, { type AgentShopItem } from '../components/AgentShopList'
 import { FenLeiOverlay } from '../components/FenLeiOverlay'
+// 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
+import MyAgents, { type MyAgentItem } from '../components/MyAgents'
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
 import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
@@ -388,6 +391,13 @@ export function HomeScreen() {
    *  api-client 暂无 getAgentUseHistory(/agent/use/history)封装,降级取智能体列表前 5 条占位 */
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
 
+  /** MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue)
+   *  数据源:与 agentItems 同源(loadAgentList 填充后取前 6 条),点击跳 AiAssistantN8n */
+  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
+
+  /** IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue) */
+  const [tokenQuantity, setTokenQuantity] = useState(0)
+
   // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 + tagWrapShow 赛道分类弹层 ──
   const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
   const [trackCategories, setTrackCategories] =
@@ -539,6 +549,25 @@ export function HomeScreen() {
     rootNav?.navigate('AiAssistantN8n', { agentId: item.id, title: item.name })
   }
 
+  // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
+  const handleMyAgentPress = (item: MyAgentItem): void => {
+    const id = item.agentId ?? item.id
+    if (!id) return
+    rootNav?.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
+  }
+  /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
+  const handleTeamPress = (): void => {
+    rootNav?.navigate('AiGroup')
+  }
+  /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
+  const handleRechargePress = (): void => {
+    if (!user) {
+      rootNav?.navigate('Login')
+      return
+    }
+    rootNav?.navigate('AppTopup')
+  }
+
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
     () =>
@@ -660,6 +689,8 @@ export function HomeScreen() {
       setAgentItems(list)
       // RecentAgents 降级数据源:无 getAgentUseHistory 接口,取列表前 5 条(对齐 uniapp slice(0,5))
       setRecentAgents(list.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
+      // MyAgents 我的AI APP:与 ai-list 同源,取前 6 条(对齐 uniapp myAgents 独立接口降级)
+      setMyAgents(list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })))
     }
   }, [])
 
@@ -847,6 +878,22 @@ export function HomeScreen() {
             <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
           </View>
         ) : null}
+        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+        <View style={shellStyles.sectionWrap}>
+          <IntelligentAssistant
+            tokenQuantity={tokenQuantity}
+            onRecharge={handleRechargePress}
+          />
+        </View>
+        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
+         *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
+        <View style={shellStyles.sectionWrap}>
+          <MyAgents
+            items={myAgents}
+            onItemClick={handleMyAgentPress}
+            onTeamPress={handleTeamPress}
+          />
+        </View>
         <SharedHomeScreen
           t={t}
           userNickname={user?.nickname || user?.phone || ''}
