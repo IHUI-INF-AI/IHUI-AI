@@ -77,7 +77,7 @@ export default function NewPublishPage() {
   const [scheduleMode, setScheduleMode] = React.useState<ScheduleMode>('now')
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-  const [submittedTaskId, setSubmittedTaskId] = React.useState<number | null>(null)
+  const [submittedTaskId, setSubmittedTaskId] = React.useState<string | null>(null)
   const [tags, setTags] = React.useState<string[]>([])
   const [summary, setSummary] = React.useState('')
 
@@ -164,13 +164,17 @@ export default function NewPublishPage() {
         summary: summary || undefined,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
-      const resp = await api<{ id?: number }>('/api/publish/tasks', {
+      const resp = await api<{ id?: number; task_id?: string }>('/api/publish/tasks', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
       toast.success(t('new.submitSuccess'))
-      if (typeof resp.id === 'number') setSubmittedTaskId(resp.id)
+      // 2026-08-17 修复:后端 POST /tasks 返回 task_id(字符串 pub-xxx),无数字 id。
+      // 原判断 typeof resp.id === 'number' 恒不成立 → 提交后无进度轮询直接跳历史页。
+      // 优先用 task_id,兼容旧返回含数字 id 的情况。
+      const taskId = resp.task_id ?? (typeof resp.id === 'number' ? String(resp.id) : undefined)
+      if (taskId) setSubmittedTaskId(taskId)
       else router.push('/publish/history')
     } catch (e) {
       toast.error(t('new.submitFailed'), (e as Error).message)
