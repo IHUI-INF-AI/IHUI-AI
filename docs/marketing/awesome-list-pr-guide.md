@@ -61,7 +61,7 @@ Add IHUI-AI — 8-end open-source AI platform (176 models, LangGraph+MCP, Apache
 ```markdown
 ## What is IHUI-AI?
 
-IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp) AI operating system. It's a commercial-grade integrated platform written in TypeScript (Next.js 15 + Fastify 5) + Python (FastAPI).
+IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp) AI operating system. It's a commercial-grade integrated platform written in TypeScript (Next.js 16 + Fastify 5) + Python (FastAPI).
 
 ### Key Features
 

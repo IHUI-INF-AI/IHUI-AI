@@ -157,7 +157,7 @@ console.log(similarCases.summary)
 
 ### 기술 스택
 
-- **프론트엔드**: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- **프론트엔드**: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - **백엔드**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI 서비스**: FastAPI + LangGraph + LiteLLM + MCP
 - **데스크톱**: Tauri 2 (법무 워크벤치)
