@@ -259,10 +259,12 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const Icon = IconSpan
   return {
     __esModule: true,
+    ...actual,
     Pin: Icon,
     PinOff: Icon,
     Minimize2: Icon,
@@ -324,6 +326,25 @@ vi.mock('lucide-react', () => {
     Inbox: Icon,
     FilterX: Icon,
     Download: Icon,
+  }
+})
+
+// ─── @radix-ui/react-tooltip mock:为 Pane/TimelineTab 内的 <Tooltip> from '@/components/feedback' 提供 Provider 替身 ──
+// (mock 让 Root/Portal/Content 直接透传 children,避免真实 Radix 在 happy-dom 下因 PointerEvent 触发 open 状态分支)
+vi.mock('@radix-ui/react-tooltip', () => {
+  const passthrough = ({ children }: { children: React.ReactNode }) => <>{children}</>
+  return {
+    __esModule: true,
+    Provider: passthrough,
+    Root: passthrough,
+    Trigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Content: ({ children, ...rest }: { children: React.ReactNode; side?: string }) => (
+      <div role="tooltip" data-side={rest.side ?? 'top'}>
+        {children}
+      </div>
+    ),
+    Arrow: () => null,
   }
 })
 
