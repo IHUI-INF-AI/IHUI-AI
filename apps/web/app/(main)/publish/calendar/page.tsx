@@ -2,7 +2,7 @@
 
 /**
  * 发布日历页 — 拉取任务 + 组合 PublishCalendar 组件。
- * 拖拽改期调 /api/publish/tasks/:id/cancel + 新建(简化:跳转新建页带日期)。
+ * 拖拽改期调真实 reschedule API(2026-08-17 修复,原为纯 toast 假改期)。
  *
  * AGENTS.md §4:< 200 行 / rounded-md / 无分割线
  */
@@ -15,9 +15,11 @@ import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { PublishCalendar, type ScheduledTask } from '@/components/publish/PublishCalendar'
+import { reschedulePublishTask } from '@ihui/api-client'
 
 interface Task {
   id: number
+  taskId?: string
   title: string
   status: string
   scheduledAt?: string | null
@@ -37,6 +39,7 @@ export default function CalendarPage() {
   const router = useRouter()
   const [tasks, setTasks] = React.useState<ScheduledTask[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [reschedulingId, setReschedulingId] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -47,7 +50,8 @@ export default function CalendarPage() {
       const list = Array.isArray(res) ? res : (res.items ?? res.list ?? [])
       setTasks(
         list.map((task) => ({
-          id: String(task.id),
+          // 2026-08-17 修复:改期接口需要字符串 task_id(pub-xxx),原用数字 id
+          id: task.taskId ?? String(task.id),
           title: task.title,
           scheduledAt: task.scheduledAt ?? task.createdAt ?? new Date().toISOString(),
           status: (task.status === 'success'
@@ -71,9 +75,31 @@ export default function CalendarPage() {
     void load()
   }, [load])
 
-  function handleReschedule(taskId: string, newDate: Date) {
-    toast.success(`任务 ${taskId} 排期已更新到 ${newDate.toLocaleDateString('zh-CN')}`)
-    void load()
+  async function handleReschedule(taskId: string, newDate: Date) {
+    if (reschedulingId) return
+    setReschedulingId(taskId)
+    try {
+      const iso = newDate.toISOString()
+      const r = await reschedulePublishTask(taskId, iso)
+      if (r.success && r.data?.ok) {
+        toast.success(
+          t('calendar.rescheduled', {
+            date: new Intl.DateTimeFormat('zh-CN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+            }).format(newDate),
+          }),
+        )
+        void load()
+      } else {
+        toast.error(r.error || t('calendar.rescheduleFailed'))
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setReschedulingId(null)
+    }
   }
 
   function handleCreateTask(date: Date) {
