@@ -7294,7 +7294,11 @@
       "openExternalBrowser": "Open in external browser",
       "externalBrowserHint": "Log in with your system browser (for SMS/password login); after logging in, copy the site Cookie and paste it into the account form to save",
       "scanWithPhoneHint": "Scan the QR code with your phone — no clicking needed; the account is saved automatically once login is detected",
-      "orDivider": "or"
+      "orDivider": "or",
+      "useChromeLogin": "Log in with Chrome (auto-save)",
+      "useChromeLoginHint": "Desktop: opens Google Chrome for full login; account is saved automatically once login is detected",
+      "chromeLoginStarting": "Starting Chrome login window...",
+      "chromeLoginPolling": "Login page opened in Chrome. Complete the login — the account will be saved automatically once detected"
     },
     "cookieHealth": {
       "healthy": "Healthy",
