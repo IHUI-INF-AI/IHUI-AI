@@ -8,7 +8,6 @@ import {
   Check,
   RefreshCw,
   Search,
-  Star,
   Share2,
   Pencil,
   Trash2,
@@ -18,6 +17,7 @@ import {
   Download,
   Code,
   Megaphone,
+  ArrowDown,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -266,26 +266,50 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [m.id, t])
 
-  // 点赞(对应原项目 toggleLike)— 预留事件,toast 兜底
-  const handleLike = React.useCallback(() => {
-    window.dispatchEvent(new CustomEvent('ihui:like-message', { detail: { messageId: m.id } }))
-    toast.success(t('feedbackRecorded') === 'feedbackRecorded' ? 'Liked' : t('feedbackRecorded'))
-  }, [m.id, t])
+  // 分享 — 获取分享链接并复制到剪贴板
+  const handleShare = React.useCallback(
+    async (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const convId = useChatStore.getState().conversationId
+      if (!convId) return
 
-  // 分享(对应原项目 shareAssistantMessage)— navigator.share 优先,剪贴板兜底
-  const handleShare = React.useCallback(async () => {
-    const text = plainTextForClipboard(m.content)
-    try {
-      if (navigator.share) {
-        await navigator.share({ text })
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-        toast.success(t('copied') === 'copied' ? 'Copied to share' : t('copied'))
+      try {
+        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        })
+        const data = await res.json()
+        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
+
+        const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
+        const finalText = bodyLines.join('\n')
+
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(finalText)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = finalText
+          ta.setAttribute('readonly', '')
+          ta.style.position = 'absolute'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+
+        toast.success(t('message.shareLinkCopied'))
+      } catch (_err) {
+        toast.error(t('copyFailed'))
       }
-    } catch {
-      // 用户取消分享时不报错
-    }
-  }, [m.content, t])
+    },
+    [m.content, t],
+  )
 
   // 回复(对应原项目 replyToMessage)— 预留事件
   const handleReply = React.useCallback(() => {
@@ -379,18 +403,17 @@ const MessageItem = React.memo(function MessageItem({
   // 时间戳移到按钮区内部，这里不再常驻计算
 
   // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
-  const copyLabel = t('message.copy') === 'message.copy' ? '复制' : t('message.copy')
-  if (copyLabel === 'message.copy') {
+  const copyLabel = t('copy') === 'copy' ? '复制' : t('copy')
+  if (copyLabel === 'copy') {
     console.warn('[i18n] Missing translation for key: chat.message.copy')
   }
 
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-0 px-1',
+        'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
-        isFocused && 'ring-1 ring-ring/40',
         // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
         isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
         isSearchCurrent && 'ring-2 ring-yellow-400',
@@ -557,193 +580,170 @@ const MessageItem = React.memo(function MessageItem({
           - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
-        <div className="flex flex-col gap-0">
-          {/* 按钮区(hover 显示,左侧附时间戳) */}
+        <div className="msg-hover-reveal flex items-center gap-1">
+          {/* 时间戳 — 随按钮一起 hover 显示,所有消息都展示 */}
+          {(() => {
+            const label = formatMessageTimestamp(m.createdAt) || '--'
+            return (
+              <span
+                className="text-xs text-muted-foreground shrink-0 mr-auto"
+                data-testid={`message-timestamp-${m.id}`}
+              >
+                {label}
+              </span>
+            )
+          })()}
           <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
-            {/* 时间戳 — AI 消息左侧展示 */}
-            {!isUser &&
-              (() => {
-                const timestampLabel = formatMessageTimestamp(m.createdAt)
-                return timestampLabel ? (
-                  <span
-                    className="text-xs text-muted-foreground shrink-0"
-                    data-testid={`message-timestamp-${m.id}`}
-                  >
-                    {timestampLabel}
-                  </span>
-                ) : null
-              })()}
-            <div className="msg-hover-reveal flex items-center gap-1">
-              {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
-              {!isUser && (
-                <Tooltip
-                  content={contentVisible ? t('message.hideContent') : t('message.showContent')}
-                >
-                  <button
-                    type="button"
-                    onClick={handleToggleVisibility}
-                    data-testid={`message-visibility-${m.id}`}
-                    aria-label={
-                      contentVisible ? t('message.hideContent') : t('message.showContent')
-                    }
-                    className={ACTION_BTN_CLASS}
-                  >
-                    {contentVisible ? (
-                      <Eye className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <EyeOff className="h-4 w-4" aria-hidden />
-                    )}
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
-              {!isUser && (
-                <Tooltip content={t('message.like')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleLike}
-                    data-testid={`message-like-${m.id}`}
-                    aria-label={t('message.like')}
-                    className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
-                  >
-                    <Star className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
-              <Tooltip content={copyLabel} side="top">
+            {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
+            {!isUser && (
+              <Tooltip
+                content={contentVisible ? t('message.hideContent') : t('message.showContent')}
+              >
                 <button
                   type="button"
-                  onClick={handleCopy}
-                  data-testid={`message-copy-${m.id}`}
-                  aria-label={copyLabel}
+                  onClick={handleToggleVisibility}
+                  data-testid={`message-visibility-${m.id}`}
+                  aria-label={contentVisible ? t('message.hideContent') : t('message.showContent')}
                   className={ACTION_BTN_CLASS}
                 >
-                  {copied ? (
-                    <Check className="h-4 w-4" aria-hidden />
+                  {contentVisible ? (
+                    <Eye className="h-4 w-4" aria-hidden />
                   ) : (
-                    <Copy className="h-4 w-4" aria-hidden />
+                    <EyeOff className="h-4 w-4" aria-hidden />
                   )}
                 </button>
               </Tooltip>
-              {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
-              {!isUser && messageImages.length > 0 && (
-                <Tooltip content={t('message.downloadImages')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleDownloadImages}
-                    data-testid={`message-download-${m.id}`}
-                    aria-label={t('message.downloadImages')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Download className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
-              {!isUser && (
-                <Tooltip content={t('message.share')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    data-testid={`message-share-${m.id}`}
-                    aria-label={t('message.share')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Share2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
-              {!isUser && hasMetadata && (
-                <Tooltip content={t('message.toggleMetadata')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleToggleMetadata}
-                    data-testid={`message-metadata-${m.id}`}
-                    aria-label={t('message.toggleMetadata')}
-                    className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
-                  >
-                    <Code className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
-              {!isUser && (
-                <Tooltip content={t('message.regenerate')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleRegenerate}
-                    disabled={streamingThis}
-                    data-testid={`message-regenerate-${m.id}`}
-                    aria-label={t('message.regenerate')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      'disabled:opacity-40 disabled:cursor-not-allowed',
-                    )}
-                  >
-                    <RefreshCw className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
-              {!isUser && (
-                <Tooltip content={t('message.publishToCommunity')} side="top">
-                  <button
-                    type="button"
-                    onClick={() => setPublishDialogOpen(true)}
-                    data-testid={`message-publish-${m.id}`}
-                    aria-label={t('message.publishToCommunity')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Megaphone className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
-              {isUser && (
-                <Tooltip content={t('message.edit')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleEdit}
-                    data-testid={`message-edit-${m.id}`}
-                    aria-label={t('message.edit')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
-              <Tooltip content={t('message.reply')} side="top">
+            )}
+            {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
+            <Tooltip content={copyLabel} side="top">
+              <button
+                type="button"
+                onClick={handleCopy}
+                data-testid={`message-copy-${m.id}`}
+                aria-label={copyLabel}
+                className={ACTION_BTN_CLASS}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Copy className="h-4 w-4" aria-hidden />
+                )}
+              </button>
+            </Tooltip>
+            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
+            {!isUser && messageImages.length > 0 && (
+              <Tooltip content={t('message.downloadImages')} side="top">
                 <button
                   type="button"
-                  onClick={handleReply}
-                  data-testid={`message-reply-${m.id}`}
-                  aria-label={t('message.reply')}
+                  onClick={handleDownloadImages}
+                  data-testid={`message-download-${m.id}`}
+                  aria-label={t('message.downloadImages')}
                   className={ACTION_BTN_CLASS}
                 >
-                  <MessageCircle className="h-4 w-4" aria-hidden />
+                  <Download className="h-4 w-4" aria-hidden />
                 </button>
               </Tooltip>
-              {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
-              {isUser && (
-                <Tooltip content={t('message.delete')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    data-testid={`message-delete-${m.id}`}
-                    aria-label={t('message.delete')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      'hover:text-destructive hover:bg-destructive/10',
-                    )}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-            </div>
+            )}
+            {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
+            {!isUser && (
+              <Tooltip content={t('message.share')} side="top">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  data-testid={`message-share-${m.id}`}
+                  aria-label={t('message.share')}
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Share2 className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
+            {!isUser && hasMetadata && (
+              <Tooltip content={t('message.toggleMetadata')} side="top">
+                <button
+                  type="button"
+                  onClick={handleToggleMetadata}
+                  data-testid={`message-metadata-${m.id}`}
+                  aria-label={t('message.toggleMetadata')}
+                  className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
+                >
+                  <Code className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
+            {!isUser && (
+              <Tooltip content={t('message.regenerate')} side="top">
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  disabled={streamingThis}
+                  data-testid={`message-regenerate-${m.id}`}
+                  aria-label={t('message.regenerate')}
+                  className={cn(
+                    ACTION_BTN_CLASS,
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                  )}
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
+            {!isUser && (
+              <Tooltip content={t('message.publishToCommunity')} side="top">
+                <button
+                  type="button"
+                  onClick={() => setPublishDialogOpen(true)}
+                  data-testid={`message-publish-${m.id}`}
+                  aria-label={t('message.publishToCommunity')}
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Megaphone className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
+            {isUser && (
+              <Tooltip content={t('message.edit')} side="top">
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  data-testid={`message-edit-${m.id}`}
+                  aria-label={t('message.edit')}
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
+            <Tooltip content={t('message.reply')} side="top">
+              <button
+                type="button"
+                onClick={handleReply}
+                data-testid={`message-reply-${m.id}`}
+                aria-label={t('message.reply')}
+                className={ACTION_BTN_CLASS}
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden />
+              </button>
+            </Tooltip>
+            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
+            {isUser && (
+              <Tooltip content={t('message.delete')} side="top">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  data-testid={`message-delete-${m.id}`}
+                  aria-label={t('message.delete')}
+                  className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
           </div>
         </div>
       )}
@@ -1043,7 +1043,8 @@ export function MessageList({
   // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
   React.useEffect(() => {
     const newLen = messages.length
-    const isNewMessage = newLen > prevMessagesLenRef.current
+    const prevLen = prevMessagesLenRef.current
+    const isNewMessage = newLen > prevLen
     prevMessagesLenRef.current = newLen
     // 2026-08-16 修复:流式输出也尊重用户上翻——此前 isStreaming 恒强制滚底,
     // 用户在流式生成时翻看历史会被拉回底部(打断阅读)。
@@ -1053,7 +1054,11 @@ export function MessageList({
 
     const doScroll = () => {
       const el = bottomRef.current
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      if (!el) return
+      // 批量加载(切换会话/首次加载,prev=0 且 newLen>1):auto 无动画直接跳底
+      // 逐条追加/streaming:smooth 平滑跟随新消息
+      const behavior = prevLen === 0 && newLen > 1 ? 'auto' : 'smooth'
+      el.scrollIntoView({ behavior, block: 'end' })
     }
     const st = scrollThrottleRef.current
     const now = Date.now()
@@ -1779,7 +1784,7 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0 px-4 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
@@ -1874,6 +1879,25 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
+      {userScrolledUp && messages.length > 0 && (
+        <button
+          type="button"
+          onClick={handleJumpToLatest}
+          data-testid="message-list-jump-latest"
+          aria-label={t('latest')}
+          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur transition-colors hover:bg-accent"
+        >
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          {t('jumpToLatest')}
+          {isStreaming && (
+            <span
+              data-testid="message-list-jump-latest-dot"
+              className="ml-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
+              aria-hidden
+            />
+          )}
+        </button>
+      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}
