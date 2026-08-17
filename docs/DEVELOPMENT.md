@@ -201,7 +201,7 @@ node scripts/dev-web.mjs --port 8802      # 指定端口
 | 服务 | 开发端口 | Docker 内部端口 | 启动命令 | 热重载 |
 |---|---|---|---|---|
 | api(Fastify 5) | 8802 | 8802 | `pnpm --filter @ihui/api dev` | `tsx watch` 文件变更自动重启 |
-| web(Next.js 15) | 8801 | 8801 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
+| web(Next.js 16) | 8801 | 8801 | `pnpm --filter @ihui/web dev` | Turbopack HMR,毫秒级热更新 |
 | ai-service(FastAPI) | 8803 | 8803 | `cd apps/ai-service && uvicorn app.main:app --reload --port 8803` | `uvicorn --reload` 文件变更自动重启 |
 
 ### 4.1 后端 API
@@ -226,7 +226,7 @@ pnpm --filter @ihui/web dev
 # 注意:package.json 默认端口是 8801,如需 8801 用 node scripts/dev-web.mjs 或传 -p 8801
 ```
 
-- 热重载:Next.js 15 Turbopack,HMR 毫秒级,保留组件状态。
+- 热重载:Next.js 16 Turbopack,HMR 毫秒级,保留组件状态。
 - 首次启动会编译路由,可能耗时 10-30s。
 - 改 `globals.css` 后 HMR 不一定重编译 CSS chunk,可能需要重启(见 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md))。
 
@@ -419,7 +419,7 @@ uvicorn app.main:app --reload --port 8803 --log-level debug
 
 | 端 | 路径 | 技术栈 |
 |---|---|---|
-| web | `apps/web` | Next.js 15 + React 19 + Tailwind 4 |
+| web | `apps/web` | Next.js 16 + React 19 + Tailwind 4 |
 | api | `apps/api` | Fastify 5 + Drizzle ORM + PostgreSQL |
 | ai-service | `apps/ai-service` | FastAPI + LangGraph + LiteLLM + MCP |
 | desktop | `apps/desktop` | Vite + React(Electron 兼容) |

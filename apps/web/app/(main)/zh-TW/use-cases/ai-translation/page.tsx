@@ -162,7 +162,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端翻譯工作台與術語庫管理' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端翻譯工作台與術語庫管理' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端翻譯記憶(TM)與專案版本管理' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '多語種翻譯 + 文化適配 + 審校規則引擎' },
   { name: 'MCP 工具協定', purpose: '對接 Git/CMS/Confluence/Notion/Figma 等內容源' },
