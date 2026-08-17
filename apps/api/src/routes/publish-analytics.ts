@@ -60,6 +60,21 @@ interface AiServiceHistoryResponse {
   list?: AiServiceTask[]
 }
 
+/**
+ * 解析转发给 ai-service 的鉴权头。
+ * 2026-08-17 P0 修复:浏览器同源请求靠 auth_token cookie 认证(无 Authorization header),
+ * 原实现只转发 request.headers.authorization → ai-service 无凭据 → 401 → analytics 数据为空。
+ * 缺省时从 auth_token cookie 提取 token 构造 Bearer(JWT_SECRET 三端一致,可直接验签)。
+ */
+function resolveAuthHeader(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  if (cookieToken && cookieToken.length > 0) return `Bearer ${cookieToken}`
+  return undefined
+}
+
 async function fetchAiService<T>(path: string, authHeader: string | undefined): Promise<T | null> {
   const url = `${config.AI_SERVICE_URL}/api/publish${path}`
   const headers: Record<string, string> = {}
@@ -233,7 +248,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/overview', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
+    const authHeader = resolveAuthHeader(request)
     const [statsRes, histRes] = await Promise.all([
       fetchAiService<AiServiceStats>('/stats', authHeader),
       fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader),
@@ -277,7 +292,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/accounts', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
+    const authHeader = resolveAuthHeader(request)
     const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))
@@ -289,7 +304,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/publish/analytics/platforms', async (request, reply) => {
     const period = parsePeriod(request.query)
-    const authHeader = request.headers.authorization
+    const authHeader = resolveAuthHeader(request)
     const histRes = await fetchAiService<AiServiceHistoryResponse>('/history?limit=200', authHeader)
     if (!histRes) {
       return reply.send(success([]))

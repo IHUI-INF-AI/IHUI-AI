@@ -229,6 +229,22 @@ function computeDryRunResults(
   })
 }
 
+/**
+ * 解析转发给 ai-service 的鉴权头。
+ * 2026-08-17 P0 修复:浏览器同源请求主要靠 auth_token cookie 认证(无 Authorization header),
+ * 原实现只转发 request.headers.authorization → 代理到 ai-service 时无凭据 → ai-service 401 → 前端"请求失败"。
+ * 现在:Authorization header 优先(显式 Bearer),缺省时从 auth_token cookie 提取 token 构造 Bearer
+ * (JWT_SECRET 三端一致,ai-service 可直接验签)。
+ */
+function resolveAuthHeader(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  if (cookieToken && cookieToken.length > 0) return `Bearer ${cookieToken}`
+  return undefined
+}
+
 async function proxyToAiService(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -239,8 +255,8 @@ async function proxyToAiService(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  // 转发 JWT(让 ai-service 共享鉴权上下文)
-  const authHeader = request.headers.authorization
+  // 转发 JWT(让 ai-service 共享鉴权上下文;cookie 认证场景下从 auth_token cookie 提取)
+  const authHeader = resolveAuthHeader(request)
   if (authHeader) headers.authorization = authHeader
 
   let body: string | undefined
@@ -303,7 +319,7 @@ async function proxyMultipartToAiService(
   formData.append('file', blob, data.filename || `upload-${Date.now()}`)
 
   const headers: Record<string, string> = {}
-  const authHeader = request.headers.authorization
+  const authHeader = resolveAuthHeader(request)
   if (authHeader) headers.authorization = authHeader
 
   try {
@@ -506,8 +522,8 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   server.get('/publish/scan-login/:taskId/qr', async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
     const url = `${config.AI_SERVICE_URL}/api/publish/scan-login/${encodeURIComponent(taskId)}/qr`
-    const authHeader = request.headers.authorization
     const headers: Record<string, string> = {}
+    const authHeader = resolveAuthHeader(request)
     if (authHeader) headers.authorization = authHeader
     try {
       const upstream = await fetch(url, { method: 'GET', headers })
@@ -526,6 +542,12 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   server.post('/publish/scan-login/:taskId/cancel', async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
     await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/cancel`)
+  })
+
+  // CDP 检测(2026-08-17 补):ai-service scan_login.py 已实现 /detect-from-cdp,
+  // api 代理层此前缺失 → api-client detectFromCdp 调用必 404。补透传。
+  server.post('/publish/scan-login/detect-from-cdp', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/detect-from-cdp')
   })
 
   // ===== 账号分组管理(2026-08-01 新增)=====
