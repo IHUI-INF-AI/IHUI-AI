@@ -198,6 +198,39 @@ function serializeConversation(c: {
   }
 }
 
+// 公开分享用：不暴露 userId，避免隐私泄露
+function serializeConversationPublic(c: {
+  id: string
+  title: string
+  model: string
+  systemPrompt: string | null
+  metadata: unknown
+  lastMessageAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  archivedAt: Date | null
+  compressedAt: Date | null
+  compressedContext: string | null
+  messageCount?: number
+  favorite?: boolean
+}) {
+  return {
+    id: c.id,
+    title: c.title,
+    model: c.model,
+    systemPrompt: c.systemPrompt,
+    metadata: c.metadata,
+    lastMessageAt: c.lastMessageAt,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    archivedAt: c.archivedAt,
+    compressedAt: c.compressedAt,
+    compressedContext: c.compressedContext,
+    ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
+    ...(c.favorite !== undefined && { favorite: c.favorite }),
+  }
+}
+
 function serializeMessage(m: {
   id: string
   conversationId: string
@@ -922,6 +955,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '对话不存在或已删除'))
     }
     const { list: messages } = await findMessages(conversation.id, { page: 1, pageSize: 100 })
-    return reply.send(success({ conversation: serializeConversation(conversation), messages }))
+    return reply.send(success({ conversation: serializeConversationPublic(conversation), messages }))
   })
 }
