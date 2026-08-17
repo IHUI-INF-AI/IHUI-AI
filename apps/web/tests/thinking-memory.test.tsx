@@ -37,21 +37,44 @@ const { mockT } = vi.hoisted(() => {
 vi.mock('next-intl', () => ({ useTranslations: () => mockT }))
 
 // ─── lucide-react mock ────────────────────────────────────────
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为 IconSpan。
 const { IconSpan } = vi.hoisted(() => {
   const IconSpan = ({ className }: { className?: string }) => (
     <span data-testid="lucide-icon" className={className} />
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>()
   const Icon = IconSpan
   return {
     __esModule: true,
+    ...actual,
     Brain: Icon,
     Loader2: Icon,
     Copy: Icon,
     Check: Icon,
     ChevronRight: Icon,
+  }
+})
+
+// ─── @radix-ui/react-tooltip mock:为 ThinkingSection 内的 <Tooltip> from '@/components/feedback' 提供 Provider 替身 ──
+// (该 Tooltip 直接 import Radix,Tooltipefore 测试需顶层 Provider 包裹,此处 mock 直接让 Root/Portal 透传 children)
+vi.mock('@radix-ui/react-tooltip', () => {
+  const passthrough = ({ children }: { children: React.ReactNode }) => <>{children}</>
+  return {
+    __esModule: true,
+    Provider: passthrough,
+    Root: passthrough,
+    Trigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Content: ({ children, ...rest }: { children: React.ReactNode; side?: string }) => (
+      <div role="tooltip" data-side={rest.side ?? 'top'}>
+        {children}
+      </div>
+    ),
+    Arrow: () => null,
   }
 })
 

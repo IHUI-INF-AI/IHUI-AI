@@ -122,19 +122,23 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
+const chatStoreState: {
+  messages: unknown[]
+  subAgentActivities: unknown[]
+  conversationId: string | null
+  userScrolledUp: boolean
+  setUserScrolledUp: (up: boolean) => void
+} = {
+  messages: [],
+  subAgentActivities: [],
+  conversationId: null,
+  userScrolledUp: false,
+  setUserScrolledUp: vi.fn(),
+}
 vi.mock('@/stores/chat', () => ({
   useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
+    selector: (s: typeof chatStoreState) => unknown,
+  ) => selector(chatStoreState),
 }))
 
 // progress-jump-store mock
