@@ -171,7 +171,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web teaching admin console and learning dashboard' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web teaching admin console and learning dashboard' },
   {
     name: 'Fastify 5 + Drizzle ORM',
     purpose: 'API for student data storage and permission isolation',

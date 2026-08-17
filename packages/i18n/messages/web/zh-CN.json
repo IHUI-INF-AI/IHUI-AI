@@ -953,7 +953,9 @@
       "publishToCommunity": "发布到社区",
       "edit": "编辑",
       "reply": "回复",
-      "delete": "删除"
+      "delete": "删除",
+      "jumpToLatest": "跳至最新",
+      "shareLinkCopied": "已复制内容与链接"
     },
     "plan": {
       "title": "执行计划",
@@ -1587,7 +1589,13 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
@@ -1604,7 +1612,13 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -7276,7 +7290,11 @@
       "statusExpired": "已过期",
       "statusUnknown": "未知",
       "batchImport": "批量导入",
-      "batchVerify": "批量验证"
+      "batchVerify": "批量验证",
+      "openExternalBrowser": "在外部浏览器打开",
+      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "scanWithPhoneHint": "打开后请用手机扫二维码,页面无需点击;检测到登录后自动保存账号",
+      "orDivider": "或"
     },
     "cookieHealth": {
       "healthy": "健康",
@@ -7387,7 +7405,9 @@
       "statusFailed": "失败",
       "statusSkipped": "跳过",
       "noHistory": "暂无发布历史",
-      "openUrl": "打开链接"
+      "openUrl": "打开链接",
+      "cancel": "取消",
+      "retry": "重试"
     },
     "stats": {
       "totalTasks": "总任务",
@@ -7501,7 +7521,9 @@
       "noTasks": "当天暂无任务",
       "taskCount": "{count} 个任务",
       "createTask": "新建任务",
-      "dragHint": "拖拽任务到其他日期可调整排期"
+      "dragHint": "拖拽任务到其他日期可调整排期",
+      "rescheduled": "任务已改期至 {date}",
+      "rescheduleFailed": "改期失败"
     },
     "analytics": {
       "title": "数据分析",
@@ -10938,32 +10960,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -11343,6 +11391,78 @@
       "renameEmpty": "任务名称不能为空",
       "exportFailed": "导出失败",
       "compressFailed": "压缩失败"
+    },
+    "envInfoButton": "环境信息",
+    "openTerminal": "打开终端",
+    "toggleWorkPanel": "切换工作展示区",
+    "envInfo": {
+      "ariaLabel": "环境信息",
+      "title": "环境信息",
+      "refresh": "刷新",
+      "collapse": "折叠",
+      "loading": "加载中…",
+      "noWorkspace": "未选择工作区,请先在顶部绑定本地工作区",
+      "errorTitle": "环境信息加载失败",
+      "notRepo": "当前目录不是 Git 仓库",
+      "detached": "游离 HEAD",
+      "changes": "变更",
+      "noChanges": "无变更",
+      "local": "本地",
+      "remote": "远程",
+      "remoteYes": "已配置",
+      "remoteNo": "未配置",
+      "aheadBehind": "领先/落后",
+      "commitPush": "提交或推送",
+      "commitPlaceholder": "输入提交信息…",
+      "commitOk": "提交成功",
+      "commitFail": "提交或推送失败",
+      "pullRequest": "拉取请求",
+      "prUnavailable": "无法获取拉取请求状态",
+      "prNoRemote": "未配置远程仓库",
+      "compareBranch": "比较分支",
+      "noCommit": "无提交",
+      "retry": "重试",
+      "pushOk": "推送成功",
+      "pushFail": "推送失败",
+      "commitNoRemote": "未配置远程仓库,仅本地提交",
+      "commitOnly": "仅提交",
+      "submitAndPush": "提交并推送",
+      "commitPushRemoteHint": "将推送到远程仓库的当前分支",
+      "fullTitle": "环境信息详情",
+      "viewFull": "查看完整信息",
+      "workspace": "工作区",
+      "remotes": "远程仓库",
+      "noRemotes": "未配置远程仓库",
+      "branchDetails": "分支",
+      "currentBranch": "当前分支",
+      "lastCommitTitle": "最近提交",
+      "added": "新增",
+      "deleted": "删除",
+      "total": "总计",
+      "modified": "修改",
+      "untracked": "未跟踪",
+      "renamed": "重命名",
+      "conflicted": "冲突",
+      "connectGithub": "连接 GitHub",
+      "githubToken": "GitHub Token",
+      "tokenPlaceholder": "输入 GitHub Personal Access Token…",
+      "connected": "已连接",
+      "notConnected": "未连接",
+      "githubTokenHint": "Token 仅保存在本机 ~/.ihui/github_token,用于查询 PR 状态",
+      "tokenSaved": "Token 已保存",
+      "tokenSaveFailed": "Token 保存失败,请检查有效性",
+      "prConnectHint": "连接 GitHub 以获取拉取请求状态",
+      "compareOnGithub": "在 GitHub 上比较分支",
+      "githubConnectedAs": "已连接 GitHub",
+      "githubConfigure": "配置 GitHub 仓库连接",
+      "tokenClear": "清除 Token",
+      "tokenCleared": "Token 已清除"
+    },
+    "terminalDock": {
+      "title": "PowerShell 终端",
+      "newSession": "新建终端",
+      "collapse": "收起",
+      "resize": "调整高度"
     }
   },
   "refund": {
@@ -11385,19 +11505,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -11518,25 +11650,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -12034,7 +12178,16 @@
       "thinkingChars": "字",
       "copyThinking": "复制思考内容",
       "thinkingElapsedTitle": "已思考 {time}",
-      "thinkingCharCountTitle": "{n} 个字符"
+      "thinkingCharCountTitle": "{n} 个字符",
+      "toolSummaryStreaming": "统计工具调用中…",
+      "toolSummaryFilesSearched": "搜索文件",
+      "toolSummaryWebSearched": "搜索网页",
+      "toolSummaryFilesModified": "修改文件",
+      "toolSummaryLinesAdded": "新增行数",
+      "toolSummaryLinesDeleted": "删除行数",
+      "toolSummaryTitle": "工具调用汇总",
+      "toolSummaryDuration": "总耗时",
+      "toolSummaryTotalCalls": "总调用"
     },
     "toolCall": {
       "statusRunning": "执行中",
@@ -13089,7 +13242,11 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
@@ -13218,7 +13375,15 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -13362,8 +13527,18 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -15027,7 +15202,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -15558,7 +15738,13 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ]
       }
     },
     "socialProof": {

@@ -3441,23 +3441,20 @@
 }
 
 /* ============================================================
-   2026-08-06:消息操作按钮 + 时间戳 hover 显隐
-   桌面(hover-capable):默认隐藏,悬停消息项或 focus 时淡入显示
-   触屏(hover-none):无 hover 语义,常显保证可操作(避免按钮永远不可见)
-   依赖宿主根容器的 group/msg class: .group\/msg:hover 命中
+   2026-08-06/2026-08-17:消息操作按钮 + 时间戳 hover 显隐
+   桌面:默认隐藏(visibility:hidden保留空间),悬停显示;触屏:常显
    ============================================================ */
 @media (hover: hover) {
   .msg-hover-reveal {
-    opacity: 0;
-    transition: opacity 0.15s ease;
+    visibility: hidden;
   }
   .group\/msg:hover .msg-hover-reveal,
   .msg-hover-reveal:focus-within {
-    opacity: 1;
+    visibility: visible;
   }
 }
 @media (hover: none) {
   .msg-hover-reveal {
-    opacity: 1;
+    visibility: visible;
   }
 }

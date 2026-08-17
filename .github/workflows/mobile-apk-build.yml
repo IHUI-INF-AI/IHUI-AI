@@ -33,9 +33,9 @@ jobs:
         uses: react-native-community/setup-android@v3
 
       - name: Setup pnpm
+        # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
+        # 显式 version 会触发 "Multiple versions of pnpm specified" 错误(2026-08-17 实测,曾致 workflow 永久失败)
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
