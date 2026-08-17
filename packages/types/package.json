@@ -3,40 +3,40 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./user": {
-      "types": "./src/user.ts",
-      "import": "./src/user.ts"
+      "types": "./dist/user.d.ts",
+      "import": "./dist/user.js"
     },
     "./api": {
-      "types": "./src/api.ts",
-      "import": "./src/api.ts"
+      "types": "./dist/api.d.ts",
+      "import": "./dist/api.js"
     },
     "./ai": {
-      "types": "./src/ai.ts",
-      "import": "./src/ai.ts"
+      "types": "./dist/ai.d.ts",
+      "import": "./dist/ai.js"
     },
     "./message-repair": {
-      "types": "./src/message-repair.ts",
-      "import": "./src/message-repair.ts"
+      "types": "./dist/message-repair.d.ts",
+      "import": "./dist/message-repair.js"
     },
     "./workspace": {
-      "types": "./src/workspace.ts",
-      "import": "./src/workspace.ts"
+      "types": "./dist/workspace.d.ts",
+      "import": "./dist/workspace.js"
     },
     "./api-contracts": {
-      "types": "./src/api-contracts.ts",
-      "import": "./src/api-contracts.ts"
+      "types": "./dist/api-contracts.d.ts",
+      "import": "./dist/api-contracts.js"
     },
     "./orchestration": {
-      "types": "./src/orchestration.ts",
-      "import": "./src/orchestration.ts"
+      "types": "./dist/orchestration.d.ts",
+      "import": "./dist/orchestration.js"
     }
   },
   "scripts": {
