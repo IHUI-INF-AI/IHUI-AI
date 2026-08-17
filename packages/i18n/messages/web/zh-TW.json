@@ -948,6 +948,7 @@
       "copy": "複製",
       "downloadImages": "下載圖片",
       "share": "分享",
+      "shareLinkCopied": "已複製內容與連結",
       "toggleMetadata": "切換元數據",
       "regenerate": "重新生成",
       "publishToCommunity": "發佈到社區",

@@ -955,6 +955,7 @@
       "copy": "복사",
       "downloadImages": "이미지 다운로드",
       "share": "공유",
+      "shareLinkCopied": "콘텐츠와 링크를 복사했습니다",
       "toggleMetadata": "메타데이터 전환",
       "regenerate": "다시 생성",
       "publishToCommunity": "커뮤니티에 게시",

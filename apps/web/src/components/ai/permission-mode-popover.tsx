@@ -102,6 +102,13 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   const currentMode: WorkspacePermissionMode = activeWorkspace?.mode ?? 'default'
 
+  // 用 ref 始终持有最新模式(2026-08-17 修复陈旧闭包导致切换失效):
+  // handleSelect 是 useCallback,其 deps 不含最新 activeWorkspace.mode,
+  // 靠普通变量 currentMode 会在闭包中陈旧;ref 在每次 render 同步更新,
+  // handleSelect 读取 ref.current 保证比较的是最新值。
+  const currentModeRef = React.useRef(currentMode)
+  currentModeRef.current = currentMode
+
   // 弹层开关状态(2026-07-25 深化,onOpenChange 上抛):用于启用键盘监听 + 打开时重置焦点
   const [isOpen, setIsOpen] = React.useState(false)
   // 键盘焦点索引(用于 ↑/↓ 循环切换)。初始指向当前模式。
@@ -156,7 +163,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
    */
   const handleSelect = React.useCallback(
     (mode: WorkspacePermissionMode) => {
-      if (mode === currentMode) return
+      // 始终读取最新模式(ref 同步更新),避免闭包陈旧导致同模式误判跳过
+      if (mode === currentModeRef.current) return
       if (updateMode.isPending) return // 防止快速连点
       // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
       // 用户必须勾选"我了解"才能点"继续启用",防止误操作
@@ -411,13 +419,6 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           {t('highRisk')}
                         </span>
                       )}
-                      {/* 数字快捷键徽章(Codex 风格:右侧 1/2/3) */}
-                      <span
-                        className="ml-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[9px] font-medium text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        {idx + 1}
-                      </span>
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                       {t(opt.descKey)}
