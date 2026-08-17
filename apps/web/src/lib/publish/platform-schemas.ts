@@ -3,8 +3,8 @@
  * 与 apps/ai-service/app/services/publish/base_adapter.list_all_adapter_classes 对齐
  * authType 分类:
  *   api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat/cnblogs/segmentfault/oschina)
- *   oauth           — 开放平台 OAuth 授权(youtube)
- *   browser_cookie  — 浏览器抓 Cookie(其余 30 平台,含 Playwright 适配器)
+ *   oauth           — 开放平台 OAuth 授权(youtube/douyin/kuaishou/toutiao/weibo)
+ *   browser_cookie  — 浏览器抓 Cookie(其余平台,含 Playwright 适配器)
  *   none            — 无需凭据(保留占位,当前未使用)
  *
  * 平台分组(38 个):
@@ -78,7 +78,7 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         helpText: 'WordPress 后台登录用户名(在「用户 → 个人资料」可查,不是昵称)。',
       },
       {
-        name: 'app_password',
+        name: 'application_password',
         label: '应用密码',
         type: 'password',
         required: true,
@@ -137,6 +137,14 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         helpText: '创建 OAuth Client 时一并生成的 Client Secret,只显示一次,请妥善保存。',
       },
       {
+        name: 'access_token',
+        label: '访问令牌',
+        type: 'password',
+        required: true,
+        helpText:
+          '通过 OAuth 授权流程获取的短期访问令牌,用于调用 YouTube Data API,过期后由 refresh_token 自动刷新。',
+      },
+      {
         name: 'refresh_token',
         label: 'Refresh Token',
         type: 'password',
@@ -151,7 +159,7 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '哔哩哔哩',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.bilibili.com',
-    helpText: '通过 B 站 Cookie 凭据(SESSDATA / bili_jct / buvid3)发布视频,需登录 bilibili.com。',
+    helpText: '通过 B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid)发布视频,需登录 bilibili.com。',
     fields: [
       {
         name: 'sessdata',
@@ -168,11 +176,12 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         helpText: 'B 站 Cookie 中的 bili_jct 字段,用于防 CSRF 校验,与 SESSDATA 配对。',
       },
       {
-        name: 'buvid3',
-        label: 'buvid3',
+        name: 'dedeuserid',
+        label: '用户 ID(dedeuserid)',
         type: 'text',
         required: true,
-        helpText: 'B 站 Cookie 中的 buvid3 字段,设备指纹标识。',
+        helpText:
+          'B 站登录 Cookie 中的 dedeuserid 字段(注意小写),即 DedeUserID 的值,是用户唯一标识。',
       },
     ],
   },
@@ -203,69 +212,122 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
   {
     platformId: 'toutiao',
     platformName: '今日头条',
-    authType: 'browser_cookie',
-    setupGuideUrl: 'https://mp.toutiao.com/',
-    helpText: '通过头条号 Cookie 发布图文/视频,需登录 mp.toutiao.com 创作者后台。',
+    authType: 'oauth',
+    setupGuideUrl: 'https://developer.toutiao.com/',
+    helpText: '通过头条开放平台 OAuth 授权发布图文/视频,需在头条开放平台创建应用并完成授权。',
     fields: [
       {
-        name: 'cookie',
-        label: 'Cookie 字符串',
-        type: 'textarea',
+        name: 'app_id',
+        label: 'App ID',
+        type: 'text',
         required: true,
-        placeholder: 'sessionid=xxx; sessionid_ss=xxx; ...',
-        helpText:
-          '在 mp.toutiao.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
+        placeholder: '1234567890',
+        helpText: '头条开放平台应用的 App ID(Client Key),在「应用详情 → 基本信息」中查看。',
+      },
+      {
+        name: 'app_secret',
+        label: 'App Secret',
+        type: 'password',
+        required: true,
+        helpText: '头条开放平台应用的 App Secret(Client Secret),在「应用详情 → 基本信息」中查看,用于换取 access_token。',
       },
     ],
   },
   {
     platformId: 'douyin',
     platformName: '抖音',
-    authType: 'browser_cookie',
-    setupGuideUrl: 'https://creator.douyin.com/',
-    helpText: '通过抖音创作者后台 Cookie 发布视频,需登录 creator.douyin.com。',
+    authType: 'oauth',
+    setupGuideUrl: 'https://open.douyin.com/',
+    helpText: '通过抖音开放平台 OAuth 授权发布视频,需在抖音开放平台创建应用并完成授权。',
     fields: [
       {
-        name: 'cookie',
-        label: 'Cookie 字符串',
-        type: 'textarea',
+        name: 'access_token',
+        label: 'OAuth 访问令牌',
+        type: 'password',
         required: true,
-        placeholder: 'sessionid=xxx; ttwid=xxx; ...',
-        helpText: '在 creator.douyin.com 页面按 F12 → Application → Cookies,复制全部 Cookie。',
+        helpText:
+          '抖音开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用内容发布接口,请从应用授权流程中复制。',
+      },
+      {
+        name: 'open_id',
+        label: 'Open ID',
+        type: 'text',
+        required: true,
+        helpText:
+          '用户在抖音开放平台的唯一标识(open_id),OAuth 授权回调中返回,每个应用下唯一。',
+      },
+      {
+        name: 'client_key',
+        label: 'Client Key',
+        type: 'text',
+        required: true,
+        placeholder: 'awxxxxxxx',
+        helpText: '抖音开放平台应用的 Client Key(对应 App Key),在「应用详情 → 开发配置」中查看。',
+      },
+      {
+        name: 'client_secret',
+        label: 'Client Secret',
+        type: 'password',
+        required: true,
+        helpText: '抖音开放平台应用的 Client Secret,在「应用详情 → 开发配置」中查看,用于接口签名。',
       },
     ],
   },
   {
     platformId: 'kuaishou',
     platformName: '快手',
-    authType: 'browser_cookie',
-    setupGuideUrl: 'https://cp.kuaishou.com/',
-    helpText: '通过快手创作者后台 Cookie 发布视频,需登录 cp.kuaishou.com。',
+    authType: 'oauth',
+    setupGuideUrl: 'https://open.kuaishou.com/',
+    helpText: '通过快手开放平台 OAuth 授权发布视频,需在快手开放平台创建应用并完成授权。',
     fields: [
       {
-        name: 'cookie',
-        label: 'Cookie 字符串',
-        type: 'textarea',
+        name: 'access_token',
+        label: 'OAuth 访问令牌',
+        type: 'password',
         required: true,
-        placeholder: 'sessionid=xxx; userId=xxx; ...',
-        helpText: '在 cp.kuaishou.com 页面按 F12 → Application → Cookies,复制全部 Cookie。',
+        helpText:
+          '快手开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用开放 API,请从应用授权流程中复制。',
+      },
+      {
+        name: 'app_id',
+        label: 'App ID',
+        type: 'text',
+        required: true,
+        placeholder: '12345',
+        helpText: '快手开放平台应用的 App ID,在「应用详情 → 应用信息」中查看。',
+      },
+      {
+        name: 'app_secret',
+        label: 'App Secret',
+        type: 'password',
+        required: true,
+        helpText: '快手开放平台应用的 App Secret,在「应用详情 → 应用信息」中查看,用于接口签名。',
       },
     ],
   },
   {
     platformId: 'weibo',
     platformName: '微博',
-    authType: 'browser_cookie',
-    setupGuideUrl: 'https://weibo.com/',
-    helpText: '通过微博 Cookie 发布图文,需登录 weibo.com。',
+    authType: 'oauth',
+    setupGuideUrl: 'https://open.weibo.com/',
+    helpText: '通过微博开放平台 OAuth 授权发布图文,需在微博开放平台创建应用并完成授权。',
     fields: [
       {
-        name: 'cookie',
-        label: 'Cookie 字符串',
-        type: 'textarea',
+        name: 'access_token',
+        label: 'OAuth 访问令牌',
+        type: 'password',
         required: true,
-        placeholder: 'SUB=xxx; SUBP=xxx; ...',
-        helpText: '在 weibo.com 页面按 F12 → Application → Cookies,复制全部 Cookie。',
+        helpText:
+          '微博开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用发布接口,请从应用授权流程中复制。',
+      },
+      {
+        name: 'uid',
+        label: '用户 ID(uid)',
+        type: 'text',
+        required: true,
+        placeholder: '1234567890',
+        helpText:
+          '微博开放平台用户 ID(uid),可在授权返回的 get_uid 接口结果中获取,用于微博账号标识。',
       },
     ],
   },
@@ -328,7 +390,7 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '掘金',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://juejin.cn/',
-    helpText: '通过掘金 Cookie(sessionid / sessionid_ss)+ Playwright 发布,需登录 juejin.cn。',
+    helpText: '通过掘金 Cookie(sessionid / signatureId)+ Playwright 发布,需登录 juejin.cn。',
     fields: [
       {
         name: 'sessionid',
@@ -338,11 +400,11 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         helpText: '掘金 Cookie 中的 sessionid 字段,登录会话令牌。',
       },
       {
-        name: 'sessionid_ss',
-        label: 'sessionid_ss',
+        name: 'signatureId',
+        label: '签名 ID',
         type: 'password',
         required: true,
-        helpText: '掘金 Cookie 中的 sessionid_ss 字段,与 sessionid 配对的二级令牌。',
+        helpText: '掘金签名标识(signatureId),用于接口签名,与 sessionid 配对使用。',
       },
     ],
   },
@@ -370,12 +432,13 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     helpText: '通过视频号 Cookie + Playwright 发布视频,需登录 channels.weixin.qq.com。',
     fields: [
       {
-        name: 'cookie',
-        label: 'Cookie 字符串',
+        name: 'wechat_channels',
+        label: '微信视频号渠道标识',
         type: 'textarea',
         required: true,
-        placeholder: 'sessionid=xxx; uin=xxx; ...',
-        helpText: '在 channels.weixin.qq.com 页面按 F12 → Application → Cookies,复制全部 Cookie。',
+        placeholder: '[{"name":"sessionid","value":"xxx"},{"name":"uin","value":"xxx"}]',
+        helpText:
+          '微信视频号渠道标识(wechat_channels),粘贴 channels.weixin.qq.com 的 Cookie 字符串或 JSON 格式的 Cookie 列表。',
       },
     ],
   },
