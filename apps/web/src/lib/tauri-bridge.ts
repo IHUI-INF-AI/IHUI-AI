@@ -354,6 +354,33 @@ export async function openInGoogleChrome(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * 启动 Google Chrome --app 模式登录会话(2026-08-17 立,扫码登录"自动保存账号"闭环)。
+ *
+ * 桌面端:调 Rust 端 start_chrome_login command——以 --app 模式 + CDP 调试端口打开登录页,
+ * 用户在完整 Chrome 里登录后,后端通过 CDP 端口自动提取 Cookie 保存账号。
+ * web 端(普通浏览器):返回 null,无法启动本机 Chrome。
+ *
+ * @param url 要打开的登录页地址(平台 login_url)
+ * @returns 成功返回 { port, profileDir }(port 为 CDP 调试端口,供后端提取 Cookie);
+ *          非 Tauri 环境或启动失败返回 null
+ */
+export interface ChromeLoginSession {
+  port: number
+  profileDir: string
+}
+export async function startChromeLogin(url: string): Promise<ChromeLoginSession | null> {
+  if (!isTauri()) return null
+  try {
+    const session = await invoke<ChromeLoginSession>('start_chrome_login', { url })
+    return session
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn('[chrome] start_chrome_login failed:', msg)
+    return null
+  }
+}
+
 // ================== 应用菜单(2026-07-25 立) ==================
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
