@@ -20,7 +20,7 @@
 
 ### あなたの関心事(意思決定ウェイト)
 1. **オンボーディングコスト**(35%): ドキュメント品質 / Quickstart 所要時間 / SDK 完備度
-2. **モダン技術スタック**(25%): TypeScript / React 19 / Next.js 15 / Fastify 5
+2. **モダン技術スタック**(25%): TypeScript / React 19 / Next.js 16 / Fastify 5
 3. **拡張性**(20%): プラグイン機構 / カスタム Agent / MCP ツール開発
 4. **OSS 透明性**(10%): コード可読性 / ブラックボックスなし / PR 歓迎
 5. **コミュニティ活況**(10%): Issue 応答速度 / Discord/Slack 活性 / リリース頻度
@@ -132,7 +132,7 @@ server.publish()  // ワンクリックで MCP マーケットに公開
 
 #### 1. 完全な技術アーキテクチャ(直接評価可能)
 ```
-フロントエンド: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 バックエンド:   Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 AI:            LangGraph + LiteLLM + MCP プロトコル
 デプロイ:       Docker Compose / Kubernetes / Helm Chart
