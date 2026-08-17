@@ -1177,24 +1177,26 @@ export function MessageList({
   // - scrollIntoView 到 bottomRef(平滑)
   // - 重置 userScrolledUp 标记,触发自动滚动继续工作
   // - 派发自定义事件,允许其他监听组件(如 timeline tab)同步滚动到底
-  const handleJumpToLatest = React.useCallback(() => {
+  const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     userScrolledUpRef.current = false
     safeSetUserScrolledUp(false)
+  }, [safeSetUserScrolledUp])
+
+  const handleJumpToLatest = React.useCallback(() => {
+    scrollToBottom()
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
     }
-  }, [safeSetUserScrolledUp])
+  }, [scrollToBottom])
 
   // 2026-08-16 立:监听外部 jump-to-latest 请求(由 MessageInput 中的按钮触发)
+  // 注意:外部监听器只调用 scrollToBottom(不派发事件),避免按钮点击→dispatch→监听→dispatch 无限递归
   React.useEffect(() => {
-    const onJumpToLatest = () => {
-      handleJumpToLatest()
-    }
-    window.addEventListener('ihui:jump-to-latest', onJumpToLatest)
-    return () => window.removeEventListener('ihui:jump-to-latest', onJumpToLatest)
-  }, [handleJumpToLatest])
+    window.addEventListener('ihui:jump-to-latest', scrollToBottom)
+    return () => window.removeEventListener('ihui:jump-to-latest', scrollToBottom)
+  }, [scrollToBottom])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
