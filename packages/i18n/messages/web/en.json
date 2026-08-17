@@ -7290,7 +7290,11 @@
       "statusExpired": "Expired",
       "statusUnknown": "Unknown",
       "batchImport": "Batch Import",
-      "batchVerify": "Batch Verify"
+      "batchVerify": "Batch Verify",
+      "openExternalBrowser": "Open in external browser",
+      "externalBrowserHint": "Log in with your system browser (for SMS/password login); after logging in, copy the site Cookie and paste it into the account form to save",
+      "scanWithPhoneHint": "Scan the QR code with your phone — no clicking needed; the account is saved automatically once login is detected",
+      "orDivider": "or"
     },
     "cookieHealth": {
       "healthy": "Healthy",
@@ -12174,7 +12178,16 @@
       "thinkingChars": "chars",
       "copyThinking": "Copy thinking content",
       "thinkingElapsedTitle": "Thinking for {time}",
-      "thinkingCharCountTitle": "{n} characters"
+      "thinkingCharCountTitle": "{n} characters",
+      "toolSummaryStreaming": "Counting tool calls…",
+      "toolSummaryFilesSearched": "Files Searched",
+      "toolSummaryWebSearched": "Web Searched",
+      "toolSummaryFilesModified": "Files Modified",
+      "toolSummaryLinesAdded": "Lines Added",
+      "toolSummaryLinesDeleted": "Lines Deleted",
+      "toolSummaryTitle": "Tool Call Summary",
+      "toolSummaryDuration": "Total Duration",
+      "toolSummaryTotalCalls": "Total Calls"
     },
     "toolCall": {
       "statusRunning": "Running",
