@@ -607,7 +607,7 @@ export async function setConversationShareToken(
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')
-  const token = existing.shareToken ?? crypto.randomUUID().slice(0, 16)
+  const token = existing.shareToken ?? crypto.randomBytes(8).toString('hex')
   const rows = await db
     .update(chatConversations)
     .set({ shareToken: token, updatedAt: new Date() })
