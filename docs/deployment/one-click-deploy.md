@@ -144,7 +144,7 @@ curl https://ihui-web.vercel.app                   # 应返回 HTML 首页
 
 ### Q1:Vercel 构建失败 `next build` OOM
 
-**原因**:Next.js 15 构建需要大内存,Vercel Hobby 免费层内存受限。
+**原因**:Next.js 16 构建需要大内存,Vercel Hobby 免费层内存受限。
 
 **解决**:在 Vercel 项目 Settings → Environment Variables 添加:
 - `NODE_OPTIONS` = `--max-old-space-size=4096`

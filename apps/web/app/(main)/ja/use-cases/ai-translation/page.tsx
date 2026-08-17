@@ -171,7 +171,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web エンドの翻訳ワークベンチと用語集管理' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web エンドの翻訳ワークベンチと用語集管理' },
   {
     name: 'Fastify 5 + Drizzle ORM',
     purpose: 'API エンドの翻訳メモリ (TM) とプロジェクトバージョン管理',

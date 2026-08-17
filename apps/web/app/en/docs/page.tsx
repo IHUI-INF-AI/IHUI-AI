@@ -145,7 +145,7 @@ const docCategories = [
 ]
 
 const architectureModules = [
-  { name: 'apps/web', desc: 'Next.js 15 + React 19 frontend (Tailwind 4 + shadcn/ui).' },
+  { name: 'apps/web', desc: 'Next.js 16 + React 19 frontend (Tailwind 4 + shadcn/ui).' },
   { name: 'apps/api', desc: 'Fastify 5 + Drizzle ORM backend (PostgreSQL).' },
   { name: 'apps/ai-service', desc: 'FastAPI + LangGraph AI service (LiteLLM + MCP).' },
   { name: 'packages/', desc: 'Shared database / auth / types / ui across all 8 endpoints.' },
