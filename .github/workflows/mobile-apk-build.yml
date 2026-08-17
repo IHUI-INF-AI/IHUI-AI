@@ -4,7 +4,8 @@ name: Build Android APK
 # 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
 #       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
 # 流程(全自动):
-#   - 手动 workflow_dispatch 或推送 v* tag → ubuntu runner 构建 release APK
+#   - 触发:① main 分支 push(仅移动端相关代码变更)② 手动 workflow_dispatch ③ v* tag
+#   - ubuntu runner 构建 release APK
 #   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.apk)
 #   - 下载页 APK_URL 指向最新 Release 固定地址,引导页自动生效(无需人工放入)
 # 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
@@ -12,7 +13,18 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    # 仅移动端相关代码变更才自动构建,避免无关提交浪费 CI 分钟数
+    paths:
+      - 'apps/mobile-rn/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
     tags: ['v*']
+
+# 防止并发重复构建:同一时间只保留一个构建(新 push 排队等待,不取消进行中的旧构建)
+concurrency:
+  group: android-apk-build
+  cancel-in-progress: false
 
 permissions:
   contents: write

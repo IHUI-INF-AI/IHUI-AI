@@ -189,15 +189,16 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
   console.log('⏭  4 端 i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1, 跳过)')
 }
 
-// 16. staged typecheck 闸门(全端,2026-07-30 立)
-// 把"全包 typecheck 失败阻塞"缩窄到"仅 staged 文件",解决多 agent 并行时其他 agent
-// 引入的预存错误导致 100% 误阻塞。scripts/check-staged-typecheck.mjs 自动按 package 路径
-// 分组 + 只 typecheck staged .ts/.tsx,跨端(web/api/mobile-rn/miniapp-taro/packages/*)统一。
+// 16. staged typecheck 闸门(全端,2026-07-30 立,2026-08-18 根治)
+// 全量 typecheck 的"失败阻塞"只针对 staged 文件:scripts/check-staged-typecheck.mjs
+// 按 package 分组 + 临时 tsconfig 沿用全量 include(加载完整模块扩展,避免 TS2339
+// 假阳性) + tsc 输出按行过滤,只保留错误文件 ∈ staged 的错误。
+// 其他 agent 引入的非 staged 错误自动过滤不阻塞,跨端(web/api/mobile-rn/miniapp-taro/packages/*)统一。
 // 紧急跳过:HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...
 if (process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
   if (
     !run(
-      '🔍 staged typecheck 闸门(仅 staged .ts/.tsx, 多端并行友好, 2026-07-30 立)...',
+      '🔍 staged typecheck 闸门(全量 include + 过滤非 staged 错误, 2026-08-18 根治)...',
       'node scripts/check-staged-typecheck.mjs --staged',
     )
   ) {

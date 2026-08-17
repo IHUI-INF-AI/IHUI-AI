@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info, ArrowDown } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -183,8 +183,6 @@ export function MessageInput({
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
-  // 用户是否已向上滚动(控制 jump-to-latest 按钮显隐)
-  const userScrolledUp = useChatStore((s) => s.userScrolledUp)
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
@@ -419,48 +417,7 @@ export function MessageInput({
                 floatHeader && '!rounded-tl-none !rounded-tr-none',
               )}
             >
-              {!floatHeader && (
-                <>
-                  <AgentProgressTrigger />
-                  {userScrolledUp && (
-                    <Tooltip
-                      content={
-                        t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')
-                      }
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
-                        }}
-                        data-testid="message-list-jump-latest"
-                        aria-label={
-                          t('jumpToLatest') === 'jumpToLatest'
-                            ? 'Jump to latest'
-                            : t('jumpToLatest')
-                        }
-                        className={cn(
-                          'ml-auto inline-flex h-7 items-center gap-1 rounded-md',
-                          'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
-                          'transition-all duration-150 hover:bg-accent hover:shadow-lg',
-                          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                          'animate-in fade-in-0 slide-in-from-bottom-2',
-                        )}
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                        <span>{t('latest') === 'latest' ? 'Latest' : t('latest')}</span>
-                        {isStreaming && (
-                          <span
-                            className="ml-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
-                            aria-hidden
-                            data-testid="message-list-jump-latest-dot"
-                          />
-                        )}
-                      </button>
-                    </Tooltip>
-                  )}
-                </>
-              )}
+              {!floatHeader && <AgentProgressTrigger />}
               <PermissionModePopover disabled={isStreaming} />
               {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层

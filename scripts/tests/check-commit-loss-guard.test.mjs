@@ -39,9 +39,8 @@ function runScript(args = [], opts = {}) {
 const RESET_REGEX = /reset:\s*moving to HEAD[~@]/
 const STASH_REGEXES = [
   /^WIP on /,
-  /^On main: /,
-  /^index on main: /,
-  /^untracked files on main: /,
+  /^On \S+: /,
+  /^index on \S+: /,
   /^untracked files on /,
 ]
 const HASH_EXTRACT_REGEX = /^[A-Za-z ]+on\s+\S+:\s+([0-9a-f]{7,40})\b/
@@ -68,6 +67,14 @@ test('正则: WIP on main: → 匹配 stash subject', () => {
 
 test('正则: index on main: → 匹配 stash subject', () => {
   assert.ok(STASH_REGEXES.some((re) => re.test('index on main: 5ef36e59d')))
+})
+
+test('正则: index on fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
+  assert.ok(STASH_REGEXES.some((re) => re.test('index on fix/test-suite-cleanup-2026-08-17: 8f957984b0 fix(msg)')))
+})
+
+test('正则: On fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
+  assert.ok(STASH_REGEXES.some((re) => re.test('On fix/foo: 5ef36e59d fix(msg)')))
 })
 
 test('正则: 普通提交 subject → 不匹配 stash', () => {
