@@ -7525,7 +7525,8 @@
       "noTasks": "この日にタスクはありません",
       "taskCount": "{count}件のタスク",
       "createTask": "新しいタスク",
-      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更"
+      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更",
+      "rescheduled": "タスクの予定を {date} に変更しました"
     },
     "analytics": {
       "title": "データ分析",
@@ -11382,6 +11383,35 @@
       "renameEmpty": "会話タイトルを入力してください",
       "exportFailed": "エクスポート失敗",
       "compressFailed": "圧縮失敗"
+    },
+    "envInfoButton": "環境情報",
+    "openTerminal": "ターミナルを開く",
+    "toggleWorkPanel": "ワークパネルの切り替え",
+    "envInfo": {
+      "ariaLabel": "環境情報",
+      "title": "環境情報",
+      "refresh": "更新",
+      "collapse": "折りたたむ",
+      "loading": "読み込み中…",
+      "noWorkspace": "ワークスペースが選択されていません。上部でローカルワークスペースをバインドしてください。",
+      "errorTitle": "環境情報の読み込みに失敗しました",
+      "notRepo": "現在のディレクトリは Git リポジトリではありません",
+      "detached": "detached HEAD",
+      "changes": "変更",
+      "noChanges": "変更なし",
+      "local": "ローカル",
+      "remote": "リモート",
+      "remoteYes": "設定済み",
+      "remoteNo": "未設定",
+      "aheadBehind": "先行/遅延",
+      "commitPush": "コミットとプッシュ",
+      "commitPlaceholder": "コミットメッセージを入力…",
+      "commitOk": "コミットに成功しました",
+      "commitFail": "コミットまたはプッシュに失敗しました",
+      "pullRequest": "プルリクエスト",
+      "prUnavailable": "プルリクエストの状態を取得できません",
+      "prNoRemote": "リモートリポジトリが設定されていません",
+      "compareBranch": "ブランチを比較"
     }
   },
   "refund": {

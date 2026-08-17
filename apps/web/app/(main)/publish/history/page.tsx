@@ -23,6 +23,14 @@ interface Target {
   error?: string | null
   durationMs?: number
 }
+interface PlatformResult {
+  platform: string
+  success: boolean
+  publishedUrl?: string | null
+  platformContentId?: string | null
+  errorMessage?: string | null
+  durationMs?: number
+}
 interface Task {
   id: number
   taskId?: string
@@ -34,6 +42,7 @@ interface Task {
   scheduledAt?: string | null
   platformCount?: number
   targets?: Target[]
+  platforms?: ReadonlyArray<PlatformResult>
   error?: string | null
 }
 interface Stats {
