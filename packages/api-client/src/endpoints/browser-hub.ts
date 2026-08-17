@@ -132,6 +132,36 @@ export async function browserHubReload(sessionId: string): Promise<ApiResult<Bro
 }
 
 /**
+ * Chrome --app 模式登录导入结果(2026-08-17 立,扫码登录"自动保存账号")。
+ * 后端通过 CDP 调试端口读取完整 Chrome 的登录 Cookie 并保存账号。
+ */
+export interface ImportChromeCookiesResult {
+  /** 是否检测到目标平台已登录(detected=true 表示 Cookie 提取成功) */
+  detected: boolean
+  /** 提取到的 Cookie 数量 */
+  cookies_count: number
+  /** 保存后返回的账号 ID(未保存时为 null) */
+  account_id: number | null
+  /** 后端错误消息(提取失败时的具体原因) */
+  error: string | null
+}
+
+/**
+ * 导入 Chrome --app 模式登录会话的 Cookie(轮询调用,检测到登录后保存账号)。
+ * @param port Chrome CDP 调试端口(startChromeLogin 返回)
+ * @param platform 平台标识(如 'xhs' / 'douyin' 等)
+ */
+export async function importChromeCookies(
+  port: number,
+  platform: string,
+): Promise<ApiResult<ImportChromeCookiesResult>> {
+  return fetchApi<ImportChromeCookiesResult>('/api/browser/import-chrome', {
+    method: 'POST',
+    body: JSON.stringify({ port, platform }),
+  })
+}
+
+/**
  * 构建 Browser Hub WebSocket URL。
  *
  * dev 模式直连 ai-service:8803(Next.js rewrites 不代理 WebSocket);
