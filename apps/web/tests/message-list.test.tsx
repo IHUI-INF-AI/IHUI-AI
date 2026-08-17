@@ -69,7 +69,15 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    setTokenProvider: vi.fn(),
+    setBaseUrl: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+  }
+})
 
 vi.mock('lucide-react', () => {
   const Icon = IconSpan
@@ -131,6 +139,7 @@ const mockChatStore = vi.hoisted(() => {
       subAgentActivities: [] as unknown[],
       conversationId: null as string | null,
       userScrolledUp: false,
+      userScrolledToTop: false,
     },
     listeners: new Set<() => void>(),
   }
@@ -152,6 +161,10 @@ vi.mock('@/stores/chat', () => {
     state.userScrolledUp = up
     notify()
   }
+  const setUserScrolledToTop = (top: boolean) => {
+    state.userScrolledToTop = top
+    notify()
+  }
   const setState = (partial: Record<string, unknown>) => {
     Object.assign(state, partial)
     notify()
@@ -168,6 +181,7 @@ vi.mock('@/stores/chat', () => {
     },
   )
   state.setUserScrolledUp = setUserScrolledUp
+  state.setUserScrolledToTop = setUserScrolledToTop
   return { useChatStore }
 })
 
@@ -323,6 +337,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
     }
     // 重置 chat store mock 状态(避免前一个测试把 userScrolledUp 置为 true 后泄漏)
     mockChatStore.state.userScrolledUp = false
+    mockChatStore.state.userScrolledToTop = false
     progressJumpStoreState.pendingJumpToMessage = null
     progressJumpStoreState.highlightedMessageId = null
     progressJumpStoreState.hoveredMessageId = null
