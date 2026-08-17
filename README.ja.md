@@ -55,7 +55,7 @@
 
 | 次元                        | 実際の値                                                                                                                                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Web フロントエンド**      | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                                             |
+| **Web フロントエンド**      | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                                             |
 | **バックエンド API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,Python ではない)                                                                                                                            |
 | **AI サービス**             | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,このレイヤーのみ Python 使用)                                                                                                                    |
 | **モノレポ**                | pnpm 9.15 workspace + Turborepo 2.3 + 13 共有パッケージ(@ihui/auth / database / types / ui など)                                                                                                                   |
@@ -346,7 +346,7 @@ IHUI-AI はいかなる単一プロジェクトを置き換えることが目的
 |                                      | Coze SDK プロキシ                          | Bot / 対話 / ワークフロー / データセット / テンプレート / 変数 / ワークスペース / OAuth                                                                                          |
 |                                      | OpenClaw                                   | オープンソース Agent フレームワーク接続 / clawdbot / openclaw-routes                                                                                                             |
 |                                      | Skills システム                            | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ ツール)                                                                     |
-| **8 プラットフォームフレームワーク** | Web                                        | Next.js 15 / 200+ ページ / PWA / SEO / ダークモード / 5 言語                                                                                                                     |
+| **8 プラットフォームフレームワーク** | Web                                        | Next.js 16 / 200+ ページ / PWA / SEO / ダークモード / 5 言語                                                                                                                     |
 |                                      | API                                        | Fastify 5 / ~1080 エンドポイント / 12 WebSocket エンドポイント / 95+ ルートファイル / OpenAPI                                                                                    |
 |                                      | AI サービス                                | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ エンドポイント / 5 provider アダプタ                                                                                             |
 |                                      | CLI                                        | Node.js / 17 コマンド / 13 内蔵ツール / 6 ソース設定インポート / ACP Server                                                                                                      |
@@ -541,7 +541,7 @@ cd IHUI-AI && docker compose up -d
 | Monorepo           | pnpm workspace + Turborepo                                                                 | pnpm 9.15 / turbo 2.3                |
 | バックエンド API   | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                     | Fastify 5.1 / Drizzle 0.38 / PG 15   |
 | キャッシュとキュー | Redis 7 + BullMQ                                                                           | 独立 worker プロセス(:8804)          |
-| フロントエンド Web | Next.js + React + Tailwind CSS + shadcn/ui                                                 | Next 15.1 / React 19 / Tailwind 4    |
+| フロントエンド Web | Next.js + React + Tailwind CSS + shadcn/ui                                                 | Next 16.2.12 / React 19 / Tailwind 4    |
 | フロントエンド状態 | @tanstack/react-query 5 + Zustand                                                          | サーバー側 + クライアント側状態分離  |
 | 国際化             | next-intl                                                                                  | zh-CN / zh-TW / en / ko / ja 5 言語  |
 | AI サービス        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                                      | FastAPI 0.115 / LangGraph 0.2        |
@@ -574,7 +574,7 @@ cd IHUI-AI && docker compose up -d
         │                        │                       │                        │
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
-   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
+   │ Next 16  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
    │ :8801    │  │ + Rust   │  │          │  │ iOS/Android │  │ WeChat MP │  │ ACP+Skl │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
@@ -600,7 +600,7 @@ cd IHUI-AI && docker compose up -d
 
 | プラットフォーム   | ディレクトリ         | 技術スタック                    | 責務                                                                                                              |
 | ------------------ | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Web**            | `apps/web/`          | Next.js 15 + React 19           | メインフロントエンド、200+ ページ、5 言語 i18n、PWA、SEO                                                          |
+| **Web**            | `apps/web/`          | Next.js 16 + React 19           | メインフロントエンド、200+ ページ、5 言語 i18n、PWA、SEO                                                          |
 | **API**            | `apps/api/`          | Fastify 5 + Drizzle             | 業務管理 + マルチベンダープロキシ + 認証 + WebSocket、~1080 エンドポイント / 95+ ルートファイル                   |
 | **AI サービス**    | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM ゲートウェイ + Agent 実行 + MCP ツール + A2A プロトコル + 14 配信 adapter、~55 エンドポイント                 |
 | **CLI**            | `apps/cli/`          | Node.js + Commander             | 自社製コマンドライン AI プログラミングアシスタント、17 コマンド + 13 ツール + ACP Server + 6 ソース設定インポート |
@@ -645,7 +645,7 @@ IHUI-AI/
 │   ├── extension/           # ブラウザ拡張 (WXT + React, Chrome/Edge/Firefox)
 │   ├── miniapp-taro/        # WeChat ミニプログラム (Taro 4 + React)
 │   ├── mobile-rn/           # モバイル (React Native + Expo EAS)
-│   └── web/                 # フロントエンド (Next.js 15 + React 19, 200+ ページ)
+│   └── web/                 # フロントエンド (Next.js 16 + React 19, 200+ ページ)
 ├── packages/                # 13 個の共有パッケージ
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自動生成 SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
