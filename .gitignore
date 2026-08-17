@@ -26,6 +26,9 @@ logs-*-restart*.txt
 # 防止 P44/P45/P46 等会话遗留 __*.txt/__*.md/__*.bat/__*.ps1 回潮
 # 根目录锚定(/__*),避免误伤 apps/**/__tests__/ 等合法测试目录
 /__*
+# check-staged-typecheck.mjs 生成的临时 tsconfig(Windows 偶发 unlink 延迟,
+# 崩溃/中断可能残留;防误入库)
+**/tsconfig.staged-typecheck.json
 
 # act 本地 CI 演练 secrets(从 .secrets.act.example 复制)
 .secrets.act

@@ -185,6 +185,13 @@ const checks = [
     mode: 'warn',
   },
   {
+    id: '11c',
+    label: '🏷️  TagsView 视觉定稿防回退(主题灰描边)',
+    script: 'check-tagsview-visual.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
     id: '12',
     label: '📋 交付报告一致性',
     script: 'check-delivery-report-consistency.mjs',
