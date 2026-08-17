@@ -267,6 +267,15 @@ export async function findMessagesForExport(id: string): Promise<ChatMessage[]> 
     .orderBy(asc(chatMessages.createdAt))
 }
 
+/** 分享页面专用：走只读副本，无数量上限 */
+export async function findMessagesForShare(id: string): Promise<ChatMessage[]> {
+  return dbRead
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, id))
+    .orderBy(asc(chatMessages.createdAt))
+}
+
 export async function saveCompressedContext(
   id: string,
   compressedContext: string,
