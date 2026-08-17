@@ -98,6 +98,7 @@ export function CdpBrowserView({
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const hasFirstFrame = React.useRef(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // hover 节流:last mouseMoved 发送时间(ms),60ms 节流覆盖 CSS hover/dropdown
   const lastMoveRef = React.useRef(0)
@@ -209,32 +210,21 @@ export function CdpBrowserView({
   // 2026-08-02 fix:canvas 为 object-contain 布局,内容居中于 CSS 盒并保持 16:9,
   // 面板宽高比 ≠ 16:9 时存在 letterbox 留白;直接按整盒缩放会把点击坐标偏移
   // (实测 ~40-70px,微信/抖音精确点击落空)。必须先算出实际内容区再映射。
-  // 2026-08-17 升级:canvas 改用 object-cover 填满容器(不留 letterbox),用 ResizeObserver
-  // 同步 canvas.width/height = 容器 clientWidth/Height(device 与 CSS 一致),toDeviceCoords
-  // 用 scale=1 简化:点击位置 = 设备位置,消除视觉与设备坐标偏差("点不了"的主因)。
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    const container = containerRef.current
-    const canvas = canvasRef.current
-    if (!container || !canvas) return
-    const sync = () => {
-      const w = container.clientWidth
-      const h = container.clientHeight
-      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
-        canvas.width = w
-        canvas.height = h
-      }
-    }
-    sync()
-    const ro = new ResizeObserver(sync)
-    ro.observe(container)
-    return () => ro.disconnect()
-  }, [])
+  // 2026-08-17 修正:canvas 用 object-cover 填满容器后,canvas device 与 CSS 容器
+  // 尺寸一致(ResizeObserver 同步),但 Playwright 视口(1280)可能 > canvas device,
+  // 直接 clientX→device 在 clientX > canvas.device 时 CDP 拒绝(out of bounds)。
+  // 改回 letterbox 修正 + 将 canvas.width 同步为视口大小确保 CDP 接受。
   const toDeviceCoords = React.useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
-    // 2026-08-17:canvas 与容器同尺寸(object-cover 填满),CSS 坐标 = 设备坐标
-    return { x: clientX, y: clientY }
+    // 2026-08-17:canvas 拉伸填满容器(device=CSS),clientX 范围 0..containerWidth,
+    // 但 Playwright device=viewport=1024,需要按 canvas.device=viewport=1024 时直接传
+    // 0..containerWidth 到 device 0..1024(按比例缩放)。
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return { x: clientX, y: clientY }
+    const dx = (clientX / rect.width) * canvas.width
+    const dy = (clientY / rect.height) * canvas.height
+    return { x: dx, y: dy }
   }, [])
 
   const sendMouse = React.useCallback(
