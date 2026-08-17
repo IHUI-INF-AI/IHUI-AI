@@ -389,7 +389,7 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
       }
       return steps
     }
-    console.debug('[PlanDebug] plan snapshot parsed but rawPlan empty or not array, rawPlan:', rawPlan)
+    console.info('[PlanDebug] plan snapshot parsed but rawPlan empty or not array, rawPlan:', rawPlan)
   }
 
   // 降级1:从 state_update 事件的 data.update 中提取 plan(兼容某些后端)
@@ -495,7 +495,7 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
         }
         return steps
       }
-      console.debug('[PlanDebug] state_update parsed but rawPlan empty, update keys:', update ? Object.keys(update as Record<string, unknown>) : 'N/A')
+      console.info('[PlanDebug] state_update parsed but rawPlan empty, update keys:', update ? Object.keys(update as Record<string, unknown>) : 'N/A')
     }
   }
 

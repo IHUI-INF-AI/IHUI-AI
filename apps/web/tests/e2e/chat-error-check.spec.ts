@@ -20,22 +20,22 @@ test('check chat page error', async ({ page }) => {
   const content = await page.content();
   const hasErrorText = content.includes('应用发生严重错误') || content.includes('严重错误');
 
-  console.log('=== PAGE CHECK RESULTS ===');
-  console.log('Has error text:', hasErrorText);
-  console.log('Page title:', await page.title());
-  console.log('Console errors count:', consoleErrors.length);
-  console.log('Page errors count:', pageErrors.length);
+  console.info('=== PAGE CHECK RESULTS ===');
+  console.info('Has error text:', hasErrorText);
+  console.info('Page title:', await page.title());
+  console.info('Console errors count:', consoleErrors.length);
+  console.info('Page errors count:', pageErrors.length);
 
   if (consoleErrors.length > 0) {
-    console.log('Console errors:', JSON.stringify(consoleErrors.slice(0, 20), null, 2));
+    console.info('Console errors:', JSON.stringify(consoleErrors.slice(0, 20), null, 2));
   }
 
   if (pageErrors.length > 0) {
-    console.log('Page errors:', JSON.stringify(pageErrors, null, 2));
+    console.info('Page errors:', JSON.stringify(pageErrors, null, 2));
   }
 
   await page.screenshot({ path: 'g:/IHUI-AI/chat_page_check.png', fullPage: true });
-  console.log('Screenshot saved to g:/IHUI-AI/chat_page_check.png');
+  console.info('Screenshot saved to g:/IHUI-AI/chat_page_check.png');
 
   expect.hasAssertions();
 });
