@@ -32,7 +32,10 @@ import { PlanStepsCard } from '../src/components/ai/progress-sections/plan-steps
 import type { PlanStep } from '../src/hooks/use-agent-progress'
 
 // ─── lucide-react mock:每个图标用独立 testid(便于断言"正确图标渲染") ──
-vi.mock('lucide-react', () => {
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为带 testid 的 span。
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const make = (name: string) => {
     const Comp = ({ className }: { className?: string }) => (
       <span data-testid={`icon-${name}`} className={className} aria-hidden />
@@ -42,6 +45,7 @@ vi.mock('lucide-react', () => {
   }
   return {
     __esModule: true,
+    ...actual,
     ListTodo: make('ListTodo'),
     Check: make('Check'),
     Clock: make('Clock'),
@@ -106,6 +110,25 @@ vi.mock('@ihui/ui-react', () => ({
     </div>
   ),
 }))
+
+// ─── @radix-ui/react-tooltip mock:为 @/components/feedback/Tooltip 提供 Provider/Portal 替身 ──
+// (PlanStepsCard 中 `<Tooltip>` from '@/components/feedback' 直接用 Radix,需 Provider 包裹才不抛 'must be used within TooltipProvider')
+vi.mock('@radix-ui/react-tooltip', () => {
+  const passthrough = ({ children }: { children: React.ReactNode }) => <>{children}</>
+  return {
+    __esModule: true,
+    Provider: passthrough,
+    Root: passthrough,
+    Trigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Content: ({ children, ...rest }: { children: React.ReactNode; side?: string }) => (
+      <div role="tooltip" data-side={rest.side ?? 'top'}>
+        {children}
+      </div>
+    ),
+    Arrow: () => null,
+  }
+})
 
 // ─── toast mock:避免实际渲染 toast 组件 ──
 vi.mock('@/components/common', () => ({
