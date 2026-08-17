@@ -12,6 +12,20 @@
 
 ---
 
+## 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api)
+
+> 起因:用户问"发布文章页面功能都好使吗"。实测发现 5 个发布页在真实浏览器登录态下数据加载大面积失败,定位并修复 3 个根因:
+
+1. **P0 rewrites 劫持 publish 路由**(apps/web/next.config.ts):原 `/api/publish/:path*` → ai-service 8803 规则(2026-07-29 立,当时 api 端无 publish 路由)把浏览器所有 publish 请求劫持到 8803。ai-service JWTAuthMiddleware 只认 Bearer、不认 auth_token cookie → 浏览器同源请求(靠 cookie)大量 401;且 analytics 端点只在 api 端(8802 publish-analytics.ts)注册,走 8803 必 404。**修复**:删除该 rewrite,让 /api/publish/* 回落 /api/:path* → 8802(api 层 cookie 认证 + 统一信封 + 完整代理)。
+2. **P0 代理不转发 cookie 凭据**(apps/api/src/routes/publish-routes.ts + publish-analytics.ts):api 层 cookie 认证通过后,proxyToAiService/fetchAiService 只转发 request.headers.authorization(浏览器场景为空)→ ai-service 收到无凭据请求 401 → 前端"请求失败"。**修复**:新增 resolveAuthHeader(),authorization header 优先、缺省从 auth_token cookie 提取 token 构造 Bearer 转发(JWT_SECRET 三端一致)。
+3. **P1 提交后进度轮询失效**(apps/web/app/(main)/publish/new/page.tsx + SubmitBar.tsx):后端 POST /tasks 返回 task_id(字符串 pub-xxx)无数字 id,前端判断 typeof resp.id === 'number' 恒 false → 提交后无进度条直接跳历史页;且轮询接口返回 platforms(带 success 布尔)非 targets(带 status)。**修复**:用 task_id 字符串轮询 GET /tasks/{task_id},读取 platforms 字段映射状态。
+
+附带修复:api 层补 `/publish/scan-login/detect-from-cdp` 代理(ai-service 有、api 层缺);日历页 handleReschedule 为纯 toast(无真实改期 API,已确认现状)。
+
+**验证**:web/api typecheck 全绿、eslint 改动文件 0 错、check-i18n-keys 通过;playwright + Edge 登录态实测 5 个发布页(history/new/accounts/calendar/analytics)API 全 200 无报错;dryRun 返回 wordpress implemented;POST /tasks 创建 scheduled 任务成功并可从列表/详情读取(测试数据已清理)。
+
+---
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:

@@ -77,7 +77,7 @@ const CodeBlockImpl = ({
       aria-label={copied ? '已复制' : '复制代码'}
       className={cn(
         'absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-md',
-        'text-muted-foreground transition-colors',
+        'bg-zinc-100/90 dark:bg-zinc-800/90 backdrop-blur-sm text-muted-foreground transition-colors',
         'hover:bg-accent hover:text-foreground',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
