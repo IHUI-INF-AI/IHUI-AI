@@ -26,6 +26,8 @@ DB 表(由 scheduler 自动建表):
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import time
@@ -353,6 +355,25 @@ async def upload_file(
 
 # ===== 账号管理 =====
 
+# 2026-08-17 修复:batch-template 静态路由必须在 /accounts/{user_id} 参数路由之前注册
+# (FastAPI 按注册顺序匹配,原定义在 account_groups.py 中后注册,被参数路由劫持 → 模板永远返回
+#  list_accounts 格式 {items:[],count:0},前端拿不到 CSV)。
+@router.get("/accounts/batch-template")
+async def batch_template() -> dict[str, Any]:
+    """返回 CSV 模板字符串(含全部平台示例行,凭证字段留空)。"""
+    from app.services.publish.base_adapter import list_all_adapter_classes
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["platform", "nickname", "credential_field1", "credential_field2", "credential_field3"])
+    for cls in list_all_adapter_classes():
+        creds = cls.requires_credentials
+        # 补齐 3 列
+        padded = (creds + ["", "", ""])[:3]
+        writer.writerow([cls.platform_id, f"{cls.platform_name}示例", *padded])
+    return _wrap_ok({"csv": buf.getvalue()})
+
+
 @router.get("/accounts/{user_id}")
 async def list_accounts(
     request: Request,
@@ -638,6 +659,28 @@ def _json_or_raw(v: Any) -> Any:
     return v
 
 
+def _serialize_targets(raw: Any) -> Any:
+    """targets 由 DB JSONB(account_id, snake_case)输出为 camelCase(accountId)。
+
+    2026-08-17 修复:前端/analytics(publish-analytics.ts)按 accountId 读取,
+    原样输出 account_id 导致 activeAccounts/账号健康度恒空、前端 fallback 拿不到账号 id。
+    仅 API 输出层转换,DB 原始 JSONB 与 scheduler 内部读取不受影响。
+    """
+    targets = _json_or_raw(raw)
+    if not isinstance(targets, list):
+        return targets
+    out: list[Any] = []
+    for t in targets:
+        if not isinstance(t, dict):
+            out.append(t)
+            continue
+        item = dict(t)
+        if "account_id" in item and "accountId" not in item:
+            item["accountId"] = item.pop("account_id")
+        out.append(item)
+    return out
+
+
 def _serialize_results_to_platforms(results: Any) -> list[dict[str, Any]]:
     """把 publish_tasks.results(JSONB,snake_case)映射为 camelCase platforms 数组。
 
@@ -715,7 +758,7 @@ async def list_tasks(
                 "finishedAt": r["finished_at"].isoformat() if r["finished_at"] else None,
                 "platformCount": r["platform_count"],
                 # asyncpg JSONB 返回字符串,统一 _json_or_raw 解析为对象
-                "targets": _json_or_raw(r["targets"]),
+                "targets": _serialize_targets(r["targets"]),
                 "platforms": _serialize_results_to_platforms(r["results"]),
                 "error": r["error"],
                 "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
@@ -777,7 +820,7 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
             "format": task["format"],
             "status": task["status"],
             "content": _json_or_raw(task["content"]),
-            "targets": _json_or_raw(task["targets"]),
+            "targets": _serialize_targets(task["targets"]),
             "results": results,
             "platforms": platforms,
             "scheduledAt": task["scheduled_at"].isoformat() if task["scheduled_at"] else None,
