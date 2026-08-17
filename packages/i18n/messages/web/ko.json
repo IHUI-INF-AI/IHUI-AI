@@ -7307,7 +7307,11 @@
       "statusExpired": "만료됨",
       "statusUnknown": "알 수 없음",
       "batchImport": "일괄 가져오기",
-      "batchVerify": "일괄 검증"
+      "batchVerify": "일괄 검증",
+      "openExternalBrowser": "외부 브라우저에서 열기",
+      "externalBrowserHint": "시스템 브라우저로 로그인(인증번호/비밀번호용); 로그인 후 사이트 쿠키를 복사해 계정 양식에 붙여넣어 저장하세요",
+      "scanWithPhoneHint": "QR코드는 휴대폰으로 스캔하세요 — 페이지 클릭 불필요; 로그인 감지 후 계정이 자동 저장됩니다",
+      "orDivider": "또는"
     },
     "cookieHealth": {
       "healthy": "정상",
@@ -12216,7 +12220,16 @@
       "thinkingChars": "자",
       "copyThinking": "사고 내용 복사",
       "thinkingElapsedTitle": "{time} 동안 사고 중",
-      "thinkingCharCountTitle": "{n}자"
+      "thinkingCharCountTitle": "{n}자",
+      "toolSummaryStreaming": "도구 호출 집계 중…",
+      "toolSummaryFilesSearched": "검색 파일",
+      "toolSummaryWebSearched": "웹 검색",
+      "toolSummaryFilesModified": "수정 파일",
+      "toolSummaryLinesAdded": "추가된 줄",
+      "toolSummaryLinesDeleted": "삭제된 줄",
+      "toolSummaryTitle": "도구 호출 요약",
+      "toolSummaryDuration": "총 소요 시간",
+      "toolSummaryTotalCalls": "총 호출"
     },
     "toolCall": {
       "statusRunning": "실행 중",
