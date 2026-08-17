@@ -7,7 +7,8 @@
  */
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -60,10 +61,11 @@ function uploadWithProgress(file: File, onProgress: (pct: number) => void): Prom
   })
 }
 
-export default function NewPublishPage() {
+function NewPublishPage() {
   const t = useTranslations('publish')
   const toast = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [accounts, setAccounts] = React.useState<Account[]>([])
   const [title, setTitle] = React.useState('')
   const [format, setFormat] = React.useState<Format>('md')
@@ -77,9 +79,25 @@ export default function NewPublishPage() {
   const [scheduleMode, setScheduleMode] = React.useState<ScheduleMode>('now')
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-  const [submittedTaskId, setSubmittedTaskId] = React.useState<number | null>(null)
+  const [submittedTaskId, setSubmittedTaskId] = React.useState<string | null>(null)
   const [tags, setTags] = React.useState<string[]>([])
   const [summary, setSummary] = React.useState('')
+
+  // 2026-08-17 修复:日历页"新建任务"跳转 /publish/new?scheduled=YYYY-MM-DDTHH:mm,
+  // 原页面不消费该参数 → 日期未预填(断链)。此处读取并初始化定时发布表单。
+  React.useEffect(() => {
+    const raw = searchParams.get('scheduled')
+    if (raw) {
+      const d = new Date(raw)
+      if (!Number.isNaN(d.getTime())) {
+        const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16)
+        setScheduledAt(local)
+        setScheduleMode('schedule')
+      }
+    }
+  }, [searchParams])
 
   React.useEffect(() => {
     void (async () => {
@@ -164,13 +182,17 @@ export default function NewPublishPage() {
         summary: summary || undefined,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
-      const resp = await api<{ id?: number }>('/api/publish/tasks', {
+      const resp = await api<{ id?: number; task_id?: string }>('/api/publish/tasks', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
       toast.success(t('new.submitSuccess'))
-      if (typeof resp.id === 'number') setSubmittedTaskId(resp.id)
+      // 2026-08-17 修复:后端 POST /tasks 返回 task_id(字符串 pub-xxx),无数字 id。
+      // 原判断 typeof resp.id === 'number' 恒不成立 → 提交后无进度轮询直接跳历史页。
+      // 优先用 task_id,兼容旧返回含数字 id 的情况。
+      const taskId = resp.task_id ?? (typeof resp.id === 'number' ? String(resp.id) : undefined)
+      if (taskId) setSubmittedTaskId(taskId)
       else router.push('/publish/history')
     } catch (e) {
       toast.error(t('new.submitFailed'), (e as Error).message)
@@ -251,5 +273,14 @@ export default function NewPublishPage() {
         submittedTaskId={submittedTaskId}
       />
     </form>
+  )
+}
+
+// A 套壳:output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹(项目惯例)
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <NewPublishPage />
+    </Suspense>
   )
 }

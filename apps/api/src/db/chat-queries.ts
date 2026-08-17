@@ -1,5 +1,5 @@
 import { eq, and, desc, asc, ilike, sql, lt, gt, isNull, inArray } from 'drizzle-orm'
-import { db } from './index.js'
+import { db, dbRead } from './index.js'
 import {
   chatConversations,
   chatMessages,
@@ -73,6 +73,7 @@ export async function findConversationsByUser(
         archivedAt: chatConversations.archivedAt,
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
+        shareToken: chatConversations.shareToken,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
@@ -575,6 +576,7 @@ export async function findFavoriteConversations(
         archivedAt: chatConversations.archivedAt,
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
+        shareToken: chatConversations.shareToken,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
@@ -596,4 +598,33 @@ export async function findFavoriteConversations(
   ])
 
   return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+export async function setConversationShareToken(
+  id: string,
+  userId: string,
+): Promise<{ conversation: ChatConversation; token: string }> {
+  const existing = await findConversationById(id)
+  if (!existing) throw new Error('对话不存在')
+  if (existing.userId !== userId) throw new Error('无权操作该对话')
+  const token = existing.shareToken ?? crypto.randomUUID().slice(0, 16)
+  const rows = await db
+    .update(chatConversations)
+    .set({ shareToken: token, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('设置分享 token 失败')
+  return { conversation: row, token }
+}
+
+export async function findConversationByShareToken(
+  token: string,
+): Promise<ChatConversation | undefined> {
+  const rows = await dbRead
+    .select()
+    .from(chatConversations)
+    .where(eq(chatConversations.shareToken, token))
+    .limit(1)
+  return rows[0]
 }

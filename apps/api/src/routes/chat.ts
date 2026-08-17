@@ -25,6 +25,8 @@ import {
   unarchiveConversation,
   findMessagesForExport,
   saveCompressedContext,
+  setConversationShareToken,
+  findConversationByShareToken,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
@@ -181,6 +183,39 @@ function serializeConversation(c: {
   return {
     id: c.id,
     userId: c.userId,
+    title: c.title,
+    model: c.model,
+    systemPrompt: c.systemPrompt,
+    metadata: c.metadata,
+    lastMessageAt: c.lastMessageAt,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    archivedAt: c.archivedAt,
+    compressedAt: c.compressedAt,
+    compressedContext: c.compressedContext,
+    ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
+    ...(c.favorite !== undefined && { favorite: c.favorite }),
+  }
+}
+
+// 公开分享用：不暴露 userId，避免隐私泄露
+function serializeConversationPublic(c: {
+  id: string
+  title: string
+  model: string
+  systemPrompt: string | null
+  metadata: unknown
+  lastMessageAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  archivedAt: Date | null
+  compressedAt: Date | null
+  compressedContext: string | null
+  messageCount?: number
+  favorite?: boolean
+}) {
+  return {
+    id: c.id,
     title: c.title,
     model: c.model,
     systemPrompt: c.systemPrompt,
@@ -801,9 +836,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理
   // 迁移自 coze_zhs_py/api/chat.py stream_generator
-  server.post(
-    '/coze/stream',
-        async (request, reply) => {
+  server.post('/coze/stream', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
@@ -899,5 +932,31 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       request.raw.removeListener('close', onClose)
       reply.raw.end()
     }
+  })
+
+  // POST /conversations/:id/share - 生成/获取分享token
+  server.post('/conversations/:id/share', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const result = await setConversationShareToken(id, userId)
+    return reply.send(success({ token: result.token }))
+  })
+
+  // GET /conversations/share/:token - 公开查看分享对话
+  server.get('/conversations/share/:token', async (request, reply) => {
+    const { token } = z.object({ token: z.string() }).parse(request.params)
+    const conversation = await findConversationByShareToken(token)
+    if (!conversation) {
+      return reply.status(404).send(error(404, '对话不存在或已删除'))
+    }
+    const { list: messages } = await findMessages(conversation.id, { page: 1, pageSize: 100 })
+    return reply.send(
+      success({ conversation: serializeConversationPublic(conversation), messages }),
+    )
   })
 }
