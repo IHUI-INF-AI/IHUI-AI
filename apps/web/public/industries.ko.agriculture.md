@@ -139,7 +139,7 @@
 ```
 
 ### IHUI AI 엔드 투 엔드 능력 (8 엔드 커버)
-- **Web** (Next.js 15 + React 19): 노방 대시보드 / 의사결정 콕핏
+- **Web** (Next.js 16 + React 19): 노방 대시보드 / 의사결정 콕핏
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 농업 데이터 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): 다중 Agent 협조
 - **데스크톱** (Tauri 2): 농업 전문가 워크스테이션 (오프라인 대응)
@@ -155,7 +155,7 @@
 - 가격 정보: 농업농촌부 정보센터 + 일무천 연동
 
 ### 기술 스택
-- 프론트엔드: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - 멀티엔드: Tauri 2 (데스크톱) / WXT (확장) / React Native (모바일) / Taro 4 (미니프로그램) / Node.js CLI

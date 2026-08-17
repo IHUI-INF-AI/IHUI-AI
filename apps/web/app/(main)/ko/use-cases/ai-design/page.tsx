@@ -171,7 +171,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 엔드 디자인 콘솔과 컴포넌트 庫' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 엔드 디자인 콘솔과 컴포넌트 庫' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 엔드 디자인 자산과 버전 관리' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '콘셉트 생성 + 스케치를 코드로 + 리뷰 엔진' },
   { name: 'MCP 도구 프로토콜', purpose: 'Figma/Sketch/即时设计/兰호/Notion 어댑터' },

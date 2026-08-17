@@ -29,7 +29,7 @@
 IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
 
 - `apps/api`(Fastify 5 + Drizzle ORM 0.38 + PostgreSQL)
-- `apps/web`(Next.js 15 + React 19 + Tailwind 4 + shadcn/ui)
+- `apps/web`(Next.js 16.2.12 + React 19 + Tailwind 4 + shadcn/ui)
 - `apps/ai-service`(FastAPI + LangGraph + LiteLLM + MCP)
 - `apps/miniapp-taro`(Taro 4 + React)
 - `apps/desktop` / `apps/extension` / `apps/mobile-rn` / `apps/cli`(各端独立)
