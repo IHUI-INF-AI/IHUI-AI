@@ -234,6 +234,10 @@ export function CdpBrowserView({
       e.preventDefault()
       const { x, y } = toDeviceCoords(e.clientX, e.clientY)
       const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left'
+      // 2026-08-17 调试:扫码登录"点不了按钮"排查 — 记录点击坐标与 WS 状态(控制台可见)
+      console.debug(
+        `[cdp-browser-view] ${eventType} client=(${Math.round(e.clientX)},${Math.round(e.clientY)}) device=(${Math.round(x)},${Math.round(y)}) ws=${wsRef.current ? 'connected' : 'NULL'}`,
+      )
       wsRef.current?.send(
         JSON.stringify({
           type: 'mouse',
