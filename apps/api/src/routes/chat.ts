@@ -803,9 +803,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理
   // 迁移自 coze_zhs_py/api/chat.py stream_generator
-  server.post(
-    '/coze/stream',
-        async (request, reply) => {
+  server.post('/coze/stream', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
@@ -923,7 +921,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!conversation) {
       return reply.status(404).send(error(404, '对话不存在或已删除'))
     }
-    const messages = await findMessages(conversation.id)
+    const { list: messages } = await findMessages(conversation.id, { page: 1, pageSize: 100 })
     return reply.send(success({ conversation: serializeConversation(conversation), messages }))
   })
 }
