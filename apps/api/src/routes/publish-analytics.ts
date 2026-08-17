@@ -60,6 +60,21 @@ interface AiServiceHistoryResponse {
   list?: AiServiceTask[]
 }
 
+/**
+ * 解析转发给 ai-service 的鉴权头。
+ * 2026-08-17 P0 修复:浏览器同源请求靠 auth_token cookie 认证(无 Authorization header),
+ * 原实现只转发 request.headers.authorization → ai-service 无凭据 → 401 → analytics 数据为空。
+ * 缺省时从 auth_token cookie 提取 token 构造 Bearer(JWT_SECRET 三端一致,可直接验签)。
+ */
+function resolveAuthHeader(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  if (cookieToken && cookieToken.length > 0) return `Bearer ${cookieToken}`
+  return undefined
+}
+
 async function fetchAiService<T>(path: string, authHeader: string | undefined): Promise<T | null> {
   const url = `${config.AI_SERVICE_URL}/api/publish${path}`
   const headers: Record<string, string> = {}

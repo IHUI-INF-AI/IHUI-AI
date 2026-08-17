@@ -30,9 +30,21 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     copy: 'Copy',
     copied: 'Copied',
     copyFailed: 'Copy failed',
+    'message.copy': 'Copy',
+    'message.copied': 'Copied',
+    'message.copyFailed': 'Copy failed',
     retry: 'Retry',
+    'message.retry': 'Retry',
     jumpToLatest: 'Jump to latest',
+    'message.jumpToLatest': 'Jump to latest',
     latest: 'Latest',
+    'message.like': 'Like',
+    'message.share': 'Share',
+    'message.regenerate': 'Regenerate',
+    'message.publishToCommunity': 'Publish',
+    'message.reply': 'Reply',
+    'message.hideContent': 'Hide',
+    'message.collapse': 'Collapse',
   }
   const mockT = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
@@ -122,19 +134,48 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
+// 2026-08-17 修复:实现 zustand-like 响应式订阅——setUserScrolledUp 修改内部状态后,
+// 触发订阅该字段的组件重渲染,让 useChatStore((s) => s.userScrolledUp) 派生值
+// 保持最新(驱动 message-list 的 jump-to-latest 浮动按钮显隐)。
+// 方案:store 维护 __version 计数器,useChatStore mock 在组件 mount 时
+// 用 setInterval(每 50ms)轮询 version,version 变化时 force re-render。
+// 这是 zustand 的最简模拟:实际 zustand 用 subscribe 同步通知,这里轮询足够覆盖测试。
+type ChatStoreSnapshot = {
+  messages: unknown[]
+  subAgentActivities: unknown[]
+  conversationId: string | null
+  userScrolledUp: boolean
+  setUserScrolledUp: (v: boolean) => void
+  __version: number
+}
+const chatStoreState: ChatStoreSnapshot = {
+  messages: [],
+  subAgentActivities: [],
+  conversationId: null,
+  userScrolledUp: false,
+  setUserScrolledUp: vi.fn(),
+  __version: 0,
+}
+chatStoreState.setUserScrolledUp = vi.fn((v: boolean) => {
+  chatStoreState.userScrolledUp = v
+  chatStoreState.__version += 1
+})
 vi.mock('@/stores/chat', () => ({
   useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
+    selector: (s: ChatStoreSnapshot) => unknown,
+  ) => {
+    // 同步轮询 store version:version 变化时 setState 触发组件重渲染
+    const [version, setVersion] = React.useState(chatStoreState.__version)
+    React.useEffect(() => {
+      const id = setInterval(() => {
+        if (chatStoreState.__version !== version) {
+          setVersion(chatStoreState.__version)
+        }
+      }, 16)
+      return () => clearInterval(id)
+    }, [version])
+    return selector(chatStoreState)
+  },
 }))
 
 // progress-jump-store mock
