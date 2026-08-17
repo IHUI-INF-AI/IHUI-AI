@@ -143,7 +143,7 @@ const CodeBlockImpl = function CodeBlock({
 
   // 复制按钮(absolute 定位在 <pre> 右上角)
   // 2026-07-31 对标 Trae/Codex/Claude Code + 与 code-generator.tsx 保持一致:
-  // 默认无背景色,hover 时显示 bg-muted,backdrop-blur-sm 确保按钮在任意代码块背景上都可读。
+  // 默认半透明背景+backdrop-blur确保按钮在任意代码块背景上可读，hover时加深背景。
   const copyButton = (
     <button
       type="button"
@@ -151,7 +151,7 @@ const CodeBlockImpl = function CodeBlock({
       data-testid="copy-button"
       className={cn(
         'absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md',
-        'text-foreground transition-colors',
+        'bg-zinc-100/90 dark:bg-zinc-800/90 backdrop-blur-sm text-foreground transition-colors',
         'hover:bg-muted',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
@@ -177,7 +177,7 @@ const CodeBlockImpl = function CodeBlock({
     <button
       type="button"
       onClick={() => setCollapsed((prev) => !prev)}
-      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-white px-2 py-1 text-xs text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-black"
+      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-zinc-100/90 dark:bg-zinc-800/90 px-2 py-1 text-xs text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={collapsed ? '展开代码' : '收起代码'}
     >
       {collapsed ? `展开 (${codeLines.length} 行)` : '收起'}

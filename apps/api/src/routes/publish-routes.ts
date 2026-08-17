@@ -528,6 +528,12 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/cancel`)
   })
 
+  // CDP 检测(2026-08-17 补):ai-service scan_login.py 已实现 /detect-from-cdp,
+  // api 代理层此前缺失 → api-client detectFromCdp 调用必 404。补透传。
+  server.post('/publish/scan-login/detect-from-cdp', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/detect-from-cdp')
+  })
+
   // ===== 账号分组管理(2026-08-01 新增)=====
 
   server.get('/publish/groups', async (request, reply) => {

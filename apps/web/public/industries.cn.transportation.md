@@ -143,7 +143,7 @@
 ---
 
 ### 智汇 AI 端到端能力(8 端覆盖)
-- **Web**(Next.js 15 + React 19):交通指挥大屏
+- **Web**(Next.js 16 + React 19):交通指挥大屏
 - **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 16):实时路况接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):多 Agent 协同
 - **桌面端**(Tauri 2):应急指挥工作站
@@ -153,7 +153,7 @@
 - **CLI**:批量数据处理 / 信号优化仿真
 
 ### 技术栈
-- 前端:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- 前端:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service:FastAPI + LangGraph + LiteLLM + MCP
 - 多端:Tauri 2 (桌面) / WXT (扩展) / React Native (移动) / Taro 4 (小程序) / Node.js CLI
