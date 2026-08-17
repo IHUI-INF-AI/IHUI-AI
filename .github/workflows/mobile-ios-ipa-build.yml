@@ -7,7 +7,7 @@ name: Build iOS IPA (TrollStore)
 #     因此 CODE_SIGNING_ALLOWED=NO 构建,无需 Apple 开发者账号/证书/付费
 #   - 兼容性:RN 0.86 deployment target = iOS 15.1;TrollStore 支持 iOS 14.0-17.0 → 15.1+ 巨魔用户可装
 # 流程(全自动):
-#   - 手动 workflow_dispatch 或推送 v* tag → macos-15 runner 构建未签名 IPA
+#   - 手动 workflow_dispatch 或推送 v* tag → macos-26 runner 构建未签名 IPA
 #   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.ipa)
 #   - 下载页 ios 详情页指向该 Release 固定地址(接入 APPSTORE_URL 或直接放 APK 同款直链)
 # 生产配置:API 指向 https://api.aizhs.top(与安卓 workflow 一致)
@@ -22,8 +22,10 @@ permissions:
 
 jobs:
   ipa:
-    # macos-15 = Xcode 16.x,满足 RN 0.86 新架构(Fabric)编译要求
-    runs-on: macos-15
+    # macos-26 = Xcode 26.6,Swift 6.2+ —— Expo SDK 57 的 ExpoModulesJSI 二进制包
+    # 要求 Swift tools 6.2.0(SwiftPM 解析报 "using Swift tools version 6.2.0 but installed is 6.1.0"),
+    # macos-15(Xcode 16/Swift 6.1)不满足 → 2026-08-17 实测 BUILD FAILED,改用 macos-26
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
