@@ -209,20 +209,32 @@ export function CdpBrowserView({
   // 2026-08-02 fix:canvas 为 object-contain 布局,内容居中于 CSS 盒并保持 16:9,
   // 面板宽高比 ≠ 16:9 时存在 letterbox 留白;直接按整盒缩放会把点击坐标偏移
   // (实测 ~40-70px,微信/抖音精确点击落空)。必须先算出实际内容区再映射。
+  // 2026-08-17 升级:canvas 改用 object-cover 填满容器(不留 letterbox),用 ResizeObserver
+  // 同步 canvas.width/height = 容器 clientWidth/Height(device 与 CSS 一致),toDeviceCoords
+  // 用 scale=1 简化:点击位置 = 设备位置,消除视觉与设备坐标偏差("点不了"的主因)。
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+    const sync = () => {
+      const w = container.clientWidth
+      const h = container.clientHeight
+      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+        canvas.width = w
+        canvas.height = h
+      }
+    }
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [])
   const toDeviceCoords = React.useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
-    const rect = canvas.getBoundingClientRect()
-    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height)
-    if (!scale || !Number.isFinite(scale)) return { x: 0, y: 0 }
-    const contentW = canvas.width * scale
-    const contentH = canvas.height * scale
-    const offsetX = rect.left + (rect.width - contentW) / 2
-    const offsetY = rect.top + (rect.height - contentH) / 2
-    return {
-      x: (clientX - offsetX) / scale,
-      y: (clientY - offsetY) / scale,
-    }
+    // 2026-08-17:canvas 与容器同尺寸(object-cover 填满),CSS 坐标 = 设备坐标
+    return { x: clientX, y: clientY }
   }, [])
 
   const sendMouse = React.useCallback(
@@ -439,10 +451,10 @@ export function CdpBrowserView({
   }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-background">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
       <canvas
         ref={canvasRef}
-        className="h-full w-full cursor-default object-contain"
+        className="h-full w-full cursor-default object-cover"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
