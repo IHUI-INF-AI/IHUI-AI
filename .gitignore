@@ -331,3 +331,9 @@ sdks/java/target/
 # 部署并发锁(2026-08-09):scripts/deploy-lock.mjs 运行时的锁目录,禁止入库
 # ============================================================================
 .deploy.lock/
+
+# RN/Expo 原生模块 CMake staging(本地打包缓存,不入库)
+.cxx-modules-staging/
+.cxx-worklets-staging/
+# APK 自托管分发(115MB 超 GitHub 100MB 限制,不入库,部署机从部署包获取)
+apps/web/public/apk/*.apk
