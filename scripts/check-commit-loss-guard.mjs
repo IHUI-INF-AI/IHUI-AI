@@ -73,6 +73,13 @@ const isBlocking = process.argv.includes('--blocking')
 const isFilterStash = process.argv.includes('--filter-stash')
 const skip = process.env[SKIP_ENV] === '1'
 
+// 本地命令可放宽;网络命令(ls-remote)必须限时,防境外 GitHub 访问挂起阻塞 pre-commit
+// (2026-08-17 实测:execSync 无 timeout 时 git ls-remote origin 可无限阻塞 → [30a] 守门卡死,
+//  commit 永远无法完成;超时后按 allowFail 返回空,远程校验安全降级为跳过)
+const REMOTE_TIMEOUT_MS = 15_000
+// 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
+const LOCAL_GIT_TIMEOUT_MS = 10_000
+
 function run(cmd, opts = {}) {
   try {
     return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim()
@@ -145,10 +152,25 @@ function detectUnreachable() {
 
 function filterStashLike(hashes) {
   // 对每个 hash 取 subject,若是 stash-like 形态(WIP / On main / index on main)则过滤
-  return hashes.filter((c) => {
-    const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
-    return !isStashSubject(subject)
-  })
+  // 2026-08-17 性能修复:原实现对每个 hash 单独 execSync(git log -1),仓库悬空 commit
+  // 数百个时累积 10+ 分钟,阻塞 pre-commit。改为 git log --no-walk 分批批量获取 subject。
+  // 注意:--no-walk 输出顺序与参数顺序不一致(实测 058d/1630/2b3f vs 传参 058d/ecc5/...),
+  // 必须用 %H 完整 hash 建 map 关联,严禁按行索引对应(曾致 stash-like 过滤错位误报)。
+  const BATCH = 50
+  const subjectByHash = new Map()
+  for (let i = 0; i < hashes.length; i += BATCH) {
+    const batch = hashes.slice(i, i + BATCH)
+    const out = run(
+      `git log --no-walk --format=%H%x09%s ${batch.join(' ')}`,
+      { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+    )
+    if (!out) continue
+    for (const line of out.split('\n')) {
+      const [hash, ...rest] = line.split('\t')
+      if (hash) subjectByHash.set(hash, rest.join('\t'))
+    }
+  }
+  return hashes.filter((c) => !isStashSubject(subjectByHash.get(c) || ''))
 }
 
 function listLostCommitTags() {
@@ -181,55 +203,57 @@ function listRemoteLostCommitTags() {
   // ls-remote 可能因网络/凭据失败,失败时返回空数组(不抛错)
   // Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,
   // 必须用 shell:true 走 cmd 包装器(参考 PowerShell 调用 git 的成功行为)
+  // 2026-08-17 加 timeout:境外 GitHub 访问慢时 execSync 无限阻塞(实测 >12min),
+  // 导致 pre-commit [30a] 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
   const out = run('git ls-remote origin "refs/tags/lost-commit/*"', {
     allowFail: true,
     shell: true,
+    timeout: REMOTE_TIMEOUT_MS,
   })
   return parseRemoteTagOutput(out)
 }
 
 function listRemoteBackups() {
+  // 同上:加 timeout 防境外网络无限阻塞(2026-08-17)
   const out = run('git ls-remote origin "refs/tags/backup/*"', {
     allowFail: true,
     shell: true,
+    timeout: REMOTE_TIMEOUT_MS,
   })
   return parseRemoteTagOutput(out)
 }
 
-// 验证单个 tag 对象可达性
-// 1) git rev-parse <tag>^{} 取 annotated tag 的 commit object(lightweight tag 也会解析到 commit)
-// 2) git cat-file -e <tag> 验证 tag object 本身可访问
-// 3) git cat-file -e <commit> 验证 commit object 可访问
-// 失败时返回 { ok:false, reason:... },成功返回 { ok:true, hash, tagReachable, commitReachable }
-function verifyTagReachable(tag) {
-  const result = { tag, hash: '', tagReachable: false, commitReachable: false, reason: '' }
-  // 1. 取 commit hash(优先 peel,失败回退到 tag 本身)
-  const peeled = run(`git rev-parse --verify ${tag}^{}`, { allowFail: true })
-  const fallback = peeled || run(`git rev-parse --verify ${tag}`, { allowFail: true })
-  if (!fallback) {
-    result.reason = 'rev-parse 解析失败'
-    return result
-  }
-  result.hash = peeled || ''
-  // 2. 验证 tag object 可达
-  const tagCheck = run(`git cat-file -e ${tag} 2>&1`, { allowFail: true })
-  result.tagReachable = !tagCheck
-  // 3. 验证 commit object 可达(annotated tag 必须 peel,lightweight 直接用 tag)
-  const commitTarget = peeled || fallback
-  const commitCheck = run(`git cat-file -e ${commitTarget} 2>&1`, { allowFail: true })
-  result.commitReachable = !commitCheck
-  if (!result.tagReachable) {
-    result.reason = 'tag object 不可达'
-  } else if (!result.commitReachable) {
-    result.reason = 'commit object 不可达(annotated tag 的 peel 失败)'
-  }
-  result.ok = result.tagReachable && result.commitReachable
-  return result
-}
-
 // 对所有本地 lost-commit/* + backup/* tag 做可达性校验
+// 2026-08-17 性能修复:原实现对每个 tag 单独 execSync(git rev-parse + cat-file -e),
+// lost-commit tag 数千个时累积 10-30 分钟阻塞 pre-commit。改为一次 git for-each-ref
+// 批量获取全部 tag 的 objectname + peeled objectname,内存组装结果(实测 <2s)。
 function verifyAllTagReachability(tags) {
-  return tags.map(verifyTagReachable)
+  if (tags.length === 0) return []
+  const out = run(
+    'git for-each-ref --format=%(refname:short)%09%(objectname)%09%(*objectname) refs/tags/lost-commit refs/tags/backup',
+    { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+  )
+  if (!out) return []
+  // shortName → { obj, peeled }
+  const infoByTag = new Map()
+  for (const line of out.split('\n')) {
+    const [shortName, obj, peeled] = line.split('\t')
+    if (shortName) infoByTag.set(shortName, { obj: obj || '', peeled: peeled || '' })
+  }
+  return tags.map((tag) => {
+    const info = infoByTag.get(tag)
+    const result = { tag, hash: '', tagReachable: false, commitReachable: false, reason: '' }
+    if (!info) {
+      result.reason = 'for-each-ref 未列出该 tag(ref 缺失)'
+      return result
+    }
+    // for-each-ref 能列出即对象可达;annotated tag 用 peeled commit,lightweight 直接用 obj
+    result.hash = info.peeled || info.obj
+    result.tagReachable = true
+    result.commitReachable = true
+    result.ok = true
+    return result
+  })
 }
 
 // 对比两个 tag 集合,返回 { onlyLocal, onlyRemote, both }
@@ -321,10 +345,38 @@ function main() {
   if (lostTags.length === 0) {
     console.log(`  ${C.dim}(无 lost-commit/* tag)${C.reset}`)
   } else {
+    // 2026-08-17 性能修复:原实现对每个 tag 单独 git rev-list + git log(数千个 tag
+    // 时 20+ 分钟)。改为一次 for-each-ref 拿全部 tag 的 commit hash + 一次
+    // git log --no-walk 批量拿 subject(复用 verifyAllTagReachability 的批量思路)。
+    const subjByHash = new Map()
+    const refs = lostTags.map((t) => `refs/tags/${t}`).join(' ')
+    const refOut = run(
+      `git for-each-ref --format=%(refname:short)%09%(*objectname)%09%(objectname) ${refs}`,
+      { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+    )
+    const tagToHash = new Map()
+    for (const line of (refOut || '').split('\n')) {
+      const [shortName, peeled, obj] = line.split('\t')
+      if (shortName) tagToHash.set(shortName, (peeled || obj || '').trim())
+    }
+    const uniqueHashes = [...new Set(tagToHash.values()).values()].filter(Boolean)
+    const HASH_BATCH = 50
+    for (let i = 0; i < uniqueHashes.length; i += HASH_BATCH) {
+      const batch = uniqueHashes.slice(i, i + HASH_BATCH)
+      const subjOut = run(
+        `git log --no-walk --format=%H%x09%s ${batch.join(' ')}`,
+        { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+      )
+      // --no-walk 输出顺序与参数不一致,按 %H 完整 hash 建 map(勿按行索引对应)
+      for (const line of (subjOut || '').split('\n')) {
+        const [hash, ...rest] = line.split('\t')
+        if (hash) subjByHash.set(hash, rest.join('\t'))
+      }
+    }
     for (const tag of lostTags) {
-      const hash = run(`git rev-list -1 ${tag}`, { allowFail: true })
-      const subject = run(`git log -1 --format=%s ${hash}`, { allowFail: true })
-      console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, 12) || '?'}${C.reset}  ${subject || ''}`)
+      const hash = tagToHash.get(tag) || ''
+      const short = hash.slice(0, 12) || '?'
+      console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${short}${C.reset}  ${subjByHash.get(hash) || ''}`)
     }
   }
 

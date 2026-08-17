@@ -124,7 +124,7 @@ open http://localhost:8801
           <div className="rounded-lg border bg-background p-4 text-sm">
             <p className="font-semibold">服务端口</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
-              <li><code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 15)</li>
+              <li><code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 16)</li>
               <li><code className="rounded bg-muted px-1">3001</code> — API 后端(Fastify 5)</li>
               <li><code className="rounded bg-muted px-1">8000</code> — AI Service(FastAPI)</li>
               <li><code className="rounded bg-muted px-1">5432</code> — PostgreSQL 16</li>
