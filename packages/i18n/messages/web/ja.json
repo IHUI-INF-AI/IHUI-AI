@@ -166,7 +166,15 @@
     "deleteSuccess": "しました",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン"
+    "colToken": "トークン",
+    "backHome": "ホームに戻る",
+    "cancelTime": "キャンセル時間",
+    "comingSoon": "近日公開",
+    "exportSuccess": "エクスポートしました",
+    "notFoundTitle": "ページが見つかりません",
+    "payTime": "支払い時間",
+    "reasonRequired": "理由を入力してください",
+    "searchHistory": "検索履歴"
   },
   "taskReceiver": {
     "title": "タスク受信",
@@ -955,7 +963,8 @@
       "publishToCommunity": "コミュニティに投稿",
       "edit": "編集",
       "reply": "返信",
-      "delete": "削除"
+      "delete": "削除",
+      "jumpToLatest": "最新へ"
     },
     "plan": {
       "title": "実行プラン",
@@ -6990,7 +6999,9 @@
       "error": "のにしました",
       "subtitle": "をしてよりくのを",
       "approvedTitle": "み",
-      "rejectedTitle": "認証不合格"
+      "rejectedTitle": "認証不合格",
+      "pendingTitle": "審査中",
+      "title": "実名認証"
     },
     "subscription": {
       "autoRenewOn": "あり",
@@ -7525,7 +7536,8 @@
       "noTasks": "この日にタスクはありません",
       "taskCount": "{count}件のタスク",
       "createTask": "新しいタスク",
-      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更"
+      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更",
+      "rescheduled": "タスクの予定を {date} に変更しました"
     },
     "analytics": {
       "title": "データ分析",
@@ -7927,7 +7939,16 @@
     "connectedAccountsBoundAt": "バインド",
     "connectedAccountsUnbindSuccess": "をしました",
     "connectedAccountsUnbindFail": "にしました",
-    "connectedAccountsLoading": "みみ..."
+    "connectedAccountsLoading": "みみ...",
+    "accountDeletionCodeSendFailed": "認証コードの送信に失敗しました",
+    "accountDeletionCodeSent": "認証コードを送信しました",
+    "accountDeletionFailed": "アカウント削除に失敗しました。もう一度お試しください",
+    "connectedAccountsPlatform": "プラットフォームアカウント",
+    "exportExpiresAt": "有効期限",
+    "langZh": "中文",
+    "marketingEmail": "マーケティングメール",
+    "notificationsSaveFailed": "保存に失敗しました",
+    "privacySaveFailed": "保存に失敗しました"
   },
   "favorites": {
     "title": "おにり",
@@ -10344,7 +10365,9 @@
     "categoryTech": "技術 & 開発",
     "categoryPricing": "価格 & 課金",
     "categoryDeploy": "展開 & 運用",
-    "categoryPrivacy": "データ & セキュリティ"
+    "categoryPrivacy": "データ & セキュリティ",
+    "categoryGeneral": "プラットフォーム",
+    "heroTitle": "よくある質問"
   },
   "articles": {
     "title": "記事",
@@ -10977,17 +11000,17 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": ["チャット", "会話", "AI", "chat"]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": ["ドラマ", "ビデオ", "AI", "drama"]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search"]
+        "keywords": ["検索", "search", "search"]
       },
       "ai-world": {
         "label": "AI ワールド",
@@ -11382,6 +11405,35 @@
       "renameEmpty": "会話タイトルを入力してください",
       "exportFailed": "エクスポート失敗",
       "compressFailed": "圧縮失敗"
+    },
+    "envInfoButton": "環境情報",
+    "openTerminal": "ターミナルを開く",
+    "toggleWorkPanel": "ワークパネルの切り替え",
+    "envInfo": {
+      "ariaLabel": "環境情報",
+      "title": "環境情報",
+      "refresh": "更新",
+      "collapse": "折りたたむ",
+      "loading": "読み込み中…",
+      "noWorkspace": "ワークスペースが選択されていません。上部でローカルワークスペースをバインドしてください。",
+      "errorTitle": "環境情報の読み込みに失敗しました",
+      "notRepo": "現在のディレクトリは Git リポジトリではありません",
+      "detached": "detached HEAD",
+      "changes": "変更",
+      "noChanges": "変更なし",
+      "local": "ローカル",
+      "remote": "リモート",
+      "remoteYes": "設定済み",
+      "remoteNo": "未設定",
+      "aheadBehind": "先行/遅延",
+      "commitPush": "コミットとプッシュ",
+      "commitPlaceholder": "コミットメッセージを入力…",
+      "commitOk": "コミットに成功しました",
+      "commitFail": "コミットまたはプッシュに失敗しました",
+      "pullRequest": "プルリクエスト",
+      "prUnavailable": "プルリクエストの状態を取得できません",
+      "prNoRemote": "リモートリポジトリが設定されていません",
+      "compareBranch": "ブランチを比較"
     }
   },
   "refund": {
@@ -16709,7 +16761,10 @@
     "viewCount": "{count}",
     "prev": "へ",
     "next": "へ",
-    "notFound": "つかりません"
+    "notFound": "つかりません",
+    "contactSupport": "カスタマーサポートに連絡",
+    "related": "関連記事",
+    "toc": "目次"
   },
   "searchHistory": {
     "title": "APIテスト",
@@ -16741,7 +16796,8 @@
   },
   "forbidden": {
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
-    "backToHome": "ホームへ戻る"
+    "backToHome": "ホームへ戻る",
+    "title": "アクセス権限がありません"
   },
   "parentPortal": {
     "dashboard": {

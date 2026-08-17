@@ -81,7 +81,7 @@ app.post<{ Body: CreateAgentInput }>('/api/agents', {
 })
 ```
 
-### Web 层(Next.js 15 + React 19)
+### Web 层(Next.js 16 + React 19)
 
 `apps/web` App Router + next-intl 5 语言 + Tailwind 4 + shadcn/ui。Sidebar 折叠、TagsView、AI 对话面板、流式 SSE 输出都做了。
 
@@ -161,7 +161,7 @@ pnpm dev
 
 ## 踩坑分享(精选 5 个)
 
-### 坑 1:Next.js 15 `output: 'export'` 与 middleware 冲突
+### 坑 1:Next.js 16 `output: 'export'` 与 middleware 冲突
 
 需求:桌面端用 Tauri WebView 加载,要求纯静态文件。设置 `output: 'export'` 后 middleware 不工作(Next.js 官方限制),所有 `/admin/*` 路由保护失效。
 
@@ -224,7 +224,7 @@ SegmentFault 的朋友们好,今天分享一个 Apache 2.0 开源项目 **IHUI-A
 
 ```
 apps/
-  web/              # Next.js 15 + React 19 (主站)
+  web/              # Next.js 16 + React 19 (主站)
   api/              # Fastify 5 + Drizzle ORM (后端)
   ai-service/       # FastAPI + LangGraph + LiteLLM (AI 编排)
   cli/              # Node + Commander (命令行)
@@ -372,7 +372,7 @@ button 内"图标 + 中文"垂直对齐偏差 ≤ 0.15px,超过就阻塞。这�
 ## 性能数据
 
 - API 路由平均 P99 < 80ms(本地 benchmark)
-- Web 首屏 LCP < 1.2s(4G 网络,Next.js 15 RSC)
+- Web 首屏 LCP < 1.2s(4G 网络,Next.js 16 RSC)
 - AI 流式输出首 token < 400ms(Claude 3.5 Sonnet)
 - 数据库连接池 32,Drizzle prepared statement 缓存命中率 92%
 - 176 模型路由平均匹配时间 < 5ms
@@ -509,7 +509,7 @@ pnpm dev
 │                    IHUI-AI 8 端同源架构                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│   Web(Next.js 15) ─┐                                       │
+│   Web(Next.js 16) ─┐                                       │
 │   Desktop(Tauri 2) ─┤                                       │
 │   Mobile(RN+Expo) ──┼──→ API(Fastify 5) ──→ PostgreSQL     │
 │   Miniapp(Taro 4) ──┤            │           Redis          │
@@ -648,7 +648,7 @@ React DOM / React Native / Taro 的渲染层差异由 React Native Web 抹平,�
 
 ## 踩过的坑(精选 5 个)
 
-### 坑 1:Next.js 15 `output: 'export'` 与 middleware 的爱恨情仇
+### 坑 1:Next.js 16 `output: 'export'` 与 middleware 的爱恨情仇
 
 桌面端用 Tauri WebView 加载静态文件,需要 `output: 'export'`。但 Next.js 官方说 `output: 'export'` 不支持 middleware。
 
