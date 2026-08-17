@@ -265,8 +265,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
-      return reply.status(statusCode).send(error(statusCode, message))
+      // 统一返回中文消息:authenticate() 内部大部分已是中文(封禁/注销/CSRF),
+      // 仅 Authentication required / Invalid or expired token / Challenge token 是英文,
+      // 统一兜底为"操作失败,请稍后重试",避免英文错误消息到达前端用户。
+      return reply.status(statusCode).send(error(statusCode, '操作失败,请稍后重试'))
     }
   }
 
