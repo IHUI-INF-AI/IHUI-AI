@@ -10,9 +10,11 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
-import { Card, CardContent } from '@ihui/ui-react'
+import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { fetchApi } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 import { PLATFORM_KEY } from '../helpers'
 import { TaskProgressBar } from '@/components/publish/TaskProgressBar'
 
@@ -38,6 +40,7 @@ interface PlatformResult {
 export interface TaskCardProps {
   readonly task: {
     readonly id: number
+    readonly taskId?: string
     readonly title: string
     readonly status: string
     readonly createdAt?: string
@@ -49,6 +52,8 @@ export interface TaskCardProps {
   }
   readonly expanded: boolean
   readonly onToggle: (id: number) => void
+  /** 取消/重试等操作成功后回调(父级用它刷新列表) */
+  readonly onChanged?: () => void
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -85,8 +90,10 @@ function fmtDuration(ms?: number): string {
   return `${(ms / 60000).toFixed(1)}min`
 }
 
-export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
+export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
+  const toast = useToast()
+  const [acting, setActing] = React.useState<'cancel' | 'retry' | null>(null)
   const statusKey = task.status in STATUS_STYLE ? task.status : 'pending'
   const targets = task.targets ?? []
   const platforms = task.platforms ?? []
@@ -100,6 +107,28 @@ export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
     : targets.filter((tg) => tg.status === 'failed').length
   const total = usePlatforms ? platforms.length : targets.length
   const running = task.status === 'running' || task.status === 'pending'
+  const canCancel = task.status === 'running' || task.status === 'pending'
+  const canRetry = task.status === 'failed' || task.status === 'partial'
+
+  async function handleAction(action: 'cancel' | 'retry') {
+    if (!task.taskId) return
+    setActing(action)
+    try {
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/${action}`, {
+        method: 'POST',
+      })
+      if (!r.success) {
+        toast.error(r.error || (action === 'cancel' ? t('history.cancel') : t('history.retry')))
+        return
+      }
+      toast.success(action === 'cancel' ? t('history.cancel') : t('history.retry'))
+      onChanged?.()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setActing(null)
+    }
+  }
 
   return (
     <Card>
@@ -230,6 +259,40 @@ export function TaskCard({ task, expanded, onToggle }: TaskCardProps) {
               <pre className="thin-scroll max-h-32 overflow-auto rounded bg-rose-50 p-2 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
                 {task.error}
               </pre>
+            )}
+            {(canCancel || canRetry) && (
+              <div className="flex items-center gap-2 pt-1">
+                {canCancel && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={() => void handleAction('cancel')}
+                  >
+                    {acting === 'cancel' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 opacity-0" />
+                    )}
+                    {t('history.cancel')}
+                  </Button>
+                )}
+                {canRetry && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={() => void handleAction('retry')}
+                  >
+                    {acting === 'retry' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 opacity-0" />
+                    )}
+                    {t('history.retry')}
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}
