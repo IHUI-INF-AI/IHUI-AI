@@ -43,9 +43,27 @@ jobs:
           EXPO_PUBLIC_WEB_URL: https://aizhs.top
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Patch react-native-wechat-lib podspec (RN 0.86 removed RCT-Folly)
+        # RN 0.80+ 移除 RCT-Folly pod,但 react-native-wechat-lib@3.0.7 仍依赖它 →
+        # pod install 报 "Unable to find a specification for RCT-Folly"。
+        # 微信支付/登录功能真实使用该库,不能移除;仅删 podspec 中过时的 RCT-Folly 依赖行
+        # (iOS 编译不需要 Folly;Android 侧同样已在本机构建验证)。
+        working-directory: apps/mobile-rn
+        run: |
+          PODSPEC=node_modules/react-native-wechat-lib/react-native-wechat-lib.podspec
+          if [ -f "$PODSPEC" ]; then
+            grep -n 'RCT-Folly' "$PODSPEC" || echo "(无 RCT-Folly 依赖,跳过)"
+            sed -i '' '/RCT-Folly/d' "$PODSPEC"
+            echo "--- patched ---"
+            grep -n 'RCT-Folly' "$PODSPEC" || echo "✅ RCT-Folly 依赖已移除"
+          else
+            echo "⚠️ 未找到 podspec: $PODSPEC"
+            find node_modules/react-native-wechat-lib -name "*.podspec" | head -3
+          fi
+
       - name: Install CocoaPods
         working-directory: apps/mobile-rn/ios
-        run: pod install
+        run: pod install --repo-update
 
       - name: List Xcode schemes
         working-directory: apps/mobile-rn/ios
