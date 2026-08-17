@@ -15,7 +15,6 @@ import {
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
-import { Tooltip } from '@/components/feedback'
 
 interface AgentRuntimePanelProps {
   className?: string

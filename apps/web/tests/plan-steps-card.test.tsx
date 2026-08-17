@@ -31,8 +31,8 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { PlanStepsCard } from '../src/components/ai/progress-sections/plan-steps-card'
 import type { PlanStep } from '../src/hooks/use-agent-progress'
 
-// ─── lucide-react mock:每个图标用独立 testid(便于断言"正确图标渲染") ──
-vi.mock('lucide-react', () => {
+// ─── lucide-react mock:importOriginal 模式 + 用独立 testid 的 IconSpan 包装 ──
+const { IconSpan } = vi.hoisted(() => {
   const make = (name: string) => {
     const Comp = ({ className }: { className?: string }) => (
       <span data-testid={`icon-${name}`} className={className} aria-hidden />
@@ -40,17 +40,26 @@ vi.mock('lucide-react', () => {
     Comp.displayName = name
     return Comp
   }
-  return {
-    __esModule: true,
-    ListTodo: make('ListTodo'),
-    Check: make('Check'),
-    Clock: make('Clock'),
-    Loader2: make('Loader2'),
-    ChevronRight: make('ChevronRight'),
-    ChevronDown: make('ChevronDown'),
-    AlertCircle: make('AlertCircle'),
-    Copy: make('Copy'),
+  return { IconSpan: make('Default') }
+})
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  const mocked: Record<string, unknown> = { __esModule: true }
+  for (const key of Object.keys(actual)) {
+    const value = actual[key]
+    if (typeof value === 'function' || (typeof value === 'object' && value !== null)) {
+      // 用 name key 生成独立 testid 的占位组件,缺省 Default 容错
+      const make = (name: string) => {
+        const Comp = ({ className }: { className?: string }) => (
+          <span data-testid={`icon-${name}`} className={className} aria-hidden />
+        )
+        Comp.displayName = name
+        return Comp
+      }
+      mocked[key] = make(key)
+    }
   }
+  return mocked
 })
 
 // ─── next-intl mock:useTranslations 返回 t 函数,支持 key 查表 + 参数插值 ──
@@ -105,6 +114,16 @@ vi.mock('@ihui/ui-react', () => ({
       {children}
     </div>
   ),
+}))
+
+// ─── @radix-ui/react-tooltip mock:@/components/feedback/Tooltip 用的 Radix 原语 ───
+vi.mock('@radix-ui/react-tooltip', () => ({
+  Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactElement }) => <>{children}</>,
+  Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Arrow: () => null,
 }))
 
 // ─── toast mock:避免实际渲染 toast 组件 ──
