@@ -954,7 +954,8 @@
       "edit": "Edit",
       "reply": "Reply",
       "delete": "Delete",
-      "jumpToLatest": "Jump to latest"
+      "jumpToLatest": "Jump to latest",
+      "shareLinkCopied": "Content and link copied"
     },
     "plan": {
       "title": "Execution Plan",
