@@ -164,7 +164,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端文獻檢索/閱讀/寫作工作台' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端文獻檢索/閱讀/寫作工作台' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端文獻元資料管理與權限控管' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: 'PDF 解析 + 綜述生成 + 知識圖譜抽取' },
   { name: 'MCP 工具協定', purpose: '對接 arXiv/PubMed/知網/萬方等資料源適配器' },
