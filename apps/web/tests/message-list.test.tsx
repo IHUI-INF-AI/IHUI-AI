@@ -122,19 +122,42 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
+// 用 zustand-like 模式:内部维护可变 state + setUserScrolledUp 触发订阅者重渲染
+type ChatStoreState = {
+  messages: unknown[]
+  subAgentActivities: unknown[]
+  conversationId: string | null
+  userScrolledUp: boolean
+  setUserScrolledUp: (up: boolean) => void
+}
+const chatStoreState: ChatStoreState = {
+  messages: [],
+  subAgentActivities: [],
+  conversationId: null,
+  userScrolledUp: false,
+  setUserScrolledUp: vi.fn(),
+}
+// 订阅者列表:state 变更时强制所有 selector 重渲染(模拟 zustand 订阅行为)
+const chatStoreListeners = new Set<() => void>()
+const subscribeChatStore = (listener: () => void) => {
+  chatStoreListeners.add(listener)
+  return () => chatStoreListeners.delete(listener)
+}
+const notifyChatStore = () => {
+  for (const l of chatStoreListeners) l()
+}
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
+  useChatStore: Object.assign(
+    (selector: (s: ChatStoreState) => unknown) => selector(chatStoreState),
+    {
+      getState: () => chatStoreState,
+      setState: (partial: Partial<ChatStoreState>) => {
+        Object.assign(chatStoreState, partial)
+        notifyChatStore()
+      },
+      subscribe: subscribeChatStore,
+    },
+  ),
 }))
 
 // progress-jump-store mock
