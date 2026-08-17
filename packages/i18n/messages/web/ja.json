@@ -166,7 +166,15 @@
     "deleteSuccess": "しました",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン"
+    "colToken": "トークン",
+    "backHome": "ホームに戻る",
+    "cancelTime": "キャンセル時間",
+    "comingSoon": "近日公開",
+    "exportSuccess": "エクスポートしました",
+    "notFoundTitle": "ページが見つかりません",
+    "payTime": "支払い時間",
+    "reasonRequired": "理由を入力してください",
+    "searchHistory": "検索履歴"
   },
   "taskReceiver": {
     "title": "タスク受信",
@@ -955,7 +963,8 @@
       "publishToCommunity": "コミュニティに投稿",
       "edit": "編集",
       "reply": "返信",
-      "delete": "削除"
+      "delete": "削除",
+      "jumpToLatest": "最新へ"
     },
     "plan": {
       "title": "実行プラン",
@@ -6990,7 +6999,9 @@
       "error": "のにしました",
       "subtitle": "をしてよりくのを",
       "approvedTitle": "み",
-      "rejectedTitle": "認証不合格"
+      "rejectedTitle": "認証不合格",
+      "pendingTitle": "審査中",
+      "title": "実名認証"
     },
     "subscription": {
       "autoRenewOn": "あり",
@@ -7525,7 +7536,9 @@
       "noTasks": "この日にタスクはありません",
       "taskCount": "{count}件のタスク",
       "createTask": "新しいタスク",
-      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更"
+      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更",
+      "rescheduled": "タスクの予定を {date} に変更しました",
+      "rescheduleFailed": "予定変更に失敗しました"
     },
     "analytics": {
       "title": "データ分析",
@@ -7927,7 +7940,16 @@
     "connectedAccountsBoundAt": "バインド",
     "connectedAccountsUnbindSuccess": "をしました",
     "connectedAccountsUnbindFail": "にしました",
-    "connectedAccountsLoading": "みみ..."
+    "connectedAccountsLoading": "みみ...",
+    "accountDeletionCodeSendFailed": "認証コードの送信に失敗しました",
+    "accountDeletionCodeSent": "認証コードを送信しました",
+    "accountDeletionFailed": "アカウント削除に失敗しました。もう一度お試しください",
+    "connectedAccountsPlatform": "プラットフォームアカウント",
+    "exportExpiresAt": "有効期限",
+    "marketingEmail": "マーケティングメール",
+    "notificationsSaveFailed": "保存に失敗しました",
+    "privacySaveFailed": "保存に失敗しました",
+    "langZh": "中国語"
   },
   "favorites": {
     "title": "おにり",
@@ -10344,7 +10366,9 @@
     "categoryTech": "技術 & 開発",
     "categoryPricing": "価格 & 課金",
     "categoryDeploy": "展開 & 運用",
-    "categoryPrivacy": "データ & セキュリティ"
+    "categoryPrivacy": "データ & セキュリティ",
+    "categoryGeneral": "プラットフォーム",
+    "heroTitle": "よくある質問"
   },
   "articles": {
     "title": "記事",
@@ -10977,32 +11001,58 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search"]
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -11382,6 +11432,46 @@
       "renameEmpty": "会話タイトルを入力してください",
       "exportFailed": "エクスポート失敗",
       "compressFailed": "圧縮失敗"
+    },
+    "envInfoButton": "環境情報",
+    "openTerminal": "ターミナルを開く",
+    "toggleWorkPanel": "ワークパネルの切り替え",
+    "envInfo": {
+      "ariaLabel": "環境情報",
+      "title": "環境情報",
+      "refresh": "更新",
+      "collapse": "折りたたむ",
+      "loading": "読み込み中…",
+      "noWorkspace": "ワークスペースが選択されていません。上部でローカルワークスペースをバインドしてください。",
+      "errorTitle": "環境情報の読み込みに失敗しました",
+      "notRepo": "現在のディレクトリは Git リポジトリではありません",
+      "detached": "detached HEAD",
+      "changes": "変更",
+      "noChanges": "変更なし",
+      "local": "ローカル",
+      "remote": "リモート",
+      "remoteYes": "設定済み",
+      "remoteNo": "未設定",
+      "aheadBehind": "先行/遅延",
+      "commitPush": "コミットとプッシュ",
+      "commitPlaceholder": "コミットメッセージを入力…",
+      "commitOk": "コミットに成功しました",
+      "commitFail": "コミットまたはプッシュに失敗しました",
+      "pullRequest": "プルリクエスト",
+      "prUnavailable": "プルリクエストの状態を取得できません",
+      "prNoRemote": "リモートリポジトリが設定されていません",
+      "compareBranch": "ブランチを比較",
+      "noCommit": "コミットなし",
+      "retry": "再試行",
+      "pushOk": "プッシュ成功",
+      "pushFail": "プッシュ失敗",
+      "commitNoRemote": "リモート未設定、ローカルコミットのみ"
+    },
+    "terminalDock": {
+      "title": "PowerShell ターミナル",
+      "newSession": "新規ターミナル",
+      "collapse": "折りたたむ",
+      "resize": "高さ調整"
     }
   },
   "refund": {
@@ -11424,19 +11514,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -11557,25 +11659,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -13261,7 +13375,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -13405,8 +13527,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -16709,7 +16841,10 @@
     "viewCount": "{count}",
     "prev": "へ",
     "next": "へ",
-    "notFound": "つかりません"
+    "notFound": "つかりません",
+    "contactSupport": "カスタマーサポートに連絡",
+    "related": "関連記事",
+    "toc": "目次"
   },
   "searchHistory": {
     "title": "APIテスト",
@@ -16741,7 +16876,8 @@
   },
   "forbidden": {
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
-    "backToHome": "ホームへ戻る"
+    "backToHome": "ホームへ戻る",
+    "title": "アクセス権限がありません"
   },
   "parentPortal": {
     "dashboard": {

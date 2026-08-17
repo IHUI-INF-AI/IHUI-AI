@@ -163,7 +163,15 @@
     "total": "총",
     "loadFailed": "로딩 실패",
     "deleteSuccess": "삭제 성공",
-    "colToken": "토큰"
+    "colToken": "토큰",
+    "actions": "작업",
+    "backHome": "홈으로 돌아가기",
+    "batchDelete": "일괄 삭제",
+    "comingSoon": "곧 공개 예정",
+    "noData": "데이터 없음",
+    "payTime": "결제 시간",
+    "searchHistory": "검색 기록",
+    "viewDetail": "상세 보기"
   },
   "taskReceiver": {
     "title": "작업 수신기",
@@ -952,7 +960,8 @@
       "publishToCommunity": "커뮤니티에 게시",
       "edit": "편집",
       "reply": "답글",
-      "delete": "삭제"
+      "delete": "삭제",
+      "jumpToLatest": "최신으로 이동"
     },
     "plan": {
       "title": "실행 계획",
@@ -1609,7 +1618,13 @@
         "name": "기업판",
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"]
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ]
       }
     },
     "checkout": {
@@ -6890,7 +6905,8 @@
       "emailPlaceholder": "이메일을 입력하세요",
       "bio": "자기소개",
       "bioPlaceholder": "자기소개를 해주세요",
-      "saving": "저장중간"
+      "saving": "저장중간",
+      "avatarHint": "JPG / PNG, 200x200 권장"
     },
     "security": {
       "password": "수정변경비밀번호",
@@ -6941,7 +6957,8 @@
       "title": "알림",
       "unreadCount": "{count}개 안 읽음",
       "allRead": "모두 읽음으로 표시",
-      "noData": "없음알림"
+      "noData": "없음알림",
+      "markAllRead": "모두 읽음으로 표시"
     },
     "public": {
       "follow": "팔로우",
@@ -6978,7 +6995,11 @@
       "rejectedReason": "거절 사유",
       "success": "인증 제출 성공",
       "error": "인증 제출 실패",
-      "rejectedTitle": "인증 거절됨"
+      "rejectedTitle": "인증 거절됨",
+      "approvedTitle": "인증 완료",
+      "pendingTitle": "심사 중",
+      "subtitle": "더 많은 기능을 이용하려면 실명 인증을 완료하세요",
+      "title": "실명 인증"
     },
     "subscription": {
       "autoRenewOn": "활성화됨",
@@ -7005,7 +7026,10 @@
       "manage": "관리",
       "autoRenewClosed": "자동 갱신 미활성화",
       "openAutoRenew": "자동 갱신 활성화",
-      "notSubscribed": "VIP 미구독"
+      "notSubscribed": "VIP 미구독",
+      "autoRenew": "자동 갱신",
+      "current": "현재 요금제",
+      "expireTime": "만료 시간"
     },
     "articles": {
       "title": "내 글",
@@ -7507,7 +7531,9 @@
       "noTasks": "이 날에 작업이 없습니다",
       "taskCount": "{count}개 작업",
       "createTask": "새 작업",
-      "dragHint": "작업을 다른 날짜로 드래그하여 일정 변경"
+      "dragHint": "작업을 다른 날짜로 드래그하여 일정 변경",
+      "rescheduled": "작업 일정이 {date}(으)로 변경되었습니다",
+      "rescheduleFailed": "일정 변경 실패"
     },
     "analytics": {
       "title": "데이터 분석",
@@ -7895,7 +7921,31 @@
     "connectedAccountsUnbound": "연결되지 않음",
     "connectedAccountsBoundAt": "연결 시간",
     "connectedAccountsUnbindSuccess": "연결 해제 성공",
-    "connectedAccountsLoading": "불러오는 중..."
+    "connectedAccountsLoading": "불러오는 중...",
+    "accountDeletionCancel": "삭제 취소",
+    "accountDeletionCodeLabel": "인증번호",
+    "accountDeletionResend": "{seconds}초 후 다시 보내기",
+    "accountDeletionSubmit": "삭제 확인",
+    "accountDeletionSuccess": "계정이 삭제되었습니다. 로그인 페이지로 이동합니다",
+    "adTracking": "광고 추적",
+    "billingOrders": "주문",
+    "connectedAccountsPlatform": "플랫폼 계정",
+    "connectedAccountsUnbindConfirm": "{platform} 계정을 연결 해제하시겠습니까?",
+    "connectedAccountsUnbindFail": "연결 해제 실패",
+    "emailNotif": "이메일 알림",
+    "exportCsv": "CSV 형식",
+    "exportExpiresAt": "만료 시간",
+    "exportJson": "JSON 형식",
+    "exportScope": "내보내기 범위",
+    "marketingEmail": "마케팅 이메일",
+    "notificationsSaveFailed": "저장 실패",
+    "privacySaveFailed": "저장 실패",
+    "pushNotifDesc": "플랫폼 내 메시지 수신",
+    "sidebarCollapsed": "기본 접기",
+    "sidebarExpanded": "기본 펼치기",
+    "smsNotif": "SMS 알림",
+    "systemNotif": "시스템 알림",
+    "langZh": "중국어"
   },
   "favorites": {
     "title": "즐겨찾기",
@@ -10310,7 +10360,9 @@
     "categoryTech": "기술 & 개발",
     "categoryPricing": "가격 & 과금",
     "categoryDeploy": "배포 & 운영",
-    "categoryPrivacy": "데이터 & 보안"
+    "categoryPrivacy": "데이터 & 보안",
+    "categoryGeneral": "플랫폼",
+    "heroTitle": "자주 묻는 질문"
   },
   "articles": {
     "title": "글",
@@ -10943,32 +10995,58 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -11348,6 +11426,46 @@
       "renameEmpty": "대화 제목을 입력해주세요",
       "exportFailed": "내보내기 실패",
       "compressFailed": "압축 실패"
+    },
+    "envInfoButton": "환경 정보",
+    "openTerminal": "터미널 열기",
+    "toggleWorkPanel": "작업 패널 전환",
+    "envInfo": {
+      "ariaLabel": "환경 정보",
+      "title": "환경 정보",
+      "refresh": "새로고침",
+      "collapse": "접기",
+      "loading": "불러오는 중…",
+      "noWorkspace": "워크스페이스가 선택되지 않았습니다. 상단에서 로컬 워크스페이스를 먼저 바인딩하세요.",
+      "errorTitle": "환경 정보를 불러오지 못했습니다",
+      "notRepo": "현재 디렉터리는 Git 저장소가 아닙니다",
+      "detached": "분리된 HEAD",
+      "changes": "변경",
+      "noChanges": "변경 없음",
+      "local": "로컬",
+      "remote": "원격",
+      "remoteYes": "구성됨",
+      "remoteNo": "구성되지 않음",
+      "aheadBehind": "앞/뒤",
+      "commitPush": "커밋 및 푸시",
+      "commitPlaceholder": "커밋 메시지 입력…",
+      "commitOk": "커밋 성공",
+      "commitFail": "커밋 또는 푸시 실패",
+      "pullRequest": "풀 리퀘스트",
+      "prUnavailable": "풀 리퀘스트 상태를 가져올 수 없습니다",
+      "prNoRemote": "원격 저장소가 구성되지 않았습니다",
+      "compareBranch": "브랜치 비교",
+      "noCommit": "커밋 없음",
+      "retry": "재시도",
+      "pushOk": "푸시 성공",
+      "pushFail": "푸시 실패",
+      "commitNoRemote": "원격 저장소 미구성, 로컬 커밋만"
+    },
+    "terminalDock": {
+      "title": "PowerShell 터미널",
+      "newSession": "새 터미널",
+      "collapse": "접기",
+      "resize": "높이 조정"
     }
   },
   "refund": {
@@ -11390,19 +11508,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -11523,25 +11653,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -13227,7 +13369,15 @@
       "sessions": "세션 수",
       "crashRate": "크래시율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
     "dauTrend": {
       "title": "최근 7일 DAU 추이",
       "subtitle": "일일 활성 사용자 수 변화 곡선"
@@ -13371,8 +13521,18 @@
     "title": "AI 진로 지도",
     "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
     "options": {
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"],
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -15036,7 +15196,12 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       },
       "pro": {
         "features": [
@@ -16673,7 +16838,8 @@
     "prev": "이전",
     "next": "다음",
     "related": "관련 문서",
-    "notFound": "찾을 수 없음"
+    "notFound": "찾을 수 없음",
+    "toc": "목차"
   },
   "searchHistory": {
     "title": "AI인마음페이스테스트",
@@ -16688,7 +16854,8 @@
     "userAgreement": "사용자",
     "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
     "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
-    "staticContent3": "에게，플랫폼 상담원。"
+    "staticContent3": "에게，플랫폼 상담원。",
+    "effectiveDate": "시행일"
   },
   "routes": {
     "userAgreement": "사용자",
@@ -16703,7 +16870,8 @@
   },
   "forbidden": {
     "title": "권한 없음",
-    "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요."
+    "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요.",
+    "backToHome": "홈으로 돌아가기"
   },
   "parentPortal": {
     "dashboard": {
