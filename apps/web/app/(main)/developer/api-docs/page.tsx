@@ -172,7 +172,8 @@ export default function ApiDocsPage() {
             即可发起首次请求
           </li>
         </ol>
-        <pre className="overflow-x-auto rounded-md bg-zinc-950 p-3 text-xs text-zinc-100 dark:bg-zinc-900">
+        {/* 2026-08-17 P3:dark 模式代码块用 zinc-950,light 用 zinc-100(原实现 light 比 dark 更深,已修正) */}
+        <pre className="overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs text-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
           <code className="font-mono">{`curl https://api.ihui.ai/v1/chat/completions \\
   -H "Authorization: Bearer sk-xxx" \\
   -H "Content-Type: application/json" \\
