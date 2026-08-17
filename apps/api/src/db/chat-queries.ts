@@ -1,4 +1,5 @@
 import { eq, and, desc, asc, ilike, sql, lt, gt, isNull, inArray } from 'drizzle-orm'
+import { randomBytes } from 'node:crypto'
 import { db, dbRead } from './index.js'
 import {
   chatConversations,
@@ -607,7 +608,7 @@ export async function setConversationShareToken(
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')
-  const token = existing.shareToken ?? crypto.randomUUID().slice(0, 16)
+  const token = existing.shareToken ?? randomBytes(8).toString('hex')
   const rows = await db
     .update(chatConversations)
     .set({ shareToken: token, updatedAt: new Date() })
