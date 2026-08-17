@@ -24,6 +24,7 @@ import {
   archiveConversation,
   unarchiveConversation,
   findMessagesForExport,
+  findMessagesForShare,
   saveCompressedContext,
   setConversationShareToken,
   findConversationByShareToken,
@@ -940,8 +941,13 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
     const { id } = idParam.parse(request.params)
-    const owned = await ensureOwnedConversation(id, userId, reply)
-    if (!owned.conversation) return
+    const conversation = await findConversationById(id)
+    if (!conversation) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+    if (conversation.userId !== userId) {
+      return reply.status(403).send(error(403, '无权访问该对话'))
+    }
 
     const result = await setConversationShareToken(id, userId)
     return reply.send(success({ token: result.token }))
@@ -954,7 +960,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!conversation) {
       return reply.status(404).send(error(404, '对话不存在或已删除'))
     }
-    const { list: messages } = await findMessages(conversation.id, { page: 1, pageSize: 100 })
+    const messages = await findMessagesForShare(conversation.id)
     return reply.send(
       success({ conversation: serializeConversationPublic(conversation), messages }),
     )
