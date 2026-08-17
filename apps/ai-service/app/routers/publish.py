@@ -26,6 +26,8 @@ DB 表(由 scheduler 自动建表):
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import time
@@ -112,6 +114,16 @@ async def _ensure_accounts_table(conn: asyncpg.Connection) -> None:
     await conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_publish_accounts_platform ON publish_accounts(platform)"
     )
+    # 2026-08-17 修复:本地/早期库 publish_accounts 是旧结构(nickname/last_verify_result,
+    # 无 display_name/last_verify_msg/extra),CREATE TABLE IF NOT EXISTS 不会 ALTER 已有表
+    # → 账号创建/查询/验证一直 500(UndefinedColumnError)。幂等迁移补列,生产安全。
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)"
+    )
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS last_verify_msg TEXT"
+    )
+    await conn.execute("ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS extra JSONB")
 
 
 def _serialize_account(row: asyncpg.Record, include_credentials: bool = False) -> dict[str, Any]:
@@ -183,6 +195,12 @@ class TaskCreate(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
     targets: list[PublishTarget]
     scheduled_at: Optional[datetime] = Field(default=None, description="定时发布时间(UTC),空则立即执行")
+
+
+class RescheduleRequest(BaseModel):
+    """改期请求体(2026-08-17 新增)。"""
+
+    scheduled_at: datetime = Field(..., description="新的定时发布时间(ISO8601 UTC)")
 
 
 # ===== 平台元数据 =====
@@ -346,6 +364,25 @@ async def upload_file(
 
 
 # ===== 账号管理 =====
+
+# 2026-08-17 修复:batch-template 静态路由必须在 /accounts/{user_id} 参数路由之前注册
+# (FastAPI 按注册顺序匹配,原定义在 account_groups.py 中后注册,被参数路由劫持 → 模板永远返回
+#  list_accounts 格式 {items:[],count:0},前端拿不到 CSV)。
+@router.get("/accounts/batch-template")
+async def batch_template() -> dict[str, Any]:
+    """返回 CSV 模板字符串(含全部平台示例行,凭证字段留空)。"""
+    from app.services.publish.base_adapter import list_all_adapter_classes
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["platform", "nickname", "credential_field1", "credential_field2", "credential_field3"])
+    for cls in list_all_adapter_classes():
+        creds = cls.requires_credentials
+        # 补齐 3 列
+        padded = (creds + ["", "", ""])[:3]
+        writer.writerow([cls.platform_id, f"{cls.platform_name}示例", *padded])
+    return _wrap_ok({"csv": buf.getvalue()})
+
 
 @router.get("/accounts/{user_id}")
 async def list_accounts(
@@ -552,6 +589,79 @@ async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
         await conn.close()
 
 
+@router.get("/accounts/{account_id}/risk")
+async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
+    """账号风险评分(2026-08-17 新增)。
+
+    调 anti_risk.risk_scoring 引擎计算当前账号风险(0-100)+ 冷却信息。
+    风控引擎已存在但此前未暴露 API,此端点供前端发布前评估账号风险。
+
+    IDOR 修复:校验账号归属;不存在或不归属当前用户统一返回 404,
+    不泄露账号是否存在(与 reschedule_task 风格一致)。
+
+    cookie_health 从 last_verified_at 推算(14 天阈值,与 cookie-health 端点一致):
+      - 距过期 >7 天   → healthy(不加分)
+      - 距过期 0-7 天  → expiring_soon(加 15 分)
+      - 已过 14 天阈值 → expired(加 15 分)
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        row = await conn.fetchrow(
+            "SELECT platform, display_name, status, last_verified_at, user_id "
+            "FROM publish_accounts WHERE id=$1",
+            account_id,
+        )
+        # 不存在或不归属当前用户:统一 404(不泄露账号是否存在)
+        if not row or row["user_id"] != user_id:
+            raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
+
+        platform = row["platform"]
+        cookie_health: Optional[dict[str, Any]] = None
+        last_verified = row["last_verified_at"]
+        if last_verified:
+            now_ts = time.time()
+            days_until_expiry = (last_verified.timestamp() + 14 * 86400 - now_ts) / 86400
+            if days_until_expiry <= 0:
+                cookie_status = "expired"
+            elif days_until_expiry <= 7:
+                cookie_status = "expiring_soon"
+            else:
+                cookie_status = "healthy"
+            cookie_health = {
+                "status": cookie_status,
+                "days_until_expiry": round(days_until_expiry, 1),
+            }
+
+        # 延迟 import 避免循环依赖
+        from app.services.publish.anti_risk.risk_scoring import get_instance as get_risk_scorer
+
+        scorer = get_risk_scorer()
+        result = scorer.calculate_risk_score(
+            str(account_id),
+            platform,
+            publish_history=None,
+            cookie_health=cookie_health,
+        )
+        now_ts = time.time()
+        cooldown_until = result.cooldown_until
+        cooldown_remaining = (
+            max(0, cooldown_until - now_ts) if cooldown_until is not None else 0
+        )
+        return _wrap_ok({
+            "accountId": account_id,
+            "platform": platform,
+            "score": result.score,
+            "level": result.level,
+            "factors": result.factors,
+            "cooldownUntil": cooldown_until,
+            "cooldownRemaining": cooldown_remaining,
+        })
+    finally:
+        await conn.close()
+
+
 # ===== 任务管理 =====
 
 @router.post("/tasks")
@@ -619,6 +729,68 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     return _wrap_ok(result)
 
 
+def _json_or_raw(v: Any) -> Any:
+    """asyncpg 对 JSONB 列默认返回 JSON 字符串(未注册 codec)。
+
+    兼容解析:str → json.loads;解析失败/非 str 原样返回。
+    """
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except Exception:
+            return v
+    return v
+
+
+def _serialize_targets(raw: Any) -> Any:
+    """targets 由 DB JSONB(account_id, snake_case)输出为 camelCase(accountId)。
+
+    2026-08-17 修复:前端/analytics(publish-analytics.ts)按 accountId 读取,
+    原样输出 account_id 导致 activeAccounts/账号健康度恒空、前端 fallback 拿不到账号 id。
+    仅 API 输出层转换,DB 原始 JSONB 与 scheduler 内部读取不受影响。
+    """
+    targets = _json_or_raw(raw)
+    if not isinstance(targets, list):
+        return targets
+    out: list[Any] = []
+    for t in targets:
+        if not isinstance(t, dict):
+            out.append(t)
+            continue
+        item = dict(t)
+        if "account_id" in item and "accountId" not in item:
+            item["accountId"] = item.pop("account_id")
+        out.append(item)
+    return out
+
+
+def _serialize_results_to_platforms(results: Any) -> list[dict[str, Any]]:
+    """把 publish_tasks.results(JSONB,snake_case)映射为 camelCase platforms 数组。
+
+    results 元素结构(scheduler._run_task 写入):
+        {platform, success, published_url, platform_content_id, error_message, duration_ms}
+    映射为 get_task 的 platforms 字段一致的结构:
+        {platform, success, publishedUrl, platformContentId, errorMessage, durationMs}
+    results 为 null / 非 list / 元素非 dict 时跳过,返回 []。
+    """
+    results = _json_or_raw(results)
+    if not isinstance(results, list):
+        return []
+    platforms: list[dict[str, Any]] = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        platforms.append({
+            "platform": r.get("platform"),
+            "success": bool(r.get("success", False)),
+            "publishedUrl": r.get("published_url"),
+            "platformContentId": r.get("platform_content_id"),
+            "errorMessage": r.get("error_message"),
+            "durationMs": r.get("duration_ms"),
+        })
+    return platforms
+
+
 @router.get("/tasks")
 async def list_tasks(
     request: Request,
@@ -646,7 +818,7 @@ async def list_tasks(
         rows = await conn.fetch(
             f"""
             SELECT id, task_id, user_id, title, format, status,
-                   scheduled_at, started_at, finished_at, targets,
+                   scheduled_at, started_at, finished_at, targets, results,
                    (SELECT count(*) FROM publish_history WHERE task_id = t.task_id) as platform_count,
                    error, created_at, updated_at
             FROM publish_tasks t
@@ -668,7 +840,9 @@ async def list_tasks(
                 "startedAt": r["started_at"].isoformat() if r["started_at"] else None,
                 "finishedAt": r["finished_at"].isoformat() if r["finished_at"] else None,
                 "platformCount": r["platform_count"],
-                "targets": r["targets"],
+                # asyncpg JSONB 返回字符串,统一 _json_or_raw 解析为对象
+                "targets": _serialize_targets(r["targets"]),
+                "platforms": _serialize_results_to_platforms(r["results"]),
                 "error": r["error"],
                 "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
             }
@@ -718,15 +892,18 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
             for r in history_rows
         ]
 
-        results = task["results"] if isinstance(task["results"], list) else []
+        # asyncpg JSONB 返回字符串,统一 _json_or_raw 解析为对象
+        results = _json_or_raw(task["results"])
+        if not isinstance(results, list):
+            results = []
         return _wrap_ok({
             "taskId": task["task_id"],
             "userId": task["user_id"],
             "title": task["title"],
             "format": task["format"],
             "status": task["status"],
-            "content": task["content"],
-            "targets": task["targets"],
+            "content": _json_or_raw(task["content"]),
+            "targets": _serialize_targets(task["targets"]),
             "results": results,
             "platforms": platforms,
             "scheduledAt": task["scheduled_at"].isoformat() if task["scheduled_at"] else None,
@@ -773,6 +950,50 @@ async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
             task_id,
         )
         return _wrap_ok({"ok": True, "taskId": task_id, "status": "cancelled"})
+    finally:
+        await conn.close()
+
+
+@router.post("/tasks/{task_id}/reschedule")
+async def reschedule_task(
+    task_id: str,
+    body: RescheduleRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """改期定时任务(2026-08-17 新增,只能改期未开始的任务)。
+
+    允许改期的状态:scheduled(定时中)/ pending(排队中);
+    success/failed/partial/cancelled/running 均拒绝改期。
+
+    IDOR 修复:校验任务归属,禁止改期他人任务;不存在与他人任务统一返回 404,
+    不泄露任务是否存在。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT user_id, status FROM publish_tasks WHERE task_id=$1", task_id
+        )
+        # 不存在或不归属当前用户:统一 404(与 cancel 一致,不泄露归属)
+        if not row or row["user_id"] != user_id:
+            raise HTTPException(status_code=404, detail="task not found")
+        if row["status"] not in ("scheduled", "pending"):
+            raise HTTPException(status_code=400, detail="只有未开始的任务才能改期")
+        await conn.execute(
+            """
+            UPDATE publish_tasks
+            SET scheduled_at=$2, status='scheduled', updated_at=NOW()
+            WHERE task_id=$1
+            """,
+            task_id,
+            body.scheduled_at,
+        )
+        return _wrap_ok({
+            "ok": True,
+            "task_id": task_id,
+            "status": "scheduled",
+            "scheduled_at": body.scheduled_at.isoformat() if body.scheduled_at else None,
+        })
     finally:
         await conn.close()
 

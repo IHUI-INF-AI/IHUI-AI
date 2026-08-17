@@ -122,7 +122,7 @@
 | --- | --- | --- | --- |
 | **G2** | P1 | 添加到 AI 平台对比目录 | ⏳ 待添加 |
 | **Crozdesk** | P2 | 添加到商业软件目录 | ⏳ 待添加 |
-| **StackShare** | P1 | 添加技术栈:Next.js 15, Fastify 5, Tauri 2 等 | ⏳ 待添加 |
+| **StackShare** | P1 | 添加技术栈:Next.js 16, Fastify 5, Tauri 2 等 | ⏳ 待添加 |
 | **Stack Overflow** | P0 | 创建 ihui-ai tag,回答相关问题 | ⏳ 待创建 |
 | **Slant.co** | P2 | 添加到 AI 平台对比 | ⏳ 待添加 |
 
@@ -269,11 +269,11 @@ What it does:
 - Production RAG (vector + BM25 hybrid, Chinese-friendly)
 - 10+ AI models unified (OpenAI, Claude, Gemini, Qwen, DeepSeek, Zhipu, Baidu, Doubao, Kimi, Ollama) with auto-fallback and cost routing
 - Native MCP (Model Context Protocol) support with 100+ pre-built MCP servers
-- Six-client distribution: Web (Next.js 15), Desktop (Tauri 2), Mini Programs (Taro 4 for WeChat/Alipay/Douyin), Browser Extension (WXT MV3), iOS/Android (React Native), CLI (Node.js/Bun) — all from one React codebase
+- Six-client distribution: Web (Next.js 16), Desktop (Tauri 2), Mini Programs (Taro 4 for WeChat/Alipay/Douyin), Browser Extension (WXT MV3), iOS/Android (React Native), CLI (Node.js/Bun) — all from one React codebase
 - Team collaboration (RBAC, audit logs, SSO/OAuth, shared credit pool)
 - Apache 2.0, self-hostable in 5 minutes via Docker Compose
 
-Stack: TypeScript monorepo, Next.js 15, Fastify 5, Drizzle ORM, PostgreSQL, FastAPI, LangGraph, LiteLLM, Tauri 2, Taro 4, WXT, React Native.
+Stack: TypeScript monorepo, Next.js 16, Fastify 5, Drizzle ORM, PostgreSQL, FastAPI, LangGraph, LiteLLM, Tauri 2, Taro 4, WXT, React Native.
 
 Comparison pages (so you can see how we stack up against the tools you'd be replacing):
 - https://aizhs.top/compare/ihui-vs-dify

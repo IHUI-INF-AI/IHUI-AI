@@ -22,7 +22,7 @@ IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,8 端清单:
 
 | 组件 | 端 | 技术栈 | 容器内端口 | 宿主端口(88xx) |
 |------|------|--------|-----------|------------------|
-| Web | apps/web | Next.js 15 + React 19 + Tailwind 4 | 8801 | 8801 |
+| Web | apps/web | Next.js 16 + React 19 + Tailwind 4 | 8801 | 8801 |
 | API | apps/api | Fastify 5 + Drizzle ORM 0.38 | 8802 | 8802 |
 | AI Service | apps/ai-service | FastAPI + LangGraph + LiteLLM | 8803 | 8803 |
 | 小程序 H5 | apps/miniapp-taro | Taro 4 + React | 8804 | 8804 |

@@ -234,9 +234,6 @@ export function Popover({
       }
     }
     document.addEventListener('keydown', onKey, true)
-    // 打开时把焦点送入 content(让屏幕阅读器宣告),首个可聚焦元素
-    const firstFocusable = contentRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-    firstFocusable?.focus()
     return () => {
       document.removeEventListener('keydown', onKey, true)
       // 关闭时焦点回归 trigger

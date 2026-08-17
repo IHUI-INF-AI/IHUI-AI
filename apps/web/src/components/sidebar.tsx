@@ -1674,7 +1674,7 @@ const Sidebar = React.memo(function Sidebar({
   const userRoleId = useAuthStore((s) => s.user?.roleId)
 
   // 乐观路由状态(2026-08-05 立):
-  // 根因:usePathname() 在 Next.js 15 中不随点击立即更新,而是等导航完成(新页面 RSC 数据返回)后才变。
+  // 根因:usePathname() 在 Next.js 16 中不随点击立即更新,而是等导航完成(新页面 RSC 数据返回)后才变。
   // 这导致用户点击侧边栏菜单后,active 状态不立即变化,用户感知不到"已响应点击"。
   // 方案:点击链接时立即设置 pendingHref,activeHref 基于 pendingHref 计算,
   //      导航完成后用 useEffect 检测 pathname 与 pendingHref 一致时清空。

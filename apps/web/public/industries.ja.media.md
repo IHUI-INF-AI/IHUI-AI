@@ -139,7 +139,7 @@
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
-- **Web** (Next.js 15 + React 19): 編集ワークスペース / 选题ダッシュボード
+- **Web** (Next.js 16 + React 19): 編集ワークスペース / 选题ダッシュボード
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): コンテンツサービス API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Agent オーケストレーション
 - **デスクトップ** (Tauri 2): オフライン執筆 + ローカル素材ライブラリ
@@ -149,7 +149,7 @@
 - **CLI**: 自動化パイプライン / バッチ処理
 
 ### 技術スタック
-- フロントエンド: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI

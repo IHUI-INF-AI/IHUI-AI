@@ -33,7 +33,7 @@
 | [INFRASTRUCTURE_DECISION.md](./INFRASTRUCTURE_DECISION.md) | 基础设施即代码决策(Docker Compose + GitHub Actions vs K8s + Helm + ArgoCD 取舍) |
 | [PRODUCTION_INFRASTRUCTURE.md](./PRODUCTION_INFRASTRUCTURE.md) | 生产基础设施规格清单 |
 | [port-management.md](./port-management.md) | **端口管理规则**(强制):8801-8899 端口注册表,check-port-registry.mjs 守门 |
-| [migration-audit-frontend.md](./migration-audit-frontend.md) | 前端架构迁移审计报告(旧 Vue 3 → 新 Next.js 15) |
+| [migration-audit-frontend.md](./migration-audit-frontend.md) | 前端架构迁移审计报告(旧 Vue 3 → 新 Next.js 16) |
 
 ---
 

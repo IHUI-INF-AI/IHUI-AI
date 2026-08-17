@@ -22,7 +22,7 @@
 
 | 新项目 | 路径 | 技术栈 |
 |---|---|---|
-| Next.js Web | `apps/web/app/` | Next.js 15 + React 19 + Tailwind 4 + shadcn/ui |
+| Next.js Web | `apps/web/app/` | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui |
 | Taro 小程序 | `apps/miniapp-taro/src/pages/` | Taro 4 + React + Tailwind 3 |
 
 ### 可量化指标汇总

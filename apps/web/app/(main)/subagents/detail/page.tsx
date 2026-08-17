@@ -7,7 +7,7 @@ import SubagentDetailClient from './SubagentDetailClient'
  * 原 /subagents/[id] 动态路由在 output: 'export' 下与 dynamicParams: true 冲突(500),
  * 改用 /subagents/detail?id=xxx query 参数路由,客户端 useSearchParams 读取 id。
  *
- * useSearchParams 要求 Suspense boundary(Next.js 15 强制),否则 build 退化为 client-rendered。
+ * useSearchParams 要求 Suspense boundary(Next.js 16.2.12 强制),否则 build 退化为 client-rendered。
  */
 
 export default function Page() {

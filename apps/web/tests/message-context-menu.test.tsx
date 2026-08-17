@@ -30,7 +30,10 @@ import {
 import type { ContextMenuItem } from '../src/hooks/use-context-menu'
 
 // ─── lucide-react mock ───
-vi.mock('lucide-react', () => {
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为 IconSpan(便于 data-testid 断言)。
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const IconSpan = ({
     className,
     'data-testid': dataTestId,
@@ -49,6 +52,7 @@ vi.mock('lucide-react', () => {
   )
   return {
     __esModule: true,
+    ...actual,
     Check: IconSpan,
     Clipboard: IconSpan,
     Copy: IconSpan,
