@@ -11451,7 +11451,20 @@
       "githubConnectedAs": "已连接 GitHub",
       "githubConfigure": "配置 GitHub 仓库连接",
       "tokenClear": "清除 Token",
-      "tokenCleared": "Token 已清除"
+      "tokenCleared": "Token 已清除",
+      "authorize": "使用 GitHub 授权",
+      "authorizing": "等待授权…",
+      "userCode": "授权码",
+      "verificationUri": "授权页面",
+      "openAuthPage": "打开授权页面",
+      "authorizePending": "请在浏览器中确认授权…",
+      "authorizeExpired": "授权已过期,请重新发起",
+      "authSuccess": "GitHub 授权成功,已连接仓库",
+      "authFail": "GitHub 授权失败",
+      "manualToken": "手动输入 Token(高级)",
+      "noOAuthConfig": "未配置 GitHub OAuth App,请手动输入 Token 或联系管理员",
+      "copied": "已复制授权码",
+      "copyCode": "复制授权码"
     },
     "terminalDock": {
       "title": "PowerShell 终端",

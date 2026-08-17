@@ -11499,7 +11499,20 @@
       "githubConnectedAs": "GitHub に接続済み",
       "githubConfigure": "GitHub リポジトリ接続を設定",
       "tokenClear": "Token をクリア",
-      "tokenCleared": "Token をクリアしました"
+      "tokenCleared": "Token をクリアしました",
+      "authorize": "GitHub で認証",
+      "authorizing": "認証待ち…",
+      "userCode": "認証コード",
+      "verificationUri": "認証ページ",
+      "openAuthPage": "認証ページを開く",
+      "authorizePending": "ブラウザで認証を確認してください…",
+      "authorizeExpired": "認証が期限切れです。再試行してください",
+      "authSuccess": "GitHub 認証成功、リポジトリ接続済み",
+      "authFail": "GitHub 認証に失敗しました",
+      "manualToken": "Token を手動入力(上級)",
+      "noOAuthConfig": "GitHub OAuth App が設定されていません。Token を手動入力するか管理者に連絡してください",
+      "copied": "認証コードをコピーしました",
+      "copyCode": "コードをコピー"
     },
     "terminalDock": {
       "title": "PowerShell ターミナル",

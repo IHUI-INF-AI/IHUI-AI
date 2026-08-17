@@ -11451,7 +11451,20 @@
       "githubConnectedAs": "Connected to GitHub",
       "githubConfigure": "Configure GitHub repository connection",
       "tokenClear": "Clear Token",
-      "tokenCleared": "Token cleared"
+      "tokenCleared": "Token cleared",
+      "authorize": "Authorize with GitHub",
+      "authorizing": "Waiting for authorization…",
+      "userCode": "Authorization code",
+      "verificationUri": "Authorization page",
+      "openAuthPage": "Open authorization page",
+      "authorizePending": "Please confirm authorization in your browser…",
+      "authorizeExpired": "Authorization expired, please retry",
+      "authSuccess": "GitHub authorized, repository connected",
+      "authFail": "GitHub authorization failed",
+      "manualToken": "Enter token manually (advanced)",
+      "noOAuthConfig": "GitHub OAuth App not configured. Enter token manually or contact admin",
+      "copied": "Authorization code copied",
+      "copyCode": "Copy code"
     },
     "terminalDock": {
       "title": "PowerShell Terminal",

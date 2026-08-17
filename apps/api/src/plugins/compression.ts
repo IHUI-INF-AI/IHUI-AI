@@ -4,15 +4,17 @@ import compress from '@fastify/compress'
 
 /**
  * Gzip/Brotli 压缩插件。
- * - 全局启用，对超过阈值（默认 1KB）的响应自动压缩
- * - 优先 Brotli（压缩率更高），回退 gzip/deflate
- * - 跳过已压缩内容类型（图片/视频/已压缩归档）
- * - 压缩可显著降低带宽，提升首字节后传输速度
+ *
+ * 2026-08-17 修复:@fastify/compress 在本环境(Fastify 5 + Node 22)对 >1KB 响应
+ * (如 /publish/scan-login/platforms 约 4.8KB)压缩后输出 0 字节 —— 浏览器总是携带
+ * Accept-Encoding 头,触发压缩 → 大响应全空 → 扫码登录平台列表/大列表加载失败。
+ * 处置:关闭全局压缩(global: false,仅保留插件注册避免依赖改动)。本地开发无带宽压力;
+ * 生产如需压缩,应在上游 nginx/CDN 层配置(压缩产物正确性可控)。
  */
 const compressionPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   await server.register(compress, {
-    global: true,
-    threshold: 1024, // 仅压缩 > 1KB 的响应
+    global: false, // 2026-08-17:禁用,修复压缩后 0 字节响应 bug
+    threshold: 1024,
     encodings: ['br', 'gzip', 'deflate'],
   })
 }

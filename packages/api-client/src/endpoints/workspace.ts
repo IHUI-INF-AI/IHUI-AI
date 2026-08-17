@@ -1,4 +1,4 @@
-import type { ApiResult } from '@ihui/types'
+import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
 
 import { fetchApi } from '../client'
 import { buildQs, type PageData } from '../utils'
@@ -328,6 +328,112 @@ export async function runCommand(params: {
 }): Promise<ApiResult<{ stdout: string; stderr: string; exitCode: number; mode: string }>> {
   return fetchApi<{ stdout: string; stderr: string; exitCode: number; mode: string }>(
     '/api/workspace/fs/run',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+/**
+ * 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env info card):
+ * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR 状态 + 最近提交,
+ * 避免前端串行多次 fs/run。
+ *
+ * - workspacePath 必填
+ * - 返回统一信封结构(ApiResult<GitStatusSnapshot>)
+ * - 非 git 仓库 / 命令失败 → isRepo=false,其他字段零/空
+ */
+export async function getGitStatus(params: {
+  workspacePath: string
+}): Promise<ApiResult<GitStatusSnapshot>> {
+  return fetchApi<GitStatusSnapshot>('/api/workspace/git/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/**
+ * GitHub 集成(2026-08-17 立,用户需求"GitHub 仓库配置"):
+ * - 检测当前工作区是否为 GitHub 仓库 + 是否已配置 token
+ * - 保存/清除 token(存 ~/.ihui/github_token,复用 githubClient.loadToken)
+ */
+export interface GithubStatus {
+  /** 是否为 GitHub 仓库(origin/upstream remote 是 github.com) */
+  isGithubRepo: boolean
+  /** 仓库 owner/repo(非 GitHub remote 为 null) */
+  owner: string | null
+  repo: string | null
+  /** 是否已配置 GITHUB_TOKEN */
+  ghConfigured: boolean
+  /** 当前分支 */
+  currentBranch: string | null
+  /** 默认分支(origin/HEAD,探测失败为 null) */
+  defaultBranch: string | null
+}
+
+/** 检测工作区 GitHub 状态 + token 配置情况 */
+export async function getGithubStatus(params: {
+  workspacePath: string
+}): Promise<ApiResult<GithubStatus>> {
+  return fetchApi<GithubStatus>('/api/workspace/github/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 保存 GitHub token(校验通过后写入 ~/.ihui/github_token) */
+export async function setGithubToken(params: {
+  workspacePath: string
+  token: string
+}): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/workspace/github/token', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 清除 GitHub token */
+export async function clearGithubToken(): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/workspace/github/token', {
+    method: 'DELETE',
+  })
+}
+
+/**
+ * GitHub OAuth Device Flow(2026-08-17 用户需求"跳转网站授权,免粘贴 token"):
+ * 1. requestGithubDeviceCode → 返回 user_code + verification_uri(用户去 github.com/login/device 输 code)
+ * 2. pollGithubDeviceToken → 轮询换 access_token,成功自动保存 ~/.ihui/github_token
+ */
+export interface GithubDeviceCode {
+  /** 设备码(轮询 token 用,不展示给用户) */
+  deviceCode: string
+  /** 用户码(展示给用户,在 verification_uri 输入) */
+  userCode: string
+  /** 授权页面地址(https://github.com/login/device) */
+  verificationUri: string
+  /** 有效期(秒) */
+  expiresIn: number
+  /** 轮询间隔(秒) */
+  interval: number
+}
+
+/** 发起设备授权:返回 user_code + verification_uri */
+export async function requestGithubDeviceCode(params: {
+  workspacePath: string
+}): Promise<ApiResult<GithubDeviceCode>> {
+  return fetchApi<GithubDeviceCode>('/api/workspace/github/device-code', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 轮询设备授权状态:authorization_pending 时返回 {status:'pending'};成功后已自动保存 token */
+export async function pollGithubDeviceToken(params: {
+  deviceCode: string
+}): Promise<ApiResult<{ status: 'ok' | 'pending' | 'slow_down' | 'expired'; message?: string }>> {
+  return fetchApi<{ status: 'ok' | 'pending' | 'slow_down' | 'expired'; message?: string }>(
+    '/api/workspace/github/device-token',
     {
       method: 'POST',
       body: JSON.stringify(params),
