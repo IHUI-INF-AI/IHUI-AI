@@ -210,21 +210,26 @@ export function CdpBrowserView({
   // 2026-08-02 fix:canvas 为 object-contain 布局,内容居中于 CSS 盒并保持 16:9,
   // 面板宽高比 ≠ 16:9 时存在 letterbox 留白;直接按整盒缩放会把点击坐标偏移
   // (实测 ~40-70px,微信/抖音精确点击落空)。必须先算出实际内容区再映射。
-  // 2026-08-17 修正:canvas 用 object-cover 填满容器后,canvas device 与 CSS 容器
-  // 尺寸一致(ResizeObserver 同步),但 Playwright 视口(1280)可能 > canvas device,
-  // 直接 clientX→device 在 clientX > canvas.device 时 CDP 拒绝(out of bounds)。
-  // 改回 letterbox 修正 + 将 canvas.width 同步为视口大小确保 CDP 接受。
+  // 2026-08-17 定稿:canvas.device = deviceWidth/Height(Playwright 视口 1024x720),
+  // CSS 容器经 object-contain 缩放 + letterbox 居中。精确映射:
+  //   scale = min(rectW/canvasW, rectH/canvasH); contentW/H = canvas * scale;
+  //   offsetX/Y = (rect - content)/2; device = (client - offset) / scale。
+  // 实测:知乎登录页"登录/注册"按钮 device(679,413) → 点击后 activeElement 变 BUTTON(CDP 生效)。
   const toDeviceCoords = React.useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
-    // 2026-08-17:canvas 拉伸填满容器(device=CSS),clientX 范围 0..containerWidth,
-    // 但 Playwright device=viewport=1024,需要按 canvas.device=viewport=1024 时直接传
-    // 0..containerWidth 到 device 0..1024(按比例缩放)。
     const rect = canvas.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return { x: clientX, y: clientY }
-    const dx = (clientX / rect.width) * canvas.width
-    const dy = (clientY / rect.height) * canvas.height
-    return { x: dx, y: dy }
+    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height)
+    if (!scale || !Number.isFinite(scale)) return { x: clientX, y: clientY }
+    const contentW = canvas.width * scale
+    const contentH = canvas.height * scale
+    const offsetX = (rect.width - contentW) / 2
+    const offsetY = (rect.height - contentH) / 2
+    return {
+      x: (clientX - rect.left - offsetX) / scale,
+      y: (clientY - rect.top - offsetY) / scale,
+    }
   }, [])
 
   const sendMouse = React.useCallback(
