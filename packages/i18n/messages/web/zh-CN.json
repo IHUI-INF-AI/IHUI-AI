@@ -948,6 +948,7 @@
       "copy": "复制",
       "downloadImages": "下载图片",
       "share": "分享",
+      "shareLinkCopied": "已复制内容与链接",
       "toggleMetadata": "切换元数据",
       "regenerate": "重新生成",
       "publishToCommunity": "发布到社区",

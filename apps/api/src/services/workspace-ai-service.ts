@@ -674,7 +674,11 @@ class SandboxExecutor {
     timeoutMs?: number
   }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
-    const cwd = params.cwd ?? params.workspacePath
+    // 2026-08-17 修复:Windows 上 execFile/spawn 的 cwd 若用反斜杠路径
+    // (如 G:\IHUI-AI)会报 ENOENT spawn xxx ENOENT(git 明明在 PATH 中),
+    // 统一替换为正斜杠(G:/IHUI-AI)后正常。workspacePath 来自前端本地文件夹
+    // 选择器,Windows 上默认是反斜杠,必须在此归一化。
+    const cwd = (params.cwd ?? params.workspacePath).replace(/\\/g, '/')
 
     if (this.checkNetworkCommand(params.command, mode)) {
       return {
@@ -2479,7 +2483,8 @@ class GitHubClient {
   async detectRemote(workspacePath: string): Promise<{ owner: string; repo: string } | null> {
     try {
       const { stdout } = await execAsync('git remote get-url origin', {
-        cwd: workspacePath,
+        // 2026-08-17 与 sandboxExecutor 同源修复:Windows 反斜杠 cwd 会导致 spawn ENOENT
+        cwd: workspacePath.replace(/\\/g, '/'),
         timeout: 5000,
       })
       return this.parseRemote(stdout.trim())
@@ -2491,6 +2496,9 @@ class GitHubClient {
   private async api(path: string, method = 'GET', body?: unknown): Promise<unknown> {
     const token = this.loadToken()
     if (!token) throw new Error('未配置 GITHUB_TOKEN')
+    // 2026-08-17 修复:境外 GitHub API 不可达时 fetch 默认无超时,会挂起 30s+
+    // (环境信息弹窗 git/status 因此"请求超时")。统一加 8s AbortSignal.timeout,
+    // 失败由调用方 catch → 降级为 null,不阻塞主流程。
     const res = await fetch(`${GITHUB_API_BASE}${path}`, {
       method,
       headers: {
@@ -2500,6 +2508,7 @@ class GitHubClient {
         'Content-Type': 'application/json',
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
       const errText = await res.text()

@@ -948,6 +948,7 @@
       "copy": "Copy",
       "downloadImages": "Download images",
       "share": "Share",
+      "shareLinkCopied": "Copied content + link",
       "toggleMetadata": "Toggle metadata",
       "regenerate": "Regenerate",
       "publishToCommunity": "Publish to community",

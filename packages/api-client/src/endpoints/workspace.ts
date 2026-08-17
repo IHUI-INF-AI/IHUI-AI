@@ -337,7 +337,12 @@ export async function runCommand(params: {
 
 /**
  * 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env info card):
- * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR + lastCommit + localPath/remotes。
+ * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR 状态 + 最近提交,
+ * 避免前端串行多次 fs/run。
+ *
+ * - workspacePath 必填
+ * - 返回统一信封结构(ApiResult<GitStatusSnapshot>)
+ * - 非 git 仓库 / 命令失败 → isRepo=false,其他字段零/空
  */
 export async function getGitStatus(params: {
   workspacePath: string
@@ -351,8 +356,7 @@ export async function getGitStatus(params: {
 /**
  * GitHub 集成(2026-08-17 立,用户需求"GitHub 仓库配置"):
  * - 检测当前工作区是否为 GitHub 仓库 + 是否已配置 token
- * - 保存/清除 token(存 ~/.ihui/github_token)
- * - OAuth Device Flow(跳转授权,免粘贴 token)
+ * - 保存/清除 token(存 ~/.ihui/github_token,复用 githubClient.loadToken)
  */
 export interface GithubStatus {
   /** 是否为 GitHub 仓库(origin/upstream remote 是 github.com) */
@@ -360,7 +364,7 @@ export interface GithubStatus {
   /** 仓库 owner/repo(非 GitHub remote 为 null) */
   owner: string | null
   repo: string | null
-  /** 是否已配置 GitHub token(字段名禁含 "token" 子串,防响应脱敏) */
+  /** 是否已配置 GITHUB_TOKEN */
   ghConfigured: boolean
   /** 当前分支 */
   currentBranch: string | null

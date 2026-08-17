@@ -30,6 +30,7 @@ export const chatConversations = pgTable('chat_conversations', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   compressedAt: timestamp('compressed_at', { withTimezone: true }),
   compressedContext: text('compressed_context'),
+  shareToken: varchar('share_token', { length: 32 }).unique(),
 })
 
 /**
