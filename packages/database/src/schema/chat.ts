@@ -30,6 +30,9 @@ export const chatConversations = pgTable('chat_conversations', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   compressedAt: timestamp('compressed_at', { withTimezone: true }),
   compressedContext: text('compressed_context'),
+  // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
+  // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
+  shareToken: varchar('share_token', { length: 32 }).unique(),
 })
 
 /**
