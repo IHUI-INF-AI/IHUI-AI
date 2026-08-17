@@ -168,7 +168,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 엔드 번역 워크벤치와 용어집 관리' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 엔드 번역 워크벤치와 용어집 관리' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 엔드 번역 메모리(TM)와 프로젝트 버전 관리' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '다국어 번역 + 문화 적응 + 리뷰 규칙 엔진' },
   { name: 'MCP 도구 프로토콜', purpose: 'Git/CMS/Confluence/Notion/Figma 콘텐츠 소스 어댑터' },
