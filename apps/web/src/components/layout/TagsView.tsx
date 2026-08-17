@@ -530,9 +530,10 @@ export function TagsView() {
                   TOPBAR_BTN_BASE,
                   'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
                   active
-                    ? // active(当前显示页面):1px 外描边 + 亮色纯黑/暗色纯白,高对比突出当前页,
-                      //   不占元素内部空间。配套 GlobalTopBar 父容器去掉 overflow-hidden 避免裁剪。
-                      'bg-card font-medium text-foreground hover:bg-card outline outline-1 outline-black dark:outline-white'
+                    ? // active(当前显示页面):外描边突出当前页,不占元素内部空间。
+                      //   2026-08-13 用户反馈:pure black/white 太突兀,定稿 outline-2 outline-border(主题灰)。
+                      //   2026-08-17 重构误回退成 outline-black/white,现恢复定稿方案(见 85294855d5)。
+                      'bg-card font-medium text-foreground hover:bg-card outline outline-2 outline-border'
                     : isPinned
                       ? // pinned 标签(2026-08-07 立):改用专用 token --color-pinned-tag-bg。
                         //   亮色 88% L 接近 muted(92% L)略深;暗色 24% L 与 tag-inactive-bg 同档,
