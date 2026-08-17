@@ -185,6 +185,14 @@ class TaskCreate(BaseModel):
     scheduled_at: Optional[datetime] = Field(default=None, description="定时发布时间(UTC),空则立即执行")
 
 
+class RescheduleRequest(BaseModel):
+    """改期请求:仅支持新的计划发布时间(ISO8601 UTC)。"""
+    scheduled_at: Optional[datetime] = Field(
+        default=None,
+        description="新的计划发布时间(UTC),ISO8601 格式",
+    )
+
+
 # ===== 平台元数据 =====
 
 @router.get("/platforms")
@@ -619,6 +627,46 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     return _wrap_ok(result)
 
 
+def _json_or_raw(v: Any) -> Any:
+    """asyncpg 对 JSONB 列默认返回 JSON 字符串(未注册 codec)。
+
+    兼容解析:str → json.loads;解析失败/非 str 原样返回。
+    """
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except Exception:
+            return v
+    return v
+
+
+def _serialize_results_to_platforms(results: Any) -> list[dict[str, Any]]:
+    """把 publish_tasks.results(JSONB,snake_case)映射为 camelCase platforms 数组。
+
+    results 元素结构(scheduler._run_task 写入):
+        {platform, success, published_url, platform_content_id, error_message, duration_ms}
+    映射为 get_task 的 platforms 字段一致的结构:
+        {platform, success, publishedUrl, platformContentId, errorMessage, durationMs}
+    results 为 null / 非 list / 元素非 dict 时跳过,返回 []。
+    """
+    results = _json_or_raw(results)
+    if not isinstance(results, list):
+        return []
+    platforms: list[dict[str, Any]] = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        platforms.append({
+            "platform": r.get("platform"),
+            "success": bool(r.get("success", False)),
+            "publishedUrl": r.get("published_url"),
+            "platformContentId": r.get("platform_content_id"),
+            "errorMessage": r.get("error_message"),
+            "durationMs": r.get("duration_ms"),
+        })
+    return platforms
+
+
 @router.get("/tasks")
 async def list_tasks(
     request: Request,
@@ -646,7 +694,7 @@ async def list_tasks(
         rows = await conn.fetch(
             f"""
             SELECT id, task_id, user_id, title, format, status,
-                   scheduled_at, started_at, finished_at, targets,
+                   scheduled_at, started_at, finished_at, targets, results,
                    (SELECT count(*) FROM publish_history WHERE task_id = t.task_id) as platform_count,
                    error, created_at, updated_at
             FROM publish_tasks t
@@ -668,7 +716,9 @@ async def list_tasks(
                 "startedAt": r["started_at"].isoformat() if r["started_at"] else None,
                 "finishedAt": r["finished_at"].isoformat() if r["finished_at"] else None,
                 "platformCount": r["platform_count"],
-                "targets": r["targets"],
+                # asyncpg JSONB 返回字符串,统一 _json_or_raw 解析为对象
+                "targets": _json_or_raw(r["targets"]),
+                "platforms": _serialize_results_to_platforms(r["results"]),
                 "error": r["error"],
                 "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
             }
@@ -718,15 +768,18 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
             for r in history_rows
         ]
 
-        results = task["results"] if isinstance(task["results"], list) else []
+        # asyncpg JSONB 返回字符串,统一 _json_or_raw 解析为对象
+        results = _json_or_raw(task["results"])
+        if not isinstance(results, list):
+            results = []
         return _wrap_ok({
             "taskId": task["task_id"],
             "userId": task["user_id"],
             "title": task["title"],
             "format": task["format"],
             "status": task["status"],
-            "content": task["content"],
-            "targets": task["targets"],
+            "content": _json_or_raw(task["content"]),
+            "targets": _json_or_raw(task["targets"]),
             "results": results,
             "platforms": platforms,
             "scheduledAt": task["scheduled_at"].isoformat() if task["scheduled_at"] else None,
@@ -773,6 +826,50 @@ async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
             task_id,
         )
         return _wrap_ok({"ok": True, "taskId": task_id, "status": "cancelled"})
+    finally:
+        await conn.close()
+
+
+@router.post("/tasks/{task_id}/reschedule")
+async def reschedule_task(
+    task_id: str,
+    body: RescheduleRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """改期定时任务(只能改期未开始的任务)。
+
+    允许改期的状态:scheduled(定时中)/ pending(排队中);
+    success/failed/partial/cancelled/running 均拒绝改期。
+
+    IDOR 修复:校验任务归属,禁止改期他人任务;不存在与他人任务统一返回 404,
+    不泄露任务是否存在。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT user_id, status FROM publish_tasks WHERE task_id=$1", task_id
+        )
+        # 不存在或不归属当前用户:统一 404(与 cancel 一致,不泄露归属)
+        if not row or row["user_id"] != user_id:
+            raise HTTPException(status_code=404, detail="task not found")
+        if row["status"] not in ("scheduled", "pending"):
+            raise HTTPException(status_code=400, detail="只有未开始的任务才能改期")
+        await conn.execute(
+            """
+            UPDATE publish_tasks
+            SET scheduled_at=$2, status='scheduled', updated_at=NOW()
+            WHERE task_id=$1
+            """,
+            task_id,
+            body.scheduled_at,
+        )
+        return _wrap_ok({
+            "ok": True,
+            "task_id": task_id,
+            "status": "scheduled",
+            "scheduled_at": body.scheduled_at.isoformat() if body.scheduled_at else None,
+        })
     finally:
         await conn.close()
 

@@ -953,7 +953,8 @@
       "publishToCommunity": "發佈到社區",
       "edit": "編輯",
       "reply": "回覆",
-      "delete": "刪除"
+      "delete": "刪除",
+      "jumpToLatest": "跳至最新"
     },
     "plan": {
       "title": "執行計劃",
@@ -7501,7 +7502,8 @@
       "noTasks": "當天暫無任務",
       "taskCount": "{count} 個任務",
       "createTask": "新建任務",
-      "dragHint": "拖拽任務到其他日期可調整排期"
+      "dragHint": "拖拽任務到其他日期可調整排期",
+      "rescheduled": "任務已改期至 {date}"
     },
     "analytics": {
       "title": "數據分析",
@@ -11343,6 +11345,35 @@
       "renameEmpty": "任務名稱不能為空",
       "exportFailed": "導出失敗",
       "compressFailed": "壓縮失敗"
+    },
+    "envInfoButton": "環境資訊",
+    "openTerminal": "開啟終端",
+    "toggleWorkPanel": "切換工作展示區",
+    "envInfo": {
+      "ariaLabel": "環境資訊",
+      "title": "環境資訊",
+      "refresh": "重新整理",
+      "collapse": "摺疊",
+      "loading": "載入中…",
+      "noWorkspace": "未選擇工作區,請先在頂部綁定本機工作區",
+      "errorTitle": "環境資訊載入失敗",
+      "notRepo": "目前目錄不是 Git 儲存庫",
+      "detached": "遊離 HEAD",
+      "changes": "變更",
+      "noChanges": "無變更",
+      "local": "本機",
+      "remote": "遠端",
+      "remoteYes": "已設定",
+      "remoteNo": "未設定",
+      "aheadBehind": "領先/落後",
+      "commitPush": "提交或推送",
+      "commitPlaceholder": "輸入提交訊息…",
+      "commitOk": "提交成功",
+      "commitFail": "提交或推送失敗",
+      "pullRequest": "拉取請求",
+      "prUnavailable": "無法取得拉取請求狀態",
+      "prNoRemote": "未設定遠端儲存庫",
+      "compareBranch": "比較分支"
     }
   },
   "refund": {
