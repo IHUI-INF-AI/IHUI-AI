@@ -99,6 +99,25 @@ export async function getBrowserCookies(
   )
 }
 
+/** 外部 Chrome CDP 导入登录 Cookie 结果(2026-08-17) */
+export interface ImportChromeCookiesResult {
+  detected: boolean
+  cookies_count: number
+  account_id: number | null
+  error: string | null
+}
+
+/** 从外部 Google Chrome CDP 调试端口导入登录 Cookie 并保存账号(桌面端 Chrome 登录专用) */
+export async function importChromeCookies(
+  port: number,
+  platform: string,
+): Promise<ApiResult<ImportChromeCookiesResult>> {
+  return fetchApi<ImportChromeCookiesResult>('/api/browser/import-chrome', {
+    method: 'POST',
+    body: JSON.stringify({ port, platform }),
+  })
+}
+
 /** 后退 */
 export async function browserHubBack(
   sessionId: string,

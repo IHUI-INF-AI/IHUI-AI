@@ -140,17 +140,8 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
-/// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
-/// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
-///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
-/// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
-/// - 仅允许 http/https URL(防参数注入)。
-#[tauri::command]
-fn open_in_chrome(url: String) -> Result<(), String> {
-    let trimmed = url.trim();
-    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
-        return Err("仅支持 http/https URL".into());
-    }
+/// Chrome 常见安装路径探测(2026-08-17 提取公共函数,open_in_chrome / start_chrome_login 共用)。
+fn find_chrome_path() -> Option<std::path::PathBuf> {
     let candidates = [
         std::env::var_os("LOCALAPPDATA")
             .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
@@ -165,8 +156,21 @@ fn open_in_chrome(url: String) -> Result<(), String> {
             "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
         )),
     ];
-    let chrome = candidates.into_iter().flatten().find(|p| p.exists());
-    let Some(chrome) = chrome else {
+    candidates.into_iter().flatten().find(|p| p.exists())
+}
+
+/// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
+/// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
+///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
+/// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
+/// - 仅允许 http/https URL(防参数注入)。
+#[tauri::command]
+fn open_in_chrome(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err("仅支持 http/https URL".into());
+    }
+    let Some(chrome) = find_chrome_path() else {
         return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
     };
     // spawn 后丢弃句柄:子进程独立运行,不等待、不 kill(--app 是长驻 Chrome 窗口)
@@ -176,6 +180,69 @@ fn open_in_chrome(url: String) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
     Ok(())
+}
+
+/// 2026-08-17:用系统 Google Chrome 以 --app + CDP 调试端口模式打开登录页。
+/// 返回调试端口与临时 profile 目录,供后端(ai-service import-chrome 端点)经 CDP 提取登录 Cookie 自动保存。
+#[derive(Serialize)]
+struct ChromeLoginSession {
+    port: u16,
+    profile_dir: String,
+}
+
+#[tauri::command]
+fn start_chrome_login(url: String) -> Result<ChromeLoginSession, String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err("仅支持 http/https URL".into());
+    }
+    let Some(chrome) = find_chrome_path() else {
+        return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
+    };
+
+    // 随机可用调试端口(9300-9999,最多探测 20 次)
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u32)
+        .unwrap_or(0x9E37);
+    let mut port = 9300 + (seed % 700) as u16;
+    let mut found_port: Option<u16> = None;
+    for _ in 0..20 {
+        let bindable = std::net::TcpListener::bind(("127.0.0.1", port)).is_ok();
+        if bindable {
+            found_port = Some(port);
+            break;
+        }
+        port = if port >= 9999 { 9300 } else { port + 1 };
+    }
+    let Some(port) = found_port else {
+        return Err("未找到可用调试端口(9300-9999 全被占用)".into());
+    };
+
+    // 临时隔离 profile(避免污染用户主 Chrome 的登录态)
+    let profile_dir = std::env::temp_dir().join(format!(
+        "ihui-chrome-login-{}-{}",
+        std::process::id(),
+        seed
+    ));
+    if std::fs::create_dir_all(&profile_dir).is_err() {
+        return Err("创建临时 Chrome profile 目录失败".into());
+    }
+
+    let _child = std::process::Command::new(&chrome)
+        .arg(format!("--app={}", trimmed))
+        .arg(format!("--remote-debugging-port={}", port))
+        .arg(format!("--user-data-dir={}", profile_dir.display()))
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check")
+        .arg("--new-window")
+        .spawn()
+        .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+
+    Ok(ChromeLoginSession {
+        port,
+        profile_dir: profile_dir.to_string_lossy().to_string(),
+    })
 }
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
@@ -1453,6 +1520,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             open_in_chrome,
+            start_chrome_login,
             get_admin_window_info,
             toggle_devtools,
             quit_app,

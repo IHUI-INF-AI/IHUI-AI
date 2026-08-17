@@ -7294,7 +7294,12 @@
       "openExternalBrowser": "在外部浏览器打开",
       "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
       "scanWithPhoneHint": "打开后请用手机扫二维码,页面无需点击;检测到登录后自动保存账号",
-      "orDivider": "或"
+      "orDivider": "或",
+      "useChromeLogin": "用 Chrome 登录（自动保存）",
+      "useChromeLoginHint": "桌面版：弹出 Google Chrome 完整登录，检测到登录后自动保存账号",
+      "chromeLoginStarting": "正在启动 Chrome 登录窗口...",
+      "chromeLoginPolling": "已在 Chrome 中打开登录页，请完成登录；检测到登录后自动保存账号",
+      "chromeLoginStartFailed": "启动 Chrome 登录窗口失败，请确认已安装 Google Chrome"
     },
     "cookieHealth": {
       "healthy": "健康",

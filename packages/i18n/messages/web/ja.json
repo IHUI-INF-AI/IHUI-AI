@@ -7316,7 +7316,12 @@
       "openExternalBrowser": "外部ブラウザで開く",
       "externalBrowserHint": "システムブラウザでログイン(認証コード/パスワード向け);ログイン後、サイトのCookieをコピーしてアカウントフォームに貼り付けて保存",
       "scanWithPhoneHint": "QRコードはスマホでスキャンしてください — ページ操作は不要;ログイン検出後、自動でアカウントが保存されます",
-      "orDivider": "または"
+      "orDivider": "または",
+      "useChromeLogin": "Chromeでログイン（自動保存）",
+      "useChromeLoginHint": "デスクトップ版：Google Chromeでフルログイン。ログイン検出後、自動でアカウントを保存",
+      "chromeLoginStarting": "Chromeログインウィンドウを起動中...",
+      "chromeLoginPolling": "Chromeでログインページを開きました。ログインすると自動でアカウントが保存されます",
+      "chromeLoginStartFailed": "Chromeログインウィンドウの起動に失敗しました。Google Chromeがインストールされているか確認してください"
     },
     "cookieHealth": {
       "healthy": "正常",

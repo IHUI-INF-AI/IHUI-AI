@@ -7294,7 +7294,12 @@
       "openExternalBrowser": "在外部瀏覽器開啟",
       "externalBrowserHint": "用系統瀏覽器登入(適合驗證碼/密碼登入);登入後複製該網站 Cookie 貼到帳號表單儲存",
       "scanWithPhoneHint": "開啟後請用手機掃描 QR Code,頁面無需點擊;偵測到登入後自動儲存帳號",
-      "orDivider": "或"
+      "orDivider": "或",
+      "useChromeLogin": "用 Chrome 登入（自動儲存）",
+      "useChromeLoginHint": "桌面版：彈出 Google Chrome 完整登入，偵測到登入後自動儲存帳號",
+      "chromeLoginStarting": "正在啟動 Chrome 登入視窗...",
+      "chromeLoginPolling": "已在 Chrome 中開啟登入頁，請完成登入；偵測到登入後自動儲存帳號",
+      "chromeLoginStartFailed": "啟動 Chrome 登入視窗失敗，請確認已安裝 Google Chrome"
     },
     "cookieHealth": {
       "healthy": "健康",

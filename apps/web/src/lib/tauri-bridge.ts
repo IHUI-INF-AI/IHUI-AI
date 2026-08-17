@@ -354,6 +354,27 @@ export async function openInGoogleChrome(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * 启动"Chrome 登录"会话(2026-08-17 立):用 Google Chrome --app + CDP 调试端口打开登录页。
+ * 返回 { port, profileDir }——后端 POST /api/browser/import-chrome 经 CDP 端口提取登录 Cookie 自动保存。
+ * 仅桌面端可用;web 端(浏览器沙箱无法启动本机程序)返回 null。
+ */
+export interface ChromeLoginSession {
+  port: number
+  profileDir: string
+}
+
+export async function startChromeLogin(url: string): Promise<ChromeLoginSession | null> {
+  if (!isTauri()) return null
+  try {
+    const session = await invoke<ChromeLoginSession>('start_chrome_login', { url })
+    return session
+  } catch (e) {
+    console.warn('[chrome] start_chrome_login failed:', e)
+    return null
+  }
+}
+
 // ================== 应用菜单(2026-07-25 立) ==================
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */

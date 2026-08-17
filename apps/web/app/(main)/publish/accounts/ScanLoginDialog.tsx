@@ -7,18 +7,19 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
+import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, Globe } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   createBrowserSession,
   closeBrowserSession,
   detectLoginFromCdp,
+  importChromeCookies,
   listScanLoginPlatforms,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { openInGoogleChrome } from '@/lib/tauri-bridge'
+import { isTauri, openInGoogleChrome, startChromeLogin } from '@/lib/tauri-bridge'
 import {
   Button,
   Dialog,
@@ -66,6 +67,10 @@ export function ScanLoginDialog({
   const [countdownSeconds, setCountdownSeconds] = React.useState<number>(TIMEOUT_SECONDS)
   const startTimeRef = React.useRef<number>(0)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  // Chrome 登录(2026-08-17 桌面版):'idle' | 'starting' | 'polling' | 'failed'
+  const [chromePhase, setChromePhase] = React.useState<'idle' | 'starting' | 'polling' | 'failed'>('idle')
+  const chromeRunningRef = React.useRef(false)
+  const chromePollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   React.useEffect(() => {
     if (defaultPlatform) setPlatform(defaultPlatform)
@@ -90,10 +95,16 @@ export function ScanLoginDialog({
   React.useEffect(() => {
     return () => {
       stopPolling()
+      stopChromePolling()
       if (sessionId) void closeBrowserSession(sessionId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 弹窗关闭时停止 Chrome 轮询(2026-08-17)
+  React.useEffect(() => {
+    if (!open) stopChromePolling()
+  }, [open])
 
   React.useEffect(() => {
     if (open && phase === 'polling' && startTimeRef.current > 0) {
@@ -106,6 +117,59 @@ export function ScanLoginDialog({
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current)
       pollTimerRef.current = null
+    }
+  }
+
+  // ---- Chrome 登录(2026-08-17 桌面版)----
+  function stopChromePolling() {
+    if (chromePollTimerRef.current) {
+      clearInterval(chromePollTimerRef.current)
+      chromePollTimerRef.current = null
+    }
+    chromeRunningRef.current = false
+  }
+
+  async function handleChromeLogin() {
+    if (!platform || chromeRunningRef.current) return
+    const plat = platforms.find((p) => p.platform === platform)
+    if (!plat?.login_url) return
+    chromeRunningRef.current = true
+    setChromePhase('starting')
+    try {
+      const session = await startChromeLogin(plat.login_url)
+      if (!session) {
+        toast.error(t('accounts.chromeLoginStartFailed'))
+        setChromePhase('failed')
+        chromeRunningRef.current = false
+        return
+      }
+      setChromePhase('polling')
+      // 每 3s 轮询后端 CDP 导入,最多 100 次(5min)
+      const startedAt = Date.now()
+      chromePollTimerRef.current = setInterval(async () => {
+        if (Date.now() - startedAt > TIMEOUT_MS) {
+          toast.error(t('accounts.scanLoginTimeout'))
+          setChromePhase('idle')
+          stopChromePolling()
+          return
+        }
+        const r = await importChromeCookies(session.port, platform)
+        if (!r.success || !r.data) return
+        if (r.data.detected) {
+          toast.success(`${t('accounts.scanLoginSuccess')} (${r.data.cookies_count} cookies)`)
+          stopChromePolling()
+          setChromePhase('idle')
+          onSuccess?.()
+        } else if (r.data.error) {
+          toast.error(r.data.error)
+          setChromePhase('failed')
+          stopChromePolling()
+        }
+      }, POLL_INTERVAL_MS)
+    } catch {
+      toast.error(t('accounts.chromeLoginStartFailed'))
+      setChromePhase('failed')
+      chromeRunningRef.current = false
     }
   }
 
@@ -229,6 +293,27 @@ export function ScanLoginDialog({
               <p className="text-center text-xs text-muted-foreground">
                 {t('accounts.scanWithPhoneHint')}
               </p>
+              {/* 2026-08-17 桌面版:用 Google Chrome 完整登录 + 后端 CDP 自动提取 Cookie 保存 */}
+              {isTauri() && (
+                <>
+                  <Button
+                    className="w-full"
+                    disabled={!platform || isBusy || chromePhase === 'starting' || chromePhase === 'polling'}
+                    onClick={handleChromeLogin}
+                  >
+                    {(chromePhase === 'starting' || chromePhase === 'polling') && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    <Globe className="h-4 w-4" />
+                    {chromePhase === 'polling'
+                      ? t('accounts.chromeLoginPolling')
+                      : t('accounts.useChromeLogin')}
+                  </Button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    {t('accounts.useChromeLoginHint')}
+                  </p>
+                </>
+              )}
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-border" />
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
