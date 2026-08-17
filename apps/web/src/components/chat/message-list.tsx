@@ -47,6 +47,7 @@ import { useChatStore } from '@/stores/chat'
 import type { PlanStep } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
+import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -274,18 +275,24 @@ const MessageItem = React.memo(function MessageItem({
       const convId = useChatStore.getState().conversationId
       if (!convId) return
 
+      let shareToken: string | null = null
       try {
-        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
+        const r = await fetchApi<{ token: string }>(`/api/chat/conversations/${convId}/share`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
         })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+        if (!r.success || !r.data?.token) throw new Error(r.error || '获取分享链接失败')
+        shareToken = r.data.token
+      } catch (err: unknown) {
+        // API 错误：直接显示后端返回的具体信息
+        if (err instanceof Error) toast.error(err.message)
+        else toast.error(t('copyFailed'))
+        return
+      }
 
+      try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
-
+        const shareUrl = `${baseUrl}/chat/share/${shareToken}`
         const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
         const finalText = bodyLines.join('\n')
 
@@ -302,9 +309,8 @@ const MessageItem = React.memo(function MessageItem({
           document.execCommand('copy')
           document.body.removeChild(ta)
         }
-
         toast.success(t('message.shareLinkCopied'))
-      } catch (_err) {
+      } catch {
         toast.error(t('copyFailed'))
       }
     },
