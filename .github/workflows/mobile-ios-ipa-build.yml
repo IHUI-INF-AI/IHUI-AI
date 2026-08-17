@@ -7,15 +7,27 @@ name: Build iOS IPA (TrollStore)
 #     因此 CODE_SIGNING_ALLOWED=NO 构建,无需 Apple 开发者账号/证书/付费
 #   - 兼容性:RN 0.86 deployment target = iOS 15.1;TrollStore 支持 iOS 14.0-17.0 → 15.1+ 巨魔用户可装
 # 流程(全自动):
-#   - 手动 workflow_dispatch 或推送 v* tag → macos-26 runner 构建未签名 IPA
+#   - 触发:① main 分支 push(仅移动端相关代码变更)② 手动 workflow_dispatch ③ v* tag
+#   - macos-26 runner 构建未签名 IPA
 #   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.ipa)
-#   - 下载页 ios 详情页指向该 Release 固定地址(接入 APPSTORE_URL 或直接放 APK 同款直链)
+#   - 下载页 ios 详情页指向该 Release 固定地址(releases/latest 固定直链,新构建自动覆盖)
 # 生产配置:API 指向 https://api.aizhs.top(与安卓 workflow 一致)
 
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    # 仅移动端相关代码变更才自动构建,避免无关提交浪费 CI 分钟数
+    paths:
+      - 'apps/mobile-rn/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
     tags: ['v*']
+
+# 防止并发重复构建:同一时间只保留一个构建(新 push 排队等待,不取消进行中的旧构建)
+concurrency:
+  group: ios-ipa-build
+  cancel-in-progress: false
 
 permissions:
   contents: write
