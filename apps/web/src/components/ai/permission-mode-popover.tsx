@@ -115,9 +115,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   // 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard):
   // 通过 ai-panel store 共享状态,popover / Shift+Tab / /permission full 三处触发共用
   // 同一个 FullAccessConfirmDialog(由 message-input 渲染)
-  // popover 只负责写 setPendingFullAccess(true) 触发弹窗,不需要读这个状态
-  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
-
+  // popover 只负责写 store.setPendingFullAccess(true) 触发弹窗(通过 getState 实时读,
+  // 避免闭包陈旧),不需要在闭包外捕获这个 action。
   const focusedMode = MODE_OPTIONS_LIST[focusedIndex]?.value ?? currentMode
 
   const updateMode = useMutation({
@@ -236,7 +235,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       })
     },
     // 不依赖 activeWorkspace/currentMode,全部实时从 store 读取,避免陈旧闭包
-    [updateMode, setPendingFullAccess, t],
+    // (setPendingFullAccess 通过 getState() 实时调用,不在 deps 中)
+    [updateMode, t],
   )
 
   // 键盘处理(↑/↓/Enter/1/2/3):只在 popover 打开时启用
@@ -418,13 +418,6 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           {t('highRisk')}
                         </span>
                       )}
-                      {/* 数字快捷键徽章(Codex 风格:右侧 1/2/3) */}
-                      <span
-                        className="ml-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[9px] font-medium text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        {idx + 1}
-                      </span>
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                       {t(opt.descKey)}
