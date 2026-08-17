@@ -147,7 +147,7 @@
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
-- **Web** (Next.js 15 + React 19): Sales management / agent workspace
+- **Web** (Next.js 16 + React 19): Sales management / agent workspace
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Property / contract APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): VR tour workstation / digital human live
@@ -157,7 +157,7 @@
 - **CLI**: Batch property entry / contract review report
 
 ### Technology Stack
-- Frontend: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+- Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI

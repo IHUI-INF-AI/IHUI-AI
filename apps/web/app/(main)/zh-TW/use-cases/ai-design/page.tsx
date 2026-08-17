@@ -162,7 +162,7 @@ const cases = [
 ]
 
 const toolchain = [
-  { name: 'Next.js 15 + React 19', purpose: 'Web 端設計協作工作台與設計系統管理' },
+  { name: 'Next.js 16 + React 19', purpose: 'Web 端設計協作工作台與設計系統管理' },
   { name: 'Fastify 5 + Drizzle ORM', purpose: 'API 端設計資產儲存與版本管理' },
   { name: 'FastAPI + LangGraph + LiteLLM', purpose: '草圖辨識 + 程式碼生成 + 設計評審' },
   { name: 'MCP 工具協定', purpose: '對接 Figma/Sketch/即時設計/藍湖設計工具' },

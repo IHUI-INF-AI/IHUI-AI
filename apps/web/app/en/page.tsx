@@ -112,7 +112,7 @@ interface Platform {
 }
 
 const PLATFORMS: Platform[] = [
-  { icon: Globe, name: 'Web', desc: 'Next.js 15 + React 19' },
+  { icon: Globe, name: 'Web', desc: 'Next.js 16 + React 19' },
   { icon: Monitor, name: 'Desktop', desc: 'Windows / macOS / Linux' },
   { icon: Smartphone, name: 'Mobile', desc: 'iOS / Android (RN)' },
   { icon: Terminal, name: 'CLI', desc: 'Developer terminal tool' },

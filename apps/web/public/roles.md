@@ -16,7 +16,7 @@
 
 ### 你的关注点(决策权重)
 1. **上手成本**(35%):文档质量 / Quickstart 时长 / SDK 完整度
-2. **技术栈现代**(25%):TypeScript / React 19 / Next.js 15 / Fastify 5
+2. **技术栈现代**(25%):TypeScript / React 19 / Next.js 16 / Fastify 5
 3. **可扩展性**(20%):插件机制 / 自定义 Agent / MCP 工具开发
 4. **开源透明**(10%):代码可读 / 无黑盒 / 可贡献 PR
 5. **社区活跃**(10%):Issue 响应 / Discord/Slack 活跃 / Release 频率
@@ -122,7 +122,7 @@ server.publish()  // 一键上架到 MCP 市场
 
 #### 1. 完整技术架构(可直接评估)
 ```
-前端: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+前端: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 后端: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 AI: LangGraph + LiteLLM + MCP 协议
 部署: Docker Compose / Kubernetes / Helm Chart
