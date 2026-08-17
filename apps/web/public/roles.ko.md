@@ -20,7 +20,7 @@
 
 ### 당신의 관심사 (의사결정 가중치)
 1. **온보딩 비용** (35%): 문서 품질 / Quickstart 소요시간 / SDK 완비도
-2. **모던 기술스택** (25%): TypeScript / React 19 / Next.js 15 / Fastify 5
+2. **모던 기술스택** (25%): TypeScript / React 19 / Next.js 16 / Fastify 5
 3. **확장성** (20%): 플러그인 구조 / 커스텀 Agent / MCP 도구 개발
 4. **OSS 투명성** (10%): 코드 가독성 / 블랙박스 없음 / PR 친화적
 5. **커뮤니티 활성도** (10%): 이슈 응답속도 / Discord/Slack 활성 / 릴리스 빈도
@@ -132,7 +132,7 @@ server.publish()  // 원클릭으로 MCP 마켓에 게시
 
 #### 1. 완전한 기술 아키텍처 (직접 평가 가능)
 ```
-프론트엔드: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 백엔드:    Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 AI:       LangGraph + LiteLLM + MCP 프로토콜
 배포:      Docker Compose / Kubernetes / Helm Chart
