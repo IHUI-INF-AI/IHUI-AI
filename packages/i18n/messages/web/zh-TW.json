@@ -11456,7 +11456,19 @@
       "githubConnectedAs": "已連結 GitHub",
       "githubConfigure": "設定 GitHub 儲存庫連結",
       "tokenClear": "清除 Token",
-      "tokenCleared": "Token 已清除"
+      "tokenCleared": "Token 已清除",
+      "noOAuthConfig": "未設定 GitHub OAuth 應用程式",
+      "authFail": "GitHub 授權失敗",
+      "authorizeExpired": "授權已過期,請重新授權",
+      "authSuccess": "GitHub 授權成功",
+      "copied": "已複製",
+      "authorizing": "授權中…",
+      "authorize": "授權",
+      "manualToken": "手動輸入 Token",
+      "userCode": "使用者代碼",
+      "copyCode": "複製代碼",
+      "openAuthPage": "開啟授權頁面",
+      "authorizePending": "等待授權…"
     },
     "terminalDock": {
       "title": "PowerShell 終端",

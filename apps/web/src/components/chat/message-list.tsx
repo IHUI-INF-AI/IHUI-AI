@@ -18,6 +18,7 @@ import {
   Code,
   Megaphone,
   ArrowDown,
+  ArrowUp,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -47,6 +48,7 @@ import { useChatStore } from '@/stores/chat'
 import type { PlanStep } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
+import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -274,18 +276,24 @@ const MessageItem = React.memo(function MessageItem({
       const convId = useChatStore.getState().conversationId
       if (!convId) return
 
+      let shareToken: string | null = null
       try {
-        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
+        const r = await fetchApi<{ token: string }>(`/api/chat/conversations/${convId}/share`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
         })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+        if (!r.success || !r.data?.token) throw new Error(r.error || '获取分享链接失败')
+        shareToken = r.data.token
+      } catch (err: unknown) {
+        // API 错误：直接显示后端返回的具体信息
+        if (err instanceof Error) toast.error(err.message)
+        else toast.error(t('copyFailed'))
+        return
+      }
 
+      try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
-
+        const shareUrl = `${baseUrl}/chat/share/${shareToken}`
         const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
         const finalText = bodyLines.join('\n')
 
@@ -302,9 +310,8 @@ const MessageItem = React.memo(function MessageItem({
           document.execCommand('copy')
           document.body.removeChild(ta)
         }
-
         toast.success(t('message.shareLinkCopied'))
-      } catch (_err) {
+      } catch {
         toast.error(t('copyFailed'))
       }
     },
@@ -863,11 +870,14 @@ export function MessageList({
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
+  const userScrolledToTopRef = React.useRef(false)
   // 2026-07-28 立:userScrolledUp 状态镜像(用于驱动 jump-to-latest 浮动按钮显隐)
   // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
   // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
   // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
   const userScrolledUp = useChatStore((s) => s.userScrolledUp)
+  const userScrolledToTop = useChatStore((s) => s.userScrolledToTop)
+  const setUserScrolledToTop = useChatStore((s) => s.setUserScrolledToTop)
   const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
@@ -959,6 +969,14 @@ export function MessageList({
       setUserScrolledUp(scrolledUp)
     }
 
+    // 顶部返回按钮:scrollTop > 200px 时显示
+    const TOP_BACK_THRESHOLD = 200
+    const scrolledAwayFromTop = el.scrollTop > TOP_BACK_THRESHOLD
+    userScrolledToTopRef.current = scrolledAwayFromTop
+    if (scrolledAwayFromTop !== userScrolledToTop) {
+      setUserScrolledToTop(scrolledAwayFromTop)
+    }
+
     // #8 滚动到顶部触发加载更多历史
     if (
       el.scrollTop < TOP_LOAD_MORE_THRESHOLD &&
@@ -1032,6 +1050,8 @@ export function MessageList({
     onLoadMoreHistory,
     hasMoreHistory,
     loadingMoreHistory,
+    userScrolledToTop,
+    setUserScrolledToTop,
     userScrolledUp,
     setUserScrolledUp,
   ])
@@ -1137,6 +1157,8 @@ export function MessageList({
       // P0 优化(2026-08-02):清空 planSteps 缓存,避免旧会话条目累积
       completedPlanStepsRef.current.clear()
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
+      userScrolledToTopRef.current = false
+      setUserScrolledToTop(false)
       userScrolledUpRef.current = false
       setUserScrolledUp(false)
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
@@ -1878,17 +1900,31 @@ export function MessageList({
         currentIndex={searchCurrentIndex}
         onNavigate={handleSearchNavigate}
       />
+      {userScrolledToTop && messages.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            const el = containerRef.current
+            if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
+            setUserScrolledToTop(false)
+          }}
+          data-testid="message-list-jump-top"
+          aria-label={t('jumpToTop') === 'jumpToTop' ? 'Jump to top' : t('jumpToTop')}
+          className="pointer-events-auto absolute top-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-full border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
+        >
+          <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      )}
       {inlinePanelNode}
       {userScrolledUp && messages.length > 0 && (
         <button
           type="button"
           onClick={handleJumpToLatest}
           data-testid="message-list-jump-latest"
-          aria-label={t('latest')}
-          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur transition-colors hover:bg-accent"
+          aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-full border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
         >
           <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          {t('jumpToLatest')}
           {isStreaming && (
             <span
               data-testid="message-list-jump-latest-dot"

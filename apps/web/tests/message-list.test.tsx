@@ -69,7 +69,15 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    setTokenProvider: vi.fn(),
+    setBaseUrl: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+  }
+})
 
 vi.mock('lucide-react', () => {
   const Icon = IconSpan
