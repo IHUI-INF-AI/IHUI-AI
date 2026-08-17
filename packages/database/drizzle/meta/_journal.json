@@ -1506,6 +1506,13 @@
       "when": 1786894212848,
       "tag": "0215_fuzzy_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1786960129481,
+      "tag": "20260817000000_add_share_token_to_chat_conversations",
+      "breakpoints": true
     }
   ]
 }
