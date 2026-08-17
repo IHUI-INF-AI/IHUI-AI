@@ -114,6 +114,16 @@ async def _ensure_accounts_table(conn: asyncpg.Connection) -> None:
     await conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_publish_accounts_platform ON publish_accounts(platform)"
     )
+    # 2026-08-17 修复:本地/早期库 publish_accounts 是旧结构(nickname/last_verify_result,
+    # 无 display_name/last_verify_msg/extra),CREATE TABLE IF NOT EXISTS 不会 ALTER 已有表
+    # → 账号创建/查询/验证一直 500(UndefinedColumnError)。幂等迁移补列,生产安全。
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)"
+    )
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS last_verify_msg TEXT"
+    )
+    await conn.execute("ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS extra JSONB")
 
 
 def _serialize_account(row: asyncpg.Record, include_credentials: bool = False) -> dict[str, Any]:
@@ -575,6 +585,79 @@ async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
             f"{'OK' if ok else 'FAIL'}: {msg}"[:500],
         )
         return _wrap_ok({"ok": ok, "message": msg, "platform": row["platform"], "accountId": account_id})
+    finally:
+        await conn.close()
+
+
+@router.get("/accounts/{account_id}/risk")
+async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
+    """账号风险评分(2026-08-17 新增)。
+
+    调 anti_risk.risk_scoring 引擎计算当前账号风险(0-100)+ 冷却信息。
+    风控引擎已存在但此前未暴露 API,此端点供前端发布前评估账号风险。
+
+    IDOR 修复:校验账号归属;不存在或不归属当前用户统一返回 404,
+    不泄露账号是否存在(与 reschedule_task 风格一致)。
+
+    cookie_health 从 last_verified_at 推算(14 天阈值,与 cookie-health 端点一致):
+      - 距过期 >7 天   → healthy(不加分)
+      - 距过期 0-7 天  → expiring_soon(加 15 分)
+      - 已过 14 天阈值 → expired(加 15 分)
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        row = await conn.fetchrow(
+            "SELECT platform, display_name, status, last_verified_at, user_id "
+            "FROM publish_accounts WHERE id=$1",
+            account_id,
+        )
+        # 不存在或不归属当前用户:统一 404(不泄露账号是否存在)
+        if not row or row["user_id"] != user_id:
+            raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
+
+        platform = row["platform"]
+        cookie_health: Optional[dict[str, Any]] = None
+        last_verified = row["last_verified_at"]
+        if last_verified:
+            now_ts = time.time()
+            days_until_expiry = (last_verified.timestamp() + 14 * 86400 - now_ts) / 86400
+            if days_until_expiry <= 0:
+                cookie_status = "expired"
+            elif days_until_expiry <= 7:
+                cookie_status = "expiring_soon"
+            else:
+                cookie_status = "healthy"
+            cookie_health = {
+                "status": cookie_status,
+                "days_until_expiry": round(days_until_expiry, 1),
+            }
+
+        # 延迟 import 避免循环依赖
+        from app.services.publish.anti_risk.risk_scoring import get_instance as get_risk_scorer
+
+        scorer = get_risk_scorer()
+        result = scorer.calculate_risk_score(
+            str(account_id),
+            platform,
+            publish_history=None,
+            cookie_health=cookie_health,
+        )
+        now_ts = time.time()
+        cooldown_until = result.cooldown_until
+        cooldown_remaining = (
+            max(0, cooldown_until - now_ts) if cooldown_until is not None else 0
+        )
+        return _wrap_ok({
+            "accountId": account_id,
+            "platform": platform,
+            "score": result.score,
+            "level": result.level,
+            "factors": result.factors,
+            "cooldownUntil": cooldown_until,
+            "cooldownRemaining": cooldown_remaining,
+        })
     finally:
         await conn.close()
 

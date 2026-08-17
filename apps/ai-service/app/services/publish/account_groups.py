@@ -117,6 +117,15 @@ async def _ensure_tables(conn: asyncpg.Connection) -> None:
         )
         """
     )
+    # 2026-08-17 修复:早期库 publish_accounts 为旧结构(nickname/last_verify_result),
+    # 幂等迁移补新列,否则 cookie-health/batch-import 等读 display_name 报 UndefinedColumnError。
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)"
+    )
+    await conn.execute(
+        "ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS last_verify_msg TEXT"
+    )
+    await conn.execute("ALTER TABLE publish_accounts ADD COLUMN IF NOT EXISTS extra JSONB")
 
 
 def _gen_group_id() -> str:
