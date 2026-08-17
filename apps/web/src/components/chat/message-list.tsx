@@ -50,6 +50,7 @@ import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { fetchApi } from '@/lib/api'
 
 function TypingIndicator({
   reasoning,
@@ -275,16 +276,14 @@ const MessageItem = React.memo(function MessageItem({
       if (!convId) return
 
       try {
-        const res = await fetch(`/api/chat/conversations/${convId}/share`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || '获取分享链接失败')
+        const r = await fetchApi<{ token: string }>(
+          `/api/chat/conversations/${convId}/share`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+        )
+        if (!r.success) throw new Error(r.error || '获取分享链接失败')
 
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-        const shareUrl = `${baseUrl}/chat/share/${data.data.token}`
+        const shareUrl = `${baseUrl}/chat/share/${r.data.token}`
 
         const bodyLines = [plainTextForClipboard(m.content).trimEnd(), '', shareUrl]
         const finalText = bodyLines.join('\n')

@@ -26,6 +26,10 @@
     "./endpoints/*": {
       "types": "./dist/endpoints/*.d.ts",
       "import": "./dist/endpoints/*.js"
+    },
+    "./endpoints/voice-stt.taro": {
+      "types": "./src/endpoints/voice-stt.taro.ts",
+      "import": "./src/endpoints/voice-stt.taro.ts"
     }
   },
   "scripts": {
