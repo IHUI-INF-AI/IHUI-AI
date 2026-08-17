@@ -953,7 +953,8 @@
       "publishToCommunity": "Publish to community",
       "edit": "Edit",
       "reply": "Reply",
-      "delete": "Delete"
+      "delete": "Delete",
+      "jumpToLatest": "Jump to latest"
     },
     "plan": {
       "title": "Execution Plan",
@@ -7513,7 +7514,8 @@
       "noTasks": "No tasks on this day",
       "taskCount": "{count} tasks",
       "createTask": "New task",
-      "dragHint": "Drag tasks to other dates to reschedule"
+      "dragHint": "Drag tasks to other dates to reschedule",
+      "rescheduled": "Task rescheduled to {date}"
     },
     "analytics": {
       "title": "Analytics",
@@ -7860,7 +7862,7 @@
     "billingNoData": "No billing records",
     "dashboardDesc": "Quick access to all settings options",
     "themeSystem": "System",
-    "langZh": "mid",
+    "langZh": "Chinese",
     "sidebarCollapsed": "Collapse by default",
     "sidebarExpanded": "Expand by default",
     "subPagesTitle": "More Settings",
@@ -11355,6 +11357,35 @@
       "renameEmpty": "Conversation title cannot be empty",
       "exportFailed": "Export failed",
       "compressFailed": "Compress failed"
+    },
+    "envInfoButton": "Environment Info",
+    "openTerminal": "Open Terminal",
+    "toggleWorkPanel": "Toggle Work Panel",
+    "envInfo": {
+      "ariaLabel": "Environment Info",
+      "title": "Environment Info",
+      "refresh": "Refresh",
+      "collapse": "Collapse",
+      "loading": "Loading…",
+      "noWorkspace": "No workspace selected. Bind a local workspace from the top first.",
+      "errorTitle": "Failed to load environment info",
+      "notRepo": "Current directory is not a Git repository",
+      "detached": "detached HEAD",
+      "changes": "Changes",
+      "noChanges": "No changes",
+      "local": "Local",
+      "remote": "Remote",
+      "remoteYes": "Configured",
+      "remoteNo": "Not configured",
+      "aheadBehind": "Ahead/Behind",
+      "commitPush": "Commit & Push",
+      "commitPlaceholder": "Enter commit message…",
+      "commitOk": "Committed successfully",
+      "commitFail": "Commit or push failed",
+      "pullRequest": "Pull Request",
+      "prUnavailable": "Unable to fetch pull request status",
+      "prNoRemote": "No remote repository configured",
+      "compareBranch": "Compare Branches"
     }
   },
   "refund": {
