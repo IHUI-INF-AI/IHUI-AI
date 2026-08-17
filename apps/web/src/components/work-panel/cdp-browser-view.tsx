@@ -108,6 +108,8 @@ export function CdpBrowserView({
   // 右键菜单状态
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number } | null>(null)
   const [copied, setCopied] = React.useState(false)
+  // 2026-08-17:交互受限提示条(扫码登录只需展示二维码,用户用手机扫;避免误以为可随意点击)
+  const [hintDismissed, setHintDismissed] = React.useState(false)
 
   // 开发者工具(2026-08-17):控制台日志 + JS 执行(类似 F12)
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
@@ -288,7 +290,7 @@ export function CdpBrowserView({
       const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left'
       // 2026-08-17 调试:扫码登录"点不了按钮"排查 — 记录点击坐标与 WS 状态(控制台可见)
       const log = `[cdp-browser-view] ${eventType} client=(${Math.round(e.clientX)},${Math.round(e.clientY)}) device=(${Math.round(x)},${Math.round(y)}) ws=${wsRef.current ? 'connected' : 'NULL'}`
-      console.debug(log)
+      console.info(log)
       setConsoleLogs((prev) => [...prev, log].slice(-60))
       wsRef.current?.send(
         JSON.stringify({
@@ -516,6 +518,22 @@ export function CdpBrowserView({
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-4 text-center">
           <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+      {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
+      {!hintDismissed && !error && (
+        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-sm">
+          <span className="flex-1 text-[10px] leading-relaxed text-muted-foreground">
+            此视图为自动化截图,交互受限 — 扫码请用手机扫;完整操作请在外部浏览器打开
+          </span>
+          <button
+            type="button"
+            onClick={() => setHintDismissed(true)}
+            className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground"
+            aria-label="关闭提示"
+          >
+            知道了
+          </button>
         </div>
       )}
       {/* 开发者工具(F12):浮动按钮 + 控制台日志 + JS 执行(2026-08-17) */}
