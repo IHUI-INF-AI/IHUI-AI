@@ -37,6 +37,8 @@ import InputArea from '../components/InputArea'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
+import MyAgents, { type MyAgentItem } from '../components/MyAgents'
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -145,6 +147,10 @@ export function AgentScreen() {
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [banners] = useState<CarouselItem[]>([])
   const [recentAgents] = useState<RecentAgentItem[]>([])
+  // 我的AI APP(对齐 Uniapp tools/index MyAgents.vue):与 items 同源取前 6 条
+  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
+  // 智汇值卡(对齐 Uniapp Intelligent-assistant.vue):暂无 getTokenCount 接口,占位 0
+  const [tokenQuantity] = useState(0)
   // 搜索关键词 + 搜索框显隐(对齐 Uniapp showSearchBox)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [showSearchBox, setShowSearchBox] = useState(true)
@@ -179,7 +185,15 @@ export function AgentScreen() {
         agentCategory: opts?.agentCategory,
         agentMainCategory: opts?.agentMainCategory,
       })
-      if (res.success) setItems((res.data.list ?? []).map(mapToItem))
+      if (res.success) {
+        setItems((res.data.list ?? []).map(mapToItem))
+        // MyAgents 我的AI APP:与智能体列表同源取前 6 条(对齐 uniapp myAgents 独立接口降级)
+        setMyAgents(
+          (res.data.list ?? [])
+            .slice(0, 6)
+            .map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar ?? undefined })),
+        )
+      }
       else setError(res.error || t('agentScreen.loadFailed'))
     },
     [t],
@@ -259,6 +273,35 @@ export function AgentScreen() {
     },
     [token, t, navigation, items],
   )
+
+  // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
+  const handleMyAgentPress = useCallback(
+    (item: MyAgentItem): void => {
+      if (!token) {
+        Alert.alert(t('common.hint'), '请先登录', [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('common.login'), onPress: () => navigation.navigate('Login') },
+        ])
+        return
+      }
+      const id = item.agentId ?? item.id
+      if (!id) return
+      navigation.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
+    },
+    [token, t, navigation],
+  )
+  /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
+  const handleTeamPress = useCallback((): void => {
+    navigation.navigate('AiGroup')
+  }, [navigation])
+  /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
+  const handleRechargePress = useCallback((): void => {
+    if (!token) {
+      navigation.navigate('Login')
+      return
+    }
+    navigation.navigate('AppTopup')
+  }, [token, navigation])
 
   // ── 两行分类按钮回调 ──
   const handleCategorySelect = useCallback((id: string): void => {
@@ -429,6 +472,18 @@ export function AgentScreen() {
         {recentAgents.length > 0 ? (
           <RecentAgents items={recentAgents} onItemClick={(item) => handleItemClick(item.id)} />
         ) : null}
+        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+        <View style={styles.sectionWrap}>
+          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
+        </View>
+        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片) */}
+        <View style={styles.sectionWrap}>
+          <MyAgents
+            items={myAgents}
+            onItemClick={handleMyAgentPress}
+            onTeamPress={handleTeamPress}
+          />
+        </View>
         <View style={styles.tabBar}>
           <TouchableOpacity
             style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
@@ -554,6 +609,7 @@ const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
   carouselWrap: { marginTop: 9, marginHorizontal: 10, borderRadius: 15, overflow: 'hidden' },
+  sectionWrap: { marginHorizontal: 12, marginTop: 8 },
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: 12,
