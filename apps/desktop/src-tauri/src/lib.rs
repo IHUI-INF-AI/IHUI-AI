@@ -140,6 +140,44 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+/// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
+/// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
+///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
+/// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
+/// - 仅允许 http/https URL(防参数注入)。
+#[tauri::command]
+fn open_in_chrome(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err("仅支持 http/https URL".into());
+    }
+    let candidates = [
+        std::env::var_os("LOCALAPPDATA")
+            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
+        std::env::var_os("PROGRAMFILES")
+            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
+        std::env::var_os("PROGRAMFILES(X86)")
+            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
+        Some(std::path::PathBuf::from(
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        )),
+        Some(std::path::PathBuf::from(
+            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        )),
+    ];
+    let chrome = candidates.into_iter().flatten().find(|p| p.exists());
+    let Some(chrome) = chrome else {
+        return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
+    };
+    // spawn 后丢弃句柄:子进程独立运行,不等待、不 kill(--app 是长驻 Chrome 窗口)
+    let _child = std::process::Command::new(&chrome)
+        .arg(format!("--app={}", trimmed))
+        .arg("--new-window")
+        .spawn()
+        .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+    Ok(())
+}
+
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
 /// direction: n/s/e/w/ne/nw/se/sw
 /// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持 admin 窗口独立 resize。
@@ -1414,6 +1452,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            open_in_chrome,
             get_admin_window_info,
             toggle_devtools,
             quit_app,
