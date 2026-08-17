@@ -23,6 +23,15 @@ interface Target {
   error?: string | null
   durationMs?: number
 }
+/** 单平台真实执行结果(2026-08-17 新增,后端列表 platforms 字段) */
+interface PlatformResult {
+  platform: string
+  success: boolean
+  publishedUrl?: string | null
+  platformContentId?: string | null
+  errorMessage?: string | null
+  durationMs?: number
+}
 interface Task {
   id: number
   taskId?: string
@@ -34,6 +43,7 @@ interface Task {
   scheduledAt?: string | null
   platformCount?: number
   targets?: Target[]
+  platforms?: PlatformResult[]
   error?: string | null
 }
 interface Stats {

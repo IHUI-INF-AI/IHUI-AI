@@ -22,22 +22,32 @@ interface Target {
   readonly status?: string
 }
 
-interface TaskDetailResponse {
+/** GET /publish/tasks/{task_id} 的平台执行结果(ai-service publish.py get_task 返回) */
+interface PlatformResult {
   readonly id: number
+  readonly platform: string
+  readonly success: boolean
+  readonly publishedUrl?: string | null
+  readonly errorMessage?: string | null
+  readonly durationMs?: number
+}
+
+interface TaskDetailResponse {
+  readonly taskId?: string
   readonly status: string
-  readonly targets?: ReadonlyArray<Target>
+  readonly platforms?: ReadonlyArray<PlatformResult>
 }
 
 const POLL_INTERVAL_MS = 2000
 const POLL_MAX_MS = 5 * 60 * 1000
-const TERMINAL_STATUSES = new Set(['success', 'failed', 'skipped'])
+const TERMINAL_STATUSES = new Set(['success', 'failed', 'partial', 'cancelled'])
 
 export interface SubmitBarProps {
   readonly submitting: boolean
   readonly scheduleMode: ScheduleMode
   readonly onSubmit: (e: React.FormEvent) => void
-  /** 提交后任务 ID(用于轮询进度),null/undefined 不轮询 */
-  readonly submittedTaskId?: number | null
+  /** 提交后任务 ID(字符串 task_id pub-xxx,用于轮询),null/undefined 不轮询 */
+  readonly submittedTaskId?: string | null
 }
 
 export function SubmitBar({
@@ -62,13 +72,18 @@ export function SubmitBar({
         return
       }
       try {
+        // 2026-08-17 修复:task_id 是字符串(pub-xxx),且详情接口返回 platforms(带 success 布尔)
+        // 而非 targets。原实现用数字 id + 读 targets[].status → 轮询永远 404/空。
         const r = await fetchApi<TaskDetailResponse>(`/api/publish/tasks/${submittedTaskId}`)
         if (r.success && r.data) {
-          setTargets(r.data.targets ?? [])
+          const mapped = (r.data.platforms ?? []).map((p) => ({
+            platform: p.platform,
+            status: p.success ? 'success' : 'failed',
+          }))
+          setTargets(mapped)
           const allDone =
-            r.data.status === 'success' ||
-            r.data.status === 'failed' ||
-            (r.data.targets?.every((tg) => TERMINAL_STATUSES.has(tg.status ?? '')) ?? false)
+            TERMINAL_STATUSES.has(r.data.status) ||
+            (mapped.length > 0 && mapped.every((tg) => TERMINAL_STATUSES.has(tg.status ?? '')))
           if (allDone) {
             clearInterval(id)
             setPolling(false)
