@@ -55,10 +55,7 @@ const existingPrepare: typeof Error.prepareStackTrace | undefined = Error.prepar
 // 截断 sourceMap data URI 的正则(只匹配前缀,保留 1 字符避免正则回溯)
 const sourceMapDataUriRegex = /data:application\/json[^,]*?,/g
 
-function safePrepareStackTrace(
-  error: unknown,
-  structuredStack: NodeJS.CallSite[],
-): string {
+function safePrepareStackTrace(error: unknown, structuredStack: NodeJS.CallSite[]): string {
   // 防御 1:栈超深(>50)说明上游可能递归,直接降级不调 sourcemap
   if (structuredStack.length > 50) {
     const name = (error as Error)?.name || 'Error'
@@ -100,9 +97,9 @@ Error.prepareStackTrace = safePrepareStackTrace
 
 // 保留 saved reference 用于 debug/testability
 declare global {
-  // eslint-disable-next-line no-var
   var __appsWebVitestPrepare: typeof Error.prepareStackTrace | undefined
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(globalThis as any).__appsWebVitestPrepare = existingPrepare
+;(
+  globalThis as { __appsWebVitestPrepare?: typeof Error.prepareStackTrace }
+).__appsWebVitestPrepare = existingPrepare
 void globalThis.__appsWebVitestPrepare
