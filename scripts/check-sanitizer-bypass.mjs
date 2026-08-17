@@ -126,6 +126,14 @@ for (const filePath of files) {
     if (/:\s*\{?\s*(type|description)\s*:/i.test(line)) continue
     // 排除变量声明(如 const { accessToken } = ...)
     if (/const\s*\{/.test(line) || /let\s*\{/.test(line)) continue
+    // 排除环境变量读取赋值(如 const clientSecret = process.env.X ?? '')——值只进请求体/内部逻辑,不进响应
+    if (/=\s*process\.env\./.test(line)) continue
+    // 排除 fetch() 调用行(URL/请求体中可能含 access_token/secret 等路径片段)
+    if (/\bfetch\s*\(/.test(line)) continue
+    // 排除文件写入行(writeFileSync 等,值写本地文件不进响应)
+    if (/\b(writeFile|appendFile|createWriteStream)\w*\s*\(/.test(line)) continue
+    // 排除 if 条件行(变量名引用,如 if (!clientId || !clientSecret),不是响应字段)
+    if (/^\s*if\s*\(/.test(line)) continue
     // 检查前后 5 行是否有 reply.send / success / return
     const context = lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 5)).join('\n')
     if (/\b(reply\.send|reply\.status|success\s*\(|return\s)/.test(context)) {
