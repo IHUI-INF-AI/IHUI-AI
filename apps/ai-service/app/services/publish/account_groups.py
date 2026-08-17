@@ -639,18 +639,7 @@ async def refresh_cookie(account_id: int, request: Request) -> dict[str, Any]:
 
 
 # =============================================================================
-# CSV 模板生成(供前端下载模板用)
+# CSV 模板生成(2026-08-17 已迁移至 app/routers/publish.py:
+#   FastAPI 按注册顺序匹配,/accounts/{user_id} 参数路由先注册会劫持本静态路由,
+#   移至 publish.py 且置于参数路由之前定义才能命中)
 # =============================================================================
-@router.get("/accounts/batch-template")
-async def batch_template(request: Request) -> dict[str, Any]:
-    """返回 CSV 模板字符串(含 37 平台示例行,凭证字段留空)。"""
-    from app.services.publish.base_adapter import list_all_adapter_classes
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["platform", "nickname", "credential_field1", "credential_field2", "credential_field3"])
-    for cls in list_all_adapter_classes():
-        creds = cls.requires_credentials
-        # 补齐 3 列
-        padded = (creds + ["", "", ""])[:3]
-        writer.writerow([cls.platform_id, f"{cls.platform_name}示例", *padded])
-    return _ok({"csv": buf.getvalue()})
