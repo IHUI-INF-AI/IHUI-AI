@@ -411,13 +411,6 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           {t('highRisk')}
                         </span>
                       )}
-                      {/* 数字快捷键徽章(Codex 风格:右侧 1/2/3) */}
-                      <span
-                        className="ml-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[9px] font-medium text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        {idx + 1}
-                      </span>
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                       {t(opt.descKey)}

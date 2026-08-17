@@ -8,7 +8,6 @@ import {
   Check,
   RefreshCw,
   Search,
-  Star,
   Share2,
   Pencil,
   Trash2,
@@ -266,26 +265,43 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [m.id, t])
 
-  // 点赞(对应原项目 toggleLike)— 预留事件,toast 兜底
-  const handleLike = React.useCallback(() => {
-    window.dispatchEvent(new CustomEvent('ihui:like-message', { detail: { messageId: m.id } }))
-    toast.success(t('feedbackRecorded') === 'feedbackRecorded' ? 'Liked' : t('feedbackRecorded'))
-  }, [m.id, t])
-
-  // 分享(对应原项目 shareAssistantMessage)— navigator.share 优先,剪贴板兜底
-  const handleShare = React.useCallback(async () => {
-    const text = plainTextForClipboard(m.content)
-    try {
-      if (navigator.share) {
-        await navigator.share({ text })
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-        toast.success(t('copied') === 'copied' ? 'Copied to share' : t('copied'))
+  // 分享 — 复制内容到剪贴板(带完整错误处理 + execCommand 兜底),与 handleCopy 对齐
+  const handleShare = React.useCallback(
+    async (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const text = plainTextForClipboard(m.content)
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.setAttribute('readonly', '')
+          ta.style.position = 'absolute'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+        const successLabel = t('copied') === 'copied' ? 'Copied' : t('copied')
+        if (successLabel === 'copied') {
+          console.warn('[i18n] Missing translation for key: chat.copied')
+        }
+        toast.success(successLabel)
+      } catch (err) {
+        const errLabel = t('copyFailed') === 'copyFailed' ? 'Copy failed' : t('copyFailed')
+        if (errLabel === 'copyFailed') {
+          console.warn('[i18n] Missing translation for key: chat.copyFailed')
+        }
+        toast.error(errLabel, {
+          description: err instanceof Error ? err.message : String(err),
+        })
       }
-    } catch {
-      // 用户取消分享时不报错
-    }
-  }, [m.content, t])
+    },
+    [m.content, t],
+  )
 
   // 回复(对应原项目 replyToMessage)— 预留事件
   const handleReply = React.useCallback(() => {
@@ -390,7 +406,6 @@ const MessageItem = React.memo(function MessageItem({
         'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
-        isFocused && 'ring-1 ring-ring/40',
         // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
         isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
         isSearchCurrent && 'ring-2 ring-yellow-400',
@@ -590,20 +605,6 @@ const MessageItem = React.memo(function MessageItem({
                     ) : (
                       <EyeOff className="h-4 w-4" aria-hidden />
                     )}
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
-              {!isUser && (
-                <Tooltip content={t('message.like')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleLike}
-                    data-testid={`message-like-${m.id}`}
-                    aria-label={t('message.like')}
-                    className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
-                  >
-                    <Star className="h-4 w-4" aria-hidden />
                   </button>
                 </Tooltip>
               )}
@@ -1039,7 +1040,8 @@ export function MessageList({
   // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
   React.useEffect(() => {
     const newLen = messages.length
-    const isNewMessage = newLen > prevMessagesLenRef.current
+    const prevLen = prevMessagesLenRef.current
+    const isNewMessage = newLen > prevLen
     prevMessagesLenRef.current = newLen
     // 2026-08-16 修复:流式输出也尊重用户上翻——此前 isStreaming 恒强制滚底,
     // 用户在流式生成时翻看历史会被拉回底部(打断阅读)。
@@ -1049,7 +1051,11 @@ export function MessageList({
 
     const doScroll = () => {
       const el = bottomRef.current
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      if (!el) return
+      // 批量加载(切换会话/首次加载,prev=0 且 newLen>1):auto 无动画直接跳底
+      // 逐条追加/streaming:smooth 平滑跟随新消息
+      const behavior = prevLen === 0 && newLen > 1 ? 'auto' : 'smooth'
+      el.scrollIntoView({ behavior, block: 'end' })
     }
     const st = scrollThrottleRef.current
     const now = Date.now()
