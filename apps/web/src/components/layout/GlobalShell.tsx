@@ -83,6 +83,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const aiWidth = useAiPanelStore((s) => s.width)
   const aiFloatMode = useAiPanelStore((s) => s.floatMode)
   const aiFloatMinimized = useAiPanelStore((s) => s.floatMinimized)
+  // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
+  const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
   const pending = useNavigationStore((s) => s.pending)
   // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
@@ -250,7 +252,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           */}
           <div
             id="work-area-portal-root"
-            className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
+            className={cn(
+              'relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden',
+              // 2026-08-17 工作展示区折叠:true 时整个右侧内容区隐藏,AI 面板 flex-1 占满
+              workAreaCollapsed && 'hidden',
+            )}
           >
             {/* 全局导航进度条 + 内容区加载覆盖层(2026-08-05 立):
                 点击侧边栏链接时立即显示进度条 + 骨架屏覆盖内容区,
