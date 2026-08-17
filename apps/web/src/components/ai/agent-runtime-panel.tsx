@@ -193,7 +193,8 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         {status === 'cancelled' && (
           <section
             data-testid="cancelled-banner"
-            className="mb-3 rounded-md border border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/30"
+            // 2026-08-17 P3:dark 模式 banner 弱提示背景统一为 zinc-950/30(深一档,与代码块 token 对齐)
+            className="mb-3 rounded-md border border-zinc-300 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-950/30"
           >
             <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
               <Ban className="h-3 w-3" />
