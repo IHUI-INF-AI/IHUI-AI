@@ -248,9 +248,9 @@ async function fetchOnce<T>(
   options: RequestInit,
   headers: Record<string, string>,
 ): Promise<ApiResult<T>> {
-  if (options.signal?.aborted) {
-    return { success: false, error: '请求已取消' }
-  }
+  // 2026-08-17 修复:移除 signal?.aborted 早返回,改为让 fetch 真实被调用。
+  // 原早返回导致 AbortSignal 测试期望 fetch 被调用 1 次时,实际 0 次。
+  // fetch 自身支持 aborted signal(立即 reject AbortError),由调用方统一 catch 后归一化为 '请求已取消'。
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
