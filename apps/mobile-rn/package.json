@@ -56,6 +56,7 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
+    "@babel/plugin-transform-react-jsx": "^7.28.6",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.0",
