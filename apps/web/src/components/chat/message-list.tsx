@@ -387,7 +387,7 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-0 px-1',
+        'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-ring/30 animate-message-highlight-pulse',
         isFocused && 'ring-1 ring-ring/40',
@@ -557,23 +557,20 @@ const MessageItem = React.memo(function MessageItem({
           - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
       {!streamingThis && m.content.length > 0 && (
-        <div className="flex flex-col gap-0">
-          {/* 按钮区(hover 显示,左侧附时间戳) */}
-          <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
-            {/* 时间戳 — AI 消息左侧展示 */}
-            {!isUser &&
-              (() => {
-                const timestampLabel = formatMessageTimestamp(m.createdAt)
-                return timestampLabel ? (
-                  <span
-                    className="text-xs text-muted-foreground shrink-0"
-                    data-testid={`message-timestamp-${m.id}`}
-                  >
-                    {timestampLabel}
-                  </span>
-                ) : null
-              })()}
-            <div className="msg-hover-reveal flex items-center gap-1">
+          <div className="msg-hover-reveal flex items-center gap-1">
+            {/* 时间戳 — 随按钮一起 hover 显示,所有消息都展示 */}
+            {(() => {
+              const label = formatMessageTimestamp(m.createdAt) || '--'
+              return (
+                <span
+                  className="text-xs text-muted-foreground shrink-0 mr-auto"
+                  data-testid={`message-timestamp-${m.id}`}
+                >
+                  {label}
+                </span>
+              )
+            })()}
+            <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
               {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
               {!isUser && (
                 <Tooltip
@@ -745,7 +742,6 @@ const MessageItem = React.memo(function MessageItem({
               )}
             </div>
           </div>
-        </div>
       )}
       {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
             展示 promptTokens / completionTokens / totalTokens 细分 */}
@@ -1779,7 +1775,7 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0 px-4 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
