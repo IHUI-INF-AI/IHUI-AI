@@ -327,6 +327,372 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
+  // 1.1 Git Status + GitHub 集成 — 环境信息弹窗专用(2026-08-17 立,对标 Cursor env card)
+  // ===========================================================================
+
+  type GitStatusSnapshot = {
+    isRepo: boolean
+    branch: string | null
+    hasRemote: boolean
+    ahead: number
+    behind: number
+    counts: {
+      added: number
+      modified: number
+      deleted: number
+      untracked: number
+      conflicted: number
+      renamed: number
+    }
+    pullRequest: {
+      state: 'open' | 'merged' | 'closed' | 'draft' | null
+      number: number | null
+      title: string | null
+      url: string | null
+    } | null
+    lastCommit: {
+      hash: string
+      message: string
+      author: string
+      date: string
+    } | null
+    localPath: string | null
+    remotes: Array<{ name: string; url: string; type: 'fetch' | 'push' | null }>
+    fetchedAt: string
+  }
+
+  const EMPTY_SNAPSHOT: GitStatusSnapshot = {
+    isRepo: false,
+    branch: null,
+    hasRemote: false,
+    ahead: 0,
+    behind: 0,
+    counts: {
+      added: 0,
+      modified: 0,
+      deleted: 0,
+      untracked: 0,
+      conflicted: 0,
+      renamed: 0,
+    },
+    pullRequest: null,
+    lastCommit: null,
+    localPath: null,
+    remotes: [],
+    fetchedAt: new Date().toISOString(),
+  }
+
+  function buildGitCmd(args: string[]): string {
+    const allowed = new Set([
+      'rev-parse',
+      'status',
+      'branch',
+      'remote',
+      'rev-list',
+      'log',
+      'diff',
+      'show',
+      'ls-files',
+      'symbolic-ref',
+    ])
+    const firstSub = args.find((a) => !a.startsWith('-'))
+    if (!firstSub || !allowed.has(firstSub)) {
+      throw new Error(`git 子命令未授权: ${args.join(' ')}`)
+    }
+    for (const a of args) {
+      if (a.includes('..') || a.includes('~') || a.startsWith('/')) {
+        throw new Error(`git 参数包含不安全片段: ${a}`)
+      }
+    }
+    return `git ${args.map((a) => (a.includes(' ') ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`
+  }
+
+  server.post('/git/status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
+      const result = await fsBridge.run({
+        command: buildGitCmd(args),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs,
+      })
+      return result.stdout ?? ''
+    }
+    try {
+      const isRepo = (await runGit(['rev-parse', '--is-inside-work-tree'])).trim() === 'true'
+      if (!isRepo) return reply.send(success(EMPTY_SNAPSHOT))
+      const branchRaw = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const branch = branchRaw.trim() === 'HEAD' ? null : branchRaw.trim() || null
+      const hasRemote = (await runGit(['remote'])).trim().length > 0
+      const statusRaw = await runGit(['status', '--porcelain=v1', '--branch'])
+      const lines = statusRaw.split('\n')
+      const header = lines[0] ?? ''
+      let ahead = 0
+      let behind = 0
+      const aheadMatch = /\[ahead (\d+)/.exec(header)
+      const behindMatch = /\[behind (\d+)/.exec(header)
+      if (aheadMatch) ahead = Math.max(0, Number.parseInt(aheadMatch[1]!, 10) || 0)
+      if (behindMatch) behind = Math.max(0, Number.parseInt(behindMatch[1]!, 10) || 0)
+      const counts = {
+        added: 0, modified: 0, deleted: 0, untracked: 0, conflicted: 0, renamed: 0,
+      }
+      for (const line of lines.slice(1)) {
+        if (!line || line.length < 2) continue
+        const x = line[0]
+        const y = line[1]
+        const rest = line.slice(2)
+        if (x === 'R' || y === 'R') { counts.renamed++; continue }
+        if (x === '?' && y === '?') { counts.untracked++; continue }
+        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) { counts.conflicted++; continue }
+        if (x === 'A' || y === 'A') { counts.added++; continue }
+        if (x === 'D' || y === 'D') { counts.deleted++; continue }
+        if (x !== ' ' || y !== ' ') { counts.modified++ }
+        void rest
+      }
+      let lastCommit: GitStatusSnapshot['lastCommit'] = null
+      try {
+        const logRaw = await runGit(['log', '-1', '--format=%h%n%s%n%an%n%cI'])
+        const [hash = '', message = '', author = '', date = ''] = logRaw.trim().split('\n')
+        if (hash) lastCommit = { hash, message, author, date }
+      } catch {
+        lastCommit = null
+      }
+      let localPath: GitStatusSnapshot['localPath'] = null
+      try {
+        localPath = (await runGit(['rev-parse', '--show-toplevel'])).trim() || null
+      } catch {
+        localPath = null
+      }
+      let remotes: GitStatusSnapshot['remotes'] = []
+      try {
+        const remoteVRaw = await runGit(['remote', '-v'])
+        const seen = new Set<string>()
+        for (const line of remoteVRaw.split('\n')) {
+          const m = /^(\S+)\s+(\S+)\s+\((\w+)\)\s*$/.exec(line.trim())
+          if (!m) continue
+          const key = `${m[1]}|${m[2]}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          remotes.push({ name: m[1]!, url: m[2]!, type: m[3] === 'push' ? 'push' : 'fetch' })
+        }
+      } catch {
+        remotes = []
+      }
+      let pullRequest: GitStatusSnapshot['pullRequest'] = null
+      if (hasRemote && branch && githubClient.loadToken()) {
+        try {
+          const remote = await githubClient.detectRemote(body.workspacePath)
+          if (remote) {
+            const prsRaw = await githubClient.listPRs({ owner: remote.owner, repo: remote.repo, state: 'open' })
+            const prs = Array.isArray(prsRaw) ? (prsRaw as Array<Record<string, unknown>>) : []
+            const matched = prs.find((pr) => {
+              const head = pr.head as Record<string, unknown> | undefined
+              return head?.ref === branch
+            })
+            if (matched) {
+              const head = matched.head as Record<string, unknown> | undefined
+              pullRequest = {
+                state:
+                  matched.state === 'open' ? 'open'
+                    : matched.state === 'closed' ? 'closed'
+                      : matched.merged ? 'merged'
+                        : matched.draft ? 'draft' : null,
+                number: typeof matched.number === 'number' ? matched.number : null,
+                title: typeof matched.title === 'string' ? matched.title : null,
+                url: typeof matched.html_url === 'string' ? matched.html_url : null,
+              }
+              void head
+            }
+          }
+        } catch {
+          pullRequest = null
+        }
+      }
+      return reply.send(
+        success({
+          isRepo: true, branch, hasRemote, ahead, behind, counts,
+          pullRequest, lastCommit, localPath, remotes,
+          fetchedAt: new Date().toISOString(),
+        }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'git status 失败'
+      server.log.warn({ workspacePath: body.workspacePath, err: msg }, 'git/status 失败')
+      return reply.send(success(EMPTY_SNAPSHOT))
+    }
+  })
+
+  server.post('/github/status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      const remote = await githubClient.detectRemote(body.workspacePath)
+      const branchRaw = await fsBridge.run({
+        command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
+        workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+      })
+      const currentBranch =
+        branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD' ? branchRaw.stdout.trim() : null
+      let defaultBranch: string | null = null
+      try {
+        const defRaw = await fsBridge.run({
+          command: buildGitCmd(['symbolic-ref', 'refs/remotes/origin/HEAD']),
+          workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+        })
+        const m = /^refs\/remotes\/origin\/(.+)$/.exec((defRaw.stdout ?? '').trim())
+        if (m) defaultBranch = m[1] ?? null
+      } catch {
+        defaultBranch = null
+      }
+      if (!defaultBranch) {
+        try {
+          const showRaw = await fsBridge.run({
+            command: buildGitCmd(['remote', 'show', 'origin']),
+            workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+          })
+          const hm = /HEAD branch:\s*(\S+)/.exec(showRaw.stdout ?? '')
+          if (hm) defaultBranch = hm[1] ?? null
+        } catch {
+          defaultBranch = null
+        }
+      }
+      return reply.send(
+        success({
+          isGithubRepo: !!remote,
+          owner: remote?.owner ?? null,
+          repo: remote?.repo ?? null,
+          ghConfigured: !!githubClient.loadToken(),
+          currentBranch,
+          defaultBranch,
+        }),
+      )
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/token', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const body = z
+        .object({ workspacePath: z.string().min(1), token: z.string().min(1) })
+        .parse(request.body ?? {})
+      const check = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${body.token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!check.ok) {
+        return reply.status(400).send(error(400, `GitHub Token 无效(HTTP ${check.status})`))
+      }
+      const { homedir } = await import('node:os')
+      const { mkdirSync, writeFileSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      const dir = join(homedir(), '.ihui')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'github_token'), body.token.trim(), 'utf-8')
+      return reply.send(success({ ok: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.delete('/github/token', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const { homedir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { rmSync, existsSync } = await import('node:fs')
+      const file = join(homedir(), '.ihui', 'github_token')
+      if (existsSync(file)) rmSync(file, { force: true })
+      return reply.send(success({ ok: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/device-code', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
+    if (!clientId) {
+      return reply.status(400).send(error(400, '未配置 GitHub OAuth App(GITHUB_OAUTH_CLIENT_ID)'))
+    }
+    try {
+      const res = await fetch('https://github.com/login/device/code', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: clientId, scope: 'repo read:org' }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const json = (await res.json()) as Record<string, unknown>
+      if (!json.device_code || !json.user_code) {
+        return reply.status(400).send(error(400, `GitHub 设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))
+      }
+      return reply.send(
+        success({
+          deviceCode: String(json.device_code),
+          userCode: String(json.user_code),
+          verificationUri: String(json.verification_uri ?? 'https://github.com/login/device'),
+          expiresIn: typeof json.expires_in === 'number' ? json.expires_in : 900,
+          interval: typeof json.interval === 'number' ? json.interval : 5,
+        }),
+      )
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/device-token', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ deviceCode: z.string().min(1) }).parse(request.body ?? {})
+    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
+    const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? ''
+    if (!clientId || !clientSecret) {
+      return reply.status(400).send(error(400, '未配置 GitHub OAuth App'))
+    }
+    try {
+      const res = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          device_code: body.deviceCode,
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const json = (await res.json()) as Record<string, unknown>
+      if (json.access_token) {
+        const { homedir } = await import('node:os')
+        const { mkdirSync, writeFileSync } = await import('node:fs')
+        const { join } = await import('node:path')
+        const dir = join(homedir(), '.ihui')
+        mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'github_token'), String(json.access_token), 'utf-8')
+        return reply.send(success({ status: 'ok' }))
+      }
+      const err = String(json.error ?? '')
+      if (err === 'authorization_pending') return reply.send(success({ status: 'pending' }))
+      if (err === 'slow_down') return reply.send(success({ status: 'slow_down' }))
+      return reply.send(success({ status: 'expired', message: err || 'access_denied' }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
   // 2. Swarm — 群体智能多 Agent 编排
   // ===========================================================================
 
