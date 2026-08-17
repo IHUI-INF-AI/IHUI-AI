@@ -116,11 +116,13 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         </div>
         <span className="text-sm font-semibold">{t('title')}</span>
         {sessionId && (
-          <Tooltip content={sessionId}>
-            <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
-              #{sessionId.slice(0, 8)}
-            </span>
-          </Tooltip>
+          <span
+            data-testid="session-id"
+            title={sessionId}
+            className="truncate text-xs text-muted-foreground"
+          >
+            #{sessionId.slice(0, 8)}
+          </span>
         )}
         {status === 'running' && (
           <Loader2 data-testid="status-running" className="h-3.5 w-3.5 animate-spin text-primary" />

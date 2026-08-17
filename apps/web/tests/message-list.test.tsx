@@ -122,19 +122,46 @@ vi.mock('lucide-react', () => {
 })
 
 // chat store mock(子 agent 活动列表为默认空数组)
+// 2026-08-17 修复:实现 zustand-like 行为——setUserScrolledUp 修改内部状态后,
+// 触发 React 重渲染(用 useSyncExternalStore 模拟 zustand 的 subscribe 机制)。
+// 这是 message-list.tsx 的 jump-to-latest 浮动按钮依赖的关键行为:
+// useChatStore((s) => s.userScrolledUp) 需响应式,变化时触发组件 re-render。
+type ChatStoreSnapshot = {
+  messages: unknown[]
+  subAgentActivities: unknown[]
+  conversationId: string | null
+  userScrolledUp: boolean
+  setUserScrolledUp: (v: boolean) => void
+}
+const chatStoreState: ChatStoreSnapshot = {
+  messages: [],
+  subAgentActivities: [],
+  conversationId: null,
+  userScrolledUp: false,
+  setUserScrolledUp: vi.fn(),
+}
+const chatStoreListeners = new Set<() => void>()
+chatStoreState.setUserScrolledUp = vi.fn((v: boolean) => {
+  chatStoreState.userScrolledUp = v
+  // 通知所有订阅者 → 触发 React 重新调 useSyncExternalStore → 组件 re-render
+  chatStoreListeners.forEach((cb) => cb())
+})
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (
-    selector: (s: {
-      messages: unknown[]
-      subAgentActivities: unknown[]
-      conversationId: string | null
-    }) => unknown,
-  ) =>
-    selector({
-      messages: [],
-      subAgentActivities: [],
-      conversationId: null,
-    }),
+  useChatStore: <T,>(
+    selector: (s: ChatStoreSnapshot) => T,
+    equalityFn?: (a: T, b: T) => boolean,
+  ): T => {
+    // 用 React 的 useSyncExternalStore 实现 zustand 的响应式订阅
+    // getSnapshot 取最新 store 值,selector 派生组件关心的字段
+    return React.useSyncExternalStore(
+      (onChange) => {
+        chatStoreListeners.add(onChange)
+        return () => chatStoreListeners.delete(onChange)
+      },
+      () => selector(chatStoreState),
+      () => selector(chatStoreState),
+    )
+  },
 }))
 
 // progress-jump-store mock
