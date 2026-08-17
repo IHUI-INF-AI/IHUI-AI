@@ -114,6 +114,24 @@ export async function retryPublishTask(taskId: number): Promise<ApiResult<unknow
   return fetchApi(`/api/publish/tasks/${taskId}/retry`, { method: 'POST' })
 }
 
+export interface ReschedulePublishTaskResult {
+  ok: boolean
+  task_id: string
+  status: string
+  scheduled_at?: string | null
+}
+
+/** 改期定时任务(2026-08-17 新增):task_id 为字符串 pub-xxx */
+export async function reschedulePublishTask(
+  taskId: string,
+  scheduledAt: string,
+): Promise<ApiResult<ReschedulePublishTaskResult>> {
+  return fetchApi(`/api/publish/tasks/${encodeURIComponent(taskId)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ scheduled_at: scheduledAt }),
+  })
+}
+
 // =============================================================================
 // 扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies)
 // =============================================================================
