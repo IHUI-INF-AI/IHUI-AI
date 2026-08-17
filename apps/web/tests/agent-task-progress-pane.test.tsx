@@ -187,7 +187,21 @@ vi.mock('@radix-ui/react-tooltip', () => ({
   Arrow: () => null,
 }))
 
-vi.mock('@ihui/api-client', () => ({}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:透传真实模块全部导出,保证 src/lib/api.ts 等模块导入的
+  // setTokenProvider / setBaseUrl / setStreamBaseUrl / fetchApi 等 API 可用(测试期间不调用真实网络)。
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return {
+    ...actual,
+    // 显式 stub 走真实网络的方法,避免测试意外触发请求
+    setTokenProvider: vi.fn(),
+    setBaseUrl: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    fetchApi: vi.fn(),
+    streamChat: vi.fn(),
+  }
+})
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义

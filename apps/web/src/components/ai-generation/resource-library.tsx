@@ -27,19 +27,41 @@ import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
 
 interface AigcRecord {
-  recordId: string
-  userId: string
+  taskId: string
   type: string
-  vendor: string
-  prompt: string
-  resultUrl?: string
-  createdAt: number
+  status: string
+  /** output 字段解析后的 JSON(可为 { url } / 纯字符串 / null) */
+  result: unknown
+  /** input 字段解析后的 JSON({ prompt, model, params }) */
+  input: unknown
+  createdAt: string
 }
 
 type ResourceType = 'image' | 'video' | 'audio' | '3d'
 
 const TYPE_OPTIONS: ResourceType[] = ['image', 'video', 'audio', '3d']
 const PAGE_SIZE = 12
+
+/** 从后端 result 字段提取可展示/播放的 URL */
+function extractResultUrl(result: unknown): string | undefined {
+  if (!result) return undefined
+  if (typeof result === 'string') return result
+  if (typeof result === 'object') {
+    const url = (result as Record<string, unknown>).url
+    if (typeof url === 'string') return url
+  }
+  return undefined
+}
+
+/** 从后端 input 字段提取 prompt / model */
+function extractInputInfo(input: unknown): { prompt?: string; model?: string } {
+  if (typeof input !== 'object' || input === null) return {}
+  const raw = input as Record<string, unknown>
+  return {
+    prompt: typeof raw.prompt === 'string' ? raw.prompt : undefined,
+    model: typeof raw.model === 'string' ? raw.model : undefined,
+  }
+}
 
 export interface ResourceLibraryProps {
   type?: ResourceType
@@ -53,35 +75,46 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
   const [preview, setPreview] = React.useState<AigcRecord | null>(null)
 
   const { data: records, isLoading } = useQuery({
-    queryKey: ['aigc-records', activeType],
+    // 后端 GET /ai/aigc/records 不分 type(仅按用户分页),统一 key 复用同一份数据,前端过滤
+    queryKey: ['aigc-records'],
     queryFn: async () => {
-      const query = activeType !== 'all' ? `?type=${activeType}` : ''
-      const res = await fetchApi<AigcRecord[]>(`/api/ai/aigc/records${query}`)
+      // 后端返回分页对象 { list, total, page, pageSize }(aigc-routes.ts)。
+      // 注意:必须取 data.list,不能把整个 data 当数组,否则已登录成功响应会触发
+      // "filter is not a function" 渲染崩溃(2026-08-17 修复)。
+      const res = await fetchApi<{
+        list: AigcRecord[]
+        total: number
+        page: number
+        pageSize: number
+      }>('/api/ai/aigc/records?pageSize=100')
       if (!res.success) throw new Error(res.error)
-      return res.data
+      return res.data.list
     },
   })
 
   const filtered = React.useMemo(() => {
-    const list = records ?? []
+    const list = (records ?? []).filter(
+      (r) => activeType === 'all' || r.type === activeType,
+    )
     const q = search.trim().toLowerCase()
     if (!q) return list
-    return list.filter((r) => r.prompt.toLowerCase().includes(q))
-  }, [records, search])
+    return list.filter((r) => (extractInputInfo(r.input).prompt ?? '').toLowerCase().includes(q))
+  }, [records, activeType, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const renderPreview = (record: AigcRecord): React.ReactNode => {
-    const url = record.resultUrl
+    const url = extractResultUrl(record.result)
+    const { prompt } = extractInputInfo(record.input)
     if (!url) return <p className="text-sm text-muted-foreground">{t('noResult')}</p>
     switch (record.type) {
       case 'image':
         return (
           <Image
             src={url}
-            alt={record.prompt}
+            alt={prompt ?? record.type}
             width={800}
             height={600}
             unoptimized
@@ -183,32 +216,38 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4">
-              {pageItems.map((record) => (
-                <button
-                  key={record.recordId}
-                  type="button"
-                  onClick={() => setPreview(record)}
-                  className="space-y-1 rounded-md border p-2 text-left transition-colors hover:bg-accent"
-                >
-                  <div className="relative flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
-                    {record.type === 'image' && record.resultUrl ? (
-                      <Image
-                        src={record.resultUrl}
-                        alt={record.prompt}
-                        fill
-                        unoptimized
-                        className="object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs uppercase text-muted-foreground">{record.type}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-foreground">{record.prompt || t('noResult')}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {record.vendor} · {formatDate(record.createdAt)}
-                  </p>
-                </button>
-              ))}
+              {pageItems.map((record) => {
+                const url = extractResultUrl(record.result)
+                const { prompt, model } = extractInputInfo(record.input)
+                return (
+                  <button
+                    key={record.taskId}
+                    type="button"
+                    onClick={() => setPreview(record)}
+                    className="space-y-1 rounded-md border p-2 text-left transition-colors hover:bg-accent"
+                  >
+                    <div className="relative flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
+                      {record.type === 'image' && url ? (
+                        <Image
+                          src={url}
+                          alt={prompt ?? record.type}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs uppercase text-muted-foreground">
+                          {record.type}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-foreground">{prompt || t('noResult')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {model || record.type} · {formatDate(record.createdAt)}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
 
             <div className="flex items-center justify-between">
@@ -255,10 +294,10 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                     {t('type')}: {preview.type}
                   </p>
                   <p>
-                    {t('vendor')}: {preview.vendor}
+                    {t('vendor')}: {extractInputInfo(preview.input).model || '-'}
                   </p>
                   <p>
-                    {t('prompt')}: {preview.prompt || t('noResult')}
+                    {t('prompt')}: {extractInputInfo(preview.input).prompt || t('noResult')}
                   </p>
                   <p>
                     {t('createdAt')}: {formatDate(preview.createdAt)}

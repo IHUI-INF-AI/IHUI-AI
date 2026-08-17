@@ -222,10 +222,22 @@ vi.mock('next-intl', () => ({
 }))
 
 // ─── @ihui/api-client mock ───────────────────────────────────────
-vi.mock('@ihui/api-client', () => ({
-  probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
-  takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
-}))
+// 部分 mock:透传真实模块全部导出,保证 src/lib/api.ts 等模块导入的
+// setTokenProvider / setBaseUrl / setStreamBaseUrl / fetchApi 等 API 可用(测试期间不调用真实网络)。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return {
+    ...actual,
+    probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
+    takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
+    setTokenProvider: vi.fn(),
+    setBaseUrl: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    fetchApi: vi.fn(),
+    streamChat: vi.fn(),
+  }
+})
 
 // ─── lucide-react mock(用 span 替代图标) ─────────────────────────
 const { IconSpan } = vi.hoisted(() => {

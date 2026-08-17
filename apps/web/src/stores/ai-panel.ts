@@ -56,7 +56,15 @@ interface AiPanelState {
   floatCollapsed: boolean
   /** 浮窗位置(视口坐标,持久化) */
   floatPosition: { x: number; y: number }
+<<<<<<< Updated upstream
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
+=======
+  /**
+   * 工作展示区折叠态(2026-08-17 用户需求):
+   * true = 隐藏右侧 work-area(主内容区 + 内置浏览器),AI 面板占满右侧;
+   * false = 恢复 work-area,AI 面板回默认宽度。不持久化,会话级。
+   */
+>>>>>>> Stashed changes
   workAreaCollapsed: boolean
   openPanel: () => void
   closePanel: () => void
@@ -73,6 +81,7 @@ interface AiPanelState {
   toggleWorkAreaCollapsed: () => void
   setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
+  toggleWorkAreaCollapsed: () => void
 }
 
 /**
@@ -113,6 +122,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
       setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
+      toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({

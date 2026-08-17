@@ -26,7 +26,6 @@ import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
-import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
@@ -372,6 +371,14 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
+<<<<<<< Updated upstream
+=======
+          {/* Agent 任务进度触发按钮 + 浮窗折叠态按钮(2026-07-30 重构):
+              - 浮窗折叠态(floatHeader 有值):两组合并到输入卡片内部第一行,
+                AgentProgressTrigger 在左(floatHeader 按钮在右),行可拖拽。
+                AgentProgressTrigger 传 pl-0 让 span(构建徽章)对齐行 px-1.5(6px)= py-1.5(6px)。
+              - 普通态(floatHeader 无值):trigger 移到右侧权限模式按钮组同行(ml-auto)。 */}
+>>>>>>> Stashed changes
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
               2026-07-31 升级:默认边框从 border-border 改为 border-input,
@@ -413,6 +420,7 @@ export function MessageInput({
                 {floatHeader}
               </div>
             )}
+<<<<<<< Updated upstream
             <div
               className={cn(
                 INPUT_ATTACHMENT_BAR_CLASS,
@@ -461,16 +469,13 @@ export function MessageInput({
                   )}
                 </>
               )}
+=======
+            {/* AgentProgressTrigger + 权限按钮 + jump-to-latest 合并为单行,全部靠右 */}
+            <div className="flex items-center justify-end gap-1 px-2 py-1">
+              <AgentProgressTrigger />
+>>>>>>> Stashed changes
               <PermissionModePopover disabled={isStreaming} />
-              {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
-                  - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
-                  - 高度走 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7)+ w-7(28×28 正方形),与权限/添加按钮严丝合缝
-                  - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
               <PermissionHistoryPanel />
-              {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
-                  收纳 5 类动作,内部按 mode 切换 content(menu/prompt/skill 三态)
-                  高度由 AddMenuPopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)
-                  行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
               <AddMenuPopover
                 open={addMenuOpen}
                 onOpenChange={setAddMenuOpen}
@@ -521,9 +526,44 @@ export function MessageInput({
                 }}
               />
               {references.length > 0 && (
-                <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
                 </span>
+              )}
+              {userScrolledUp && (
+                <Tooltip
+                  content={
+                    t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
+                    }}
+                    data-testid="message-list-jump-latest"
+                    aria-label={
+                      t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')
+                    }
+                    className={cn(
+                      'ml-1 inline-flex h-8 items-center gap-1 rounded-md',
+                      'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
+                      'transition-all duration-150 hover:bg-accent hover:shadow-lg',
+                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      'animate-in fade-in-0 slide-in-from-bottom-2',
+                    )}
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                    <span>{t('latest') === 'latest' ? 'Latest' : t('latest')}</span>
+                    {isStreaming && (
+                      <span
+                        className="ml-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+                        aria-hidden
+                        data-testid="message-list-jump-latest-dot"
+                      />
+                    )}
+                  </button>
+                </Tooltip>
               )}
             </div>
             {/* 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示):

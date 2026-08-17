@@ -123,18 +123,37 @@ export function AgentProgressTrigger({
   // bg-popover + border + Arrow + fade/zoom 动画)。hover/focus 时显示
   // `liveStatusText (Ctrl+Shift+J)`,确保快捷键提示与样式完全统一。
   const triggerButton = (
+<<<<<<< Updated upstream
     <button
       type="button"
+=======
+    <span
+      role="button"
+      tabIndex={0}
+>>>>>>> Stashed changes
       onClick={() => {
         togglePane()
         onTriggerClick?.()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          togglePane()
+          onTriggerClick?.()
+        }
       }}
       aria-label={hasLiveActivity ? `任务进度 ${liveStatusText}` : `${modeLabel}任务`}
       aria-expanded={paneOpen}
       aria-haspopup="dialog"
       className={cn(
+<<<<<<< Updated upstream
         INPUT_ATTACHMENT_BAR_BTN_BASE,
         'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground duration-150 ease-out',
+=======
+        'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150 ease-out',
+        'border border-border bg-card text-foreground/80',
+        'hover:bg-accent/20 cursor-pointer',
+>>>>>>> Stashed changes
         hasLiveActivity && 'text-primary',
         className,
       )}
@@ -145,6 +164,7 @@ export function AgentProgressTrigger({
     >
       <ModeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span>{modeLabel}</span>
+<<<<<<< Updated upstream
       {hasLiveActivity && (
         <Loader2
           className="h-3 w-3 shrink-0 animate-spin"
@@ -153,6 +173,17 @@ export function AgentProgressTrigger({
         />
       )}
     </button>
+=======
+      {/* 实时状态:流式任务时只显示 spinner,避免与前面的 mode badge 文字重复 */}
+      {hasLiveActivity ? (
+        <Loader2
+          className="h-3 w-3 shrink-0 animate-spin text-primary"
+          aria-hidden="true"
+          data-testid="agent-progress-live-spinner"
+        />
+      ) : null}
+    </span>
+>>>>>>> Stashed changes
   )
 
   // hover/focus 显示项目统一 Tooltip:实时任务名 + 快捷键提示,样式与项目全站一致

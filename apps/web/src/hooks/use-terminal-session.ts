@@ -84,10 +84,21 @@ export interface TerminalWSHandle {
   readyState: number
 }
 
-/** 创建 WebSocket URL(同 use-task-websocket.ts 模式) */
+/** 创建 WebSocket URL(同 use-task-websocket.ts 模式)
+ * 2026-08-17 修复:dev 环境(localhost:8801)直连 8802 —— Next.js rewrites 不支持
+ * WebSocket 升级,8801 上 /ws/* 无路由,WS 连 8801 会一直"连接中"。
+ * 生产环境走同源反代(需 Nginx 配置 /ws/* → 8802 的 upgrade)。 */
 function buildWsUrl(sessionId: string, token: string): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/ws/terminal/${sessionId}?token=${encodeURIComponent(token)}`
+  let host = window.location.host
+  if (
+    window.location.hostname === 'localhost' &&
+    window.location.port === '8801' &&
+    !process.env.NEXT_PUBLIC_API_BASE_URL
+  ) {
+    host = 'localhost:8802'
+  }
+  return `${proto}//${host}/ws/terminal/${sessionId}?token=${encodeURIComponent(token)}`
 }
 
 export function useTerminalSession() {

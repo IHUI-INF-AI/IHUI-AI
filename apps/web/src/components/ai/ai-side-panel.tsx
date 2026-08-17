@@ -1054,7 +1054,11 @@ export function AISidePanel() {
             {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
                 ① 环境信息(齿轮+横线 → env info popover)
                 ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
+<<<<<<< Updated upstream
                 ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
+=======
+                ③ 工作展示区(切换右侧 WebWorkPanel) */}
+>>>>>>> Stashed changes
             <Tooltip content={tc('envInfoButton')}>
               <button
                 type="button"
@@ -1107,7 +1111,7 @@ export function AISidePanel() {
           </header>
 
           {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1" data-testid="ai-panel-messages-container">
             <MessageList
               messages={messages}
               isStreaming={isStreaming}
@@ -1140,8 +1144,13 @@ export function AISidePanel() {
                 双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
                 登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
             {!isLoginOpen && <AgentTaskProgressPane />}
+<<<<<<< Updated upstream
             {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
             <EnvironmentInfoPopover />
+=======
+            {/* 2026-08-17 环境信息 popover(锚定到消息区右下角,紧贴输入区上方,无间距) */}
+            {!isLoginOpen && <EnvironmentInfoPopover />}
+>>>>>>> Stashed changes
           </div>
 
           {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
@@ -1201,8 +1210,8 @@ export function AISidePanel() {
         0.5px 线在 2x DPR 高分屏渲染为 1 物理像素;子像素 calc 避免奇数像素容器模糊。
         默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
         <div
-          onPointerDown={handleResizeStart}
-          tabIndex={0}
+          onPointerDown={workAreaCollapsed ? undefined : handleResizeStart}
+          tabIndex={workAreaCollapsed ? -1 : 0}
           role="separator"
           aria-orientation="vertical"
           aria-label={tcommon('resize')}
@@ -1210,6 +1219,8 @@ export function AISidePanel() {
             'group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none',
             // 移动端浮窗全屏模式:隐藏拖拽手柄(全屏无需调整宽度)
             isMobileSmall && floatMode && 'hidden',
+            // 2026-08-17 工作展示区折叠:AI 面板已占满右侧,禁用拖拽手柄
+            workAreaCollapsed && 'pointer-events-none opacity-0',
           )}
         >
           <div

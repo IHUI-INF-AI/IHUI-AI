@@ -327,7 +327,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
+<<<<<<< Updated upstream
   // 1.1 Git Status + GitHub 集成 — 环境信息弹窗专用(2026-08-17 立,对标 Cursor env card)
+=======
+  // 1.1 Git Status — 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env card)
+  //
+  // 单次 POST /git/status 一次性返回:
+  //   - isRepo / branch / hasRemote / ahead / behind
+  //   - 工作区变更计数(分桶:added/modified/deleted/untracked/conflicted/renamed)
+  //   - 最近提交 lastCommit(分支展开显示)
+  //   - 远程 PR 状态(可选,非 GH remote / 缺 token → null)
+  //
+  // 复用 fsBridge.run(走 sandbox 白名单 + 权限校验),避免前端串行 4 次 fs/run。
+  // 只读 git 查询不做 fs.run 审计式权限检查(无匹配规则会进入人工审计等待确认),
+  // 仅 requireAuth + buildGitCmd 白名单 —— 与 fs/browse 同属只读豁免原则。
+>>>>>>> Stashed changes
   // ===========================================================================
 
   type GitStatusSnapshot = {
@@ -357,7 +371,15 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       date: string
     } | null
     localPath: string | null
+<<<<<<< Updated upstream
     remotes: Array<{ name: string; url: string; type: 'fetch' | 'push' | null }>
+=======
+    remotes: Array<{
+      name: string
+      url: string
+      type: 'fetch' | 'push' | null
+    }>
+>>>>>>> Stashed changes
     fetchedAt: string
   }
 
@@ -382,7 +404,17 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     fetchedAt: new Date().toISOString(),
   }
 
+<<<<<<< Updated upstream
   function buildGitCmd(args: string[]): string {
+=======
+  /**
+   * 安全执行 git 子命令:只允许以 `git ` 开头的命令,且第一个非 flag token
+   * 必须是白名单子命令。防止恶意 workspacePath 把任意命令塞进 sandboxExecutor。
+   */
+  function buildGitCmd(args: string[]): string {
+    // 2026-08-17 新增 'symbolic-ref':github/status 端点解析默认分支
+    // (git symbolic-ref refs/remotes/origin/HEAD) 所需,只读查询,无副作用。
+>>>>>>> Stashed changes
     const allowed = new Set([
       'rev-parse',
       'status',
@@ -395,10 +427,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       'ls-files',
       'symbolic-ref',
     ])
+<<<<<<< Updated upstream
+=======
+    // 第一个非 flag token 必须是白名单子命令
+>>>>>>> Stashed changes
     const firstSub = args.find((a) => !a.startsWith('-'))
     if (!firstSub || !allowed.has(firstSub)) {
       throw new Error(`git 子命令未授权: ${args.join(' ')}`)
     }
+<<<<<<< Updated upstream
+=======
+    // 参数中禁止路径穿越片段(`..` / `~` / 绝对路径),只允许仓库内相对引用
+>>>>>>> Stashed changes
     for (const a of args) {
       if (a.includes('..') || a.includes('~') || a.startsWith('/')) {
         throw new Error(`git 参数包含不安全片段: ${a}`)
@@ -411,15 +451,24 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+<<<<<<< Updated upstream
     const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
       const result = await fsBridge.run({
         command: buildGitCmd(args),
+=======
+
+    const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
+      const cmd = buildGitCmd(args)
+      const result = await fsBridge.run({
+        command: cmd,
+>>>>>>> Stashed changes
         workspacePath: body.workspacePath,
         mode: 'read-only',
         timeoutMs,
       })
       return result.stdout ?? ''
     }
+<<<<<<< Updated upstream
     try {
       const isRepo = (await runGit(['rev-parse', '--is-inside-work-tree'])).trim() === 'true'
       if (!isRepo) return reply.send(success(EMPTY_SNAPSHOT))
@@ -429,12 +478,40 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const statusRaw = await runGit(['status', '--porcelain=v1', '--branch'])
       const lines = statusRaw.split('\n')
       const header = lines[0] ?? ''
+=======
+
+    try {
+      // 1) 是否为 git 仓库
+      const isRepoRaw = await runGit(['rev-parse', '--is-inside-work-tree'])
+      const isRepo = isRepoRaw.trim() === 'true'
+      if (!isRepo) {
+        return reply.send(success(EMPTY_SNAPSHOT))
+      }
+
+      // 2) 当前分支(head detached → 空)
+      const branchRaw = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const branch = branchRaw.trim() === 'HEAD' ? null : branchRaw.trim() || null
+
+      // 3) 远程仓库探测(取 origin 或 upstream)
+      const remoteRaw = await runGit(['remote'])
+      const hasRemote = remoteRaw.trim().length > 0
+
+      // 4) 工作区变更分桶 + ahead/behind —— 单次 `git status --porcelain=v1 --branch`:
+      //    第 1 行 = 分支 header(## main...origin/main [ahead 2, behind 1] 等)
+      //    第 2 行起 = 变更(XY 两位状态码)
+      const statusRaw = await runGit(['status', '--porcelain=v1', '--branch'])
+      const lines = statusRaw.split('\n')
+      const header = lines[0] ?? ''
+
+      // 4a) ahead/behind:解析 header 中 `[ahead N]` / `[behind N]` / `[ahead N, behind M]`
+>>>>>>> Stashed changes
       let ahead = 0
       let behind = 0
       const aheadMatch = /\[ahead (\d+)/.exec(header)
       const behindMatch = /\[behind (\d+)/.exec(header)
       if (aheadMatch) ahead = Math.max(0, Number.parseInt(aheadMatch[1]!, 10) || 0)
       if (behindMatch) behind = Math.max(0, Number.parseInt(behindMatch[1]!, 10) || 0)
+<<<<<<< Updated upstream
       const counts = {
         added: 0, modified: 0, deleted: 0, untracked: 0, conflicted: 0, renamed: 0,
       }
@@ -451,10 +528,62 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         if (x !== ' ' || y !== ' ') { counts.modified++ }
         void rest
       }
+=======
+
+      // 4b) 变更分桶(第 2 行起,每行前 2 字符 = XY,X = index,Y = worktree)
+      const counts = {
+        added: 0,
+        modified: 0,
+        deleted: 0,
+        untracked: 0,
+        conflicted: 0,
+        renamed: 0,
+      }
+      for (const line of lines.slice(1)) {
+        if (!line || line.length < 2) continue
+        const x = line[0] // index
+        const y = line[1] // worktree
+        const rest = line.slice(2)
+        // 处理 rename(porcelain v1 R -> 旧名 -> 新名,在第 3 字段起)
+        if (x === 'R' || y === 'R') {
+          counts.renamed++
+          continue
+        }
+        // untracked(??)只占 Y 位,X = ' '
+        if (x === '?' && y === '?') {
+          counts.untracked++
+          continue
+        }
+        // conflicted:UU/AA/DD 等(任一位置是 U,意为 unmerged)
+        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+          counts.conflicted++
+          continue
+        }
+        // 添加(modified → added index):A / AM
+        if (x === 'A' || y === 'A') {
+          counts.added++
+          continue
+        }
+        // 删除
+        if (x === 'D' || y === 'D') {
+          counts.deleted++
+          continue
+        }
+        // 修改(M/T/C 等其他 X/Y 状态)
+        if (x !== ' ' || y !== ' ') {
+          counts.modified++
+        }
+        // 静默使用 rest 避免 unused 警告
+        void rest
+      }
+
+      // 4c) 最近提交(4 行输出:%h / %s / %an / %cI)
+>>>>>>> Stashed changes
       let lastCommit: GitStatusSnapshot['lastCommit'] = null
       try {
         const logRaw = await runGit(['log', '-1', '--format=%h%n%s%n%an%n%cI'])
         const [hash = '', message = '', author = '', date = ''] = logRaw.trim().split('\n')
+<<<<<<< Updated upstream
         if (hash) lastCommit = { hash, message, author, date }
       } catch {
         lastCommit = null
@@ -465,6 +594,25 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       } catch {
         localPath = null
       }
+=======
+        if (hash) {
+          lastCommit = { hash, message, author, date }
+        }
+      } catch {
+        lastCommit = null
+      }
+
+      // 4d) 仓库根路径(localPath)
+      let localPath: GitStatusSnapshot['localPath'] = null
+      try {
+        const rootRaw = await runGit(['rev-parse', '--show-toplevel'])
+        localPath = rootRaw.trim() || null
+      } catch {
+        localPath = null
+      }
+
+      // 4e) 远程仓库列表(git remote -v,每行: name<tab>url<tab>(fetch|push))
+>>>>>>> Stashed changes
       let remotes: GitStatusSnapshot['remotes'] = []
       try {
         const remoteVRaw = await runGit(['remote', '-v'])
@@ -472,20 +620,44 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         for (const line of remoteVRaw.split('\n')) {
           const m = /^(\S+)\s+(\S+)\s+\((\w+)\)\s*$/.exec(line.trim())
           if (!m) continue
+<<<<<<< Updated upstream
           const key = `${m[1]}|${m[2]}`
           if (seen.has(key)) continue
           seen.add(key)
           remotes.push({ name: m[1]!, url: m[2]!, type: m[3] === 'push' ? 'push' : 'fetch' })
+=======
+          const name = m[1]!, url = m[2]!, type = m[3] === 'push' ? 'push' : 'fetch'
+          // 同名同 url 去重(remote -v 会输出 fetch+push 两行)
+          const key = `${name}|${url}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          remotes.push({ name, url, type: type === 'push' ? 'push' : 'fetch' })
+>>>>>>> Stashed changes
         }
       } catch {
         remotes = []
       }
+<<<<<<< Updated upstream
+=======
+
+      // 5) PR 状态(对标 Cursor "Pull Request" 行):
+      //    - 无 GITHUB_TOKEN 直接跳过(避免境外 GitHub API 不可达时拖慢主流程)
+      //    - 有 token:detectRemote + listPRs,失败/非 GH remote → null
+>>>>>>> Stashed changes
       let pullRequest: GitStatusSnapshot['pullRequest'] = null
       if (hasRemote && branch && githubClient.loadToken()) {
         try {
           const remote = await githubClient.detectRemote(body.workspacePath)
           if (remote) {
+<<<<<<< Updated upstream
             const prsRaw = await githubClient.listPRs({ owner: remote.owner, repo: remote.repo, state: 'open' })
+=======
+            const prsRaw = await githubClient.listPRs({
+              owner: remote.owner,
+              repo: remote.repo,
+              state: 'open',
+            })
+>>>>>>> Stashed changes
             const prs = Array.isArray(prsRaw) ? (prsRaw as Array<Record<string, unknown>>) : []
             const matched = prs.find((pr) => {
               const head = pr.head as Record<string, unknown> | undefined
@@ -495,14 +667,30 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
               const head = matched.head as Record<string, unknown> | undefined
               pullRequest = {
                 state:
+<<<<<<< Updated upstream
                   matched.state === 'open' ? 'open'
                     : matched.state === 'closed' ? 'closed'
                       : matched.merged ? 'merged'
                         : matched.draft ? 'draft' : null,
+=======
+                  matched.state === 'open'
+                    ? 'open'
+                    : matched.state === 'closed'
+                      ? 'closed'
+                      : matched.merged
+                        ? 'merged'
+                        : matched.draft
+                          ? 'draft'
+                          : null,
+>>>>>>> Stashed changes
                 number: typeof matched.number === 'number' ? matched.number : null,
                 title: typeof matched.title === 'string' ? matched.title : null,
                 url: typeof matched.html_url === 'string' ? matched.html_url : null,
               }
+<<<<<<< Updated upstream
+=======
+              // 静默消费 head 字段(防 unused)
+>>>>>>> Stashed changes
               void head
             }
           }
@@ -510,6 +698,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           pullRequest = null
         }
       }
+<<<<<<< Updated upstream
       return reply.send(
         success({
           isRepo: true, branch, hasRemote, ahead, behind, counts,
@@ -518,17 +707,51 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
+=======
+
+      const snapshot: GitStatusSnapshot = {
+        isRepo: true,
+        branch,
+        hasRemote,
+        ahead,
+        behind,
+        counts,
+        pullRequest,
+        lastCommit,
+        localPath,
+        remotes,
+        fetchedAt: new Date().toISOString(),
+      }
+      return reply.send(success(snapshot))
+    } catch (e) {
+      // git 命令异常 → 返回零值快照,不返回 500(避免污染 UI)
+>>>>>>> Stashed changes
       const msg = e instanceof Error ? e.message : 'git status 失败'
       server.log.warn({ workspacePath: body.workspacePath, err: msg }, 'git/status 失败')
       return reply.send(success(EMPTY_SNAPSHOT))
     }
   })
 
+<<<<<<< Updated upstream
+=======
+  // ===========================================================================
+  // 1.2 GitHub 仓库配置 — 环境信息弹窗专用(2026-08-17 立,与 /git/status 配套)
+  //
+  // 前端弹窗需要「GitHub 仓库配置」能力:
+  //   - POST /github/status   只读检测:是否 GH 仓库 + owner/repo + token 状态 + 当前/默认分支
+  //   - POST /github/token    保存 PAT(先调 GitHub API /user 校验有效性,8s 超时)
+  //   - DELETE /github/token  清除已保存 token
+  // token 持久化路径 ~/.ihui/github_token,与 githubClient.loadToken() 读取路径一致。
+  // 只读 git 查询复用 fsBridge.run + buildGitCmd 白名单(与 /git/status 同属只读豁免原则)。
+  // ===========================================================================
+
+>>>>>>> Stashed changes
   server.post('/github/status', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
       const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+<<<<<<< Updated upstream
       const remote = await githubClient.detectRemote(body.workspacePath)
       const branchRaw = await fsBridge.run({
         command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
@@ -536,11 +759,34 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       })
       const currentBranch =
         branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD' ? branchRaw.stdout.trim() : null
+=======
+      // a) 是否 GitHub 仓库 + owner/repo(复用 detectRemote,非 GH remote → null)
+      const remote = await githubClient.detectRemote(body.workspacePath)
+      // b) 当前分支(走 fsBridge.run + buildGitCmd 白名单;detached HEAD → null)
+      const branchRaw = await fsBridge.run({
+        command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs: 8000,
+      })
+      const currentBranch =
+        branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD'
+          ? branchRaw.stdout.trim()
+          : null
+      // c) 默认分支:优先 git symbolic-ref refs/remotes/origin/HEAD → 解析 origin/xxx;
+      //    未配置 origin/HEAD 时兜底 `git remote show origin` 解析 "HEAD branch: xxx"。
+>>>>>>> Stashed changes
       let defaultBranch: string | null = null
       try {
         const defRaw = await fsBridge.run({
           command: buildGitCmd(['symbolic-ref', 'refs/remotes/origin/HEAD']),
+<<<<<<< Updated upstream
           workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+=======
+          workspacePath: body.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+>>>>>>> Stashed changes
         })
         const m = /^refs\/remotes\/origin\/(.+)$/.exec((defRaw.stdout ?? '').trim())
         if (m) defaultBranch = m[1] ?? null
@@ -551,7 +797,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         try {
           const showRaw = await fsBridge.run({
             command: buildGitCmd(['remote', 'show', 'origin']),
+<<<<<<< Updated upstream
             workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+=======
+            workspacePath: body.workspacePath,
+            mode: 'read-only',
+            timeoutMs: 8000,
+>>>>>>> Stashed changes
           })
           const hm = /HEAD branch:\s*(\S+)/.exec(showRaw.stdout ?? '')
           if (hm) defaultBranch = hm[1] ?? null
@@ -564,6 +816,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           isGithubRepo: !!remote,
           owner: remote?.owner ?? null,
           repo: remote?.repo ?? null,
+<<<<<<< Updated upstream
+=======
+          // 2026-08-17 字段名 ghConfigured(避开 "token" 子串):响应脱敏器会把含
+          // "token" 的字段值脱敏成 "***",导致前端拿到字符串而非 boolean。
+>>>>>>> Stashed changes
           ghConfigured: !!githubClient.loadToken(),
           currentBranch,
           defaultBranch,
@@ -581,6 +838,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const body = z
         .object({ workspacePath: z.string().min(1), token: z.string().min(1) })
         .parse(request.body ?? {})
+<<<<<<< Updated upstream
+=======
+      // 校验 token 有效性:调 GitHub API /user(带 Bearer token,8s 超时)
+>>>>>>> Stashed changes
       const check = await fetch('https://api.github.com/user', {
         headers: {
           Authorization: `Bearer ${body.token}`,
@@ -592,6 +853,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       if (!check.ok) {
         return reply.status(400).send(error(400, `GitHub Token 无效(HTTP ${check.status})`))
       }
+<<<<<<< Updated upstream
+=======
+      // 保存到 ~/.ihui/github_token(与 githubClient.loadToken 读取路径一致)
+>>>>>>> Stashed changes
       const { homedir } = await import('node:os')
       const { mkdirSync, writeFileSync } = await import('node:fs')
       const { join } = await import('node:path')
@@ -600,7 +865,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       writeFileSync(join(dir, 'github_token'), body.token.trim(), 'utf-8')
       return reply.send(success({ ok: true }))
     } catch (e) {
+<<<<<<< Updated upstream
       return reply.status(400).send(error(400, (e as Error).message))
+=======
+      const msg = e instanceof Error ? e.message : '保存失败'
+      return reply.status(400).send(error(400, msg))
+>>>>>>> Stashed changes
     }
   })
 
@@ -619,6 +889,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+<<<<<<< Updated upstream
   server.post('/github/device-code', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -693,6 +964,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+=======
+>>>>>>> Stashed changes
   // ===========================================================================
   // 2. Swarm — 群体智能多 Agent 编排
   // ===========================================================================

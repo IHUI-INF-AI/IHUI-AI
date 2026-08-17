@@ -104,6 +104,7 @@ export interface GitChange {
   deletions: number
 }
 
+<<<<<<< Updated upstream
 /** 工作区 Git 状态快照(环境信息弹窗专用,2026-08-17 立,对标 Cursor env info card) */
 export interface GitStatusSnapshot {
   isRepo: boolean
@@ -111,6 +112,26 @@ export interface GitStatusSnapshot {
   hasRemote: boolean
   ahead: number
   behind: number
+=======
+/**
+ * 环境信息弹窗(2026-08-17 立,对标 Cursor IDE 右上角环境信息卡):
+ * - 合并 git 仓库状态 + 远程 PR 状态 + 最近提交,一次性返回
+ * - workspacePath 必填(后端按 workspacePath 跑 git 命令)
+ * - 远程 PR 状态若未配置 GH token 或非 GH remote,字段为 null
+ */
+export interface GitStatusSnapshot {
+  /** 是否为 git 仓库(false 时其他字段均为零/空) */
+  isRepo: boolean
+  /** 当前分支(无分支时为 null,例如 detached HEAD) */
+  branch: string | null
+  /** 是否有远程仓库(origin/upstream 任意一个) */
+  hasRemote: boolean
+  /** 本地领先远程的提交数(0 / 正数) */
+  ahead: number
+  /** 本地落后远程的提交数(0 / 正数) */
+  behind: number
+  /** 工作区变更计数(分桶) */
+>>>>>>> Stashed changes
   counts: {
     added: number
     modified: number
@@ -119,11 +140,23 @@ export interface GitStatusSnapshot {
     conflicted: number
     renamed: number
   }
+<<<<<<< Updated upstream
+=======
+  /** 相对远程的 PR/MR 状态(可选,无 remote / 非 GH remote / 缺 token 时为 null) */
+  pullRequest: {
+    state: 'open' | 'merged' | 'closed' | 'draft' | null
+    number: number | null
+    title: string | null
+    url: string | null
+  } | null
+  /** 最近提交(分支展开时显示;无提交 → null) */
+>>>>>>> Stashed changes
   lastCommit: {
     hash: string
     message: string
     author: string
     date: string
+<<<<<<< Updated upstream
   }
   pullRequest: {
     number: number
@@ -137,6 +170,20 @@ export interface GitStatusSnapshot {
     url: string
     type?: string
   }>
+=======
+  } | null
+  /** 仓库根路径(git rev-parse --show-toplevel) */
+  localPath: string | null
+  /** 远程仓库列表(git remote -v 解析,含 fetch/push 类型) */
+  remotes: Array<{
+    name: string
+    url: string
+    /** 'fetch' | 'push' | null(remote -v 第 3 列) */
+    type: 'fetch' | 'push' | null
+  }>
+  /** 后端拉取时间(ISO 字符串,前端可显示"3 秒前更新") */
+  fetchedAt: string
+>>>>>>> Stashed changes
 }
 
 /** 调试断点 */

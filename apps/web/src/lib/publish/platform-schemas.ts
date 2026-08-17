@@ -4,7 +4,11 @@
  * authType 分类:
  *   api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat/cnblogs/segmentfault/oschina)
  *   oauth           — 开放平台 OAuth 授权(youtube/douyin/kuaishou/toutiao/weibo)
+<<<<<<< Updated upstream
  *   browser_cookie  — 浏览器抓 Cookie(其余 27 平台,含 Playwright 适配器)
+=======
+ *   browser_cookie  — 浏览器抓 Cookie(其余平台,含 Playwright 适配器)
+>>>>>>> Stashed changes
  *   none            — 无需凭据(保留占位,当前未使用)
  *
  * 平台分组(38 个):
@@ -141,7 +145,12 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: '访问令牌',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: 'OAuth 授权后获取的 access_token,用于调用 YouTube Data API v3 接口。',
+=======
+        helpText:
+          '通过 OAuth 授权流程获取的短期访问令牌,用于调用 YouTube Data API,过期后由 refresh_token 自动刷新。',
+>>>>>>> Stashed changes
       },
       {
         name: 'refresh_token',
@@ -179,7 +188,12 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: '用户 ID(dedeuserid)',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: 'B 站 Cookie 中的 dedeuserid(DedeUserID)字段,即用户 ID,登录后从 Cookie 里获取。',
+=======
+        helpText:
+          'B 站登录 Cookie 中的 dedeuserid 字段(注意小写),即 DedeUserID 的值,是用户唯一标识。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -212,21 +226,34 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '今日头条',
     authType: 'oauth',
     setupGuideUrl: 'https://developer.toutiao.com/',
+<<<<<<< Updated upstream
     helpText: '通过今日头条开放平台 OAuth 授权发布图文/视频,需在开放平台创建应用并完成授权。',
+=======
+    helpText: '通过头条开放平台 OAuth 授权发布图文/视频,需在头条开放平台创建应用并完成授权。',
+>>>>>>> Stashed changes
     fields: [
       {
         name: 'app_id',
         label: 'App ID',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: '今日头条开放平台 → 应用管理 → 应用详情中的 App ID。',
+=======
+        placeholder: '1234567890',
+        helpText: '头条开放平台应用的 App ID(Client Key),在「应用详情 → 基本信息」中查看。',
+>>>>>>> Stashed changes
       },
       {
         name: 'app_secret',
         label: 'App Secret',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '今日头条开放平台 → 应用管理 → 应用详情中的 App Secret(应用密钥)。',
+=======
+        helpText: '头条开放平台应用的 App Secret(Client Secret),在「应用详情 → 基本信息」中查看,用于换取 access_token。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -242,28 +269,47 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'OAuth 访问令牌',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '抖音开放平台 OAuth 授权后获取的 access_token,用于调用视频发布 API。',
+=======
+        helpText:
+          '抖音开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用内容发布接口,请从应用授权流程中复制。',
+>>>>>>> Stashed changes
       },
       {
         name: 'open_id',
         label: 'Open ID',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: '抖音开放平台授权用户的唯一标识,在 OAuth 授权回调中返回。',
+=======
+        helpText:
+          '用户在抖音开放平台的唯一标识(open_id),OAuth 授权回调中返回,每个应用下唯一。',
+>>>>>>> Stashed changes
       },
       {
         name: 'client_key',
         label: 'Client Key',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: '抖音开放平台 → 应用管理 → 应用详情中的 Client Key(应用标识)。',
+=======
+        placeholder: 'awxxxxxxx',
+        helpText: '抖音开放平台应用的 Client Key(对应 App Key),在「应用详情 → 开发配置」中查看。',
+>>>>>>> Stashed changes
       },
       {
         name: 'client_secret',
         label: 'Client Secret',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '抖音开放平台 → 应用管理 → 应用详情中的 Client Secret(应用密钥)。',
+=======
+        helpText: '抖音开放平台应用的 Client Secret,在「应用详情 → 开发配置」中查看,用于接口签名。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -279,21 +325,35 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'OAuth 访问令牌',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '快手开放平台 OAuth 授权后获取的 access_token,用于调用发布 API。',
+=======
+        helpText:
+          '快手开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用开放 API,请从应用授权流程中复制。',
+>>>>>>> Stashed changes
       },
       {
         name: 'app_id',
         label: 'App ID',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: '快手开放平台 → 应用管理 → 应用详情中的 App ID。',
+=======
+        placeholder: '12345',
+        helpText: '快手开放平台应用的 App ID,在「应用详情 → 应用信息」中查看。',
+>>>>>>> Stashed changes
       },
       {
         name: 'app_secret',
         label: 'App Secret',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '快手开放平台 → 应用管理 → 应用详情中的 App Secret(应用密钥)。',
+=======
+        helpText: '快手开放平台应用的 App Secret,在「应用详情 → 应用信息」中查看,用于接口签名。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -309,14 +369,25 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: 'OAuth 访问令牌',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '微博开放平台 OAuth 授权后获取的 access_token,用于调用发布 API。',
+=======
+        helpText:
+          '微博开放平台 OAuth 授权后获取的访问令牌(access_token),用于调用发布接口,请从应用授权流程中复制。',
+>>>>>>> Stashed changes
       },
       {
         name: 'uid',
         label: '用户 ID(uid)',
         type: 'text',
         required: true,
+<<<<<<< Updated upstream
         helpText: '微博开放平台授权用户的唯一标识 uid,与 access_token 配套使用。',
+=======
+        placeholder: '1234567890',
+        helpText:
+          '微博开放平台用户 ID(uid),可在授权返回的 get_uid 接口结果中获取,用于微博账号标识。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -393,7 +464,11 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: '签名 ID',
         type: 'password',
         required: true,
+<<<<<<< Updated upstream
         helpText: '掘金 Cookie 中的 signatureId 字段,请求签名标识,与 sessionid 配对使用。',
+=======
+        helpText: '掘金签名标识(signatureId),用于接口签名,与 sessionid 配对使用。',
+>>>>>>> Stashed changes
       },
     ],
   },
@@ -425,9 +500,15 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         label: '微信视频号渠道标识',
         type: 'textarea',
         required: true,
+<<<<<<< Updated upstream
         placeholder: 'sessionid=xxx; uin=xxx; ...',
         helpText:
           '视频号渠道 Cookie 标识,支持 k=v; k2=v2 字符串或 JSON 数组 [{"name":"...","value":"..."}],在 channels.weixin.qq.com 登录后从 Cookie 中获取。',
+=======
+        placeholder: '[{"name":"sessionid","value":"xxx"},{"name":"uin","value":"xxx"}]',
+        helpText:
+          '微信视频号渠道标识(wechat_channels),粘贴 channels.weixin.qq.com 的 Cookie 字符串或 JSON 格式的 Cookie 列表。',
+>>>>>>> Stashed changes
       },
     ],
   },

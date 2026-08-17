@@ -265,18 +265,27 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [m.id, t])
 
-  // 分享 — 复制内容到剪贴板(带完整错误处理 + execCommand 兜底),与 handleCopy 对齐
+  // 分享 — 复制消息内容 + 对话链接到剪贴板(与 handleCopy 同健壮度)
   const handleShare = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      const text = plainTextForClipboard(m.content)
+      const convId = useChatStore.getState().conversationId
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+      const shareUrl = convId
+        ? `${baseUrl}/chat?conversationId=${encodeURIComponent(convId)}`
+        : baseUrl
+      const bodyLines = [plainTextForClipboard(m.content).trimEnd()]
+      if (convId) {
+        bodyLines.push('', shareUrl)
+      }
+      const finalText = bodyLines.join('\n')
       try {
         if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text)
+          await navigator.clipboard.writeText(finalText)
         } else {
           const ta = document.createElement('textarea')
-          ta.value = text
+          ta.value = finalText
           ta.setAttribute('readonly', '')
           ta.style.position = 'absolute'
           ta.style.left = '-9999px'
@@ -285,16 +294,12 @@ const MessageItem = React.memo(function MessageItem({
           document.execCommand('copy')
           document.body.removeChild(ta)
         }
-        const successLabel = t('copied') === 'copied' ? 'Copied' : t('copied')
-        if (successLabel === 'copied') {
-          console.warn('[i18n] Missing translation for key: chat.copied')
-        }
+        const successLabel = t('message.shareLinkCopied') === 'message.shareLinkCopied'
+          ? (shareUrl.includes('conversationId') ? 'Copied content + link' : 'Copied content')
+          : t('message.shareLinkCopied')
         toast.success(successLabel)
       } catch (err) {
         const errLabel = t('copyFailed') === 'copyFailed' ? 'Copy failed' : t('copyFailed')
-        if (errLabel === 'copyFailed') {
-          console.warn('[i18n] Missing translation for key: chat.copyFailed')
-        }
         toast.error(errLabel, {
           description: err instanceof Error ? err.message : String(err),
         })

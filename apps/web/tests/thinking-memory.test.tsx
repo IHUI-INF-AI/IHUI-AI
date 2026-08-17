@@ -37,16 +37,20 @@ const { mockT } = vi.hoisted(() => {
 vi.mock('next-intl', () => ({ useTranslations: () => mockT }))
 
 // ─── lucide-react mock ────────────────────────────────────────
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为 IconSpan。
 const { IconSpan } = vi.hoisted(() => {
   const IconSpan = ({ className }: { className?: string }) => (
     <span data-testid="lucide-icon" className={className} />
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>()
   const Icon = IconSpan
   return {
     __esModule: true,
+    ...actual,
     Brain: Icon,
     Loader2: Icon,
     Copy: Icon,

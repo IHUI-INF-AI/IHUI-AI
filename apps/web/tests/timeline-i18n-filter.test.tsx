@@ -90,16 +90,20 @@ vi.mock('next-intl', () => ({
 }))
 
 // ─── lucide-react mock:用 span 替代(沿用现有测试模式) ──────────────
+// 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
+// 再覆盖测试用例关注的图标为 IconSpan。
 const { IconSpan } = vi.hoisted(() => {
   const IconSpan = (props: { className?: string; 'data-testid'?: string }) => (
     <span data-testid={props['data-testid'] ?? 'lucide-icon'} className={props.className} />
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>()
   const Icon = IconSpan
   return {
     __esModule: true,
+    ...actual,
     MessageSquare: Icon,
     ListTree: Icon,
     Search: Icon,

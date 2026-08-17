@@ -958,6 +958,7 @@
       "copy": "コピー",
       "downloadImages": "画像をダウンロード",
       "share": "共有",
+      "shareLinkCopied": "コンテンツとリンクをコピーしました",
       "toggleMetadata": "メタデータ切替",
       "regenerate": "再生成",
       "publishToCommunity": "コミュニティに投稿",
