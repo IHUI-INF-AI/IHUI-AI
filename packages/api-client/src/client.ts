@@ -73,16 +73,48 @@ export function getDeviceFingerprintProvider(): DeviceFingerprintProvider {
  *
  * 采集失败时静默降级(不修改 headers),不阻塞业务(fail-open)。
  * 调用方显式传入 x-device-fingerprint 时优先用调用方值(不覆盖)。
+ *
+ * 2026-08-17 P2 优化:并行化指纹采集与 abort 信号监听。
+ * 原实现串行 `await provider.get()` 后才检查 signal.aborted,
+ * 首次冷启动时指纹采集可能要几十 ms,这期间用户主动取消的 signal 不会被响应。
+ * 改用 Promise.race([fingerprint, abort]) 后:
+ * - 指纹 resolve 正常写入 headers
+ * - signal abort 立即抛 AbortError,fetchApi 短路返回(不再发起 fetch)
+ * - 采集失败静默降级,与原行为一致
  */
-async function injectDeviceFingerprintHeader(headers: Record<string, string>): Promise<void> {
+async function injectDeviceFingerprintHeader(
+  headers: Record<string, string>,
+  externalSignal?: AbortSignal | null,
+): Promise<void> {
   if (headers['x-device-fingerprint']) return
+
+  // 快速路径:signal 已 aborted → 直接抛 AbortError,跳过指纹采集(节省时间)
+  if (externalSignal?.aborted) throw createAbortError()
+
+  const fingerprintPromise = deviceFingerprintProvider.get()
+  let abortHandler: (() => void) | undefined
+  const abortPromise = externalSignal
+    ? new Promise<never>((_, reject) => {
+        abortHandler = () => reject(createAbortError())
+        externalSignal.addEventListener('abort', abortHandler, { once: true })
+      })
+    : null
+
   try {
-    const fp = await deviceFingerprintProvider.get()
-    if (fp.fingerprint) {
+    const fp = await (abortPromise
+      ? Promise.race([fingerprintPromise, abortPromise])
+      : fingerprintPromise)
+    if (fp?.fingerprint) {
       headers['x-device-fingerprint'] = fp.fingerprint
     }
-  } catch {
+  } catch (err) {
+    // AbortError:传递到调用方,由 fetchApi 的 finally / 错误处理统一返回"请求已取消"
+    if (isAbortError(err)) throw err
     // 指纹采集失败,静默降级
+  } finally {
+    if (abortHandler && externalSignal) {
+      externalSignal.removeEventListener('abort', abortHandler)
+    }
   }
 }
 
@@ -469,8 +501,8 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
-  // 2026-08-02 设备维度风控
-  await injectDeviceFingerprintHeader(headers)
+  // 2026-08-02 设备维度风控(2026-08-17 P2:传递 signal 让 abort 短路)
+  await injectDeviceFingerprintHeader(headers, options.signal)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
   // 调用方已传 signal 时不覆盖(尊重外部取消)。
   const timeoutController = new AbortController()
@@ -538,8 +570,18 @@ export async function fetchAiServiceJson<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
-  // 2026-08-02 设备维度风控
-  await injectDeviceFingerprintHeader(headers)
+  // 2026-08-02 设备维度风控:注入 x-device-fingerprint header
+  // 后端 audit-logger / anomaly-detector / threat-detector 读取此 header 做设备维度风控。
+  // 2026-08-17 P2:传入 restOptions.signal,让 injectDeviceFingerprintHeader 内部做
+  // Promise.race([fingerprint, abort]),用户取消时不必等指纹完成即可短路返回。
+  try {
+    await injectDeviceFingerprintHeader(headers, restOptions.signal)
+  } catch (err) {
+    if (isAbortError(err)) {
+      return { success: false, error: '请求已取消' }
+    }
+    // 指纹采集失败(非 abort):静默降级继续
+  }
 
   const DEFAULT_TIMEOUT_MS = 30_000
   const timeoutController = new AbortController()
