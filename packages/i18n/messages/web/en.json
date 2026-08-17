@@ -933,6 +933,7 @@
     "communityPublishSuccess": "Published successfully",
     "communityPublishFailed": "Publish failed",
     "jumpToLatest": "Jump to latest",
+    "jumpToTop": "Jump to top",
     "latest": "Latest",
     "search": "Search Messages",
     "searchPlaceholder": "Type to search...",
@@ -11456,7 +11457,19 @@
       "githubConnectedAs": "Connected to GitHub",
       "githubConfigure": "Configure GitHub repository connection",
       "tokenClear": "Clear Token",
-      "tokenCleared": "Token cleared"
+      "tokenCleared": "Token cleared",
+      "noOAuthConfig": "GitHub OAuth app not configured",
+      "authFail": "GitHub authorization failed",
+      "authorizeExpired": "Authorization expired, please authorize again",
+      "authSuccess": "GitHub authorized successfully",
+      "copied": "Copied",
+      "authorizing": "Authorizing…",
+      "authorize": "Authorize",
+      "manualToken": "Enter Token manually",
+      "userCode": "User code",
+      "copyCode": "Copy code",
+      "openAuthPage": "Open authorization page",
+      "authorizePending": "Waiting for authorization…"
     },
     "terminalDock": {
       "title": "PowerShell Terminal",
