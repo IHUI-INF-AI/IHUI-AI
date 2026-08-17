@@ -137,6 +137,7 @@ export default function HistoryPage() {
               task={task}
               expanded={expanded.has(task.id)}
               onToggle={toggle}
+              onChanged={() => void load()}
             />
           ))}
         </div>
