@@ -104,6 +104,43 @@ export interface GitChange {
   deletions: number
 }
 
+/**
+ * 环境信息弹窗(2026-08-17 立,对标 Cursor IDE 右上角环境信息卡):
+ * - 合并 git 仓库状态 + 远程 PR 状态,一次性返回
+ * - workspacePath 必填(后端按 workspacePath 跑 git 命令)
+ * - 远程 PR 状态若未配置 GH token 或非 GH remote,字段为 null
+ */
+export interface GitStatusSnapshot {
+  /** 是否为 git 仓库(false 时其他字段均为零/空) */
+  isRepo: boolean
+  /** 当前分支(无分支时为 null,例如 detached HEAD) */
+  branch: string | null
+  /** 是否有远程仓库(origin/upstream 任意一个) */
+  hasRemote: boolean
+  /** 本地领先远程的提交数(0 / 正数) */
+  ahead: number
+  /** 本地落后远程的提交数(0 / 正数) */
+  behind: number
+  /** 工作区变更计数(分桶) */
+  counts: {
+    added: number
+    modified: number
+    deleted: number
+    untracked: number
+    conflicted: number
+    renamed: number
+  }
+  /** 相对远程的 PR/MR 状态(可选,无 remote / 非 GH remote / 缺 token 时为 null) */
+  pullRequest: {
+    state: 'open' | 'merged' | 'closed' | 'draft' | null
+    number: number | null
+    title: string | null
+    url: string | null
+  } | null
+  /** 后端拉取时间(ISO 字符串,前端可显示"3 秒前更新") */
+  fetchedAt: string
+}
+
 /** 调试断点 */
 export interface Breakpoint {
   id: string

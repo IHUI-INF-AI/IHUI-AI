@@ -33,7 +33,7 @@ function CodeBlockImpl({
       <button
         type="button"
         onClick={onCopy}
-        className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-muted"
+        className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-zinc-100/90 dark:bg-zinc-800/90 backdrop-blur-sm text-foreground transition-colors hover:bg-muted"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
