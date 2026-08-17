@@ -5,6 +5,7 @@ import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import {
   hydrateAgentProgressPaneFromStorage,
   useAgentProgressPaneStore,
@@ -123,56 +124,34 @@ export function AgentProgressTrigger({
   // `liveStatusText (Ctrl+Shift+J)`,确保快捷键提示与样式完全统一。
   const triggerButton = (
     <button
-      ref={undefined}
       type="button"
       onClick={() => {
-        console.error('[Trigger] onClick, paneOpen before toggle:', paneOpen)
         togglePane()
-        console.error('[Trigger] after togglePane, store open:', useAgentProgressPaneStore.getState().open)
         onTriggerClick?.()
       }}
       aria-label={hasLiveActivity ? `任务进度 ${liveStatusText}` : `${modeLabel}任务`}
       aria-expanded={paneOpen}
       aria-haspopup="dialog"
       className={cn(
-        // 尺寸 + 圆角
-        'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150 ease-out',
-        // 容器背景色 + 描边(始终 bg-card 白色,pane 打开态不再变灰)
-        'border border-border bg-card text-foreground/80',
-        // hover subtle 颜色变化(20% accent,轻微区分即可)
-        'hover:bg-accent/20',
-        // 有实时活动时文字用 primary 色突出
+        INPUT_ATTACHMENT_BAR_BTN_BASE,
+        'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground duration-150 ease-out',
         hasLiveActivity && 'text-primary',
-        // 外部传入的 className 覆盖
         className,
       )}
       data-testid="agent-progress-trigger"
       data-popover-open={paneOpen}
       data-live-activity={hasLiveActivity}
+      data-mode={currentMode}
     >
-      {/* 左侧构建图标(可定制) + mode 文字 — codex 风格"构建"标记 */}
-      <span
-        className="inline-flex items-center gap-1 rounded-md bg-muted/60 p-1 text-xs font-medium text-foreground/80"
-        style={{ transform: 'none' }}
-        data-testid="chat-mode-badge"
-        data-mode={currentMode}
-      >
-        <ModeIcon className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>{modeLabel}</span>
-      </span>
-      {/* 实时状态:流式任务时只显示 spinner,避免与前面的 mode badge 文字重复 */}
-      {hasLiveActivity ? (
-        <span
-          className="inline-flex items-center gap-1 whitespace-nowrap"
-          data-testid="agent-progress-live-status"
-        >
-          <Loader2
-            className="h-3 w-3 shrink-0 animate-spin text-primary"
-            aria-hidden="true"
-            data-testid="agent-progress-live-spinner"
-          />
-        </span>
-      ) : null}
+      <ModeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>{modeLabel}</span>
+      {hasLiveActivity && (
+        <Loader2
+          className="h-3 w-3 shrink-0 animate-spin"
+          aria-hidden="true"
+          data-testid="agent-progress-live-spinner"
+        />
+      )}
     </button>
   )
 
