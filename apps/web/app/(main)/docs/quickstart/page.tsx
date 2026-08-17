@@ -181,7 +181,7 @@ const quickstartJsonLd = {
           name: '支持哪些客户端?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: '六大客户端同源:Web(Next.js 15,主入口)、桌面(Tauri 2,原生应用,离线支持)、小程序(Taro 4,支持微信/支付宝/抖音/百度)、浏览器插件(WXT MV3,工具栏弹窗)、React Native(Expo,iOS + Android)、CLI(Node.js/Bun,脚本/CI-CD 自动化)。一套代码,一次发布,全端触达。',
+            text: '六大客户端同源:Web(Next.js 16,主入口)、桌面(Tauri 2,原生应用,离线支持)、小程序(Taro 4,支持微信/支付宝/抖音/百度)、浏览器插件(WXT MV3,工具栏弹窗)、React Native(Expo,iOS + Android)、CLI(Node.js/Bun,脚本/CI-CD 自动化)。一套代码,一次发布,全端触达。',
           },
         },
         {
@@ -391,7 +391,7 @@ export default function QuickstartPage() {
                   在 Agent 编排页面点击「发布」,选择目标客户端:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-                  <li>🌐 <strong>Web</strong> — Next.js 15,主入口</li>
+                  <li>🌐 <strong>Web</strong> — Next.js 16,主入口</li>
                   <li>🖥️ <strong>桌面</strong> — Tauri 2,原生应用,离线支持</li>
                   <li>📱 <strong>小程序</strong> — Taro 4,支持微信/支付宝/抖音/百度</li>
                   <li>🧩 <strong>浏览器插件</strong> — WXT MV3,工具栏弹窗</li>

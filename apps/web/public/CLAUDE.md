@@ -29,7 +29,7 @@ IHUI AI unifies the entire AI application lifecycle into one platform:
 - **MCP Tool Protocol.** Native support for the Model Context Protocol, the emerging standard for connecting AI models to external tools. Any MCP Server (100+ pre-built in our marketplace) can be plugged in, and any internal system can be wrapped as an MCP Server for use by Agents.
 - **Workflow Orchestration.** An n8n-style node canvas with triggers (webhook, schedule, event), LLMs (any of the above), tools (any of the above or custom), conditional branches, parallel branches, and human-in-the-loop approval steps.
 - **Team Collaboration.** Multi-tenant workspace, role-based permissions, shared credit pools, audit logs of every action, SSO/OAuth single sign-on, SAML 2.0 and OIDC support.
-- **Six-Client Distribution.** A single codebase that compiles to Web (Next.js 15), Desktop (Tauri 2), Mini Programs (Taro 4, supports WeChat/Alipay/Douyin), Browser Extension (WXT MV3), Mobile (React Native, iOS/Android), and CLI (Node.js/Bun). The same React component library, the same API contracts, the same business logic on every client.
+- **Six-Client Distribution.** A single codebase that compiles to Web (Next.js 16), Desktop (Tauri 2), Mini Programs (Taro 4, supports WeChat/Alipay/Douyin), Browser Extension (WXT MV3), Mobile (React Native, iOS/Android), and CLI (Node.js/Bun). The same React component library, the same API contracts, the same business logic on every client.
 
 ## 3. Why "Six Clients, One Codebase" Matters
 
