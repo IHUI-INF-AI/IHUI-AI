@@ -12,6 +12,22 @@
 
 ---
 
+## 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service)
+
+> 起因:用户问"发布文章页面功能都好使吗"。实测发现 5 个发布页在真实浏览器登录态下数据加载大面积失败,定位并修复 5 个根因 + 2 个能力补全:
+
+1. **P0 rewrites 劫持 publish 路由**(apps/web/next.config.ts):原 `/api/publish/:path*` → ai-service 8803 规则把浏览器所有 publish 请求劫持到 8803。ai-service JWTAuthMiddleware 只认 Bearer、不认 cookie → 浏览器同源请求大量 401;analytics 端点只在 api 端注册,走 8803 必 404。**修复**:删除该 rewrite,回落 /api/:path* → 8802。
+2. **P0 代理不转发 cookie 凭据**(publish-routes.ts + publish-analytics.ts):cookie 认证场景下转发无凭据 → ai-service 401。**修复**:resolveAuthHeader()(authorization 优先,缺省从 auth_token cookie 提取构造 Bearer)。
+3. **P0 scheduler 落库失败**(ai-service scheduler.py):`_finish_task_db` SQL 中 `$1` 同时用于 SET status 与 CASE WHEN 比较,asyncpg 推断 text vs varchar 冲突抛 AmbiguousParameterError → 任务状态永久 pending、执行结果不落库。**修复**:把"是否 failed"拆成独立布尔参数 $3,消除 $1 歧义。附带:retry 参数顺序错误、失败路径补写 publish_history。
+4. **P1 提交后进度轮询失效**(new/page.tsx + SubmitBar.tsx):后端返回 task_id(字符串 pub-xxx)无数字 id,前端判 resp.id==='number' 恒 false;且轮询接口返回 platforms(success 布尔)非 targets(status)。**修复**:task_id 字符串轮询 + platforms 映射。
+5. **P1 asyncpg JSONB 返回字符串**:列表/详情的 targets/results/content 是 JSON 字符串,前端读不到字段。**修复**:publish.py 新增 _json_or_raw 统一解析 + _serialize_results_to_platforms(列表返回真实执行结果 platforms)。
+6. **能力补全**:日历页拖拽改期接真实 API(POST /tasks/{task_id}/reschedule,原纯 toast 假改期);历史页展开显示单平台真实执行结果(platforms 优先);api 层补 detect-from-cdp 代理;analytics 改用列表 platforms 统计真实成功率/平台分布/失败原因。
+7. **i18n 补全**:calendar.rescheduled/rescheduleFailed 5 语言;ja/ko 74 处缺失翻译;chat.message.jumpToLatest 5 语言;settings.langZh 语言名修正;zh-TW 繁体修正。
+
+**验证**:web/api/api-client typecheck 全绿;eslint 改动文件 0 错;check-i18n-keys parity OK;i18n-diff 无 pending;mypy(Python 改动)0 错;playwright + Edge 登录态实测 5 个发布页 API 全 200 无报错;POST /tasks 创建 + 改期 + 落库(failed+results)+ 列表/详情 platforms 全链路实测通过(测试数据已清理)。
+
+---
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
