@@ -55,7 +55,7 @@
 
 | 차원                  | 실제 값                                                                                                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **웹 프론트엔드**     | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                            |
+| **웹 프론트엔드**     | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                            |
 | **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                              |
 | **AI 서비스**         | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용)                                                                                                         |
 | **모노레포**          | pnpm 9.15 workspace + Turborepo 2.3 + 13 공유 패키지(@ihui/auth / database / types / ui 등)                                                                                                       |
@@ -346,7 +346,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | Coze SDK 프록시                | Bot / 대화 / 워크플로 / 데이터셋 / 템플릿 / 변수 / 워크스페이스 / OAuth                                                                        |
 |                          | OpenClaw                       | 오픈소스 Agent 프레임워크 연동 / clawdbot / openclaw-routes                                                                                    |
 |                          | Skills 시스템                  | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow(10+ tools)                                   |
-| **8 플랫폼 프레임워크**  | Web                            | Next.js 15 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                                                    |
+| **8 플랫폼 프레임워크**  | Web                            | Next.js 16 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                                                    |
 |                          | API                            | Fastify 5 / ~1080 엔드포인트 / 12 WebSocket 엔드포인트 / 95+ 라우트 파일 / OpenAPI                                                             |
 |                          | AI 서비스                      | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 엔드포인트 / 5 provider 어댑터                                                                 |
 |                          | CLI                            | Node.js / 17 명령 / 13 내장 툴 / 6 소스 설정 가져오기 / ACP Server                                                                             |
@@ -541,7 +541,7 @@ cd IHUI-AI && docker compose up -d
 | Monorepo         | pnpm workspace + Turborepo                                                             | pnpm 9.15 / turbo 2.3                 |
 | 백엔드 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                 | Fastify 5.1 / Drizzle 0.38 / PG 15    |
 | 캐시 및 큐       | Redis 7 + BullMQ                                                                       | 독립 worker 프로세스(:8830)           |
-| 프론트엔드 Web   | Next.js + React + Tailwind CSS + shadcn/ui                                             | Next 15.1 / React 19 / Tailwind 4     |
+| 프론트엔드 Web   | Next.js + React + Tailwind CSS + shadcn/ui                                             | Next 16.2.12 / React 19 / Tailwind 4     |
 | 프론트엔드 상태  | @tanstack/react-query 5 + Zustand                                                      | 서버/클라이언트 상태 분리             |
 | 국제화           | next-intl                                                                              | zh-CN / zh-TW / en / ko / ja 5개 언어 |
 | AI 서비스        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                                  | FastAPI 0.115 / LangGraph 0.2         |
@@ -574,7 +574,7 @@ cd IHUI-AI && docker compose up -d
         │                        │                       │                        │
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
-   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
+   │ Next 16  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
    │ :8801    │  │ + Rust   │  │          │  │ iOS/Android │  │ 위챗미니앱 │  │ ACP+Skl │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
@@ -600,7 +600,7 @@ cd IHUI-AI && docker compose up -d
 
 | 플랫폼        | 디렉토리             | 기술 스택                       | 역할                                                                                      |
 | ------------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
-| **Web**       | `apps/web/`          | Next.js 15 + React 19           | 메인 프론트엔드, 200+ 페이지, 5개 언어 i18n, PWA, SEO                                     |
+| **Web**       | `apps/web/`          | Next.js 16 + React 19           | 메인 프론트엔드, 200+ 페이지, 5개 언어 i18n, PWA, SEO                                     |
 | **API**       | `apps/api/`          | Fastify 5 + Drizzle             | 비즈니스 관리 + 멀티 벤더 프록시 + 인증 + WebSocket, ~1080 엔드포인트 / 95+ 라우트 파일   |
 | **AI 서비스** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 게이트웨이 + Agent 실행 + MCP 툴 + A2A 프로토콜 + 14 퍼블리싱 adapter, ~55 엔드포인트 |
 | **CLI**       | `apps/cli/`          | Node.js + Commander             | 자체 커맨드라인 AI 코딩 어시스턴트, 17 명령 + 13 툴 + ACP Server + 6 소스 설정 가져오기   |
@@ -645,7 +645,7 @@ IHUI-AI/
 │   ├── extension/           # 브라우저 확장 (WXT + React, Chrome/Edge/Firefox)
 │   ├── miniapp-taro/        # 위챗 미니앱 (Taro 4 + React)
 │   ├── mobile-rn/           # 모바일 (React Native + Expo EAS)
-│   └── web/                 # 프론트엔드 (Next.js 15 + React 19, 200+ 페이지)
+│   └── web/                 # 프론트엔드 (Next.js 16 + React 19, 200+ 페이지)
 ├── packages/                # 13개 공유 패키지
 │   ├── api-client/          # @ihui/api-client (40+ 엔드포인트 자동 생성 SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)

@@ -431,7 +431,7 @@ pnpm turbo build typecheck lint test
 | **Monorepo**            | pnpm workspace + Turborepo                                                                    | pnpm 9.15 / turbo 2.3                      |
 | **Backend API**         | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                        | Fastify 5.1 / Drizzle 0.38 / PG 15         |
 | **Cache & queue**       | Redis 7 + BullMQ                                                                              | Independent worker process (`:8804`)       |
-| **Frontend Web**        | Next.js + React + Tailwind CSS + shadcn/ui                                                    | Next 15.1 / React 19 / Tailwind 4          |
+| **Frontend Web**        | Next.js + React + Tailwind CSS + shadcn/ui                                                    | Next 16.2.12 / React 19 / Tailwind 4          |
 | **Frontend state**      | @tanstack/react-query 5 + Zustand                                                             | Server + client state separation           |
 | **i18n**                | next-intl                                                                                     | zh-CN / zh-TW / en / ko / ja (5 languages) |
 | **AI Service**          | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                                         | FastAPI 0.115 / LangGraph 0.2              |
@@ -466,7 +466,7 @@ pnpm turbo build typecheck lint test
     │                        │                                 │                        │
 ┌───▼────┐  ┌──────────┐  ┌──▼───────┐  ┌──────────────▼┐  ┌──────────┐  ┌──▼────────┐
 │  Web   │  │ Desktop  │  │Extension │  │  Mobile RN    │  │ Miniapp  │  │   CLI    │
-│ Next 15│  │ Tauri 2  │  │  WXT     │  │  Expo EAS     │  │ Taro 4   │  │ Node.js  │
+│ Next 16│  │ Tauri 2  │  │  WXT     │  │  Expo EAS     │  │ Taro 4   │  │ Node.js  │
 │ :8801  │  │ web/out  │  │          │  │  :8805        │  │ :8804    │  │ ACP+Skl  │
 │ strict │  │ + Rust   │  │          │  │  iOS/Android  │  │ WeChat MP│  │ 21 cmds  │
 └───┬────┘  └────┬─────┘  └────┬─────┘  └──────┬────────┘  └────┬─────┘  └────┬─────┘
@@ -503,7 +503,7 @@ pnpm turbo build typecheck lint test
 
 | End            | Directory            | Stack                           | Responsibility                                                                                                                                                                                                                                                          |
 | -------------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web**        | `apps/web/`          | Next.js 15 + React 19           | Main frontend, 200+ pages, 5-language i18n, PWA, SEO, `output: 'export'` static export loaded by Desktop WebView (shell architecture)                                                                                                                                   |
+| **Web**        | `apps/web/`          | Next.js 16 + React 19           | Main frontend, 200+ pages, 5-language i18n, PWA, SEO, `output: 'export'` static export loaded by Desktop WebView (shell architecture)                                                                                                                                   |
 | **API**        | `apps/api/`          | Fastify 5 + Drizzle             | Business management + multi-vendor proxy + auth + WebSocket, ~1300 endpoints / 95+ route files                                                                                                                                                                          |
 | **AI Service** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM gateway + agent execution + MCP tools + A2A protocol + 14 publish adapters, ~55 endpoints                                                                                                                                                                           |
 | **Desktop**    | `apps/desktop/`      | Tauri 2 + Rust                  | Shell architecture: Tauri WebView loads Web static export. 25+ `#[tauri::command]` native capabilities (tray + single instance + autostart + global hotkeys + deep links + native notifications + file access + clipboard + computer control screenshot/mouse/keyboard) |
@@ -836,5 +836,5 @@ Thank you to every contributor who keeps this project evolving.
 ## SEO Keywords
 
 <sub>
-AI agent platform · LLM orchestration · RAG · Retrieval-Augmented Generation · MCP · Model Context Protocol · A2A · Agent-to-Agent · LangGraph · LiteLLM · open source ChatGPT alternative · self-hosted AI platform · Apache 2.0 AI · AI commercial foundation · multi-model gateway · 176 LLMs · OpenAI · Anthropic Claude · Google Gemini · Qwen · DeepSeek · GLM · Ernie · Doubao · Kimi · Ollama · AI education platform · 14-platform publishing · Tauri · WXT · Taro · React Native · Next.js 15 · Fastify 5 · FastAPI · 8-end architecture · AI agent marketplace · RBAC multi-tenant · pgvector · knowledge graph · vector memory · self-evolving agents · sandbox backends · Modal · Daytona · observability stack · Prometheus · Grafana · Jaeger · OpenTelemetry · i18n parity · 5-language internationalization
+AI agent platform · LLM orchestration · RAG · Retrieval-Augmented Generation · MCP · Model Context Protocol · A2A · Agent-to-Agent · LangGraph · LiteLLM · open source ChatGPT alternative · self-hosted AI platform · Apache 2.0 AI · AI commercial foundation · multi-model gateway · 176 LLMs · OpenAI · Anthropic Claude · Google Gemini · Qwen · DeepSeek · GLM · Ernie · Doubao · Kimi · Ollama · AI education platform · 14-platform publishing · Tauri · WXT · Taro · React Native · Next.js 16 · Fastify 5 · FastAPI · 8-end architecture · AI agent marketplace · RBAC multi-tenant · pgvector · knowledge graph · vector memory · self-evolving agents · sandbox backends · Modal · Daytona · observability stack · Prometheus · Grafana · Jaeger · OpenTelemetry · i18n parity · 5-language internationalization
 </sub>
