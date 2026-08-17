@@ -32,6 +32,7 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { fetchApi } from '@/lib/api'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
@@ -50,6 +51,24 @@ import { AccountGroupManager } from '@/components/publish/AccountGroupManager'
 interface AccountWithRisk extends PublishAccount {
   readonly riskScore?: number
   readonly riskLevel?: RiskLevel
+  readonly cooldownRemaining?: number
+}
+
+/** GET /api/publish/accounts/{id}/risk 返回结构(2026-08-17 新增) */
+interface RiskData {
+  readonly accountId: number
+  readonly platform: string
+  readonly score: number
+  readonly level: RiskLevel
+  readonly factors?: readonly unknown[]
+  readonly cooldownUntil?: string | null
+  readonly cooldownRemaining?: number
+}
+
+/** 风控展示字段(与 AccountWithRisk 对齐,拉取失败时保持"未评估") */
+interface RiskView {
+  readonly score: number
+  readonly level: RiskLevel
   readonly cooldownRemaining?: number
 }
 
@@ -91,10 +110,43 @@ export default function AccountsPage() {
     undefined,
   )
   const [batchOpen, setBatchOpen] = React.useState(false)
+  const [riskMap, setRiskMap] = React.useState<Record<number, RiskView>>({})
 
   const pendingPlatforms = React.useMemo(() => {
     const configured = new Set(accounts.map((a) => a.platform))
     return PLATFORM_SCHEMAS.filter((s) => !configured.has(s.platformId))
+  }, [accounts])
+
+  // 2026-08-17:风控评分并行拉取(失败静默,保持"未评估")
+  React.useEffect(() => {
+    if (accounts.length === 0) {
+      setRiskMap({})
+      return
+    }
+    let cancelled = false
+    void Promise.all(
+      accounts.map((a) =>
+        fetchApi<RiskData>(`/api/publish/accounts/${a.id}/risk`)
+          .then((r) => (r.success && r.data ? ([a.id, r.data] as const) : null))
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (cancelled) return
+      const next: Record<number, RiskView> = {}
+      for (const item of results) {
+        if (item) {
+          next[item[0]] = {
+            score: item[1].score,
+            level: item[1].level,
+            cooldownRemaining: item[1].cooldownRemaining,
+          }
+        }
+      }
+      setRiskMap(next)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [accounts])
 
   function openAdd(platformId?: string) {
@@ -204,7 +256,17 @@ export default function AccountsPage() {
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
-            const acc = a as AccountWithRisk
+            const risk = riskMap[a.id]
+            const acc: AccountWithRisk = {
+              ...a,
+              ...(risk
+                ? {
+                    riskScore: risk.score,
+                    riskLevel: risk.level,
+                    cooldownRemaining: risk.cooldownRemaining,
+                  }
+                : {}),
+            }
             const inCooldown = (acc.cooldownRemaining ?? 0) > 0
             return (
               <Card key={a.id} className={cn(inCooldown && 'border-orange-500/40 opacity-60')}>
