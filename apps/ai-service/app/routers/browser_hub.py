@@ -369,6 +369,11 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
                 elif msg_type == "reload":
                     await session.reload()
                     await ws.send_json({"type": "reload_result", "success": True})
+                elif msg_type == "execute":
+                    # 2026-08-17:执行 JS 并返回结果(用于获取元素坐标/验证状态)
+                    script = msg.get("script", "")
+                    result = await session.execute_js(script)
+                    await ws.send_json({"type": "execute_result", "data": result})
                 elif msg_type == "ping":
                     await ws.send_json({"type": "pong"})
             except Exception as e:
