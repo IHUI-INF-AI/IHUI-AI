@@ -447,6 +447,9 @@ def create_app() -> FastAPI:
     # WebSocket 画面流 + REST API + 鼠标键盘事件回传
     from app.routers import browser_hub as browser_hub_router
     app.include_router(browser_hub_router.router, prefix="/api", tags=["browser-hub"])
+    # 2026-08-17 新增:外部 Chrome CDP 导入登录 Cookie(桌面端 Tauri 弹出用户自己的 Chrome)
+    from app.routers import chrome_import as chrome_import_router
+    app.include_router(chrome_import_router.router, prefix="/api", tags=["browser-chrome-import"])
     # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
     app.include_router(opencompass.router, prefix="/api", tags=["opencompass"])
     # 截图服务(Playwright headless,2026-07-22 新增,WorkPanel iframe 降级)
