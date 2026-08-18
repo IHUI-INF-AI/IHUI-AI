@@ -260,11 +260,11 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     // square/share 无对应 RN Tab,跳转独立 RootStack 页(对齐 Uniapp 广场页/资讯页)
     if (tab === 'square') {
-      rootNav?.navigate('Square')
+      rootNav?.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      rootNav?.navigate('Share')
+      rootNav?.navigate('Square')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })

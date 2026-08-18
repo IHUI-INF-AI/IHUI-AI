@@ -108,15 +108,16 @@ describe('SettingsScreen colorScheme prop 渲染', () => {
     expect(root.style.backgroundColor).toMatch(/rgb\(31,\s*41,\s*55\)/i)
   })
 
-  it('colorScheme="light"(显式) → 根容器 backgroundColor 为 #FFFFFF', () => {
+  it('colorScheme="light"(显式) → 根容器 backgroundColor 为 #F5F5F5', () => {
     const { container } = render(<SettingsScreen {...makeProps({ colorScheme: 'light' })} />)
     const root = container.firstChild as HTMLElement
-    expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)
+    // 共享层 Settings createStyles:浅色 pageBg = #f5f5f5(对齐 D 盘 Ai-WXMiniVue 设置页)
+    expect(root.style.backgroundColor).toMatch(/rgb\(245,\s*245,\s*245\)/i)
   })
 
-  it('不传 colorScheme(默认 light) → 根容器 backgroundColor 为 #FFFFFF', () => {
+  it('不传 colorScheme(默认 light) → 根容器 backgroundColor 为 #F5F5F5', () => {
     const { container } = render(<SettingsScreen {...makeProps()} />)
     const root = container.firstChild as HTMLElement
-    expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)
+    expect(root.style.backgroundColor).toMatch(/rgb\(245,\s*245,\s*245\)/i)
   })
 })
