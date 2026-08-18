@@ -92,7 +92,7 @@ export function ShareScreen() {
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Square')
+      navigation.navigate('News')
       return
     }
     navigation.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
