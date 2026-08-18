@@ -516,6 +516,37 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 
 ---
 
+## 22b. staged-typecheck 闸门:全量 include + 错误过滤(2026-08-18 立,根治改版)
+
+### 触发背景
+
+pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 include staged 文件 → 模块扩展(declare module 'fastify' 等)未被加载 → 报 TS2339 假阳性(如 `pushNotification` / `isMultipart` / `file`)。多 agent 并行时,任何 agent 改一下 ws-notifications.ts 都会让其他 agent 的 web 包 typecheck 失败 100% 误阻塞。
+
+### 核心策略(根治)
+
+`scripts/check-staged-typecheck.mjs`:
+
+- **临时 tsconfig 沿用 package 原始 tsconfig 的【全量 include】**,完整加载所有模块扩展与全局类型,消除 TS2339 假阳性。
+- **tsc 输出按行解析**,只把【错误文件属于 staged 文件】的错误视为失败;其他 agent 引入的非 staged 文件错误自动过滤、不阻塞。
+- tsc 未能真正运行(如 pnpm/tsc 未找到、进程崩溃、空输出)按失败处理,**禁止静默通过**。
+- 临时 tsconfig 清理加重试(Windows transient file lock 兼容);`.gitignore` 已加 `**/tsconfig.staged-typecheck.json` 防残留误入库。
+
+### 守门集成
+
+- `scripts/guardian-runner.mjs` 第 16 项 blocking(已有调用 `node scripts/check-staged-typecheck.mjs --staged`)
+- 跳过方法:`HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...`(应急)
+- 适用范围:任意 staged .ts/.tsx 文件(不限 apps/web)
+- 自动跳过:apps/ai-service(Python,走 mypy)、apps/desktop(无 typecheck script)、packages/eslint-config / packages/tsconfig(纯配置包)等无 typecheck script / tsconfig 的 package
+
+### 红线规则
+
+- ❌ 禁止把临时 tsconfig 的 include 缩窄到 staged 文件(会回退到旧 partial-include 假阳性 bug)
+- ❌ 禁止把 `**/tsconfig.staged-typecheck.json` 从 .gitignore 移除(Windows 偶发 unlink 失败可能残留)
+- ❌ 禁止把 `sawAnyTscError` 移除(若 tsc 未能真正运行,必须按失败处理,不能静默通过)
+- ✅ 修改 `filterTscOutputForStagedFiles` / `getOriginalInclude` 时必须同步更新 `scripts/tests/check-staged-typecheck.test.mjs`(镜像常量同步锚点:源脚本第 298-327 行 / 244-256 行)
+
+---
+
 ## 23. `.gitignore __*` 规则静默忽略 `__tests__/` 目录教训(强制)
 
 ### 触发背景(2026-07-25 立,真实事故)
@@ -651,7 +682,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
 - **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
-- **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
+- **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
 
