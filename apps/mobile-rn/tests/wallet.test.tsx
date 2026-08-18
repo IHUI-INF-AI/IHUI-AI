@@ -114,17 +114,19 @@ describe('WalletScreen 余额查询', () => {
     await waitFor(() => {
       expect(apiMocks.getBalance).toHaveBeenCalledTimes(1)
     })
-    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
-    expect(getByText('wallet.frozen')).toBeTruthy()
-    expect(getByText('wallet.totalRecharge')).toBeTruthy()
-    expect(getByText('wallet.totalWithdraw')).toBeTruthy()
+    // WalletScreen UNIAPP_TEXT 映射:wallet.balance→可用余额 / wallet.frozen→冻结金额
+    // / wallet.totalRecharge→累计充值 / wallet.totalWithdraw→累计提现
+    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
+    expect(getByText('冻结金额')).toBeTruthy()
+    expect(getByText('累计充值')).toBeTruthy()
+    expect(getByText('累计提现')).toBeTruthy()
   })
 
   it('余额数值格式化:显示 ¥ 前缀 + 两位小数', async () => {
     apiMocks.getBalance.mockResolvedValue({ success: true, data: mockBalance })
     const { getByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
+    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
     expect(getByText(/1000\.50/)).toBeTruthy()
     expect(getByText(/2000\.00/)).toBeTruthy()
   })
@@ -133,8 +135,9 @@ describe('WalletScreen 余额查询', () => {
     apiMocks.getBalance.mockResolvedValue({ success: false, error: '余额查询失败' })
     const { getAllByText } = render(<WalletScreen />)
 
+    // UNIAPP_TEXT 映射:wallet.loadFailed→加载失败
     await waitFor(() => {
-      expect(getAllByText('wallet.loadFailed').length).toBeGreaterThanOrEqual(1)
+      expect(getAllByText('加载失败').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -143,7 +146,7 @@ describe('WalletScreen 余额查询', () => {
     const { getAllByText } = render(<WalletScreen />)
 
     await waitFor(() => {
-      expect(getAllByText('wallet.loadFailed').length).toBeGreaterThanOrEqual(1)
+      expect(getAllByText('加载失败').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -154,7 +157,7 @@ describe('WalletScreen 余额查询', () => {
     })
     const { getByText, getAllByText } = render(<WalletScreen />)
 
-    await waitFor(() => expect(getByText('wallet.balance')).toBeTruthy())
+    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
     expect(getAllByText((content: string) => content.includes('—')).length).toBeGreaterThanOrEqual(
       1,
     )

@@ -328,11 +328,11 @@ export function StudyIndexScreen() {
   const handleDrawerNavigate = (tab: DrawerTab) => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigation.navigate('Square')
+      navigation.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Share')
+      navigation.navigate('Square')
       return
     }
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
