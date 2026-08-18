@@ -299,7 +299,7 @@ export default function CliImportPage() {
                         onClick={() => setStrategy(s)}
                         className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
                           active
-                            ? 'outline outline-1 outline-black dark:outline-white bg-primary/5'
+                            ? 'outline outline-1 outline-border bg-primary/5'
                             : 'border-border hover:bg-accent'
                         }`}
                       >
