@@ -128,13 +128,10 @@ export default function SquareScreenWrapper() {
     (tab: DrawerTab) => {
       setDrawerVisible(false)
       if (tab === 'square') {
-        navigateRoot(rootNav, 'Square')
+        navigateRoot(rootNav, 'Plaza')
         return
       }
-      if (tab === 'share') {
-        navigateRoot(rootNav, 'Share')
-        return
-      }
+      if (tab === 'share') return // 已在 AI资讯页,仅收起抽屉
       rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
     },
     [rootNav],

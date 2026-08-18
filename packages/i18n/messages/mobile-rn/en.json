@@ -643,7 +643,12 @@
     "empty": "No courses yet",
     "free": "Free",
     "studentCount": "{count} learners",
-    "nextPage": "Next"
+    "nextPage": "Next",
+    "recommended": "Recommended Courses",
+    "track": "Course Tracks",
+    "latest": "Latest Courses",
+    "popular": "Popular Courses",
+    "unknownInstructor": "Unknown instructor"
   },
   "customerService": {
     "title": "Customer Service",
