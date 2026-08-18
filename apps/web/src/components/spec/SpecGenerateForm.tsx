@@ -121,7 +121,7 @@ export function SpecGenerateForm({
                   onClick={() => setScopeType(opt.value)}
                   className={`rounded-md border px-3 py-2 text-left transition-colors ${
                     scopeType === opt.value
-                      ? 'outline outline-1 outline-black dark:outline-white bg-primary/5 text-foreground'
+                      ? 'outline outline-1 outline-border bg-primary/5 text-foreground'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
                   }`}
                 >
