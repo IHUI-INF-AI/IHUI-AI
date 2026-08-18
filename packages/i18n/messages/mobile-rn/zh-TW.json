@@ -639,7 +639,12 @@
     "empty": "",
     "free": "",
     "studentCount": "",
-    "nextPage": ""
+    "nextPage": "",
+    "recommended": "推薦課程",
+    "track": "課程賽道",
+    "latest": "最新課程",
+    "popular": "熱門課程",
+    "unknownInstructor": "未知講師"
   },
   "customerService": {
     "title": "",
