@@ -186,7 +186,7 @@ const checks = [
   },
   {
     id: '11c',
-    label: '🏷️  TagsView 视觉定稿防回退(主题灰描边)',
+    label: '🏷️  选中态描边定稿防回退(禁纯黑/纯白,全站)',
     script: 'check-tagsview-visual.mjs',
     args: [],
     mode: 'blocking',
