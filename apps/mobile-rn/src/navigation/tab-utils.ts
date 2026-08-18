@@ -20,7 +20,7 @@ export type MainTabKey = keyof MainStackParamList
  * Drawer 5 主菜单 → RN Tab 路由映射(单一来源,2026-08-15 立)。
  *
  * 背景:此前映射表在 5 个 screen 内各自复制(AgentScreen/PlazaScreen/ProfileScreen/
- * ShareScreen/SquareScreen),另有 4 个 screen(HomeScreen/ChatScreen/AiAssistantN8nScreen/
+ * ShareScreen/NewsScreen),另有 4 个 screen(HomeScreen/ChatScreen/AiAssistantN8nScreen/
  * StudyIndexScreen)直接 `tab as MainTabKey` 把 DrawerTab('mine'/'home'/'ai')当 Tab 路由名
  * 传入 navigate('Main', { screen: 'mine' }),导致 TabRouter 返回 null,跳转被静默忽略
  * (LogBox: "couldn't be applied to the navigator")。统一收敛到此模块杜绝同类 bug。

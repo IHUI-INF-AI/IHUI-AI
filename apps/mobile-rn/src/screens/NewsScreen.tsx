@@ -1,5 +1,5 @@
 /**
- * SquareScreen AI资讯页(mobile-rn 端 wrapper)
+ * NewsScreen AI资讯页(mobile-rn 端 wrapper)
  *
  * 保留 RN 特定逻辑: useState/useEffect/useNavigation/useAuth/fetchApi/Drawer/FloatBox/NavBar
  * 主 UI 委托给 @ihui/rn-app SquareScreen 共享组件
@@ -75,7 +75,7 @@ const navigateRoot = (nav: RootNav | undefined, route: keyof RootStackParamList 
   }
 }
 
-export default function SquareScreenWrapper() {
+export default function NewsScreenWrapper() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const { user } = useAuth()
@@ -377,5 +377,5 @@ function mapConversationToDrawer(item: ConversationDetail): DrawerConversationIt
   }
 }
 
-/** RootNavigator 以具名导入 SquareScreen(默认导出为 SquareScreenWrapper,见上) */
-export { SquareScreenWrapper as SquareScreen }
+/** RootNavigator 默认导入 NewsScreenWrapper(具名导出 NewsScreen 保持兼容,见上) */
+export { NewsScreenWrapper as NewsScreen }
