@@ -25,8 +25,8 @@
  *    not.toContain('dark:outline-white')(防测试也被回退)
  *
  * 守门项(全站通用):
- * 7. apps/web/src 下所有 .tsx/.ts 代码字符串禁止 outline-black / dark:outline-white
- *    (仅检查引号内 className 字符串,注释/测试断言豁免)
+ * 7. apps/web 下所有 .tsx/.ts(app/ + src/)代码字符串禁止 outline-black / dark:outline-white
+ *    (仅检查引号内 className 字符串,注释/测试断言/静态产物豁免)
  *
  * 用法:
  *   node scripts/check-tagsview-visual.mjs      # 单次守门
@@ -129,11 +129,12 @@ if (!existsSync(testPath)) {
   )
 }
 
-// ─── 3. 全站选中态描边守门(2026-08-18 立) ─────────────────
-// 扫描 apps/web/src 下所有 .tsx/.ts,仅检查引号内的 className 字符串,
+// ─── 3. 全站选中态描边守门(2026-08-18 立,2026-08-18 扩展至 apps/web 全目录) ──
+// 扫描 apps/web 下所有 .tsx/.ts(app/ + src/ 全部纳入),仅检查引号内的 className 字符串,
 // 禁止 outline-black / dark:outline-white(用户 8-13 定稿"纯黑/纯白太突兀")。
-// 豁免:__tests__/tests/e2e(测试断言故意含这些词)、TagsView.tsx(专项已查,注释含历史描述)。
-const WEB_SRC = resolve(ROOT, 'apps/web/src')
+// 豁免:__tests__/tests/e2e(测试断言故意含这些词)、out/.next(静态产物)、
+//      TagsView.tsx(专项已查,注释含历史描述)。
+const WEB_ROOT = resolve(ROOT, 'apps/web')
 const EXCLUDE_DIRS = new Set(['__tests__', 'tests', 'e2e', 'node_modules', '.next', 'out'])
 const BANNED = ['outline-black', 'dark:outline-white']
 
@@ -147,9 +148,9 @@ function walkFiles(dir, out) {
   }
 }
 
-if (existsSync(WEB_SRC)) {
+if (existsSync(WEB_ROOT)) {
   const files = []
-  walkFiles(WEB_SRC, files)
+  walkFiles(WEB_ROOT, files)
   const hits = []
   for (const file of files) {
     if (file.endsWith('TagsView.tsx')) continue
