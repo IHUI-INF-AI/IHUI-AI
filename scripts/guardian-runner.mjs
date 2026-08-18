@@ -321,6 +321,19 @@ const checks = [
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
   },
+  // --- 16c (2026-08-18 新增,staged-typecheck 源/测镜像漂移防御,AGENTS.md §22b 配套) ---
+  // blocking:scripts/check-staged-typecheck.mjs 的核心过滤函数
+  //   (filterTscOutputForStagedFiles / getOriginalInclude / normalizePath)
+  //   未导出,测试靠镜像常量复制函数体,易漂移。指纹比对守卫源/测同步。
+  // id 选 16c(续 16 / 16b staged-typecheck 系列),放在 30a 之后(逻辑上紧贴 §22b 守门簇)。
+  // 跳过方法:HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC=1 git commit ...
+  {
+    id: '16c',
+    label: '🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务)',
+    script: 'check-staged-typecheck-mirror-sync.mjs',
+    args: [],
+    mode: 'blocking',
+  },
   // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
   // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
   //   但 mypy 检查只在 pnpm typecheck:full 手工运行,无 pre-commit 守门。
