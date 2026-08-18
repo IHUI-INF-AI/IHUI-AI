@@ -88,10 +88,13 @@ export function ShareScreen() {
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     setDrawerVisible(false)
     if (tab === 'square') {
+      navigation.navigate('Plaza')
+      return
+    }
+    if (tab === 'share') {
       navigation.navigate('Square')
       return
     }
-    if (tab === 'share') return // 已在分享页,仅收起抽屉
     navigation.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
