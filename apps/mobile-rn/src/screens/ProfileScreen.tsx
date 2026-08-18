@@ -264,7 +264,7 @@ export function ProfileScreen() {
       return
     }
     if (tab === 'share') {
-      rootNav?.navigate('Square')
+      rootNav?.navigate('News')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })

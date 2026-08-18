@@ -445,7 +445,7 @@ export default function AiAssistantN8nScreen() {
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Square')
+      navigation.navigate('News')
       return
     }
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
