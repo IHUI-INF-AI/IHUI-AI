@@ -643,7 +643,12 @@
     "empty": "暂无课程",
     "free": "免费",
     "studentCount": "{count} 人学过",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "recommended": "推荐课程",
+    "track": "课程赛道",
+    "latest": "最新课程",
+    "popular": "热门课程",
+    "unknownInstructor": "未知讲师"
   },
   "customerService": {
     "title": "联系客服",

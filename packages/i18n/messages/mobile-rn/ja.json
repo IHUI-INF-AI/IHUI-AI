@@ -639,7 +639,12 @@
     "empty": "",
     "free": "",
     "studentCount": "",
-    "nextPage": ""
+    "nextPage": "",
+    "recommended": "おすすめコース",
+    "track": "コーストラック",
+    "latest": "最新コース",
+    "popular": "人気コース",
+    "unknownInstructor": "不明な講師"
   },
   "customerService": {
     "title": "",
