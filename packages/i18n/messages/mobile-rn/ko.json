@@ -639,7 +639,12 @@
     "empty": "",
     "free": "",
     "studentCount": "",
-    "nextPage": ""
+    "nextPage": "",
+    "recommended": "추천 강좌",
+    "track": "강좌 트랙",
+    "latest": "최신 강좌",
+    "popular": "인기 강좌",
+    "unknownInstructor": "알 수 없는 강사"
   },
   "customerService": {
     "title": "",
