@@ -187,7 +187,7 @@ export function PlazaScreen() {
       return
     }
     if (tab === 'share') {
-      navigateRoot(rootNav, 'Square')
+      navigateRoot(rootNav, 'News')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
