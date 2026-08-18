@@ -183,11 +183,11 @@ export function PlazaScreen() {
   const handleDrawerNavigate = (tab: DrawerTab) => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigateRoot(rootNav, 'Square')
+      navigateRoot(rootNav, 'Plaza')
       return
     }
     if (tab === 'share') {
-      navigateRoot(rootNav, 'Share')
+      navigateRoot(rootNav, 'Square')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })

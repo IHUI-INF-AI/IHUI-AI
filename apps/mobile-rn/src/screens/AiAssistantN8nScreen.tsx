@@ -30,6 +30,7 @@
  * 平台独占:仅 mobile-rn 端。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import {
   ActivityIndicator,
   Alert,
@@ -440,11 +441,11 @@ export default function AiAssistantN8nScreen() {
   const closeDrawer = (): void => setDrawerVisible(false)
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     if (tab === 'square') {
-      navigation.navigate('Square')
+      navigation.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Share')
+      navigation.navigate('Square')
       return
     }
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
@@ -532,6 +533,11 @@ export default function AiAssistantN8nScreen() {
         onBack={() => navigation.goBack()}
         rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
       />
+      {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
+          小方欢迎卡 + 剩余智汇值 + 充值;占位 0,充值入口可用) */}
+      <View style={styles.valueCardWrap}>
+        <IntelligentAssistant tokenQuantity={0} onRecharge={() => navigation.navigate('AppTopup')} />
+      </View>
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -707,6 +713,7 @@ export default function AiAssistantN8nScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
+  valueCardWrap: { paddingHorizontal: 8, marginTop: 4 },
   body: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 16 },
   // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
