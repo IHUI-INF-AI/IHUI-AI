@@ -137,7 +137,7 @@ import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
-import SquareScreen from '../screens/SquareScreen'
+import NewsScreen from '../screens/NewsScreen'
 import { PlazaScreen } from '../screens/PlazaScreen'
 import { CoursePlanetScreen } from '../screens/CoursePlanetScreen'
 import { LearnDevelopScreen } from '../screens/LearnDevelopScreen'
@@ -342,7 +342,7 @@ export type RootStackParamList = {
   AigcPublish: undefined
   // H10-H18 新增路由(复刻 Uniapp 缺失页面)
   Learn: undefined
-  Square: undefined
+  News: undefined
   Plaza: undefined
   CoursePlanet: undefined
   LearnDevelop: undefined
@@ -591,7 +591,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
             {/* H10-H18 新增 Screen(复刻 Uniapp 缺失页面) */}
             <RootStack.Screen name="Learn" component={LearnScreen} />
-            <RootStack.Screen name="Square" component={SquareScreen} />
+            <RootStack.Screen name="News" component={NewsScreen} />
             <RootStack.Screen name="Plaza" component={PlazaScreen} />
             <RootStack.Screen name="CoursePlanet" component={CoursePlanetScreen} />
             <RootStack.Screen name="LearnDevelop" component={LearnDevelopScreen} />
