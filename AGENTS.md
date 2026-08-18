@@ -544,6 +544,9 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
 - ❌ 禁止把 `**/tsconfig.staged-typecheck.json` 从 .gitignore 移除(Windows 偶发 unlink 失败可能残留)
 - ❌ 禁止把 `sawAnyTscError` 移除(若 tsc 未能真正运行,必须按失败处理,不能静默通过)
 - ✅ 修改 `filterTscOutputForStagedFiles` / `getOriginalInclude` 时必须同步更新 `scripts/tests/check-staged-typecheck.test.mjs`(镜像常量同步锚点:源脚本第 298-327 行 / 244-256 行)
+- ✅ 修改源脚本 `check-staged-typecheck.mjs` 的核心函数时,必须同步:
+  1. 测试文件 `scripts/tests/check-staged-typecheck.test.mjs` 中的镜像常量
+  2. 跑 `scripts/check-staged-typecheck-mirror-sync.mjs` 验证指纹一致
 
 ---
 
@@ -683,6 +686,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
 - **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
 - **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
+- (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
 
