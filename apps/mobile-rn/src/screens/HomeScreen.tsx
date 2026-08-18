@@ -424,7 +424,7 @@ export function HomeScreen() {
       return
     }
     if (tab === 'share') {
-      rootNav?.navigate('Square')
+      rootNav?.navigate('News')
       return
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
@@ -994,7 +994,7 @@ export function HomeScreen() {
           <BottomFigure />
         </View>
       </ScrollView>
-      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen)
+      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)
        *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
       {showBackTop ? (
         <TouchableOpacity
@@ -1163,7 +1163,7 @@ const shellStyles = {
   // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
   agentListWrap: { paddingVertical: 8 } as const,
   bottomFigureWrap: { paddingHorizontal: 10, paddingTop: 8, marginBottom: 10 } as const,
-  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen) ──
+  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
   backToTop: {
     position: 'absolute',
     left: '50%',
