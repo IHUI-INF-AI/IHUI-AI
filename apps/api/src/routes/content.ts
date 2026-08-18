@@ -224,7 +224,7 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+        .send(error(statusCode, '操作失败,请稍后重试'))
     }
     const userId = request.userId!
     const result = await countUnreadAnnouncements(userId)
@@ -252,7 +252,7 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+        .send(error(statusCode, '操作失败,请稍后重试'))
     }
     const userId = request.userId!
     const parsed = idParamSchema.safeParse(request.params)
