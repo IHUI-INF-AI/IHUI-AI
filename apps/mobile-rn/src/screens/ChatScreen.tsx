@@ -977,7 +977,7 @@ export function ChatScreen() {
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Square')
+      navigation.navigate('News')
       return
     }
     // home/ai/mine 是 MainStack 路由,通过 Main navigator 跳转

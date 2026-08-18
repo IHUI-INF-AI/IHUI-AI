@@ -338,7 +338,7 @@ export function AgentScreen() {
         return
       }
       if (tab === 'share') {
-        navigation.navigate('Square')
+        navigation.navigate('News')
         return
       }
       const rnTab = DRAWER_TAB_TO_RN_TAB[tab]
