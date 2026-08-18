@@ -973,11 +973,11 @@ export function ChatScreen() {
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     // square/share 是 RootStack 路由(非 Main),直接 navigate 到根路由
     if (tab === 'square') {
-      navigation.navigate('Square')
+      navigation.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Share')
+      navigation.navigate('Square')
       return
     }
     // home/ai/mine 是 MainStack 路由,通过 Main navigator 跳转
