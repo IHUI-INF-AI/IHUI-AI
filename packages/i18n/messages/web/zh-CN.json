@@ -58,7 +58,10 @@
       "title": "工具中心",
       "subtitle": "浏览并使用平台提供的各类工具",
       "loading": "加载中...",
-      "empty": "暂无工具"
+      "empty": "暂无工具",
+      "categoryAi": "AI 工具",
+      "categoryDev": "开发工具",
+      "categoryEfficiency": "效率工具"
     },
     "mcp": {
       "title": "MCP 项目",
