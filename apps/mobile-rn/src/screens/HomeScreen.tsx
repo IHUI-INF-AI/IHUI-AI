@@ -842,6 +842,24 @@ export function HomeScreen() {
             />
           </View>
         ) : null}
+        {/* AgentShopList AI 应用商店核心区块(对齐 Uniapp tools/index Ai-list_b 位置:
+         *  原项目固定在导航栏下方的智能体列表,RN 此前被压到页面底部——现上移到第二个核心位置,
+         *  用户进首页即看到「AI 应用商店」) */}
+        <View style={shellStyles.agentListWrap}>
+          <MoreTitles
+            title="AI 应用商店"
+            moreText="查看更多"
+            onMore={() => rootNav?.navigate('AiAssistant', {})}
+          />
+          <AgentShopList
+            items={agentItems}
+            onItemClick={handleAgentPress}
+            onItemLike={handleAgentLike}
+            onItemCollect={handleAgentCollect}
+            emptyText="该分类下暂无智能体"
+            scrollEnabled={false}
+          />
+        </View>
         <CourseCarousel
           courses={carouselItems}
           onPress={(id) => navigation.navigate('CourseDetail', { id })}
@@ -975,25 +993,7 @@ export function HomeScreen() {
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
-        {/* AgentShopList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 Ai-list_b,核心区块)
-         *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistantN8n(对话页);
-         *  「查看更多」跳 AiAssistant(分类+全部列表页,对齐 Ai-list_b navigateToCategoryDetail);
-         *  scrollEnabled=false 嵌套外层 ScrollView,由页面整体滚动 */}
-        <View style={shellStyles.agentListWrap}>
-          <MoreTitles
-            title="AI 应用商店"
-            moreText="查看更多"
-            onMore={() => rootNav?.navigate('AiAssistant', {})}
-          />
-          <AgentShopList
-            items={agentItems}
-            onItemClick={handleAgentPress}
-            onItemLike={handleAgentLike}
-            onItemCollect={handleAgentCollect}
-            emptyText="该分类下暂无智能体"
-            scrollEnabled={false}
-          />
-        </View>
+        {/* AgentShopList 已上移到 Carousel 之后(对齐原 tools 位置) */}
         {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure />
