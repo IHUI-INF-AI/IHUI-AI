@@ -355,7 +355,7 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     try {
       await authenticate(request)
     } catch {
-      return reply.status(401).send(error(401, 'Authentication required'))
+      return reply.status(401).send(error(401, '操作失败,请稍后重试'))
     }
     const id = parsed.data.id
     const userId = request.userId!

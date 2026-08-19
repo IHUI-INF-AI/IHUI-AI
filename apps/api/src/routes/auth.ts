@@ -1196,7 +1196,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         await authenticate(request)
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-        const message = toUserFriendlyMessage(e) || 'Authentication required'
+        const message = toUserFriendlyMessage(e) || '操作失败,请稍后重试'
         return reply.status(statusCode).send(error(statusCode, message))
       }
 
@@ -1296,7 +1296,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
         return reply
           .status(statusCode)
-          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+          .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
       const body = (request.body as Record<string, string> | null) ?? {}
       const oldPassword = body.old_password ?? body.oldPassword
@@ -1327,7 +1327,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
         return reply
           .status(statusCode)
-          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+          .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
       await cancelUserAccount(request.userId!)
       return reply.send(success({ cancelled: true }))
