@@ -51,6 +51,6 @@ export async function userAuthPreHandler(request: FastifyRequest, reply: Fastify
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
     return reply
       .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
+      .send(error(statusCode, (e as Error).message || '操作失败,请稍后重试'))
   }
 }
