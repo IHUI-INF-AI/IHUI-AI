@@ -288,6 +288,23 @@ pnpm dev                                       # 启动所有服务(web + api + 
 6. **push-guard 自动捎带**: push 后 push-guard 会自动捎带其他 agent 的 commit,
    因为 git-pull-rebase --autostash 已同步
 
+### 12c. 并发 commit 防混淆 SOP (2026-08-19 立)
+
+当多个 agent 同时 commit 同一文件时, 可能出现:
+
+- 你的 commit message 描述的是 A, 但 diff 里包含 B 的修改 (race condition)
+- 因为另一个 agent 在你 commit 期间 `git add` 了相同/不同文件
+
+防混淆措施:
+
+1. **精确 add**: 用 `git add <具体路径>`, **禁止** `git add .` / `git add -A` / `git add -u`
+2. **commit 前验证**: `git diff --cached --stat` 必须与预期文件清单完全一致
+3. **commit 后审查**: `git show HEAD --stat` 立即检查 commit 内容, 若含无关文件 → `git reset HEAD~1` 重提
+4. **避免同时改同一文件**: 如果发现其他 agent 在改相同文件, 等他完成后再动
+5. **接受混合 commit**: 当混合 commit 已 push 到 main 且功能正确, 不要 force-amend, 加一个空 commit 标注"混合 commit 说明"即可
+
+历史案例: d6e8906 + f028e5517b 期间出现"scripts 改动 + api 改动 + mobile-rn 改动"被同一 commit 收录, 后续审计应见此节说明。
+
 ---
 
 ## 13. 文件修改持久化强制规则(强制)
@@ -607,6 +624,8 @@ assert(
 ```
 
 可复用到:任何"测试文件无法直接 import 源函数"的工具脚本场景(如 `scripts/check-commit-scope.mjs` / `scripts/check-staged-pollution.mjs` 等)。
+
+> 📌 配套使用: 本模板的入口守护需搭配 §22d `isDirectRun` 模式使用, 避免 import 时 main() 误触发。
 
 ### 红线规则
 
@@ -967,6 +986,75 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 ### 配套
 
 - `.gitignore` 已补 `browser_test_output/`、`cookies.txt` 防回潮(未跟踪垃圾不污染 `git status`)
+
+---
+
+## 29. dangling commit 备份策略(2026-08-19 立)
+
+### 由来
+
+`commit-loss-check` 守门会拦截 dangling commits,要求先备份为 tag 再继续操作。
+本仓库实践:所有 dangling commits 备份为 `lost-commit/wip-*` tag(以 commit 短 hash 命名,
+例如 `lost-commit/0141d221`、`lost-commit/wip-batch-00f2429`)。
+
+截至 2026-08-19,本地 `lost-commit/*` tag 数量 = **4188** 个,远超 §22「已被 reset 丢失的 commit
+永久记录」清单的 3 个手工备份 tag — 绝大多数来自 `check-commit-loss-guard.mjs` 自动 fsck
+悬空检测后批量打 tag 的产物(典型为 merge commit / stash pop 失败的中间 commit)。
+
+抽样 `git show --stat lost-commit/{0141d221,02000bfd,043af88d}` 均显示为 Merge commit,
+作者 `AI智汇社 <lizong@aizhs.top>`,日期集中在 2026-08-17 — 与 §22 守门日志一致。
+
+### 保留周期
+
+建议 **30 天**。超出后一次性 GC(由仓库维护者人工触发,不在守门脚本里自动跑):
+
+```bash
+# 1. 先确认无重要未提交工作(红线!)
+git status               # 应 clean
+git stash list           # 应为空
+git diff --stat          # 应无改动
+
+# 2. 列出所有 lost-commit tag(预演,确认数量级合理)
+git tag -l 'lost-commit/*' | wc -l   # 当前 4188
+
+# 3. 本地一次性删除
+git tag -l 'lost-commit/*' | xargs git tag -d
+
+# 4. 同步删除远程 tag(仅当你确认远端也允许清理时;默认保留远端)
+#    警告:此操作会真正影响 origin ref 列表,需在 PR 中明确说明
+git tag -l 'lost-commit/*' | xargs -I{} git push origin :refs/tags/{}
+
+# 5. 验证 (强校验,任何 missing/unreachable 都应人工复核)
+git fsck --unreachable --no-reflogs
+git tag -l 'lost-commit/*' | wc -l   # 应为 0
+```
+
+### 为什么必须人工触发而不是脚本自动化
+
+- **守门不擅自删 tag**: `check-commit-loss-guard.mjs` 的职责是"检出 + 备份",
+  不应承担"GC 清理"职责 — 后者一旦误删,会真正丢失 dangling commit 的可达路径,
+  即使远端有备份也增加了恢复成本。
+- **数量级跃升需要人审**: 从 0 → 4188 是日积月累的结果,任何"一键 GC"脚本都应要求
+  人类在 PR 里显式 ack,而不是 nightly cron 自动跑。
+- **§22 守门只挡新增**: pre-commit 第 30a 项(`--blocking --filter-stash`)只关心
+  "这一次操作是否会产生 dangling",不关心历史积累。
+
+### 红线
+
+- ❌ **不要把 lost-commit tag push 到 origin 之外的 fork / mirror**(会污染外部 ref 列表)。
+  §22「自动化 tag 同步」明确禁止了向非 origin 的推送。
+- ❌ **GC 前未确认 `git status clean` + `git stash list` 为空**(会丢失未提交改动)。
+- ❌ **一次性删除超过 1000 个 tag 后不验证 `git fsck` 就 push**(可能误删有意义的 commit,
+  因为 fsck 检出的是"创建时刻"的悬挂,不代表当下已被 merge 进 main)。
+- ❌ **amend 含 dangling 备份说明的 commit**(本节一旦 commit,内容视为定稿;
+  后续 GC 时间窗的调整应新加 §29a / §29b,不要回头改这一节)。
+
+### 配套
+
+- §22「防止 commit / push / merge 提交丢失硬性规则」— 提供守门 + 备份机制
+- §22「自动化 tag 同步」(`scripts/sync-lost-commit-tags.mjs`)— 保证远端有副本
+- `docs/lost-commit-archive.md` — 丢失 commit 的永久档案(人工可读清单)
+- `.trae-cn/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
 
 ---
 
