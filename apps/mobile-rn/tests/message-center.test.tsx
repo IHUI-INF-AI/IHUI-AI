@@ -81,6 +81,8 @@ vi.mock('react-native', async () => {
     View: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),
+    TextInput: mk('input'),
+    Pressable: mk('button'),
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
