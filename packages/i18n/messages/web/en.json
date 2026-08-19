@@ -58,7 +58,10 @@
       "title": "Tools",
       "subtitle": "Browse and use various tools provided by the platform",
       "loading": "Loading...",
-      "empty": "No tools available"
+      "empty": "No tools available",
+      "categoryAi": "AI Tools",
+      "categoryDev": "Development",
+      "categoryEfficiency": "Efficiency"
     },
     "mcp": {
       "title": "MCP Projects",

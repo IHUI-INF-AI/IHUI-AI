@@ -268,11 +268,10 @@
     "title": "AI Assistant",
     "placeholder": "Enter your question",
     "empty": "Send a message to start",
-    "emptyNoAgent": "No workflow bound, mock response",
+    "emptyNoAgent": "Please select an agent with a bound workflow first",
     "send": "Send",
     "streaming": "Generating...",
-    "callFailed": "Call failed, please retry",
-    "mockResponse": "Mock response, configure agentId for real workflow"
+    "callFailed": "Call failed, please retry"
   },
   "aiCareer": {
     "plan": {

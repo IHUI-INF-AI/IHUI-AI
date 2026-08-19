@@ -599,12 +599,13 @@ if (untranslatedValueIssues.length > 0) {
   console.log('')
 }
 
-// 2026-07-30: missing key 在所有模式下只 warning(不阻塞 exit code)
-// 原因:历史遗漏 194 个 missing key(新功能 i18n 未同步 / namespace 重构后旧调用未更新),
-// 无法立即全修。若 staged 阻塞会导致所有触及这些文件的 commit 卡住,影响开发效率。
-// parity 保持 blocking(防止 5 语言不一致,这是硬性契约)。
-// missing key 输出 WARNING 提示开发者,后续历史 missing 清零后可恢复为 blocking。
-const shouldBlock = parityIssues.length > 0
+// 2026-08-20: missing key 收紧为 blocking(历史 194 个 missing 已清零,见 2026-07-30 遗留说明)
+// 背景:此前 missing key 只 warning 不阻塞(pre-commit 形同虚设),导致
+//   common.tools.categoryEfficiency 等"源码引用但消息缺失"的键漏到浏览器才暴露。
+//   full 扫描确认当前 0 个 missing key,收紧为 blocking 不再误伤历史 commit。
+// 策略:missing key + parity 均 blocking(源码引用的 key 必须在消息中定义,这是硬性契约)。
+//   full 模式(CI)与 staged 模式(pre-commit)都会阻塞,防止新引入未定义 i18n 键。
+const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -621,7 +622,11 @@ if (shouldBlock) {
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
-  console.log(`${C.red}[i18n 键检查] 发现 parity 问题,拒绝提交/CI失败!${C.reset}`)
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${
+      parityIssues.length > 0 ? 'parity 问题' : '缺失键问题'
+    },拒绝提交/CI失败!${C.reset}`,
+  )
   console.log(`${C.yellow}修复方法:${C.reset}`)
   console.log(`  1. 在 ${messagesRelPath} 对应命名空间补齐缺失键`)
   console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)

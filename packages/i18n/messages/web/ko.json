@@ -58,7 +58,10 @@
       "title": "도구 센터",
       "subtitle": "플랫폼에서 제공하는 다양한 도구를 탐색하고 사용",
       "loading": "로딩 중...",
-      "empty": "도구가 없습니다"
+      "empty": "도구가 없습니다",
+      "categoryAi": "AI 도구",
+      "categoryDev": "개발",
+      "categoryEfficiency": "효율 도구"
     },
     "mcp": {
       "title": "MCP 프로젝트",
