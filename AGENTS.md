@@ -585,7 +585,7 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
 ### 守门脚本工作机制(`check-staged-typecheck-mirror-sync.mjs`)
 
 - **阶段 A · 检测源文件存在**:确认 `scripts/check-staged-typecheck.mjs` 存在于工作区(防止路径漂移)。
-- **阶段 B · 检测 export const __test__ 锚点**:用正则匹配 `export const __test__ = { ... }`,并校验三个键 (`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`) 均出现在对象字面量中(防止 export 但漏字段)。
+- **阶段 B · 检测 export const **test** 锚点**:用正则匹配 `export const __test__ = { ... }`,并校验三个键 (`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`) 均出现在对象字面量中(防止 export 但漏字段)。
 - **阶段 C · 检测测试文件 import**:确认 `scripts/tests/check-staged-typecheck.test.mjs` 存在 `import { __test__ as ... } from '../check-staged-typecheck.mjs'` 语句(防止 import 路径写错 / 别名错配)。
 - **触发场景**:任何对 `check-staged-typecheck.mjs` 的核心函数修改后,pre-commit hook 自动跑该守门脚本;若 export 锚点漂移,立即阻断 commit 并提示同步测试 import。
 
@@ -595,13 +595,15 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
 
 ```javascript
 // 伪代码:三阶段检测模板
-const source = readFileSync('scripts/<source>.mjs', 'utf8');
-assert(source.includes('export const __test__ = {'), 'phase B: missing __test__ export');
-const requiredKeys = ['funcA', 'funcB', 'funcC'];
-for (const k of requiredKeys) assert(source.includes(`${k}:`), `phase B: missing key ${k}`);
-const test = readFileSync('scripts/tests/<source>.test.mjs', 'utf8');
-assert(/import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs['"]/.test(test),
-  'phase C: missing __test__ import in test file');
+const source = readFileSync('scripts/<source>.mjs', 'utf8')
+assert(source.includes('export const __test__ = {'), 'phase B: missing __test__ export')
+const requiredKeys = ['funcA', 'funcB', 'funcC']
+for (const k of requiredKeys) assert(source.includes(`${k}:`), `phase B: missing key ${k}`)
+const test = readFileSync('scripts/tests/<source>.test.mjs', 'utf8')
+assert(
+  /import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs['"]/.test(test),
+  'phase C: missing __test__ import in test file',
+)
 ```
 
 可复用到:任何"测试文件无法直接 import 源函数"的工具脚本场景(如 `scripts/check-commit-scope.mjs` / `scripts/check-staged-pollution.mjs` 等)。
@@ -613,6 +615,74 @@ assert(/import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs[
 - ❌ 禁止删除 `check-staged-typecheck-mirror-sync.mjs` 中的任何一项锚点检测(削弱守门强度)
 - ✅ 修改源函数后必须 `pnpm test scripts/tests/check-staged-typecheck.test.mjs` + 跑 mirror-sync 守门脚本双验证
 - ✅ 新增工具脚本若需要被测试直接 import,必须遵循"源文件 export `__test__` + 测试 import + 守门脚本三阶段检测"模板
+
+---
+
+## 22d. `isDirectRun` 模式规范:ESM 脚本"双形态"入口守护(2026-08-18 立)
+
+### 背景
+
+部分 `.mjs` 工具脚本(如 `scripts/check-staged-typecheck.mjs`)需要同时支持两种使用形态:
+
+1. **CLI 直接执行**:`node scripts/foo.mjs`(命令行手动跑 / pre-commit hook 调用 → 必须自动执行 `main()`)。
+2. **模块被 import**:`import { __test__ } from './foo.mjs'`(测试文件复用导出符号 → **绝不**触发 `main()` 副作用)。
+
+ESM(`.mjs`)模块与 CJS(`.cjs` / `.js` + `"type": "module"`)的求值模型:**顶层代码仅在被 import 时执行一次**,但**直接 `node foo.mjs` 时同样会执行顶层代码**。这意味着 — 如果脚本顶层直接写 `main().catch(...)`,测试一旦 `import` 该模块,就会**连带触发 CLI 主流程**(批量跑 typecheck、写临时 tsconfig、调 git diff),把测试环境搞炸,或更糟 — 在测试用例之间留下真实副作用(临时文件未清理、staged 状态污染)。
+
+### 根因:`import.meta.url` vs `process.argv[1]`
+
+- **`import.meta.url`**:ESM 模块加载器注入,恒为**当前模块文件**的 `file://` URL(无论是被 import 还是直接 node 执行,值都相同:指向 `foo.mjs` 自身)。
+- **`process.argv[1]`**:Node 启动时传入的第一个脚本参数,只在**直接 node 执行**时等于本模块路径;被 import 时为 undefined 或与本模块无关。
+
+因此判定**"本模块是不是被直接 node 执行"** 可用:`import.meta.url === pathToFileURL(process.argv[1]).href`。两者相等 ⇒ 直接执行,触发 `main()`;否则 ⇒ 被 import,跳过副作用。
+
+> ⚠️ **跨平台陷阱**:Windows 路径是反斜杠 `C:\foo\bar.mjs`,不能直接拼成 `file://` URL,否则 `import.meta.url`(始终是标准 `file:///`)与字符串永远不匹配。**必须**经 `node:url` 的 `pathToFileURL()` 归一化。
+
+### 可复用模板
+
+在 `.mjs` 脚本**底部顶层**(所有 export 之后)粘贴以下 4 行(已适配 Windows / Linux / macOS,推荐用项目现存形式而非手写字符串拼接):
+
+```javascript
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {/* 暴露给测试的核心函数 */}
+```
+
+位置约束:
+
+- `__test__` 的 `export` 必须放在 **`if (isDirectRun)` 之后**(否则 ESM 提升可能在测试 import 时机前完成,语义仍正确但不直观;且与 §22c "镜像常量守门" 的 `import { __test__ as ... }` 锚点要求一致,便于 grep)。
+- `main()` 自身声明应保持文件靠前位置(便于阅读),`if (isDirectRun)` 仅触发调用,**不**延迟或重写 `main`。
+- `process.exit(2)` 复用 §22b 中"异常 vs 失败"的退出码约定(2 = 脚本自身异常,1 = 业务失败)。
+
+### 与 §22c 的关系
+
+`isDirectRun` 是 **§22c 镜像常量守门模式的使能条件**。没有它,§22c 的"源文件 export `__test__` + 测试 import"做法会因为 `main()` 顶层自动执行而不可行 — 测试一旦 import 就会触发 CLI 主流程,副作用污染测试环境(写临时文件、调 git 改 staged 状态、写控制台横幅噪音),`vitest` / `node --test` 都会在 setup 阶段立即崩。`isDirectRun` 把"CLI 入口"和"模块导出"两种用法的副作用隔离开,使 §22c 的 export / import 双真相消除得以落地。
+
+两者协作的最小工作流:
+
+1. 源 `.mjs` 脚本加 `isDirectRun` 守护(本节模板)。
+2. 源脚本 export `__test__ = { fn1, fn2, ... }`(§22c 第 1 步)。
+3. 测试文件 `import { __test__ as X } from '../source.mjs'`(§22c 第 2 步)— 因 `isDirectRun=false`,`main()` 不执行,仅拿到导出对象。
+4. 守门脚本 `scripts/check-staged-typecheck-mirror-sync.mjs` 三阶段检测 export / key / import 锚点(§22c 第 3 步)。
+
+### 红线规则
+
+- ❌ 禁止在 **CommonJS / `.cjs`** 脚本中使用 `isDirectRun`(`.cjs` 没有 `import.meta`,需走 `require.main === module` 判定,本规范不适用;混用会导致 `SyntaxError: Cannot use 'import.meta' outside a module`)。
+- ❌ 禁止把 `main()` 写成**同步函数**后用 `if (isDirectRun) { main() }`(同步抛错会抛出 toplevel,无法被 `.catch` 包裹,且 ESLint `no-top-level-await` 外的同步 throw 在 Node 18+ 表现不一致;必须保持 `main()` 是 `async` 或返回 `Promise`)。
+- ❌ 禁止手写字符串拼接 `import.meta.url === 'file:///' + process.argv[1]` 替代 `pathToFileURL`(Windows 反斜杠永远不匹配,直接判定失败 → CLI 永不触发 main → 静默失控)。
+- ❌ 禁止把 `isDirectRun` 守卫放到 `main` 函数**内部**(局部守卫无法阻止其他顶层 import 时副作用已执行的部分,如顶层模块加载就跑了 git diff / 写了临时文件)。
+- ❌ 禁止把 `export const __test__` 移到 `if (isDirectRun)` **之前**且不放 `export`(否则测试 import 时拿到 undefined,§22c 守门 phase B 立即失败 — 这是预期行为,不是 bug)。
+- ✅ 修改源脚本的 `main()` 调用约定时必须同步 §22c 守门(双验证 `pnpm test` + `node scripts/check-staged-typecheck-mirror-sync.mjs`),否则 `__test__` 导出语义与 import 时机解耦,可能让测试在 CI 通过而在本地 import 时副作用泄漏。
+- ✅ 新增任何"需要双形态(CLI + import)"的 `.mjs` 工具脚本,必须沿用本节 4 行模板 + §22c export 规范,**不**为单次用例复制粘贴变体。
 
 ---
 
