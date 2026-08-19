@@ -15,7 +15,16 @@
  * - 加载态接入 components/common/Loading;原模板顶部搜索框不在本次对齐范围(原文件已注释)。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type NativeScrollEvent, type NativeSyntheticEvent, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -24,6 +33,7 @@ import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCar
 import { MoreTitles } from '../components/MoreTitles'
 import Menu from '../components/Menu'
 import Loading from '../components/common/Loading'
+import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -132,6 +142,7 @@ export function CoursePlanetScreen() {
 
   return (
     <View style={styles.root}>
+      <NavBar title="课程星球" onBack={() => navigation.goBack()} />
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}

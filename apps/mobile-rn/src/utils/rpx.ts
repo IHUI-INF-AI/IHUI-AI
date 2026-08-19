@@ -1,0 +1,16 @@
+/**
+ * rpx → px 换算(对齐历史 Uniapp 750 设计宽)。
+ *
+ * Uniapp 使用 rpx(responsive px),750rpx = 屏幕宽度。在 375pt 宽的参考设备上
+ * 1rpx = 0.5pt。RN 不支持 rpx,故提供此换算,使 StyleSheet 对象中的数值能与
+ * 原稿 rpx 精确对齐,消除与原项目「位置/间距不一致」的系统性漂移。
+ *
+ * 用法:
+ *   import { rpx } from '../utils/rpx'
+ *   <View style={{ padding: rpx(40), marginBottom: rpx(20) }} />
+ * 或在 JSX className 中使用 tailwind 的 r* 间距类(p-r40 = 20px,见 tailwind.config.js)。
+ */
+export const rpx = (n: number): number => n / 2
+
+/** 别名,语义更明确 */
+export const rpxToPx = rpx
