@@ -56,6 +56,9 @@ const EXEMPT_PORTS = new Set([
   9093, // Alertmanager 端口
   6688, // ai-feed-sources 第三方 feed 端口
   5173, // Vite 默认端口(第三方工具)
+  // 2026-08-19 立:补充 --all monorepo-wide 扫描后发现的合法端口
+  8080, // llama.cpp / 通用 Web 服务(ai-service providers 默认端口)
+  8000, // dev container / FastAPI uvicorn 默认端口(.env.act / ai-service providers)
 ])
 
 // 豁免文件路径模式(不扫描)
@@ -222,8 +225,10 @@ function main() {
   console.log('   💡 如确需使用非 88xx 端口(如 CI/容器内部),请确认属于豁免场景')
   console.log()
 
-  // warn-only:不阻塞 commit
-  process.exit(0)
+  // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+  // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信;
+  //  warn-only 不阻塞 commit,exit 1 仅供统计)
+  process.exit(1)
 }
 
 main()
