@@ -44,6 +44,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -575,14 +576,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: rpx(48),
   } as ViewStyle,
   categoryCard: {
     width: '100%',
     maxWidth: 320,
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
   } as ViewStyle,
   // ── 身份切换弹窗(对齐原项目 plaza identity-card) ──
   identityCard: {
@@ -590,12 +591,12 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 24,
+    padding: rpx(48),
     alignItems: 'center',
   } as ViewStyle,
-  identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: 6 },
-  identitySubtext: { fontSize: 13, color: '#8a8a8a', marginBottom: 18, textAlign: 'center' },
-  identityButtons: { flexDirection: 'row', gap: 12, width: '100%' },
+  identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: rpx(12) },
+  identitySubtext: { fontSize: 13, color: '#8a8a8a', marginBottom: rpx(36), textAlign: 'center' },
+  identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
     height: 44,
@@ -608,10 +609,10 @@ const styles = StyleSheet.create({
   identityBtnPrimary: { borderColor: '#4a6cf7', backgroundColor: '#4a6cf7' },
   identityBtnTextOutline: { fontSize: 15, color: '#171717', fontWeight: '600' },
   identityBtnTextPrimary: { fontSize: 15, color: '#fff', fontWeight: '600' },
-  identityFooter: { marginTop: 18, alignItems: 'center' },
-  identityFooterTitle: { fontSize: 14, color: '#4a6cf7', fontWeight: '600', marginBottom: 2 },
+  identityFooter: { marginTop: rpx(36), alignItems: 'center' },
+  identityFooterTitle: { fontSize: 14, color: '#4a6cf7', fontWeight: '600', marginBottom: rpx(4) },
   identityFooterText: { fontSize: 12, color: '#a0a0a0' },
-  noticeList: { width: '100%', marginTop: 12, gap: 12 },
+  noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
   noticeItem: { fontSize: 13, color: '#4a4a4a', lineHeight: 20 },
   noticeBold: { fontWeight: '700', color: '#171717' },
   categoryTitle: {
@@ -619,14 +620,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111',
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: rpx(28),
   } as TextStyle,
   categoryList: {
-    gap: 8,
+    gap: rpx(16),
   } as ViewStyle,
   categoryItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: rpx(20),
+    paddingHorizontal: rpx(24),
     borderRadius: 8,
     backgroundColor: '#f5f5f5',
     alignItems: 'center',

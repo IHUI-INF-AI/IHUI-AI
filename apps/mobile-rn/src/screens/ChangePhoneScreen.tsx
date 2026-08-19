@@ -8,6 +8,7 @@ import { InputArea } from '../components/InputArea'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -206,6 +207,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noteWrap: {
-    marginTop: 8,
+    marginTop: rpx(16),
   },
 })
