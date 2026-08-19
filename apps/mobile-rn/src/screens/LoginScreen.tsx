@@ -40,6 +40,7 @@ import { rnAuthStore } from '../stores/auth-store'
 
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 /**
  * mobile-rn 登录页(2026-07-30 重构:3-tab + 协议同意 + 第三方登录区 + 忘记密码 + 注册链接)
@@ -780,8 +781,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 158,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(8),
     borderRadius: 6,
     backgroundColor: 'rgba(59,130,246,0.85)',
     zIndex: 999,

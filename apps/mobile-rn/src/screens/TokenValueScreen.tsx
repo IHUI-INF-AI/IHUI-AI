@@ -20,6 +20,7 @@ import StudyBar from '../components/StudyBar'
 import { formatShortDateTime } from '../utils/date-utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -177,6 +178,6 @@ export default function TokenValueScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  studyBarWrap: { paddingHorizontal: 16, paddingTop: 8 },
+  studyBarWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(16) },
   sharedWrap: { flex: 1 },
 })

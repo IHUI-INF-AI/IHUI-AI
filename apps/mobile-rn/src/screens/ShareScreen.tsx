@@ -50,6 +50,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -251,7 +252,7 @@ export function ShareScreen() {
         onShare={handleShare}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
-        containerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}
+        containerStyle={{ paddingHorizontal: rpx(0), paddingTop: rpx(0), paddingBottom: rpx(0) }}
         renderHeader={() => (
           <NavBar
             title={t('share.title')}
@@ -379,15 +380,15 @@ function createStyles(tk: RnThemeTokens) {
       flex: 1,
     } as ViewStyle,
     scrollContent: {
-      padding: 16,
-      gap: 16,
-      paddingBottom: 24,
+      padding: rpx(32),
+      gap: rpx(32),
+      paddingBottom: rpx(48),
     } as ViewStyle,
     section: {
       backgroundColor: tk.surface.card,
       borderRadius: 12,
-      padding: 12,
-      gap: 8,
+      padding: rpx(24),
+      gap: rpx(16),
     } as ViewStyle,
     sectionTitle: {
       fontSize: 15,
@@ -398,7 +399,7 @@ function createStyles(tk: RnThemeTokens) {
       fontSize: 14,
       color: tk.text.secondary,
       lineHeight: 20,
-      marginTop: 4,
+      marginTop: rpx(8),
     } as TextStyle,
     pickerBox: {
       height: 100,
@@ -408,7 +409,7 @@ function createStyles(tk: RnThemeTokens) {
       borderStyle: 'dashed',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rpx(12),
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     pickerBoxPressed: {
@@ -452,8 +453,8 @@ function createStyles(tk: RnThemeTokens) {
       lineHeight: 18,
     } as TextStyle,
     bottomBar: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: rpx(32),
+      paddingVertical: rpx(24),
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     shareBtn: {
