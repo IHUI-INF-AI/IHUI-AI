@@ -14,6 +14,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -116,7 +117,7 @@ export function RankingScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
-  rankingWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 } as const,
-  bottomFigureWrap: { paddingHorizontal: 16, paddingTop: 16 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
+  rankingWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
+  bottomFigureWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(32) } as const,
 }

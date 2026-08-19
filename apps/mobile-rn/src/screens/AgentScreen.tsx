@@ -43,6 +43,7 @@ import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -610,26 +611,26 @@ export function AgentScreen() {
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
-  carouselWrap: { marginTop: 9, marginHorizontal: 10, borderRadius: 15, overflow: 'hidden' },
-  sectionWrap: { marginHorizontal: 12, marginTop: 8 },
+  carouselWrap: { marginTop: rpx(18), marginHorizontal: rpx(20), borderRadius: 15, overflow: 'hidden' },
+  sectionWrap: { marginHorizontal: rpx(24), marginTop: rpx(16) },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingTop: rpx(20),
+    paddingBottom: rpx(16),
+    gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, color: tokens.text.secondary },
   tabTextActive: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
-  viewport: { minHeight: 400, paddingHorizontal: 10 },
+  viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   backToTopBtn: {
     position: 'absolute',
     bottom: 20,
@@ -655,20 +656,20 @@ const styles = StyleSheet.create({
   trackOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   trackContent: {
     backgroundColor: tokens.surface.card,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(10),
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
   },
   trackBtn: {
-    paddingHorizontal: 4,
+    paddingHorizontal: rpx(8),
     height: 22,
     justifyContent: 'center',
     borderRadius: 4,
     borderWidth: 1,
     borderColor: '#ffffff',
     backgroundColor: 'transparent',
-    marginRight: 3,
+    marginRight: rpx(6),
   },
   trackBtnActive: {
     backgroundColor: 'rgba(248, 249, 252, 0.65)',
@@ -684,6 +685,6 @@ const styles = StyleSheet.create({
   trackDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: tokens.surface.muted,
-    marginVertical: 5,
+    marginVertical: rpx(10),
   },
 })

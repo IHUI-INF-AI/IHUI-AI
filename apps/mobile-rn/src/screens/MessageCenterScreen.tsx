@@ -9,6 +9,7 @@ import { SearchInput } from '../components/SearchInput'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -32,8 +33,8 @@ const UNIAPP_TEXT: Record<string, string> = {
 /** 搜索栏样式(对齐 Uniapp message/index.vue L23-41 搜索栏:胶囊容器 + 内部 SearchInput) */
 const searchStyles = StyleSheet.create({
   bar: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
   },
 })
 
