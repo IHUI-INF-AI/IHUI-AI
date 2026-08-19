@@ -1952,7 +1952,7 @@ IHUI-AI/
 | ko    | `apps/web/messages/ko.json`    | 字符范围检测中文残留(阻塞)               |
 | ja    | `apps/web/messages/ja.json`    | 中文残留检测(warn-only,日文汉字词易误报) |
 
-**21 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出) / cleanup-i18n-unused-keys.mjs(无引用 key 批量清理,5 语言同步)
+**20 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出)
 
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 
@@ -2009,9 +2009,9 @@ IHUI-AI/
 | 17-post    | git-push-guard.mjs(post-commit)        | 自动 push + 验证 local == remote(防遗漏)                                                                                                                                                                                                                                                                                                                                                                                    |
 | 5-post     | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22)                                                                                                                                                                                                                                                                                                                                           |
 
-**10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
+**9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立)
 
-**9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
+**9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1`
 
 #### E5. 测试与性能
 
@@ -2109,7 +2109,6 @@ pnpm turbo build typecheck lint test
 .\scripts\test-admin-e2e.ps1            # admin E2E 测试
 .\scripts\setup-token-refresh-task.ps1  # 配置 token 刷新定时任务
 .\scripts\cleanup-external-junk.ps1     # 清理外部垃圾文件
-.\scripts\cleanup-memory-topics.ps1     # 清理 memory topics
 ```
 
 ---
