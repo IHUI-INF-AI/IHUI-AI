@@ -1,4 +1,3 @@
-import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -14,10 +13,9 @@ export function LearnDevelopScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
+  // 直接联系李总 → 创客名片页(对齐原项目 learn_develop showDetails → /pages/carte/index)
   const onContact = () => {
-    Alert.alert('直接联系李总', '课程星球正在开发中，如需咨询请联系客服或李总。', [
-      { text: '知道了', style: 'default' },
-    ])
+    navigation.navigate('Carte')
   }
 
   const props: LearnDevelopScreenProps = {
