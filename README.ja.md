@@ -976,7 +976,7 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 
 **9 マイグレーション監査スクリプト**:`audit-migration.mjs`(4 in 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 統合) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(未参照 key 監査,2026-07-25 新設)
 
-**9 PowerShell 起動スクリプト**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
+**9 PowerShell 起動スクリプト**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1`
 
 #### E5. テストと性能
 
@@ -1074,7 +1074,6 @@ pnpm turbo build typecheck lint test
 .\scripts\test-admin-e2e.ps1            # admin E2E テスト
 .\scripts\setup-token-refresh-task.ps1  # token リフレッシュ定期タスク設定
 .\scripts\cleanup-external-junk.ps1     # 外部ゴミファイルクリーンアップ
-.\scripts\cleanup-memory-topics.ps1     # memory topics クリーンアップ
 ```
 
 ### G:\ ルート外部ツール汚染防止 (2026-07-24 制定)
