@@ -115,6 +115,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 pnpm turbo build typecheck lint test          # 全量验证(必须全绿)
 pnpm --filter @ihui/api typecheck             # 单独验证后端
 pnpm --filter @ihui/web typecheck             # 单独验证前端
+cd apps/ai-service && mypy app --ignore-missing-imports --strict   # Python 类型(app 源码路径 apps/ai-service/app,继承 pyproject.toml [tool.mypy])
 pnpm dev                                       # 启动所有服务(web + api + ai-service,端口见 docs/port-management.md)
 ```
 
@@ -528,6 +529,7 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 - 扫描 `git fsck --unreachable --no-reflogs` 检测是否有悬空 commit
 - 5 段检查流程(2026-07-26 强化):reflog reset / fsck 悬空 / lost-commit tag / backup tag / 远程 tag 完整性
 - 发现 reset 操作或未备份悬空 commit → exit 1,阻塞 commit
+- **悬空 commit 备份**:被 reset / drop 的 commit 一旦出现在 `git fsck --unreachable` 输出中且无 `lost-commit/*` tag 备份,即为"未备份悬空 commit",会阻塞 commit——需先执行 `git tag lost-commit/<name> <hash> -m "lost via reset"` 永久保留(防止 git gc 清理),再重新 commit
 - 紧急跳过:`HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`
 - 详细档案:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md)
 
@@ -842,6 +844,13 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
 - **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
 - (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
+- **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
+
+### 守门手动触发 / 紧急跳过抽查
+
+- **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
+- **commit 污染防护(scope 一致性)**:`.husky/commit-msg` 的 `check-commit-scope-consistency.mjs`(AGENTS.md §16 配套);紧急跳过 `HUSKY_SKIP_SCOPE_CHECK=1 git commit ...`。
+- **commit 丢失防护**:guardian 第 30a 项 `check-commit-loss-guard.mjs`(AGENTS.md §22 配套);紧急跳过 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`。
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
 
@@ -901,9 +910,11 @@ C 盘 120 GB 频繁告急,根因排查发现:
 **查看日志**:`D:\caches\c-drive-maintain.log`
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
 
-### 守门(待实现)
+### 守门(已实现,guardian-runner 第 45 项)
 
-- `scripts/check-c-drive-paths.mjs`(TODO):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档),warn-only。
+- `scripts/check-c-drive-paths.mjs`(guardian-runner 第 45 项,warn-only,2026-08-13 立):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档)。
+- **行为(与 guardian-runner.mjs 实际一致)**:本脚本违规时 exit 1(供统计),guardian-runner 以 warn 模式捕获后计为"警告"、**不阻塞 commit**;仅 blocking 项失败才 exit 1 阻塞 commit。
+- 紧急跳过(应急,默认不推荐):`HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...`
 
 ### 历史案例
 
@@ -1055,6 +1066,38 @@ git tag -l 'lost-commit/*' | wc -l   # 应为 0
 - §22「自动化 tag 同步」(`scripts/sync-lost-commit-tags.mjs`)— 保证远端有副本
 - `docs/lost-commit-archive.md` — 丢失 commit 的永久档案(人工可读清单)
 - `.trae-cn/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
+
+---
+
+## 42. React SyntheticEvent 闭包陷阱(强制)
+
+### 触发背景(2026-08-12 立,真实 bug)
+
+`apps/web/src/components/chat/model-selector.tsx` 原 `onMouseLeave` 在 `setTimeout` 回调闭包内访问 `e.currentTarget`:
+
+```tsx
+setTimeout(() => {
+  setPopoverAnchor((prev) => (prev?.el === e.currentTarget ? null : prev))
+}, 100)
+```
+
+React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会被置 `null`,异步回调触发时 `prev?.el === null` 永远为 `false`,关闭分支永远不进 → model picker 常驻显示。
+
+### 陷阱机制
+
+- React 事件处理函数(`onClick={e => ...}` 等)**同步作用域内** `e.target` / `e.currentTarget` 有效。
+- 一旦进入异步回调(`setTimeout` / `setInterval` / `requestAnimationFrame` / `requestIdleCallback` / `queueMicrotask` / 未捕获 `e` 的 promise)或 memoized / 延迟执行的闭包场景,SyntheticEvent 会被事件池复用/清空,`e.target` / `e.currentTarget` 失效或为 `null`(React 17+ 不再 pooled,但 `currentTarget` 一定在 handler 返回后置 null)。
+
+### 强制做法(违反视为 defect 事故,强制)
+
+1. **同步缓存**:在事件处理函数**同步作用域**先缓存所需字段,再在异步中使用。例:`const id = e.currentTarget.dataset.id` → 异步闭包内读 `id`,严禁直接读 `e.currentTarget.dataset.id`。
+2. **用 ref 管理 DOM**:`anchorRef.current` 替代 `e.currentTarget`,适合需在多个回调 / 清理函数中引用同一 DOM。
+3. **异步闭包内禁止访问 `e.` 任何属性/方法**(`currentTarget` / `target` / `preventDefault` / `stopPropagation`)。
+
+### 守门
+
+`scripts/check-event-closure-leak.mjs`(guardian-runner 第 42 项,blocking):用括号配对算法提取异步回调第一个参数(箭头函数体),在其内搜 `e.X` 模式,命中 → exit 1 阻塞 commit。
+参考修复:`apps/web/src/components/chat/model-selector.tsx` MemberDiscountSection。
 
 ---
 
