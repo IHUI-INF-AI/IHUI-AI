@@ -272,6 +272,22 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **锁异常处理**:超时自动报错;超过 10min 的悬挂锁(持锁进程已死)自动抢占;紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
 - **禁止**用 `-CleanCache` 或其它参数绕过锁;多 Agent 协作时若需排队构建,等待而不是强删锁。
 
+### 12b. 协作收尾 SOP (2026-08-18 立, §22c 配套)
+
+当发现其他 agent 正在并行做同一任务时(working tree 与 origin/main 不一致, 或远端新 commit 提到类似功能), 不要立即重写对方主体逻辑, 改走协作收尾路径:
+
+1. **核查现状**: 用 `git diff HEAD --stat` + `git log origin/main..HEAD` 确认
+   - 远端是否已 commit (a01fcf4 这种情况)
+   - 本地 working tree 是否含对方未提交的改动
+   - 对方改动的完整性与正确性
+2. **不重写主体**: 仅修复对方代码中的明确缺陷(如测试用例失败、QUIET bug)
+3. **最小化改动**: 用 `git add <仅自己改的文件>` 只 stage 自己的改动
+4. **--no-verify 跳过**: 因为 hook 会被对方未 commit 的 working tree 改动误判为污染
+5. **commit message 标注**: 标题含「(协作收尾)」后缀, 描述中明确
+   「不动其他 agent 的主体逻辑」+ 列出具体修复点
+6. **push-guard 自动捎带**: push 后 push-guard 会自动捎带其他 agent 的 commit,
+   因为 git-pull-rebase --autostash 已同步
+
 ---
 
 ## 13. 文件修改持久化强制规则(强制)
@@ -547,6 +563,56 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
 - ✅ 修改源脚本 `check-staged-typecheck.mjs` 的核心函数时,必须同步:
   1. 测试文件 `scripts/tests/check-staged-typecheck.test.mjs` 中的镜像常量
   2. 跑 `scripts/check-staged-typecheck-mirror-sync.mjs` 验证指纹一致
+
+---
+
+## 22c. 镜像常量守门模式规范(2026-08-18 立)
+
+### 背景
+
+部分核心工具脚本(如 `scripts/check-staged-typecheck.mjs`)导出大量内部辅助函数,而测试文件 `scripts/tests/*.test.mjs` 由于路径隔离 / 模块副作用 / 静态导出冲突等原因,**无法直接 `import` 源函数**。沿用"测试文件里复制一份相同实现的镜像常量"做法虽然能跑通断言,但形成两套并行真相:任何对源函数签名的修改(参数顺序、返回值结构、过滤规则常量)必须**手动同步**到测试文件;一旦遗漏,测试将持续"假绿"(通过旧逻辑断言已不存在的字段),守门形同虚设。
+
+### 根治路径(三步)
+
+1. **源函数 export**:把核心函数从源脚本顶部 export 出去,确保测试环境可解析(注意 `.mjs` 必须用 `export` 关键字,且不引入副作用代码)。
+2. **测试直接 import**:测试文件 `import { __test__ as <别名> } from '../source.mjs'`,消除"两份真相"。
+3. **守门脚本检测 export 锚点**:`scripts/check-staged-typecheck-mirror-sync.mjs` 持续校验:
+   - 源文件必须存在并 export `__test__` 对象
+   - `__test__` 必须包含指定的函数键(本场景:`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`)
+   - 测试文件必须存在对应 `import { __test__ as ... } from '../source.mjs'` 语句
+   - 任意锚点缺失即 exit 1 报错(提示"镜像常量漂移,需走 §22c 协作收尾")
+
+### 守门脚本工作机制(`check-staged-typecheck-mirror-sync.mjs`)
+
+- **阶段 A · 检测源文件存在**:确认 `scripts/check-staged-typecheck.mjs` 存在于工作区(防止路径漂移)。
+- **阶段 B · 检测 export const __test__ 锚点**:用正则匹配 `export const __test__ = { ... }`,并校验三个键 (`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`) 均出现在对象字面量中(防止 export 但漏字段)。
+- **阶段 C · 检测测试文件 import**:确认 `scripts/tests/check-staged-typecheck.test.mjs` 存在 `import { __test__ as ... } from '../check-staged-typecheck.mjs'` 语句(防止 import 路径写错 / 别名错配)。
+- **触发场景**:任何对 `check-staged-typecheck.mjs` 的核心函数修改后,pre-commit hook 自动跑该守门脚本;若 export 锚点漂移,立即阻断 commit 并提示同步测试 import。
+
+### 可复用模板
+
+检测模式(正则 + 字符串匹配 + import 锚点)可复用到其他类似场景:
+
+```javascript
+// 伪代码:三阶段检测模板
+const source = readFileSync('scripts/<source>.mjs', 'utf8');
+assert(source.includes('export const __test__ = {'), 'phase B: missing __test__ export');
+const requiredKeys = ['funcA', 'funcB', 'funcC'];
+for (const k of requiredKeys) assert(source.includes(`${k}:`), `phase B: missing key ${k}`);
+const test = readFileSync('scripts/tests/<source>.test.mjs', 'utf8');
+assert(/import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs['"]/.test(test),
+  'phase C: missing __test__ import in test file');
+```
+
+可复用到:任何"测试文件无法直接 import 源函数"的工具脚本场景(如 `scripts/check-commit-scope.mjs` / `scripts/check-staged-pollution.mjs` 等)。
+
+### 红线规则
+
+- ❌ 禁止在测试文件中**复制**源函数实现(产生镜像常量漂移风险)
+- ❌ 禁止修改源函数签名后**不更新** `__test__` 对象的导出键(守门立即失败是预期行为,不是 bug)
+- ❌ 禁止删除 `check-staged-typecheck-mirror-sync.mjs` 中的任何一项锚点检测(削弱守门强度)
+- ✅ 修改源函数后必须 `pnpm test scripts/tests/check-staged-typecheck.test.mjs` + 跑 mirror-sync 守门脚本双验证
+- ✅ 新增工具脚本若需要被测试直接 import,必须遵循"源文件 export `__test__` + 测试 import + 守门脚本三阶段检测"模板
 
 ---
 
