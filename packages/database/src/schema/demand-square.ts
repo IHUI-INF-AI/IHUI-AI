@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, timestamp, index, numeric, jsonb } from 'drizzle-orm/pg-core'
 
 export const zhsDemandSquare = pgTable(
   'zhs_demand_square',
@@ -8,6 +8,14 @@ export const zhsDemandSquare = pgTable(
     type: varchar('type', { length: 20 }).notNull(),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
+    lowestPrice: numeric('lowest_price', { precision: 12, scale: 2 }),
+    peakPrice: numeric('peak_price', { precision: 12, scale: 2 }),
+    contact: varchar('contact', { length: 200 }),
+    cycle: varchar('cycle', { length: 50 }),
+    cycleUnit: varchar('cycle_unit', { length: 20 }),
+    closingTime: timestamp('closing_time', { withTimezone: true }),
+    types: jsonb('types').$type<string[]>(),
+    categories: jsonb('categories').$type<string[]>(),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
     rejectReason: varchar('reject_reason', { length: 500 }),
     reviewedBy: varchar('reviewed_by', { length: 64 }),
