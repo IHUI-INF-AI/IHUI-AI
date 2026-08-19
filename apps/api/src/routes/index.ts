@@ -63,6 +63,7 @@ import { agentsRoutes } from './agents.js'
 import { agentsKanbanRoutes } from './agents-kanban.js'
 import { oauthKeysRoutes } from './oauth-keys.js'
 import { plazaRoutes } from './plaza.js'
+import { shareFirstRoutes } from './share-first.js'
 import { cozeVariablesRoutes } from './coze-variables.js'
 import { cozeRoutes } from './coze.js'
 import { cozeEcosystemRoutes } from './coze-ecosystem.js'
@@ -520,6 +521,7 @@ export function registerRoutes(server: FastifyInstance) {
   // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
   server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
+  server.register(shareFirstRoutes, { prefix: '/api' })
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
   // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
   server.register(cozeRoutes, { prefix: '/api/coze' })

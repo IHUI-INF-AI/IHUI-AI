@@ -308,14 +308,10 @@ export function VipScreen() {
                   return
                 }
 
-                // 3. mock 模式(DEV 环境无微信支付配置):直接标记成功
+                // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
                 if (payRes.data.mock) {
-                  if (__DEV__) {
-                    console.warn('[VipScreen] mock 支付模式:跳过微信SDK,直接标记成功')
-                  }
-                  setToast(t('vipScreen.pay.success'))
+                  setToast(t('payment.nativeUnavailable'))
                   setPurchasingId(null)
-                  void load(true)
                   return
                 }
 
@@ -338,11 +334,7 @@ export function VipScreen() {
                 if (orderNo) {
                   const statusRes = await checkPaymentStatus(orderNo)
                   if (!statusRes.success || !statusRes.data?.paid) {
-                    if (__DEV__) {
-                      console.warn('[VipScreen] 支付SDK返回成功但后端状态未同步,乐观提示', {
-                        orderNo,
-                      })
-                    }
+                    // 后端状态未同步,乐观提示(不打印 __DEV__ warn)
                   }
                 }
                 setToast(t('vipScreen.pay.success'))
