@@ -98,7 +98,7 @@ export default function AccountCancelScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout])
+  }, [validate, logout, smsCode])
 
   return (
     <SharedAccountCancelScreen
