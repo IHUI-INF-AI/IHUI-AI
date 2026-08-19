@@ -23,11 +23,16 @@
  *     B) `__test__` 包含三个期望键名:
  *        getOriginalInclude / normalizePath / filterTscOutputForStagedFiles;
  *     C) 测试文件包含 import 引用:
- *        `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`。
+ *        `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`;
+ *     D) 源脚本包含 isDirectRun 入口守护 (AGENTS.md §22d 红线):
+ *        `pathToFileURL(process.argv[1] || '').href`, 即
+ *        `if (import.meta.url === pathToFileURL(process.argv[1] || '').href) { main() }`。
  *
  *   失败信息: 「源/测 export 锚点漂移, 请检查:
  *             1) 源脚本 __test__ 导出未变;
- *             2) 测试 import 路径未变。」(详见修复指南段)
+ *             2) 测试 import 路径未变;
+ *             3) 源脚本 isDirectRun 入口守护未丢失 (避免 import 触发 main 副作用)。」
+ *             (详见修复指南段)
  *
  * 检测目标:
  *   - 源脚本 scripts/check-staged-typecheck.mjs 的 __test__ 导出
@@ -112,6 +117,7 @@ check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试
       normalizePath,
       filterTscOutputForStagedFiles,
     }
+    if (import.meta.url === pathToFileURL(process.argv[1] || '').href) { main() }
 
 镜像测试文件:
   scripts/tests/check-staged-typecheck.test.mjs
@@ -261,6 +267,7 @@ function main() {
       sourceHasExportConstTest: false,
       sourceKeys: [],
       testHasImportFromSource: false,
+      sourceHasIsDirectRunAnchor: false,
     },
   }
 
@@ -310,6 +317,24 @@ function main() {
     })
   }
 
+  // 4.5) 阶段 D: 源脚本 isDirectRun 入口守护锚点 (AGENTS.md §22d)
+  // 检测源脚本是否包含:
+  //   if (import.meta.url === pathToFileURL(process.argv[1] || '').href) { main() ... }
+  // 用途: 测试 `import { __test__ }` 时, 守护条件必须为 false, 否则 main() 副作用
+  //       (扫 staged / 调 tsc) 会被触发, 测试无法在隔离环境跑通。
+  const hasIsDirectRunAnchor =
+    /pathToFileURL\s*\(\s*process\.argv\[1\][^)]*\)\.href/.test(sourceText)
+  report.checks.sourceHasIsDirectRunAnchor = hasIsDirectRunAnchor
+  if (!hasIsDirectRunAnchor) {
+    report.ok = false
+    report.drift.push({
+      kind: 'source_isDirectRun_missing',
+      needle:
+        "if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {",
+      hint: '源脚本丢失 isDirectRun 入口守护; 测试 import 时会触发 main() 副作用 (扫 staged / 调 tsc)',
+    })
+  }
+
   // 5) 输出报告
   if (JSON_OUT) {
     console.log(reportToJson(report))
@@ -324,6 +349,7 @@ function main() {
       console.log(`${C.dim}   source  keys: normalizePath                 ✓${C.reset}`)
       console.log(`${C.dim}   source  keys: filterTscOutputForStagedFiles ✓${C.reset}`)
       console.log(`${C.dim}   test    import { __test__ } from ...         ✓${C.reset}`)
+      console.log(`${C.dim}   source  isDirectRun 入口守护             ✓${C.reset}`)
     }
     process.exit(0)
   }
