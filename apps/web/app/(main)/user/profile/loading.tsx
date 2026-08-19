@@ -17,6 +17,7 @@ export default function ProfileLoading() {
       </div>
 
       {/* 头像 + 统计卡片 */}
+      {/* 豁免 0b: 头像占位骨架 (avatar placeholder, h-20 w-20 = 80px 圆形占位符合 avatar shape) */}
       <div className="flex items-center gap-6">
         <div className="skeleton h-20 w-20 rounded-full" />
         <div className="flex flex-1 gap-4">
