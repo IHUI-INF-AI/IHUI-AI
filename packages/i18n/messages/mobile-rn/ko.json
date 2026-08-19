@@ -181,7 +181,8 @@
     "businessLicense": "사업자등록증",
     "icpRecord": "ICP 신고",
     "modelRecord": "모델 신고",
-    "sectionDiscover": ""
+    "sectionDiscover": "",
+    "assistant": "내 어시스턴트"
   },
   "error": {
     "network": "네트워크 오류"
