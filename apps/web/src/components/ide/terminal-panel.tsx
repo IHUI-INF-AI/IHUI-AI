@@ -1566,7 +1566,7 @@ function SplitPaneContainer({
           display: 'grid',
           gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`,
           gap: '1px',
-          background: 'var(--border, hsl(var(--border)))',
+          background: 'var(--border)',
           height: '100%',
           width: '100%',
         }
@@ -1574,7 +1574,7 @@ function SplitPaneContainer({
           display: 'grid',
           gridTemplateRows: `repeat(${paneIds.length}, 1fr)`,
           gap: '1px',
-          background: 'var(--border, hsl(var(--border)))',
+          background: 'var(--border)',
           height: '100%',
           width: '100%',
         }
