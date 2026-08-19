@@ -976,10 +976,15 @@ export function HomeScreen() {
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
         {/* AgentShopList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 Ai-list_b,核心区块)
-         *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistant;
+         *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistantN8n(对话页);
+         *  「查看更多」跳 AiAssistant(分类+全部列表页,对齐 Ai-list_b navigateToCategoryDetail);
          *  scrollEnabled=false 嵌套外层 ScrollView,由页面整体滚动 */}
         <View style={shellStyles.agentListWrap}>
-          <MoreTitles title="AI 应用商店" />
+          <MoreTitles
+            title="AI 应用商店"
+            moreText="查看更多"
+            onMore={() => rootNav?.navigate('AiAssistant', {})}
+          />
           <AgentShopList
             items={agentItems}
             onItemClick={handleAgentPress}
