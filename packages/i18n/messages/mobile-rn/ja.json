@@ -182,7 +182,8 @@
     "icpRecord": "ICP備案",
     "modelRecord": "モデル備案",
     "sectionDiscover": "",
-    "assistant": "マイアシスタント"
+    "assistant": "マイアシスタント",
+    "apiSettings": "API設定"
   },
   "error": {
     "network": "ネットワークエラー"
