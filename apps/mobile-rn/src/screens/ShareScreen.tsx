@@ -112,12 +112,13 @@ export function ShareScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setDrawerVisible(false)
-    navigation.navigate('AiAssistant')
+    // 对齐 Uniapp addNewChat → ai_assistant 对话页
+    navigation.navigate('AiAssistantN8n', {})
   }
   const handleDrawerSelectConversation = (id: string): void => {
     setDrawerVisible(false)
     const conv = drawerConversations.find((c) => c.id === id)
-    navigation.navigate('AiAssistant', { agentId: id, title: conv?.title })
+    navigation.navigate('AiAssistantN8n', { agentId: id, title: conv?.title })
   }
   const handleDrawerDeleteConversation = (): void => {
     Alert.alert('删除对话', '确认删除此对话?', [
