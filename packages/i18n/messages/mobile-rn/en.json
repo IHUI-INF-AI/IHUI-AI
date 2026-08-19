@@ -185,7 +185,8 @@
     "businessLicense": "Business License",
     "icpRecord": "ICP Record",
     "modelRecord": "Model Record",
-    "sectionDiscover": "Discover"
+    "sectionDiscover": "Discover",
+    "assistant": "My Assistants"
   },
   "error": {
     "network": "Network error, please retry"
