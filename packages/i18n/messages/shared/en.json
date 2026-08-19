@@ -1014,7 +1014,9 @@
     "submitting": "Submitting...",
     "success": "Withdraw request submitted",
     "failed": "Withdraw failed, please retry",
-    "feeHint": "0% withdraw fee"
+    "feeHint": "0% withdraw fee",
+    "confirmTitle": "Confirm Withdrawal",
+    "confirmMessage": "Withdraw {amount}? Please wait for the money to arrive after submitting."
   },
   "vipCompare": {
     "title": "VIP Comparison",
