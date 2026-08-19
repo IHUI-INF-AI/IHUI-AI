@@ -331,19 +331,13 @@ export default function AiAssistantN8nScreen() {
     setSending(true)
     scrollToEnd()
 
-    // 无 agentId:模拟响应(对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent)
+    // 没有绑定工作流时不能生成伪造回复,移除刚加入的消息并提示用户选择智能体。
     if (!agentId) {
-      setMessages((prev) => {
-        const next = [...prev]
-        const last = next[next.length - 1]
-        if (last && last.role === 'assistant') {
-          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.mockResponse') }
-        }
-        return next
-      })
+      setMessages((prev) =>
+        prev.filter((message) => message.id !== userMsg.id && message.id !== aiMsg.id),
+      )
       setSending(false)
-      // 对齐 Uniapp uni.showToast + 任务要求 #2(toast 用 FloatBox);保留 info 类型避免阻塞
-      showToast('info', t('aiAssistantN8n.mockResponse'))
+      showToast('warning', t('aiAssistantN8n.emptyNoAgent'))
       return
     }
 
@@ -537,7 +531,10 @@ export default function AiAssistantN8nScreen() {
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
           小方欢迎卡 + 剩余智汇值 + 充值;占位 0,充值入口可用) */}
       <View style={styles.valueCardWrap}>
-        <IntelligentAssistant tokenQuantity={0} onRecharge={() => navigation.navigate('AppTopup')} />
+        <IntelligentAssistant
+          tokenQuantity={0}
+          onRecharge={() => navigation.navigate('AppTopup')}
+        />
       </View>
       <KeyboardAvoidingView
         style={styles.body}
