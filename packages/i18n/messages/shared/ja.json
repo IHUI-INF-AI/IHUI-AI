@@ -377,7 +377,8 @@
       "order": "注文",
       "social": "ソーシャル",
       "system": "システム"
-    }
+    },
+    "conversations": "会話"
   },
   "messageDirect": {
     "title": "ダイレクトメッセージ",

@@ -377,7 +377,8 @@
       "order": "訂單",
       "social": "社交",
       "system": "系統"
-    }
+    },
+    "conversations": "會話"
   },
   "messageDirect": {
     "title": "私訊",

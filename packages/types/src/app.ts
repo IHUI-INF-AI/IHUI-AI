@@ -304,6 +304,22 @@ export interface MessageCenterItem {
   createdAt: string
 }
 
+/** 消息中心会话列表项(对齐 Uniapp message 页聊天列表 chatList)
+ * 字段对齐 mobile-rn MessageCenterScreen conversations */
+export interface MessageConversationItem {
+  id: string
+  name: string
+  avatar?: string
+  /** 最后一条消息预览(对齐原 chat-item lastMessage) */
+  lastMessage?: string
+  /** 最后消息时间(对齐原 chat-item time) */
+  time?: string
+  /** 未读数(可选,>0 显示红点) */
+  unread?: number
+  /** 状态文案(可选,如「在线」) */
+  status?: string
+}
+
 /** 消息中心共享�?props */
 export interface MessageCenterScreenProps {
   t: TFunction
@@ -318,6 +334,10 @@ export interface MessageCenterScreenProps {
   onRefresh: () => void
   /** 点击消息卡片回调,可�?*/
   onPressItem?: (item: MessageCenterItem) => void
+  /** 会话列表(对齐 Uniapp message 页聊天列表;不传则不渲染该区块) */
+  conversations?: MessageConversationItem[]
+  /** 点击会话回调(对齐 Uniapp handleChatClick → 会话聊天页) */
+  onPressConversation?: (item: MessageConversationItem) => void
   onBack: () => void
   /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
