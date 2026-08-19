@@ -1014,7 +1014,9 @@
     "submitting": "제출 중...",
     "success": "출금 신청이 제출되었습니다",
     "failed": "출금 실패, 다시 시도하세요",
-    "feeHint": "출금 수수료 0%"
+    "feeHint": "출금 수수료 0%",
+    "confirmTitle": "출금 확인",
+    "confirmMessage": "{amount}원을 출금하시겠습니까? 제출 후 입금 완료까지 기다려 주세요."
   },
   "vipCompare": {
     "title": "VIP 비교",
