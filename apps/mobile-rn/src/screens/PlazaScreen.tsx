@@ -110,6 +110,10 @@ export function PlazaScreen() {
     useState<ReadonlyArray<AgentCategoryItem>>(PLAZA_CATEGORY_FALLBACK)
   const [selectedCategory, setSelectedCategory] = useState('')
   const [categoryVisible, setCategoryVisible] = useState(false)
+  // 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:切换身份 Modal)
+  const [identityVisible, setIdentityVisible] = useState(false)
+  // 开发者须知弹窗(对齐原项目 L110-150:开发者须知 Modal,5 条规则)
+  const [noticeVisible, setNoticeVisible] = useState(false)
 
   // Drawer 侧滑抽屉
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -348,6 +352,12 @@ export function PlazaScreen() {
             // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
             onPress: () => setCategoryVisible(true),
           },
+          {
+            icon: '👤',
+            label: '身份',
+            // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
+            onPress: () => setIdentityVisible(true),
+          },
         ]}
         rightAction={
           <Pressable
@@ -442,6 +452,110 @@ export function PlazaScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      {/* 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:
+       *  切换身份 → 找大佬开发(普通身份) / 我是开发者(跳开发者页);footer 打开开发者须知) */}
+      <Modal
+        visible={identityVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIdentityVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setIdentityVisible(false)}
+          accessibilityLabel="关闭身份切换"
+        >
+          <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.identityTitle}>切换身份</Text>
+            <Text style={styles.identitySubtext}>
+              选择合适的身份，更好地发布或承接需求
+            </Text>
+            <View style={styles.identityButtons}>
+              <Pressable
+                style={[styles.identityBtn, styles.identityBtnOutline]}
+                onPress={() => setIdentityVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="找大佬开发"
+              >
+                <Text style={styles.identityBtnTextOutline}>找大佬开发</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
+                onPress={() => {
+                  setIdentityVisible(false)
+                  // 对齐原项目 toDev → /pagesA/plaza/developer(RN DeveloperScreen 承载开发者详情)
+                  navigation.navigate('Developer', { id: 'self' })
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="我是开发者"
+              >
+                <Text style={styles.identityBtnTextPrimary}>我是开发者</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              style={styles.identityFooter}
+              onPress={() => {
+                setIdentityVisible(false)
+                setNoticeVisible(true)
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="开发者须知"
+            >
+              <Text style={styles.identityFooterTitle}>开发者须知</Text>
+              <Text style={styles.identityFooterText}>
+                成为开发者前，请先阅读并确认开发者须知。
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 开发者须知弹窗(对齐原项目 plaza/index.vue L110-150,5 条规则文案逐字) */}
+      <Modal
+        visible={noticeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNoticeVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setNoticeVisible(false)}
+          accessibilityLabel="关闭开发者须知"
+        >
+          <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.identityTitle}>开发者须知</Text>
+            <View style={styles.noticeList}>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>1. 开发者责任 </Text>
+                开发者应当确保所提供的技术服务符合相关法律法规，不得提供违法违规的技术支持。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>2. 知识产权 </Text>
+                开发者应当尊重知识产权，不得侵犯他人的专利权、著作权、商标权等合法权益。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>3. 交易规范 </Text>
+                开发者与需求方的交易应当遵循公平、公正、诚信的原则，确保交易过程的透明化。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>4. 隐私保护 </Text>
+                开发者应当严格保护用户隐私，不得泄露、出售或非法使用用户个人信息。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>5. 技术标准 </Text>
+                开发者应当提供符合行业标准的技术服务，确保技术方案的可行性和可靠性。
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
+              onPress={() => setNoticeVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="我知道了"
+            >
+              <Text style={styles.identityBtnTextPrimary}>我知道了</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -470,6 +584,36 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
   } as ViewStyle,
+  // ── 身份切换弹窗(对齐原项目 plaza identity-card) ──
+  identityCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  } as ViewStyle,
+  identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: 6 },
+  identitySubtext: { fontSize: 13, color: '#8a8a8a', marginBottom: 18, textAlign: 'center' },
+  identityButtons: { flexDirection: 'row', gap: 12, width: '100%' },
+  identityBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  identityBtnOutline: { borderColor: '#d9d9d9', backgroundColor: '#fff' },
+  identityBtnPrimary: { borderColor: '#4a6cf7', backgroundColor: '#4a6cf7' },
+  identityBtnTextOutline: { fontSize: 15, color: '#171717', fontWeight: '600' },
+  identityBtnTextPrimary: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  identityFooter: { marginTop: 18, alignItems: 'center' },
+  identityFooterTitle: { fontSize: 14, color: '#4a6cf7', fontWeight: '600', marginBottom: 2 },
+  identityFooterText: { fontSize: 12, color: '#a0a0a0' },
+  noticeList: { width: '100%', marginTop: 12, gap: 12 },
+  noticeItem: { fontSize: 13, color: '#4a4a4a', lineHeight: 20 },
+  noticeBold: { fontWeight: '700', color: '#171717' },
   categoryTitle: {
     fontSize: 16,
     fontWeight: '600',
