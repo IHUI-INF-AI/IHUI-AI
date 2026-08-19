@@ -23,6 +23,8 @@
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAudioPlayer } from 'expo-audio'
+import { File, Paths } from 'expo-file-system'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -73,6 +75,7 @@ import {
 import {
   deleteConversation,
   fetchModels,
+  fetchTextToSpeechAudio,
   formatSSEError,
   getAgents,
   getMessages,
@@ -262,6 +265,7 @@ export function ChatScreen() {
   // P1.1 转语音 Modal(语音类型选项 + 模拟 TTS loading)
   const [ttsVisible, setTtsVisible] = useState(false)
   const [ttsLoading, setTtsLoading] = useState(false)
+  const ttsPlayer = useAudioPlayer(null)
   // P1.2 收藏 UI 状态(不调 API,用 Set 跟踪已收藏消息 id)
   const [favoritedMessageIds, setFavoritedMessageIds] = useState<Set<string>>(new Set())
   // P1.4 网页链接输入 Modal
@@ -558,21 +562,38 @@ export function ChatScreen() {
   const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
   /**
-   * P1.1 转语音:打开语音类型选项 Modal。
-   * 选中类型后模拟 3s TTS 转换,真实 TTS 待 API 接入。
+   * P1.1 转语音:打开语音类型选项 Modal,调用真实 TTS 接口并播放生成的音频。
    */
   const openTtsPanel = (): void => {
     setFunctionPanelVisible(false)
     setTtsVisible(true)
   }
-  const handleTtsSelect = (voiceType: string): void => {
+  const handleTtsSelect = async (voiceType: string): Promise<void> => {
+    const lastAi = [...messages]
+      .reverse()
+      .find((message) => message.role === 'assistant' && message.content.trim())
+    if (!lastAi) {
+      setTtsVisible(false)
+      showToast('info', '暂无消息可转换')
+      return
+    }
+
     setTtsLoading(true)
-    // 模拟 TTS 转换 3s(真实 API 接入后替换为流式回调)
-    setTimeout(() => {
-      setTtsLoading(false)
+    try {
+      const voice =
+        voiceType === '女声' ? 'longyue' : voiceType === '儿童' ? 'longxiaochun' : 'longxiaochun'
+      const audio = await fetchTextToSpeechAudio(lastAi.content, voice)
+      const audioFile = new File(Paths.cache, `tts-${Date.now()}.mp3`)
+      audioFile.write(new Uint8Array(await audio.arrayBuffer()))
+      ttsPlayer.replace(audioFile.uri)
+      ttsPlayer.play()
       setTtsVisible(false)
       showToast('success', `语音生成成功(${voiceType})`)
-    }, 3000)
+    } catch {
+      showToast('error', '语音生成失败,请重试')
+    } finally {
+      setTtsLoading(false)
+    }
   }
 
   /**
@@ -1002,7 +1023,8 @@ export function ChatScreen() {
   }
   const handleDrawerClaimFree = (): void => {
     // 复制飞书免费资料链接到剪贴板 + FloatBox 提示
-    const feishuUrl = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+    const feishuUrl =
+      'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
     Clipboard.setString(feishuUrl)
     showToast('success', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }
