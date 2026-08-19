@@ -38,36 +38,50 @@ const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
 const isShared = TARGET === 'shared'
 const isCli = TARGET === 'cli'
+// 2026-08-19 立:mobile-rn 端 parity 守门(原 ID 2f-mobile-rn fall through 到 web,实际检查 web 而非 mobile-rn)
+const isMobileRn = TARGET === 'mobile-rn'
 // 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
 // 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
-// (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
+// (extension / mobile-rn / cli 用各自 namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
 //  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isCli || isParityOnlyFlag
+const isParityOnly = isExtension || isShared || isCli || isMobileRn || isParityOnlyFlag
 const WEB_DIR = join(ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
+// 2026-08-19:补充 mobile-rn 分支(原 fall through 到 web,守护形同虚设)
 const MESSAGES_DIR = isExtension
   ? join(ROOT, 'packages/i18n/messages/extension')
   : isShared
     ? join(ROOT, 'packages/i18n/messages/shared')
     : isCli
       ? join(ROOT, 'packages/i18n/messages/cli')
-      : join(ROOT, 'packages/i18n/messages/web')
+      : isMobileRn
+        ? join(ROOT, 'packages/i18n/messages/mobile-rn')
+        : join(ROOT, 'packages/i18n/messages/web')
 // shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
 const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
-// extension / shared 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
+// extension / shared / mobile-rn / cli 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
 // 非 shared 模式同时识别 shared/(合并集的一部分,shared 改动需触发 parity 校验)
 // shared 模式只识别 shared/
 const STAGED_MESSAGES_PREFIXES = isShared
   ? ['packages/i18n/messages/shared/']
   : isCli
     ? ['packages/i18n/messages/cli/']
-    : isExtension
-      ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
-      : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
-const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : isCli ? 'apps/cli/' : 'apps/web/'
+    : isMobileRn
+      ? ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/']
+      : isExtension
+        ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
+        : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
+// 2026-08-19:补充 mobile-rn 前缀(staged mode 下识别 apps/mobile-rn/ 源码改动)
+const STAGED_SOURCE_PREFIX = isExtension
+  ? 'apps/extension/'
+  : isCli
+    ? 'apps/cli/'
+    : isMobileRn
+      ? 'apps/mobile-rn/'
+      : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules', 'tests', '__tests__', 'e2e'])
 const BASE_LANG = 'zh-CN'
 
@@ -623,9 +637,11 @@ const targetLabel = isExtension
     ? '[shared] '
     : isCli
       ? '[cli] '
-      : isParityOnlyFlag
-      ? '[parity-only] '
-      : ''
+      : isMobileRn
+        ? '[mobile-rn] '
+        : isParityOnlyFlag
+        ? '[parity-only] '
+        : ''
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
 )
