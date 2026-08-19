@@ -42,6 +42,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-staged-typecheck-mirror-sync.mjs')
 const SOURCE_PATH = join(__dirname, '..', 'check-staged-typecheck.mjs')
 const TEST_PATH = fileURLToPath(import.meta.url)
+const REAL_TEST_PATH = join(__dirname, 'check-staged-typecheck.test.mjs')
 
 // ─── 测试 1: --help 文本与退出码 ─────────────────────────────
 
@@ -326,6 +327,53 @@ test('--quiet + 漂移 → exit 1', () => {
     })
     // 注:守卫脚本失败路径 console.log 不受 QUIET 控制(2026-08-18 已知 bug,后续修)
     assert.equal(r.status, 1, `--quiet 漂移应 exit 1, 实际 ${r.status}`)
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true })
+  }
+})
+
+// ─── 测试 11: 测试文件 import 行被注释掉 → exit 1 (修复 false-positive) ───
+
+test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
+  const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
+  try {
+    copyFileSync(SOURCE_PATH, tmpSource)
+    const testOriginal = readFileSync(REAL_TEST_PATH, 'utf8')
+    const testTampered = testOriginal.replace(
+      /^import\s*\{[^}]*\b__test__\b[^}]*\}\s*from\s*['"]\.\.\/check-staged-typecheck\.mjs['"]\s*$/m,
+      '// $&',
+    )
+    assert.ok(testTampered !== testOriginal, '应实际注释掉至少一行 import')
+    writeFileSync(tmpTest, testTampered, 'utf8')
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript
+      .replace(
+        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+      )
+      .replace(
+        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
+        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
+      )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath, '--json'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(
+      r.status,
+      1,
+      `被注释的 import 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    const report = JSON.parse(r.stdout)
+    assert.equal(report.ok, false)
+    assert.ok(
+      report.drift.some((d) => d.kind === 'test_import_missing'),
+      'drift 应包含 test_import_missing 项',
+    )
   } finally {
     rmSync(tmpDir, { recursive: true, force: true })
   }
