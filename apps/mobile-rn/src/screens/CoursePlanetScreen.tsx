@@ -35,6 +35,7 @@ import Menu from '../components/Menu'
 import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -211,20 +212,20 @@ const styles = StyleSheet.create({
   },
   // 原 main-container: padding:20rpx 20rpx 0 20rpx → 10dp(rpx/2 换算)
   scrollContent: {
-    padding: 10,
+    padding: rpx(20),
   },
   errorText: {
     fontSize: 12,
     color: '#D9534F',
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: rpx(16),
   },
   // 返回顶部按钮(纯图标,定位在屏幕顶部居中)
   backToTopBtn: {
     position: 'absolute',
     top: 12,
     left: '50%',
-    marginLeft: -17,
+    marginLeft: rpx(-34),
     width: 34,
     height: 34,
     borderRadius: 17,
