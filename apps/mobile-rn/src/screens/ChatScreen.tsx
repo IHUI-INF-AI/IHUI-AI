@@ -1042,14 +1042,19 @@ export function ChatScreen() {
   // ── 分享智汇值弹窗自动触发(对齐 Uniapp checkFirstShareStatus API 自动检查) ──
   // Uniapp:用户进页面时若未领过智汇值则由 API 自动弹出 share-points 弹窗。
   // mobile-rn:Share2 按钮改为跳个人中心(对齐 goToMyPage),弹窗改由本 effect 自动触发。
-  // 待 API 实现 checkFirstShareStatus 后接入真实检查;
-  //   当前用注释占位,不自动弹出(避免每次进页面都弹,影响 UX)。
-  // useEffect(() => {
-  //   void (async () => {
-  //     const shouldShow = await checkFirstShareStatus()
-  //     if (shouldShow) setShareValueVisible(true)
-  //   })()
-  // }, [])
+  //
+  // 待后端积分系统接入后启用(接口契约,对齐原项目 /resource/first/share/show):
+  //   GET  /api/user/share/first-status → { data: { claimed: boolean } }  // 是否已领
+  //   POST /api/user/share/first-claim   → { data: { granted: number } }  // 领取智汇值
+  // 前端接入点(放开下方注释即启用):
+  //   useEffect(() => {
+  //     void (async () => {
+  //       const res = await fetchApi<{ claimed: boolean }>('/api/user/share/first-status')
+  //       if (res.success && res.data && !res.data.claimed) setShareValueVisible(true)
+  //     })()
+  //   }, [])
+  // 关闭弹窗时若用户已分享,调 POST /api/user/share/first-claim 完成领取;
+  // 当前不自动弹出(避免"弹了但领不到"误导,符合禁空承诺铁律)。
 
   const handleDrawerSelectConversation = (id: string): void => {
     setDrawerVisible(false)
