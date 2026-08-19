@@ -12,7 +12,16 @@
  * - 加载态接入 components/common/Loading(对齐原项目 common/Loading 遮罩语义)。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type NativeScrollEvent, type NativeSyntheticEvent, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
@@ -25,6 +34,7 @@ import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/Knowled
 import BottomFigure from '../components/BottomFigure'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import Loading from '../components/common/Loading'
+import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -184,6 +194,7 @@ export function MoreCourseScreen() {
 
   return (
     <View style={styles.root}>
+      <NavBar title="更多课程" onBack={() => navigation.goBack()} />
       {/* 悬浮佣金入口(对齐原 MoreCourse.vue:CommissionFloatingIcon 位于 main-container 层,
           渲染在滚动区外;RN 组件无拖拽 props,按其现有 onPress 跳 EarnCommission 分销页) */}
       <CommissionFloatingIcon onPress={() => navigation.navigate('EarnCommission')} />
