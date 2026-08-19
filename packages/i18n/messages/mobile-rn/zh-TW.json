@@ -181,7 +181,8 @@
     "businessLicense": "營業執照",
     "icpRecord": "ICP 備案",
     "modelRecord": "模型備案",
-    "sectionDiscover": ""
+    "sectionDiscover": "",
+    "assistant": "我的助手"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
