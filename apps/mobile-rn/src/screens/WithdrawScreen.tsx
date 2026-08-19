@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -17,16 +18,8 @@ export function WithdrawScreen() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const handleSubmit = async () => {
+  const doWithdraw = async () => {
     const num = Number(amount)
-    if (!Number.isFinite(num) || num <= 0) {
-      setError(t('withdraw.amountInvalid'))
-      return
-    }
-    if (num < 10) {
-      setError(t('withdraw.minAmount'))
-      return
-    }
     setLoading(true)
     setError('')
     setSuccess('')
@@ -44,6 +37,27 @@ export function WithdrawScreen() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async () => {
+    const num = Number(amount)
+    if (!Number.isFinite(num) || num <= 0) {
+      setError(t('withdraw.amountInvalid'))
+      return
+    }
+    if (num < 10) {
+      setError(t('withdraw.minAmount'))
+      return
+    }
+    // 二次确认弹窗(对齐原项目提现确认交互:先确认再发起)
+    Alert.alert(
+      t('withdraw.confirmTitle'),
+      t('withdraw.confirmMessage', { amount: num.toFixed(2) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: () => void doWithdraw() },
+      ],
+    )
   }
 
   return (
