@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getDeveloperPrice } from '@ihui/api-client'
 import {
   DeveloperScreen as SharedDeveloperScreen,
@@ -7,6 +9,10 @@ import {
   type DeveloperPlanType,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useWechatPayment } from '../hooks/useWechatPayment'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const FEATURES: DeveloperFeature[] = [
   { title: '上架智能体', desc: '创建并发布你的 AI 助手' },
@@ -41,12 +47,22 @@ function buildPlans(priceData: { price: number; [key: string]: unknown }): Devel
 
 export default function DeveloperScreen() {
   const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
   const [selected, setSelected] = useState<DeveloperPlanType>('year')
   const [submitting, setSubmitting] = useState(false)
   const [plans, setPlans] = useState<DeveloperPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+
+  // 真实微信支付链(对齐 VipScreen 范式):orderType=5 开发者套餐订阅
+  const { paying, pay } = useWechatPayment({
+    orderType: 5,
+    onSuccess: () => {
+      // 订阅成功后返回,让来源页刷新订阅状态
+      navigation.goBack()
+    },
+  })
 
   const load = useCallback(async () => {
     setError('')
@@ -71,9 +87,16 @@ export default function DeveloperScreen() {
     void load()
   }
 
+  // 提交订阅:按所选套餐价格发起微信支付(替换原 setTimeout mock)
   const handleOpen = () => {
+    const plan = plans.find((p) => p.type === selected)
+    if (!plan || paying) return
+    const amountCents = Math.round(plan.price * 100)
+    if (!amountCents || amountCents <= 0) return
     setSubmitting(true)
-    setTimeout(() => setSubmitting(false), 800)
+    void pay(amountCents, `开发者${plan.type === 'year' ? '包年' : '包月'}订阅`).finally(() => {
+      setSubmitting(false)
+    })
   }
 
   return (
