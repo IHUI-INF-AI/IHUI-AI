@@ -475,9 +475,12 @@ select:-webkit-autofill:focus {
 
 /* ============ sidebar 布局变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
  * 2026-07-22 修复首屏宽度闪烁:--sidebar-width 从 200px 改为 130px,
+ * 2026-08-19 修订:sidebar.tsx 的 SIDEBAR_WIDTH 常量已从 130 升到 160(用户反馈"侧边栏太窄"),
+ *   tokens.css 同步抬到 160px;若再次修改 SIDEBAR_WIDTH,请同步本值以避免首屏 CSS 预设
+ *   值 → JS useEffect 覆盖值的宽度跳变闪烁。
  * 与 sidebar.tsx 的 SIDEBAR_WIDTH 常量一致 */
 :root {
-  --sidebar-width: 130px;
+  --sidebar-width: 160px;
   --sidebar-collapsed-width: 54px;
   --sidebar-menu-height: 24px;
   --sidebar-indent-1: 20px;
