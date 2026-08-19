@@ -31,7 +31,6 @@ import {
   SelectItem,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
