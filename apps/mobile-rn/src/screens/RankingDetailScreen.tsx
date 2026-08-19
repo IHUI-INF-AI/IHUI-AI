@@ -77,7 +77,12 @@ export default function RankingDetailScreenWrapper() {
         break
     }
   }
-  const onSelectConversation = (convId: string) => Alert.alert('历史榜单', `查看 ${convId}`)
+  // 历史榜单会话 → MessageChat(对齐 ChatScreen 会话跳转,替代 Alert 占位)
+  const onSelectConversation = (convId: string) => {
+    closeDrawer()
+    const conv = history.find((c) => c.id === convId)
+    navigation.navigate('MessageChat', { peerId: convId, name: conv?.title ?? '历史会话' })
+  }
   const onDeleteConversation = (convId: string) =>
     setHistory((prev) => prev.filter((c) => c.id !== convId))
   const onOpenSettings = () => navigation.navigate('Settings')
