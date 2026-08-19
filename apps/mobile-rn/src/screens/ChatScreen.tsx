@@ -1134,7 +1134,8 @@ export function ChatScreen() {
     setAgentListVisible(false)
     // 对齐 Uniapp:Agent 选中后跳 AiAssistant 传 agentId 参数
     // (AiAssistant 路由 params 已更新为 { agentId?: string; title?: string })
-    navigation.navigate('AiAssistant', { agentId: id })
+    // 对齐 Uniapp ai_index.vue handleAgentPitch → /pages/tools/ai_assistant(智能体对话页)
+    navigation.navigate('AiAssistantN8n', { agentId: id })
   }
 
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
