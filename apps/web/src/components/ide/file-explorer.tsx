@@ -506,8 +506,7 @@ export function FileExplorer() {
               return (
                 <div key={item.id}>
                   <div
-                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
-                    style={{ paddingLeft: 12 }}
+                    className="flex cursor-pointer items-center gap-1 rounded-sm pl-3 pr-2 py-0.5 text-xs hover:bg-muted/50"
                   >
                     <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                     <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
@@ -519,8 +518,7 @@ export function FileExplorer() {
                     return (
                       <div
                         key={c.id}
-                        className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
-                        style={{ paddingLeft: 28 }}
+                        className="flex cursor-pointer items-center gap-1 rounded-sm pl-7 pr-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
                       >
                         <CIcon className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{c.label}</span>
