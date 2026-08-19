@@ -141,8 +141,10 @@ function main() {
     `${C.dim}若发现污染, 修复方法: git restore --staged <违规文件> (非破坏, working tree 保留)${C.reset}`,
   )
   console.log('')
-  // warn-only, exit 0 不阻塞
-  process.exit(0)
+  // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+  // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信;
+  //  warn-only 不阻塞 commit,exit 1 仅供统计)
+  process.exit(1)
 }
 
 main()
