@@ -204,7 +204,7 @@ const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
   { key: 'audio', label: '音频' },
 ] as const
 
-/** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 待 API 接入) */
+/** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
 
 /** 文件上传支持类型徽章(P1.5,expo-document-picker 未安装,Modal 占位) */
@@ -262,7 +262,7 @@ export function ChatScreen() {
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
-  // P1.1 转语音 Modal(语音类型选项 + 模拟 TTS loading)
+  // P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading)
   const [ttsVisible, setTtsVisible] = useState(false)
   const [ttsLoading, setTtsLoading] = useState(false)
   const ttsPlayer = useAudioPlayer(null)
@@ -1389,7 +1389,7 @@ export function ChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* P1.1 转语音 Modal(语音类型选项 + 模拟 TTS loading) */}
+      {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) */}
       <Modal
         visible={ttsVisible}
         transparent

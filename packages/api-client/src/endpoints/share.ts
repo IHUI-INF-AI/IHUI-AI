@@ -1,4 +1,5 @@
 import { fetchApi } from '../client'
+import type { ApiResult } from '@ihui/types'
 
 /** 分享内容中的混合内容条目 */
 export interface ShareListItem {
@@ -57,4 +58,27 @@ export async function fetchShareContent(code: string): Promise<ShareContent> {
   const res = await fetchApi<ShareContent>(`/api/share/content/${code}`)
   if (!res.success) throw new Error(res.error || '获取分享内容失败')
   return res.data
+}
+
+// ---- 首次分享奖励端点 ----
+
+export interface ShareFirstStatus {
+  rewarded: boolean
+  rewardPoints: number
+  canClaim: boolean
+}
+
+/** 查询首次分享奖励状态。 */
+export async function getShareFirstStatus(): Promise<ApiResult<ShareFirstStatus>> {
+  return fetchApi<ShareFirstStatus>('/api/share/first-status')
+}
+
+export interface ShareFirstClaim {
+  points: number
+  balance: number
+}
+
+/** 领取首次分享奖励。 */
+export async function claimShareFirstReward(): Promise<ApiResult<ShareFirstClaim>> {
+  return fetchApi<ShareFirstClaim>('/api/share/first-claim', { method: 'POST' })
 }

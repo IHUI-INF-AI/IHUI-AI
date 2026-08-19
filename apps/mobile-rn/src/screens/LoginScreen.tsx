@@ -185,10 +185,8 @@ const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
 
-// 登录成功后回跳 returnUrl 的延迟(ms):token 写入后 RootNavigator 条件渲染切到已登录分支
-// (注册全部业务路由)需要至少一个渲染帧,延迟确保 navigate 时目标路由已挂载
-// (对齐 uniapp 登录成功后 setTimeout 延迟 reLaunch 的时序)
-const RETURN_URL_NAVIGATE_DELAY_MS = 300
+// 登录成功后回跳 returnUrl:token 写入后 RootNavigator 条件渲染切到已登录分支
+// 使用 requestAnimationFrame 确保目标路由已挂载后再导航
 
 // 检测后端"未绑定手机号"提示(对齐 uniapp:data.data.msg === '请先绑定手机号!' 时跳 changePhone 页)。
 // RN 端 ApiResult / OAuthRedirectResult 失败时后端 msg 透传到 error 字段,
@@ -228,9 +226,9 @@ export function LoginScreen() {
     const target = returnUrl
     if (!target) return
     setReturnUrl(null)
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       navigation.dispatch(CommonActions.navigate({ name: target }))
-    }, RETURN_URL_NAVIGATE_DELAY_MS)
+    })
   }, [returnUrl, setReturnUrl, navigation])
 
   // 第三方登录方式:按平台 + locale 动态生成

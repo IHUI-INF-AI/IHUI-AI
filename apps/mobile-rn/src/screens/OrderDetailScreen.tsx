@@ -108,12 +108,9 @@ export function OrderDetailScreen() {
         return
       }
 
-      // 3. mock 模式(DEV 环境无微信支付配置)
+      // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
       if (payRes.data.mock) {
-        if (__DEV__) {
-          console.warn('[OrderDetailScreen] mock 支付模式:跳过微信SDK')
-        }
-        await load()
+        Alert.alert(t('payment.nativeUnavailable'))
         return
       }
 
@@ -133,9 +130,7 @@ export function OrderDetailScreen() {
       if (outTradeNo) {
         const statusRes = await checkPaymentStatus(outTradeNo)
         if (!statusRes.success || !statusRes.data?.paid) {
-          if (__DEV__) {
-            console.warn('[OrderDetailScreen] 支付SDK成功但后端未同步', { outTradeNo })
-          }
+          // 后端状态未同步,乐观加载(不打印 __DEV__ warn)
         }
       }
       // 6. 重新加载订单详情
