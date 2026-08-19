@@ -55,6 +55,11 @@ import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Draw
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
+import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
+import ModelConfigDialog, {
+  type ModelConfig,
+  type ModelType as ConfigModelType,
+} from '../components/ModelConfigDialog'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 // 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
@@ -192,6 +197,39 @@ const MODEL_TYPES: ModelTypeOption[] = [
   { type: 'videoa', label: '视音', icon: '📹' },
   { type: 'other', label: '其他', icon: '⚙️' },
   { type: 'sck', label: '知识库', icon: '📚' },
+]
+
+/** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
+const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  temperature: 0.7,
+  maxTokens: 2048,
+  topP: 0.9,
+  systemPrompt: '',
+  streamEnabled: true,
+}
+
+/** 本屏 ModelType → ModelConfigDialog 期望的 ModelConfigType(对齐 ui-native ModelConfigType) */
+const toConfigModelType = (t: ModelType): ConfigModelType => {
+  switch (t) {
+    case 'image':
+      return 'image'
+    case 'video':
+    case 'videoa':
+      return 'video'
+    case 'audio':
+      return 'audio'
+    default:
+      return 'text'
+  }
+}
+
+/** 素材分类(对齐 Uniapp MaterialList 分类 tab:全部/文本/图片/视频/音频) */
+const MATERIAL_CATEGORIES: MaterialCategory[] = [
+  { key: 'all', label: '全部' },
+  { key: 'text', label: '文本' },
+  { key: 'image', label: '图片' },
+  { key: 'video', label: '视频' },
+  { key: 'audio', label: '音频' },
 ]
 
 /** 各类型占位模型列表(对齐 Uniapp modelList.imageList/videoList/audioList/... 分类,
@@ -374,6 +412,14 @@ export function HomeScreen() {
   // activeModelType:当前展开的类型弹窗(null 表示关闭);selectedModel:已选模型(显示在输入区小标签)
   const [activeModelType, setActiveModelType] = useState<ModelType | null>(null)
   const [selectedModel, setSelectedModel] = useState<SelectedModel | null>(null)
+  // ── 模型参数配置弹窗(对齐 Uniapp ai_index showModelaConfig → ModelConfigDialog) ──
+  const [showModelConfig, setShowModelConfig] = useState(false)
+  const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
+  // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
+  // 无独立素材 API(@ihui/api-client 暂无 getMaterials 封装),暂用空数据占位,接入后填 materialItems
+  const [showMaterialList, setShowMaterialList] = useState(false)
+  const [activeMaterialCategory, setActiveMaterialCategory] = useState('all')
+  const [materialItems] = useState<MaterialItem[]>([])
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -548,6 +594,15 @@ export function HomeScreen() {
   }
   /** 清除已选模型(对齐 Uniapp 切换类型时清空 modelName) */
   const handleClearModel = (): void => setSelectedModel(null)
+  /** 打开/关闭模型参数配置弹窗(对齐 Uniapp showModelaConfig 开关) */
+  const closeModelConfig = (): void => setShowModelConfig(false)
+  /** 素材项点击(对齐 Uniapp MaterialList @item-click;无素材详情 API,暂提示待接入) */
+  const handleMaterialPress = useCallback(
+    (_id: string): void => {
+      showToast('info', '素材详情待接入')
+    },
+    [showToast],
+  )
 
   // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
   const handleRecentAgentPress = (item: RecentAgentItem): void => {
@@ -699,7 +754,9 @@ export function HomeScreen() {
       // RecentAgents 降级数据源:无 getAgentUseHistory 接口,取列表前 5 条(对齐 uniapp slice(0,5))
       setRecentAgents(list.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
       // MyAgents 我的AI APP:与 ai-list 同源,取前 6 条(对齐 uniapp myAgents 独立接口降级)
-      setMyAgents(list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })))
+      setMyAgents(
+        list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })),
+      )
     }
   }, [])
 
@@ -910,10 +967,7 @@ export function HomeScreen() {
         ) : null}
         {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
         <View style={shellStyles.sectionWrap}>
-          <IntelligentAssistant
-            tokenQuantity={tokenQuantity}
-            onRecharge={handleRechargePress}
-          />
+          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
         </View>
         {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
          *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
@@ -1053,21 +1107,44 @@ export function HomeScreen() {
           })}
         </ScrollView>
         {selectedModel ? (
-          <View style={shellStyles.selectedChip}>
-            <Text style={shellStyles.selectedChipText} numberOfLines={1}>
-              {selectedModel.name}
-            </Text>
-            <Pressable
-              onPress={handleClearModel}
-              hitSlop={8}
+          <View style={shellStyles.selectedChipRow}>
+            <View style={shellStyles.selectedChip}>
+              <Text style={shellStyles.selectedChipText} numberOfLines={1}>
+                {selectedModel.name}
+              </Text>
+              <Pressable
+                onPress={handleClearModel}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="清除模型"
+              >
+                <Text style={shellStyles.selectedChipClose}>×</Text>
+              </Pressable>
+            </View>
+            {/* 模型参数配置(对齐 Uniapp ai_index 配置按钮 → ModelConfigDialog) */}
+            <TouchableOpacity
+              onPress={() => setShowModelConfig(true)}
+              activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="清除模型"
+              accessibilityLabel="模型配置"
+              style={shellStyles.configBtn}
             >
-              <Text style={shellStyles.selectedChipClose}>×</Text>
-            </Pressable>
+              <SlidersHorizontal size={16} color={tokens.brand.DEFAULT} />
+            </TouchableOpacity>
           </View>
         ) : null}
       </View>
+      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true)
+       *  无独立素材 API,暂以空数据占位,接入后 items 由 getMaterials 填充 */}
+      <TouchableOpacity
+        onPress={() => setShowMaterialList(true)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="我的创作"
+        style={shellStyles.creationEntry}
+      >
+        <Text style={shellStyles.creationEntryText}>📁 我的创作</Text>
+      </TouchableOpacity>
       {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
           转文字回填输入框,随提交跳 Chat) */}
       <View style={shellStyles.voiceInputWrap}>
@@ -1160,6 +1237,53 @@ export function HomeScreen() {
           </View>
         </View>
       </Modal>
+      {/* MaterialList 素材弹窗(对齐 Uniapp showMaterialList → MaterialList「我的创作」,底部 sheet)
+       *  共享组件:MaterialList 自身不带 Modal,包裹 RN Modal 实现底部 sheet(对齐 BottomPopup 同款) */}
+      <Modal
+        visible={showMaterialList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMaterialList(false)}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.materialBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowMaterialList(false)}
+            accessibilityLabel="关闭素材列表"
+          />
+          <View style={shellStyles.materialSheet}>
+            <View style={shellStyles.materialSheetBar}>
+              <Pressable
+                onPress={() => setShowMaterialList(false)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
+                <Text style={shellStyles.materialSheetClose}>×</Text>
+              </Pressable>
+            </View>
+            <MaterialList
+              categories={MATERIAL_CATEGORIES}
+              activeCategory={activeMaterialCategory}
+              onCategoryChange={setActiveMaterialCategory}
+              items={materialItems}
+              onPress={handleMaterialPress}
+              loading={false}
+              hasMore={false}
+            />
+          </View>
+        </View>
+      </Modal>
+      {/* ModelConfigDialog 模型参数配置弹窗(对齐 Uniapp showModelaConfig → ModelConfigDialog)
+       *  共享组件:内部自带 Modal;visible 控制显隐,modelType 映射自本屏 ModelType */}
+      <ModelConfigDialog
+        visible={showModelConfig}
+        modelType={selectedModel ? toConfigModelType(selectedModel.type) : 'text'}
+        config={modelConfig}
+        onChange={setModelConfig}
+        onClose={closeModelConfig}
+      />
     </View>
   )
 }
@@ -1240,7 +1364,7 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 6,
+    marginTop: 0,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1258,6 +1382,56 @@ const shellStyles = {
     color: tokens.purple.DEFAULT,
     marginLeft: 6,
     fontWeight: '700',
+  } as const,
+  // ── selectedChipRow + configBtn(对齐 Uniapp ai_index 已选模型 + 配置按钮同行) ──
+  selectedChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  } as const,
+  configBtn: {
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
+  creationEntry: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  } as const,
+  creationEntryText: {
+    fontSize: 13,
+    color: tokens.brand.DEFAULT,
+    fontWeight: '600',
+  } as const,
+  // ── MaterialList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
+  materialBackdrop: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    justifyContent: 'flex-end',
+  } as const,
+  materialSheet: {
+    width: '100%',
+    height: '80%',
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  } as const,
+  materialSheetBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: tokens.surface.light,
+  } as const,
+  materialSheetClose: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+    paddingHorizontal: 4,
   } as const,
   // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
   modelModalBackdrop: {
