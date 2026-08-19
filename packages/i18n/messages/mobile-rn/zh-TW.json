@@ -182,7 +182,8 @@
     "icpRecord": "ICP 備案",
     "modelRecord": "模型備案",
     "sectionDiscover": "",
-    "assistant": "我的助手"
+    "assistant": "我的助手",
+    "apiSettings": "API 設定"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
