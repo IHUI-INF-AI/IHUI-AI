@@ -295,7 +295,7 @@ export async function getPlazaList(
     categories?: string[]
   } = {},
 ): Promise<ApiResult<PageData<PlazaItem>>> {
-  return fetchApi<PageData<PlazaItem>>(`/api/plaza${buildQs(query)}`)
+  return fetchApi<PageData<PlazaItem>>(`/api/plaza/list${buildQs(query)}`)
 }
 
 /** 获取广场详情 */
