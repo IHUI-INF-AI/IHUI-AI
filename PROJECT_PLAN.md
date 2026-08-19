@@ -691,6 +691,8 @@
 
 ### P0 商业化变现批次(2026-07-27 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
 
+<!-- 已归档(2026-08-19):5 个 P0 子任务全部闭环,后续建议 0 条,详见 .trae-cn/archive/PROJECT_PLAN_2026-08-19_auto-archive.md -->
+
 > 用户明确要求"用本项目挣钱",已通过 AskUserQuestion 确认 4 路径(SaaS 订阅 + 企业私有化 + API 开放平台 + AI 教育)× 双市场(国内+海外)。代码层面 95% 已就绪(微信支付/支付宝/VIP/积分/API 密钥/4 语言 SDK/教育模块/部署/i18n 全部真实可用),主要缺口:Stripe/PayPal(海外)、plan-driven 中间件、模型价格 seed、运营数据、真实凭据。**用户必须本人操作**:注册 Stripe 商户 / 申请微信支付+支付宝商户号 / ICP 备案 / 购买云服务器 / 配置 GitHub Secrets / 谈企业客户签合同 / 录课。
 
 #### P0-1 海外支付(Stripe + PayPal)— 海外收款必需
@@ -2881,6 +2883,8 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 **环境初始化**:新 clone 后必须执行 `node scripts/git-hygiene-init.mjs`(恢复 local 防护配置,clone 不保留)——已写入 AGENTS.md §12 强制规则。
 
 ## 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送)
+
+<!-- 已归档(2026-08-19):并行收尾全部闭环,已知边界 4 项已转入"剩余问题处理"章节 + commit 8a780abd50 处理,详见 .trae-cn/archive/PROJECT_PLAN_2026-08-19_auto-archive.md -->
 
 > 用户指令"继续执行到没有任何后续建议为止,并行最大化效率"。3 个并行 agent + 主代理收尾,全部完成。
 
