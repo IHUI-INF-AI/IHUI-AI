@@ -182,16 +182,11 @@ export function WorkflowEditor({ steps, onChange }: Props) {
           <Controls className="!rounded-md !border !shadow-sm" />
           <MiniMap
             nodeStrokeWidth={2}
-            nodeColor="hsl(var(--primary) / 0.15)"
-            maskColor="hsl(var(--background) / 0.7)"
+            nodeColor="color-mix(in srgb, var(--primary) 15%, transparent)"
+            maskColor="color-mix(in srgb, var(--background) 70%, transparent)"
             className="!rounded-md !border !shadow-sm"
           />
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="hsl(var(--border))"
-          />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         </ReactFlow>
       </div>
       <PropertiesPanel
