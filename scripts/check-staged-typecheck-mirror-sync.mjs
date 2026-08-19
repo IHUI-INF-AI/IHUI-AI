@@ -1,33 +1,40 @@
 #!/usr/bin/env node
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * check-staged-typecheck-mirror-sync.mjs — 源/测镜像漂移防御守门
+ * check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试
  *
- * 2026-08-18 立 | 镜像同步义务锚点
+ * 2026-08-18 立 | 2026-08-18 降级 (从镜像漂移检测 → export 锚点回归)
  *
- * 背景:
+ * 背景(第一阶段, 已退役):
  *   scripts/check-staged-typecheck.mjs 的核心过滤函数
  *   (filterTscOutputForStagedFiles / getOriginalInclude / normalizePath)
- *   未从源脚本导出,测试文件 scripts/tests/check-staged-typecheck.test.mjs
- *   必须以【镜像常量】方式复制函数体才能单测。
- *   风险:有人改了源脚本的核心函数但忘了同步测试的镜像,导致
- *   "测试全绿但生产路径仍是旧逻辑" 的隐性 bug,完全绕过 typecheck 闸门。
+ *   未从源脚本导出, 测试文件用「镜像常量」复制函数体单测。
+ *   风险: 有人改了源函数但忘了同步测试镜像, 导致"测试全绿但生产路径仍是
+ *   旧逻辑"的隐性 bug。守门脚本用两阶段指纹比对(行号范围 + 字面量子串)
+ *   检测漂移。
  *
- * 检测规则(两阶段指纹比对):
- *   阶段 A:从测试文件头部「镜像同步锚点」注释块正则提取
- *          `源脚本第 X-Y 行` 行号范围,与源脚本中三个函数的实际行号比对;
- *          任一范围不一致 → exit 1。
- *   阶段 B:从源脚本对应行号区间内提取【关键指纹】(函数签名 + 关键正则/逻辑),
- *          与测试镜像对应位置的【关键指纹】正则比对;
- *          任一指纹不匹配 → exit 1。
+ * 第二阶段(当前, 2026-08-18 根治镜像常量):
+ *   源脚本新增 `export const __test__ = { ... }`(L399 附近, main() 之前),
+ *   测试改为直接 `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`,
+ *   镜像常量已全部删除, 不存在「源/测字面量子串漂移」的可能性。
  *
- * 检测目标(源脚本):
- *   - getOriginalInclude          源脚本第 244-256 行
- *   - normalizePath                源脚本第 284-286 行
- *   - filterTscOutputForStagedFiles 源脚本第 298-327 行
+ *   本脚本同步降级为「export 锚点回归测试」, 仅校验:
+ *     A) 源脚本包含 `export const __test__` 关键字;
+ *     B) `__test__` 包含三个期望键名:
+ *        getOriginalInclude / normalizePath / filterTscOutputForStagedFiles;
+ *     C) 测试文件包含 import 引用:
+ *        `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`。
+ *
+ *   失败信息: 「源/测 export 锚点漂移, 请检查:
+ *             1) 源脚本 __test__ 导出未变;
+ *             2) 测试 import 路径未变。」(详见修复指南段)
+ *
+ * 检测目标:
+ *   - 源脚本 scripts/check-staged-typecheck.mjs 的 __test__ 导出
+ *   - 测试文件 scripts/tests/check-staged-typecheck.test.mjs 的 import 引用
  *
  * 集成位置:
- *   - guardian-runner.mjs (blocking, 见 id '16c' 新增项)
+ *   - guardian-runner.mjs (blocking, 见 id '16c' 守门项, AGENTS.md §25)
  *   - 也可单独调用: node scripts/check-staged-typecheck-mirror-sync.mjs
  *
  * 跳过方法(应急):
@@ -35,8 +42,8 @@
  *   或临时把本守门改成 warn-only 起步。
  *
  * 退出码:
- *   0  通过 (源/测指纹完全一致)
- *   1  漂移 (任一指纹或行号不一致,详细诊断已打印)
+ *   0  通过 (源/测 export 锚点完全一致)
+ *   1  漂移 (任一锚点缺失或被改名, 详细诊断已打印)
  *   2  异常 (源/测文件缺失或脚本本身执行异常)
  *
  * 用法:
@@ -66,32 +73,14 @@ const C = {
   reset: '\x1B[0m',
 }
 
-// === 三个核心函数的【期望行号】(与测试文件头部"镜像同步锚点"注释一致) ===
-// 修改本脚本或源脚本时,如行号变化需同步更新 AGENTS.md §22b + 测试文件头部注释。
-const EXPECTED_RANGES = [
-  { key: 'getOriginalInclude', start: 244, end: 256 },
-  { key: 'normalizePath', start: 284, end: 286 },
-  { key: 'filterTscOutputForStagedFiles', start: 298, end: 327 },
+// === 期望的 export 锚点(三个核心函数键名) ===
+// 修改源脚本核心函数体允许, 但 export 键名不允许重命名。
+// 修改源脚本允许重命名键时, 必须同步更新本常量 + 测试 import + AGENTS.md §22b + §22c。
+const EXPECTED_KEYS = [
+  'getOriginalInclude',
+  'normalizePath',
+  'filterTscOutputForStagedFiles',
 ]
-
-// === 关键指纹(字面量子串,避免双重转义陷阱) ===
-// 用「源脚本中正则字面量本身 + 测试镜像中正则字面量」做字符串包含比对,
-// 不依赖 AST,鲁棒且零依赖。下列字串必须同时出现在源脚本对应行号区间
-// 与测试文件全文中,任一缺失即视为漂移。
-const FINGERPRINT_STRINGS = {
-  getOriginalInclude: [
-    "'./src/**/*.ts'",
-    "'./src/**/*.tsx'",
-    "'./**/*.d.ts'",
-  ],
-  normalizePath: [
-    'p.replace(/\\\\/g, \'/\')',
-  ],
-  filterTscOutputForStagedFiles: [
-    'line.match(/^(.+?)\\(\\d+,\\d+\\): error TS\\d+:/)',
-    'pendingIsStaged',
-  ],
-}
 
 // === CLI 参数解析 ===
 const argv = process.argv.slice(2)
@@ -101,7 +90,7 @@ const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
 
 if (SHOW_HELP) {
   console.log(`
-check-staged-typecheck-mirror-sync.mjs — 源/测镜像漂移防御守门
+check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试
 
 用法:
   node scripts/check-staged-typecheck-mirror-sync.mjs [选项]
@@ -112,18 +101,21 @@ check-staged-typecheck-mirror-sync.mjs — 源/测镜像漂移防御守门
   --help    打印此帮助
 
 退出码:
-  0  通过 (源/测指纹完全一致)
-  1  漂移 (任一指纹或行号不一致)
+  0  通过 (源/测 export 锚点完全一致)
+  1  漂移 (任一锚点缺失或被改名)
   2  异常 (源/测文件缺失)
 
 检测目标:
-  scripts/check-staged-typecheck.mjs:
-    getOriginalInclude             L244-256
-    normalizePath                   L284-286
-    filterTscOutputForStagedFiles   L298-327
+  源脚本 scripts/check-staged-typecheck.mjs:
+    export const __test__ = {
+      getOriginalInclude,
+      normalizePath,
+      filterTscOutputForStagedFiles,
+    }
 
 镜像测试文件:
   scripts/tests/check-staged-typecheck.test.mjs
+    import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'
 `)
   process.exit(0)
 }
@@ -146,35 +138,84 @@ function reportToJson(report) {
   return JSON.stringify(report, null, 2)
 }
 
-function extractRange(lines, start, end) {
-  return lines.slice(start - 1, end).join('\n')
+function stripComments(text) {
+  let s = text.replace(/\/\/[^\n]*/g, '')
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '')
+  return s
 }
 
-function tryParseTestAnchors(testText) {
-  // 测试文件头部存在「镜像同步锚点:」注释块,内部若干「源脚本第 X-Y 行」
-  // 例:`filterTscOutputForStagedFiles: 源脚本第 298-327 行`
-  const anchorRegex =
-    /\b(filterTscOutputForStagedFiles|getOriginalInclude|normalizePath)\b[^\n]*?源脚本第\s*(\d+)\s*-\s*(\d+)\s*行/g
-  const found = []
+/**
+ * 从源脚本文本中提取 __test__ export 对象字面量。
+ * 用花括号配对扫描: 从 "export const __test__" 起, 找到下一个等量匹配的 '}',
+ * 截取中间内容作为"键定义区"。
+ * 鲁棒处理: 允许 { 后换行/空格; 允许键名后跟 ',' 或 '}'; 不依赖 AST。
+ * @returns {string|null} 提取的键定义区字符串 (例: "  getOriginalInclude,\n  normalizePath,\n  ...")
+ */
+function extractTestExportKeys(sourceText) {
+  const idx = sourceText.indexOf('export const __test__')
+  if (idx === -1) return null
+  // 从 export 关键字之后开始找第一个 '{'
+  let i = sourceText.indexOf('{', idx)
+  if (i === -1) return null
+  // 花括号配对扫描 (深度计数, 跳过字符串字面量)
+  let depth = 0
+  const start = i
+  let inStr = null // 当前字符串引号 (' " `), null 表示不在字符串内
+  let escape = false
+  for (; i < sourceText.length; i++) {
+    const ch = sourceText[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (inStr) {
+      if (ch === '\\') {
+        escape = true
+        continue
+      }
+      if (ch === inStr) {
+        inStr = null
+      }
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      inStr = ch
+      continue
+    }
+    if (ch === '{') {
+      depth++
+      continue
+    }
+    if (ch === '}') {
+      depth--
+      if (depth === 0) {
+        return sourceText.slice(start + 1, i)
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 从键定义区字符串中识别"标识符 token"(忽略空白/逗号/换行)。
+ * @returns {string[]}
+ */
+function extractKeyNames(keysBlock) {
+  const names = []
+  const re = /[A-Za-z_$][A-Za-z0-9_$]*/g
   let m
-  while ((m = anchorRegex.exec(testText)) !== null) {
-    found.push({
-      key: m[1],
-      start: Number(m[2]),
-      end: Number(m[3]),
-    })
+  while ((m = re.exec(keysBlock)) !== null) {
+    // 过滤掉 JS 关键字 (虽然 export const __test__ = { ... } 内不会有, 但稳妥)
+    if (
+      m[0] === 'true' ||
+      m[0] === 'false' ||
+      m[0] === 'null' ||
+      m[0] === 'undefined'
+    )
+      continue
+    names.push(m[0])
   }
-  return found
-}
-
-function countContains(text, needle) {
-  let n = 0
-  let i = 0
-  while ((i = text.indexOf(needle, i)) !== -1) {
-    n++
-    i += needle.length
-  }
-  return n
+  return names
 }
 
 // === 主流程 ===
@@ -212,98 +253,98 @@ function main() {
 
   const sourceText = readFileSync(SOURCE_PATH, 'utf8')
   const testText = readFileSync(TEST_PATH, 'utf8')
-  const sourceLines = sourceText.split(/\r?\n/)
 
-  // 2) 阶段 A:行号范围校验
-  const testAnchors = tryParseTestAnchors(testText)
   const report = {
     ok: true,
     drift: [],
-    testAnchors,
-    expectedRanges: EXPECTED_RANGES,
+    checks: {
+      sourceHasExportConstTest: false,
+      sourceKeys: [],
+      testHasImportFromSource: false,
+    },
   }
 
-  for (const expected of EXPECTED_RANGES) {
-    const matched = testAnchors.find((a) => a.key === expected.key)
-    if (
-      !matched ||
-      matched.start !== expected.start ||
-      matched.end !== expected.end
-    ) {
+  // 2) 阶段 A: 源脚本 export const __test__ 关键字存在性
+  const hasExportConstTest =
+    /export\s+const\s+__test__\b/.test(sourceText)
+  report.checks.sourceHasExportConstTest = hasExportConstTest
+  if (!hasExportConstTest) {
+    report.ok = false
+    report.drift.push({
+      kind: 'source_export_missing',
+      needle: 'export const __test__',
+      hint: '源脚本未导出 __test__ 别名; 测试文件无法 import 源函数, 已退化为不可编译',
+    })
+  }
+
+  // 3) 阶段 B: 源脚本 __test__ 包含三个期望键
+  const keysBlock = extractTestExportKeys(sourceText)
+  const actualKeys = keysBlock ? extractKeyNames(keysBlock) : []
+  report.checks.sourceKeys = actualKeys
+  for (const expected of EXPECTED_KEYS) {
+    if (!actualKeys.includes(expected)) {
       report.ok = false
       report.drift.push({
-        kind: 'line_range',
-        key: expected.key,
-        expected: `${expected.start}-${expected.end}`,
-        actual: matched ? `${matched.start}-${matched.end}` : '<missing>',
+        kind: 'source_key_missing',
+        key: expected,
+        actualKeys,
+        hint: `源脚本 __test__ 未包含键 "${expected}"; 键名重命名会破坏测试 import`,
       })
     }
   }
 
-  // 3) 阶段 B:关键指纹比对 — 在源脚本【期望行号区间】与测试文件全文各跑一次指纹匹配。
-  for (const expected of EXPECTED_RANGES) {
-    const sourceRange = extractRange(
-      sourceLines,
-      expected.start,
-      expected.end,
+  // 4) 阶段 C: 测试文件 import 引用存在性
+  // 检测两种合法形式: `import { __test__ }` 与 `import { __test__ as ... }`
+  const hasImportTest =
+    /import\s*\{[^}]*\b__test__\b[^}]*\}\s*from\s*['"]\.\.\/check-staged-typecheck\.mjs['"]/.test(
+      stripComments(testText),
     )
-    const strings = FINGERPRINT_STRINGS[expected.key]
-    for (const s of strings) {
-      const inSource = countContains(sourceRange, s) > 0
-      const inTest = countContains(testText, s) > 0
-      if (!inSource) {
-        report.ok = false
-        report.drift.push({
-          kind: 'fingerprint_missing_in_source',
-          key: expected.key,
-          range: `${expected.start}-${expected.end}`,
-          needle: s,
-          hint: '源脚本对应行号区间内未匹配到关键指纹,可能行号偏移或函数体已删除',
-        })
-      }
-      if (!inTest) {
-        report.ok = false
-        report.drift.push({
-          kind: 'fingerprint_missing_in_test',
-          key: expected.key,
-          needle: s,
-          hint: '测试文件中未匹配到关键指纹,镜像常量可能已丢失或被改写',
-        })
-      }
-    }
+  report.checks.testHasImportFromSource = hasImportTest
+  if (!hasImportTest) {
+    report.ok = false
+    report.drift.push({
+      kind: 'test_import_missing',
+      needle:
+        "import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'",
+      hint: '测试文件未 import __test__ 别名; 测试已退化为不可解析',
+    })
   }
 
-  // 4) 输出报告
+  // 5) 输出报告
   if (JSON_OUT) {
     console.log(reportToJson(report))
     process.exit(report.ok ? 0 : 1)
   }
 
   if (report.ok) {
-    log('ok', '源/测指纹一致,无漂移')
+    log('ok', '源/测 export 锚点一致, 无漂移')
     if (!QUIET) {
-      console.log(`${C.dim}   getOriginalInclude             L244-256  ✓${C.reset}`)
-      console.log(`${C.dim}   normalizePath                   L284-286  ✓${C.reset}`)
-      console.log(`${C.dim}   filterTscOutputForStagedFiles   L298-327  ✓${C.reset}`)
+      console.log(`${C.dim}   source  export const __test__           ✓${C.reset}`)
+      console.log(`${C.dim}   source  keys: getOriginalInclude           ✓${C.reset}`)
+      console.log(`${C.dim}   source  keys: normalizePath                 ✓${C.reset}`)
+      console.log(`${C.dim}   source  keys: filterTscOutputForStagedFiles ✓${C.reset}`)
+      console.log(`${C.dim}   test    import { __test__ } from ...         ✓${C.reset}`)
     }
     process.exit(0)
   }
 
-  log('err', `检测到源/测镜像漂移(${report.drift.length} 处):`)
+  log('err', `检测到源/测 export 锚点漂移(${report.drift.length} 处):`)
   for (const d of report.drift) {
-    console.log(`${C.red}   ✗ [${d.kind}] ${d.key}${C.reset}`)
-    if (d.expected) console.log(`       期望: ${d.expected}`)
-    if (d.actual) console.log(`       实际: ${d.actual}`)
-    if (d.range) console.log(`       范围: ${d.range}`)
-    if (d.needle) console.log(`       指纹: ${d.needle}`)
+    console.log(`${C.red}   ✗ [${d.kind}]${C.reset}`)
+    if (d.key) console.log(`       缺失键: ${d.key}`)
+    if (d.actualKeys) console.log(`       实际键: ${d.actualKeys.join(', ') || '(无)'}`)
+    if (d.needle) console.log(`       期望字串: ${d.needle}`)
     if (d.hint) console.log(`       提示: ${d.hint}`)
   }
   console.log('')
   console.log(
-    `${C.yellow}修复方法:同步更新源脚本行号 + 测试文件头部"镜像同步锚点"注释。${C.reset}`,
+    `${C.yellow}修复方法: 1) 源脚本 __test__ 导出未变(三个键名: ${EXPECTED_KEYS.join(' / ')});${C.reset}`,
   )
   console.log(
-    `${C.yellow}详见 AGENTS.md §22b 红线规则(2026-08-18 镜像同步义务)。${C.reset}`,
+    `${C.yellow}          2) 测试 import 路径未变 ('../check-staged-typecheck.mjs');${C.reset}`,
+  )
+  console.log(
+    `${C.yellow}          3) 详见 AGENTS.md §22b 红线规则 + §22c 镜像常量守门模式。${C.reset}`,
   )
   process.exit(1)
 }
