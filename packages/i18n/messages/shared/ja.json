@@ -1014,7 +1014,9 @@
     "submitting": "送信中...",
     "success": "引き出し申請が提出されました",
     "failed": "引き出しに失敗しました。再試行してください",
-    "feeHint": "引き出し手数料 0%"
+    "feeHint": "引き出し手数料 0%",
+    "confirmTitle": "引き出しの確認",
+    "confirmMessage": "{amount}円を引き出しますか？送信後、入金完了までお待ちください。"
   },
   "vipCompare": {
     "title": "VIP 比較",
