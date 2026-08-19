@@ -33,6 +33,7 @@
  *   + --strict 强制严格模式(防止 pyproject.toml strict 被改回 false 降级)。
  */
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -133,7 +134,16 @@ if (isStaged) {
 // - --strict 显式传参作为双保险,防止有人改 pyproject.toml strict=false 降级守门
 // - --ignore-missing-imports 兼容第三方库无 stub 场景
 // - mypy exit 0 = 0 errors;exit 1 = 有 errors;exit 2 = 命令本身失败
-const MYPY_CMD = 'mypy app --ignore-missing-imports --strict'
+// 2026-08-19 修复:优先使用项目自带 .venv 的 mypy,避免依赖全局 PATH 的 mypy
+// (Windows 上很多机器没有全局 mypy,直接 execSync("mypy ...") 会因命令找不到而失败
+//  误报 §35 阻塞,而 typecheck:full 走的是 .venv 路径所以能跑通,行为不一致)。
+const MYPY_CANDIDATES = [
+  join(AI_SERVICE_DIR, '.venv/Scripts/mypy.exe'), // Windows venv
+  join(AI_SERVICE_DIR, '.venv/bin/mypy'), // Unix/macOS venv
+]
+const venvMypy = MYPY_CANDIDATES.find((p) => existsSync(p))
+const mypyExecutable = venvMypy || 'mypy'
+const MYPY_CMD = `${mypyExecutable} app --ignore-missing-imports --strict`
 const startTime = Date.now()
 
 try {
@@ -142,6 +152,7 @@ try {
     cwd: AI_SERVICE_DIR,
     stdio: ['pipe', 'pipe', 'pipe'],
     maxBuffer: 10 * 1024 * 1024,
+    shell: true,
   })
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
 
