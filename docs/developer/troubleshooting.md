@@ -372,6 +372,40 @@ curl -i "$IHUI_BASE_URL/v1/chat/completions" \
 | 502 `upstream_error` | 上游故障 | 检查 ai-service / 厂商 API |
 | 503 `service_unavailable` | 服务不可用 | 等待恢复 |
 
+## 前端控制台报错排查
+
+以下两类报错**仅出现在浏览器测试/开发环境,不属于业务代码缺陷,生产构建不会出现**。排查前端控制台错误时先对照此处归因,勿误当 bug 去改业务代码。
+
+### Hydration failed / A tree hydrated but some attributes didn't match（浏览器扩展注入导致）
+
+**症状**:控制台出现 `Hydration failed because the server rendered HTML didn't match the client` 或 `A tree hydrated but some attributes of the server rendered HTML didn't match the client`。
+
+**原因（已定位根因,2026-08-20）**:报错匹配到的差异属性是 **`data-trae-ref`** —— 由 **TRAE 浏览器自动化扩展**在测试/导航时注入到 SSR DOM,客户端 React 渲染不含该属性,导致 hydration 比对不一致。这是测试工具行为,**不是组件 SSR/CSS 或业务代码问题**。
+
+**判定方法**:
+1. 打开错误详情,查看 mismatch 的 attribute 名。
+2. 若只见 `data-trae-ref`(以及扩展包装函数的相关差异),而**无任何业务 style/class/文本差异** → 归因于扩展注入,生产环境无此扩展,不会触发。
+
+**处置**:**不要修改业务代码**。若需干净验证,改用 Playwright E2E(`apps/web/e2e/`,见 [TESTING](../../docs/TESTING.md))而非带扩展注入的浏览器会话。
+
+### `net::ERR_ABORTED: GET http://localhost:<port>/@vite/client`（dev HMR）
+
+**症状**:导航或热更新时控制台报一条 `net::ERR_ABORTED`,URL 指向 `@vite/client`,资源类型为 Script。
+
+**原因**:这是 Vite 开发态 HMR client 在导航/热更替时被中断的**正常载入顺序行为**,非静态资源 404、非业务接口失败。
+
+**处置**:忽略。生产构建不含 Vite client,不会出现。
+
+### `IntlError: MISSING_MESSAGE`（真实业务错误,须根治）
+
+**症状**:`Could not resolve 'xxx.yyy' in messages for locale 'xx'`。
+
+**原因**:源码用 `useTranslations('ns')`/`t('key')` 引用的 i18n 键未在对应语言文件(`packages/i18n/messages/`,5 语言 zh-CN/zh-TW/en/ja/ko)定义或 5 语言 parity 漂移。历史案例:`common.tools.{categoryAi,categoryDev,categoryEfficiency}` 曾缺失导致 `/tools` 抛此错(2026-08-20 已补齐并根治)。
+
+**根治与防回归**:
+- 补齐缺失键(全部 5 语言 + shared 合并集)。
+- 守门脚本 `scripts/check-i18n-keys.mjs` 已把"源码引用缺失键"收紧为 **blocking**(pre-commit/CI 直接失败),防止再次漏到浏览器。新引用的 i18n 键必须先在消息文件定义。
+
 ## 获取帮助
 
 如果以上排查仍未解决问题:
@@ -387,4 +421,4 @@ curl -i "$IHUI_BASE_URL/v1/chat/completions" \
 
 ---
 
-*最后更新: 2026-07-22*
+*最后更新: 2026-08-20*
