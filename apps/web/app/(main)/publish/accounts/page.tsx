@@ -29,6 +29,10 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -327,16 +331,20 @@ export default function AccountsPage() {
                       )}
                       {t('accounts.verify')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openScanLogin(a.platform)}
-                      className="h-7 text-xs"
-                      title={t('accounts.scanLoginHint')}
-                    >
-                      <QrCode className="h-3 w-3" />
-                      {t('accounts.scan')}
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openScanLogin(a.platform)}
+                          className="h-7 text-xs"
+                        >
+                          <QrCode className="h-3 w-3" />
+                          {t('accounts.scan')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('accounts.scanLoginHint')}</TooltipContent>
+                    </Tooltip>
                     <Button
                       size="sm"
                       variant="ghost"
