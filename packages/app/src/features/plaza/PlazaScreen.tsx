@@ -67,6 +67,9 @@ const CYCLE_UNITS: Readonly<Record<string, string>> = {
 
 const PLACEHOLDER_AVATAR = '🧑‍💻'
 
+/** 双列瀑布流:FlatList 只渲染一「行」(内含左右两列),用占位数据驱动滚动/分页/刷新 */
+const COLUMN_ROW_DATA: readonly number[] = [0]
+
 function formatPrice(price: string | number | undefined): string {
   const n = Number(price)
   if (!Number.isFinite(n)) return '0'
@@ -114,6 +117,31 @@ export function PlazaScreen({
 
   const initialLoading = loading && items.length === 0 && !refreshing
 
+  /**
+   * 双列瀑布流数据拆分(对齐原项目 pagesA/plaza/index.vue:leftList/rightList 两列独立渲染)。
+   * 原项目按实际高度把下一项放入较矮列(getHeight→pushItem);RN 无 DOM 测量,
+   * 用奇偶交替分配近似错落效果,卡片高度自适应(移除 flex:1 等高拉伸)。
+   */
+  const { leftItems, rightItems } = useMemo(() => {
+    const left: PlazaItem[] = []
+    const right: PlazaItem[] = []
+    items.forEach((item, index) => {
+      if (index % 2 === 0) {
+        left.push(item)
+      } else {
+        right.push(item)
+      }
+    })
+    return { leftItems: left, rightItems: right }
+  }, [items])
+
+  const renderColumns = () => (
+    <View style={styles.columnsRow}>
+      <View style={styles.column}>{leftItems.map((item) => renderCard({ item }))}</View>
+      <View style={styles.column}>{rightItems.map((item) => renderCard({ item }))}</View>
+    </View>
+  )
+
   const renderCard = ({ item }: { item: PlazaItem }) => {
     const author = (item.creator as string | undefined) || '匿名'
     const desc = (item.description as string | undefined) || ''
@@ -127,6 +155,7 @@ export function PlazaScreen({
 
     return (
       <Pressable
+        key={String(item.id)}
         style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
         onPress={() => onPressItem(item)}
         accessibilityRole="button"
@@ -230,11 +259,9 @@ export function PlazaScreen({
         </View>
       ) : (
         <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderCard}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
+          data={items.length > 0 ? COLUMN_ROW_DATA : []}
+          keyExtractor={() => 'plaza-two-columns'}
+          renderItem={renderColumns}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -337,9 +364,13 @@ function createStyles(tk: AppThemeTokens) {
       padding: 10,
       paddingBottom: 80,
     } as ViewStyle,
-    columnWrapper: {
-      justifyContent: 'space-between',
+    columnsRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
       gap: 12,
+    } as ViewStyle,
+    column: {
+      flex: 1,
     } as ViewStyle,
     centerWrap: {
       alignItems: 'center',
@@ -397,7 +428,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     } as TextStyle,
     card: {
-      flex: 1,
       marginBottom: 12,
       padding: 12,
       borderRadius: 12,
