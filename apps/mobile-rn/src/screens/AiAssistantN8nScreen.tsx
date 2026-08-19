@@ -507,7 +507,8 @@ export default function AiAssistantN8nScreen() {
         navigation.navigate('ModelPlaza')
         break
       case 'tools':
-        navigation.navigate('AiAssistant')
+        // 对齐 Uniapp tools/index(AI应用商店)由 HomeScreen 承载
+        navigation.navigate('Home')
         break
       case 'company':
         navigation.navigate('Distribution')
