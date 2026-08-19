@@ -500,12 +500,14 @@ export function HomeScreen() {
     rootNav?.navigate('Main', { screen: 'ProfileMain' })
   }
 
-  /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 加入社区群 + 分享)
+  /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 搜索 + 加入社区群 + 分享)
+   *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal:12) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
     { icon: '☰', label: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
+    { icon: '🔍', label: '搜索', onPress: () => rootNav?.navigate('Search') },
     { icon: '🤝', label: '加入群', onPress: handleJoinPress },
     { icon: '🎁', label: '分享', onPress: handleGoToMyPage },
   ]
@@ -870,7 +872,10 @@ export function HomeScreen() {
           courses={carouselItems}
           onPress={(id) => navigation.navigate('CourseDetail', { id })}
         />
-        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块) */}
+        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块)
+         *  items={[]} 是旧版 32×32 工具条兼容契约,真实营销内容(3 服务项/banner/6 工具格/AI定制)
+         *  已内置于 Toolbar 组件常量(HOME_SERVICES/HOME_TOOLS,迁移自原 Toolbar/index.vue 静态数据),
+         *  传空数组仅隐藏旧版横向工具条,不影响大块渲染 */}
         <View style={shellStyles.toolbarWrap}>
           <Toolbar
             items={[]}
