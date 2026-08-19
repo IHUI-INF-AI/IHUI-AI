@@ -264,11 +264,10 @@
     "title": "AIアシスタント",
     "placeholder": "質問を入力してください",
     "empty": "メッセージを送って対話を開始",
-    "emptyNoAgent": "ワークフロー未設定、モック応答",
+    "emptyNoAgent": "ワークフローが設定されたエージェントを先に選択してください",
     "send": "送信",
     "streaming": "生成中...",
-    "callFailed": "呼び出し失敗,再試行してください",
-    "mockResponse": "モック応答,agentId 設定で実際のワークフローに接続"
+    "callFailed": "呼び出しに失敗しました。再試行してください"
   },
   "aiCareer": {
     "plan": {
