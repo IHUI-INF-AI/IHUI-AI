@@ -58,7 +58,10 @@
       "title": "ツールセンター",
       "subtitle": "プラットフォームが提供するツールを閲覧・使用",
       "loading": "読み込み中...",
-      "empty": "ツールがありません"
+      "empty": "ツールがありません",
+      "categoryAi": "AI ツール",
+      "categoryDev": "開発",
+      "categoryEfficiency": "効率ツール"
     },
     "mcp": {
       "title": "MCP プロジェクト",

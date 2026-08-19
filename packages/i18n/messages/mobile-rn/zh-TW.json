@@ -264,11 +264,10 @@
     "title": "AI 助手",
     "placeholder": "請輸入您的問題",
     "empty": "向 AI 助手發送訊息開始對話",
-    "emptyNoAgent": "未綁定工作流,發送訊息將得到模擬回應",
-    "send": "傳送",
+    "emptyNoAgent": "請先選擇已綁定工作流的智能體",
+    "send": "發送",
     "streaming": "正在生成...",
-    "callFailed": "呼叫失敗,請稍後重試",
-    "mockResponse": "當前為模擬回應,設定 agentId 後可對接真實工作流"
+    "callFailed": "呼叫失敗,請稍後重試"
   },
   "aiCareer": {
     "plan": {
