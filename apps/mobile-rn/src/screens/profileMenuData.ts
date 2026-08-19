@@ -121,6 +121,8 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionAgent',
     items: [
       { key: 'Agent', labelKey: 'menu.agent', icon: '🤖' },
+      // 助手管理(对齐原项目 dev_enter pageType=index「我的智能体」:草稿/审核中/已发布管理)
+      { key: 'Assistant', labelKey: 'menu.assistant', icon: '🧩' },
       { key: 'AgentMarket', labelKey: 'menu.agentMarket', icon: '🏪', viaParent: true },
       { key: 'AgentCreate', labelKey: 'menu.agentCreate', icon: '➕', viaParent: true },
       { key: 'AgentReviewList', labelKey: 'menu.agentReviewList', icon: '💬', viaParent: true },
