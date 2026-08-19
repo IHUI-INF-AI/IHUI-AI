@@ -52,7 +52,7 @@ export const agenticServiceRoutes: FastifyPluginAsync = async (server) => {
     const parsed = fieldParamSchema.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 field 参数'))
     const userUuid = request.userId
-    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    if (!userUuid) return reply.status(401).send(error(401, '操作失败,请稍后重试'))
     try {
       const rows = await db
         .select()
@@ -81,7 +81,7 @@ export const agenticServiceRoutes: FastifyPluginAsync = async (server) => {
     const parsed = fieldParamSchema.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 field 参数'))
     const userUuid = request.userId
-    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    if (!userUuid) return reply.status(401).send(error(401, '操作失败,请稍后重试'))
     try {
       const deleted = await db
         .delete(zhsUserAgentContext)
