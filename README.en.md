@@ -407,7 +407,6 @@ pnpm turbo build typecheck lint test
 .\scripts\test-admin-e2e.ps1            # Admin E2E tests
 .\scripts\setup-token-refresh-task.ps1  # Configure token refresh scheduled task
 .\scripts\cleanup-external-junk.ps1     # Clean external junk files
-.\scripts\cleanup-memory-topics.ps1     # Clean memory topics
 ```
 
 ### 5 typical scenarios

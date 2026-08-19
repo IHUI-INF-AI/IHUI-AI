@@ -976,7 +976,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 
 **9 마이그레이션 감사 스크립트**:`audit-migration.mjs`(4-in-1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 병합) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(미참조 key 감사,2026-07-25 신설)
 
-**9 PowerShell 시작 스크립트**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
+**9 PowerShell 시작 스크립트**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1`
 
 #### E5. 테스트 및 성능
 
@@ -1074,7 +1074,6 @@ pnpm turbo build typecheck lint test
 .\scripts\test-admin-e2e.ps1            # admin E2E 테스트
 .\scripts\setup-token-refresh-task.ps1  # token 갱신 정기 작업 설정
 .\scripts\cleanup-external-junk.ps1     # 외부 정크 파일 정리
-.\scripts\cleanup-memory-topics.ps1     # memory topics 정리
 ```
 
 ### G:\ 루트 외부 도구 오염 방지 (2026-07-24 제정)
