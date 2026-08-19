@@ -65,6 +65,7 @@ export function AppTopupScreen({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>选择金额</Text>
+          <Text style={styles.amountRate}>充值比例 1元=10智汇值</Text>
           <View style={styles.amountGrid}>
             {amountOptions.map((opt) => (
               <TouchableOpacity
@@ -171,6 +172,11 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 18,
       fontWeight: '600',
       color: tk.text.primary,
+      marginBottom: 12,
+    },
+    amountRate: {
+      fontSize: 12,
+      color: tk.text.tertiary,
       marginBottom: 12,
     },
     amountGrid: {
