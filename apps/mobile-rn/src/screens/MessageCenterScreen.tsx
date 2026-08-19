@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, listConversations } from '@ihui/api-client'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
-import type { MessageCenterItem, MessageTab } from '@ihui/rn-app'
+import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -27,6 +27,31 @@ const UNIAPP_TEXT: Record<string, string> = {
   'messageCenter.empty': '暂无消息',
 }
 
+/** listConversations 返回项(对齐 @ihui/api-client ConversationDetail 字段) */
+interface ConversationItem {
+  id: string
+  title: string
+  lastMessage?: string
+  lastMessageAt?: string
+  updatedAt?: string
+}
+
+/** 时间格式化(对齐 Uniapp formatDateHistory 的 HH:mm 展示,跨天显示日期) */
+function formatConversationTime(input: string | undefined): string {
+  if (!input) return ''
+  const d = new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getMonth() + 1}-${d.getDate()}`
+}
+
 export function MessageCenterScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -36,6 +61,8 @@ export function MessageCenterScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // 会话列表(对齐 Uniapp message 页聊天列表 chatList,数据源 listConversations)
+  const [conversations, setConversations] = useState<MessageConversationItem[]>([])
 
   // t 包装:Uniapp 对齐文案优先,其余回落 i18n
   const uniappT = useCallback(
@@ -46,9 +73,28 @@ export function MessageCenterScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<MessagePage>(`/api/messages?type=${activeTab}`)
-      if (!res.success) throw new Error()
-      setItems(res.data.list ?? [])
+      const [msgRes, convRes] = await Promise.all([
+        fetchApi<MessagePage>(`/api/messages?type=${activeTab}`),
+        listConversations({ page: 1, pageSize: 20 }),
+      ])
+      if (!msgRes.success) throw new Error()
+      setItems(msgRes.data.list ?? [])
+      // 会话列表(listConversations 返回 { conversations },字段 title/lastMessageAt/updatedAt)
+      if (convRes.success && convRes.data) {
+        const convList: ConversationItem[] = Array.isArray(convRes.data.conversations)
+          ? (convRes.data.conversations as unknown as ConversationItem[])
+          : []
+        setConversations(
+          convList.map((c) => ({
+            id: c.id,
+            name: c.title || '对话',
+            lastMessage: c.lastMessage,
+            time: (c.lastMessageAt ?? c.updatedAt)
+              ? formatConversationTime(c.lastMessageAt ?? c.updatedAt)
+              : undefined,
+          })),
+        )
+      }
     } catch {
       setError(uniappT('messageCenter.loadFailed'))
     } finally {
@@ -85,6 +131,10 @@ export function MessageCenterScreen() {
         void load()
       }}
       onPressItem={onPressItem}
+      conversations={conversations}
+      onPressConversation={(conv) =>
+        navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
+      }
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
