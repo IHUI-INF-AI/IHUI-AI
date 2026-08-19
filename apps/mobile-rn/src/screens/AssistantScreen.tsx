@@ -15,6 +15,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import MaterialList, { type MaterialItem } from '../components/MaterialList'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import { rpx } from '../utils/rpx'
 
 type ViewMode = 'shared' | 'local'
 
@@ -165,15 +166,15 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 48,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingTop: rpx(96),
+    paddingBottom: rpx(16),
+    gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },

@@ -19,6 +19,7 @@ import MaterialList, {
 } from '../components/MaterialList'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -313,15 +314,15 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 3,
+    paddingHorizontal: rpx(24),
+    paddingTop: rpx(24),
+    paddingBottom: rpx(16),
+    gap: rpx(6),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(8),
+    paddingVertical: rpx(12),
     borderRadius: 4,
     backgroundColor: tokens.surface.muted,
   },
