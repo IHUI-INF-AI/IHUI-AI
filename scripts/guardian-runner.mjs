@@ -334,6 +334,33 @@ const checks = [
     args: [],
     mode: 'blocking',
   },
+  // --- 45 (2026-08-19 新增,C 盘路径硬编码扫描守门,AGENTS.md §26 配套) ---
+  // warn-only:§26 C 盘防护已配置 11 个环境变量永久指向 D 盘,但 agent 偶尔会在
+  //   写代码时把 `C:\temp\xxx` / `C:\Users\*\AppData\Local\Temp\xxx` 硬编码进源文件,
+  //   绕过环境变量直接落 C 盘。本守门在 pre-commit 阶段拦 staged 区 .ts/.tsx/.js/
+  //   .mjs/.cjs/.py/.ps1/.sh 中的硬编码写入路径(8 种正则 + 4 项排除),违规 exit 1。
+  // warn-only 起步理由:脚本刚建,先观察一周误报率,后续可升级 blocking。
+  // 跳过方法:HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...
+  // id 说明:任务原话无特定 id 要求,§26 是新章节,选下一个可用编号 '45'(44 已被
+  //   check-root-dir-clean.mjs 占用)。插入位置:16c 之后(逻辑上紧贴 staged
+  //   系列守门簇,与 staging area 扫描同源)。
+  {
+    id: '45',
+    label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
+    script: 'check-c-drive-paths.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 staged 文件中检测到硬编码 C 盘写入路径(如 C:\\temp\\ / C:\\Users\\*\\AppData\\Local\\Temp\\)。',
+      '     修复:用 os.tmpdir() (Node) 或 $env:TEMP (PowerShell) 替代,自动走 D 盘;',
+      '           用户配置目录用工具自带配置 (pnpm config / npm config / pip config);',
+      '           系统日志写 $env:TEMP (已指向 D 盘)。',
+      '     唯一例外:apps/desktop/src-tauri/ 内部 API (已自动排除)。',
+      '     跳过方法 (应急):HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
   // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
   //   但 mypy 检查只在 pnpm typecheck:full 手工运行,无 pre-commit 守门。
