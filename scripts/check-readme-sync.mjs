@@ -123,7 +123,10 @@ function main() {
   console.warn("   豁免场景:bug 修复 / 重构 / 测试 / 配置 / 单端内部优化 → 可忽略此提醒");
   console.warn("   (warn-only,不阻塞 commit)");
 
-  process.exit(0); // warn-only,永远 exit 0
+  // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+  // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信;
+  //  warn-only 不阻塞 commit,exit 1 仅供统计)
+  process.exit(1);
 }
 
 main();
