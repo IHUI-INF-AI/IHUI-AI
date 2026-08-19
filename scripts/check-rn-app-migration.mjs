@@ -66,6 +66,8 @@ const WHITELIST = new Set([
   'SquareScreen.tsx', // AI 资讯页:FlatList 资讯流 + SingleTypeBar 分类 + 返回顶部 + Drawer,RN 端独占资讯阅读体验
   'StudyIndexScreen.tsx', // AI 视频页:三态切换(index/model/study) + TipBanner 滚动 + ModelList 预览 + FloatingActionButton,RN 端独占视频浏览
   'StudyPublishScreen.tsx', // 课程发布页:expo-image-picker 选图/选视频 + VideoPlayer 预览 + 双态表单(group/video),RN 端独占发布能力
+  'CoursePlanetScreen.tsx', // 课程星球页:完整 H5 结构 RN 重建(CourseCarousel/MoreTitles/Menu/双 tab 列表/UpToDate 网格)+ ScrollView/RefreshControl,所有组件均为 RN 本地实现
+  'MoreCourseScreen.tsx', // 更多课程页:完整 H5 结构 RN 重建(Carousel/ToolBar/PopularCourses/KnowledgePlanet/BottomFigure/CommissionFloatingIcon),所有组件均为 RN 本地实现
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
