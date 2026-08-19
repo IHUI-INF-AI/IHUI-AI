@@ -3821,6 +3821,8 @@ export interface HomeRecommendItem {
   studentCount: number
   price: number
   isFree: boolean
+  /** 封面图(对齐 Course.cover,轮播/课程卡展示;可空) */
+  cover?: string | null
 }
 
 /** 首页直播预览�?平台注入,字段对齐 mobile-rn HomeScreen Live 子集) */

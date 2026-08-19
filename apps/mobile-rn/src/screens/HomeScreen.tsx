@@ -95,6 +95,8 @@ function toRecommend(courses: Course[]): HomeRecommendItem[] {
     studentCount: c.studentCount,
     price: c.price,
     isFree: c.isFree,
+    // 封面图透传(对齐 Course.cover,轮播 banner 用)
+    cover: c.cover,
   }))
 }
 
@@ -572,11 +574,15 @@ export function HomeScreen() {
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
     () =>
-      recommends.slice(0, 5).map((r) => ({
-        img: '',
-        title: r.title,
-        link: r.id,
-      })),
+      // 仅取有封面图的推荐(对齐原 tools Carousel banner_carousel;无 cover 则不渲染空图轮播)
+      recommends
+        .filter((r) => Boolean(r.cover))
+        .slice(0, 5)
+        .map((r) => ({
+          img: r.cover ?? '',
+          title: r.title,
+          link: r.id,
+        })),
     [recommends],
   )
 
