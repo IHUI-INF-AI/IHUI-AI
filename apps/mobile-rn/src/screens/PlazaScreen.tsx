@@ -13,13 +13,23 @@
  * - FloatBox 悬浮提示
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Pressable, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import {
+  Modal,
+  View,
+  Pressable,
+  Text,
+  StyleSheet,
+  type ViewStyle,
+  type TextStyle,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   deleteConversation,
+  getAgentCategories,
   getPlazaList,
   listConversations,
+  type AgentCategoryItem,
   type ConversationDetail,
 } from '@ihui/api-client'
 import { PlazaScreen as SharedPlazaScreen, type PlazaScreenProps } from '@ihui/rn-app'
@@ -41,6 +51,18 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 const PAGE_SIZE = 10
 
 const FLOAT_BOX_DEFAULT = { visible: false, type: 'info' as FloatBoxType, message: '' }
+
+/**
+ * 需求赛道 fallback(对齐原项目 plaza/index.vue category(1) → categorySaidao 首项"全公司";
+ * 与 HomeScreen AGENT_CATEGORY_FALLBACK 同源语义,API 失败时兜底避免筛选弹层为空)。
+ */
+const PLAZA_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
+  { id: '', name: '全公司' },
+  { id: 'tech', name: '技术' },
+  { id: 'design', name: '设计' },
+  { id: 'market', name: '市场' },
+  { id: 'operation', name: '运营' },
+]
 
 /**
  * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 RootStackParamList
@@ -83,6 +105,11 @@ export function PlazaScreen() {
   const [searchInput, setSearchInput] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [floatBox, setFloatBox] = useState(FLOAT_BOX_DEFAULT)
+  // 需求赛道筛选(对齐原项目 plaza/index.vue:顶栏 showFenLei 分类按钮 → categorySaidao 赛道弹层)
+  const [trackCategories, setTrackCategories] =
+    useState<ReadonlyArray<AgentCategoryItem>>(PLAZA_CATEGORY_FALLBACK)
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [categoryVisible, setCategoryVisible] = useState(false)
 
   // Drawer 侧滑抽屉
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -107,14 +134,19 @@ export function PlazaScreen() {
       }
       try {
         const isMyTask = status === '9'
-        // 使用 PlazaScreenProps 的 items 类型
+        // 使用 PlazaScreenProps 的 items 类型。
+        // 注:api-client getPlazaList 声明 categories?: string[],与基类型 PageQuery 的标量
+        // index signature 冲突(既有缺陷,buildQs 用 String(v) 序列化数组为逗号分隔串),
+        // 此处以 as never 绕过类型检查(与 navigateRoot 同款项目先例)。
         const res = await getPlazaList({
           page: targetPage,
           pageSize: PAGE_SIZE,
           status: isMyTask ? undefined : status || undefined,
           search: search.trim() || undefined,
           creator: isMyTask ? user?.id : undefined,
-        })
+          // 赛道筛选(对齐原项目 categorys 参数,''=全公司,非空时传单元素数组)
+          categories: selectedCategory ? [selectedCategory] : undefined,
+        } as never)
         if (!res.success) throw new Error(res.error)
         const list = (res.data.list ?? []) as PlazaScreenProps['items']
         setItems((prev) => (reset ? list : [...prev, ...list]))
@@ -130,7 +162,7 @@ export function PlazaScreen() {
         setLoadingMore(false)
       }
     },
-    [status, search, user?.id, showFloat],
+    [status, search, selectedCategory, user?.id, showFloat],
   )
 
   useEffect(() => {
@@ -160,6 +192,32 @@ export function PlazaScreen() {
 
   const showDetail = (item: PlazaScreenProps['items'][number]) => {
     navigation.navigate('PostDetail', { id: String(item.id) })
+  }
+
+  // ── 需求赛道加载(对齐原项目 plaza/index.vue category(1) → categorySaidao) ──
+  // 数据源与 HomeScreen 复用同一 getAgentCategories API(agentCategory),
+  // 失败回退静态 5 项,保证筛选弹层非空。
+  const loadTrackCategories = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getAgentCategories()
+      if (res.success && res.data && Array.isArray(res.data.agentCategory)) {
+        setTrackCategories([{ id: '', name: '全公司' }, ...res.data.agentCategory])
+        return
+      }
+    } catch {
+      // 分类加载失败:保持兜底列表,不阻塞主流程
+    }
+    setTrackCategories(PLAZA_CATEGORY_FALLBACK)
+  }, [])
+
+  useEffect(() => {
+    void loadTrackCategories()
+  }, [loadTrackCategories])
+
+  // 选择赛道(对齐原项目 changeSaidao:单选,选"全公司"清空 → reGet)
+  const onSelectCategory = (id: string): void => {
+    setSelectedCategory(id)
+    setCategoryVisible(false)
   }
 
   // ── Drawer 回调 ──
@@ -283,6 +341,14 @@ export function PlazaScreen() {
         title="AI需求广场"
         leftActions={leftActions}
         onBack={() => navigation.goBack()}
+        rightActions={[
+          {
+            icon: '🗂️',
+            label: '分类',
+            // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
+            onPress: () => setCategoryVisible(true),
+          },
+        ]}
         rightAction={
           <Pressable
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -335,6 +401,47 @@ export function PlazaScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 需求赛道筛选弹层(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层,
+       *  内联等价实现:居中卡片单选,选中即刷新列表) */}
+      <Modal
+        visible={categoryVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setCategoryVisible(false)}
+          accessibilityLabel="关闭赛道筛选"
+        >
+          <Pressable style={styles.categoryCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.categoryTitle}>选择需求赛道</Text>
+            <View style={styles.categoryList}>
+              {trackCategories.map((cat) => {
+                const active = selectedCategory === cat.id
+                return (
+                  <Pressable
+                    key={cat.id || 'all'}
+                    style={[styles.categoryItem, active ? styles.categoryItemActive : null]}
+                    onPress={() => onSelectCategory(cat.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={cat.name}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        active ? styles.categoryItemTextActive : null,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -347,5 +454,48 @@ const styles = StyleSheet.create({
   navIcon: {
     fontSize: 20,
     color: '#000',
+  } as TextStyle,
+  // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
+  categoryMask: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  } as ViewStyle,
+  categoryCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  } as ViewStyle,
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111',
+    textAlign: 'center',
+    marginBottom: 14,
+  } as TextStyle,
+  categoryList: {
+    gap: 8,
+  } as ViewStyle,
+  categoryItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+  } as ViewStyle,
+  categoryItemActive: {
+    backgroundColor: '#5088fa',
+  } as ViewStyle,
+  categoryItemText: {
+    fontSize: 14,
+    color: '#333',
+  } as TextStyle,
+  categoryItemTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   } as TextStyle,
 })
