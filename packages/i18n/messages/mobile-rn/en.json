@@ -186,7 +186,8 @@
     "icpRecord": "ICP Record",
     "modelRecord": "Model Record",
     "sectionDiscover": "Discover",
-    "assistant": "My Assistants"
+    "assistant": "My Assistants",
+    "apiSettings": "API Settings"
   },
   "error": {
     "network": "Network error, please retry"

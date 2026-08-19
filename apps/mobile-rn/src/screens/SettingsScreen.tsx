@@ -97,6 +97,8 @@ export default function SettingsScreen() {
     { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: '🏛' },
     { key: 'IcpRecord', label: t('menu.icpRecord'), icon: '🌐' },
     { key: 'ModelRecord', label: t('menu.modelRecord'), icon: '🤖' },
+    // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
+    { key: 'ApiSettings', label: t('menu.apiSettings'), icon: '🔌' },
     { key: 'About', label: t('menu.about'), icon: 'ℹ' },
   ]
 
