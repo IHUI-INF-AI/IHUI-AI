@@ -1014,7 +1014,9 @@
     "submitting": "提交中...",
     "success": "提现申请已提交",
     "failed": "提现失败,请重试",
-    "feeHint": "提现手续费 0%"
+    "feeHint": "提现手续费 0%",
+    "confirmTitle": "确认提现",
+    "confirmMessage": "确认提现 {amount} 元？提交后请等待到账"
   },
   "vipCompare": {
     "title": "VIP 对比",
