@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input } from '@ihui/ui-native'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type DevType = 'personal' | 'enterprise'
 type Field = 'tech' | 'education' | 'finance' | 'content' | 'other'
@@ -16,6 +20,7 @@ const FIELD_OPTIONS: { id: Field; label: string }[] = [
 
 export default function DevEnterScreen() {
   const { t } = useI18n()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const [devType, setDevType] = useState<DevType>('personal')
   const [name, setName] = useState('')
   const [contact, setContact] = useState('')
@@ -41,10 +46,11 @@ export default function DevEnterScreen() {
 
   return (
     <View className="flex-1 bg-card">
-      <View className="px-4 pt-3 pb-2">
-        <Text className="text-lg font-semibold text-foreground">开发者入驻</Text>
-        <Text className="mt-1 text-xs text-tertiary">填写资料,申请成为开发者</Text>
-      </View>
+      <NavBar
+        title="开发者入驻"
+        subtitle="填写资料,申请成为开发者"
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
