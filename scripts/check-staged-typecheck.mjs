@@ -62,7 +62,7 @@ import {
   statSync,
 } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -566,10 +566,23 @@ function main() {
   }
 }
 
-main().catch((e) => {
-  log.error(
-    `${C.red}❌ check-staged-typecheck 脚本执行异常: ${e?.message ?? e}${C.reset}`,
-  )
-  log.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// ─── 单元测试导出锚点(§22c 镜像常量守门模式) ────────────────
+// 测试文件通过 `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`
+// 引用本对象, 三个键名不允许重命名(被 check-staged-typecheck-mirror-sync 锁死)。
+export const __test__ = {
+  getOriginalInclude,
+  normalizePath,
+  filterTscOutputForStagedFiles,
+}
+
+// ─── 入口守护(§22d): 仅当作为 CLI 直接运行时执行 main(), import 时不触发 ───
+// 避免测试 `import { __test__ }` 时 main() 副作用(扫 staged / 调 tsc)被执行。
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main().catch((e) => {
+    log.error(
+      `${C.red}❌ check-staged-typecheck 脚本执行异常: ${e?.message ?? e}${C.reset}`,
+    )
+    log.error(e?.stack ?? '(no stack)')
+    process.exit(2)
+  })
+}
