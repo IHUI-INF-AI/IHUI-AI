@@ -36,6 +36,7 @@ import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#93D2E2',
   },
-  // 原 page-scroll: width:95%; margin:0 auto(RN 用百分比宽 + 居中对齐等价实现)
+  // 原 page-scroll: width:95%; margin: rpx(0) auto(RN 用百分比宽 + 居中对齐等价实现)
   scroll: {
     flex: 1,
     width: '95%',
@@ -279,20 +280,20 @@ const styles = StyleSheet.create({
   // 原 .container: padding-bottom:40rpx → 20dp(区块间距由组件自带 marginTop 承担,
   // 对齐原页面不在页面层额外加区块间距的写法)
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: rpx(40),
   },
   errorText: {
     fontSize: 12,
     color: '#D9534F',
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: rpx(16),
   },
   // 返回顶部按钮(纯图标,定位在屏幕顶部居中)
   backToTopBtn: {
     position: 'absolute',
     top: 12,
     left: '50%',
-    marginLeft: -17,
+    marginLeft: rpx(-34),
     width: 34,
     height: 34,
     borderRadius: 17,
