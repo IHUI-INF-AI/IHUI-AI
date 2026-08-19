@@ -445,9 +445,20 @@ export function ChatScreen() {
       })
       return
     }
-    // 其他类型:切换选中态(对齐 Uniapp handleModelTypeClick,二次点击收起)
-    setCurrentModelType((prev) => (prev === type ? '' : type))
-    setShowMaterialList(false)
+    // 其他类型:切换选中态 + 打开 ModelList 弹窗
+    // (对齐 Uniapp handleModelTypeClick 行 698-777:点击类型 → showModelList=true 显示
+    // 对应类型模型列表;二次点击同一类型收起。RN 端 ModelList 弹窗按 vendor 分组展示全部
+    // 模型,不区分类型,为内联等价实现)
+    setCurrentModelType((prev) => {
+      if (prev === type) {
+        setModelListVisible(false)
+        return ''
+      }
+      setModelListVisible(true)
+      setShowMaterialList(false)
+      setAgentListVisible(false)
+      return type
+    })
   }, [])
 
   // ── BottomActionBar 核心事件回调(10 个核心) ──
