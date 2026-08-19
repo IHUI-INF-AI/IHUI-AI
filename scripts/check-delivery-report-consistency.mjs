@@ -98,6 +98,14 @@ function isExemptSection(section) {
   if (typeof section === 'object' && section.date) {
     if (section.date <= '2026-07-17') return true
   }
+  // 归档章节豁免: PROJECT_PLAN.md 历史章节用 <!-- 已归档(YYYY-MM-DD): 标记
+  // 这是 PROJECT_PLAN.md 的标准归档协议,标记后的章节已迁至 .trae-cn/archive/PROJECT_PLAN_*_auto-archive.md,
+  // 不应再触发 §11 互斥校验。格式: <!-- 已归档(2026-08-05): 正文... -->
+  // 必须在 body 第一行或紧邻章节标题后检测到 <!-- 已归档(YYYY-MM-DD):
+  if (typeof section === 'object') {
+    const body = section.body.join('\n')
+    if (/<!--\s*已归档\(\d{4}-\d{2}-\d{2}\)\s*:/.test(body)) return true
+  }
   return false
 }
 
