@@ -64,6 +64,8 @@ import { AgentReviewDetailScreen } from '../screens/AgentReviewDetailScreen'
 import { AgentReviewListScreen } from '../screens/AgentReviewListScreen'
 import { AgentStatScreen } from '../screens/AgentStatScreen'
 import { AgentSettingScreen } from '../screens/AgentSettingScreen'
+import { ApiSettingsScreen } from '../screens/ApiSettingsScreen'
+import ModelEditScreen from '../screens/ModelEditScreen'
 import { CourseAnnexScreen } from '../screens/CourseAnnexScreen'
 import { CourseResourceScreen } from '../screens/CourseResourceScreen'
 import { CourseQAListScreen } from '../screens/CourseQAListScreen'
@@ -268,6 +270,8 @@ export type RootStackParamList = {
   AgentReviewList: undefined
   AgentStat: undefined
   AgentSetting: undefined
+  ApiSettings: undefined
+  ModelEdit: undefined
   CourseAnnex: undefined
   CourseResource: undefined
   CourseQAList: undefined
@@ -504,6 +508,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AgentReviewList" component={AgentReviewListScreen} />
             <RootStack.Screen name="AgentStat" component={AgentStatScreen} />
             <RootStack.Screen name="AgentSetting" component={AgentSettingScreen} />
+            <RootStack.Screen name="ApiSettings" component={ApiSettingsScreen} />
+            <RootStack.Screen name="ModelEdit" component={ModelEditScreen} />
             <RootStack.Screen name="CourseAnnex" component={CourseAnnexScreen} />
             <RootStack.Screen name="CourseResource" component={CourseResourceScreen} />
             <RootStack.Screen name="CourseQAList" component={CourseQAListScreen} />

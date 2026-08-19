@@ -186,7 +186,8 @@
     "icpRecord": "ICP 备案",
     "modelRecord": "模型备案",
     "sectionDiscover": "发现",
-    "assistant": "我的助手"
+    "assistant": "我的助手",
+    "apiSettings": "API 设置"
   },
   "error": {
     "network": "网络错误,请稍后重试"
