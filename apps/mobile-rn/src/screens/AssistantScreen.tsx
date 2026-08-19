@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import { getAgents, type Agent } from '@ihui/api-client'
 import {
   AssistantScreen as SharedAssistantScreen,
@@ -15,6 +18,7 @@ import { useI18n } from '../i18n'
 type ViewMode = 'shared' | 'local'
 
 export default function AssistantScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const { t } = useI18n()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [tab, setTab] = useState<AssistantTab>('draft')
@@ -63,8 +67,10 @@ export default function AssistantScreen() {
     void load()
   }
 
-  const handleEdit = (a: AssistantItem) =>
-    Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }))
+  // 编辑智能体 → ModelEdit 页(对齐原项目 dev_enter/model_edit.vue 编辑弹层升级为独立页)
+  const handleEdit = (_a: AssistantItem) => {
+    navigation.navigate('ModelEdit')
+  }
 
   const handleOffline = (a: AssistantItem) =>
     Alert.alert(t('assistant.offline.title'), t('assistant.offline.message', { name: a.name }), [
