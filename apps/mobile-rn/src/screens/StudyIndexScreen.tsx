@@ -403,7 +403,7 @@ export function StudyIndexScreen() {
         navigation.navigate('Distribution')
         break
       case 'tools':
-        navigation.navigate('AiAssistant')
+        navigation.navigate('AiAssistantN8n', {})
         break
     }
   }
