@@ -280,7 +280,6 @@ const MessageItem = React.memo(function MessageItem({
       try {
         const r = await fetchApi<{ token: string }>(`/api/chat/conversations/${convId}/share`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
         })
         if (!r.success || !r.data?.token) throw new Error(r.error || '获取分享链接失败')
         shareToken = r.data.token
