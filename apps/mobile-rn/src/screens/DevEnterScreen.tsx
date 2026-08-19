@@ -6,6 +6,7 @@ import { Input } from '@ihui/ui-native'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type DevType = 'personal' | 'enterprise'
 type Field = 'tech' | 'education' | 'finance' | 'content' | 'other'
@@ -52,7 +53,7 @@ export default function DevEnterScreen() {
         onBack={() => navigation.goBack()}
       />
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: rpx(32), paddingBottom: rpx(64) }}
         showsVerticalScrollIndicator={false}
       >
         <Text className="text-[13px] font-semibold text-body mt-4 mb-2">开发者类型</Text>
