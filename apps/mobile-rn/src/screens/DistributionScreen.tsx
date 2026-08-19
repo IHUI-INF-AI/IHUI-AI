@@ -19,6 +19,7 @@ import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -342,13 +343,13 @@ export function DistributionScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
-  personalInfoWrap: { paddingHorizontal: 16, paddingTop: 12 } as const,
-  statsWrap: { paddingTop: 12, paddingBottom: 4 } as const,
-  functionBlocksWrap: { paddingHorizontal: 16, paddingVertical: 8 } as const,
-  withdrawDetailContent: { gap: 10, paddingVertical: 8 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
+  personalInfoWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24) } as const,
+  statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
+  functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
+  withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
   withdrawDetailText: { fontSize: 14, color: '#333' } as const,
-  shareBtnWrap: { paddingHorizontal: 16, paddingBottom: 4 } as const,
+  shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
     borderRadius: 8,
@@ -363,8 +364,8 @@ const shellStyles = {
   } as const,
   qrContent: {
     alignItems: 'center',
-    paddingVertical: 20,
-    gap: 12,
+    paddingVertical: rpx(40),
+    gap: rpx(24),
   } as const,
   qrCodeBox: {
     width: 200,
@@ -382,8 +383,8 @@ const shellStyles = {
     color: tokens.text.tertiary,
   } as const,
   qrLinkBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     maxWidth: 260,
   } as const,
   qrLinkText: {
