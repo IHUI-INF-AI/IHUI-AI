@@ -36,6 +36,7 @@ import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -637,9 +638,9 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   entryCard: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingHorizontal: rpx(32),
+    paddingTop: rpx(24),
+    paddingBottom: rpx(20),
     backgroundColor: tokens.surface.light,
     borderRadius: ENTRY_CARD_RADIUS,
   } as ViewStyle,
@@ -647,11 +648,11 @@ const styles = StyleSheet.create({
     fontSize: ENTRY_TITLE_FONT_SIZE,
     lineHeight: ENTRY_TITLE_FONT_SIZE + 4,
     color: tokens.text.secondary,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   } as TextStyle,
   entryRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: rpx(16),
   } as ViewStyle,
   entryButton: {
     flex: 1,
@@ -672,17 +673,17 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // ── 价格卡片 Tab ──
   planCard: {
-    marginTop: 10,
-    marginHorizontal: 16,
+    marginTop: rpx(20),
+    marginHorizontal: rpx(32),
     backgroundColor: tokens.surface.light,
     borderRadius: PLAN_CARD_RADIUS,
-    padding: 14,
+    padding: rpx(28),
   } as ViewStyle,
   tabBar: {
     flexDirection: 'row',
     backgroundColor: tokens.surface.muted,
     borderRadius: TAB_RADIUS,
-    padding: 3,
+    padding: rpx(6),
   } as ViewStyle,
   tab: {
     flex: 1,
@@ -716,11 +717,11 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // ── 价格卡片列表 ──
   planScroll: {
-    marginTop: 10,
+    marginTop: rpx(20),
   } as ViewStyle,
   planList: {
     gap: PLAN_ITEM_GAP,
-    paddingBottom: 4,
+    paddingBottom: rpx(8),
   } as ViewStyle,
   planItem: {
     backgroundColor: tokens.surface.muted,
@@ -744,7 +745,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   planTags: {
     flexDirection: 'row',
-    gap: 4,
+    gap: rpx(8),
   } as ViewStyle,
   discountTag: {
     backgroundColor: tokens.danger.light,
@@ -771,7 +772,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   planDetail: {
-    marginTop: 4,
+    marginTop: rpx(8),
     fontSize: PLAN_DETAIL_FONT_SIZE,
     lineHeight: PLAN_DETAIL_FONT_SIZE + 4,
     color: tokens.text.secondary,
@@ -779,8 +780,8 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
-    marginTop: 8,
+    gap: rpx(16),
+    marginTop: rpx(16),
   } as ViewStyle,
   planAmount: {
     fontSize: PLAN_AMOUNT_FONT_SIZE,
@@ -800,7 +801,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   agreementText: {
-    marginTop: 8,
+    marginTop: rpx(16),
     fontSize: AGREEMENT_FONT_SIZE,
     lineHeight: AGREEMENT_FONT_SIZE + 4,
     color: tokens.text.tertiary,
@@ -810,11 +811,11 @@ const styles = StyleSheet.create({
   levelBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: rpx(20),
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
     backgroundColor: tokens.purple.light,
     borderRadius: LEVEL_BANNER_RADIUS,
   } as ViewStyle,
@@ -836,14 +837,14 @@ const styles = StyleSheet.create({
     fontSize: LEVEL_BANNER_HINT_FONT_SIZE,
     lineHeight: LEVEL_BANNER_HINT_FONT_SIZE + 4,
     color: tokens.danger.DEFAULT,
-    marginTop: 2,
+    marginTop: rpx(4),
   } as TextStyle,
   // ── 私董会服务弹窗(BottomPops 子内容样式) ──
   serviceCard: {
     width: '100%',
     backgroundColor: tokens.surface.muted,
     borderRadius: SERVICE_CARD_RADIUS,
-    padding: 14,
+    padding: rpx(28),
     alignItems: 'center',
   } as ViewStyle,
   serviceCardTitle: {
@@ -856,10 +857,10 @@ const styles = StyleSheet.create({
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,
-    marginTop: 4,
+    marginTop: rpx(8),
   } as TextStyle,
   qrCodeBox: {
-    marginTop: 16,
+    marginTop: rpx(32),
     width: 220,
     height: 220,
     borderRadius: QR_BOX_RADIUS,
@@ -869,7 +870,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   } as ViewStyle,
   qrCodeTitle: {
-    marginTop: 12,
+    marginTop: rpx(24),
     fontSize: SERVICE_TITLE_FONT_SIZE,
     lineHeight: SERVICE_TITLE_FONT_SIZE + 4,
     fontWeight: '600',
@@ -877,7 +878,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   qrCodeHint: {
-    marginTop: 6,
+    marginTop: rpx(12),
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,

@@ -476,6 +476,12 @@
 - 模拟器实测:Running "main" 成功,无红屏,登录页/GlobalFloatBox 正常渲染
 - 依赖修复:mobile-rn babel-preset-expo 链接 + .bin 顶层链接(并发 pnpm install 破坏,2026-08-16 两轮修复)
 
+### 收尾:rpx 间距基线统一(2026-08-19)
+
+- 将 `apps/mobile-rn/src/screens|pages` 28 个 Screen 的 StyleSheet 数值间距(padding\*/margin\*/gap\*)统一改写为 `rpx(value*2)`,与设计稿 750rpx 基准精确对齐;`rpx` 工具函数来自 `apps/mobile-rn/src/utils/rpx.ts`(P0-2 已落地)。
+- 修复 codemod 对多行 import 块末尾插入 `import { rpx }` 导致的语法错误(改为插入到最后一个 `} from` 之后),ProfileScreen 等 28 文件受益。
+- 验证:`tsc --noEmit` 0 错误 + `eslint .` 0 错误(仅 28 文件增量)。
+
 ## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
 
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/desktop`(Rust)+ `apps/web`(桌面端 Tauri WebView 内 UI),不参与 api/ai-service/其他端跨端契约同步。
