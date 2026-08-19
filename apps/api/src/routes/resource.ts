@@ -412,7 +412,7 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       userId = request.userId
     } catch {
-      return reply.status(401).send(error(401, 'Authentication required'))
+      return reply.status(401).send(error(401, '操作失败,请稍后重试'))
     }
     const [record] = await db
       .select({

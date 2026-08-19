@@ -265,8 +265,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
-      return reply.status(statusCode).send(error(statusCode, message))
+      // 统一返回中文消息:authenticate() 内部大部分已是中文(封禁/注销/CSRF),
+      // 仅 Authentication required / Invalid or expired token / Challenge token 是英文,
+      // 统一兜底为"操作失败,请稍后重试",避免英文错误消息到达前端用户。
+      return reply.status(statusCode).send(error(statusCode, '操作失败,请稍后重试'))
     }
   }
 
@@ -948,6 +950,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (conversation.userId !== userId) {
       return reply.status(403).send(error(403, '无权访问该对话'))
     }
+    // 跳过响应脱敏：share token 字段名为 token，会被 response-sanitizer 改写为 ***
+    request.skipResponseSanitization = true
     const result = await setConversationShareToken(id, userId)
     return reply.send(success({ token: result.token }))
   })
