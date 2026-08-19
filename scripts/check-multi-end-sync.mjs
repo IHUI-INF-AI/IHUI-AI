@@ -251,7 +251,8 @@ function main() {
     console.log(`    ${C.cyan}跨端:共享包 only (类型/UI/database/auth 单包改动, 8 端引用已验证一致)${C.reset}`)
     console.log(`  ${C.dim}或补完整跨端验证证据 (列出各端 typecheck 输出).${C.reset}`)
     console.log('')
-    process.exit(0)
+    // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+    process.exit(1)
   }
 
   // 场景 3: 触及 ≥2 端 → pass (满足全端连通, 不警告)
@@ -320,7 +321,8 @@ function main() {
       `${C.dim}warn-only 不阻塞 commit, 但请在交付报告中明确跨端处理结论.${C.reset}`,
     )
     console.log('')
-    process.exit(0)
+    // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+    process.exit(1)
   }
 
   // 兜底: 1 端 + 共享包 → 视为跨端, pass
