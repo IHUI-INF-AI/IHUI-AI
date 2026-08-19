@@ -111,6 +111,7 @@ import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { useI18n } from '../i18n'
+import { rpx } from '../utils/rpx'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -1734,16 +1735,16 @@ const styles = StyleSheet.create({
   navRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: rpx(32),
   },
   // ── 消息列表 ──
   msgListContent: {
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(24),
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },
   msgRow: {
-    marginVertical: 10,
+    marginVertical: rpx(20),
     flexDirection: 'row',
   },
   msgRowUser: {
@@ -1757,14 +1758,14 @@ const styles = StyleSheet.create({
   },
   msgActions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-    paddingLeft: 12,
+    gap: rpx(16),
+    marginTop: rpx(8),
+    paddingLeft: rpx(24),
   },
   msgActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rpx(8),
   },
   msgActionText: {
     fontSize: 12,
@@ -1772,8 +1773,8 @@ const styles = StyleSheet.create({
   },
   msgBubble: {
     maxWidth: '78%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
     borderRadius: 16,
   },
   msgBubbleUser: {
@@ -1804,8 +1805,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
   },
   materialPopupTitle: {
     fontSize: 14,
@@ -1817,16 +1818,16 @@ const styles = StyleSheet.create({
     maxHeight: 72,
   },
   materialCardsContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    gap: rpx(16),
   },
   materialCard: {
     width: 120,
     height: 56,
     backgroundColor: tokens.surface.card,
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(12),
     justifyContent: 'center',
   },
   materialCardClose: {
@@ -1848,15 +1849,15 @@ const styles = StyleSheet.create({
   materialCardPreview: {
     fontSize: 11,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: rpx(4),
   },
   // ── 图片附件列表 ──
   imgsListScroll: {
     maxHeight: 60,
   },
   imgsListContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    gap: rpx(16),
   },
   imgsListItem: {
     position: 'relative',
@@ -1881,16 +1882,16 @@ const styles = StyleSheet.create({
     maxHeight: 44,
   },
   modelTypeContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    gap: rpx(16),
     alignItems: 'center',
   },
   modelTypeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: rpx(8),
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.card,
     height: 30,
@@ -1911,16 +1912,16 @@ const styles = StyleSheet.create({
   },
   // ── 功能开关组(ToggleButtonGroup 容器) ──
   toggleGroupWrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(4),
   },
   // ── 输入框区域 ──
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
+    gap: rpx(16),
     backgroundColor: tokens.surface.light,
     marginBottom: BOTTOM_BAR_TOTAL,
   },
@@ -1939,8 +1940,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 36,
     maxHeight: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
     borderRadius: 6,
     backgroundColor: tokens.surface.card,
     fontSize: 14,
@@ -1958,7 +1959,7 @@ const styles = StyleSheet.create({
     width: 320,
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
     alignItems: 'center',
   },
   qrCodeClose: {
@@ -1980,16 +1981,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: rpx(24),
   },
   qrCodeTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: tokens.text.primary,
-    marginBottom: 10,
+    marginBottom: rpx(20),
   },
   qrCodeHint: {
-    padding: 4,
+    padding: rpx(8),
   },
   qrCodeHintText: {
     fontSize: 12,
@@ -2000,7 +2001,7 @@ const styles = StyleSheet.create({
     width: 300,
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
-    padding: 24,
+    padding: rpx(48),
     alignItems: 'center',
   },
   shareClose: {
@@ -2016,19 +2017,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: tokens.text.primary,
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: rpx(24),
+    marginBottom: rpx(16),
   },
   shareDesc: {
     fontSize: 13,
     lineHeight: 19,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   shareBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(48),
+    paddingVertical: rpx(20),
     borderRadius: 6,
     backgroundColor: tokens.brand.DEFAULT,
   },
@@ -2049,8 +2050,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
     backgroundColor: tokens.surface.light,
   },
   listDialogTitle: {
@@ -2068,9 +2069,9 @@ const styles = StyleSheet.create({
   panelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: rpx(32),
     height: 56,
-    gap: 14,
+    gap: rpx(28),
   },
   panelItemPressed: {
     opacity: 0.85,
@@ -2081,8 +2082,8 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   panelCancelBtn: {
-    marginHorizontal: 16,
-    marginTop: 8,
+    marginHorizontal: rpx(32),
+    marginTop: rpx(16),
     height: 48,
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
@@ -2104,8 +2105,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
     backgroundColor: tokens.surface.card,
   },
   fangdaTitle: {
@@ -2114,25 +2115,25 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   fangdaCloseBtn: {
-    padding: 4,
+    padding: rpx(8),
   },
   fangdaInput: {
     flex: 1,
     fontSize: 16,
     color: tokens.text.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
     textAlignVertical: 'top',
   },
   fangdaFooter: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
     backgroundColor: tokens.surface.card,
   },
   fangdaSendBtn: {
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
   },
   fangdaSendBtnText: {
@@ -2142,7 +2143,7 @@ const styles = StyleSheet.create({
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {
-    paddingVertical: 32,
+    paddingVertical: rpx(64),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2151,14 +2152,14 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   ttsOptions: {
-    paddingVertical: 8,
-    gap: 4,
+    paddingVertical: rpx(16),
+    gap: rpx(8),
   },
   ttsOptionBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
-    marginHorizontal: 16,
+    marginHorizontal: rpx(32),
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -2167,17 +2168,17 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   ttsCancelBtn: {
-    marginTop: 12,
-    marginBottom: 16,
+    marginTop: rpx(24),
+    marginBottom: rpx(32),
   },
   // ── P1.4 网页链接输入 Modal ──
   urlInputBody: {
-    padding: 16,
-    gap: 12,
+    padding: rpx(32),
+    gap: rpx(24),
   },
   urlInputField: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
     fontSize: 14,
@@ -2186,7 +2187,7 @@ const styles = StyleSheet.create({
   urlInputConfirmBtn: {
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
   },
   urlInputConfirmText: {
@@ -2196,8 +2197,8 @@ const styles = StyleSheet.create({
   },
   // ── P1.5 文件上传 Modal ──
   fileUploadBody: {
-    padding: 16,
-    gap: 12,
+    padding: rpx(32),
+    gap: rpx(24),
   },
   fileUploadDesc: {
     fontSize: 14,
@@ -2207,11 +2208,11 @@ const styles = StyleSheet.create({
   fileUploadTypeList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: rpx(16),
   },
   fileUploadTypeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(12),
     borderRadius: 6,
     backgroundColor: tokens.surface.muted,
   },
@@ -2226,9 +2227,9 @@ const styles = StyleSheet.create({
   fileUploadConfirmBtn: {
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: rpx(8),
   },
   fileUploadConfirmText: {
     fontSize: 15,

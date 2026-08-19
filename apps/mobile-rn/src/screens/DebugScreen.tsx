@@ -7,6 +7,7 @@ import { useI18n } from '../i18n'
 import { NavBar } from '../components/NavBar'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -103,24 +104,24 @@ export function DebugScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 16 },
+  body: { padding: rpx(32) },
   warningBar: {
-    padding: 10,
+    padding: rpx(20),
     borderRadius: 8,
     backgroundColor: tokens.warning.amberLight,
-    marginBottom: 12,
+    marginBottom: rpx(24),
   },
   warningText: { fontSize: 11, color: tokens.warning.amberText },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
+  card: { padding: rpx(24), marginBottom: rpx(24), borderRadius: 8 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: rpx(16),
   },
   rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
   label: { fontSize: 12, color: tokens.text.secondary },
   value: { fontSize: 13, color: tokens.text.primary, maxWidth: 200 },
-  btn: { marginTop: 8, borderRadius: 8 },
-  btnPrimary: { marginTop: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  btn: { marginTop: rpx(16), borderRadius: 8 },
+  btnPrimary: { marginTop: rpx(16), borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
 })

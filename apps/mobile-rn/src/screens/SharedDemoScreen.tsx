@@ -20,6 +20,7 @@ import type {
 import { getProfile, getUserStatistics, type AuthUser, type UserStatistics } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { rpx } from '../utils/rpx'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
@@ -246,28 +247,28 @@ export function SharedDemoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabs: { flexDirection: 'row', padding: 8, gap: 8 },
+  tabs: { flexDirection: 'row', padding: rpx(16), gap: rpx(16) },
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: rpx(16),
+    paddingHorizontal: rpx(24),
     borderRadius: 8,
     backgroundColor: tokens.surface.card,
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, fontWeight: '500', color: tokens.text.medium },
   statusText: {
-    padding: 12,
+    padding: rpx(24),
     fontSize: 13,
     color: tokens.text.tertiary,
     textAlign: 'center',
   },
   cardsScroll: { flex: 1 },
-  cardsContent: { padding: 16, gap: 8 },
+  cardsContent: { padding: rpx(32), gap: rpx(16) },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: tokens.text.primary,
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: rpx(24),
+    marginBottom: rpx(8),
   },
 })

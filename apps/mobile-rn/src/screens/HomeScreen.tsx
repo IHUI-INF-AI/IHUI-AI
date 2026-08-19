@@ -75,6 +75,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -548,7 +549,7 @@ export function HomeScreen() {
 
   /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 搜索 + 加入社区群 + 分享)
    *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
-   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal:12) */
+   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
     { icon: '☰', label: '菜单', onPress: handleMenuPress },
   ]
@@ -1291,23 +1292,23 @@ export function HomeScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
-  voiceInputWrap: { paddingHorizontal: 12, paddingVertical: 6 } as const,
-  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop:9 + 圆角 30rpx≈15)
-  carouselWrap: { marginTop: 9, marginBottom: 8, borderRadius: 15, overflow: 'hidden' } as const,
-  toolbarWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  cardListWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  aiModelWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  sectionWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
+  voiceInputWrap: { paddingHorizontal: rpx(24), paddingVertical: rpx(12) } as const,
+  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
+  carouselWrap: { marginTop: rpx(18), marginBottom: rpx(16), borderRadius: 15, overflow: 'hidden' } as const,
+  toolbarWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
-  agentListWrap: { paddingVertical: 8 } as const,
-  bottomFigureWrap: { paddingHorizontal: 10, paddingTop: 8, marginBottom: 10 } as const,
+  agentListWrap: { paddingVertical: rpx(16) } as const,
+  bottomFigureWrap: { paddingHorizontal: rpx(20), paddingTop: rpx(16), marginBottom: rpx(20) } as const,
   // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
   backToTop: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -17,
+    marginLeft: rpx(-34),
     bottom: 150,
     width: 34,
     height: 34,
@@ -1332,15 +1333,15 @@ const shellStyles = {
     backgroundColor: tokens.surface.card,
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(12),
   } as const,
   modelTypeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 6,
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(12),
+    marginRight: rpx(12),
     borderRadius: 16,
     backgroundColor: tokens.surface.muted,
   } as const,
@@ -1349,7 +1350,7 @@ const shellStyles = {
   } as const,
   modelTypeIcon: {
     fontSize: 14,
-    marginRight: 4,
+    marginRight: rpx(8),
   } as const,
   modelTypeLabel: {
     fontSize: 12,
@@ -1364,9 +1365,9 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginTop: rpx(0),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(8),
     borderRadius: 12,
     backgroundColor: tokens.purple.light,
   } as const,
@@ -1380,26 +1381,26 @@ const shellStyles = {
     fontSize: 14,
     lineHeight: 16,
     color: tokens.purple.DEFAULT,
-    marginLeft: 6,
+    marginLeft: rpx(12),
     fontWeight: '700',
   } as const,
   // ── selectedChipRow + configBtn(对齐 Uniapp ai_index 已选模型 + 配置按钮同行) ──
   selectedChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: rpx(12),
   } as const,
   configBtn: {
-    marginLeft: 8,
-    padding: 6,
+    marginLeft: rpx(16),
+    padding: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   } as const,
   // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
   creationEntry: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
   } as const,
   creationEntryText: {
     fontSize: 13,
@@ -1422,8 +1423,8 @@ const shellStyles = {
   materialSheetBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     backgroundColor: tokens.surface.light,
   } as const,
   materialSheetClose: {
@@ -1431,7 +1432,7 @@ const shellStyles = {
     lineHeight: 24,
     color: tokens.text.tertiary,
     fontWeight: '300',
-    paddingHorizontal: 4,
+    paddingHorizontal: rpx(8),
   } as const,
   // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
   modelModalBackdrop: {
@@ -1445,15 +1446,15 @@ const shellStyles = {
     backgroundColor: tokens.surface.light,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: rpx(32),
+    paddingBottom: rpx(16),
   } as const,
   modelModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: rpx(32),
+    paddingBottom: rpx(16),
   } as const,
   modelModalTitle: {
     flex: 1,
@@ -1466,6 +1467,6 @@ const shellStyles = {
     lineHeight: 24,
     color: tokens.text.tertiary,
     fontWeight: '300',
-    paddingHorizontal: 4,
+    paddingHorizontal: rpx(8),
   } as const,
 }

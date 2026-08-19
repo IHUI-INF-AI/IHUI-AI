@@ -77,6 +77,7 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -711,13 +712,13 @@ export default function AiAssistantN8nScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
-  valueCardWrap: { paddingHorizontal: 8, marginTop: 4 },
+  valueCardWrap: { paddingHorizontal: rpx(16), marginTop: rpx(8) },
   body: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 16 },
+  listContent: { paddingHorizontal: rpx(32), paddingVertical: rpx(16), paddingBottom: rpx(32) },
   // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
   voiceInputWrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   },
   // 模型选择条(对齐 Uniapp ModelList 位置:输入区上方)
@@ -725,8 +726,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
     backgroundColor: tokens.surface.card,
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
@@ -740,9 +741,9 @@ const styles = StyleSheet.create({
   modelConfigBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    gap: rpx(4),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(6),
     borderRadius: 6,
     backgroundColor: tokens.surface.muted,
   },
@@ -757,7 +758,7 @@ const styles = StyleSheet.create({
   modelBarArrow: {
     fontSize: 18,
     color: tokens.text.tertiary,
-    marginLeft: 8,
+    marginLeft: rpx(16),
   },
   // 快捷操作区(对齐 Uniapp quick-actions-container)
   quickWrap: {
@@ -766,13 +767,13 @@ const styles = StyleSheet.create({
     borderTopColor: tokens.border.light,
   },
   quickScrollContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
+    gap: rpx(16),
   },
   quickChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     borderRadius: 16,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -786,21 +787,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 6,
+    gap: rpx(12),
+    paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   },
   streamingText: { fontSize: 12, color: tokens.text.tertiary },
 })
 
 const bubbleStyles = StyleSheet.create({
-  row: { flexDirection: 'row', marginVertical: 4 },
+  row: { flexDirection: 'row', marginVertical: rpx(8) },
   rowUser: { justifyContent: 'flex-end' },
   rowAi: { justifyContent: 'flex-start' },
   bubble: {
     maxWidth: '78%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
     borderRadius: 8,
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
@@ -812,8 +813,8 @@ const bubbleStyles = StyleSheet.create({
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
+    gap: rpx(12),
+    marginTop: rpx(16),
   },
   chatImage: {
     width: 120,
@@ -840,8 +841,8 @@ const pickerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
     borderBottomWidth: 1,
     borderBottomColor: tokens.border.light,
   },
