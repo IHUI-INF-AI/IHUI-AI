@@ -11,11 +11,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 
-const { apiMocks } = vi.hoisted(() => ({
+const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
   apiMocks: {
     getBalance: vi.fn(),
     fetchApi: vi.fn(),
   },
+  alertCallbacks: [] as Array<() => void>,
 }))
 
 vi.mock('@ihui/api-client', () => ({
@@ -61,6 +62,13 @@ vi.mock('react-native', async () => {
     TextInput: mk('input'),
     RefreshControl: () => null,
     useColorScheme: () => 'light',
+    // Alert 二次确认弹窗:捕获按钮 onPress,测试中手动触发「确认」走提现
+    Alert: {
+      alert: vi.fn((_title: string, _msg: string, buttons?: { text: string; onPress?: () => void }[]) => {
+        const confirm = buttons?.find((b) => b.text === 'common.confirm')
+        if (confirm?.onPress) alertCallbacks.push(confirm.onPress)
+      }),
+    },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
@@ -105,6 +113,7 @@ const mockBalance = {
 describe('WalletScreen 余额查询', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    alertCallbacks.length = 0
   })
 
   it('正常加载:显示余额、冻结、充值、提现', async () => {
@@ -208,6 +217,8 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
+    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
     expect(apiMocks.fetchApi).toHaveBeenCalledTimes(1)
@@ -226,6 +237,8 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
+    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy())
   })
@@ -238,6 +251,8 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
+    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy())
   })
@@ -250,6 +265,8 @@ describe('WithdrawScreen 提现流程', () => {
     const amountInput = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(amountInput, { target: { value: '50' } })
     fireEvent.click(getByText('withdraw.submit'))
+    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
     const body = JSON.parse(apiMocks.fetchApi.mock.calls[0]![1].body)
