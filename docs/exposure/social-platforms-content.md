@@ -196,11 +196,11 @@ T+10 (下周五)  │ Reddit r/LocalLLaMA（间隔 3 天以上）
 
 | 文件 | 路径 | 内容 |
 |---|---|---|
-| ProductHunt | `d:\桌面\项目\IHUI-AI\.trae-cn\tmp\producthunt-launch.md` | 提交字段 + Maker Comment + Launch Day Checklist |
-| V2EX | `d:\桌面\项目\IHUI-AI\.trae-cn\tmp\v2ex-post.md` | 标题 + 正文 + 评论应对预案 |
-| 微博 | `d:\桌面\项目\IHUI-AI\.trae-cn\tmp\weibo-post.md` | 3 条文案 + 9 图占位 + 话题策略 |
-| Reddit | `d:\桌面\项目\IHUI-AI\.trae-cn\tmp\reddit-post.md` | Title + Body + anti-marketing 规则 |
-| 知乎 | `d:\桌面\项目\IHUI-AI\.trae-cn\tmp\zhihu-article.md` | 8 节长文 + 架构图占位 |
-| 本汇总 | `d:\桌面\项目\IHUI-AI\docs\exposure\social-platforms-content.md` | 平台索引 + 执行计划 |
+| ProductHunt | `<repo-root>\.trae-cn\tmp\producthunt-launch.md` | 提交字段 + Maker Comment + Launch Day Checklist |
+| V2EX | `<repo-root>\.trae-cn\tmp\v2ex-post.md` | 标题 + 正文 + 评论应对预案 |
+| 微博 | `<repo-root>\.trae-cn\tmp\weibo-post.md` | 3 条文案 + 9 图占位 + 话题策略 |
+| Reddit | `<repo-root>\.trae-cn\tmp\reddit-post.md` | Title + Body + anti-marketing 规则 |
+| 知乎 | `<repo-root>\.trae-cn\tmp\zhihu-article.md` | 8 节长文 + 架构图占位 |
+| 本汇总 | `<repo-root>\docs\exposure\social-platforms-content.md` | 平台索引 + 执行计划 |
 
 > 草稿状态: 未发布。所有链接为产品真实链接，发布前需用户确认。
