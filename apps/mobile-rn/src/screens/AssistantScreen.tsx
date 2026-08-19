@@ -13,6 +13,7 @@ import {
 } from '@ihui/rn-app'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import MaterialList, { type MaterialItem } from '../components/MaterialList'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 
 type ViewMode = 'shared' | 'local'
@@ -104,6 +105,7 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.shell}>
+      <NavBar title="智能体助手" onBack={() => navigation.goBack()} />
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
