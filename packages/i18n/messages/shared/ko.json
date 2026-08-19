@@ -377,7 +377,8 @@
       "order": "주문",
       "social": "소셜",
       "system": "시스템"
-    }
+    },
+    "conversations": "대화"
   },
   "messageDirect": {
     "title": "다이렉트 메시지",
