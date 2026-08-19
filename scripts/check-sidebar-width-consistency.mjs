@@ -28,8 +28,22 @@ const C = {
   reset: '\x1b[0m',
 }
 
-const TOKENS_PATH = join(ROOT, 'apps/web/src/styles/design-tokens.css')
+const TOKENS_CANDIDATES = [
+  'packages/design-tokens/src/styles/tokens.css',
+  'packages/design-tokens/dist/styles/tokens.css',
+  'apps/web/src/styles/design-tokens.css',
+]
 const SIDEBAR_PATH = join(ROOT, 'apps/web/src/components/sidebar.tsx')
+
+function pickTokensPath() {
+  for (const rel of TOKENS_CANDIDATES) {
+    const abs = join(ROOT, rel)
+    if (existsSync(abs)) return abs
+  }
+  return null
+}
+
+const TOKENS_PATH = pickTokensPath()
 
 // --staged 模式:只在相关文件被 staged 时才检查
 if (isStaged) {
@@ -43,7 +57,7 @@ if (isStaged) {
     const relevant = files.some(
       (f) =>
         f.includes('design-tokens.css') ||
-        f.includes('sidebar.tsx') ||
+        f.includes('tokens.css') ||
         f.includes('sidebar.tsx'),
     )
     if (!relevant) {
@@ -57,13 +71,15 @@ if (isStaged) {
 
 let hasError = false
 
-// 1. 读 design-tokens.css 的 --sidebar-width
+// 1. 读 tokens.css 的 --sidebar-width
 let cssWidth = null
-if (existsSync(TOKENS_PATH)) {
+let cssSourceLabel = null
+if (TOKENS_PATH) {
   const css = readFileSync(TOKENS_PATH, 'utf8')
   const m = css.match(/--sidebar-width:\s*(\d+)px/)
   if (m) {
     cssWidth = Number(m[1])
+    cssSourceLabel = TOKENS_PATH.replace(ROOT + '\\', '').replace(ROOT + '/', '')
   }
 }
 
@@ -81,16 +97,20 @@ if (existsSync(SIDEBAR_PATH)) {
 console.log('📏 检查侧边栏宽度一致性(design-tokens.css vs sidebar.tsx)...')
 
 if (cssWidth === null) {
-  console.log(`${C.yellow}  ⚠️  design-tokens.css 中未找到 --sidebar-width 定义${C.reset}`)
+  if (!TOKENS_PATH) {
+    console.log(`${C.yellow}  ⚠️  未找到 design-tokens 源文件(已尝试: ${TOKENS_CANDIDATES.join(', ')})${C.reset}`)
+  } else {
+    console.log(`${C.yellow}  ⚠️  ${cssSourceLabel || 'tokens.css'} 中未找到 --sidebar-width 定义${C.reset}`)
+  }
 } else if (jsWidth === null) {
   console.log(`${C.yellow}  ⚠️  sidebar.tsx 中未找到 SIDEBAR_WIDTH 常量${C.reset}`)
 } else if (cssWidth !== jsWidth) {
-  console.log(`${C.red}  ❌ 不一致!design-tokens.css --sidebar-width: ${cssWidth}px ≠ sidebar.tsx SIDEBAR_WIDTH: ${jsWidth}px${C.reset}`)
+  console.log(`${C.red}  ❌ 不一致!${cssSourceLabel} --sidebar-width: ${cssWidth}px ≠ sidebar.tsx SIDEBAR_WIDTH: ${jsWidth}px${C.reset}`)
   console.log(`${C.red}     这会导致首屏 CSS 预设 ${cssWidth}px → JS useEffect 覆盖 ${jsWidth}px 的宽度跳变闪烁${C.reset}`)
-  console.log(`${C.dim}     修复:把 design-tokens.css 的 --sidebar-width 改为 ${jsWidth}px${C.reset}`)
+  console.log(`${C.dim}     修复:把 ${cssSourceLabel} 的 --sidebar-width 改为 ${jsWidth}px${C.reset}`)
   hasError = true
 } else {
-  console.log(`${C.green}  ✅ 一致:--sidebar-width: ${cssWidth}px === SIDEBAR_WIDTH: ${jsWidth}px${C.reset}`)
+  console.log(`${C.green}  ✅ 一致:${cssSourceLabel} --sidebar-width: ${cssWidth}px === SIDEBAR_WIDTH: ${jsWidth}px${C.reset}`)
 }
 
 if (hasError) {
