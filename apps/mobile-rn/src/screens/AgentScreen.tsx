@@ -269,7 +269,8 @@ export function AgentScreen() {
         return
       }
       const agent = items.find((a) => a.id === id)
-      navigation.navigate('AiAssistant', { agentId: id, title: agent?.name })
+      // 对齐 Uniapp ai_index.vue handleAgentPitch → /pages/tools/ai_assistant(智能体对话页,带 modelNamea/type/code)
+      navigation.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
     },
     [token, t, navigation, items],
   )
@@ -361,13 +362,14 @@ export function AgentScreen() {
   }, [showToast])
   const handleDrawerCreateNewChat = useCallback((): void => {
     setDrawerVisible(false)
-    navigation.navigate('AiAssistant')
+    // 对齐 Uniapp addNewChat → ai_index2/ai_assistant 对话页
+    navigation.navigate('AiAssistantN8n', {})
   }, [navigation])
   const handleDrawerSelectConversation = useCallback(
     (id: string): void => {
       setDrawerVisible(false)
       const conv = drawerConversations.find((c) => c.id === id)
-      navigation.navigate('AiAssistant', { agentId: id, title: conv?.title })
+      navigation.navigate('AiAssistantN8n', { agentId: id, title: conv?.title })
     },
     [navigation, drawerConversations],
   )

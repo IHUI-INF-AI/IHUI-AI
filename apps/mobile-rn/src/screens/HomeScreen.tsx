@@ -477,7 +477,7 @@ export function HomeScreen() {
         rootNav?.navigate('Distribution')
         break
       case 'tools':
-        rootNav?.navigate('AiAssistant')
+        rootNav?.navigate('AiAssistantN8n', {})
         break
       default:
         // 未识别的扩展菜单,静默忽略(防御性:防止 EXTRA_MENUS 配置漂移)
