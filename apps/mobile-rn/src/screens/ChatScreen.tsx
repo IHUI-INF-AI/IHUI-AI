@@ -990,7 +990,7 @@ export function ChatScreen() {
   }
   const handleDrawerClaimFree = (): void => {
     // 复制飞书免费资料链接到剪贴板 + FloatBox 提示
-    const feishuUrl = 'https://ihui.feishu.cn/wiki/'
+    const feishuUrl = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
     Clipboard.setString(feishuUrl)
     showToast('success', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }

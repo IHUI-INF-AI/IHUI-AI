@@ -39,6 +39,7 @@ export type {
   CertificateScreenProps,
   MessageTab,
   MessageCenterItem,
+  MessageConversationItem,
   MessageCenterScreenProps,
   AppOrderStatus,
   OrderTab,
