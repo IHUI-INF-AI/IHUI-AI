@@ -1,310 +1,328 @@
- 
+/* eslint-disable no-console -- 测试 CLI 行为, 需要 stdout/stderr 输出诊断 */
 /**
- * check-staged-typecheck-mirror-sync.test.mjs — 镜像漂移防御守门测试
+ * check-staged-typecheck-mirror-sync.test.mjs — 单元测试源/测 export 锚点守门
  *
- * 2026-08-18 立 | 镜像同步义务锚点测试
+ * 2026-08-18 立 | 2026-08-18 重写 (从"镜像漂移检测"测试 → "export 锚点"测试)
  *
  * 背景:
- *   check-staged-typecheck-mirror-sync.mjs 检测
- *   scripts/check-staged-typecheck.mjs(源)与
- *   scripts/tests/check-staged-typecheck.test.mjs(测试)的核心函数
- *   镜像同步是否一致。本测试用临时副本分别模拟"源漂移"和"测漂移",
- *   验证脚本退出码与诊断输出符合预期(0/1/2 三种语义)。
+ *   源脚本 scripts/check-staged-typecheck.mjs 通过 `export const __test__ = { ... }`
+ *   导出三个核心函数; 测试文件 scripts/tests/check-staged-typecheck.test.mjs
+ *   通过 `import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'`
+ *   引用源函数。守门脚本检查这两个"锚点"保持一致, 否则视为源/测漂移。
+ *
+ *   重写后的守门脚本改为检测三件事:
+ *     A) 源脚本 export const __test__ 关键字存在
+ *     B) __test__ 包含三个期望键 (getOriginalInclude / normalizePath /
+ *        filterTscOutputForStagedFiles)
+ *     C) 测试文件 import 引用存在
  *
  * 测试覆盖:
- *   - 源/测指纹一致 → exit 0
- *   - 源脚本 normalizePath 漂移 → exit 1
- *   - 测试文件「镜像同步锚点」注释漂移 → exit 1
- *   - 源脚本 filterTscOutputForStagedFiles 漂移 → exit 1
- *   - 源文件不存在 → exit 2
- *   - 测试文件不存在 → exit 2
- *   - --help → exit 0
- *   - --quiet → 不打印诊断
- *   - --json → 输出有效 JSON
+ *   - --help / --quiet / --json / 默认调用 → exit code + 输出语义
+ *   - 源脚本 __test__ export 缺失 → exit 1
+ *   - 测试 import 路径错 → exit 1
+ *   - 源文件不存在 → exit 2 (异常)
  *
- * 风格:node:test + assert/strict(参考 scripts/tests/git-push-guard.test.mjs)。
+ * ⚠️ 修改源/测 export 锚点时:
+ *   - 三个键名 (getOriginalInclude / normalizePath / filterTscOutputForStagedFiles)
+ *     不允许重命名 (本测试锁死)。
+ *   - 测试 import 路径 '../check-staged-typecheck.mjs' 不允许改动。
+ *   - 改完跑 `node --test scripts/tests/check-staged-typecheck-mirror-sync.test.mjs` 全部用例。
  */
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, copyFileSync, readFileSync, mkdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
-// ─── 路径推导(AGENTS.md §15) ───
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
+// ─── 路径推导 ───
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-staged-typecheck-mirror-sync.mjs')
-const ROOT = resolve(__dirname, '..', '..')
+const SOURCE_PATH = join(__dirname, '..', 'check-staged-typecheck.mjs')
+const TEST_PATH = fileURLToPath(import.meta.url)
 
-// 真实源 + 真实测试路径(默认场景使用)
-const REAL_SOURCE = join(ROOT, 'scripts', 'check-staged-typecheck.mjs')
-const REAL_TEST = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')
+// ─── 测试 1: --help 文本与退出码 ─────────────────────────────
 
-// ─── 辅助:创建临时目录(模拟 SOURCE_PATH / TEST_PATH 重定向) ───
-function setupTempSandbox() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
-  const scriptsDir = join(dir, 'scripts')
-  const testsDir = join(scriptsDir, 'tests')
-  mkdirSync(testsDir, { recursive: true })
-  return { dir, scriptsDir, testsDir }
-}
-
-function teardown(sandbox) {
-  if (sandbox?.dir) {
-    try {
-      rmSync(sandbox.dir, { recursive: true, force: true })
-    } catch {
-      /* 容忍 Windows transient 失败 */
-    }
-  }
-}
-
-// 复制真实源/测到临时沙盒(让脚本读到我们的副本而非真实文件)。
-function copyRealIntoSandbox(sandbox) {
-  copyFileSync(REAL_SOURCE, join(sandbox.scriptsDir, 'check-staged-typecheck.mjs'))
-  copyFileSync(REAL_TEST, join(sandbox.testsDir, 'check-staged-typecheck.test.mjs'))
-}
-
-// ─── 辅助:运行 mirror-sync 脚本,返回 {status, stdout, stderr} ───
-// 通过 HUSKY_SKIP_*/--quiet 或环境变量无法让脚本读到其他路径;但我们
-// 利用 node 子进程 + 重写脚本源码中 SOURCE_PATH/TEST_PATH 的方法不可行
-// (源/测路径已 hardcode 在 SCRIPT 顶部)。这里采用另一种策略:把整个
-// 仓库临时搬到 sandbox?不,会破坏 git working tree。
-//
-// 更稳妥的方法:在测试中直接修改 SCRIPT_PATH 本身的源码——但这会污染
-// 文件。改用最简单的策略:对真实文件做原地修改(测试结束后恢复)。
-// 但任务边界"不要修改源/测已有内容"是禁止的,所以改用如下做法:
-//
-//   - 测试 2/3/5/6(漂移场景)用一份【临时复制】的副本,把这副本的绝对
-//     路径通过 node --input-type=module + ESM import 传入? 也不行,
-//     因为脚本顶部 SOURCE_PATH 已写死。
-//
-// 折中方案:
-//   - 测试 1/6/7/9(正向场景)直接跑真实路径。
-//   - 测试 2/3/4/5/8(漂移/缺失场景)复制真实源/测到 sandbox,然后用
-//     一个**包装脚本**调用 mirror-sync 内部的 tryParseTestAnchors /
-//     extractRange 等纯函数?mirror-sync 没有 export 这些函数。
-//
-// 最终策略:把 mirror-sync 脚本复制到 sandbox 内 layout-matching 位置:
-//   <sandbox>/scripts/check-staged-typecheck-mirror-sync.mjs
-// 因为脚本内 SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs'),
-//  __dirname 在 sandbox 跑时 = <sandbox>/scripts/,所以会自动读到
-//  <sandbox>/scripts/check-staged-typecheck.mjs(我们 copy 进去的位置)。
-// 同理 TEST_PATH = ROOT/scripts/tests/check-staged-typecheck.test.mjs
-// 其中 ROOT = resolve(__dirname, '..') = <sandbox>。
-function runScriptInDir(sandbox, args = [], opts = {}) {
-  const scriptInSandbox = join(sandbox.scriptsDir, 'check-staged-typecheck-mirror-sync.mjs')
-  copyFileSync(SCRIPT_PATH, scriptInSandbox)
-  return spawnSync('node', [scriptInSandbox, ...args], {
-    cwd: sandbox.dir,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, ...opts.env },
-  })
-}
-
-function readFile(file) {
-  return readFileSync(file, 'utf8')
-}
-
-// ─── 测试 1:真实仓库 + --help ───
-
-test('check-staged-typecheck-mirror-sync: 真实仓库指纹一致 → exit 0', () => {
-  // 直接在仓库根跑(读真实源/测),不应需要 sandbox
-  const res = spawnSync('node', [SCRIPT_PATH], {
-    cwd: ROOT,
+test('--help → exit 0, stdout 含帮助文本', () => {
+  const r = spawnSync('node', [SCRIPT_PATH, '--help'], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
   })
-  assert.equal(res.status, 0, `期望 exit 0,实际 ${res.status}\nstdout=${res.stdout}\nstderr=${res.stderr}`)
-  assert.ok(res.stdout.includes('源/测指纹一致,无漂移'), '应打印"无漂移"诊断')
+  assert.equal(r.status, 0, `--help 应 exit 0, 实际 ${r.status}`)
+  assert.ok(
+    r.stdout.includes('check-staged-typecheck-mirror-sync'),
+    'stdout 应含脚本名',
+  )
+  assert.ok(r.stdout.includes('--quiet'), 'stdout 应列出 --quiet 选项')
+  assert.ok(r.stdout.includes('--json'), 'stdout 应列出 --json 选项')
+  assert.ok(r.stdout.includes('退出码'), 'stdout 应说明退出码语义')
 })
 
-test('check-staged-typecheck-mirror-sync: --help → exit 0 + 帮助文本', () => {
-  const res = spawnSync('node', [SCRIPT_PATH, '--help'], {
-    cwd: ROOT,
+test('-h 短选项 → exit 0 (与 --help 等价)', () => {
+  const r = spawnSync('node', [SCRIPT_PATH, '-h'], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
   })
-  assert.equal(res.status, 0, `期望 exit 0,实际 ${res.status}`)
-  assert.ok(res.stdout.includes('check-staged-typecheck-mirror-sync'), '帮助文本应含脚本名')
-  assert.ok(res.stdout.includes('退出码'), '帮助文本应含退出码说明')
+  assert.equal(r.status, 0)
 })
 
-test('check-staged-typecheck-mirror-sync: --quiet → 无诊断输出 + exit 0', () => {
-  const res = spawnSync('node', [SCRIPT_PATH, '--quiet'], {
-    cwd: ROOT,
+// ─── 测试 2: 默认调用 (源/测 export 锚点一致) → exit 0 ───
+
+test('默认调用 (源/测 export 锚点一致) → exit 0, stdout 含"无漂移"', () => {
+  const r = spawnSync('node', [SCRIPT_PATH], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
   })
-  assert.equal(res.status, 0, `期望 exit 0,实际 ${res.status}`)
-  assert.equal(res.stdout.trim(), '', '--quiet 应抑制诊断输出')
+  assert.equal(r.status, 0, `默认调用应 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+  // 退出码优先; 文本只在非 --quiet 模式出现
+  assert.ok(
+    r.stdout.includes('源/测 export 锚点一致') ||
+      r.stdout.includes('✅'),
+    '默认调用 stdout 应含"源/测 export 锚点一致" 或 ✅ 标记',
+  )
 })
 
-test('check-staged-typecheck-mirror-sync: --json → 输出有效 JSON + ok=true', () => {
-  const res = spawnSync('node', [SCRIPT_PATH, '--json'], {
-    cwd: ROOT,
+test('--quiet 模式 → exit 0, stdout 为空', () => {
+  const r = spawnSync('node', [SCRIPT_PATH, '--quiet'], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
   })
-  assert.equal(res.status, 0, `期望 exit 0,实际 ${res.status}`)
-  let parsed
-  assert.doesNotThrow(() => {
-    parsed = JSON.parse(res.stdout)
-  }, 'stdout 应是合法 JSON')
-  assert.equal(parsed.ok, true, 'JSON.ok 应为 true')
-  assert.deepEqual(parsed.drift, [], 'JSON.drift 应为空数组')
-  assert.equal(parsed.testAnchors.length, 3, '应有 3 个 testAnchors')
+  assert.equal(r.status, 0, `--quiet 应 exit 0, 实际 ${r.status}`)
+  assert.equal(
+    r.stdout.trim(),
+    '',
+    `--quiet 应抑制所有输出, 实际 stdout: ${JSON.stringify(r.stdout)}`,
+  )
 })
 
-// ─── 测试 5:源脚本 normalizePath 漂移 → exit 1 ───
+test('--json 模式 → exit 0, stdout 是合法 JSON 含 ok:true', () => {
+  const r = spawnSync('node', [SCRIPT_PATH, '--json'], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 0, `--json 应 exit 0, 实际 ${r.status}`)
+  const report = JSON.parse(r.stdout)
+  assert.equal(report.ok, true, 'JSON.ok 应为 true')
+  assert.deepEqual(report.drift, [], 'JSON.drift 应为空数组')
+  assert.equal(report.checks.sourceHasExportConstTest, true)
+  assert.equal(report.checks.testHasImportFromSource, true)
+  assert.ok(
+    Array.isArray(report.checks.sourceKeys),
+    'JSON.sourceKeys 应为数组',
+  )
+  assert.ok(report.checks.sourceKeys.includes('getOriginalInclude'))
+  assert.ok(report.checks.sourceKeys.includes('normalizePath'))
+  assert.ok(report.checks.sourceKeys.includes('filterTscOutputForStagedFiles'))
+})
 
-test('源脚本 normalizePath 漂移 → exit 1 + drift 诊断', () => {
-  const sandbox = setupTempSandbox()
+// ─── 测试 3: 源脚本 export 缺失场景 → exit 1 ───────────
+
+test('源 __test__ export 缺失 → exit 1, 报告 source_export_missing', () => {
+  // 用临时副本(隔离测试环境, 不污染源文件)
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
+  const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
-    copyRealIntoSandbox(sandbox)
-    const sourceCopy = join(sandbox.scriptsDir, 'check-staged-typecheck.mjs')
-    const original = readFile(sourceCopy)
-    // 只替换 normalizePath 函数体内的那一行(行 285),
-    // 不替换 getOriginalInclude 函数体内(行 249)同款正则。
-    // 通过定位完整行文本 "return p.replace(/\\/g, '/')" 来精确漂移。
-    const lineNeedle = "return p.replace(/\\\\/g, '/')"
-    const tampered = original.replace(lineNeedle, "return p.replace(/x/g, '/')")
-    assert.notEqual(tampered, original, '替换必须命中,否则测试无效')
-    writeFileSync(sourceCopy, tampered)
-    const res = runScriptInDir(sandbox)
-    assert.equal(res.status, 1, `期望 exit 1,实际 ${res.status}\nstdout=${res.stdout}`)
-    assert.ok(
-      res.stdout.includes('漂移') || res.stdout.includes('fingerprint'),
-      '应打印漂移诊断',
+    // 拷贝真实文件, 然后篡改源脚本: 删掉 export 关键字
+    const srcOriginal = readFileSync(SOURCE_PATH, 'utf8')
+    const srcTampered = srcOriginal.replace(
+      /export\s+const\s+__test__\s*=/,
+      'const __test__ =',
     )
     assert.ok(
-      res.stdout.includes('normalizePath'),
-      '应定位到 normalizePath 函数',
+      srcTampered !== srcOriginal,
+      '篡改应实际生效(找到 export const __test__)',
+    )
+    writeFileSync(tmpSource, srcTampered, 'utf8')
+    // 拷贝真实测试文件
+    copyFileSync(TEST_PATH, tmpTest)
+    // 写一个 wrapper 脚本, 重定义 SCRIPT_PATH 路径 (用环境变量传递)
+    // 由于源守门脚本硬编码 __dirname 计算路径, 我们需要用 node 子进程加
+    // `--input-type=module` 临时改 cwd + 把脚本复制到 mock 路径
+    // 简化: 直接在 mock dir 下把守门脚本源码读出, 改 SOURCE_PATH/TEST_PATH 后跑
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript
+      .replace(
+        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+      )
+      .replace(
+        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
+        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
+      )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath, '--json'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 1, `源 export 缺失应 exit 1, 实际 ${r.status}`)
+    const report = JSON.parse(r.stdout)
+    assert.equal(report.ok, false)
+    assert.ok(
+      report.drift.some((d) => d.kind === 'source_export_missing'),
+      'drift 应包含 source_export_missing 项',
     )
   } finally {
-    teardown(sandbox)
+    rmSync(tmpDir, { recursive: true, force: true })
   }
 })
 
-// ─── 测试 6:测试文件「镜像同步锚点」注释漂移 → exit 1 ───
+// ─── 测试 4: 测试文件 import 路径错 → exit 1 ───────────────
 
-test('测试文件「镜像同步锚点」注释行号漂移 → exit 1', () => {
-  const sandbox = setupTempSandbox()
+test('测试 import 路径错 → exit 1, 报告 test_import_missing', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
+  const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
-    copyRealIntoSandbox(sandbox)
-    const testCopy = join(sandbox.testsDir, 'check-staged-typecheck.test.mjs')
-    const original = readFile(testCopy)
-    // 把 normalizePath 的行号范围从 284-286 改成 999-1000(故意漂移)
-    const tampered = original.replace(
-      'normalizePath: 源脚本第 284-286 行',
-      'normalizePath: 源脚本第 999-1000 行',
+    // 拷贝真实源脚本(export 完整)
+    copyFileSync(SOURCE_PATH, tmpSource)
+    // 篡改测试文件: import 路径错 (改成不存在的路径)
+    const testOriginal = readFileSync(TEST_PATH, 'utf8')
+    const testTampered = testOriginal.replace(
+      "'../check-staged-typecheck.mjs'",
+      "'../non-existent-source.mjs'",
     )
-    assert.notEqual(tampered, original, '替换必须命中,否则测试无效')
-    writeFileSync(testCopy, tampered)
-    const res = runScriptInDir(sandbox)
-    assert.equal(res.status, 1, `期望 exit 1,实际 ${res.status}\nstdout=${res.stdout}`)
-    assert.ok(res.stdout.includes('漂移'), '应打印漂移诊断')
+    assert.ok(testTampered !== testOriginal, '篡改应实际生效')
+    writeFileSync(tmpTest, testTampered, 'utf8')
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript
+      .replace(
+        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+      )
+      .replace(
+        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
+        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
+      )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath, '--json'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 1, `测试 import 错应 exit 1, 实际 ${r.status}`)
+    const report = JSON.parse(r.stdout)
+    assert.equal(report.ok, false)
     assert.ok(
-      res.stdout.includes('normalizePath'),
-      '应定位到 normalizePath 行号范围漂移',
+      report.drift.some((d) => d.kind === 'test_import_missing'),
+      'drift 应包含 test_import_missing 项',
     )
   } finally {
-    teardown(sandbox)
+    rmSync(tmpDir, { recursive: true, force: true })
   }
 })
 
-// ─── 测试 7:源脚本 filterTscOutputForStagedFiles 关键正则漂移 → exit 1 ───
+// ─── 测试 5: 源文件不存在 → exit 2 (异常) ─────────────────
 
-test('源脚本 filterTscOutputForStagedFiles 关键正则漂移 → exit 1', () => {
-  const sandbox = setupTempSandbox()
+test('源文件不存在 → exit 2, 报告 source_missing', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
   try {
-    copyRealIntoSandbox(sandbox)
-    const sourceCopy = join(sandbox.scriptsDir, 'check-staged-typecheck.mjs')
-    const original = readFile(sourceCopy)
-    // 改 .match(...) 里的正则,把 TS\d+ 改成 TS\d{2}(故意漂移)
-    const tampered = original.replace(
-      'line.match(/^(.+?)\\(\\d+,\\d+\\): error TS\\d+:/)',
-      'line.match(/^(.+?)\\(\\d+,\\d+\\): error TS\\d{2}:/)',
+    const nonExistentSource = join(tmpDir, 'does-not-exist.mjs')
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript.replace(
+      "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+      `const SOURCE_PATH = ${JSON.stringify(nonExistentSource)}`,
     )
-    assert.notEqual(tampered, original, '替换必须命中,否则测试无效')
-    writeFileSync(sourceCopy, tampered)
-    const res = runScriptInDir(sandbox)
-    assert.equal(res.status, 1, `期望 exit 1,实际 ${res.status}\nstdout=${res.stdout}`)
-    assert.ok(
-      res.stdout.includes('filterTscOutputForStagedFiles'),
-      '应定位到 filterTscOutputForStagedFiles 漂移',
-    )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath, '--json'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 2, `源文件缺失应 exit 2, 实际 ${r.status}`)
+    const report = JSON.parse(r.stdout)
+    assert.equal(report.ok, false)
+    assert.equal(report.error, 'source_missing')
   } finally {
-    teardown(sandbox)
+    rmSync(tmpDir, { recursive: true, force: true })
   }
 })
 
-// ─── 测试 8:源文件缺失 → exit 2 ───
+// ─── 测试 6: 漂移场景 (缺一个键) → exit 1 + 失败信息含修复指南 ──
 
-test('源文件不存在 → exit 2 + source_missing', () => {
-  const sandbox = setupTempSandbox()
+test('源 __test__ 缺一个键 → exit 1, drift.source_key_missing', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
+  const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
   try {
-    copyRealIntoSandbox(sandbox)
-    const sourceCopy = join(sandbox.scriptsDir, 'check-staged-typecheck.mjs')
-    rmSync(sourceCopy)
-    const res = runScriptInDir(sandbox)
-    assert.equal(res.status, 2, `期望 exit 2,实际 ${res.status}`)
+    const srcOriginal = readFileSync(SOURCE_PATH, 'utf8')
+    // 把 filterTscOutputForStagedFiles 键名重命名为 filterTscOutputRenamed(模拟意外重命名)
+    const srcTampered = srcOriginal.replace(
+      'filterTscOutputForStagedFiles',
+      'filterTscOutputRenamed',
+    )
+    assert.ok(srcTampered !== srcOriginal, '篡改应实际生效')
+    writeFileSync(tmpSource, srcTampered, 'utf8')
+    copyFileSync(TEST_PATH, tmpTest)
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript
+      .replace(
+        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+      )
+      .replace(
+        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
+        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
+      )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 1, `键缺失应 exit 1, 实际 ${r.status}`)
     assert.ok(
-      res.stdout.includes('源脚本不存在') || res.stdout.includes('source_missing'),
-      '应报告源脚本缺失',
+      r.stdout.includes('source_key_missing'),
+      '失败信息应含 source_key_missing',
+    )
+    assert.ok(
+      r.stdout.includes('filterTscOutputForStagedFiles'),
+      '失败信息应点名缺失的键名 filterTscOutputForStagedFiles',
+    )
+    // 修复指南
+    assert.ok(
+      r.stdout.includes('修复方法'),
+      '失败信息应含"修复方法"段',
     )
   } finally {
-    teardown(sandbox)
+    rmSync(tmpDir, { recursive: true, force: true })
   }
 })
 
-// ─── 测试 9:测试文件缺失 → exit 2 ───
+// ─── 测试 7: --quiet 失败场景不污染 stdout ─────────────────
 
-test('测试文件不存在 → exit 2 + test_missing', () => {
-  const sandbox = setupTempSandbox()
+test('--quiet + 漂移 → exit 1, stdout 仍为空', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
   try {
-    copyRealIntoSandbox(sandbox)
-    const testCopy = join(sandbox.testsDir, 'check-staged-typecheck.test.mjs')
-    rmSync(testCopy)
-    const res = runScriptInDir(sandbox)
-    assert.equal(res.status, 2, `期望 exit 2,实际 ${res.status}`)
-    assert.ok(
-      res.stdout.includes('测试文件不存在') || res.stdout.includes('test_missing'),
-      '应报告测试文件缺失',
+    // 篡改源, 让它走 drift 路径
+    const srcOriginal = readFileSync(SOURCE_PATH, 'utf8')
+    const srcTampered = srcOriginal.replace(
+      'filterTscOutputForStagedFiles',
+      'filterTscOutputRenamed',
+    )
+    writeFileSync(tmpSource, srcTampered, 'utf8')
+    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+    const guardModified = guardScript.replace(
+      "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+      `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+    )
+    const guardPath = join(tmpDir, 'guard.mjs')
+    writeFileSync(guardPath, guardModified, 'utf8')
+    const r = spawnSync('node', [guardPath, '--quiet'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 1, `--quiet 漂移应 exit 1, 实际 ${r.status}`)
+    assert.equal(
+      r.stdout.trim(),
+      '',
+      `--quiet 应抑制诊断输出, 实际 stdout: ${JSON.stringify(r.stdout)}`,
     )
   } finally {
-    teardown(sandbox)
-  }
-})
-
-// ─── 测试 10:--json 在漂移时输出 ok=false ───
-
-test('漂移时 --json 输出 ok=false + drift 非空', () => {
-  const sandbox = setupTempSandbox()
-  try {
-    copyRealIntoSandbox(sandbox)
-    const sourceCopy = join(sandbox.scriptsDir, 'check-staged-typecheck.mjs')
-    const original = readFile(sourceCopy)
-    const tampered = original.replace(
-      "return p.replace(/\\\\/g, '/')",
-      "return p.replace(/y/g, '/')",
-    )
-    writeFileSync(sourceCopy, tampered)
-    const res = runScriptInDir(sandbox, ['--json'])
-    assert.equal(res.status, 1, `期望 exit 1,实际 ${res.status}`)
-    let parsed
-    assert.doesNotThrow(() => {
-      parsed = JSON.parse(res.stdout)
-    }, 'stdout 应是合法 JSON')
-    assert.equal(parsed.ok, false, 'JSON.ok 应为 false')
-    assert.ok(parsed.drift.length > 0, 'JSON.drift 应非空')
-    assert.ok(
-      parsed.drift.some((d) => d.key === 'normalizePath'),
-      'drift 应包含 normalizePath',
-    )
-  } finally {
-    teardown(sandbox)
+    rmSync(tmpDir, { recursive: true, force: true })
   }
 })
