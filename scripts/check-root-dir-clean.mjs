@@ -116,6 +116,11 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.vscode',
   '.workbuddy',
   '.deploy.lock',
+  // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
+  // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
+  //  已被 .gitignore 忽略,不参与 git 跟踪。不加入会在每次 C++ 构建后阻塞 commit)
+  '.cxx-modules-staging',
+  '.cxx-worklets-staging',
 ])
 
 // ============================================================================
