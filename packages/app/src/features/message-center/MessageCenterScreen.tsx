@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Image, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
-import type { MessageCenterItem, MessageCenterScreenProps, MessageTab } from '../../types'
+import type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab } from '../../types'
 
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
-export type { MessageCenterItem, MessageCenterScreenProps, MessageTab }
+export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
 
 const TABS: MessageTab[] = ['system', 'order', 'course', 'social']
 
@@ -25,6 +25,8 @@ export function MessageCenterScreen({
   error,
   onRefresh,
   onPressItem,
+  conversations,
+  onPressConversation,
   onBack,
   colorScheme = 'light',
 }: MessageCenterScreenProps) {
@@ -89,6 +91,54 @@ export function MessageCenterScreen({
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
+          {/* 会话列表(对齐 Uniapp message 页聊天列表 chatList + handleChatClick) */}
+          {conversations && conversations.length > 0 ? (
+            <View style={styles.convSection}>
+              <Text style={styles.convTitle}>{t('messageCenter.conversations')}</Text>
+              {conversations.map((conv: MessageConversationItem) => (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={styles.convItem}
+                  onPress={() => onPressConversation?.(conv)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.convAvatarWrap}>
+                    {conv.avatar ? (
+                      <Image source={{ uri: conv.avatar }} style={styles.convAvatar} />
+                    ) : (
+                      <View style={[styles.convAvatar, styles.convAvatarFallback]}>
+                        <Text style={styles.convAvatarText}>
+                          {conv.name.trim().charAt(0).toUpperCase() || '?'}
+                        </Text>
+                      </View>
+                    )}
+                    {conv.unread && conv.unread > 0 ? (
+                      <View style={styles.convUnread}>
+                        <Text style={styles.convUnreadText}>{conv.unread > 99 ? '99+' : conv.unread}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.convContent}>
+                    <View style={styles.convHeader}>
+                      <Text style={styles.convName} numberOfLines={1}>
+                        {conv.name}
+                      </Text>
+                      {conv.time ? (
+                        <Text style={styles.convTime} allowFontScaling={false}>
+                          {conv.time}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {conv.lastMessage ? (
+                      <Text style={styles.convPreview} numberOfLines={1}>
+                        {conv.lastMessage}
+                      </Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
           {items.length === 0 ? (
             <View style={styles.center}>
               <Text style={styles.muted}>{t('messageCenter.empty')}</Text>
@@ -138,5 +188,48 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
+    // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
+    convSection: { marginBottom: 6 },
+    convTitle: { fontSize: 13, fontWeight: '700', color: tk.text.primary, marginBottom: 4 },
+    convItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+      borderRadius: 12,
+      gap: 10,
+    },
+    convAvatarWrap: { position: 'relative' },
+    convAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
+    },
+    convAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
+    convAvatarText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    convUnread: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: tk.error.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 3,
+    },
+    convUnreadText: { fontSize: 10, color: tk.surface.light, fontWeight: '700' },
+    convContent: { flex: 1 },
+    convHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    convName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
+    convTime: { fontSize: 12, color: tk.text.tertiary },
+    convPreview: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
   })
 }

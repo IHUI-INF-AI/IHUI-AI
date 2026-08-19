@@ -78,7 +78,7 @@ const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
 }
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
-const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/'
+const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 function mapToItem(a: Agent): AgentScreenItem {
   return {
