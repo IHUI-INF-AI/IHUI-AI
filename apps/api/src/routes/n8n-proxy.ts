@@ -60,7 +60,7 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const sc = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply.status(sc).send(error(sc, (e as Error).message || 'Authentication required'))
+      return reply.status(sc).send(error(sc, '操作失败,请稍后重试'))
     }
   })
 

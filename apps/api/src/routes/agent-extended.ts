@@ -1650,7 +1650,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userUuid = request.userId
-    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    if (!userUuid) return reply.status(401).send(error(401, '操作失败,请稍后重试'))
     try {
       const messages = await getConversationHistory({
         userUuid,
