@@ -44,6 +44,27 @@ const SOURCE_PATH = join(__dirname, '..', 'check-staged-typecheck.mjs')
 const TEST_PATH = fileURLToPath(import.meta.url)
 const REAL_TEST_PATH = join(__dirname, 'check-staged-typecheck.test.mjs')
 
+// ─── helper: 构造 mock 守门脚本 ───
+// 守门脚本硬编码 SOURCE_PATH / TEST_PATH 为相对路径, 测试需要在临时目录里
+// 用篡改后的源/测文件跑一份副本。helper 读守门脚本源码 → 替换两条路径常量
+// → 写到 tmpDir/guard.mjs → 返回绝对路径供 spawnSync 使用。
+// (P2-1 重构: 消除 test 3/4/6/7/11 的 11 行 boilerplate × 5 处 = ~55 行)
+function buildGuardScript(tmpDir, tmpSource, tmpTest) {
+  const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
+  const guardModified = guardScript
+    .replace(
+      "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
+      `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
+    )
+    .replace(
+      "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
+      `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
+    )
+  const guardPath = join(tmpDir, 'guard.mjs')
+  writeFileSync(guardPath, guardModified, 'utf8')
+  return guardPath
+}
+
 // ─── 测试 1: --help 文本与退出码 ─────────────────────────────
 
 test('--help → exit 0, stdout 含帮助文本', () => {
@@ -143,18 +164,7 @@ test('源 __test__ export 缺失 → exit 1, 报告 source_export_missing', () =
     // 由于源守门脚本硬编码 __dirname 计算路径, 我们需要用 node 子进程加
     // `--input-type=module` 临时改 cwd + 把脚本复制到 mock 路径
     // 简化: 直接在 mock dir 下把守门脚本源码读出, 改 SOURCE_PATH/TEST_PATH 后跑
-    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
-    const guardModified = guardScript
-      .replace(
-        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
-        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
-      )
-      .replace(
-        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
-        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
-      )
-    const guardPath = join(tmpDir, 'guard.mjs')
-    writeFileSync(guardPath, guardModified, 'utf8')
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -188,18 +198,7 @@ test('测试 import 路径错 → exit 1, 报告 test_import_missing', () => {
     )
     assert.ok(testTampered !== testOriginal, '篡改应实际生效')
     writeFileSync(tmpTest, testTampered, 'utf8')
-    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
-    const guardModified = guardScript
-      .replace(
-        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
-        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
-      )
-      .replace(
-        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
-        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
-      )
-    const guardPath = join(tmpDir, 'guard.mjs')
-    writeFileSync(guardPath, guardModified, 'utf8')
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -259,18 +258,7 @@ test('源 __test__ 缺一个键 → exit 1, drift.source_key_missing', () => {
     assert.ok(srcTampered !== srcOriginal, '篡改应实际生效')
     writeFileSync(tmpSource, srcTampered, 'utf8')
     copyFileSync(TEST_PATH, tmpTest)
-    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
-    const guardModified = guardScript
-      .replace(
-        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
-        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
-      )
-      .replace(
-        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
-        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
-      )
-    const guardPath = join(tmpDir, 'guard.mjs')
-    writeFileSync(guardPath, guardModified, 'utf8')
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -309,18 +297,7 @@ test('--quiet + 漂移 → exit 1', () => {
     )
     writeFileSync(tmpSource, srcTampered, 'utf8')
     copyFileSync(TEST_PATH, tmpTest)
-    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
-    const guardModified = guardScript
-      .replace(
-        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
-        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
-      )
-      .replace(
-        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
-        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
-      )
-    const guardPath = join(tmpDir, 'guard.mjs')
-    writeFileSync(guardPath, guardModified, 'utf8')
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--quiet'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -347,18 +324,7 @@ test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing
     )
     assert.ok(testTampered !== testOriginal, '应实际注释掉至少一行 import')
     writeFileSync(tmpTest, testTampered, 'utf8')
-    const guardScript = readFileSync(SCRIPT_PATH, 'utf8')
-    const guardModified = guardScript
-      .replace(
-        "const SOURCE_PATH = join(__dirname, 'check-staged-typecheck.mjs')",
-        `const SOURCE_PATH = ${JSON.stringify(tmpSource)}`,
-      )
-      .replace(
-        "const TEST_PATH = join(ROOT, 'scripts', 'tests', 'check-staged-typecheck.test.mjs')",
-        `const TEST_PATH = ${JSON.stringify(tmpTest)}`,
-      )
-    const guardPath = join(tmpDir, 'guard.mjs')
-    writeFileSync(guardPath, guardModified, 'utf8')
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -374,6 +340,50 @@ test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing
       report.drift.some((d) => d.kind === 'test_import_missing'),
       'drift 应包含 test_import_missing 项',
     )
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true })
+  }
+})
+
+// ─── 测试 12: 源脚本 isDirectRun 入口守护被注释掉 → exit 1 (新增 phase D) ───
+
+test('源 isDirectRun 守护被注释掉 → exit 1, 报告 source_isDirectRun_missing', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'ihui-mirror-sync-'))
+  const tmpSource = join(tmpDir, 'check-staged-typecheck.mjs')
+  const tmpTest = join(tmpDir, 'check-staged-typecheck.test.mjs')
+  try {
+    // 拷贝真实源脚本,然后把 isDirectRun 锚点整段改写 (让守护正则不再识别)
+    const srcOriginal = readFileSync(SOURCE_PATH, 'utf8')
+    // 直接把 pathToFileURL(process.argv[1] || '').href 替换为等长占位字串
+    // (regex 在源脚本里仍存在,但不满足守门检测的固定模式)
+    const srcTampered = srcOriginal.replace(
+      /pathToFileURL\(process\.argv\[1\][^)]*\)\.href/,
+      '/* PATH_REMOVED_FOR_TEST */.href',
+    )
+    assert.ok(
+      srcTampered !== srcOriginal,
+      '应实际篡改 isDirectRun 锚点 (源脚本中存在 pathToFileURL(process.argv[1]...))',
+    )
+    writeFileSync(tmpSource, srcTampered, 'utf8')
+    copyFileSync(TEST_PATH, tmpTest)
+    const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
+    const r = spawnSync('node', [guardPath, '--json'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    assert.equal(
+      r.status,
+      1,
+      `isDirectRun 缺失应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    const report = JSON.parse(r.stdout)
+    assert.equal(report.ok, false)
+    assert.ok(
+      report.drift.some((d) => d.kind === 'source_isDirectRun_missing'),
+      'drift 应包含 source_isDirectRun_missing 项',
+    )
+    // 防止误报: sourceHasIsDirectRunAnchor 应明确为 false
+    assert.equal(report.checks.sourceHasIsDirectRunAnchor, false)
   } finally {
     rmSync(tmpDir, { recursive: true, force: true })
   }
