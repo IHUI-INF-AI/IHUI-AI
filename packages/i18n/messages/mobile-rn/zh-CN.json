@@ -268,11 +268,10 @@
     "title": "AI 助手",
     "placeholder": "请输入您的问题",
     "empty": "向 AI 助手发送消息开始对话",
-    "emptyNoAgent": "未绑定工作流,发送消息将得到模拟响应",
+    "emptyNoAgent": "请先选择已绑定工作流的智能体",
     "send": "发送",
     "streaming": "正在生成...",
-    "callFailed": "调用失败,请稍后重试",
-    "mockResponse": "当前为模拟响应,配置 agentId 后可对接真实工作流"
+    "callFailed": "调用失败,请稍后重试"
   },
   "aiCareer": {
     "plan": {
