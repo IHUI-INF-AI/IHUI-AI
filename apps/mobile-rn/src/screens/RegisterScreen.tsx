@@ -98,13 +98,10 @@ export function RegisterScreen() {
         }, 1500)
         return
       }
-      // 注册 + 自动登录成功,延迟让用户看到成功提示再弹二次验证
-      const toastTimer = setTimeout(() => {
-        clearTimeout(toastTimer)
-        if (verifyPhone) {
-          setVerifyVisible(true)
-        }
-      }, 1200)
+      // 注册 + 自动登录成功,直接弹出二次验证
+      if (verifyPhone) {
+        setVerifyVisible(true)
+      }
     },
   })
 
