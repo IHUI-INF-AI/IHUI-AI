@@ -30,6 +30,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
 
 import { Input, Loading } from '@ihui/ui-native'
+import { rpx } from '../utils/rpx'
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
 /** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
@@ -530,7 +531,7 @@ export function TaskDispatchPage(_: Props) {
           <FlatList
             data={tasks}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ padding: 12, gap: 8 }}
+            contentContainerStyle={{ padding: rpx(24), gap: rpx(16) }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
               <View className="items-center py-16">

@@ -69,7 +69,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
-import { rpx } from '../utils/rpx'
 import {
   EMPTY_AUDIO_LIST,
   EMPTY_IMAGE_LIST,
@@ -85,6 +84,7 @@ import {
   type TextContent,
   type VideoContent,
 } from './profileContentTypes'
+import { rpx } from '../utils/rpx'
 
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
