@@ -181,7 +181,8 @@
     "businessLicense": "営業許可証",
     "icpRecord": "ICP備案",
     "modelRecord": "モデル備案",
-    "sectionDiscover": ""
+    "sectionDiscover": "",
+    "assistant": "マイアシスタント"
   },
   "error": {
     "network": "ネットワークエラー"

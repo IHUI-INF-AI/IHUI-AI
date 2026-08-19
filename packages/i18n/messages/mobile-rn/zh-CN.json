@@ -185,7 +185,8 @@
     "businessLicense": "营业执照",
     "icpRecord": "ICP 备案",
     "modelRecord": "模型备案",
-    "sectionDiscover": "发现"
+    "sectionDiscover": "发现",
+    "assistant": "我的助手"
   },
   "error": {
     "network": "网络错误,请稍后重试"
