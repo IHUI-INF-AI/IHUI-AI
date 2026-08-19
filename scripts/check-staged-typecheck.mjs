@@ -396,6 +396,22 @@ function runPackageTypecheck(pkg, files) {
   }
 }
 
+// ─── 测试导出(2026-08-18 立, 根治镜像常量)────────────────────────────
+// 背景: 三个核心函数 (filterTscOutputForStagedFiles / getOriginalInclude /
+// normalizePath) 原本仅供 main() 内部使用, 未 export。测试脚本
+// scripts/tests/check-staged-typecheck.test.mjs 为此复制了镜像实现, 产生
+// 「源/测漂移」风险 (scripts/check-staged-typecheck-mirror-sync.mjs 检测)。
+// 本组 export 允许测试直接 import 源函数引用, 根除漂移风险。
+// export 别名 = 内部函数引用 (零行为差异), 不破坏既有调用路径。
+// 守门脚本 check-staged-typecheck-mirror-sync.mjs 已降级为「export 锚点
+// 回归测试」: 仅校验 __test__ 导出与 import 路径一致, 不再检测字面量子串。
+// 红线见 AGENTS.md §22b + §22c。
+export const __test__ = {
+  getOriginalInclude,
+  normalizePath,
+  filterTscOutputForStagedFiles,
+}
+
 function main() {
   if (isHelp) {
     log.info(HELP_TEXT)
@@ -566,10 +582,21 @@ function main() {
   }
 }
 
-main().catch((e) => {
-  log.error(
-    `${C.red}❌ check-staged-typecheck 脚本执行异常: ${e?.message ?? e}${C.reset}`,
-  )
-  log.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// ─── 入口守护(2026-08-18 立, 根治镜像常量)────────────────────────────
+// 仅当本脚本被【直接执行】(`node check-staged-typecheck.mjs`)时调用 main(),
+// 允许 `import { __test__ }` 形式被测试文件 import 而不触发副作用。
+// 判定: `import.meta.url` 等于 `pathToFileURL(process.argv[1])` 时为直接执行。
+import { pathToFileURL } from 'node:url'
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    log.error(
+      `${C.red}❌ check-staged-typecheck 脚本执行异常: ${e?.message ?? e}${C.reset}`,
+    )
+    log.error(e?.stack ?? '(no stack)')
+    process.exit(2)
+  })
+}
