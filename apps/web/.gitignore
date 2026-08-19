@@ -4,3 +4,8 @@ out/
 node_modules/
 *.tsbuildinfo
 .env*.local
+
+# e2e 调试产物(其他 agent 跑 share 测试时生成的临时截图/脚本,2026-08-19)
+e2e/*.png
+e2e/test-screenshots/
+test-share-*
