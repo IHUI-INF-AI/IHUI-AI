@@ -69,6 +69,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
+import { rpx } from '../utils/rpx'
 import {
   EMPTY_AUDIO_LIST,
   EMPTY_IMAGE_LIST,
@@ -1638,27 +1639,27 @@ const styles = StyleSheet.create({
   loaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rpx(96),
   },
   userInfoCardWrap: {
-    marginTop: 8,
-    paddingHorizontal: 12,
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
   },
   contentSection: {
     // 对齐 Uniapp 20rpx(≈10px)水平 padding
-    paddingHorizontal: 10,
-    paddingBottom: 12,
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(24),
   },
   // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
   membershipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: rpx(16),
   },
   membershipHeaderText: {
     fontSize: 15,
@@ -1673,21 +1674,21 @@ const styles = StyleSheet.create({
   },
   // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
   membershipBenefitsWrap: {
-    marginTop: 5,
+    marginTop: rpx(10),
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
-    marginBottom: 10,
+    marginBottom: rpx(20),
   },
   contentDisplayArea: {
     // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
     minHeight: 100,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 0,
+    marginBottom: rpx(20),
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(0),
   },
   listContent: {
-    gap: 0,
+    gap: rpx(0),
   },
   itemGap: {
     height: 12,
@@ -1696,15 +1697,15 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
     borderRadius: 10,
     backgroundColor: tokens.surface.light,
-    padding: 14,
+    padding: rpx(28),
     borderWidth: 1,
     borderColor: '#EEEEEE',
   },
   copyLinkBtn: {
     alignSelf: 'center',
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    marginTop: rpx(24),
+    paddingVertical: rpx(16),
+    paddingHorizontal: rpx(32),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },
@@ -1716,8 +1717,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: rpx(16),
+    gap: rpx(16),
   },
   contentTitle: {
     flex: 1,
@@ -1731,7 +1732,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   contentBody: {
-    gap: 8,
+    gap: rpx(16),
   },
   textContent: {
     // 对齐 Uniapp font-size:28rpx(≈14px) line-height:1.8(≈25)
@@ -1740,7 +1741,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   imageColumn: {
-    gap: 8,
+    gap: rpx(16),
   },
   imageColumnItem: {
     borderRadius: 8,
@@ -1765,8 +1766,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginTop: -30,
-    marginLeft: -30,
+    marginTop: rpx(-60),
+    marginLeft: rpx(-60),
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -1777,12 +1778,12 @@ const styles = StyleSheet.create({
   videoPlayIconText: {
     fontSize: 24,
     color: '#ffffff',
-    marginLeft: 4,
+    marginLeft: rpx(8),
   },
   audioPlayer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: rpx(20),
   },
   audioPlayBtn: {
     width: 36,
@@ -1795,7 +1796,7 @@ const styles = StyleSheet.create({
   audioPlayIcon: {
     fontSize: 16,
     color: tokens.surface.light,
-    marginLeft: 2,
+    marginLeft: rpx(4),
   },
   audioProgressTrack: {
     flex: 1,
@@ -1840,7 +1841,7 @@ const styles = StyleSheet.create({
     right: 72,
     zIndex: 2,
     height: 40,
-    paddingHorizontal: 14,
+    paddingHorizontal: rpx(28),
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
@@ -1886,7 +1887,7 @@ const styles = StyleSheet.create({
   },
   videoModalContent: {
     alignItems: 'center',
-    gap: 16,
+    gap: rpx(32),
   },
   videoModalClose: {
     width: 40,
@@ -1907,7 +1908,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: rpx(32),
   },
   videoEmptyText: {
     fontSize: 14,
@@ -1920,14 +1921,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: rpx(48),
   },
   sharePopupCard: {
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
     alignItems: 'center',
   },
   sharePopupClose: {
@@ -1950,11 +1951,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 14,
+    marginBottom: rpx(28),
   },
   sharePopupImageWrap: {
     width: '100%',
-    marginBottom: 14,
+    marginBottom: rpx(28),
   },
   sharePopupImage: {
     width: '100%',
@@ -1963,7 +1964,7 @@ const styles = StyleSheet.create({
   },
   sharePopupBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rpx(24),
     alignSelf: 'stretch',
   },
   sharePopupSaveBtn: {
@@ -1971,7 +1972,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.bg,
@@ -1984,7 +1985,7 @@ const styles = StyleSheet.create({
   sharePopupShareBtn: {
     flex: 1,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
     // 对齐 Uniapp popup-share-btn 黑底白字
@@ -1999,14 +2000,14 @@ const styles = StyleSheet.create({
   tabLoaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rpx(96),
   },
   tabErrorWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: rpx(96),
+    paddingHorizontal: rpx(48),
+    gap: rpx(24),
   },
   tabErrorText: {
     fontSize: 14,
@@ -2014,8 +2015,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tabRetryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(40),
+    paddingVertical: rpx(16),
     borderRadius: 8,
     backgroundColor: tokens.brand.DEFAULT,
   },
@@ -2027,9 +2028,9 @@ const styles = StyleSheet.create({
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
     alignSelf: 'flex-end',
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },
@@ -2047,8 +2048,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    padding: 20,
-    paddingBottom: 32,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
   },
   editProfileTitle: {
     // 对齐 Uniapp 32rpx(≈16px)标题字号
@@ -2056,12 +2057,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   editProfileAvatarSection: {
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 6,
+    marginBottom: rpx(32),
+    gap: rpx(12),
   },
   editProfileAvatarBtn: {
     position: 'relative',
@@ -2099,8 +2100,8 @@ const styles = StyleSheet.create({
   },
   editProfileField: {
     // 对齐 Uniapp 30rpx(≈15px)字段间距
-    marginBottom: 15,
-    gap: 6,
+    marginBottom: rpx(30),
+    gap: rpx(12),
   },
   editProfileLabel: {
     fontSize: 13,
@@ -2110,8 +2111,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
     fontSize: 14,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.light,
@@ -2122,8 +2123,8 @@ const styles = StyleSheet.create({
   },
   editProfileBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: rpx(24),
+    marginTop: rpx(16),
   },
   editProfileCancelBtn: {
     flex: 1,
@@ -2131,7 +2132,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2144,7 +2145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2159,7 +2160,7 @@ const styles = StyleSheet.create({
   editProfileError: {
     fontSize: 12,
     color: tokens.danger.DEFAULT,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   },
   // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
   levelIntroOverlay: {
@@ -2171,8 +2172,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    padding: 20,
-    paddingBottom: 32,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
     maxHeight: '80%',
   },
   levelIntroTitle: {
@@ -2180,21 +2181,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   levelIntroScroll: {
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   levelIntroItem: {
     backgroundColor: tokens.surface.light,
     borderRadius: 8,
     // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
-    padding: 4,
-    marginBottom: 10,
+    padding: rpx(8),
+    marginBottom: rpx(20),
   },
   levelIntroItemHeader: {
-    marginBottom: 8,
-    gap: 4,
+    marginBottom: rpx(16),
+    gap: rpx(8),
   },
   levelIntroItemLevel: {
     fontSize: 15,
@@ -2206,7 +2207,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   levelIntroBenefitList: {
-    gap: 4,
+    gap: rpx(8),
   },
   levelIntroBenefitItem: {
     // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
@@ -2217,7 +2218,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2232,13 +2233,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: rpx(48),
   },
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
     alignItems: 'center',
   },
   unsubscribeIconWrap: {
@@ -2248,7 +2249,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.danger.light,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: rpx(24),
   },
   unsubscribeIcon: {
     fontSize: 28,
@@ -2259,18 +2260,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   },
   unsubscribeDesc: {
     fontSize: 13,
     color: tokens.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   unsubscribeBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rpx(24),
     alignSelf: 'stretch',
   },
   unsubscribeCancelBtn: {
@@ -2279,7 +2280,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2292,7 +2293,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
