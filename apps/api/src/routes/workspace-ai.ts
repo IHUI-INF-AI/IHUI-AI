@@ -34,7 +34,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
+      const message = (e as Error).message || '操作失败,请稍后重试'
       return reply.status(statusCode).send(error(statusCode, message))
     }
   }
@@ -436,19 +436,41 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       if (aheadMatch) ahead = Math.max(0, Number.parseInt(aheadMatch[1]!, 10) || 0)
       if (behindMatch) behind = Math.max(0, Number.parseInt(behindMatch[1]!, 10) || 0)
       const counts = {
-        added: 0, modified: 0, deleted: 0, untracked: 0, conflicted: 0, renamed: 0,
+        added: 0,
+        modified: 0,
+        deleted: 0,
+        untracked: 0,
+        conflicted: 0,
+        renamed: 0,
       }
       for (const line of lines.slice(1)) {
         if (!line || line.length < 2) continue
         const x = line[0]
         const y = line[1]
         const rest = line.slice(2)
-        if (x === 'R' || y === 'R') { counts.renamed++; continue }
-        if (x === '?' && y === '?') { counts.untracked++; continue }
-        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) { counts.conflicted++; continue }
-        if (x === 'A' || y === 'A') { counts.added++; continue }
-        if (x === 'D' || y === 'D') { counts.deleted++; continue }
-        if (x !== ' ' || y !== ' ') { counts.modified++ }
+        if (x === 'R' || y === 'R') {
+          counts.renamed++
+          continue
+        }
+        if (x === '?' && y === '?') {
+          counts.untracked++
+          continue
+        }
+        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+          counts.conflicted++
+          continue
+        }
+        if (x === 'A' || y === 'A') {
+          counts.added++
+          continue
+        }
+        if (x === 'D' || y === 'D') {
+          counts.deleted++
+          continue
+        }
+        if (x !== ' ' || y !== ' ') {
+          counts.modified++
+        }
         void rest
       }
       let lastCommit: GitStatusSnapshot['lastCommit'] = null
@@ -485,7 +507,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         try {
           const remote = await githubClient.detectRemote(body.workspacePath)
           if (remote) {
-            const prsRaw = await githubClient.listPRs({ owner: remote.owner, repo: remote.repo, state: 'open' })
+            const prsRaw = await githubClient.listPRs({
+              owner: remote.owner,
+              repo: remote.repo,
+              state: 'open',
+            })
             const prs = Array.isArray(prsRaw) ? (prsRaw as Array<Record<string, unknown>>) : []
             const matched = prs.find((pr) => {
               const head = pr.head as Record<string, unknown> | undefined
@@ -495,10 +521,15 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
               const head = matched.head as Record<string, unknown> | undefined
               pullRequest = {
                 state:
-                  matched.state === 'open' ? 'open'
-                    : matched.state === 'closed' ? 'closed'
-                      : matched.merged ? 'merged'
-                        : matched.draft ? 'draft' : null,
+                  matched.state === 'open'
+                    ? 'open'
+                    : matched.state === 'closed'
+                      ? 'closed'
+                      : matched.merged
+                        ? 'merged'
+                        : matched.draft
+                          ? 'draft'
+                          : null,
                 number: typeof matched.number === 'number' ? matched.number : null,
                 title: typeof matched.title === 'string' ? matched.title : null,
                 url: typeof matched.html_url === 'string' ? matched.html_url : null,
@@ -512,8 +543,16 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       }
       return reply.send(
         success({
-          isRepo: true, branch, hasRemote, ahead, behind, counts,
-          pullRequest, lastCommit, localPath, remotes,
+          isRepo: true,
+          branch,
+          hasRemote,
+          ahead,
+          behind,
+          counts,
+          pullRequest,
+          lastCommit,
+          localPath,
+          remotes,
           fetchedAt: new Date().toISOString(),
         }),
       )
@@ -532,15 +571,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const remote = await githubClient.detectRemote(body.workspacePath)
       const branchRaw = await fsBridge.run({
         command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
-        workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs: 8000,
       })
       const currentBranch =
-        branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD' ? branchRaw.stdout.trim() : null
+        branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD'
+          ? branchRaw.stdout.trim()
+          : null
       let defaultBranch: string | null = null
       try {
         const defRaw = await fsBridge.run({
           command: buildGitCmd(['symbolic-ref', 'refs/remotes/origin/HEAD']),
-          workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+          workspacePath: body.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
         })
         const m = /^refs\/remotes\/origin\/(.+)$/.exec((defRaw.stdout ?? '').trim())
         if (m) defaultBranch = m[1] ?? null
@@ -551,7 +596,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         try {
           const showRaw = await fsBridge.run({
             command: buildGitCmd(['remote', 'show', 'origin']),
-            workspacePath: body.workspacePath, mode: 'read-only', timeoutMs: 8000,
+            workspacePath: body.workspacePath,
+            mode: 'read-only',
+            timeoutMs: 8000,
           })
           const hm = /HEAD branch:\s*(\S+)/.exec(showRaw.stdout ?? '')
           if (hm) defaultBranch = hm[1] ?? null
@@ -631,13 +678,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     try {
       const res = await fetch('https://github.com/login/device/code', {
         method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
         body: new URLSearchParams({ client_id: clientId, scope: 'repo read:org' }),
         signal: AbortSignal.timeout(10000),
       })
       const json = (await res.json()) as Record<string, unknown>
       if (!json.device_code || !json.user_code) {
-        return reply.status(400).send(error(400, `GitHub 设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))
+        return reply
+          .status(400)
+          .send(error(400, `GitHub 设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))
       }
       return reply.send(
         success({
@@ -665,7 +717,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     try {
       const res = await fetch('https://github.com/login/oauth/access_token', {
         method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
