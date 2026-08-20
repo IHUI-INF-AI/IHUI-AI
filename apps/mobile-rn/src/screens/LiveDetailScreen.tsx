@@ -150,6 +150,7 @@ export function LiveDetailScreen() {
         onInputChange={setInput}
         onSend={onSend}
         onSubscribe={onSubscribe}
+        onOpenChat={() => navigation.navigate('LiveChat', { liveId: id })}
         onBack={() => navigation.goBack()}
       />
     </View>
