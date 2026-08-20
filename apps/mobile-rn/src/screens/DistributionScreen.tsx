@@ -241,9 +241,9 @@ export function DistributionScreen() {
             trend={info ? { direction: 'up', percent: 12.5 } : undefined}
           />
         </View>
-        {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue) */}
+        {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue:双列网格) */}
         <View style={shellStyles.functionBlocksWrap}>
-          <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onBlockPress} />
+          <FunctionBlockColumn blocks={functionBlocks} columns={2} onBlockPress={onBlockPress} />
         </View>
         {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口) */}
         <View style={shellStyles.shareBtnWrap}>
