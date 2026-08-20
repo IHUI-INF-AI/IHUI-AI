@@ -81,6 +81,7 @@ export function OrderScreen() {
           id: o.id,
           orderNo: o.orderNo,
           title: o.targetTitle,
+          image: o.image ?? undefined,
           amount: o.payAmount,
           status: o.status,
           // Uniapp「下单时间:YYYY-MM-DD HH:mm」
