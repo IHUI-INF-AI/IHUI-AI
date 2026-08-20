@@ -8,7 +8,6 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
-import type { ReactNode } from 'react'
 
 const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
@@ -75,7 +74,10 @@ vi.mock('../src/components/FloatBox', () => ({
 vi.mock('../src/components/NavBar', async () => {
   const { createElement: h } = await import('react')
   return {
-    NavBar: (props: { title?: string; rightActions?: { icon?: string; label?: string; onPress?: () => void }[] }) =>
+    NavBar: (props: {
+      title?: string
+      rightActions?: { icon?: string; label?: string; onPress?: () => void }[]
+    }) =>
       h(
         'div',
         { 'data-testid': 'navbar' },
@@ -83,38 +85,6 @@ vi.mock('../src/components/NavBar', async () => {
           h('button', { key: i, onClick: a.onPress }, a.label || a.icon),
         ),
       ),
-  }
-})
-
-vi.mock('react-native', async () => {
-  const { createElement: h } = await import('react')
-    const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { visible, transparent: _transparent, animationType: _animationType, onRequestClose: _onRequestClose, onPress, style, children, ...rest } =
-        props
-      const mergedStyle = Array.isArray(style)
-        ? Object.assign({}, ...(style.filter(Boolean) as Record<string, unknown>[]))
-        : style
-      if (tag === 'modal') {
-        // Modal:visible 时渲染内容
-        return visible
-          ? h('div', { 'data-testid': 'modal', style: mergedStyle }, children)
-          : null
-      }
-      return h(tag, { ...rest, onClick: onPress, style: mergedStyle }, children)
-    }
-  return {
-    View: mk('div'),
-    Text: mk('span'),
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    ScrollView: mk('div'),
-    FlatList: mk('div'),
-    Modal: mk('modal'),
-    Image: mk('img'),
-    RefreshControl: () => null,
-    KeyboardAvoidingView: mk('div'),
-    StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
 
@@ -128,7 +98,12 @@ describe('PlazaScreen 需求广场', () => {
     apiMocks.getPlazaList.mockResolvedValue({ success: true, data: { list: [mockItem], total: 1 } })
     apiMocks.getAgentCategories.mockResolvedValue({
       success: true,
-      data: { agentCategory: [{ id: 'tech', name: '技术' }, { id: 'edu', name: '教育' }] },
+      data: {
+        agentCategory: [
+          { id: 'tech', name: '技术' },
+          { id: 'edu', name: '教育' },
+        ],
+      },
     })
     apiMocks.listConversations.mockResolvedValue({ success: true, data: { conversations: [] } })
   })
@@ -171,9 +146,9 @@ describe('PlazaScreen 需求广场', () => {
     fireEvent.click(getByText('技术'))
 
     await waitFor(() => {
-      const lastCall = apiMocks.getPlazaList.mock.calls[apiMocks.getPlazaList.mock.calls.length - 1] as [
-        unknown,
-      ]
+      const lastCall = apiMocks.getPlazaList.mock.calls[
+        apiMocks.getPlazaList.mock.calls.length - 1
+      ] as [unknown]
       const params = lastCall[0] as { categories?: string[] }
       expect(params.categories).toEqual(['tech'])
     })
