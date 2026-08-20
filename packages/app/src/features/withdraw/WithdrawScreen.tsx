@@ -131,7 +131,8 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     successText: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
     submitBtn: {
-      marginTop: 12,
+      // 对齐原项目 withdrawal/index.vue 提交按钮 margin-top: 40rpx(=20px)
+      marginTop: 20,
       height: 50,
       borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
