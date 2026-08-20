@@ -699,6 +699,10 @@
     "pending": "待结算",
     "withdrawBtn": "申请提现",
     "withdrawMin": "满 ¥{amount} 方可提现",
+    "withdrawNeedRealname": "提现前请先实名认证!",
+    "withdrawNeedRealnameHint": "完成实名认证后即可正常提现",
+    "withdrawRealnameGo": "去实名",
+    "withdrawRealnameCancel": "不,谢谢",
     "products": "分销商品",
     "commission": "佣金",
     "sales": "已售 {count} 件"
@@ -772,7 +776,18 @@
     "sectionTitle": "收益明细",
     "empty": "暂无收益记录",
     "settled": "已结算",
-    "pending": "待结算"
+    "pending": "待结算",
+    "cancelled": "取消结算",
+    "tab": {
+      "all": "全部",
+      "pending": "待结算",
+      "settled": "已结算",
+      "cancelled": "取消结算"
+    },
+    "buyer": "下单人:{name}",
+    "relatedOrder": "关联订单:{orderNo}",
+    "copy": "复制订单号",
+    "copySuccess": "已复制订单号"
   },
   "invite": {
     "title": "邀请好友",
