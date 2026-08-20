@@ -359,6 +359,8 @@ export interface OrderItem {
   id: string
   orderNo: string
   title: string
+  /** 商品图 URL,有值则卡片渲染 130×130 圆角图 */
+  image?: string
   amount: number
   status: AppOrderStatus
   createdAt: string
@@ -881,12 +883,17 @@ export interface PostDetailItem {
   likes: number
   comments: number
   createdAt: string
+  status?: string | null
+  taskStatus?: string | null
   lowestPrice?: number | string | null
   peakPrice?: number | string | null
   contact?: string | null
   cycle?: string | null
   cycleUnit?: string | null
   closingTime?: string | null
+  imgs?: string | string[] | null
+  types?: string[] | null
+  categories?: string[] | null
 }
 
 /** PostDetail �?props */
@@ -4606,7 +4613,7 @@ export interface AppTopupScreenProps {
   balance: number
   refreshing: boolean
   introVisible: boolean
-  /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 需 identityType,当前 API 未返回则不会传入) */
+  /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 由 AuthUser.identityType === 'trader' 判定) */
   userTier: 'normal' | 'vip' | 'trader'
   amountOptions: { id: string; amount: number; label: string }[]
   payMethods: { id: string; label: string; icon?: string }[]
@@ -4768,6 +4775,12 @@ export interface SetNeedScreenProps {
     lowestPrice: string
     peakPrice: string
     contact: string
+    cycle: string
+    cycleUnit: string
+    types: string
+    categories: string
+    closingTime: string
+    imgs: string[]
   }
   submitting: boolean
   onFieldChange: (field: string, value: string) => void
