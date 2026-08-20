@@ -56,6 +56,21 @@ export function PostDetailScreen({
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.content}>{item.content}</Text>
+      {item.lowestPrice !== null || item.peakPrice !== null ? (
+        <Text style={styles.detailText}>
+          价格：￥{item.lowestPrice ?? '-'} - ￥{item.peakPrice ?? '-'}
+        </Text>
+      ) : null}
+      {item.cycle ? (
+        <Text style={styles.detailText}>
+          周期：{item.cycle}
+          {item.cycleUnit ?? ''}
+        </Text>
+      ) : null}
+      {item.closingTime ? (
+        <Text style={styles.detailText}>截止时间：{item.closingTime}</Text>
+      ) : null}
+      {item.contact ? <Text style={styles.detailText}>联系方式：{item.contact}</Text> : null}
       <View style={styles.statRow}>
         <TouchableOpacity style={styles.statBtn}>
           <Text style={styles.statText}>❤ {item.likes}</Text>
@@ -100,6 +115,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     meta: { fontSize: 11, color: tk.text.tertiary },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
+    detailText: { marginTop: 8, fontSize: 14, lineHeight: 20, color: tk.text.secondary },
     statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
     statBtn: {
       paddingHorizontal: 12,

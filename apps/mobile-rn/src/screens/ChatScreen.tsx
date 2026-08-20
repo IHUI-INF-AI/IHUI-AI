@@ -279,12 +279,22 @@ export function ChatScreen() {
   // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
+  // 上下文自动压缩提示条(chatAlert.compaction.*):当前无对话上下文压缩逻辑,
+  // 仅预留渲染阀门;接入压缩逻辑时 set 前/后条数即可展示真实参数。
+   
+  const [compactionInfo, setCompactionInfo] = useState<{
+    before: number
+    after: number
+    removed: number
+  } | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
   const materialCardIdCounter = useRef(0)
   const qrCodeViewRef = useRef<View | null>(null)
+  // 消息气泡节点 Map(长按截图用,id → 原生节点)
+  const messageRefs = useRef<Map<string, View | null>>(new Map())
   const nextId = (): string => `msg-${++idCounter.current}`
   const nextMaterialCardId = (): string => `card-${++materialCardIdCounter.current}`
 
@@ -364,7 +374,7 @@ export function ChatScreen() {
     if (!authUser) {
       Alert.alert('提示', '请先登录后再发送消息', [
         {
-          text: '去登录',
+          text: t('chatAlert.loginBtn'),
           onPress: () => {
             void logout()
           },
@@ -667,6 +677,23 @@ export function ChatScreen() {
     return lines.join('\n')
   }, [messages])
 
+  // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup / first/share/show) ──
+  // 触发:任意分享动作成功后自动检查首次分享奖励(未领取则弹窗);领取走 /api/share/first-claim(幂等)。
+  const hideSharePoints = (): void => setShareValueVisible(false)
+
+  /** 首次分享奖励自动触发:分享成功后查询未领取状态,可领则弹分享领智汇值弹窗 */
+  const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getShareFirstStatus()
+      if (res.success && res.data.canClaim) {
+        setShareFirstReward(res.data.rewardPoints)
+        setShareValueVisible(true)
+      }
+    } catch {
+      // 接口异常静默降级,不阻塞分享流程
+    }
+  }, [])
+
   /** 导出对话(对齐 Uniapp handleExport,调 Share.share 分享对话文本) */
   const handleExportMessages = async (): Promise<void> => {
     setFunctionPanelVisible(false)
@@ -815,6 +842,50 @@ export function ChatScreen() {
 
   // ── 共享组件渲染回调 ──
 
+  /** 领取首次分享奖励(幂等:已领过后端返回 409) */
+  const handleClaimShareReward = async (): Promise<void> => {
+    try {
+      const res = await claimShareFirstReward()
+      hideSharePoints()
+      if (res.success) {
+        showToast('success', `已领取 ${res.data.points} 智汇值`)
+      } else {
+        showToast('info', res.error ?? '已领取过首次分享奖励')
+      }
+    } catch {
+      showToast('error', '领取失败,请稍后重试')
+    }
+  }
+
+  // ── 长按消息:截图 + 分享(chatAlert.longPress.*) ──
+  // 复用 shared ChatScreen 已接好的 onLongPress 传递;此处通过 renderMessage 的 Pressable 触发。
+  const handleLongPressMessage = useCallback(
+    async (msg: ChatScreenMessage): Promise<void> => {
+      let uri: string | undefined
+      const node = messageRefs.current.get(msg.id)
+      if (node) {
+        try {
+          uri = await captureRef(node, { format: 'png', quality: 0.9 })
+        } catch {
+          uri = undefined
+        }
+      }
+      const title =
+        msg.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle')
+      const shareText = uri ? { url: uri, message: msg.content } : { message: msg.content }
+      Alert.alert(title, t('chatAlert.longPress.message'), [
+        {
+          text: t('chatAlert.longPress.shareBtn'),
+          onPress: () => {
+            void Share.share(shareText).catch(() => undefined)
+          },
+        },
+        { text: t('common.cancel'), style: 'cancel' },
+      ])
+    },
+    [t],
+  )
+
   const renderMessage = useCallback(
     (item: ChatScreenMessage, _index: number): React.ReactNode => {
       const isUser = item.role === 'user'
@@ -823,11 +894,19 @@ export function ChatScreen() {
       return (
         <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
           <View style={styles.msgContent}>
-            <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}>
+            <Pressable
+              ref={(el) => {
+                if (el) messageRefs.current.set(item.id, el)
+                else messageRefs.current.delete(item.id)
+              }}
+              onLongPress={() => void handleLongPressMessage(item)}
+              delayLongPress={500}
+              style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
+            >
               <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
                 {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
               </Text>
-            </View>
+            </Pressable>
             {showActions ? (
               <View style={styles.msgActions}>
                 <TouchableOpacity
@@ -863,11 +942,25 @@ export function ChatScreen() {
         </View>
       )
     },
-    [messages, isStreaming, maybeTriggerFirstShareReward, showToast],
+    [messages, isStreaming, maybeTriggerFirstShareReward, showToast, handleLongPressMessage],
   )
 
   const renderListHeader = useCallback((): React.ReactNode => {
     const nodes: React.ReactNode[] = []
+    if (compactionInfo) {
+      nodes.push(
+        <View style={styles.compactionBanner}>
+          <Text style={styles.compactionTitle}>{t('chatAlert.compaction.title')}</Text>
+          <Text style={styles.compactionMessage}>
+            {t('chatAlert.compaction.message', {
+              before: compactionInfo.before,
+              after: compactionInfo.after,
+              removed: compactionInfo.removed,
+            })}
+          </Text>
+        </View>,
+      )
+    }
     if (materialCards.length > 0) {
       nodes.push(
         <ScrollView
@@ -921,7 +1014,7 @@ export function ChatScreen() {
       )
     }
     return nodes.length > 0 ? <>{nodes}</> : null
-  }, [materialCards, inputFiles, removeImage])
+  }, [materialCards, inputFiles, removeImage, compactionInfo, t])
 
   const renderListFooter = useCallback((): React.ReactNode => {
     return (
@@ -970,38 +1063,6 @@ export function ChatScreen() {
       showToast('success', '二维码已保存到相册')
     } catch {
       showToast('error', '保存失败,请重试')
-    }
-  }
-
-  // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup / first/share/show) ──
-  // 触发:任意分享动作成功后自动检查首次分享奖励(未领取则弹窗);领取走 /api/share/first-claim(幂等)。
-  const hideSharePoints = (): void => setShareValueVisible(false)
-
-  /** 首次分享奖励自动触发:分享成功后查询未领取状态,可领则弹分享领智汇值弹窗 */
-  const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
-    try {
-      const res = await getShareFirstStatus()
-      if (res.success && res.data.canClaim) {
-        setShareFirstReward(res.data.rewardPoints)
-        setShareValueVisible(true)
-      }
-    } catch {
-      // 接口异常静默降级,不阻塞分享流程
-    }
-  }, [])
-
-  /** 领取首次分享奖励(幂等:已领过后端返回 409) */
-  const handleClaimShareReward = async (): Promise<void> => {
-    try {
-      const res = await claimShareFirstReward()
-      hideSharePoints()
-      if (res.success) {
-        showToast('success', `已领取 ${res.data.points} 智汇值`)
-      } else {
-        showToast('info', res.error ?? '已领取过首次分享奖励')
-      }
-    } catch {
-      showToast('error', '领取失败,请稍后重试')
     }
   }
 
@@ -1066,6 +1127,7 @@ export function ChatScreen() {
     setMessages([])
     setPrompt('')
     setMaterialCards([])
+    setCompactionInfo(null)
   }
   /** 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList) */
   const loadConversationMessages = useCallback(
@@ -1799,6 +1861,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(32),
+  },
+  // ── 上下文自动压缩提示条(chatAlert.compaction.*) ──
+  compactionBanner: {
+    marginBottom: rpx(16),
+    padding: rpx(12),
+    borderRadius: rpx(8),
+    backgroundColor: tokens.surface.muted,
+  },
+  compactionTitle: {
+    fontSize: rpx(13),
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginBottom: rpx(4),
+  },
+  compactionMessage: {
+    fontSize: rpx(12),
+    color: tokens.text.secondary,
   },
   // ── 消息列表 ──
   msgListContent: {
