@@ -15,6 +15,10 @@ interface FormState {
   lowestPrice: string
   peakPrice: string
   contact: string
+  cycle: string
+  cycleUnit: string
+  types: string
+  categories: string
 }
 
 const INITIAL_FORM: FormState = {
@@ -23,6 +27,10 @@ const INITIAL_FORM: FormState = {
   lowestPrice: '',
   peakPrice: '',
   contact: '',
+  cycle: '1',
+  cycleUnit: '周',
+  types: '',
+  categories: '',
 }
 
 const DESC_MIN = 10
@@ -67,6 +75,13 @@ export function SetNeedScreen() {
       const res = await createPlaza({
         title: form.title.trim(),
         description: form.description.trim(),
+        lowestPrice: Number(form.lowestPrice),
+        peakPrice: Number(form.peakPrice),
+        contact: form.contact.trim(),
+        cycle: form.cycle.trim() || undefined,
+        cycleUnit: form.cycleUnit.trim() || undefined,
+        types: form.types.trim() ? [form.types.trim()] : undefined,
+        categories: form.categories.trim() ? [form.categories.trim()] : undefined,
       })
       if (res.success) {
         Alert.alert('提交成功', '需求已发布,稍后将在广场展示', [
