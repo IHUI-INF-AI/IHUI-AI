@@ -20,6 +20,8 @@ export interface AuthUser {
   roleId?: number
   status?: number
   isVip?: number
+  /** 身份类型:normal 普通 / vip 会员 / trader 操盘手(操盘手充值档位高亮用) */
+  identityType?: string
   level?: number
   inviteCode?: string
   parentId?: string
