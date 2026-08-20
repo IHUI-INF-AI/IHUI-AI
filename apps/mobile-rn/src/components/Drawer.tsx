@@ -31,6 +31,7 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useI18n } from '../i18n'
 import {
   Bot,
   Building2,
@@ -116,15 +117,17 @@ const DAY_MS = 24 * 60 * 60 * 1000
 interface MainMenuConfig {
   key: DrawerTab
   label: string
+  /** 对应 i18n key(mobile-rn nav 命名空间);提供时优先用 t(i18nKey) 渲染,否则回退 label */
+  i18nKey?: string
   Icon: typeof Home
 }
 
 const MAIN_MENUS: readonly MainMenuConfig[] = [
   { key: 'home', label: 'AI 对话社区', Icon: Home },
-  { key: 'ai', label: 'AI 应用', Icon: Bot },
+  { key: 'ai', label: 'AI 应用', i18nKey: 'nav.agents', Icon: Bot },
   { key: 'square', label: '广场', Icon: LayoutGrid },
   { key: 'share', label: '动态', Icon: Share2 },
-  { key: 'mine', label: '我的', Icon: User },
+  { key: 'mine', label: '我的', i18nKey: 'nav.profile', Icon: User },
 ] as const
 
 // ── 扩展菜单配置(对齐 Uniapp 行 14-40 隐藏菜单 + label_content 入口) ──
@@ -360,6 +363,7 @@ export function Drawer(props: DrawerProps) {
   } = props
 
   const insets = useSafeAreaInsets()
+  const { t } = useI18n()
   const screenWidth = Dimensions.get('window').width
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
 
@@ -523,7 +527,7 @@ export function Drawer(props: DrawerProps) {
                 className="py-2 flex-row items-start justify-between"
                 style={{ paddingHorizontal: 14 }}
               >
-                {MAIN_MENUS.map(({ key, label, Icon }) => (
+                {MAIN_MENUS.map(({ key, label, i18nKey, Icon }) => (
                   <Pressable
                     key={key}
                     className="flex-1 items-center py-1.5 rounded-lg"
@@ -536,7 +540,9 @@ export function Drawer(props: DrawerProps) {
                     >
                       <Icon size={22} color={tokens.text.primary} />
                     </View>
-                    <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
+                    <Text className="text-[11px] text-gray-700 text-center">
+                      {i18nKey ? t(i18nKey) : label}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -598,6 +604,69 @@ export function Drawer(props: DrawerProps) {
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
+                </Pressable>
+              </View>
+
+              {/* 2c. 快捷导航(chat.nav* 键:智能体/钱包/课程/订单/我的/设置/退出登录)。
+                  纯 i18n 标签占位导航,onPress 弹 Alert 占位(对齐 handleNavigateExtra 模式)。
+                  后续可在 ChatScreen 接真实路由跳转 */}
+
+              <View className="px-2 py-2 gap-0.5">
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navAgent'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navAgent')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navWallet'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navWallet')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navCourse'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navCourse')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navOrder'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navOrder')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navProfile'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navProfile')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navSettings'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navSettings')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => Alert.alert(t('chat.navLogout'), '待接入导航路由')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navLogout')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
 
