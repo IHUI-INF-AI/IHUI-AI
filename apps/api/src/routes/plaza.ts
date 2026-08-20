@@ -10,9 +10,17 @@ import { db } from '../db/index.js'
 // 查询参数
 // =============================================================================
 
+const queryArray = z.preprocess(
+  (value) => (typeof value === 'string' ? value.split(',').filter(Boolean) : value),
+  z.array(z.string().max(50)).max(20).optional(),
+)
+
 const plazaListQuerySchema = z.object({
   status: z.string().max(20).optional(),
   search: z.string().max(200).optional(),
+  creator: z.string().max(64).optional(),
+  types: queryArray,
+  categories: queryArray,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -45,9 +53,16 @@ export const plazaRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { status, search, page, pageSize } = parsed.data
+    const { status, search, creator, types, categories, page, pageSize } = parsed.data
     const conditions = []
     if (status) conditions.push(eq(zhsDemandSquare.status, status))
+    if (creator) conditions.push(eq(zhsDemandSquare.userId, creator))
+    if (types?.length) {
+      conditions.push(sql`${zhsDemandSquare.types} ?| array[${sql.join(types.map((value) => sql`${value}`), sql`, `)}]`)
+    }
+    if (categories?.length) {
+      conditions.push(sql`${zhsDemandSquare.categories} ?| array[${sql.join(categories.map((value) => sql`${value}`), sql`, `)}]`)
+    }
     if (search) {
       const keyword = `%${search}%`
       conditions.push(
