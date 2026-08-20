@@ -46,7 +46,14 @@
     "valueFreeDesc": "1,000 credits monthly, all models, all six clients. Pro from ¥49/month, Enterprise supports self-hosting.",
     "valueFreeTitle": "Free for Personal Use",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
-    "valueOpenTitle": "Fully Open Source"
+    "valueOpenTitle": "Fully Open Source",
+    "appName": "App name",
+    "version": "Version",
+    "description": "Product description",
+    "officialSite": "Official site",
+    "contactEmail": "Contact email",
+    "license": "License",
+    "title": "About us"
   },
   "accounts": {
     "add": "Add Account",
@@ -6230,7 +6237,8 @@
     "updateSuccess": "Updated successfully",
     "viewDetail": "View detail",
     "viewPermissionExample": "View Permission Example",
-    "vipExclusive": "VIP Exclusive"
+    "vipExclusive": "VIP Exclusive",
+    "config": "Configuration"
   },
   "agentRuntimePanel": {
     "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
@@ -6348,7 +6356,8 @@
     "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
     "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
     "staticContent3": "If you have any questions about this agreement, please contact customer service.",
-    "title": "Agreements & Policies"
+    "title": "Agreements & Policies",
+    "subtitle": "Please read carefully and agree to the terms below before continuing"
   },
   "ai": {
     "agentManager": {
@@ -6652,7 +6661,14 @@
       "statusRunning": "Running",
       "statusSuccess": "Success",
       "toolCallStats": "Tool calls ({count})"
-    }
+    },
+    "title": "AI Assistant",
+    "thinking": "AI is generating…",
+    "apply": "Apply",
+    "retry": "Retry",
+    "emptyContent": "No content yet, please enter your text first",
+    "seoScore": "SEO Score",
+    "generateTitles": "Generate titles"
   },
   "aiCareerPage": {
     "export": {
@@ -7824,7 +7840,16 @@
       "subtitle": "View and download your earned certificates",
       "template": "Certificate Template",
       "title": "Certificate Download"
-    }
+    },
+    "status": {
+      "issued": "Issued",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "title": "Certificate Details",
+    "empty": "No certificates",
+    "issuedDate": "Issue date",
+    "expiryDate": "Expiry date"
   },
   "chat": {
     "addContextHint": "Add context file or reference",
@@ -8491,7 +8516,12 @@
       "zhipu": "Zhipu AI"
     },
     "voiceInputStart": "Voice Input",
-    "voiceInputStop": "Stop Voice Input"
+    "voiceInputStop": "Stop Voice Input",
+    "modelLabel": "Model",
+    "send": "Send",
+    "thinking": "Thinking…",
+    "title": "Chat",
+    "selectModel": "Select model"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -8603,32 +8633,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -8793,7 +8849,19 @@
       "retry": "Retry",
       "updateNow": "Update Now"
     },
-    "viewDetail": "View Details"
+    "viewDetail": "View Details",
+    "viewMore": "View more",
+    "back": "Back",
+    "loading": "Loading...",
+    "search": "Search",
+    "submitting": "Submitting...",
+    "retry": "Retry",
+    "gotIt": "Got it",
+    "hide": "Hide",
+    "show": "Show",
+    "delete": "Delete",
+    "save": "Save",
+    "ok": "OK"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -8867,7 +8935,15 @@
     "video": {
       "cover": "Course cover",
       "selectChapter": "Select a chapter to start learning"
-    }
+    },
+    "studentCount": "{count} students",
+    "empty": "No courses",
+    "free": "Free",
+    "player": "Player loading…",
+    "progress": "Learning Progress",
+    "progressLessons": "{completed}/{total} lessons learned",
+    "completed": "Completed",
+    "complete": "Complete"
   },
   "courses": {
     "subtitle": "AI Lessons, Skills",
@@ -9529,7 +9605,11 @@
       "strikethrough": "Strikethrough",
       "underline": "Underline",
       "undo": "Undo"
-    }
+    },
+    "image": "Insert image",
+    "wordCount": "{count} words",
+    "readingTime": "About {minutes} min",
+    "autoSaved": "Auto saved"
   },
   "edu": {
     "qa": {
@@ -10391,25 +10471,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10543,19 +10635,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -10764,7 +10868,12 @@
       "subtitle": "Review mistakes and reinforce weak points",
       "title": "Wrong Questions",
       "total": "{total} items"
-    }
+    },
+    "retry": "Retry",
+    "questions": "Questions",
+    "attempts": "Attempts",
+    "start": "Start time",
+    "end": "End time"
   },
   "faq": {
     "categoryDeploy": "Deployment & Ops",
@@ -10893,7 +11002,16 @@
     "required": "Title and content are required",
     "tab_list": "List",
     "tab_new": "Newest",
-    "titlePlaceholder": "Enter a title"
+    "titlePlaceholder": "Enter a title",
+    "contentRequired": "Please enter your feedback",
+    "success": "Submitted successfully",
+    "failed": "Submission failed",
+    "title": "Feedback",
+    "type": "Feedback Type",
+    "content": "Feedback Content",
+    "contact": "Contact",
+    "submitting": "Submitting…",
+    "submit": "Submit"
   },
   "fields": {
     "applyTime": "Apply Time",
@@ -11206,7 +11324,8 @@
     "related": "Related Articles",
     "toc": "On this page",
     "updatedAt": "Updated",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "title": "Help center"
   },
   "home": {
     "announcement": {
@@ -11289,7 +11408,15 @@
       "answers": "{count} answers",
       "members": "{count} members",
       "questions": "{count} Q"
-    }
+    },
+    "guest": "Guest",
+    "welcome": "Welcome back",
+    "learningProgress": "Learning Progress",
+    "progressLessons": "{completed}/{total} lessons learned",
+    "progressEmpty": "No learning records yet",
+    "livePreview": "Live Preview",
+    "livePreviewMore": "View more",
+    "recommend": "Recommended for You"
   },
   "hooks": {
     "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?"
@@ -11991,7 +12118,12 @@
     "total": "{total} total",
     "unknownLecturer": "Unknown Lecturer",
     "upcoming": "Upcoming",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "empty": "No live streams",
+    "ongoing": "Live now",
+    "lecturer": "Lecturer",
+    "startAt": "Start time",
+    "viewerCount": "{count} watching"
   },
   "livePlayPage": {
     "danmuPlaceholder": "Send a message...",
@@ -12958,7 +13090,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14151,7 +14291,8 @@
     "userSignUp": "My Sign-ups",
     "userSubscription": "Subscription",
     "vip": "VIP Membership",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "courses": "Courses"
   },
   "news": {
     "allCategories": "All Categories",
@@ -14678,7 +14819,17 @@
     },
     "popular": "Popular",
     "subtitle": "Choose the plan that fits you",
-    "title": "Pricing Plans"
+    "title": "Pricing Plans",
+    "retry": "Retry",
+    "empty": "No orders",
+    "untitledOrder": "Untitled Order",
+    "orderNo": "Order No.",
+    "amount": "Amount",
+    "method": "Payment Method",
+    "paidAt": "Paid At",
+    "payNow": "Pay Now",
+    "syncStatus": "Sync Status",
+    "cancelOrder": "Cancel Order"
   },
   "pdfWatermarkPage": {
     "color": "Color",
@@ -15766,7 +15917,10 @@
       "files": "Files",
       "projects": "Projects",
       "users": "Users"
-    }
+    },
+    "title": "Search",
+    "placeholder": "Enter keywords",
+    "empty": "No results"
   },
   "searchHistory": {
     "clearAll": "Clear All",
@@ -16399,7 +16553,28 @@
       "scanQR": "Scan the QR code with an authenticator app",
       "title": "Two-Factor Authentication",
       "verify": "Verify & enable"
-    }
+    },
+    "appPermission": "App Permissions",
+    "changePassword": "Change Password",
+    "oldPassword": "Old Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "icpRecord": "ICP Filing",
+    "pwdFieldsRequired": "Please fill in all fields",
+    "pwdTooShort": "Password is too short",
+    "pwdNotMatch": "The two passwords do not match",
+    "pwdChanged": "Password changed successfully",
+    "pwdChangeFailed": "Failed to change password",
+    "logoutConfirm": "Are you sure you want to log out?",
+    "notifPush": "Push Notifications",
+    "notifMessage": "Message Notifications",
+    "notifEmail": "Email Notifications",
+    "language": "Language",
+    "theme": "Theme",
+    "notification": "Notifications",
+    "account": "Account",
+    "version": "Version",
+    "usageRules": "Usage Rules"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -16995,7 +17170,10 @@
     "username": "Username"
   },
   "themeBackup": {
-    "title": "Theme"
+    "title": "Theme",
+    "desc": "Export theme config or import from a file to sync across devices",
+    "export": "Export",
+    "import": "Import"
   },
   "themeToggle": {
     "darkMode": "Dark",
@@ -17032,7 +17210,20 @@
     "subtitle": "View Value Apply Recordand Balance",
     "title": "I Value",
     "totalEarned": "Total Earned",
-    "totalUsed": "Total Used"
+    "totalUsed": "Total Used",
+    "balanceLabel": "Current balance",
+    "frozen": "Frozen",
+    "totalCost": "Total spent",
+    "packagesTitle": "Top-up packages",
+    "popular": "Popular",
+    "tokenUnit": "Token",
+    "bonus": "Bonus",
+    "recordsTitle": "Records",
+    "empty": "No records",
+    "tab": {
+      "recharge": "Recharge",
+      "cost": "Usage"
+    }
   },
   "toolsPdfSplitPage": {
     "bookmarksHint": "Will automatically split into multiple files based on the PDF's built-in bookmarks (level 1).",
@@ -17443,7 +17634,14 @@
     "subscribe": "Subscribe",
     "subtitle": "Choose a plan that fits your needs",
     "title": "VIP Membership",
-    "traderPlan": "Trader Plan"
+    "traderPlan": "Trader Plan",
+    "retry": "Retry",
+    "daysRemaining": "{count} days left",
+    "levelsTitle": "Membership tiers",
+    "currentBadge": "Current plan",
+    "duration": "{days} days",
+    "benefitsCount": "{count} benefits",
+    "purchase": "Purchase membership"
   },
   "wallet": {
     "availableAmount": "Available",
@@ -17482,7 +17680,12 @@
     "withdrawMethod": "Method",
     "withdrawRecords": "Withdrawal Records",
     "withdrawSuccess": "Withdrawal request submitted",
-    "withdrawTitle": "Withdrawal Request"
+    "withdrawTitle": "Withdrawal Request",
+    "points": "Points",
+    "frozen": "Frozen amount",
+    "totalRecharge": "Total recharged",
+    "totalWithdraw": "Total withdrawn",
+    "loadFailed": "Failed to load wallet"
   },
   "withdrawals": {
     "allStatus": "All Status",
@@ -17866,5 +18069,1935 @@
     "title": "Workspace",
     "uploadFailed": "Upload failed",
     "uploadedAt": "Uploaded"
+  },
+  "kanban": {
+    "newTask": "New task",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "priority": "Priority",
+    "cancel": "Cancel"
+  },
+  "terminalDock": {
+    "title": "Terminal",
+    "newSession": "New session",
+    "collapse": "Collapse"
+  },
+  "tabs": {
+    "decisions": "Decisions"
+  },
+  "status": {
+    "running": "Running"
+  },
+  "relativeTime": {
+    "justNow": "Just now",
+    "secondsAgo": "{n}s ago",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago"
+  },
+  "plan": {
+    "summaryErrorCount": "{count} errors",
+    "statusInProgress": "In progress",
+    "summaryAllDone": "All done",
+    "statusPending": "Pending",
+    "totalDuration": "Total {duration}",
+    "title": "Execution plan",
+    "ariaLabel": "Execution plan",
+    "stepError": "Failed",
+    "statusCompleted": "Completed",
+    "stepThinking": "Thinking",
+    "reasoningCopied": "Reasoning copied",
+    "reasoningCopyFailed": "Failed to copy reasoning",
+    "copyReasoning": "Copy reasoning"
+  },
+  "subagent": {
+    "toolCallsTitle": "{n} tool calls",
+    "toolCallsCount": "Tool calls {n}",
+    "state": "State",
+    "role": "Role",
+    "pendingApproval": "Pending approval",
+    "startedAt": "Started at",
+    "endedAt": "Ended at",
+    "duration": "Duration",
+    "copyThreadId": "Copy thread ID",
+    "toolsCount": "{n} tools",
+    "active": "{n} active",
+    "done": "{n} done",
+    "failed": "{n} failed",
+    "title": "Subagent"
+  },
+  "chargeStatus": {
+    "success": "Success",
+    "failed": "Failed",
+    "processing": "Processing"
+  },
+  "commandArg": {
+    "goalFixTs": {
+      "label": "Fix tests",
+      "description": "Fix failing tests until they all pass"
+    },
+    "goalPassTests": {
+      "label": "Pass tests",
+      "description": "Run tests and fix issues until all pass"
+    },
+    "goalRefactor": {
+      "label": "Refactor code",
+      "description": "Refactor the specified module while keeping behavior unchanged"
+    },
+    "goalLint": {
+      "label": "Lint",
+      "description": "Run code checks and fix all warnings"
+    },
+    "goalMigrateShared": {
+      "label": "Migrate shared code",
+      "description": "Move common logic into shared modules"
+    },
+    "goalBenchmark": {
+      "label": "Benchmark",
+      "description": "Run benchmarks and optimize performance hotspots"
+    },
+    "goalDeadCode": {
+      "label": "Remove dead code",
+      "description": "Find and remove unused code"
+    },
+    "goalE2e": {
+      "label": "E2E tests",
+      "description": "Write and run end-to-end tests"
+    },
+    "loopOn": {
+      "label": "Enable loop",
+      "description": "Enable goal-driven loop execution"
+    },
+    "loopOff": {
+      "label": "Disable loop",
+      "description": "Disable goal-driven loop execution"
+    },
+    "loop5": {
+      "label": "Loop 5 times",
+      "description": "Loop at most 5 times"
+    },
+    "loop10": {
+      "label": "Loop 10 times",
+      "description": "Loop at most 10 times"
+    },
+    "loop20": {
+      "label": "Loop 20 times",
+      "description": "Loop at most 20 times"
+    }
+  },
+  "permission": {
+    "inputWarning": "High-risk operation detected. Please confirm before continuing",
+    "autoRevertIn": "Auto-restore current mode in {time}",
+    "cancelAutoRevert": "Cancel auto-restore",
+    "reEnableAutoRevert": "Re-enable auto-restore",
+    "mode": {
+      "full": "Full",
+      "auto": "Auto",
+      "ask": "Ask"
+    },
+    "infoButtonTitle": "View permission mode info",
+    "infoButtonLabel": "Permission mode info",
+    "titleBarAutoRevert": "Auto-restore: {time}",
+    "dangerousCommandTitle": "Dangerous command detected",
+    "dangerousCommandDesc": "Dangerous command \"{pattern}\" detected: {reason}. Continue anyway?",
+    "dangerousCommandProceed": "Continue anyway",
+    "dangerousCommandCancel": "Cancel",
+    "dangerousCommandWarningOnly": "Dangerous command \"{pattern}\" detected. Warning only, execution not blocked",
+    "usageHint": "Type @ to show available arguments"
+  },
+  "contextMenu": {
+    "copyText": "Copy text",
+    "copyMarkdown": "Copy as Markdown",
+    "regenerate": "Regenerate",
+    "feedback": "Feedback",
+    "deleteMessage": "Delete message"
+  },
+  "activityBar": {
+    "settings": "Settings"
+  },
+  "magazine": {
+    "title": "News"
+  },
+  "defaultEntries": {
+    "mall": {
+      "label": "Mall",
+      "description": "Browse discounted products"
+    },
+    "vip": {
+      "label": "VIP",
+      "description": "Upgrade to get exclusive benefits"
+    },
+    "invite": {
+      "label": "Invite",
+      "description": "Invite friends to earn rewards"
+    },
+    "help": {
+      "label": "Help",
+      "description": "View FAQs and user guides"
+    }
+  },
+  "analytics": {
+    "totalPublished": "Total published",
+    "successRate": "Success rate",
+    "avgDuration": "Avg. duration",
+    "activeAccounts": "Active accounts",
+    "trend": "Publishing trend",
+    "platformDistribution": "Platform distribution",
+    "failureReasons": "Failure reasons",
+    "accountHealth": "Account health",
+    "noData": "No data",
+    "lastPublished": "Last published",
+    "riskStatus": "Risk status"
+  },
+  "cookieHealth": {
+    "refreshSuccess": "Cookies refreshed",
+    "refreshFailed": "Failed to refresh cookies",
+    "refresh": "Refresh",
+    "lastVerified": "Last verified",
+    "predictedExpiry": "Predicted expiry",
+    "daysSince": "Days since",
+    "days": "days"
+  },
+  "calendar": {
+    "taskCount": "{count} tasks",
+    "createTask": "New task",
+    "noTasks": "No tasks",
+    "dragHint": "Drag a task to a date to schedule publishing"
+  },
+  "ip": {
+    "invalid": "Invalid IP format",
+    "exists": "This IP already exists",
+    "title": "IP whitelist",
+    "placeholder": "Enter an IP address",
+    "empty": "No whitelisted IPs"
+  },
+  "session": {
+    "title": "Login sessions",
+    "activeCount": "{count} active sessions",
+    "manage": "Manage"
+  },
+  "slashCmd": {
+    "goal": "Run task in goal-driven mode",
+    "goalArgTitle": "Goal arguments",
+    "loop": "Control the number of goal-driven loops",
+    "loopArgTitle": "Loop arguments",
+    "plan": "Generate an execution plan for the current task",
+    "act": "Execute the current task directly",
+    "build": "Build and verify the current project",
+    "review": "Review code changes and suggest improvements",
+    "spec": "Generate a spec document for the current feature",
+    "permissionAsk": "Run in ask mode, confirming before each action",
+    "permissionAuto": "Run in auto mode, auto-approving routine actions",
+    "permissionFull": "Run in full mode, executing all actions directly"
+  },
+  "activity": {
+    "title": "Activity",
+    "empty": "No activities",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "participants": "Participants",
+    "joinNow": "Join now"
+  },
+  "agentReviewDetail": {
+    "title": "Review details",
+    "empty": "No review records",
+    "author": "Author"
+  },
+  "agreementSections": {
+    "sectionTerms": "Terms of Service",
+    "sectionTermsBody": "Welcome to the ZHIHUI AI platform. By using this service, you agree to these terms. Please read and understand this agreement carefully before use.",
+    "sectionRights": "User rights",
+    "sectionRightsBody": "You are entitled to use platform features under the applicable laws and this agreement, including data access and account deletion rights.",
+    "sectionObligations": "User obligations",
+    "sectionObligationsBody": "You must ensure the information you submit is true and valid, and must not use the platform for illegal activities or infringe on others' rights."
+  },
+  "aiAssistantN8n": {
+    "placeholder": "Type a question to start chatting…",
+    "streaming": "Generating…"
+  },
+  "aiMultimodal": {
+    "title": "Multimodal creation",
+    "subtitle": "Generate text, images, and audio in one place",
+    "switchModel": "Switch model",
+    "noModels": "No models available",
+    "empty": "No content",
+    "inputPlaceholder": "Describe what you want to create…",
+    "send": "Send",
+    "clear": "Clear"
+  },
+  "aigcList": {
+    "promptLabel": "Prompt",
+    "playAudio": "Play audio",
+    "videoBadge": "Video",
+    "title": "My creations",
+    "subtitle": "Manage your AI-generated content",
+    "empty": "No creations yet",
+    "publish": "Publish"
+  },
+  "appPermission": {
+    "intro": "This APP requests system permissions strictly on a minimum necessary basis. All permissions are granted by you voluntarily, and you can view, adjust, or revoke them anytime in your device's Settings > Permission management."
+  },
+  "askDetail": {
+    "loadFailed": "Failed to load",
+    "views": "{count} views",
+    "answers": "{count} answers",
+    "empty": "No answers yet",
+    "accepted": "Accepted"
+  },
+  "askList": {
+    "title": "Q&A Center",
+    "empty": "No questions yet",
+    "answers": "{count} answers",
+    "views": "{count} views"
+  },
+  "assistant": {
+    "badgePublished": "Published",
+    "badgeReviewing": "Under review",
+    "badgeRejected": "Rejected",
+    "badgeOffline": "Offline",
+    "badgeDraft": "Draft",
+    "metaCategory": "Category",
+    "metaCycleForever": "Forever",
+    "metaAudience": "Audience",
+    "metaPublishTime": "Publish time",
+    "actionSettings": "Settings",
+    "actionOffline": "Go offline",
+    "actionReedit": "Re-edit",
+    "title": "My agents",
+    "searchPlaceholder": "Search agents",
+    "loading": "Loading…",
+    "empty": "No agents"
+  },
+  "certDetail": {
+    "loadFailed": "Failed to load",
+    "title": "Certificate details",
+    "certNo": "Certificate No.",
+    "holder": "Holder",
+    "issuer": "Issuer",
+    "score": "Score",
+    "issuedAt": "Issued on",
+    "expiredAt": "Valid until",
+    "verify": "Verify"
+  },
+  "circleChat": {
+    "empty": "No messages",
+    "placeholder": "Type a message…",
+    "send": "Send"
+  },
+  "courseComment": {
+    "title": "Course comments",
+    "empty": "No comments"
+  },
+  "courseScreen": {
+    "title": "Courses",
+    "searchPlaceholder": "Search courses",
+    "empty": "No courses",
+    "free": "Free",
+    "studentCount": "{count} learners",
+    "nextPage": "Next"
+  },
+  "customerService": {
+    "empty": "No support info",
+    "title": "Customer service",
+    "status": "Service status",
+    "online": "Online",
+    "offline": "Offline",
+    "workingHours": "Working hours",
+    "phone": "Phone",
+    "email": "Email"
+  },
+  "examHistory": {
+    "title": "Exam history",
+    "empty": "No exam records",
+    "passed": "Passed",
+    "failed": "Failed"
+  },
+  "helpDetail": {
+    "empty": "No help content",
+    "title": "Help details",
+    "answer": "Answer"
+  },
+  "icpRecord": {
+    "licenseLabel": "ICP license/registration No."
+  },
+  "identityVerify": {
+    "uploadFront": "Upload ID front",
+    "uploadBack": "Upload ID back",
+    "uploadSelfie": "Take a selfie holding your ID",
+    "title": "Identity verification",
+    "subtitle": "Complete identity verification to secure your account",
+    "submitting": "Submitting…",
+    "submit": "Submit"
+  },
+  "income": {
+    "cancelled": "Cancelled",
+    "settled": "Settled",
+    "pending": "Pending",
+    "title": "Earnings",
+    "today": "Today",
+    "total": "Total",
+    "withdrawable": "Withdrawable",
+    "withdrawn": "Withdrawn",
+    "withdraw": "Withdraw",
+    "sectionTitle": "Earnings details",
+    "empty": "No earnings records",
+    "buyer": "Buyer {name}",
+    "relatedOrder": "Related order {orderNo}",
+    "copy": "Copy"
+  },
+  "invite": {
+    "title": "Invite friends",
+    "inviteCode": "Invite code",
+    "totalInvited": "Total invited",
+    "totalReward": "Total rewards",
+    "share": "Share invitation",
+    "sectionTitle": "Invite history",
+    "empty": "No invite records",
+    "statusCompleted": "Completed",
+    "statusPending": "Pending"
+  },
+  "liveHost": {
+    "statDuration": "Duration",
+    "statViewers": "Viewers",
+    "statRecvBytes": "Downloaded",
+    "statSendBytes": "Uploaded",
+    "title": "Go live settings",
+    "previewActive": "Previewing live",
+    "previewIdle": "Not started",
+    "streamTitle": "Stream title",
+    "streamTitlePlaceholder": "Enter a stream title",
+    "pushUrl": "Push URL",
+    "copyHint": "Click to copy",
+    "streamKey": "Stream key",
+    "starting": "Starting…",
+    "startLive": "Start live",
+    "ending": "Ending…",
+    "endLive": "End live",
+    "stats": "Stats",
+    "productManage": "Product management",
+    "productAddBtn": "Add product",
+    "productLoading": "Loading products…",
+    "productEmpty": "No products"
+  },
+  "livePlaybackList": {
+    "title": "Live replays",
+    "empty": "No replays",
+    "lecturer": "Lecturer",
+    "duration": "Duration",
+    "viewerCount": "Viewers",
+    "play": "Play"
+  },
+  "livePlayback": {
+    "retry": "Retry",
+    "title": "Live replay",
+    "subtitle": "Watch past live sessions",
+    "empty": "No replay content",
+    "ended": "Ended",
+    "lecturer": "Lecturer",
+    "startAt": "Started at",
+    "duration": "Duration",
+    "viewerCount": "{count} viewers",
+    "play": "Play",
+    "noReplay": "No replay",
+    "replayTitle": "Replay"
+  },
+  "note": {
+    "title": "Notes",
+    "subtitle": "Capture your ideas",
+    "add": "New",
+    "empty": "No notes",
+    "updatedAt": "Updated",
+    "edit": "Edit",
+    "titlePlaceholder": "Enter a title",
+    "placeholder": "Write something…"
+  },
+  "noteDetail": {
+    "loadFailed": "Failed to load",
+    "views": "{count} views"
+  },
+  "order": {
+    "title": "My orders",
+    "searchPlaceholder": "Search orders",
+    "amount": "Amount",
+    "empty": "No orders",
+    "noMore": "No more"
+  },
+  "pointHistory": {
+    "title": "Points detail",
+    "empty": "No points records",
+    "balance": "Balance"
+  },
+  "pointsRecord": {
+    "tabAll": "All",
+    "tabEarn": "Earned",
+    "tabSpend": "Spent",
+    "title": "Points records",
+    "balance": "Points balance",
+    "empty": "No points records",
+    "balanceAfter": "Balance after"
+  },
+  "privacy": {
+    "sectionData": "Data collection",
+    "sectionDataBody": "We only collect personal information required to provide this service, following the minimum necessity principle, and never use it for other purposes without your consent.",
+    "sectionCookie": "Cookie usage",
+    "sectionCookieBody": "To improve the browsing experience and analyze traffic, we store cookies on your device, which you can manage through your browser settings.",
+    "sectionThirdParty": "Third-party services",
+    "sectionThirdPartyBody": "This platform may integrate third-party services (such as payment or login). Those third parties process your information under their own privacy policies.",
+    "title": "Privacy Policy",
+    "subtitle": "Learn how we collect, use, and protect your personal information"
+  },
+  "realNameAuth": {
+    "title": "Real-name verification",
+    "status": "Verification status",
+    "verifiedDesc": "Your identity has been verified.",
+    "unverifiedDesc": "Your identity is not yet verified. Please complete the information below.",
+    "name": "Full name",
+    "namePlaceholder": "Enter your full name",
+    "idNumber": "ID number",
+    "idNumberPlaceholder": "Enter your ID number",
+    "submitting": "Submitting…",
+    "submit": "Submit"
+  },
+  "recruitment": {
+    "title": "Recruitment",
+    "count": "{count} positions",
+    "empty": "No positions",
+    "applied": "Applied",
+    "close": "Close",
+    "description": "Job description",
+    "requirements": "Requirements",
+    "appliedWaiting": "Applied, pending review",
+    "applyNow": "Apply now"
+  },
+  "studyProgress": {
+    "loadFailed": "Failed to load",
+    "title": "Study progress",
+    "courses": "Courses",
+    "totalMinutes": "Total study time",
+    "weekMinutes": "This week",
+    "streak": "Streak",
+    "courseProgress": "Course progress"
+  },
+  "studyPublish": {
+    "title": "Publish course"
+  },
+  "teamDetail": {
+    "transactionVolume": "Transaction volume",
+    "commission": "Commission",
+    "orderNum": "Orders",
+    "title": "Team member details",
+    "phone": "Phone",
+    "joinedAt": "Joined",
+    "contact": "Contact member",
+    "viewOrders": "View orders"
+  },
+  "vipCompare": {
+    "title": "Plan comparison",
+    "feature": "Feature",
+    "basic": "Basic",
+    "premium": "Premium",
+    "enterprise": "Enterprise"
+  },
+  "events": {
+    "events24h": "Events (24h)",
+    "refresh": "Refresh",
+    "filterAll": "All",
+    "noEvents": "No events",
+    "payload": "Event payload"
+  },
+  "decisions": {
+    "noDecisions": "No decisions",
+    "duration": "Duration",
+    "playbooks": "Playbooks",
+    "trigger": "Trigger"
+  },
+  "budget": {
+    "todayUsage": "Today's usage",
+    "tokens": "Tokens",
+    "cost": "Cost",
+    "trend": "Trend",
+    "pillarBudget": "Pillar budget",
+    "costBreakdown": "Cost breakdown",
+    "byPillar": "By pillar",
+    "byModel": "By model",
+    "byAction": "By action"
+  },
+  "telemetry": {
+    "pillarHealth": "Pillar health",
+    "recentTraces": "Recent traces"
+  },
+  "terminal": {
+    "output": "Output",
+    "copyOutput": "Copy output",
+    "truncated": "Truncated, {total} characters in total",
+    "running": "{n} running",
+    "failed": "{n} failed",
+    "title": "Terminal",
+    "moreItems": "{n} more"
+  },
+  "tools": {
+    "args": "Arguments",
+    "copyArgs": "Copy arguments",
+    "result": "Result",
+    "copyResult": "Copy result",
+    "error": "Error",
+    "copyError": "Copy error",
+    "title": "Tools",
+    "searchPlaceholder": "Search tools...",
+    "moreItems": "{n} more",
+    "noMatch": "No matching tools"
+  },
+  "stageStatus": {
+    "pending": "Pending",
+    "running": "Running",
+    "success": "Success",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "actions": {
+    "cancel": "Cancel"
+  },
+  "applications": {
+    "typeTerminal": "Terminal",
+    "justNow": "Just now",
+    "runFailed": "Run failed",
+    "title": "Applications",
+    "newConfig": "New config",
+    "configNamePlaceholder": "Config name",
+    "commandPlaceholder": "Command...",
+    "cancel": "Cancel",
+    "add": "Add",
+    "launchConfigs": "Launch configs",
+    "run": "Run",
+    "debug": "Debug",
+    "recentRuns": "Recent runs"
+  },
+  "debug": {
+    "launchFailed": "Launch failed",
+    "start": "Start",
+    "pause": "Pause",
+    "stop": "Stop",
+    "stepOver": "Step over",
+    "stepInto": "Step into",
+    "stepOut": "Step out",
+    "restart": "Restart",
+    "noSession": "No debug session",
+    "variables": "Variables",
+    "watch": "Watch",
+    "watchPlaceholder": "Enter expression...",
+    "add": "Add",
+    "delete": "Delete",
+    "breakpoints": "Breakpoints",
+    "toggle": "Toggle",
+    "callStack": "Call stack",
+    "debugConsole": "Debug console"
+  },
+  "diffFileList": {
+    "noMatch": "No matching files"
+  },
+  "mcpPane": {
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "searchPlaceholder": "Search...",
+    "empty": "No resources",
+    "selectHint": "Select a resource",
+    "result": "Result",
+    "copy": "Copy",
+    "call": "Call",
+    "resourceUri": "Resource URI",
+    "parameters": "Parameters",
+    "noParams": "No parameters",
+    "skillTemplate": "Skill template",
+    "noTemplate": "No template",
+    "slashArgs": "Slash arguments",
+    "slashArgsHint": "Slash command arguments hint"
+  },
+  "diffViewer": {
+    "selectFile": "Select file",
+    "selectToCompare": "Select file to compare",
+    "addPct": "+{pct}%",
+    "changeBlocks": "{count} change blocks",
+    "wordLevel": "Word level"
+  },
+  "editorTabBar": {
+    "closeTab": "Close tab",
+    "unpin": "Unpin",
+    "pin": "Pin",
+    "close": "Close",
+    "closeOthers": "Close others",
+    "closeAll": "Close all",
+    "copyPath": "Copy path"
+  },
+  "layout": {
+    "documentView": "Document view",
+    "browserView": "Browser view",
+    "figmaView": "Figma view",
+    "settingsView": "Settings view"
+  },
+  "topBar": {
+    "editor": "Editor",
+    "close": "Close",
+    "plus": "New"
+  },
+  "statusBar": {
+    "sync": "Sync",
+    "toggleTheme": "Toggle theme"
+  },
+  "groups": {
+    "updated": "Group updated",
+    "updateFailed": "Failed to update group",
+    "created": "Group created",
+    "createFailed": "Failed to create group",
+    "deleted": "Group deleted",
+    "deleteFailed": "Failed to delete group",
+    "accountsAdded": "{count} account(s) added",
+    "addFailed": "Failed to add account",
+    "accountRemoved": "Account removed",
+    "removeFailed": "Failed to remove account",
+    "title": "Account groups",
+    "create": "Create group",
+    "empty": "No groups yet. Click the button below to create one",
+    "addAccount": "Add account",
+    "noMembers": "No members",
+    "removeAccount": "Remove account",
+    "edit": "Edit group",
+    "name": "Group name",
+    "namePlaceholder": "Enter group name",
+    "description": "Description",
+    "descPlaceholder": "Enter group description",
+    "delete": "Delete group",
+    "deleteConfirm": "Delete group \"{name}\"?",
+    "addAccountTitle": "Add account",
+    "noAvailableAccounts": "No accounts available",
+    "addSelected": "Add {count} selected account(s)"
+  },
+  "twofa": {
+    "codeInvalid": "Invalid verification code",
+    "codesCopied": "Backup codes copied",
+    "title": "Two-factor authentication",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "disable": "Turn off",
+    "enable": "Turn on",
+    "scanQR": "Scan the QR code with your authenticator app",
+    "previewCode": "Preview code",
+    "enterCode": "Enter verification code",
+    "verify": "Verify",
+    "backupDesc": "Save the following backup codes securely in case you lose your credentials",
+    "copyCodes": "Copy backup codes",
+    "done": "Done"
+  },
+  "activityDetail": {
+    "title": "Activity details",
+    "empty": "No activities",
+    "startAt": "Start time",
+    "endAt": "End time",
+    "location": "Location"
+  },
+  "agentReviewList": {
+    "title": "Agent review list",
+    "empty": "No review records",
+    "author": "Author"
+  },
+  "aigcPublish": {
+    "back": "Back",
+    "title": "Publish AIGC work",
+    "subtitle": "Share your AI creations to the content plaza",
+    "labelType": "Work type",
+    "labelTextContent": "Text content",
+    "placeholderTextContent": "Enter the text content of your work",
+    "labelUpload": "Upload ({count})",
+    "placeholderUrl": "Enter image/video URL",
+    "urlAddBtn": "Add URL",
+    "uploading": "Uploading...",
+    "pickFromAlbum": "Pick from album",
+    "uploadingShort": "Uploading",
+    "fileAddText": "Add file",
+    "labelTitle": "Title",
+    "placeholderTitle": "Enter a title",
+    "labelDescription": "Description",
+    "placeholderDescription": "Enter a description of your work",
+    "labelPrompt": "Prompt",
+    "placeholderPrompt": "Enter the generation prompt",
+    "submitBtn": "Publish"
+  },
+  "articleDetail": {
+    "loadFailed": "Failed to load article",
+    "views": "{count} views"
+  },
+  "askCreate": {
+    "title": "Ask a question",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter the question title",
+    "contentLabel": "Description",
+    "contentPlaceholder": "Describe your question in detail",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Enter a tag and press Enter to add",
+    "submit": "Post question"
+  },
+  "bankCard": {
+    "title": "Bank card",
+    "empty": "No bank card",
+    "default": "Default",
+    "holder": "Cardholder"
+  },
+  "carte": {
+    "projects": "Projects",
+    "skills": "Skills",
+    "rating": "Rating",
+    "title": "Creator card",
+    "skillsTitle": "Skills",
+    "worksTitle": "Featured works",
+    "empty": "No content"
+  },
+  "certApply": {
+    "title": "Certificate application",
+    "name": "Name",
+    "placeholder": "Enter information",
+    "idCard": "ID number",
+    "success": "Application submitted successfully",
+    "submit": "Submit application"
+  },
+  "certVerify": {
+    "title": "Certificate verification",
+    "certNo": "Certificate number",
+    "placeholder": "Enter certificate number",
+    "verify": "Verify",
+    "valid": "Certificate is valid",
+    "invalid": "Certificate is invalid",
+    "holder": "Holder",
+    "issuer": "Issuer",
+    "issuedAt": "Issued on"
+  },
+  "courseCatalog": {
+    "title": "Course catalog",
+    "empty": "No chapters",
+    "duration": "{n} minutes"
+  },
+  "courseDetail": {
+    "loadFailed": "Failed to load course",
+    "studentCount": "{count} students",
+    "instructor": "Instructor",
+    "rating": "Rating",
+    "free": "Free",
+    "enrolled": "Enrolled",
+    "enroll": "Enroll",
+    "pay": "Buy ¥{amount}",
+    "lessons": "Lessons",
+    "completed": "Completed"
+  },
+  "courseEnroll": {
+    "title": "Course enrollment",
+    "subtitle": "Browse and enroll in courses you're interested in",
+    "searchPlaceholder": "Search courses...",
+    "empty": "No courses",
+    "enrolled": "Enrolled",
+    "instructor": "Instructor",
+    "level": "Level",
+    "lessons": "Lessons",
+    "students": "Students",
+    "free": "Free",
+    "enroll": "Enroll"
+  },
+  "courseQAAsk": {
+    "title": "Course Q&A",
+    "question": "Your question",
+    "placeholder": "Enter the question details",
+    "success": "Question submitted",
+    "submit": "Submit question"
+  },
+  "earnCommission": {
+    "title": "Commission plan",
+    "introTitle": "Invite friends and earn commissions",
+    "introDesc": "Join our commission plan. Invite friends to register as members and you'll earn a 20% commission on membership fees",
+    "totalEarnings": "Total earnings",
+    "invitedCount": "People invited",
+    "rules": "Commission rules",
+    "rateTitle": "Commission rate",
+    "openVip": "Get VIP membership and join the commission plan"
+  },
+  "examQuestion": {
+    "loadFailed": "Failed to load questions",
+    "multi": "Multiple choice",
+    "single": "Single choice",
+    "prev": "Previous",
+    "submit": "Submit",
+    "next": "Next"
+  },
+  "feedbackDetail": {
+    "empty": "No feedback content",
+    "title": "Feedback details",
+    "content": "Feedback content",
+    "reply": "Reply"
+  },
+  "follow": {
+    "following": "Following",
+    "fans": "Fans",
+    "title": "Following",
+    "empty": "Nothing to show",
+    "unfollow": "Unfollow"
+  },
+  "learnDevelop": {
+    "title": "Learn & Develop",
+    "comingSoon": "Course planet is under development",
+    "contactLabel": "Contact Mr. Li directly"
+  },
+  "legalDoc": {
+    "updatedAt": "Updated at"
+  },
+  "liveDetail": {
+    "empty": "No live stream",
+    "ongoing": "Live",
+    "upcoming": "Upcoming",
+    "lecturer": "Lecturer",
+    "viewerCount": "{count} watching",
+    "title": "Live details",
+    "subscribed": "Subscribed",
+    "subscribing": "Subscribing...",
+    "subscribe": "Subscribe",
+    "intro": "Introduction",
+    "chat": "Chat",
+    "chatEmpty": "No messages",
+    "chatPlaceholder": "Type a message...",
+    "chatSend": "Send"
+  },
+  "liveList": {
+    "title": "Live plaza",
+    "subtitle": "Discover more exciting live streams",
+    "retry": "Retry",
+    "empty": "No live streams",
+    "lecturer": "Lecturer",
+    "startAt": "Start time",
+    "viewerCount": "{count} watching"
+  },
+  "messageDirect": {
+    "title": "Direct messages",
+    "empty": "No messages"
+  },
+  "modelEdit": {
+    "headerTitle": "Edit model",
+    "labelCategory": "Category",
+    "labelDept": "Department",
+    "labelSaleType": "Sale type",
+    "labelCycle": "Billing cycle",
+    "labelPrice": "{cycle} price",
+    "pricePlaceholder": "Enter price",
+    "labelFreeDur": "Free duration",
+    "labelDiscount": "Discount",
+    "labelAudience": "Audience",
+    "submitting": "Saving...",
+    "submit": "Save"
+  },
+  "noteCreate": {
+    "title": "New note",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter note title",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Write your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Enter a tag and press Enter to add",
+    "isPublic": "Public note",
+    "submit": "Publish"
+  },
+  "noteList": {
+    "title": "Notes",
+    "empty": "No notes"
+  },
+  "notificationList": {
+    "type": {
+      "system": "System",
+      "order": "Order",
+      "course": "Course",
+      "social": "Social"
+    },
+    "title": "Notifications",
+    "empty": "No notifications"
+  },
+  "orderDetail": {
+    "loadFailed": "Failed to load order",
+    "title": "Order details",
+    "orderNo": "Order number",
+    "product": "Product",
+    "amount": "Amount",
+    "status": "Status",
+    "createdAt": "Created at",
+    "paidAt": "Paid at"
+  },
+  "profile": {
+    "title": "My profile",
+    "nickname": "Nickname",
+    "logout": "Log out",
+    "myCourses": "My courses",
+    "myFavorites": "My favorites",
+    "myOrders": "My orders",
+    "editProfile": "Edit profile"
+  },
+  "qrCode": {
+    "title": "Scan QR code",
+    "scanTip": "Scan the QR code with the ZHIHUI AI app",
+    "share": "Share"
+  },
+  "referrer": {
+    "title": "Referrer",
+    "current": "Current referrer",
+    "empty": "No referrer",
+    "desc": "Enter an invitation code to join and get exclusive benefits",
+    "codeLabel": "Referral code",
+    "codePlaceholder": "Enter referral code",
+    "submitting": "Submitting...",
+    "submit": "Bind referral code"
+  },
+  "studyPlan": {
+    "status": {
+      "active": "In progress",
+      "paused": "Paused",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "title": "Study plan",
+    "empty": "No study plan",
+    "lessons": "Lessons",
+    "progress": "Progress",
+    "deadline": "Deadline"
+  },
+  "player": {
+    "noUrl": "No playable URL"
+  },
+  "changes": {
+    "oldContent": "Original content",
+    "copyOldContent": "Copy original",
+    "newFile": "New file",
+    "newContent": "New content",
+    "copyNewContent": "Copy new content",
+    "added": "Added {n}",
+    "modified": "Modified {n}",
+    "title": "File changes",
+    "moreItems": "…and {n} more"
+  },
+  "sseStatus": {
+    "reconnectingShort": "Reconnecting {n}/{max}",
+    "disconnectedShort": "Disconnected"
+  },
+  "stage": {
+    "apply_spec": "Generate patch",
+    "apply_patch": "Apply patch",
+    "typecheck": "Type check",
+    "test": "Test",
+    "commit": "Commit"
+  },
+  "dispatchStatus": {
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "preempted": "Preempted",
+    "quota_exceeded": "Quota exceeded"
+  },
+  "cancelDialog": {
+    "title": "Cancel auto-renewal",
+    "content": "Renewal billing will stop after cancellation; your current VIP benefits last until expiry. Confirm cancellation?",
+    "confirmText": "Confirm",
+    "cancelText": "Cancel"
+  },
+  "skillLibrary": {
+    "title": "Skill Library"
+  },
+  "toast": {
+    "copiedText": "Text copied",
+    "copiedMarkdown": "Markdown copied",
+    "regenerating": "Regenerating",
+    "feedbackRecorded": "Feedback recorded",
+    "messageDeleted": "Message deleted",
+    "operationFailed": "Operation failed"
+  },
+  "builtin": {
+    "tplSummary": "Summarize task",
+    "tplSummaryDesc": "Extract key information and output a structured summary",
+    "tplSummaryTemplate": "Please summarize the task content above and extract key information:",
+    "tplTranslate": "Translate to English",
+    "tplTranslateDesc": "Translate the given text to English",
+    "tplTranslateTemplate": "Please translate the following content to English:",
+    "tplExplain": "Explain concept",
+    "tplExplainDesc": "Explain the given concept in plain language",
+    "tplExplainTemplate": "Please explain the following concept in detail:",
+    "tplCode": "Generate code",
+    "tplCodeDesc": "Generate commented code based on requirements",
+    "tplCodeTemplate": "Please implement the following feature in code and add comments:",
+    "tplPolish": "Polish text",
+    "tplPolishDesc": "Improve professionalism and fluency of the text",
+    "tplPolishTemplate": "Please polish the following text to make it more professional and fluent:",
+    "wechatArticle": "WeChat article",
+    "wechatArticleDesc": "Moyu green layout + 22-item self-check + draft push",
+    "wechatArticleTemplate": "Please help me generate a WeChat official account article. Requirements:\n1. Topic:\n2. Summary:\n3. Emphasis marks (quote cards / callout blocks / quotes / code blocks / subheadings)\n4. Image suggestions:\nPlease run through the content-engine pipeline (Moyu green theme + 22-item self-check + draft push).",
+    "kouboScript": "Voiceover script",
+    "kouboScriptDesc": "Daily 8 Douyin voiceover scripts + dual-gate verification",
+    "kouboScriptTemplate": "Please help me generate today's 8 Douyin voiceover scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate verification (ambiguity compression / cross-script glossary / full verification / language errors / topic coverage)\nPlease run through the koubo-workflow pipeline (constraint-first writing method)."
+  },
+  "editorEmpty": {
+    "subtitle": "Select a file or start from the quick actions below",
+    "title": "IHUI IDE Workspace",
+    "browseFiles": "Browse files",
+    "recentFiles": "Recently opened",
+    "shortcuts": "Shortcuts"
+  },
+  "fileExplorer": {
+    "justNow": "Just now",
+    "minutesAgo": "{count} min ago",
+    "hoursAgo": "{count} hr ago",
+    "fileCreated": "File created",
+    "folderCreated": "Folder created",
+    "renamed": "Renamed",
+    "deleted": "Deleted",
+    "tabFiles": "Files",
+    "tabOutline": "Outline",
+    "tabTimeline": "Timeline",
+    "fileNamePlaceholder": "File name...",
+    "folderNamePlaceholder": "Folder name...",
+    "searchPlaceholder": "Search files",
+    "newFile": "New file",
+    "newFolder": "New folder",
+    "refresh": "Refresh",
+    "noMatch": "No matching files",
+    "confirmDelete": "Delete?",
+    "confirm": "OK",
+    "cancel": "Cancel",
+    "rename": "Rename",
+    "delete": "Delete"
+  },
+  "searchPanel": {
+    "searchFailed": "Search failed, please retry",
+    "toggleReplace": "Toggle replace",
+    "searchPlaceholder": "Search",
+    "caseSensitive": "Match case",
+    "wholeWord": "Whole word",
+    "useRegex": "Regex",
+    "replacePlaceholder": "Replace",
+    "replace": "Replace",
+    "replaceAll": "Replace all",
+    "openWorkspaceHint": "Please open a workspace first",
+    "searching": "Searching...",
+    "resultSummary": "{matches} results · {files} files",
+    "noResults": "No results",
+    "recentSearches": "Recent searches",
+    "remove": "Remove",
+    "inputHint": "Type keywords to search"
+  },
+  "sourceControl": {
+    "commitMessageRequired": "Please enter a commit message",
+    "commitSuccess": "Committed successfully",
+    "pushSuccess": "Pushed successfully",
+    "pullSuccess": "Pulled successfully",
+    "branchSwitched": "Switched to {branch}",
+    "unstage": "Unstage",
+    "stage": "Stage",
+    "pull": "Pull",
+    "push": "Push",
+    "refresh": "Refresh",
+    "more": "More",
+    "commitPlaceholder": "Commit message",
+    "commit": "Commit",
+    "committing": "Committing...",
+    "changeStats": "Change stats",
+    "staged": "Staged ({count})",
+    "changes": "Changes ({count})",
+    "noChanges": "No changes",
+    "commitHistory": "Commit history"
+  },
+  "viewSwitcher": {
+    "searchPlaceholder": "Search views...",
+    "noMatch": "No matches"
+  },
+  "indicator": {
+    "page1": "Home"
+  },
+  "welcome": {
+    "benefits": {
+      "benefit6": "Full refund if not satisfied"
+    },
+    "seats": "18 seats only · Exclusively for decision makers",
+    "earlyBird": "Early-bird ¥6000/yr · 33% off",
+    "multiEnd": "8-end coverage · Wide coverage"
+  },
+  "typewriter": {
+    "ctaPrimary": "Contact now",
+    "ctaSecondary": "Learn more",
+    "miniappBtn": "WeChat MiniApp"
+  },
+  "defaultTags": {
+    "llm": "LLM",
+    "tutorial": "Tutorial",
+    "rag": "Knowledge Base",
+    "agent": "Agent",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "opensource": "Open Source"
+  },
+  "device": {
+    "title": "Device Management",
+    "lastLoginLabel": "Last login",
+    "empty": "No devices",
+    "manage": "Manage"
+  },
+  "ruleType": {
+    "path": "Path",
+    "command": "Command",
+    "tool": "Tool"
+  },
+  "agentCreate": {
+    "title": "Create Agent",
+    "name": "Name",
+    "namePlaceholder": "Enter a name",
+    "category": "Category",
+    "categoryPlaceholder": "Select a category",
+    "description": "Description",
+    "descPlaceholder": "Enter a description",
+    "systemPrompt": "System Prompt",
+    "promptPlaceholder": "Enter the system prompt",
+    "isPublic": "Public",
+    "public": "Public",
+    "private": "Private",
+    "submit": "Submit"
+  },
+  "agentMarket": {
+    "title": "Agent Market",
+    "searchPlaceholder": "Search Agents",
+    "empty": "No Agents",
+    "uses": "Uses",
+    "free": "Free",
+    "paid": "Paid"
+  },
+  "agentScreen": {
+    "title": "Agents",
+    "useCount": "Used {count} times",
+    "rating": "Rating {score}"
+  },
+  "agentStat": {
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "tokens": "Tokens",
+    "avgRating": "Avg rating",
+    "title": "Statistics"
+  },
+  "aiAssistant": {
+    "title": "AI Assistant",
+    "subtitle": "Intelligent chat assistant",
+    "searchPlaceholder": "Search assistants",
+    "empty": "No assistants",
+    "useCount": "Used {count} times",
+    "favoriteCount": "Favorites {count}",
+    "startChat": "Start chat"
+  },
+  "aiGroup": {
+    "back": "Back",
+    "metaActive": "Active {time} ago",
+    "metaMessages": "{count} messages",
+    "detailMembers": "{count} members",
+    "memberRole": "Role {role}",
+    "detailRecent": "Recent messages",
+    "previewHello": "Hello",
+    "previewMine": "Me",
+    "detailEnter": "Enter group",
+    "enterMine": "Go to Mine",
+    "enterDiscover": "Go to Discover",
+    "cardMembers": "{count} people · {messages} messages",
+    "title": "AI Group Chat",
+    "subtitle": "Chat with AI groups",
+    "empty": "No group chats"
+  },
+  "bookmark": {
+    "type": {
+      "course": "Course",
+      "article": "Article",
+      "post": "Post",
+      "note": "Note",
+      "other": "Other"
+    },
+    "title": "My Bookmarks",
+    "empty": "No bookmarks",
+    "remove": "Remove"
+  },
+  "certList": {
+    "title": "My Certificates",
+    "empty": "No certificates",
+    "issuer": "Issuer",
+    "issuedAt": "Issued at"
+  },
+  "messageInput": {
+    "fullscreenBack": "Exit fullscreen",
+    "fullscreenHint": "Fullscreen input",
+    "video": "Video",
+    "document": "Document",
+    "recording": "Recording",
+    "voiceHint": "Voice input",
+    "placeholder": "Type a message...",
+    "stop": "Stop",
+    "send": "Send"
+  },
+  "checkIn": {
+    "retry": "Retry",
+    "title": "Daily Check-in",
+    "subtitle": "Check in daily to receive rewards",
+    "streak": "Day streak",
+    "monthlyDays": "Days this month",
+    "totalDays": "Total days",
+    "checkedIn": "Checked in",
+    "checkInBtn": "Check in",
+    "calendar": "Check-in calendar",
+    "empty": "No check-in records"
+  },
+  "circleCreate": {
+    "title": "Create Circle",
+    "name": "Circle name",
+    "namePlaceholder": "Enter a circle name",
+    "description": "Circle description",
+    "descPlaceholder": "Enter a circle description",
+    "submit": "Create"
+  },
+  "circleMember": {
+    "title": "Circle Members",
+    "empty": "No members"
+  },
+  "courseFilter": {
+    "title": "Filter Courses",
+    "subtitle": "Filter courses by conditions",
+    "category": "Category",
+    "level": "Level",
+    "priceRange": "Price range",
+    "reset": "Reset",
+    "apply": "Apply",
+    "retry": "Retry",
+    "empty": "No courses",
+    "instructor": "Instructor",
+    "level_label": "Level",
+    "free": "Free"
+  },
+  "courseQAList": {
+    "title": "Course Q&A",
+    "ask": "Ask",
+    "empty": "No Q&A",
+    "asker": "Asker",
+    "answers": "Answers"
+  },
+  "examResult": {
+    "loadFailed": "Failed to load",
+    "passed": "Passed",
+    "failed": "Failed",
+    "correct": "Correct {count}/{total}",
+    "duration": "Duration {min} min",
+    "wrongQuestions": "Wrong answers",
+    "yourAnswer": "Your answer",
+    "correctAnswer": "Correct answer"
+  },
+  "favorite": {
+    "tabAll": "All",
+    "tabCourse": "Courses",
+    "tabLive": "Live",
+    "tabArticle": "Articles",
+    "title": "My Favorites",
+    "empty": "No favorites"
+  },
+  "feedbackHistory": {
+    "title": "Feedback History",
+    "empty": "No feedback",
+    "createdAt": "Submitted at"
+  },
+  "liveChat": {
+    "title": "Live Chat",
+    "empty": "No messages",
+    "placeholder": "Join the discussion...",
+    "send": "Send"
+  },
+  "livePreview": {
+    "empty": "No live streams",
+    "title": "Live Details",
+    "lecturer": "Lecturer",
+    "startAt": "Start time",
+    "subscribed": "Subscribed",
+    "subscribing": "Subscribing",
+    "subscribe": "Subscribe"
+  },
+  "messageChat": {
+    "empty": "No messages",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "messageGroup": {
+    "title": "Message Groups",
+    "empty": "No groups"
+  },
+  "modelPlaza": {
+    "title": "Model Plaza",
+    "compareBtn": "Compare",
+    "selectProviderLabel": "Select provider",
+    "providerTotal": "{count} models in total",
+    "loadFailed": "Failed to load",
+    "emptyType": "No models in this type",
+    "input": "Input",
+    "priceUnit": "¥{price}",
+    "output": "Output",
+    "perCall": "per call"
+  },
+  "n8nModel": {
+    "title": "n8n Models",
+    "create": "Create",
+    "searchPlaceholder": "Search models",
+    "empty": "No models",
+    "running": "Running",
+    "stopped": "Stopped",
+    "calls": "Called {count} times",
+    "params": "In {in} · Out {out}",
+    "actionStop": "Stop",
+    "actionStart": "Start",
+    "actionEdit": "Edit"
+  },
+  "notificationSettings": {
+    "title": "Notification Settings",
+    "push": "Push notifications",
+    "message": "Message alerts",
+    "email": "Email notifications",
+    "sms": "SMS notifications",
+    "marketing": "Marketing notifications",
+    "desc": "Choose the notification types you want to receive",
+    "saving": "Saving...",
+    "save": "Save"
+  },
+  "pointRule": {
+    "title": "Points Rules",
+    "empty": "No rules"
+  },
+  "pointsMall": {
+    "title": "Points Mall",
+    "subtitle": "Redeem rewards with points",
+    "balance": "Points balance",
+    "retry": "Retry",
+    "empty": "No products",
+    "pointsUnit": "points",
+    "stock": "Stock {count}",
+    "redeem": "Redeem"
+  },
+  "postDetail": {
+    "loadFailed": "Failed to load"
+  },
+  "promote": {
+    "retry": "Retry",
+    "title": "Promotion Center",
+    "subtitle": "Invite friends to earn rewards",
+    "inviteCount": "Invitations",
+    "activeCount": "Active users",
+    "totalEarnings": "Total earnings",
+    "referralLink": "Referral link",
+    "copySuccess": "Copied",
+    "copyLink": "Copy link",
+    "shareBtn": "Share",
+    "referralCode": "Invite code",
+    "rules": "Promotion rules",
+    "empty": "No records",
+    "inviteRecords": "Invite records"
+  },
+  "promotion": {
+    "title": "Promotions",
+    "empty": "No promotions",
+    "minSpend": "Minimum spend",
+    "expireDate": "Valid until",
+    "useNow": "Use now"
+  },
+  "ranking": {
+    "title": "Leaderboard",
+    "subtitle": "Learning ranking",
+    "retry": "Retry",
+    "anonymous": "Anonymous",
+    "empty": "No ranking",
+    "me": "Me",
+    "studyHours": "{count} study hours"
+  },
+  "rankingDetail": {
+    "attention": "Attention",
+    "rank": "Rank",
+    "organization": "Organization"
+  },
+  "securitySettings": {
+    "title": "Security Settings",
+    "password": "Password",
+    "biometric": "Biometrics",
+    "twoFactor": "Two-factor authentication",
+    "loginAlert": "Login alerts",
+    "desc": "Choose the security features to enable"
+  },
+  "share": {
+    "title": "Share",
+    "remark": "Note",
+    "remarkPlaceholder": "Add a note",
+    "create": "Create share",
+    "url": "Share link",
+    "code": "Share code",
+    "expireAt": "Expiry time",
+    "shareNow": "Share now"
+  },
+  "vipBenefit": {
+    "title": "VIP Benefits"
+  },
+  "vipTrader": {
+    "title": "VIP Trader",
+    "subtitle": "Advanced trading tools",
+    "badge": "VIP Exclusive",
+    "heroDesc": "Limited price ¥{price} · Power {power}",
+    "entryTeam": "Team",
+    "entryStats": "Stats",
+    "entryWithdraw": "Withdraw",
+    "benefits": "Member benefits",
+    "benefitCount": "{count} items in total",
+    "lifetime": "Lifetime",
+    "opened": "Activated",
+    "openNow": "Activate now"
+  },
+  "withdraw": {
+    "title": "Withdraw",
+    "availableBalance": "Withdrawable balance",
+    "amount": "Amount",
+    "amountPlaceholder": "Enter the withdrawal amount",
+    "bankCard": "Bank card",
+    "bankCardPlaceholder": "Enter the bank card number",
+    "submitting": "Withdrawing...",
+    "submit": "Confirm withdrawal",
+    "feeHint": "A service fee will be charged for withdrawal"
+  },
+  "nodeStatus": {
+    "idle": "Idle",
+    "running": "Running",
+    "waiting": "Waiting",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "mentionPopover": {
+    "removeLabel": "Remove mention"
+  },
+  "message": {
+    "shareLinkCopied": "Share link copied",
+    "hideContent": "Hide content",
+    "showContent": "Show content",
+    "downloadImages": "Download images",
+    "share": "Share",
+    "toggleMetadata": "Metadata",
+    "regenerate": "Regenerate",
+    "publishToCommunity": "Publish to community",
+    "edit": "Edit",
+    "reply": "Reply",
+    "delete": "Delete"
+  },
+  "agentPane": {
+    "unknownFile": "Unknown file",
+    "plan": "Plan",
+    "executeFailed": "Execution failed",
+    "placeholder": "Enter a command and the agent will execute it…",
+    "modelSelect": "Select model",
+    "execute": "Execute",
+    "emptyHint": "No tasks yet, enter a command to begin",
+    "result": "Result",
+    "stop": "Stop",
+    "clear": "Clear",
+    "taskId": "Task ID"
+  },
+  "codeEditor": {
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in"
+  },
+  "diffStats": {
+    "split": "Split",
+    "unified": "Unified",
+    "fileCount": "{count} files",
+    "commit": "Commit"
+  },
+  "fileTreeNode": {
+    "renamed": "Renamed successfully",
+    "deleted": "Deleted successfully",
+    "confirmDelete": "Are you sure you want to delete?",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "terminalSessionList": {
+    "statusActive": "Active",
+    "statusExited": "Exited",
+    "statusClosed": "Closed",
+    "title": "Terminal Sessions",
+    "newTerminalAria": "New terminal",
+    "loading": "Loading…",
+    "empty": "No sessions",
+    "closeTerminalAria": "Close terminal"
+  },
+  "pricing": {
+    "title": "Pricing"
+  },
+  "preview": {
+    "title": "Preview",
+    "mobile": "Mobile preview",
+    "desktop": "Desktop preview"
+  },
+  "batchImport": {
+    "parseError": "Failed to parse file",
+    "readError": "Failed to read file",
+    "templateDownloaded": "Template downloaded",
+    "templateFailed": "Failed to download template",
+    "exportSuccess": "Exported {count} records",
+    "exportFailed": "Export failed",
+    "importSuccess": "Successfully imported {count} records",
+    "importFailed": "Import failed",
+    "title": "Batch Import",
+    "description": "Select a file, or download the template and fill it in as required",
+    "downloadTemplate": "Download template",
+    "export": "Export",
+    "selectFile": "Select file",
+    "previewCount": "{count} rows parsed",
+    "colPlatform": "Platform",
+    "colNickname": "Nickname",
+    "colCreds": "Credentials",
+    "moreRows": "{count} more rows",
+    "importing": "Importing…",
+    "successCount": "{count} succeeded",
+    "failedCount": "{count} failed",
+    "confirmImport": "Import {count} records"
+  },
+  "templates": {
+    "title": "Template Library",
+    "saveAsTemplate": "Save as template",
+    "presetTemplates": "Preset Templates",
+    "customTemplates": "Custom Templates"
+  },
+  "history": {
+    "title": "History",
+    "viewAll": "View all",
+    "empty": "No history",
+    "type": {
+      "course": "Course",
+      "article": "Article",
+      "post": "Post",
+      "note": "Note",
+      "live": "Live"
+    },
+    "refresh": "Refresh"
+  },
+  "score": {
+    "excellent": "Excellent",
+    "high": "Good",
+    "medium": "Average",
+    "low": "Needs improvement",
+    "title": "Learning Score",
+    "empty": "No scores yet"
+  },
+  "decision": {
+    "allow": "Allow",
+    "deny": "Deny"
+  },
+  "agentChat": {
+    "empty": "No conversations yet",
+    "placeholder": "Type a message…",
+    "send": "Send"
+  },
+  "agentDetail": {
+    "loadFailed": "Failed to load",
+    "description": "Description",
+    "creator": "Creator",
+    "uses": "Uses",
+    "rating": "Rating",
+    "price": "Price",
+    "free": "Free",
+    "startChat": "Start chat"
+  },
+  "agentSetting": {
+    "title": "Agent Settings",
+    "name": "Name",
+    "model": "Model",
+    "temperature": "Temperature",
+    "enabled": "Enabled",
+    "save": "Save"
+  },
+  "aigcCover": {
+    "loading": "Loading…",
+    "back": "Back",
+    "title": "Cover Settings",
+    "subtitle": "Generate a cover for \"{title}\"",
+    "empty": "No covers yet",
+    "aiGenBtn": "AI Generate",
+    "confirmBtn": "Confirm"
+  },
+  "announcement": {
+    "title": "Announcements",
+    "empty": "No announcements",
+    "pinned": "Pinned",
+    "publishTime": "Published at"
+  },
+  "announcementDetail": {
+    "empty": "Announcement not found"
+  },
+  "apiSettings": {
+    "title": "API Settings",
+    "cozeTitle": "Coze Configuration",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "Enter API Token",
+    "baseUrl": "Base URL",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "Enter Bot ID",
+    "timeout": "Timeout (seconds)",
+    "tokenHint": "The token is stored only locally and is never uploaded",
+    "save": "Save",
+    "reset": "Reset",
+    "diagnoseTitle": "Connectivity Diagnosis",
+    "diagnose": "Diagnose",
+    "test": "Test connection",
+    "testSuccess": "Connection successful",
+    "testFailed": "Connection failed"
+  },
+  "articleList": {
+    "title": "Articles",
+    "empty": "No articles",
+    "views": "{count} views"
+  },
+  "circleDetail": {
+    "loadFailed": "Failed to load",
+    "members": "{count} members",
+    "posts": "{count} posts",
+    "membersAction": "Members",
+    "post": "Post",
+    "leave": "Leave Circle",
+    "join": "Join Circle"
+  },
+  "coupon": {
+    "title": "Coupons",
+    "subtitle": "My Coupons",
+    "retry": "Retry",
+    "empty": "No coupons",
+    "minSpend": "Valid on orders over {amount}",
+    "validUntil": "Valid until"
+  },
+  "courseAnnex": {
+    "title": "Course Attachments",
+    "empty": "No attachments",
+    "size": "Size",
+    "download": "Download"
+  },
+  "courseChapter": {
+    "title": "Course Chapters",
+    "lessons": "{count} lessons"
+  },
+  "courseResource": {
+    "title": "Course Materials",
+    "empty": "No materials",
+    "type": "Type",
+    "size": "Size",
+    "open": "Open"
+  },
+  "finance": {
+    "empty": "No financial data",
+    "balance": "Balance",
+    "todayIncome": "Today's Income",
+    "totalIncome": "Total Income",
+    "totalExpense": "Total Expense",
+    "title": "Finance Center"
+  },
+  "following": {
+    "title": "My Following",
+    "empty": "No follows yet",
+    "unfollow": "Unfollow"
+  },
+  "menu": {
+    "sectionDiscover": "Discover"
+  },
+  "lecturerDetail": {
+    "retry": "Retry",
+    "title": "Lecturer Details",
+    "subtitle": "Lecturer Profile",
+    "empty": "No profile yet",
+    "courses": "Courses",
+    "students": "Students",
+    "followers": "Followers",
+    "unfollowBtn": "Following",
+    "followBtn": "Follow",
+    "level": "Level",
+    "studentCount": "{count} students",
+    "free": "Free"
+  },
+  "messageCenter": {
+    "type": {
+      "system": "System",
+      "order": "Order",
+      "course": "Course",
+      "social": "Social"
+    },
+    "title": "Message Center",
+    "conversations": "Conversations",
+    "empty": "No messages"
+  },
+  "messageDetail": {
+    "title": "Message Details",
+    "reply": "Reply",
+    "notFound": "Message not found",
+    "from": "From",
+    "createdAt": "Created At"
+  },
+  "messageSystem": {
+    "title": "System Messages",
+    "empty": "No system messages"
+  },
+  "modelIncome": {
+    "retry": "Retry",
+    "title": "Model Income",
+    "accumulated": "Accumulated income",
+    "yuan": "CNY",
+    "withdrawBtn": "Withdraw",
+    "withdrawable": "Withdrawable",
+    "withdrawn": "Withdrawn",
+    "today": "Today",
+    "pending": "Pending",
+    "tip": "Income is shown by today, yesterday and transaction details; withdrawals arrive within 1-3 business days",
+    "empty": "No income records",
+    "orderLabel": "Order No.",
+    "rateLabel": "Share ratio",
+    "withdrawModal": {
+      "title": "Withdraw",
+      "close": "Close",
+      "subtitle": "Withdrawable amount",
+      "wechat": "WeChat",
+      "moreMethods": "More withdrawal methods coming soon",
+      "confirm": "Confirm Withdraw"
+    }
+  },
+  "orderLog": {
+    "title": "Order Log",
+    "empty": "No logs",
+    "action": "Action",
+    "operator": "Operator"
+  },
+  "orderRefund": {
+    "title": "Request Refund",
+    "subtitle": "Please fill in the refund information",
+    "retry": "Retry",
+    "empty": "No refund records",
+    "orderNo": "Order No.",
+    "reasonLabel": "Refund Reason",
+    "reasonPlaceholder": "Please enter the refund reason",
+    "submit": "Submit Request",
+    "applyRefund": "Request Refund"
+  },
+  "orderTrack": {
+    "title": "Order Tracking",
+    "empty": "No tracking information",
+    "location": "Location"
+  },
+  "postCreate": {
+    "title": "Create Post",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter a title",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Enter your content",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Enter tags, separated by commas",
+    "submit": "Publish"
+  },
+  "community": {
+    "follow": "Following",
+    "follower": "Followers"
+  },
+  "profileEdit": {
+    "retry": "Retry",
+    "title": "Edit Profile",
+    "avatarTip": "Tap the avatar to change it",
+    "nickname": "Nickname",
+    "nicknamePlaceholder": "Enter a nickname",
+    "gender": "Gender",
+    "bio": "Bio",
+    "bioPlaceholder": "Tell us about yourself",
+    "save": "Save",
+    "avatarModalTitle": "Change Avatar",
+    "avatarUrlLabel": "Avatar URL",
+    "avatarUrlPlaceholder": "Enter an image URL",
+    "avatarUrlHint": "Remote images via URL are supported; takes effect after saving"
+  },
+  "refundDetail": {
+    "empty": "Refund information not found",
+    "title": "Refund Details",
+    "orderNo": "Order No.",
+    "amount": "Refund Amount",
+    "status": "Status",
+    "reason": "Reason",
+    "createdAt": "Applied At"
+  },
+  "refundHistory": {
+    "title": "Refund History",
+    "empty": "No refund records",
+    "createdAt": "Applied At"
+  },
+  "register": {
+    "sendCodeFailed": "Failed to send verification code",
+    "title": "Create Account",
+    "phone": "Phone",
+    "phonePlaceholder": "Enter your phone number",
+    "code": "Verification Code",
+    "codePlaceholder": "Enter verification code",
+    "resendIn": "Resend in {countdown}s",
+    "sendCode": "Send Code",
+    "password": "Password",
+    "passwordPlaceholder": "Enter a password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Re-enter your password",
+    "registering": "Registering…",
+    "submit": "Register"
+  },
+  "settingsAccount": {
+    "title": "Account Settings",
+    "name": "Nickname",
+    "email": "Email",
+    "phone": "Phone",
+    "save": "Save"
+  },
+  "square": {
+    "title": "Square"
+  },
+  "studyRecord": {
+    "statusCompleted": "Completed",
+    "statusPaused": "Paused",
+    "statusInProgress": "In Progress",
+    "totalDuration": "Total Study Time",
+    "totalCourses": "Enrolled Courses",
+    "completedCourses": "Completed Courses",
+    "totalLessons": "Lessons in Progress",
+    "completedLessons": "Completed Lessons",
+    "continuousDays": "Consecutive Days",
+    "title": "Study Records",
+    "subtitle": "Study records of {name}",
+    "empty": "No study records",
+    "untitled": "Untitled",
+    "duration": "Study Time",
+    "progress": "Progress"
+  },
+  "taskCenter": {
+    "title": "Task Center",
+    "subtitle": "Complete tasks to earn rewards",
+    "retry": "Retry",
+    "empty": "No tasks",
+    "progress": "{current}/{target}",
+    "claimed": "Claimed",
+    "claim": "Claim",
+    "goToDo": "Go do it"
+  },
+  "team": {
+    "retry": "Retry",
+    "title": "My Team",
+    "subtitle": "Team Management",
+    "totalMembers": "Total Members",
+    "activeMembers": "Active Members",
+    "directCount": "Direct Members",
+    "indirectCount": "Indirect Members",
+    "totalContribution": "Total Contribution",
+    "empty": "No team members",
+    "joinDate": "Joined At",
+    "level": "Level"
+  },
+  "vipLevel": {
+    "empty": "No membership plans",
+    "title": "VIP Plans",
+    "price": "Price",
+    "duration": "Duration",
+    "days": "days",
+    "benefits": "Membership Benefits"
   }
 }
