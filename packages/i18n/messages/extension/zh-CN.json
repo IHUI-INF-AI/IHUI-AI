@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "失败"
+    "failed": "失败",
+    "all": "全部",
+    "back": "返回",
+    "close": "关闭",
+    "delete": "删除",
+    "empty": "暂无数据",
+    "loading": "加载中...",
+    "retry": "重试",
+    "search": "搜索",
+    "submit": "提交"
   },
   "nav": {
     "chat": "对话",
@@ -11,7 +20,8 @@
     "tabRuntime": "运行时",
     "ai": "AI",
     "content": "内容",
-    "me": "我的"
+    "me": "我的",
+    "wallet": "钱包"
   },
   "apps": {
     "aiTitle": "AI 应用中心",
