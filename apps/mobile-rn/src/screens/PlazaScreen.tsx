@@ -157,7 +157,7 @@ export function PlazaScreen() {
         const res = await getPlazaList({
           page: targetPage,
           pageSize: PAGE_SIZE,
-          status: isMyTask ? undefined : status || undefined,
+          taskStatus: isMyTask ? undefined : status || undefined,
           search: search.trim() || undefined,
           creator: isMyTask ? user?.id : undefined,
           // 赛道筛选(对齐原项目 categorys 参数,''=全公司,非空时传单元素数组)
