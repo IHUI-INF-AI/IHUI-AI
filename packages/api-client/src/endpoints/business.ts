@@ -82,6 +82,7 @@ export interface PlazaItem {
   cycle?: string | null
   cycleUnit?: string | null
   closingTime?: string | null
+  imgs?: string | string[] | null
   [key: string]: unknown
 }
 
@@ -327,6 +328,7 @@ export async function createPlaza(input: {
   cycle?: string
   cycleUnit?: string
   closingTime?: string
+  imgs?: string | string[]
   types?: string[]
   categories?: string[]
 }): Promise<ApiResult<PlazaItem>> {
