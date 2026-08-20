@@ -50,6 +50,24 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     // 合并 commission-routes.ts 的 availableCommission(可提现余额)
     const available = await availableWithdrawal(userId)
 
+    // 总邀请数(users.parentId = 当前用户)与活跃数(status=1),与 /distribution/stats 口径一致
+    const [invitedRow] = await dbRead
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.parentId, userId))
+    const [activeRow] = await dbRead
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(eq(users.parentId, userId), eq(users.status, 1)))
+
+    // 推广订单数:commission_flows 去重非空 orderId(每行关联一个订单,一个订单可能多笔佣金)
+    const [orderRow] = await dbRead
+      .select({
+        total: sql<number>`count(distinct ${commissionFlows.orderId})::int`,
+      })
+      .from(commissionFlows)
+      .where(sql`${commissionFlows.beneficiaryId} = ${userId} AND ${commissionFlows.orderId} IS NOT NULL`)
+
     return reply.send(
       success({
         totalCommission: Number(totalRow?.total ?? 0),
@@ -58,6 +76,9 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         withdrawnCommission: Number(withdrawnRow?.total ?? 0),
         inviteCode: userRow?.inviteCode ?? null,
         level: userRow?.level ?? 0,
+        invitedCount: invitedRow?.total ?? 0,
+        activeCount: activeRow?.total ?? 0,
+        orderCount: Number(orderRow?.total ?? 0),
       }),
     )
   })
@@ -312,16 +333,9 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // 校验可提现余额(已完成佣金 - 已成功提现)
-    const [earnedRow] = await dbRead
-      .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)` })
-      .from(commissionFlows)
-      .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 2)))
-    const [withdrawnRow] = await dbRead
-      .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)` })
-      .from(withdrawalFlows)
-      .where(and(eq(withdrawalFlows.userId, userId), eq(withdrawalFlows.status, 2)))
-    const available = Number(earnedRow?.total ?? 0) - Number(withdrawnRow?.total ?? 0)
+    // 校验可提现余额(与 overview 展示的 availableCommission 同源:
+    // 活跃佣金 status=1 - 已提现 - 待处理提现;原实现误用 status=2 恒空导致可提现恒 0,已修复)
+    const available = await availableWithdrawal(userId)
     if (body.data.amount > available) {
       return reply.status(400).send(error(400, '可提现余额不足'))
     }
