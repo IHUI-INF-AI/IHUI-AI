@@ -24,7 +24,9 @@
     "passwordPlaceholder": "请输入密码",
     "forgotPassword": "忘记密码",
     "wechatLogin": "微信登录",
-    "wechatOnly": "仅支持微信登录"
+    "wechatOnly": "仅支持微信登录",
+    "ssoLogin": "SSO 登录",
+    "ssoLoginHint": "一键企业登录"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -1364,6 +1366,34 @@
     "submitting": "提交中…",
     "apply": "立即申请"
   },
+  "register": {
+    "enterPhone": "请输入手机号",
+    "codeSent": "验证码已发送",
+    "incomplete": "请填写完整信息",
+    "success": "注册成功",
+    "title": "注册",
+    "phone": "手机号",
+    "phonePlaceholder": "请输入手机号",
+    "code": "验证码",
+    "getCode": "发送验证码",
+    "password": "密码",
+    "passwordPlaceholder": "请输入密码",
+    "submit": "注册",
+    "agreeFirst": "请先阅读并同意用户协议",
+    "phoneInvalid": "请输入正确手机号",
+    "pwdLength": "密码长度需为 6-20 位",
+    "pageMissing": "页面未注册",
+    "codePlaceholder": "请输入验证码",
+    "hide": "隐藏",
+    "show": "显示",
+    "pwdHint": "6-20 位,建议字母和数字组合",
+    "submitting": "注册中…",
+    "agreePrefix": "我已阅读并同意",
+    "userAgreement": "《用户协议》",
+    "privacyPolicy": "《隐私政策》",
+    "hasAccount": "已有账户?",
+    "toLogin": "登录"
+  },
   "message": {
     "tabs": {
       "all": "全部",
@@ -1962,7 +1992,11 @@
       "aiCopywriting": "AI营销文案",
       "aiCopywritingDesc": "智能生成各类营销文案",
       "aiDesign": "AI智能设计",
-      "aiDesignDesc": "智能生成图片和设计"
+      "aiDesignDesc": "智能生成图片和设计",
+      "aiVideo": "AI视频制作",
+      "aiVideoDesc": "智能生成视频内容",
+      "aiLive": "AI直播助手",
+      "aiLiveDesc": "智能直播辅助工具"
     }
   },
   "learnDevelop": {
@@ -2102,6 +2136,8 @@
     "settings": "通知设置"
   },
   "messageInput": {
+    "placeholder": "请输入内容...",
+    "send": "发送",
     "fullscreenBack": "收起",
     "fullscreenHint": "全屏编辑模式",
     "recording": "松开发送,上滑取消",

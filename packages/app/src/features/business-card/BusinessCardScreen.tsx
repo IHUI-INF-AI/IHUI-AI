@@ -21,6 +21,9 @@ export function BusinessCardScreen({
   onSave,
   onEdit,
   onBack,
+  onCustomize,
+  onShareWechat,
+  onShareMoments,
   colorScheme = 'light',
 }: BusinessCardScreenProps) {
   const tk = getTokens(colorScheme)
@@ -93,6 +96,19 @@ export function BusinessCardScreen({
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionPrimary} onPress={onEdit}>
           <Text style={styles.actionPrimaryText}>编辑名片</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 追加按钮区:定制入口 + 微信/朋友圈分享(对齐原项目 business-card/index.vue) */}
+      <View style={styles.customActionRow}>
+        <TouchableOpacity style={styles.customizeBtn} onPress={onCustomize}>
+          <Text style={styles.customizeBtnText}>定制名片</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={onShareWechat}>
+          <Text style={styles.actionBtnText}>微信好友</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={onShareMoments}>
+          <Text style={styles.actionBtnText}>朋友圈</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -187,5 +203,22 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.DEFAULT,
     },
     actionPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    customActionRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 10,
+      paddingBottom: 16,
+    },
+    customizeBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: 44,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.surface.light,
+    },
+    customizeBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
   })
 }
