@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   RefreshControl,
   StyleSheet,
 } from 'react-native'
@@ -14,7 +15,12 @@ import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../.
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
 
-const TABS: OrderTab[] = ['all', 'pending', 'paid', 'shipped', 'completed']
+/**
+ * Tab 集对齐 Uniapp pages/user_order_list/index.vue tabList:
+ * 全部 / 待支付 / 待收货 / 已完成 / 已退款(原 RN 多 paid 缺 refunded)。
+ * 'shipped' 在后端映射为 'paid'(见 mobile-rn tabToStatus,对齐 Uniapp 待收货筛 status 1|2)。
+ */
+const TABS: OrderTab[] = ['all', 'pending', 'shipped', 'completed', 'refunded']
 
 /**
  * 订单列表共享屏 — props 注入式跨端组件
@@ -34,7 +40,18 @@ export function OrderScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
-}: OrderScreenProps) {
+  // 上拉分页(可选注入,对齐 Uniapp onReachBottom → loadMore;未注入则列表不分页)
+  onLoadMore,
+  loadingMore = false,
+  hasMore = true,
+}: OrderScreenProps & {
+  /** 上拉加载下一页回调(平台注入,内部自行守卫 hasMore/loading) */
+  onLoadMore?: () => void
+  /** 是否正在加载下一页(控制 footer 提示) */
+  loadingMore?: boolean
+  /** 是否还有更多数据(控制 footer 提示) */
+  hasMore?: boolean
+}) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -118,50 +135,62 @@ export function OrderScreen({
           <Text style={styles.muted}>{t('common.loading')}</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.listBody}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          {filteredItems.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('order.empty')}</Text>
-            </View>
-          ) : (
-            filteredItems.map((item: OrderItem) => {
-              const sc = statusColors(item.status)
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => onPressItem(item)}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <View style={styles.card}>
-                    <View style={styles.cardHead}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <View style={[styles.badge, { backgroundColor: sc.bg }]}>
-                        <Text style={[styles.badgeText, { color: sc.text }]}>
-                          {t(`order.status.${item.status}`)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.metaRow}>
-                      <Text style={styles.orderNo}>{item.orderNo}</Text>
-                      <Text style={styles.metaTime}>{item.createdAt}</Text>
-                    </View>
-                    <View style={styles.amountRow}>
-                      <Text style={styles.amountLabel}>{t('order.amount')}</Text>
-                      <Text style={styles.amountValue}>
-                        ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item: OrderItem) => item.id}
+          renderItem={({ item }) => {
+            const sc = statusColors(item.status)
+            return (
+              <TouchableOpacity
+                onPress={() => onPressItem(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <View style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <View style={[styles.badge, { backgroundColor: sc.bg }]}>
+                      <Text style={[styles.badgeText, { color: sc.text }]}>
+                        {t(`order.status.${item.status}`)}
                       </Text>
                     </View>
                   </View>
-                </TouchableOpacity>
-              )
-            })
-          )}
-        </ScrollView>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.orderNo}>{item.orderNo}</Text>
+                    <Text style={styles.metaTime}>{item.createdAt}</Text>
+                  </View>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.amountLabel}>{t('order.amount')}</Text>
+                    <Text style={styles.amountValue}>
+                      ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )
+          }}
+          contentContainerStyle={styles.listBody}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={styles.muted}>{t('order.empty')}</Text>
+            </View>
+          }
+          onEndReachedThreshold={0.2}
+          onEndReached={onLoadMore ? () => onLoadMore() : undefined}
+          ListFooterComponent={
+            onLoadMore && filteredItems.length > 0 ? (
+              <View style={styles.footer}>
+                {loadingMore ? (
+                  <Text style={styles.muted}>{t('common.loading')}</Text>
+                ) : !hasMore ? (
+                  <Text style={styles.muted}>{t('order.noMore')}</Text>
+                ) : null}
+              </View>
+            ) : null
+          }
+        />
       )}
     </View>
   )
@@ -205,6 +234,8 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
+    footer: { alignItems: 'center', paddingVertical: 16 },
     listBody: { padding: 10 },
     card: {
       padding: 12,
