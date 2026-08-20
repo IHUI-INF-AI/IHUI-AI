@@ -2427,7 +2427,6 @@
   "messageInput": {
     "placeholder": "メッセージを入力...",
     "send": "送信",
-    "stop": "停止",
     "fullscreenBack": "折りたたむ",
     "fullscreenHint": "全画面編集モード",
     "recording": "離して送信、上にスライドでキャンセル",

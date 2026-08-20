@@ -18,6 +18,7 @@ import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
+import { useTt } from '@/i18n'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
@@ -93,6 +94,7 @@ function formatNumber(num: number): string {
 /* ============ 页面主组件 ============ */
 
 export default function Community() {
+  const tt = useTt()
   const [banners, setBanners] = useState<CarouselItem[]>([])
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
@@ -750,6 +752,7 @@ export default function Community() {
           <View className="community-ailist-content">
             <View className="community-agent-list-header">
               <Text className="community-agent-list-title">智能体推荐</Text>
+              <Text className="community-agent-list-posts">{tt('community.posts', '帖子')}</Text>
               <Text
                 className="community-agent-list-more"
                 onClick={() =>

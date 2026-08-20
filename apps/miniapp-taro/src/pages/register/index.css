@@ -38,6 +38,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 /* ===== 顶部 logo + 标题 ===== */
@@ -79,6 +80,15 @@
   height: 66rpx;
 }
 
+/* ===== 页面标题(register.title) ===== */
+.page-title {
+  margin-top: 16rpx;
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #000;
+  text-align: center;
+}
+
 /* ===== 中部内容 ===== */
 .center_box {
   height: 354rpx;
@@ -88,7 +98,26 @@
 .input-wbox {
   width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ===== 输入框字段标签(register.phone/code/password) ===== */
+.field-label {
+  width: 532rpx;
+  margin-bottom: 4rpx;
+  font-size: 24rpx;
+  color: #6B6980;
+  text-align: left;
+}
+
+/* ===== 密码提示(register.pwdHint) ===== */
+.field-hint {
+  width: 532rpx;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #979797;
+  text-align: left;
 }
 
 .input-nbox {
@@ -238,9 +267,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding-right: 26rpx;
-  width: 50rpx;
+  padding-right: 16rpx;
   height: 50rpx;
+}
+
+.password-toggle-label {
+  font-size: 24rpx;
+  color: #847CFF;
+  margin-right: 8rpx;
 }
 
 .eye-icon {

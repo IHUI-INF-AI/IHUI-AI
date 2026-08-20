@@ -44,8 +44,8 @@ export default function Login() {
     () =>
       countdown > 0
         ? `${countdown}${tt('login.codeCountdownSuffix', '秒后重新获取')}`
-        : tt('login.sendCode', '发送验证码'),
-    [countdown, tt],
+        : t('login.getCode'),
+    [countdown, tt, t],
   )
   const codeBtnDisabled = useMemo(() => countdown > 0 || phone.length !== 11, [countdown, phone])
 
@@ -221,6 +221,10 @@ export default function Login() {
                 src="/static/images/loginzhtext.png"
                 mode="aspectFit"
               />
+              <View className="brand-caption">
+                <Text className="brand-caption-name">{t('login.brand')}</Text>
+                <Text className="brand-caption-slogan">{t('login.slogan')}</Text>
+              </View>
             </View>
           </View>
 
@@ -232,13 +236,13 @@ export default function Login() {
                   className={`login-type-tab ${loginType === 'phone' ? 'login-type-tab-active' : ''}`}
                   onClick={() => setLoginType('phone')}
                 >
-                  <Text>{tt('login.smsTab', '手机号验证码登录')}</Text>
+                  <Text>{t('login.phoneLogin')}</Text>
                 </View>
                 <View
                   className={`login-type-tab ${loginType === 'password' ? 'login-type-tab-active' : ''}`}
                   onClick={() => setLoginType('password')}
                 >
-                  <Text>{tt('login.passwordTab', '手机号密码登录')}</Text>
+                  <Text>{t('login.passwordLogin')}</Text>
                 </View>
               </View>
             </View>
@@ -362,9 +366,7 @@ export default function Login() {
           <View className="bottom-section">
             <View className="bottom_box">
               <AuthButton onClick={handleLoginClick} disabled={isLogging}>
-                {isLogging
-                  ? tt('login.loading', '登录中…')
-                  : tt('login.loginOrRegister', '登录/注册')}
+                {isLogging ? t('login.logging') : t('login.login')}
               </AuthButton>
 
               {/* 快捷登录分割线(三段式) */}
@@ -378,12 +380,15 @@ export default function Login() {
               <View className="icon-all">
                 <View className="icon-all-box" onClick={handleWechatLogin}>
                   <Image className="third-icon" src="/static/images/wx.svg" mode="aspectFit" />
+                  <Text className="third-icon-label">{t('login.wechatLogin')}</Text>
                 </View>
                 <View className="icon-all-box" onClick={handleWechatLogin}>
                   <View className="third-icon" />
                 </View>
                 <View className="icon-all-box" onClick={handleSsoLogin}>
                   <Image className="third-icon" src="/static/images/google.svg" mode="aspectFit" />
+                  <Text className="third-icon-label">{tt('login.ssoLogin', 'SSO 登录')}</Text>
+                  <Text className="third-icon-hint">{tt('login.ssoLoginHint', '一键企业登录')}</Text>
                 </View>
               </View>
             </View>
@@ -395,11 +400,7 @@ export default function Login() {
                   <View className={`checkmark ${isChecked ? 'checked' : ''}`} />
                 </View>
                 <Text className="arge">
-                  {tt('login.agreementPrefix', '点击登录/注册按钮即视为同意')}
-                  <Text className="textItem">{tt('login.privacyPolicy', '《隐私政策》')}</Text>
-                  {tt('login.and', '和')}
-                  <Text className="textItem">{tt('login.serviceAgreement', '《服务协议》')}</Text>
-                  {tt('login.autoRegisterHint', ';未注册用户将自动创建账号')}
+                  {tt('login.agreement', '我已阅读并同意服务协议和隐私政策')}
                 </Text>
               </View>
             </View>
