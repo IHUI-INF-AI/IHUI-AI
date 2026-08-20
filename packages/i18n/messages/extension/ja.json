@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "失敗"
+    "failed": "失敗",
+    "all": "すべて",
+    "back": "戻る",
+    "close": "閉じる",
+    "delete": "削除",
+    "empty": "データなし",
+    "loading": "読み込み中...",
+    "retry": "再試行",
+    "search": "検索",
+    "submit": "送信"
   },
   "nav": {
     "chat": "AI チャット",
@@ -11,7 +20,8 @@
     "tabRuntime": "ランタイム",
     "ai": "AI",
     "content": "コンテンツ",
-    "me": "マイ"
+    "me": "マイ",
+    "wallet": "ウォレット"
   },
   "apps": {
     "aiTitle": "AI アプリセンター",
@@ -125,7 +135,14 @@
   "auth": {
     "logout": "ログアウト",
     "roleAdmin": "管理者",
-    "roleUser": "一般ユーザー"
+    "roleUser": "一般ユーザー",
+    "appleComingSoon": "Apple ログインは近日公開",
+    "login": "ログイン",
+    "loginSubtitle": "アカウントにログインして続行",
+    "orUseAccount": "またはアカウントでログイン",
+    "ssoCancelled": "SSO ログインがキャンセルされました",
+    "ssoLoading": "SSO 認証中...",
+    "ssoLogin": "SSO ワンクリックログイン"
   },
   "popup": {
     "copyFailed": "コピー失敗",
@@ -168,7 +185,8 @@
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "設定"
   },
   "notification": {
     "title": "通知",
