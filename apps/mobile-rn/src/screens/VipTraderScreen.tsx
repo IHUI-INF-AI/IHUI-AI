@@ -90,6 +90,7 @@ export default function VipTraderScreen() {
                   invitedCount: inviteInfo.inviteCount,
                   activeCount: 0,
                   rank: 0,
+                  orderCount: null,
                 },
                 inviteInfo,
               )
