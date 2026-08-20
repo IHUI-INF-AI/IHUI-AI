@@ -11,7 +11,11 @@
     "progressEmpty": "",
     "livePreview": "",
     "livePreviewMore": "",
-    "recommend": ""
+    "recommend": "",
+    "greetingMorning": "좋은 아침이에요",
+    "greetingNoon": "안녕하세요",
+    "greetingAfternoon": "안녕하세요",
+    "greetingEvening": "좋은 저녁이에요"
   },
   "course": {
     "title": "강의",
