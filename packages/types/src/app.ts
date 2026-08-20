@@ -2091,13 +2091,17 @@ export interface StudyRecordScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收益记录�?对齐 mobile-rn IncomeScreen CommissionItem) */
+/** 收益记录(对齐 mobile-rn IncomeScreen CommissionItem) */
 export interface IncomeCommissionItem {
   id: string
   title: string
   amount: number
   time: string
   settled: boolean
+  /** 关联订单号(复制按钮用;后端无订单数据时为 undefined) */
+  orderId?: string
+  /** 是否取消结算(后端无该状态时为 undefined,与 settled=false 的待结算区分) */
+  cancelled?: boolean
 }
 export interface IncomeData {
   totalEarnings: number
