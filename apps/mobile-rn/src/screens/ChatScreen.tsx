@@ -73,6 +73,7 @@ import {
   X,
 } from 'lucide-react-native'
 import {
+  claimShareFirstReward,
   deleteConversation,
   fetchModels,
   fetchTextToSpeechAudio,
@@ -80,6 +81,7 @@ import {
   getAgents,
   getMessages,
   getModelContextCapacity,
+  getShareFirstStatus,
   listConversations,
   streamChat,
   type Agent,
@@ -228,6 +230,7 @@ export function ChatScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [qrCodeVisible, setQrCodeVisible] = useState(false)
   const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [shareFirstReward, setShareFirstReward] = useState(0)
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [materialTab, setMaterialTab] = useState<string>('text')
   // 接入 ModelConfigDialog / ModelList / AgentList(对齐 Uniapp ai_index.vue 行 32/34/104)
@@ -669,6 +672,7 @@ export function ChatScreen() {
     setFunctionPanelVisible(false)
     try {
       await Share.share({ message: formatMessagesText() })
+      void maybeTriggerFirstShareReward()
     } catch {
       // 用户取消分享,静默处理
     }
@@ -679,6 +683,7 @@ export function ChatScreen() {
     setFunctionPanelVisible(false)
     try {
       await Share.share({ message: formatMessagesText() })
+      void maybeTriggerFirstShareReward()
     } catch {
       // 用户取消分享,静默处理
     }
@@ -842,7 +847,9 @@ export function ChatScreen() {
                   style={styles.msgActionBtn}
                   hitSlop={8}
                   onPress={() => {
-                    void Share.share({ message: item.content })
+                    void Share.share({ message: item.content }).then(() => {
+                      void maybeTriggerFirstShareReward()
+                    })
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="分享"
@@ -856,7 +863,7 @@ export function ChatScreen() {
         </View>
       )
     },
-    [messages, isStreaming, showToast],
+    [messages, isStreaming, maybeTriggerFirstShareReward, showToast],
   )
 
   const renderListHeader = useCallback((): React.ReactNode => {
@@ -966,10 +973,37 @@ export function ChatScreen() {
     }
   }
 
-  // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup) ──
-  // showSharePoints 已移除:Share2 按钮改为跳个人中心(goToMyPage),
-  // 弹窗触发改为进页面自动检查(见下方 useEffect,待 checkFirstShareStatus API 接入)。
+  // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup / first/share/show) ──
+  // 触发:任意分享动作成功后自动检查首次分享奖励(未领取则弹窗);领取走 /api/share/first-claim(幂等)。
   const hideSharePoints = (): void => setShareValueVisible(false)
+
+  /** 首次分享奖励自动触发:分享成功后查询未领取状态,可领则弹分享领智汇值弹窗 */
+  const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getShareFirstStatus()
+      if (res.success && res.data.canClaim) {
+        setShareFirstReward(res.data.rewardPoints)
+        setShareValueVisible(true)
+      }
+    } catch {
+      // 接口异常静默降级,不阻塞分享流程
+    }
+  }, [])
+
+  /** 领取首次分享奖励(幂等:已领过后端返回 409) */
+  const handleClaimShareReward = async (): Promise<void> => {
+    try {
+      const res = await claimShareFirstReward()
+      hideSharePoints()
+      if (res.success) {
+        showToast('success', `已领取 ${res.data.points} 智汇值`)
+      } else {
+        showToast('info', res.error ?? '已领取过首次分享奖励')
+      }
+    } catch {
+      showToast('error', '领取失败,请稍后重试')
+    }
+  }
 
   // ── 跳转个人中心(对齐 Uniapp goToMyPage,Share2 按钮承载 share-image 跳转) ──
   const goToMyPage = (): void => {
@@ -1380,10 +1414,17 @@ export function ChatScreen() {
             <Share2 size={48} color={tokens.purple.DEFAULT} />
             <Text style={styles.shareTitle}>分享领智汇值</Text>
             <Text style={styles.shareDesc}>
-              邀请好友加入智汇AI社区,好友注册成功后双方均可获得智汇值奖励。智汇值可用于兑换模型算力、会员权益等。
+              首次分享成功,获得 {shareFirstReward}{' '}
+              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
             </Text>
-            <Pressable onPress={handleShareClick} style={styles.shareBtn}>
-              <Text style={styles.shareBtnText}>立即分享</Text>
+            <Pressable onPress={handleClaimShareReward} style={styles.shareBtn}>
+              <Text style={styles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleShareClick}
+              style={[styles.shareBtn, styles.shareBtnSecondary]}
+            >
+              <Text style={styles.shareBtnText}>立即分享邀请好友</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -2059,6 +2100,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: tokens.surface.light,
     fontWeight: '500',
+  },
+  shareBtnSecondary: {
+    marginTop: rpx(16),
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {
