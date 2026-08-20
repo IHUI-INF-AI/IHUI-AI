@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native'
+import { applyDeveloper } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input } from '@ihui/ui-native'
@@ -37,12 +38,22 @@ export default function DevEnterScreen() {
       return Alert.alert(t('common.hint'), t('devEnter.error.introMin'))
     if (!agreed) return Alert.alert(t('common.hint'), t('devEnter.error.agreeRequired'))
     setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
-      Alert.alert(t('devEnter.success.title'), t('devEnter.success.message'), [
-        { text: t('common.gotIt') },
-      ])
-    }, 800)
+    void (async () => {
+      try {
+        const res = await applyDeveloper({ name: name.trim(), description: intro.trim() })
+        if (res.success) {
+          Alert.alert(t('devEnter.success.title'), t('devEnter.success.message'), [
+            { text: t('common.gotIt'), onPress: () => navigation.goBack() },
+          ])
+        } else {
+          Alert.alert(t('common.hint'), res.error || '提交失败，请稍后重试')
+        }
+      } catch (err) {
+        Alert.alert(t('common.hint'), err instanceof Error ? err.message : '提交失败，请稍后重试')
+      } finally {
+        setSubmitting(false)
+      }
+    })()
   }
 
   return (
