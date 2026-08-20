@@ -24,6 +24,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import Clipboard from '@react-native-clipboard/clipboard'
 import {
   deleteConversation,
   getAgentCategories,
@@ -50,6 +51,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
+
+/** 免费资料链接(对齐原项目 plaza/index.vue lingqu → setClipboardData) */
+const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 const PLAZA_STATUS = {
   waiting: 'pending',
@@ -147,9 +151,6 @@ export function PlazaScreen() {
       try {
         const isMyTask = status === PLAZA_STATUS.mine
         // 使用 PlazaScreenProps 的 items 类型。
-        // 注:api-client getPlazaList 声明 categories?: string[],与基类型 PageQuery 的标量
-        // index signature 冲突(既有缺陷,buildQs 用 String(v) 序列化数组为逗号分隔串),
-        // 此处以 as never 绕过类型检查(与 navigateRoot 同款项目先例)。
         const res = await getPlazaList({
           page: targetPage,
           pageSize: PAGE_SIZE,
@@ -158,7 +159,7 @@ export function PlazaScreen() {
           creator: isMyTask ? user?.id : undefined,
           // 赛道筛选(对齐原项目 categorys 参数,''=全公司,非空时传单元素数组)
           categories: selectedCategory ? [selectedCategory] : undefined,
-        } as never)
+        })
         if (!res.success) throw new Error(res.error)
         const list = (res.data.list ?? []) as PlazaScreenProps['items']
         setItems((prev) => (reset ? list : [...prev, ...list]))
@@ -270,6 +271,8 @@ export function PlazaScreen() {
 
   const handleDrawerClaimFree = () => {
     setDrawerVisible(false)
+    // 真复制资料链接后再提示(对齐原项目 lingqu → setClipboardData)
+    Clipboard.setString(FREE_RESOURCE_URL)
     showFloat('链接已复制', 'success')
   }
 

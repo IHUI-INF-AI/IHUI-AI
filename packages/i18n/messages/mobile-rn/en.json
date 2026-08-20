@@ -20,9 +20,6 @@
   "course": {
     "title": "Courses",
     "studentCount": "{count} learners",
-    "pay": "Pay ¥{amount}",
-    "enroll": "Enroll now",
-    "enrolled": "Enrolled",
     "progress": "Progress",
     "empty": "No courses yet",
     "completed": "Completed",
@@ -33,9 +30,33 @@
   "live": {
     "title": "Live",
     "viewerCount": "{count} viewers",
+    "ongoing": "Live",
     "upcoming": "Upcoming",
     "ended": "Ended",
-    "chat": "Chat"
+    "empty": "No live sessions yet",
+    "lecturer": "Lecturer",
+    "startAt": "Starts at"
+  },
+  "liveDetail": {
+    "title": "Live Details",
+    "empty": "Live session not found or has ended",
+    "ongoing": "Live",
+    "upcoming": "Upcoming",
+    "lecturer": "Lecturer",
+    "viewerCount": "{count} viewers",
+    "subscribe": "Reserve Live",
+    "subscribed": "Reserved",
+    "subscribing": "Reserving...",
+    "intro": "About",
+    "chat": "Chat",
+    "chatEmpty": "No messages yet. Be the first!",
+    "chatPlaceholder": "Say something...",
+    "chatSend": "Send",
+    "chatConnecting": "Connecting...",
+    "chatConnected": "Connected",
+    "chatReconnecting": "Reconnecting...",
+    "chatError": "Connection failed",
+    "chatDisconnected": "Disconnected"
   },
   "profile": {
     "title": "Profile",
@@ -92,6 +113,7 @@
   },
   "order": {
     "title": "Orders",
+    "searchPlaceholder": "Search my orders",
     "status": {
       "pending": "Pending",
       "paid": "Paid",
@@ -961,8 +983,16 @@
   "register": {
     "phone": "Phone Number",
     "phonePlaceholder": "Enter your phone number",
+    "code": "Verification code",
+    "codePlaceholder": "Enter verification code",
+    "sendCode": "Send code",
+    "resendIn": "Resend in {{countdown}}s",
+    "sendCodeFailed": "Failed to send code, please retry",
     "submit": "Sign Up",
     "registering": "Signing up..."
+  },
+  "withdraw": {
+    "availableBalance": "Available Balance (CNY)"
   },
   "search": {
     "title": "Search",
