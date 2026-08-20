@@ -778,6 +778,7 @@
     "settled": "已结算",
     "pending": "待结算",
     "cancelled": "取消结算",
+    "withdrawn": "已提现",
     "tab": {
       "all": "全部",
       "pending": "待结算",
