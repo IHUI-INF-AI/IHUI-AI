@@ -5,13 +5,13 @@
   },
   "home": {
     "welcome": "IHUI AI에 오신 것을 환영합니다",
-    "guest": "",
-    "learningProgress": "",
-    "progressLessons": "",
-    "progressEmpty": "",
-    "livePreview": "",
-    "livePreviewMore": "",
-    "recommend": "",
+    "guest": "게스트",
+    "learningProgress": "학습 진도",
+    "progressLessons": "{completed}/{total}강 수강 완료",
+    "progressEmpty": "아직 학습을 시작하지 않았습니다. 강좌를 선택해 보세요",
+    "livePreview": "라이브 예고",
+    "livePreviewMore": "더 많은 라이브",
+    "recommend": "추천 콘텐츠",
     "greetingMorning": "좋은 아침이에요",
     "greetingNoon": "안녕하세요",
     "greetingAfternoon": "안녕하세요",
@@ -21,11 +21,11 @@
     "title": "강의",
     "studentCount": "{count}명 학습",
     "progress": "진도",
-    "empty": "",
-    "completed": "",
-    "complete": "",
-    "player": "",
-    "progressLessons": ""
+    "empty": "강좌가 없습니다",
+    "completed": "수강 완료",
+    "complete": "수강 완료로 표시",
+    "player": "동영상 로드 후 재생할 수 있습니다",
+    "progressLessons": "{completed}/{total}강 수강 완료"
   },
   "live": {
     "title": "라이브",
@@ -74,10 +74,10 @@
       "walletSubtitle": "잔액 및 충전 보기",
       "loginRequired": "먼저 로그인하세요"
     },
-    "nickname": "",
-    "logout": "",
-    "myOrders": "",
-    "editProfile": ""
+    "nickname": "닉네임 미설정",
+    "logout": "로그아웃",
+    "myOrders": "내 주문",
+    "editProfile": "프로필 편집"
   },
   "payment": {
     "title": "결제 주문",
@@ -114,6 +114,10 @@
   "order": {
     "title": "주문",
     "searchPlaceholder": "주문 검색",
+    "tab": {
+      "refunded": "환불됨"
+    },
+    "noMore": "더 이상 없습니다",
     "status": {
       "pending": "결제 대기",
       "paid": "결제 완료",
@@ -173,24 +177,24 @@
     "checkUpdateLatest": "최신 버전입니다",
     "changePhoneMissingUser": "사용자 정보가 누락되었습니다",
     "logoutConfirm": "로그아웃하시겠습니까?",
-    "appPermission": "",
-    "icpRecord": "",
-    "usageRules": "",
-    "changePassword": "",
-    "oldPassword": "",
-    "newPassword": "",
-    "confirmPassword": "",
-    "pwdFieldsRequired": "",
-    "pwdTooShort": "",
-    "pwdNotMatch": "",
-    "pwdChanged": "",
-    "pwdChangeFailed": "",
-    "notifPush": "",
-    "notifMessage": "",
-    "notifEmail": "",
-    "notification": "",
-    "account": "",
-    "version": ""
+    "appPermission": "앱 권한",
+    "icpRecord": "ICP 신고",
+    "usageRules": "이용 규정",
+    "changePassword": "비밀번호 변경",
+    "oldPassword": "기존 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmPassword": "새 비밀번호 확인",
+    "pwdFieldsRequired": "비밀번호 정보를 모두 입력하세요",
+    "pwdTooShort": "새 비밀번호는 최소 6자 이상이어야 합니다",
+    "pwdNotMatch": "두 번 입력한 비밀번호가 일치하지 않습니다",
+    "pwdChanged": "비밀번호가 변경되었습니다",
+    "pwdChangeFailed": "비밀번호 변경에 실패했습니다. 다시 시도해 주세요",
+    "notifPush": "푸시 알림",
+    "notifMessage": "사이트 메시지",
+    "notifEmail": "이메일 알림",
+    "notification": "메시지 알림",
+    "account": "계정 및 보안",
+    "version": "버전"
   },
   "menu": {
     "about": "정보",
@@ -207,7 +211,7 @@
     "businessLicense": "사업자등록증",
     "icpRecord": "ICP 신고",
     "modelRecord": "모델 신고",
-    "sectionDiscover": "",
+    "sectionDiscover": "발견",
     "assistant": "내 어시스턴트",
     "apiSettings": "API 설정"
   },
@@ -262,10 +266,10 @@
     "error": "오류",
     "menu": "메뉴",
     "empty": "데이터 없음",
-    "show": "",
-    "hide": "",
-    "submitting": "",
-    "viewMore": ""
+    "show": "표시",
+    "hide": "숨기기",
+    "submitting": "제출 중...",
+    "viewMore": "더 보기"
   },
   "aiAssistant": {
     "title": "AI 어시스턴트",
@@ -473,200 +477,200 @@
     }
   },
   "about": {
-    "title": "",
-    "appName": "",
-    "version": "",
-    "description": "",
-    "officialSite": "",
-    "contactEmail": "",
-    "license": ""
+    "title": "정보",
+    "appName": "앱 이름",
+    "version": "버전",
+    "description": "앱 소개",
+    "officialSite": "공식 웹사이트",
+    "contactEmail": "문의 이메일",
+    "license": "오픈소스 라이선스"
   },
   "activityDetail": {
-    "title": "",
-    "empty": "",
-    "startAt": "",
-    "endAt": "",
-    "location": ""
+    "title": "활동 상세",
+    "empty": "활동을 찾을 수 없거나 종료되었습니다",
+    "startAt": "시작 시간",
+    "endAt": "종료 시간",
+    "location": "활동 장소"
   },
   "agentChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "메시지가 없습니다. 첫 메시지를 보내 대화를 시작하세요",
+    "placeholder": "메시지 입력...",
+    "send": "보내기"
   },
   "agentCreate": {
-    "title": "",
-    "name": "",
-    "namePlaceholder": "",
-    "category": "",
-    "categoryPlaceholder": "",
-    "description": "",
-    "descPlaceholder": "",
-    "systemPrompt": "",
-    "promptPlaceholder": "",
-    "isPublic": "",
-    "public": "",
-    "private": "",
-    "submit": ""
+    "title": "에이전트 생성",
+    "name": "이름",
+    "namePlaceholder": "에이전트 이름을 지어주세요",
+    "category": "카테고리",
+    "categoryPlaceholder": "예: 업무 어시스턴트",
+    "description": "설명",
+    "descPlaceholder": "에이전트를 소개해 주세요",
+    "systemPrompt": "시스템 프롬프트",
+    "promptPlaceholder": "에이전트의 역할과 동작을 정의하세요",
+    "isPublic": "공개 여부",
+    "public": "공개",
+    "private": "비공개",
+    "submit": "생성"
   },
   "agentReviewDetail": {
-    "title": "",
-    "empty": "",
-    "author": ""
+    "title": "평가 상세",
+    "empty": "평가를 찾을 수 없거나 삭제되었습니다",
+    "author": "작성자"
   },
   "agentSetting": {
-    "title": "",
-    "name": "",
-    "model": "",
-    "temperature": "",
-    "enabled": "",
-    "save": ""
+    "title": "에이전트 설정",
+    "name": "이름",
+    "model": "모델",
+    "temperature": "온도",
+    "enabled": "활성화",
+    "save": "저장"
   },
   "agentStat": {
-    "title": "",
-    "conversations": "",
-    "messages": "",
-    "tokens": "",
-    "avgRating": ""
+    "title": "에이전트 통계",
+    "conversations": "대화 수",
+    "messages": "메시지 수",
+    "tokens": "Token 소비",
+    "avgRating": "평균 평가"
   },
   "announcementDetail": {
-    "empty": ""
+    "empty": "공지를 찾을 수 없거나 삭제되었습니다"
   },
   "apiSettings": {
-    "title": "",
-    "cozeTitle": "",
-    "apiToken": "",
-    "tokenPlaceholder": "",
-    "baseUrl": "",
-    "botId": "",
-    "botIdPlaceholder": "",
-    "timeout": "",
-    "tokenHint": "",
-    "save": "",
-    "reset": "",
-    "diagnoseTitle": "",
-    "diagnose": "",
-    "test": "",
-    "testSuccess": "",
-    "testFailed": ""
+    "title": "API 설정",
+    "cozeTitle": "Coze 구성",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "API Token을 입력하세요",
+    "baseUrl": "인터페이스 주소",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "Bot ID를 입력하세요",
+    "timeout": "타임아웃(초)",
+    "tokenHint": "Coze 인터페이스 호출에 사용하는 액세스 토큰",
+    "save": "저장",
+    "reset": "초기화",
+    "diagnoseTitle": "연결성 진단",
+    "diagnose": "진단",
+    "test": "테스트",
+    "testSuccess": "연결 정상",
+    "testFailed": "연결 실패"
   },
   "appPermission": {
-    "intro": ""
+    "intro": "이 앱은 최소 필요 원칙에 따라 시스템 권한을 요청합니다. 모든 권한은 사용자의 동의를 받아 사용되며, 언제든지 기기의 「설정 - 권한 관리」에서 권한을 확인, 변경 또는 회수할 수 있습니다. 필수적인 권한을 회수하더라도 앱의 다른 기능은 정상적으로 사용할 수 있습니다."
   },
   "askCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "질문 작성",
+    "titleLabel": "제목",
+    "titlePlaceholder": "질문을 한 줄로 요약해 주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "질문을 자세히 설명해 주세요",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "submit": "작성"
   },
   "bankCard": {
-    "title": "",
-    "empty": "",
-    "default": "",
-    "holder": ""
+    "title": "은행 카드",
+    "empty": "등록된 은행 카드가 없습니다",
+    "default": "기본",
+    "holder": "카드 소유자"
   },
   "carte": {
-    "title": "",
-    "projects": "",
-    "skills": "",
-    "rating": "",
-    "skillsTitle": "",
-    "worksTitle": "",
-    "empty": ""
+    "title": "크리에이터 명함",
+    "projects": "프로젝트",
+    "skills": "스킬",
+    "rating": "평점",
+    "skillsTitle": "전문 스킬",
+    "worksTitle": "대표 작품",
+    "empty": "작품이 없습니다"
   },
   "certApply": {
-    "title": "",
-    "name": "",
-    "placeholder": "",
-    "idCard": "",
-    "submit": "",
-    "success": ""
+    "title": "강사 인증",
+    "name": "이름",
+    "placeholder": "실제 정보를 입력하세요",
+    "idCard": "주민등록번호",
+    "submit": "인증 제출",
+    "success": "제출이 완료되었습니다. 심사를 기다려 주세요"
   },
   "community": {
-    "follow": "",
-    "follower": ""
+    "follow": "팔로우",
+    "follower": "팔로워"
   },
   "coupon": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "쿠폰 발급으로 더 합리적인 구매를",
+    "retry": "재시도"
   },
   "courseAnnex": {
-    "title": "",
-    "empty": "",
-    "size": "",
-    "download": ""
+    "title": "강좌 첨부 자료",
+    "empty": "첨부 자료가 없습니다",
+    "size": "크기",
+    "download": "다운로드"
   },
   "courseChapter": {
-    "title": "",
-    "lessons": ""
+    "title": "강좌 챕터",
+    "lessons": "총 {count}개 강좌"
   },
   "courseComment": {
-    "title": "",
-    "empty": ""
+    "title": "강좌 댓글",
+    "empty": "댓글이 없습니다"
   },
   "courseDetail": {
-    "loadFailed": "",
-    "studentCount": "",
-    "instructor": "",
-    "rating": "",
-    "free": "",
-    "enrolled": "",
-    "enroll": "",
-    "pay": "",
-    "lessons": "",
-    "completed": ""
+    "loadFailed": "강좌 상세 로드 실패",
+    "studentCount": "{count}명 학습",
+    "instructor": "강사",
+    "rating": "평점",
+    "free": "무료",
+    "enrolled": "신청 완료",
+    "enroll": "지금 신청",
+    "pay": "¥{amount} 결제",
+    "lessons": "강좌 목차",
+    "completed": "수강 완료"
   },
   "courseEnroll": {
-    "title": "",
-    "subtitle": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "enrolled": "",
-    "enroll": "",
-    "free": "",
-    "instructor": "",
-    "level": "",
-    "lessons": "",
-    "students": ""
+    "title": "강좌 신청",
+    "subtitle": "강좌를 선택하고 신청해 학습을 시작하세요",
+    "searchPlaceholder": "강좌 검색",
+    "empty": "강좌가 없습니다",
+    "enrolled": "신청 완료",
+    "enroll": "지금 신청",
+    "free": "무료",
+    "instructor": "강사",
+    "level": "난이도",
+    "lessons": "강좌 수",
+    "students": "학습자"
   },
   "courseFilter": {
-    "title": "",
-    "subtitle": "",
-    "category": "",
-    "level": "",
-    "priceRange": "",
-    "reset": "",
-    "apply": "",
-    "retry": "",
-    "empty": "",
-    "instructor": "",
-    "level_label": "",
-    "free": ""
+    "title": "강좌 필터",
+    "subtitle": "조건에 맞는 강좌를 찾아보세요",
+    "category": "카테고리",
+    "level": "난이도",
+    "priceRange": "가격 범위",
+    "reset": "초기화",
+    "apply": "확인",
+    "retry": "재시도",
+    "empty": "조건에 맞는 강좌가 없습니다",
+    "instructor": "강사",
+    "level_label": "난이도",
+    "free": "무료"
   },
   "courseQAAsk": {
-    "title": "",
-    "question": "",
-    "placeholder": "",
-    "success": "",
-    "submit": ""
+    "title": "강좌 질문",
+    "question": "질문 내용",
+    "placeholder": "궁금한 점을 입력하세요. 강사가 빠르게 답변해 드립니다",
+    "success": "제출 성공",
+    "submit": "질문 제출"
   },
   "courseResource": {
-    "title": "",
-    "empty": "",
-    "type": "",
-    "size": "",
-    "open": ""
+    "title": "강좌 자료",
+    "empty": "자료가 없습니다",
+    "type": "유형",
+    "size": "크기",
+    "open": "열기"
   },
   "courseScreen": {
-    "title": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "free": "",
-    "studentCount": "",
-    "nextPage": "",
+    "title": "전체 강좌",
+    "searchPlaceholder": "강좌 검색",
+    "empty": "강좌가 없습니다",
+    "free": "무료",
+    "studentCount": "{count}명 학습",
+    "nextPage": "다음 페이지",
     "recommended": "추천 강좌",
     "track": "강좌 트랙",
     "latest": "최신 강좌",
@@ -674,445 +678,445 @@
     "unknownInstructor": "알 수 없는 강사"
   },
   "customerService": {
-    "title": "",
-    "empty": "",
-    "status": "",
-    "online": "",
-    "offline": "",
-    "workingHours": "",
-    "phone": "",
-    "email": ""
+    "title": "고객 지원 문의",
+    "empty": "고객 지원 정보 로드 실패",
+    "status": "서비스 상태",
+    "online": "온라인",
+    "offline": "오프라인",
+    "workingHours": "서비스 시간",
+    "phone": "고객 지원 전화",
+    "email": "고객 지원 이메일"
   },
   "distribution": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "level": "",
-    "commissionRate": "",
-    "totalEarnings": "",
-    "withdrawn": "",
-    "pending": "",
-    "withdrawBtn": "",
-    "withdrawMin": "",
-    "products": "",
-    "commission": "",
-    "sales": ""
+    "title": "유통 센터",
+    "subtitle": "상품을 홍보하고 커미션을 받으세요",
+    "retry": "재시도",
+    "empty": "데이터 없음",
+    "level": "유통 등급",
+    "commissionRate": "커미션 비율",
+    "totalEarnings": "누적 수익",
+    "withdrawn": "출금 완료",
+    "pending": "정산 대기",
+    "withdrawBtn": "출금 신청",
+    "withdrawMin": "¥{amount} 이상부터 출금 가능",
+    "products": "유통 상품",
+    "commission": "커미션",
+    "sales": "{count}개 판매됨"
   },
   "earnCommission": {
-    "title": "",
-    "introTitle": "",
-    "introDesc": "",
-    "totalEarnings": "",
-    "invitedCount": "",
-    "rules": "",
-    "rateTitle": "",
-    "openVip": ""
+    "title": "커미션 플랜",
+    "introTitle": "친구를 초대하고 커미션을 받으세요",
+    "introDesc": "커미션 플랜에 가입하고 친구를 초대해 회원으로 가입시키면 회원비의 20%를 커미션으로 받을 수 있습니다",
+    "totalEarnings": "누적 수익",
+    "invitedCount": "초대 인원",
+    "rules": "커미션 규칙",
+    "rateTitle": "커미션 비율",
+    "openVip": "VIP 멤버십을 개통해 커미션 플랜에 참여하세요"
   },
   "exam": {
-    "subtitle": "",
-    "retry": "",
-    "questions": "",
-    "end": "",
-    "startExam": ""
+    "subtitle": "시험을 통해 학습 성과를 확인하세요",
+    "retry": "재시도",
+    "questions": "문제 수",
+    "end": "종료 시간",
+    "startExam": "시험 시작"
   },
   "examQuestion": {
-    "loadFailed": "",
-    "single": "",
-    "multi": "",
-    "prev": "",
-    "next": "",
-    "submit": ""
+    "loadFailed": "시험지 로드 실패",
+    "single": "객관식",
+    "multi": "복수 선택",
+    "prev": "이전 문제",
+    "next": "다음 문제",
+    "submit": "제출"
   },
   "favorite": {
-    "title": "",
-    "tabAll": "",
-    "tabCourse": "",
-    "tabLive": "",
-    "tabArticle": "",
-    "empty": ""
+    "title": "내 즐겨찾기",
+    "tabAll": "전체",
+    "tabCourse": "강좌",
+    "tabLive": "라이브",
+    "tabArticle": "게시글",
+    "empty": "즐겨찾기가 없습니다"
   },
   "finance": {
-    "title": "",
-    "empty": "",
-    "balance": "",
-    "todayIncome": "",
-    "totalIncome": "",
-    "totalExpense": ""
+    "title": "재무",
+    "empty": "청구 데이터 없음",
+    "balance": "계좌 잔액",
+    "todayIncome": "오늘 수익",
+    "totalIncome": "누적 수익",
+    "totalExpense": "누적 지출"
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "팔로우 및 팔로워",
+    "following": "팔로우",
+    "fans": "팔로워",
+    "empty": "데이터 없음",
+    "unfollow": "팔로우 취소"
   },
   "icpRecord": {
-    "licenseLabel": ""
+    "licenseLabel": "ICP 신고/허가 번호"
   },
   "identityVerify": {
-    "title": "",
-    "subtitle": "",
-    "uploadFront": "",
-    "uploadBack": "",
-    "uploadSelfie": "",
-    "submit": "",
-    "submitting": ""
+    "title": "본인 인증",
+    "subtitle": "본인 인증을 완료해 계정 보안을 강화하세요",
+    "uploadFront": "신분증 앞면 업로드",
+    "uploadBack": "신분증 뒷면 업로드",
+    "uploadSelfie": "신분증을 든 셀카 업로드",
+    "submit": "인증 제출",
+    "submitting": "제출 중..."
   },
   "income": {
-    "title": "",
-    "today": "",
-    "total": "",
-    "withdrawable": "",
-    "withdraw": "",
-    "sectionTitle": "",
-    "empty": "",
-    "settled": "",
-    "pending": ""
+    "title": "수익",
+    "today": "오늘의 수익",
+    "total": "누적 수익",
+    "withdrawable": "출금 가능 잔액",
+    "withdraw": "출금",
+    "sectionTitle": "수익 내역",
+    "empty": "수익 기록 없음",
+    "settled": "정산 완료",
+    "pending": "정산 대기"
   },
   "invite": {
-    "title": "",
-    "inviteCode": "",
-    "totalInvited": "",
-    "totalReward": "",
-    "share": "",
-    "sectionTitle": "",
-    "empty": "",
-    "statusCompleted": "",
-    "statusPending": ""
+    "title": "친구 초대",
+    "inviteCode": "초대 코드",
+    "totalInvited": "누적 초대",
+    "totalReward": "누적 보상",
+    "share": "지금 초대",
+    "sectionTitle": "초대 기록",
+    "empty": "초대 기록 없음",
+    "statusCompleted": "완료",
+    "statusPending": "대기 중"
   },
   "learnDevelop": {
-    "title": "",
-    "comingSoon": "",
-    "contactLabel": ""
+    "title": "학습 개발",
+    "comingSoon": "강좌 플래닛 개발 중",
+    "contactLabel": "이 대표에게 직접 문의"
   },
   "lecturerDetail": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "courses": "",
-    "followers": "",
-    "students": "",
-    "followBtn": "",
-    "unfollowBtn": "",
-    "retry": "",
-    "level": "",
-    "studentCount": "",
-    "free": ""
+    "title": "강사 상세",
+    "subtitle": "강사를 알아보고 현명하게 강좌를 선택하세요",
+    "empty": "소개가 없습니다",
+    "courses": "강좌",
+    "followers": "팔로워",
+    "students": "학습자",
+    "followBtn": "팔로우",
+    "unfollowBtn": "팔로우 중",
+    "retry": "재시도",
+    "level": "난이도",
+    "studentCount": "{count}명 학습",
+    "free": "무료"
   },
   "liveChat": {
-    "title": "",
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "title": "라이브 채팅",
+    "empty": "아직 메시지가 없습니다. 첫 댓글을 남겨보세요",
+    "placeholder": "무언가 말해보세요...",
+    "send": "보내기"
   },
   "liveList": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "다양한 라이브, 놓치지 마세요",
+    "retry": "재시도"
   },
   "messageChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "메시지가 없습니다",
+    "placeholder": "메시지 입력...",
+    "send": "보내기"
   },
   "messageDetail": {
-    "title": "",
-    "reply": "",
-    "notFound": "",
-    "from": "",
-    "createdAt": ""
+    "title": "메시지 상세",
+    "reply": "답장",
+    "notFound": "메시지를 찾을 수 없거나 삭제되었습니다",
+    "from": "보낸 사람",
+    "createdAt": "시간"
   },
   "note": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "add": "",
-    "edit": "",
-    "updatedAt": "",
-    "titlePlaceholder": "",
-    "placeholder": ""
+    "title": "내 노트",
+    "subtitle": "좋은 기억보다 빠른 기록",
+    "empty": "노트가 없습니다. 새로 추가해 기록을 시작하세요",
+    "add": "노트 추가",
+    "edit": "편집",
+    "updatedAt": "업데이트",
+    "titlePlaceholder": "노트 제목을 지어주세요",
+    "placeholder": "학습 메모를 기록하세요..."
   },
   "noteCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "isPublic": "",
-    "submit": ""
+    "title": "새 노트",
+    "titleLabel": "제목",
+    "titlePlaceholder": "노트 제목을 지어주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "학습 메모를 기록하세요...",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "isPublic": "공개 노트",
+    "submit": "저장"
   },
   "notificationSettings": {
-    "title": "",
-    "push": "",
-    "message": "",
-    "email": "",
-    "sms": "",
-    "marketing": "",
-    "desc": "",
-    "save": "",
-    "saving": ""
+    "title": "알림 설정",
+    "push": "푸시 알림",
+    "message": "사이트 메시지",
+    "email": "이메일 알림",
+    "sms": "SMS 알림",
+    "marketing": "마케팅 알림",
+    "desc": "원하는 알림 채널을 선택하여 중요한 메시지를 놓치지 마세요",
+    "save": "저장",
+    "saving": "저장 중..."
   },
   "orderLog": {
-    "title": "",
-    "empty": "",
-    "action": "",
-    "operator": ""
+    "title": "주문 동향",
+    "empty": "내역이 없습니다",
+    "action": "작업",
+    "operator": "작업자"
   },
   "orderRefund": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "orderNo": "",
-    "reasonLabel": "",
-    "reasonPlaceholder": "",
-    "submit": "",
-    "applyRefund": ""
+    "title": "환불 신청",
+    "subtitle": "주문을 선택하고 환불을 신청하세요",
+    "retry": "재시도",
+    "empty": "환불 가능한 주문이 없습니다",
+    "orderNo": "주문 번호",
+    "reasonLabel": "환불 사유",
+    "reasonPlaceholder": "환불 사유를 입력하세요",
+    "submit": "신청 제출",
+    "applyRefund": "환불 신청"
   },
   "orderTrack": {
-    "title": "",
-    "empty": "",
-    "location": ""
+    "title": "배송 조회",
+    "empty": "배송 정보가 없습니다",
+    "location": "현재 위치"
   },
   "player": {
-    "noUrl": ""
+    "noUrl": "재생 주소가 없습니다"
   },
   "pointsRecord": {
-    "title": "",
-    "tabAll": "",
-    "tabEarn": "",
-    "tabSpend": "",
-    "balance": "",
-    "empty": "",
-    "balanceAfter": ""
+    "title": "포인트 내역",
+    "tabAll": "전체",
+    "tabEarn": "획득",
+    "tabSpend": "소비",
+    "balance": "현재 잔액",
+    "empty": "내역이 없습니다",
+    "balanceAfter": "변동 후 잔액"
   },
   "postCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "게시글 작성",
+    "titleLabel": "제목",
+    "titlePlaceholder": "게시글 제목을 지어주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "생각을 공유하세요...",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "submit": "작성"
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "탭하여 프로필 이미지 변경",
+    "nicknamePlaceholder": "닉네임을 입력하세요",
+    "bioPlaceholder": "자기소개를 해보세요",
+    "avatarModalTitle": "프로필 이미지 변경",
+    "avatarUrlLabel": "이미지 링크",
+    "avatarUrlPlaceholder": "이미지 링크 붙여넣기",
+    "avatarUrlHint": "JPG / PNG 지원, 200x200 권장"
   },
   "promote": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "inviteCount": "",
-    "activeCount": "",
-    "totalEarnings": "",
-    "referralLink": "",
-    "copyLink": "",
-    "copySuccess": "",
-    "shareBtn": "",
-    "referralCode": "",
-    "rules": "",
-    "inviteRecords": "",
-    "empty": ""
+    "title": "홍보 센터",
+    "subtitle": "전용 링크를 공유해 친구를 초대하세요",
+    "retry": "재시도",
+    "inviteCount": "초대 인원",
+    "activeCount": "활성 인원",
+    "totalEarnings": "누적 수익",
+    "referralLink": "전용 홍보 링크",
+    "copyLink": "링크 복사",
+    "copySuccess": "복사 완료",
+    "shareBtn": "공유",
+    "referralCode": "홍보 코드",
+    "rules": "홍보 규칙",
+    "inviteRecords": "초대 기록",
+    "empty": "데이터 없음"
   },
   "promotion": {
-    "title": "",
-    "empty": "",
-    "minSpend": "",
-    "expireDate": "",
-    "useNow": ""
+    "title": "쿠폰",
+    "empty": "사용 가능한 쿠폰이 없습니다",
+    "minSpend": "¥{minSpend} 이상 사용 가능",
+    "expireDate": "유효 기간",
+    "useNow": "사용하기"
   },
   "qrCode": {
-    "title": "",
-    "scanTip": "",
-    "share": ""
+    "title": "내 QR코드",
+    "scanTip": "QR코드를 스캔하여 함께 학습하며 성장하세요",
+    "share": "공유"
   },
   "ranking": {
-    "subtitle": "",
-    "retry": "",
-    "anonymous": "",
-    "me": "",
-    "studyHours": ""
+    "subtitle": "학습 랭킹, 자신의 순위를 확인하세요",
+    "retry": "재시도",
+    "anonymous": "익명 사용자",
+    "me": "나",
+    "studyHours": "{count}시간 학습"
   },
   "rankingDetail": {
-    "rank": "",
-    "attention": "",
-    "organization": ""
+    "rank": "순위",
+    "attention": "관심도",
+    "organization": "기관"
   },
   "realNameAuth": {
-    "title": "",
-    "status": "",
-    "verifiedDesc": "",
-    "unverifiedDesc": "",
-    "name": "",
-    "namePlaceholder": "",
-    "idNumber": "",
-    "idNumberPlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "실명 인증",
+    "status": "인증 상태",
+    "verifiedDesc": "실명 인증이 완료되었습니다",
+    "unverifiedDesc": "실명 인증을 완료해 더 많은 서비스를 이용하세요",
+    "name": "실명",
+    "namePlaceholder": "실명을 입력하세요",
+    "idNumber": "주민등록번호",
+    "idNumberPlaceholder": "주민등록번호를 입력하세요",
+    "submit": "인증 제출",
+    "submitting": "제출 중..."
   },
   "recruitment": {
-    "title": "",
-    "count": "",
-    "empty": "",
-    "applied": "",
-    "close": "",
-    "description": "",
-    "requirements": "",
-    "applyNow": "",
-    "appliedWaiting": ""
+    "title": "채용 공고",
+    "count": "총 {count}개 직무",
+    "empty": "모집 중인 직무가 없습니다",
+    "applied": "지원 완료",
+    "close": "닫기",
+    "description": "직무 설명",
+    "requirements": "자격 요건",
+    "applyNow": "지금 지원",
+    "appliedWaiting": "지원 완료, 심사 대기 중"
   },
   "referrer": {
-    "title": "",
-    "current": "",
-    "empty": "",
-    "desc": "",
-    "codeLabel": "",
-    "codePlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "추천인",
+    "current": "현재 추천인",
+    "empty": "추천인이 아직 등록되지 않았습니다",
+    "desc": "추천인을 등록하면 양측 모두 보상을 받을 수 있습니다",
+    "codeLabel": "추천 코드",
+    "codePlaceholder": "추천 코드를 입력하세요",
+    "submit": "등록",
+    "submitting": "등록 중..."
   },
   "register": {
-    "phone": "",
-    "phonePlaceholder": "",
+    "phone": "휴대폰 번호",
+    "phonePlaceholder": "휴대폰 번호를 입력하세요",
     "code": "인증 코드",
     "codePlaceholder": "인증 코드 입력",
     "sendCode": "코드 보내기",
     "resendIn": "{{countdown}}초 후 재전송",
     "sendCodeFailed": "인증 코드 전송 실패, 다시 시도하세요",
-    "submit": "",
-    "registering": ""
+    "submit": "회원가입",
+    "registering": "가입 중..."
   },
   "withdraw": {
     "availableBalance": "출금 가능 금액(원)"
   },
   "search": {
-    "title": "",
-    "placeholder": "",
-    "empty": ""
+    "title": "검색",
+    "placeholder": "강좌, 강사, 콘텐츠 검색",
+    "empty": "검색 결과가 없습니다"
   },
   "securitySettings": {
-    "title": "",
-    "password": "",
-    "biometric": "",
-    "twoFactor": "",
-    "loginAlert": "",
-    "desc": ""
+    "title": "보안 설정",
+    "password": "비밀번호 로그인",
+    "biometric": "생체 인식",
+    "twoFactor": "2단계 인증",
+    "loginAlert": "로그인 알림",
+    "desc": "계정 보안 관련 설정 관리"
   },
   "settingsAccount": {
-    "title": "",
-    "name": "",
-    "email": "",
-    "phone": "",
-    "save": ""
+    "title": "계정 관리",
+    "name": "이름",
+    "email": "이메일",
+    "phone": "휴대폰 번호",
+    "save": "저장"
   },
   "square": {
-    "title": ""
+    "title": "AI 정보"
   },
   "studyProgress": {
-    "title": "",
-    "loadFailed": "",
-    "courses": "",
-    "totalMinutes": "",
-    "weekMinutes": "",
-    "streak": "",
-    "courseProgress": ""
+    "title": "학습 진도",
+    "loadFailed": "학습 진도 로드 실패",
+    "courses": "강좌(완료/전체)",
+    "totalMinutes": "누적 학습(분)",
+    "weekMinutes": "이번 주 학습(분)",
+    "streak": "연속 출석(일)",
+    "courseProgress": "강좌 진도"
   },
   "studyPublish": {
-    "title": ""
+    "title": "강좌 게시"
   },
   "studyRecord": {
-    "title": "",
-    "subtitle": "",
-    "totalDuration": "",
-    "totalCourses": "",
-    "completedCourses": "",
-    "totalLessons": "",
-    "completedLessons": "",
-    "continuousDays": "",
-    "empty": "",
-    "untitled": "",
-    "duration": "",
-    "progress": "",
-    "statusCompleted": "",
-    "statusInProgress": "",
-    "statusPaused": ""
+    "title": "학습 기록",
+    "subtitle": "{name}의 학습 기록",
+    "totalDuration": "누적 시간(분)",
+    "totalCourses": "전체 강좌 수",
+    "completedCourses": "완료한 강좌",
+    "totalLessons": "전체 강좌 수",
+    "completedLessons": "완료한 강좌",
+    "continuousDays": "연속 학습(일)",
+    "empty": "학습 기록이 없습니다",
+    "untitled": "제목 없는 학습 기록",
+    "duration": "시간",
+    "progress": "진도",
+    "statusCompleted": "완료",
+    "statusInProgress": "진행 중",
+    "statusPaused": "일시 정지됨"
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "내 구독",
+    "empty": "구독이 없습니다",
+    "cancel": "구독 취소"
   },
   "taskCenter": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "claimed": "",
-    "claim": "",
-    "goToDo": "",
-    "progress": ""
+    "title": "작업 센터",
+    "subtitle": "작업을 완료하고 보상을 받으세요",
+    "retry": "재시도",
+    "empty": "수행 가능한 작업이 없습니다",
+    "claimed": "수령 완료",
+    "claim": "수령",
+    "goToDo": "완료하러 가기",
+    "progress": "{current}/{target}"
   },
   "team": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "totalMembers": "",
-    "activeMembers": "",
-    "directCount": "",
-    "indirectCount": "",
-    "totalContribution": "",
-    "empty": "",
-    "joinDate": "",
-    "level": ""
+    "title": "내 팀",
+    "subtitle": "팀 인원과 실적 한눈에 보기",
+    "retry": "재시도",
+    "totalMembers": "팀 전체 인원",
+    "activeMembers": "활성 멤버",
+    "directCount": "직접 추천 인원",
+    "indirectCount": "간접 추천 인원",
+    "totalContribution": "팀 누적 기여",
+    "empty": "팀 멤버가 없습니다",
+    "joinDate": "가입 시간",
+    "level": "등급"
   },
   "teamDetail": {
-    "title": "",
-    "transactionVolume": "",
-    "commission": "",
-    "orderNum": "",
-    "phone": "",
-    "joinedAt": "",
-    "contact": "",
-    "viewOrders": ""
+    "title": "팀 멤버 상세",
+    "transactionVolume": "거래액",
+    "commission": "획득 커미션",
+    "orderNum": "거래 주문 수",
+    "phone": "휴대폰 번호",
+    "joinedAt": "가입 시간",
+    "contact": "연락",
+    "viewOrders": "주문 보기"
   },
   "vip": {
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "currentLevel": "",
-    "expireAt": "",
-    "levelsTitle": "",
-    "currentBadge": "",
-    "duration": "",
-    "benefitsCount": ""
+    "subtitle": "멤버십을 개통하고 더 많은 혜택을 누리세요",
+    "retry": "재시도",
+    "empty": "멤버십 등급 정보가 없습니다",
+    "currentLevel": "현재 등급",
+    "expireAt": "만료 시간",
+    "levelsTitle": "멤버십 등급",
+    "currentBadge": "현재 등급",
+    "duration": "{days}일",
+    "benefitsCount": "{count}개 전용 혜택"
   },
   "vipBenefit": {
-    "title": ""
+    "title": "멤버십 혜택"
   },
   "vipTrader": {
-    "title": "",
-    "subtitle": "",
-    "badge": "",
-    "heroDesc": "",
-    "entryTeam": "",
-    "entryStats": "",
-    "entryWithdraw": "",
-    "benefits": "",
-    "benefitCount": "",
-    "lifetime": "",
-    "openNow": "",
-    "opened": ""
+    "title": "VIP 트레이더",
+    "subtitle": "트레이더 전용 혜택을 누리세요",
+    "badge": "트레이더 전용",
+    "heroDesc": "한정 ¥{price}에 개통하고 {power} 컴퓨팅 파워 증정, 대량 유통과 맞춤형 혜택 제공",
+    "entryTeam": "내 팀",
+    "entryStats": "수익 통계",
+    "entryWithdraw": "출금하기",
+    "benefits": "전용 혜택",
+    "benefitCount": "총 {count}개",
+    "lifetime": "평생 유효",
+    "openNow": "지금 개통",
+    "opened": "개통 완료"
   },
   "wallet": {
-    "points": ""
+    "points": "포인트"
   }
 }

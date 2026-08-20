@@ -114,6 +114,10 @@
   "order": {
     "title": "Orders",
     "searchPlaceholder": "Search my orders",
+    "tab": {
+      "refunded": "Refunded"
+    },
+    "noMore": "No more",
     "status": {
       "pending": "Pending",
       "paid": "Paid",
