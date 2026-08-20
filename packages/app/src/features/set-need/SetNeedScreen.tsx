@@ -4,10 +4,12 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
+  Image,
   ScrollView,
   Pressable,
   StyleSheet,
   Modal,
+  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -26,6 +28,8 @@ export interface SetNeedScreenProps {
     cycleUnit: string
     types: string
     categories: string
+    closingTime: string
+    imgs: string
   }
   submitting: boolean
   onFieldChange: (field: string, value: string) => void
@@ -47,6 +51,10 @@ export function SetNeedScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const [picker, setPicker] = useState<'cycle' | 'cycleUnit' | 'types' | 'categories' | null>(null)
+  const imageUrls = form.imgs
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean)
 
   const pickerOptions =
     picker === 'cycle'
@@ -149,6 +157,43 @@ export function SetNeedScreen({
         </View>
 
         <View style={styles.fieldGroup}>
+          <Text style={styles.label}>图片（逗号分隔 URL）</Text>
+          <TextInput
+            style={styles.input}
+            value={form.imgs}
+            onChangeText={(v) => onFieldChange('imgs', v)}
+            placeholder="可选，最多 5 张"
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+          />
+          {imageUrls.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imageRow}
+            >
+              {imageUrls.slice(0, 5).map((url, index) => (
+                <Image key={`${url}-${index}`} source={{ uri: url }} style={styles.imagePreview} />
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>
+            任务截止时间<Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={form.closingTime}
+            onChangeText={(v) => onFieldChange('closingTime', v)}
+            placeholder="例如 2026-12-31T23:59:59.000Z"
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.fieldGroup}>
           <Text style={styles.label}>开发周期</Text>
           <View style={styles.priceRow}>
             <Pressable style={[styles.input, styles.priceInput]} onPress={() => setPicker('cycle')}>
@@ -237,6 +282,8 @@ function createStyles(tk: AppThemeTokens) {
     priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 } as ViewStyle,
     priceInput: { flex: 1 } as TextStyle,
     priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
+    imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
+    imagePreview: { width: 72, height: 72, borderRadius: 8 } as ImageStyle,
     pickerText: { fontSize: 16, color: tk.text.primary } as TextStyle,
     modalBackdrop: {
       flex: 1,
