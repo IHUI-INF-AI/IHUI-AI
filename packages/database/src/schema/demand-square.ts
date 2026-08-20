@@ -16,6 +16,8 @@ export const zhsDemandSquare = pgTable(
     closingTime: timestamp('closing_time', { withTimezone: true }),
     types: jsonb('types').$type<string[]>(),
     categories: jsonb('categories').$type<string[]>(),
+    // 封面图 URL,待发布端接入
+    cover: varchar('cover', { length: 500 }),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
     taskStatus: varchar('task_status', { length: 20 }).notNull().default('waiting'),
     rejectReason: varchar('reject_reason', { length: 500 }),
