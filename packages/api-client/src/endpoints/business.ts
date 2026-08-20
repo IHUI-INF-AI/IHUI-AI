@@ -65,9 +65,14 @@ export interface PlazaItem {
   id: string
   title: string
   description?: string
+  type?: string
   types?: string[]
   categories?: string[]
   status?: string
+  taskStatus?: string
+  rejectReason?: string | null
+  reviewedBy?: string | null
+  reviewedAt?: string | null
   creator?: string
   creatorAvatar?: string
   createdAt?: string
