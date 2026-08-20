@@ -699,6 +699,10 @@
     "pending": "Pending",
     "withdrawBtn": "Withdraw",
     "withdrawMin": "Minimum ¥{amount} to withdraw",
+    "withdrawNeedRealname": "Please complete real-name verification before withdrawing!",
+    "withdrawNeedRealnameHint": "You can withdraw after completing real-name verification",
+    "withdrawRealnameGo": "Go verify",
+    "withdrawRealnameCancel": "Not now",
     "products": "Products",
     "commission": "Commission",
     "sales": "{count} sold"
@@ -772,7 +776,18 @@
     "sectionTitle": "Earnings Details",
     "empty": "No earnings yet",
     "settled": "Settled",
-    "pending": "Pending"
+    "pending": "Pending",
+    "cancelled": "Cancelled",
+    "tab": {
+      "all": "All",
+      "pending": "Pending",
+      "settled": "Settled",
+      "cancelled": "Cancelled"
+    },
+    "buyer": "Buyer: {name}",
+    "relatedOrder": "Order: {orderNo}",
+    "copy": "Copy Order No.",
+    "copySuccess": "Order number copied"
   },
   "invite": {
     "title": "Invite Friends",
