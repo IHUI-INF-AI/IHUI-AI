@@ -55,12 +55,13 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 const PAGE_SIZE = 10
 
 /** 免费资料链接(对齐原项目 plaza/index.vue lingqu → setClipboardData) */
-const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
-const PLAZA_STATUS = {
-  waiting: 'pending',
-  developing: 'approved',
-  completed: 'offline',
+const PLAZA_TASK_STATUS = {
+  waiting: 'waiting',
+  developing: 'developing',
+  completed: 'completed',
   mine: 'mine',
 } as const
 
@@ -114,7 +115,7 @@ export function PlazaScreen() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [status, setStatus] = useState<string>(PLAZA_STATUS.waiting)
+  const [status, setStatus] = useState<string>(PLAZA_TASK_STATUS.waiting)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -151,7 +152,7 @@ export function PlazaScreen() {
         setError('')
       }
       try {
-        const isMyTask = status === PLAZA_STATUS.mine
+        const isMyTask = status === PLAZA_TASK_STATUS.mine
         // 使用 PlazaScreenProps 的 items 类型。
         const res = await getPlazaList({
           page: targetPage,
@@ -493,9 +494,7 @@ export function PlazaScreen() {
                 <Text style={styles.identityNickname}>
                   {user?.nickname || user?.username || '未登录用户'}
                 </Text>
-                <Text style={styles.identitySubtext}>
-                  选择合适的身份，更好地发布或承接需求
-                </Text>
+                <Text style={styles.identitySubtext}>选择合适的身份，更好地发布或承接需求</Text>
               </View>
             </View>
             <View style={styles.identityButtons}>
