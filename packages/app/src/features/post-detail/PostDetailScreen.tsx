@@ -1,5 +1,14 @@
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ImageStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PostDetailScreenProps } from '../../types'
 
@@ -20,6 +29,13 @@ export function PostDetailScreen({
 }: PostDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const imageUrls =
+    typeof item?.imgs === 'string'
+      ? item.imgs
+          .split(',')
+          .map((url) => url.trim())
+          .filter(Boolean)
+      : (item?.imgs ?? [])
 
   if (loading) {
     return (
@@ -56,6 +72,24 @@ export function PostDetailScreen({
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.content}>{item.content}</Text>
+      {imageUrls.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.imageRow}
+        >
+          {imageUrls.map((url, index) => (
+            <TouchableOpacity key={`${url}-${index}`} activeOpacity={0.8}>
+              <Image source={{ uri: url }} style={styles.detailImage} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+      {item.types?.length || item.categories?.length ? (
+        <Text style={styles.detailText}>
+          类型：{item.types?.join('、') || '-'} 分类：{item.categories?.join('、') || '-'}
+        </Text>
+      ) : null}
       {item.lowestPrice !== null || item.peakPrice !== null ? (
         <Text style={styles.detailText}>
           价格：￥{item.lowestPrice ?? '-'} - ￥{item.peakPrice ?? '-'}
@@ -125,5 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statText: { fontSize: 12, color: tk.text.medium },
     backBtn: { marginTop: 12 },
+    imageRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' } as ViewStyle,
+    detailImage: { width: 100, height: 100, borderRadius: 8 } as ImageStyle,
   })
 }
