@@ -185,6 +185,7 @@ export function publicUser(
     roleId: number | null
     status: number | null
     isVip: number | null
+    identityType: string | null
     level: number | null
     inviteCode: string | null
     parentId: string | null
@@ -207,6 +208,15 @@ export function publicUser(
     roleId: user.roleId ?? 0,
     status: user.status ?? 1,
     isVip: user.isVip ?? 0,
+    // 身份档位由 is_vip 派生(-1游客/0普通/1VIP/2操盘手);identity_type 列留作显式覆盖
+    identityType:
+      user.identityType && user.identityType !== 'normal'
+        ? user.identityType
+        : user.isVip === 2
+          ? 'trader'
+          : user.isVip === 1
+            ? 'vip'
+            : 'normal',
     level: user.level ?? 0,
     inviteCode: user.inviteCode ?? '',
     parentId: user.parentId ?? '',
