@@ -482,6 +482,20 @@
 - 修复 codemod 对多行 import 块末尾插入 `import { rpx }` 导致的语法错误(改为插入到最后一个 `} from` 之后),ProfileScreen 等 28 文件受益。
 - 验证:`tsc --noEmit` 0 错误 + `eslint .` 0 错误(仅 28 文件增量)。
 
+### 收尾:web 间距类化 + 首次分享积分闭环(2026-08-19/20)
+
+- **web 内联间距 clz 化**(commit 54736f229a):`apps/web` 审计 11 处内联间距 px,仅 4 处真实可改(file-explorer `pl-3`/`pl-7`、global-hooks ul/li gap 类化),其余为 ECharts/ReactFlow/Radix/`customStyle` 非渲染间距不动;值不变。
+- **首次分享领智汇值积分闭环**(commits bb82e2aeb4 + 72cb936b1d):
+  - 后端:`GET /api/share/first-status` + `POST /api/share/first-claim`(幂等,已领 409),复用 edu 积分基建(事务 + FOR UPDATE + `description='first_share'` 查重,不加表);`share-first.ts` 新路由 + `point-queries.ts` 两个新函数。
+  - api-client:`getShareFirstStatus`/`claimShareFirstReward`(web/mobile-rn 共用)。
+  - mobile-rn ChatScreen:任意分享成功 → 查状态 → 弹"分享领智汇值"弹窗 → "领取"按钮闭环(保留"立即分享邀请好友"次按钮)。
+  - 测试:重建 `share-first.test.ts`(6 用例);api 全量 359 文件 5949 tests 通过。
+- **明确不再执行的项(诚实标注,非遗漏)**:
+  - Profile 4Tab 用户内容 API(`getMyCreation` type=1/2/3/4):数据库无用户内容表(文本/图片/视频/音频),需产品定义 + 建表,交后端。
+  - Home 营销接口(`getHomePageResources`):无 banner/资源表,需营销内容管理能力,交后端。
+  - TabBar 清理:§7 评估保留(9 个 tabbar 图标唯一引用)。
+  - 真机/模拟器视觉对比:用户已明确不做。
+
 ## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
 
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/desktop`(Rust)+ `apps/web`(桌面端 Tauri WebView 内 UI),不参与 api/ai-service/其他端跨端契约同步。
