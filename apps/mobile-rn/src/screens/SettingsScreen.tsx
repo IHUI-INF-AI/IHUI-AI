@@ -134,15 +134,15 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
-    // 检查更新:不跳转,直接弹窗提示
+    // 检查更新:不跳转,直接弹窗提示(settings.checkUpdateTitle/Latest)
     if (key === 'CheckUpdate') {
-      Alert.alert('检查更新', '当前已是最新版本')
+      Alert.alert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
       return
     }
     // 更换手机号:ChangePhone 路由需要 { uuid } 参数(取 user.id)
     if (key === 'ChangePhone') {
       if (!user?.id) {
-        Alert.alert(t('common.error'), '用户信息缺失,无法更换手机号')
+        Alert.alert(t('common.error'), t('settings.changePhoneMissingUser'))
         return
       }
       navigation.getParent()?.navigate('ChangePhone', { uuid: user.id })
