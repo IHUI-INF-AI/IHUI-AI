@@ -20,9 +20,6 @@
   "course": {
     "title": "课程",
     "studentCount": "{count} 人学过",
-    "pay": "支付 ¥{amount}",
-    "enroll": "立即报名",
-    "enrolled": "已报名",
     "progress": "学习进度",
     "empty": "暂无课程",
     "completed": "已学完",
@@ -33,9 +30,33 @@
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人观看",
+    "ongoing": "直播中",
     "upcoming": "即将开播",
     "ended": "已结束",
-    "chat": "互动"
+    "empty": "暂无直播",
+    "lecturer": "讲师",
+    "startAt": "开始时间"
+  },
+  "liveDetail": {
+    "title": "直播详情",
+    "empty": "直播不存在或已结束",
+    "ongoing": "直播中",
+    "upcoming": "即将开播",
+    "lecturer": "讲师",
+    "viewerCount": "{count} 人观看",
+    "subscribe": "预约直播",
+    "subscribed": "已预约",
+    "subscribing": "预约中...",
+    "intro": "直播介绍",
+    "chat": "互动",
+    "chatEmpty": "暂无互动,来抢个沙发吧",
+    "chatPlaceholder": "说点什么...",
+    "chatSend": "发送",
+    "chatConnecting": "连接中...",
+    "chatConnected": "已连接",
+    "chatReconnecting": "重连中...",
+    "chatError": "连接失败",
+    "chatDisconnected": "已断开"
   },
   "profile": {
     "title": "我的",
@@ -92,6 +113,7 @@
   },
   "order": {
     "title": "订单",
+    "searchPlaceholder": "搜索我的订单",
     "status": {
       "pending": "待支付",
       "paid": "已支付",
@@ -961,8 +983,16 @@
   "register": {
     "phone": "手机号",
     "phonePlaceholder": "请输入手机号",
+    "code": "验证码",
+    "codePlaceholder": "请输入验证码",
+    "sendCode": "发送验证码",
+    "resendIn": "{{countdown}}s 后重发",
+    "sendCodeFailed": "验证码发送失败,请重试",
     "submit": "注册",
     "registering": "注册中..."
+  },
+  "withdraw": {
+    "availableBalance": "可提现金额(元)"
   },
   "search": {
     "title": "搜索",
