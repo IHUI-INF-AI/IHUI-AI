@@ -315,6 +315,12 @@ export async function getPlazaDetail(id: string): Promise<ApiResult<PlazaItem>> 
 export async function createPlaza(input: {
   title: string
   description: string
+  lowestPrice?: number
+  peakPrice?: number
+  contact?: string
+  cycle?: string
+  cycleUnit?: string
+  closingTime?: string
   types?: string[]
   categories?: string[]
 }): Promise<ApiResult<PlazaItem>> {

@@ -1520,6 +1520,13 @@
       "when": 1786961078891,
       "tag": "0217_dry_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1787192610588,
+      "tag": "0218_wide_liz_osborn",
+      "breakpoints": true
     }
   ]
 }
