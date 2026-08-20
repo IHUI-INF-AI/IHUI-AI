@@ -53,7 +53,7 @@ const TARGETS = {
   },
   'mobile-rn': {
     localeDir: 'packages/i18n/messages/mobile-rn',
-    scanTargets: ['apps/mobile-rn/src'],
+    scanTargets: ['apps/mobile-rn/src', 'packages/app/src'], // packages/app = @ihui/rn-app 共享屏,由 mobile-rn wrapper 传入本端 t 消费其 key
   },
   cli: {
     localeDir: 'packages/i18n/messages/cli',
