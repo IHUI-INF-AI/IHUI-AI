@@ -1,7 +1,8 @@
 {
   "nav": {
     "profile": "我的",
-    "agents": "智慧體"
+    "agents": "智慧體",
+    "courses": "課程"
   },
   "home": {
     "welcome": "歡迎使用智匯 AI",
@@ -25,7 +26,10 @@
     "completed": "已學完",
     "complete": "標記學完",
     "player": "影片載入後即可播放",
-    "progressLessons": "已學 {completed}/{total} 節"
+    "progressLessons": "已學 {completed}/{total} 節",
+    "free": "免費",
+    "loadFailed": "載入課程失敗",
+    "playError": "播放出錯"
   },
   "live": {
     "title": "直播",
@@ -35,7 +39,8 @@
     "ended": "已結束",
     "empty": "暫無直播",
     "lecturer": "講師",
-    "startAt": "開始時間"
+    "startAt": "開始時間",
+    "loadFailed": "載入直播失敗"
   },
   "liveDetail": {
     "title": "直播詳情",
@@ -56,7 +61,9 @@
     "chatConnected": "已連線",
     "chatReconnecting": "重連中...",
     "chatError": "連線失敗",
-    "chatDisconnected": "已斷開"
+    "chatDisconnected": "已斷開",
+    "chatNotReady": "聊天未就緒",
+    "loadFailed": "載入直播詳情失敗"
   },
   "profile": {
     "title": "我的",
@@ -125,7 +132,9 @@
       "refunding": "退款中",
       "completed": "已完成",
       "failed": "失敗"
-    }
+    },
+    "amount": "金額",
+    "empty": "暫無訂單"
   },
   "agent": {
     "config": "設定",
@@ -194,7 +203,9 @@
     "notifEmail": "郵件通知",
     "notification": "訊息通知",
     "account": "帳號與安全",
-    "version": "版本"
+    "version": "版本",
+    "language": "語言",
+    "theme": "主題"
   },
   "menu": {
     "about": "關於",
@@ -269,7 +280,18 @@
     "show": "顯示",
     "hide": "隱藏",
     "submitting": "提交中...",
-    "viewMore": "查看更多"
+    "viewMore": "查看更多",
+    "close": "關閉",
+    "delete": "刪除",
+    "failed": "操作失敗",
+    "hint": "提示",
+    "loadFailed": "載入失敗",
+    "login": "登入",
+    "logout": "退出登入",
+    "networkError": "網路錯誤",
+    "retry": "重試",
+    "save": "儲存",
+    "search": "搜尋"
   },
   "aiAssistant": {
     "title": "AI 助手",
@@ -299,12 +321,6 @@
     "streaming": "正在生成...",
     "callFailed": "呼叫失敗,請稍後重試"
   },
-  "aiCareer": {
-    "plan": {
-      "title": "生成規劃",
-      "message": "正在為「{name}」生成 90 天成長計畫"
-    }
-  },
   "aigcCover": {
     "applied": {
       "title": "封面已套用",
@@ -313,19 +329,79 @@
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能開發中"
-    }
+    },
+    "aiGenBtn": "AI 生成封面",
+    "back": "返回",
+    "confirmBtn": "確定",
+    "empty": "暫無封面",
+    "loadFailed": "載入失敗",
+    "loading": "載入中...",
+    "subtitle": "選擇或生成封面",
+    "title": "封面",
+    "workTitleDefault": "未命名作品"
   },
   "aigcPublish": {
     "success": {
       "title": "發布成功",
       "message": "作品已提交審核"
-    }
+    },
+    "back": "返回",
+    "errorMaxFiles": "最多上傳 {max} 個檔案",
+    "errorNoDescription": "請輸入描述",
+    "errorNoFile": "請選擇檔案",
+    "errorNoPrompt": "請輸入提示詞",
+    "errorNoText": "請輸入文字內容",
+    "errorNoTitle": "請輸入標題",
+    "errorNoUrl": "請輸入連結",
+    "errorPickFailed": "選擇檔案失敗",
+    "errorPublishFailed": "發布失敗",
+    "errorPublishRetry": "請稍後重試",
+    "errorUploadFailed": "上傳失敗",
+    "fileAddText": "點擊新增檔案",
+    "labelDescription": "描述",
+    "labelPrompt": "提示詞",
+    "labelTextContent": "文字內容",
+    "labelTitle": "標題",
+    "labelType": "類型",
+    "labelUpload": "上傳",
+    "pickFromAlbum": "從相簿選擇",
+    "placeholderDescription": "輸入描述",
+    "placeholderPrompt": "輸入提示詞",
+    "placeholderTextContent": "輸入文字內容",
+    "placeholderTitle": "輸入標題",
+    "placeholderUrl": "輸入連結",
+    "submitBtn": "發布",
+    "subtitle": "分享你的 AI 作品",
+    "title": "發布作品",
+    "uploading": "上傳中 {progress}%...",
+    "uploadingShort": "上傳中",
+    "urlAddBtn": "新增連結"
   },
   "aiGroup": {
     "join": {
       "title": "加入群組",
       "message": "已申請加入「{name}」"
-    }
+    },
+    "back": "返回",
+    "cardMembers": "成員",
+    "detailEnter": "進入群聊",
+    "detailMembers": "群組成員",
+    "detailRecent": "最近訊息",
+    "empty": "暫無群聊",
+    "enterChat": {
+      "message": "確定要進入該群聊?",
+      "title": "提示"
+    },
+    "enterDiscover": "發現",
+    "enterMine": "我的",
+    "loadFailed": "載入群聊失敗",
+    "memberRole": "角色",
+    "metaActive": "活躍",
+    "metaMessages": "訊息",
+    "previewHello": "你好",
+    "previewMine": "我建立的",
+    "subtitle": "AI 群聊助手",
+    "title": "AI 群聊"
   },
   "assistant": {
     "edit": {
@@ -337,7 +413,26 @@
       "message": "是否確定下架「{name}」?",
       "confirmBtn": "確定下架",
       "done": "已下架"
-    }
+    },
+    "actionOffline": "下線",
+    "actionReedit": "重新編輯",
+    "actionSettings": "設定",
+    "audienceAll": "全部",
+    "audienceVip": "會員",
+    "badgeDraft": "草稿",
+    "badgeOffline": "已下線",
+    "badgePublished": "已發布",
+    "badgeRejected": "已拒絕",
+    "badgeReviewing": "審核中",
+    "empty": "暫無智慧體",
+    "loadFailed": "載入失敗",
+    "loading": "載入中...",
+    "metaAudience": "可見範圍",
+    "metaCategory": "分類",
+    "metaCycleForever": "永久有效",
+    "metaPublishTime": "發布時間",
+    "searchPlaceholder": "搜尋智慧體",
+    "title": "我的助理"
   },
   "chatAlert": {
     "compaction": {
@@ -385,7 +480,29 @@
     },
     "productAdd": {
       "message": "商品添加功能待接入"
-    }
+    },
+    "copyHint": "已複製",
+    "endLive": "結束直播",
+    "ending": "結束中...",
+    "previewActive": "已開始預覽",
+    "previewIdle": "未開始預覽",
+    "productAddBtn": "新增商品",
+    "productEmpty": "暫無商品",
+    "productLoadFailed": "載入商品失敗",
+    "productLoading": "載入中...",
+    "productManage": "商品管理",
+    "pushUrl": "推流地址",
+    "startLive": "開始直播",
+    "starting": "開始中...",
+    "statDuration": "直播時長",
+    "statRecvBytes": "下行流量",
+    "statSendBytes": "上行流量",
+    "statViewers": "線上人數",
+    "stats": "直播統計",
+    "streamKey": "推流金鑰",
+    "streamTitle": "直播標題",
+    "streamTitlePlaceholder": "請輸入直播標題",
+    "title": "主播中心"
   },
   "modelEdit": {
     "error": {
@@ -395,7 +512,19 @@
     "success": {
       "title": "提交成功",
       "message": "配置已提交審核"
-    }
+    },
+    "headerTitle": "編輯模型",
+    "labelAudience": "可見範圍",
+    "labelCategory": "分類",
+    "labelCycle": "結算週期",
+    "labelDept": "部門",
+    "labelDiscount": "折扣",
+    "labelFreeDur": "免費時長",
+    "labelPrice": "價格",
+    "labelSaleType": "販售類型",
+    "pricePlaceholder": "請輸入價格",
+    "submit": "儲存",
+    "submitting": "提交中..."
   },
   "n8nModel": {
     "toggle": {
@@ -404,7 +533,19 @@
       "stopMessage": "確定停止「{name}」嗎?",
       "startMessage": "確定啟動「{name}」嗎?",
       "success": "操作成功"
-    }
+    },
+    "actionEdit": "編輯",
+    "actionStart": "啟動",
+    "actionStop": "停止",
+    "calls": "呼叫次數",
+    "create": "新增",
+    "empty": "暫無模型",
+    "loadFailed": "載入失敗",
+    "params": "參數",
+    "running": "執行中",
+    "searchPlaceholder": "搜尋模型",
+    "stopped": "已停止",
+    "title": "n8n 模型"
   },
   "modelPlaza": {
     "compare": {
@@ -414,7 +555,17 @@
     "detail": {
       "title": "模型詳情",
       "message": "檢視「{name}」完整參數與定價"
-    }
+    },
+    "compareBtn": "對比",
+    "emptyType": "該類型暫無模型",
+    "input": "輸入",
+    "loadFailed": "載入模型失敗",
+    "output": "輸出",
+    "perCall": "每次",
+    "priceUnit": "價格",
+    "providerTotal": "供應商共 {count} 個模型",
+    "selectProviderLabel": "選擇供應商",
+    "title": "模型廣場"
   },
   "tokenValue": {
     "recharge": {
@@ -425,7 +576,23 @@
         "title": "支付成功",
         "message": "已到賬 {tokens} Token"
       }
-    }
+    },
+    "balanceLabel": "智匯值餘額",
+    "bonus": "獎勵",
+    "empty": "暫無資料",
+    "frozen": "凍結",
+    "loadFailed": "載入失敗",
+    "packagesTitle": "儲值套餐",
+    "popular": "熱門",
+    "rechargeLabel": "儲值",
+    "recordsTitle": "交易紀錄",
+    "tab": {
+      "cost": "消費",
+      "recharge": "儲值"
+    },
+    "title": "智匯值",
+    "tokenUnit": "智匯值",
+    "totalCost": "總消費"
   },
   "messageInput": {
     "placeholder": "請輸入內容...",
@@ -443,7 +610,15 @@
     "aiContent": "AI 內容",
     "voiceInput": "語音輸入",
     "voicePlaceholder": "按住說出分享內容",
-    "submit": "分享"
+    "submit": "分享",
+    "code": "分享碼",
+    "create": "生成分享",
+    "expireAt": "有效期至",
+    "remark": "備註",
+    "remarkPlaceholder": "請輸入備註",
+    "shareNow": "立即分享",
+    "title": "分享",
+    "url": "連結"
   },
   "vipScreen": {
     "plans": {
@@ -474,7 +649,8 @@
       "hint": "長按二維碼儲存至相簿",
       "card": "名片二維碼",
       "close": "關閉"
-    }
+    },
+    "payFailed": "支付失敗"
   },
   "about": {
     "title": "關於",
@@ -490,12 +666,15 @@
     "empty": "活動不存在或已下線",
     "startAt": "開始時間",
     "endAt": "結束時間",
-    "location": "活動地點"
+    "location": "活動地點",
+    "loadFailed": "載入詳情失敗"
   },
   "agentChat": {
     "empty": "暫無訊息,發送第一則訊息開始對話吧",
     "placeholder": "輸入訊息...",
-    "send": "傳送"
+    "send": "傳送",
+    "loadFailed": "載入聊天失敗",
+    "sendFailed": "發送失敗"
   },
   "agentCreate": {
     "title": "建立智能體",
@@ -510,12 +689,15 @@
     "isPublic": "是否公開",
     "public": "公開",
     "private": "私有",
-    "submit": "建立"
+    "submit": "建立",
+    "nameRequired": "請輸入名稱",
+    "saveFailed": "儲存失敗"
   },
   "agentReviewDetail": {
     "title": "評價詳情",
     "empty": "評價不存在或已刪除",
-    "author": "作者"
+    "author": "作者",
+    "loadFailed": "載入評價詳情失敗"
   },
   "agentSetting": {
     "title": "智能體設定",
@@ -523,17 +705,21 @@
     "model": "模型",
     "temperature": "溫度",
     "enabled": "啟用",
-    "save": "儲存"
+    "save": "儲存",
+    "loadFailed": "載入設定失敗",
+    "saved": "儲存成功"
   },
   "agentStat": {
     "title": "智能體統計",
     "conversations": "對話數",
     "messages": "訊息數",
     "tokens": "Token 消耗",
-    "avgRating": "平均評分"
+    "avgRating": "平均評分",
+    "loadFailed": "載入統計失敗"
   },
   "announcementDetail": {
-    "empty": "公告不存在或已刪除"
+    "empty": "公告不存在或已刪除",
+    "loadFailed": "載入公告詳情失敗"
   },
   "apiSettings": {
     "title": "API 設定",
@@ -551,7 +737,11 @@
     "diagnose": "診斷",
     "test": "測試",
     "testSuccess": "連線正常",
-    "testFailed": "連線失敗"
+    "testFailed": "連線失敗",
+    "resetDone": "已重設",
+    "saveFailed": "儲存失敗",
+    "saved": "儲存成功",
+    "tokenRequired": "請填寫權杖"
   },
   "appPermission": {
     "intro": "本 APP 嚴格遵循最小必要原則申請系統權限,所有權限均由您主動授權,您可隨時在手機系統「設定 - 權限管理」中查看、調整或撤回授權。撤回非必要權限不影響 APP 其他功能的正常使用。"
@@ -564,13 +754,16 @@
     "contentPlaceholder": "詳細描述你的問題",
     "tagsLabel": "標籤",
     "tagsPlaceholder": "多個標籤用逗號分隔",
-    "submit": "發布"
+    "submit": "發布",
+    "saveFailed": "儲存失敗",
+    "titleRequired": "請輸入標題"
   },
   "bankCard": {
     "title": "銀行卡",
     "empty": "暫無銀行卡",
     "default": "預設",
-    "holder": "持卡人"
+    "holder": "持卡人",
+    "loadFailed": "載入銀行卡失敗"
   },
   "carte": {
     "title": "創作者名片",
@@ -579,7 +772,8 @@
     "rating": "評分",
     "skillsTitle": "技能特長",
     "worksTitle": "代表作品",
-    "empty": "暫無作品"
+    "empty": "暫無作品",
+    "loadFailed": "載入名片失敗"
   },
   "certApply": {
     "title": "講師認證",
@@ -587,7 +781,8 @@
     "placeholder": "請輸入真實資訊",
     "idCard": "身分證號",
     "submit": "提交認證",
-    "success": "提交成功,請等待審核"
+    "success": "提交成功,請等待審核",
+    "submitting": "提交中..."
   },
   "community": {
     "follow": "關注",
@@ -595,21 +790,29 @@
   },
   "coupon": {
     "subtitle": "領券下單,更划算",
-    "retry": "重試"
+    "retry": "重試",
+    "empty": "暫無優惠券",
+    "loadFailed": "載入失敗",
+    "minSpend": "滿 {amount} 可用",
+    "title": "優惠券",
+    "validUntil": "有效期至"
   },
   "courseAnnex": {
     "title": "課程附件",
     "empty": "暫無附件",
     "size": "大小",
-    "download": "下載"
+    "download": "下載",
+    "loadFailed": "載入附件失敗"
   },
   "courseChapter": {
     "title": "課程章節",
-    "lessons": "共 {count} 堂課"
+    "lessons": "共 {count} 堂課",
+    "loadFailed": "載入章節失敗"
   },
   "courseComment": {
     "title": "課程評論",
-    "empty": "暫無評論"
+    "empty": "暫無評論",
+    "loadFailed": "載入評論失敗"
   },
   "courseDetail": {
     "loadFailed": "載入課程詳情失敗",
@@ -634,7 +837,10 @@
     "instructor": "講師",
     "level": "難度",
     "lessons": "堂數",
-    "students": "學員"
+    "students": "學員",
+    "enrollFailed": "報名失敗",
+    "enrollSuccess": "報名成功",
+    "loadFailed": "載入失敗"
   },
   "courseFilter": {
     "title": "篩選課程",
@@ -648,21 +854,24 @@
     "empty": "沒有符合條件的課程",
     "instructor": "講師",
     "level_label": "難度",
-    "free": "免費"
+    "free": "免費",
+    "loadFailed": "載入篩選失敗"
   },
   "courseQAAsk": {
     "title": "課程提問",
     "question": "問題描述",
     "placeholder": "輸入你的疑問,講師會盡快解答",
     "success": "提交成功",
-    "submit": "提交問題"
+    "submit": "提交問題",
+    "submitting": "提交中..."
   },
   "courseResource": {
     "title": "課程資源",
     "empty": "暫無資源",
     "type": "類型",
     "size": "大小",
-    "open": "開啟"
+    "open": "開啟",
+    "loadFailed": "載入資料失敗"
   },
   "courseScreen": {
     "title": "全部課程",
@@ -685,7 +894,8 @@
     "offline": "離線",
     "workingHours": "服務時間",
     "phone": "客服電話",
-    "email": "客服信箱"
+    "email": "客服信箱",
+    "loadFailed": "載入客服失敗"
   },
   "distribution": {
     "title": "分銷中心",
@@ -705,7 +915,10 @@
     "withdrawRealnameCancel": "不,謝謝",
     "products": "分銷商品",
     "commission": "佣金",
-    "sales": "已售 {count} 件"
+    "sales": "已售 {count} 件",
+    "loadFailed": "載入分銷失敗",
+    "withdrawFailed": "提現失敗",
+    "withdrawSuccess": "提現成功"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -722,7 +935,19 @@
     "retry": "重試",
     "questions": "題數",
     "end": "結束時間",
-    "startExam": "開始考試"
+    "startExam": "開始考試",
+    "attempts": "考試次數",
+    "duration": "考試時長",
+    "empty": "暫無考試",
+    "ended": "已結束",
+    "loadFailed": "載入考試失敗",
+    "noAttemptsLeft": "考試次數已用完",
+    "notStarted": "未開始",
+    "passScore": "及格分",
+    "start": "開始考試",
+    "startHint": "點擊開始考試",
+    "title": "考試",
+    "totalScore": "總分"
   },
   "examQuestion": {
     "loadFailed": "載入試卷失敗",
@@ -730,7 +955,8 @@
     "multi": "多選題",
     "prev": "上一題",
     "next": "下一題",
-    "submit": "交卷"
+    "submit": "交卷",
+    "submitFailed": "提交失敗"
   },
   "favorite": {
     "title": "我的收藏",
@@ -746,7 +972,8 @@
     "balance": "帳戶餘額",
     "todayIncome": "今日收入",
     "totalIncome": "累計收入",
-    "totalExpense": "累計支出"
+    "totalExpense": "累計支出",
+    "loadFailed": "載入財務失敗"
   },
   "follow": {
     "title": "關注與粉絲",
@@ -765,7 +992,9 @@
     "uploadBack": "上傳身分證國徽面",
     "uploadSelfie": "上傳手持身分證照片",
     "submit": "提交認證",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "failed": "認證失敗",
+    "loadFailed": "載入認證失敗"
   },
   "income": {
     "title": "收益",
@@ -788,7 +1017,8 @@
     "buyer": "下單人:{name}",
     "relatedOrder": "關聯訂單:{orderNo}",
     "copy": "複製訂單號",
-    "copySuccess": "已複製訂單號"
+    "copySuccess": "已複製訂單號",
+    "loadFailed": "載入收益失敗"
   },
   "invite": {
     "title": "邀請好友",
@@ -799,7 +1029,9 @@
     "sectionTitle": "邀請記錄",
     "empty": "暫無邀請記錄",
     "statusCompleted": "已完成",
-    "statusPending": "待完成"
+    "statusPending": "待完成",
+    "loadFailed": "載入邀請失敗",
+    "shareText": "加入智匯 AI,一起學習進步"
   },
   "learnDevelop": {
     "title": "學習開發",
@@ -818,29 +1050,41 @@
     "retry": "重試",
     "level": "難度",
     "studentCount": "{count} 人學過",
-    "free": "免費"
+    "free": "免費",
+    "loadFailed": "載入講師失敗"
   },
   "liveChat": {
     "title": "直播間互動",
     "empty": "暫無互動,快來搶個頭香吧",
     "placeholder": "說點什麼...",
-    "send": "傳送"
+    "send": "傳送",
+    "loadFailed": "載入直播聊天失敗",
+    "sendFailed": "發送失敗"
   },
   "liveList": {
     "subtitle": "精彩直播,不見不散",
-    "retry": "重試"
+    "retry": "重試",
+    "empty": "暫無直播",
+    "lecturer": "講師",
+    "loadFailed": "載入失敗",
+    "startAt": "開始時間",
+    "title": "直播列表",
+    "viewerCount": "觀看人數"
   },
   "messageChat": {
     "empty": "暫無訊息",
     "placeholder": "輸入訊息...",
-    "send": "傳送"
+    "send": "傳送",
+    "loadFailed": "載入訊息失敗",
+    "sendFailed": "發送失敗"
   },
   "messageDetail": {
     "title": "訊息詳情",
     "reply": "回覆",
     "notFound": "訊息不存在或已刪除",
     "from": "寄件者",
-    "createdAt": "時間"
+    "createdAt": "時間",
+    "loadFailed": "載入訊息詳情失敗"
   },
   "note": {
     "title": "我的筆記",
@@ -850,7 +1094,13 @@
     "edit": "編輯",
     "updatedAt": "更新於",
     "titlePlaceholder": "幫筆記取個標題",
-    "placeholder": "記錄你的學習心得..."
+    "placeholder": "記錄你的學習心得...",
+    "deleteFailed": "刪除失敗",
+    "deleted": "已刪除",
+    "loadFailed": "載入失敗",
+    "saveFailed": "儲存失敗",
+    "saved": "已儲存",
+    "titleRequired": "請輸入標題"
   },
   "noteCreate": {
     "title": "建立筆記",
@@ -861,7 +1111,9 @@
     "tagsLabel": "標籤",
     "tagsPlaceholder": "多個標籤用逗號分隔",
     "isPublic": "公開筆記",
-    "submit": "儲存"
+    "submit": "儲存",
+    "required": "請輸入內容",
+    "saveFailed": "儲存失敗"
   },
   "notificationSettings": {
     "title": "通知設定",
@@ -872,13 +1124,17 @@
     "marketing": "行銷通知",
     "desc": "依需求開啟通知管道,重要訊息不錯過",
     "save": "儲存",
-    "saving": "儲存中..."
+    "saving": "儲存中...",
+    "loadFailed": "載入設定失敗",
+    "saveFailed": "儲存失敗",
+    "saved": "已儲存"
   },
   "orderLog": {
     "title": "訂單動態",
     "empty": "暫無動態",
     "action": "操作",
-    "operator": "操作人"
+    "operator": "操作人",
+    "loadFailed": "載入訂單日誌失敗"
   },
   "orderRefund": {
     "title": "申請退款",
@@ -889,15 +1145,26 @@
     "reasonLabel": "退款原因",
     "reasonPlaceholder": "請填寫退款原因",
     "submit": "提交申請",
-    "applyRefund": "申請退款"
+    "applyRefund": "申請退款",
+    "loadFailed": "載入退款失敗",
+    "reasonRequired": "請選擇原因",
+    "submitFailed": "提交失敗",
+    "submitSuccess": "退款已提交"
   },
   "orderTrack": {
     "title": "物流追蹤",
     "empty": "暫無物流資訊",
-    "location": "目前位置"
+    "location": "目前位置",
+    "loadFailed": "載入訂單追蹤失敗"
   },
   "player": {
-    "noUrl": "暫無播放位址"
+    "noUrl": "暫無播放位址",
+    "exitFullscreen": "退出全螢幕",
+    "fullscreen": "全螢幕",
+    "pause": "暫停",
+    "play": "播放",
+    "rate": "倍速",
+    "seek": "跳轉"
   },
   "pointsRecord": {
     "title": "智匯值明細",
@@ -906,7 +1173,8 @@
     "tabSpend": "消耗",
     "balance": "目前餘額",
     "empty": "暫無明細記錄",
-    "balanceAfter": "變動後餘額"
+    "balanceAfter": "變動後餘額",
+    "loadFailed": "載入積分紀錄失敗"
   },
   "postCreate": {
     "title": "發布貼文",
@@ -916,7 +1184,9 @@
     "contentPlaceholder": "分享你的想法...",
     "tagsLabel": "標籤",
     "tagsPlaceholder": "多個標籤用逗號分隔",
-    "submit": "發布"
+    "submit": "發布",
+    "required": "請輸入內容",
+    "saveFailed": "儲存失敗"
   },
   "profileEdit": {
     "avatarTip": "點擊更換頭像",
@@ -925,7 +1195,13 @@
     "avatarModalTitle": "更換頭像",
     "avatarUrlLabel": "頭像連結",
     "avatarUrlPlaceholder": "貼上圖片連結",
-    "avatarUrlHint": "支援 JPG / PNG,建議 200x200"
+    "avatarUrlHint": "支援 JPG / PNG,建議 200x200",
+    "bio": "個人簡介",
+    "gender": "性別",
+    "nickname": "暱稱",
+    "retry": "重試",
+    "save": "儲存",
+    "title": "編輯資料"
   },
   "promote": {
     "title": "推廣中心",
@@ -941,26 +1217,32 @@
     "referralCode": "推廣碼",
     "rules": "推廣規則",
     "inviteRecords": "邀請記錄",
-    "empty": "暫無資料"
+    "empty": "暫無資料",
+    "loadFailed": "載入推廣失敗"
   },
   "promotion": {
     "title": "優惠券",
     "empty": "暫無可用優惠券",
     "minSpend": "滿 ¥{minSpend} 可用",
     "expireDate": "有效期限至",
-    "useNow": "去使用"
+    "useNow": "去使用",
+    "loadFailed": "載入推廣失敗"
   },
   "qrCode": {
     "title": "我的二維碼",
     "scanTip": "掃描上方的二維碼,一起學習成長",
-    "share": "分享"
+    "share": "分享",
+    "loadFailed": "載入 QR Code 失敗"
   },
   "ranking": {
     "subtitle": "學習排行榜,看看你排第幾",
     "retry": "重試",
     "anonymous": "匿名用戶",
     "me": "我",
-    "studyHours": "學習 {count} 小時"
+    "studyHours": "學習 {count} 小時",
+    "empty": "暫無排行",
+    "loadFailed": "載入排行榜失敗",
+    "title": "排行榜"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -977,7 +1259,10 @@
     "idNumber": "身分證號",
     "idNumberPlaceholder": "請輸入身分證號",
     "submit": "提交認證",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "failed": "認證失敗",
+    "fieldsRequired": "請填寫完整資訊",
+    "loadFailed": "載入實名認證失敗"
   },
   "recruitment": {
     "title": "人才招聘",
@@ -988,7 +1273,8 @@
     "description": "職位描述",
     "requirements": "任職要求",
     "applyNow": "立即報名",
-    "appliedWaiting": "已報名,等待審核"
+    "appliedWaiting": "已報名,等待審核",
+    "loadFailed": "載入招聘失敗"
   },
   "referrer": {
     "title": "推薦人",
@@ -998,7 +1284,11 @@
     "codeLabel": "推薦碼",
     "codePlaceholder": "請輸入推薦碼",
     "submit": "綁定",
-    "submitting": "綁定中..."
+    "submitting": "綁定中...",
+    "bindFailed": "綁定失敗",
+    "bindSuccess": "綁定成功",
+    "codeRequired": "請輸入邀請碼",
+    "loadFailed": "載入邀請人失敗"
   },
   "register": {
     "phone": "手機號碼",
@@ -1009,15 +1299,35 @@
     "resendIn": "{{countdown}} 秒後重新發送",
     "sendCodeFailed": "驗證碼發送失敗,請重試",
     "submit": "註冊",
-    "registering": "註冊中..."
+    "registering": "註冊中...",
+    "confirmPassword": "確認密碼",
+    "confirmPasswordPlaceholder": "請再次輸入密碼",
+    "password": "密碼",
+    "passwordPlaceholder": "請輸入密碼",
+    "title": "註冊"
   },
   "withdraw": {
-    "availableBalance": "可提現金額(元)"
+    "availableBalance": "可提現金額(元)",
+    "amount": "提現金額",
+    "amountInvalid": "金額無效",
+    "amountPlaceholder": "請輸入提現金額",
+    "bankCard": "銀行卡",
+    "bankCardPlaceholder": "請選擇銀行卡",
+    "confirmMessage": "確定要提現 {amount} 元嗎?",
+    "confirmTitle": "確認提現",
+    "failed": "提現失敗",
+    "feeHint": "提現手續費 {fee}%",
+    "minAmount": "最低提現 {amount} 元",
+    "submit": "提交",
+    "submitting": "提交中...",
+    "success": "提現成功",
+    "title": "提現"
   },
   "search": {
     "title": "搜尋",
     "placeholder": "搜尋課程、講師、內容",
-    "empty": "未找到相關內容"
+    "empty": "未找到相關內容",
+    "failed": "搜尋失敗"
   },
   "securitySettings": {
     "title": "安全設定",
@@ -1025,14 +1335,17 @@
     "biometric": "生物辨識",
     "twoFactor": "兩步驟驗證",
     "loginAlert": "登入提醒",
-    "desc": "管理帳號安全相關的開關"
+    "desc": "管理帳號安全相關的開關",
+    "loadFailed": "載入安全設定失敗"
   },
   "settingsAccount": {
     "title": "帳號管理",
     "name": "姓名",
     "email": "信箱",
     "phone": "手機號碼",
-    "save": "儲存"
+    "save": "儲存",
+    "loadFailed": "載入帳號設定失敗",
+    "saved": "已儲存"
   },
   "square": {
     "title": "AI 資訊"
@@ -1064,7 +1377,8 @@
     "progress": "進度",
     "statusCompleted": "已完成",
     "statusInProgress": "進行中",
-    "statusPaused": "已暫停"
+    "statusPaused": "已暫停",
+    "loadFailed": "載入學習紀錄失敗"
   },
   "subscriptions": {
     "title": "我的訂閱",
@@ -1079,7 +1393,9 @@
     "claimed": "已領取",
     "claim": "領取",
     "goToDo": "去完成",
-    "progress": "{current}/{target}"
+    "progress": "{current}/{target}",
+    "claimFailed": "領取失敗",
+    "loadFailed": "載入任務失敗"
   },
   "team": {
     "title": "我的團隊",
@@ -1092,7 +1408,8 @@
     "totalContribution": "團隊總貢獻",
     "empty": "暫無團隊成員",
     "joinDate": "加入時間",
-    "level": "等級"
+    "level": "等級",
+    "loadFailed": "載入團隊失敗"
   },
   "teamDetail": {
     "title": "團隊成員詳情",
@@ -1113,10 +1430,17 @@
     "levelsTitle": "會員等級",
     "currentBadge": "目前等級",
     "duration": "{days} 天",
-    "benefitsCount": "{count} 項專屬權益"
+    "benefitsCount": "{count} 項專屬權益",
+    "daysRemaining": "剩餘 {count} 天",
+    "loadFailed": "載入會員失敗",
+    "orderCreated": "訂單已建立",
+    "purchase": "開通會員",
+    "purchaseFailed": "開通失敗",
+    "title": "會員中心"
   },
   "vipBenefit": {
-    "title": "會員權益"
+    "title": "會員權益",
+    "loadFailed": "載入會員權益失敗"
   },
   "vipTrader": {
     "title": "VIP 操盤手",
@@ -1130,9 +1454,561 @@
     "benefitCount": "共 {count} 項",
     "lifetime": "終身有效",
     "openNow": "立即開通",
-    "opened": "已開通"
+    "opened": "已開通",
+    "loadFailed": "載入交易者失敗"
   },
   "wallet": {
-    "points": "智匯值"
+    "points": "智匯值",
+    "balance": "餘額",
+    "frozen": "凍結金額",
+    "loadFailed": "載入錢包失敗",
+    "recharge": "儲值",
+    "title": "我的錢包",
+    "totalRecharge": "累計儲值",
+    "totalWithdraw": "累計提現",
+    "withdraw": "提現"
+  },
+  "activity": {
+    "empty": "暫無活動",
+    "endTime": "結束時間",
+    "joinNow": "立即參加",
+    "loadFailed": "載入失敗",
+    "participants": "參與人數",
+    "startTime": "開始時間",
+    "title": "活動"
+  },
+  "agentDetail": {
+    "creator": "建立者",
+    "description": "簡介",
+    "free": "免費",
+    "loadFailed": "載入智慧體詳情失敗",
+    "price": "價格",
+    "rating": "評分",
+    "startChat": "開始對話",
+    "uses": "使用次數"
+  },
+  "agentMarket": {
+    "empty": "暫無智慧體",
+    "free": "免費",
+    "loadFailed": "載入失敗",
+    "paid": "付費",
+    "searchPlaceholder": "搜尋智慧體",
+    "title": "智慧體市場",
+    "uses": "使用次數"
+  },
+  "agentReviewList": {
+    "author": "作者",
+    "empty": "暫無評價",
+    "loadFailed": "載入評價失敗",
+    "title": "使用者評價"
+  },
+  "agentScreen": {
+    "loadFailed": "載入智慧體失敗",
+    "rating": "評分",
+    "title": "智慧體",
+    "useCount": "使用次數"
+  },
+  "agreement": {
+    "subtitle": "請仔細閱讀本協議",
+    "title": "使用者協議"
+  },
+  "agreementSections": {
+    "sectionObligations": "使用者義務",
+    "sectionObligationsBody": "您應遵守相關法律法規,不得發布違法、違規、有害資訊,不得侵犯他人合法權益。",
+    "sectionRights": "使用者權利",
+    "sectionRightsBody": "您享有依法獲取服務、對個人資訊進行管理、對違規內容檢舉等權利。",
+    "sectionTerms": "服務條款",
+    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平台服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。"
+  },
+  "aiMultimodal": {
+    "clear": "清空",
+    "empty": "暫無訊息",
+    "error": "出錯了",
+    "inputPlaceholder": "輸入訊息...",
+    "noModels": "暫無可用模型",
+    "send": "發送",
+    "subtitle": "多模態對話",
+    "switchModel": "切換模型",
+    "title": "多模態"
+  },
+  "aigcList": {
+    "empty": "暫無作品",
+    "playAudio": "播放音訊",
+    "promptLabel": "提示詞",
+    "publish": "發布",
+    "subtitle": "我的 AIGC 作品",
+    "title": "AIGC 作品",
+    "videoBadge": "影片"
+  },
+  "announcement": {
+    "empty": "暫無公告",
+    "loadFailed": "載入失敗",
+    "pinned": "置頂",
+    "publishTime": "發布時間",
+    "title": "公告"
+  },
+  "articleDetail": {
+    "loadFailed": "載入文章失敗",
+    "views": "瀏覽量"
+  },
+  "articleList": {
+    "empty": "暫無文章",
+    "loadFailed": "載入失敗",
+    "title": "文章",
+    "views": "瀏覽量"
+  },
+  "askDetail": {
+    "accepted": "已採用",
+    "answers": "回答",
+    "empty": "暫無內容",
+    "loadFailed": "載入失敗",
+    "views": "瀏覽量"
+  },
+  "askList": {
+    "answers": "回答",
+    "empty": "暫無提問",
+    "loadFailed": "載入失敗",
+    "title": "問答",
+    "views": "瀏覽量"
+  },
+  "auth": {
+    "account": "帳號",
+    "accountPlaceholder": "請輸入帳號",
+    "agreePrefix": "我已閱讀並同意",
+    "agreeRequired": "請勾選同意協議",
+    "and": "和",
+    "autoLoginFailed": "自動登入失敗",
+    "code": "驗證碼",
+    "codePlaceholder": "請輸入驗證碼",
+    "email": "電子郵件",
+    "emailPlaceholder": "請輸入電子郵件",
+    "forgotPassword": "忘記密碼",
+    "getVerificationCode": "取得驗證碼",
+    "googleNotConfigured": "Google 登入未設定",
+    "loginBtn": "登入",
+    "noAccount": "還沒有帳號?",
+    "password": "密碼",
+    "passwordPlaceholder": "請輸入密碼",
+    "phone": "手機號碼",
+    "phonePlaceholder": "請輸入手機號碼",
+    "privacyPolicy": "隱私權政策",
+    "registerFailed": "註冊失敗",
+    "registerNow": "立即註冊",
+    "registerSuccess": "註冊成功",
+    "resendCode": "重新發送",
+    "termsOfService": "服務條款",
+    "thirdPartyLogin": "第三方登入"
+  },
+  "bookmark": {
+    "empty": "暫無收藏",
+    "loadFailed": "載入失敗",
+    "remove": "移除",
+    "title": "我的收藏",
+    "type": {
+      "article": "文章",
+      "course": "課程",
+      "note": "筆記",
+      "other": "其他",
+      "post": "貼文"
+    }
+  },
+  "certificate": {
+    "empty": "暫無證書",
+    "expiryDate": "到期時間",
+    "issuedDate": "頒發時間",
+    "status": {
+      "expired": "已過期",
+      "issued": "有效",
+      "revoked": "已撤銷"
+    },
+    "title": "我的證書"
+  },
+  "certDetail": {
+    "certNo": "證書編號",
+    "expiredAt": "有效期至",
+    "holder": "持證人",
+    "issuedAt": "頒發日期",
+    "issuer": "頒發機構",
+    "loadFailed": "載入證書失敗",
+    "score": "成績",
+    "title": "證書詳情",
+    "verify": "檢視驗證"
+  },
+  "certList": {
+    "empty": "暫無證書",
+    "issuedAt": "頒發時間",
+    "issuer": "頒發機構",
+    "loadFailed": "載入失敗",
+    "title": "證書列表"
+  },
+  "certVerify": {
+    "certNo": "證書編號",
+    "failed": "驗證失敗",
+    "holder": "持證人",
+    "invalid": "無效",
+    "issuedAt": "頒發日期",
+    "issuer": "頒發機構",
+    "placeholder": "請輸入證書編號",
+    "title": "證書驗證",
+    "valid": "有效",
+    "verify": "驗證"
+  },
+  "checkIn": {
+    "calendar": "簽到日曆",
+    "checkInBtn": "簽到",
+    "checkedIn": "已簽到",
+    "empty": "暫無簽到紀錄",
+    "loadFailed": "載入失敗",
+    "monthlyDays": "本月簽到 {count} 天",
+    "retry": "重試",
+    "signFailed": "簽到失敗",
+    "signSuccess": "簽到成功",
+    "streak": "連續簽到 {count} 天",
+    "subtitle": "每日簽到領取獎勵",
+    "title": "每日簽到",
+    "totalDays": "累計簽到 {count} 天"
+  },
+  "circleChat": {
+    "empty": "暫無訊息",
+    "loadFailed": "載入訊息失敗",
+    "placeholder": "說點什麼...",
+    "send": "發送",
+    "sendFailed": "發送失敗"
+  },
+  "circleCreate": {
+    "descPlaceholder": "請輸入圈子描述",
+    "description": "圈子描述",
+    "name": "圈子名稱",
+    "namePlaceholder": "請輸入圈子名稱",
+    "nameRequired": "請輸入圈子名稱",
+    "saveFailed": "建立失敗",
+    "submit": "建立",
+    "title": "建立圈子"
+  },
+  "circleDetail": {
+    "join": "加入",
+    "leave": "退出",
+    "loadFailed": "載入失敗",
+    "members": "成員",
+    "membersAction": "成員管理",
+    "post": "發布貼文",
+    "posts": "貼文"
+  },
+  "circleMember": {
+    "empty": "暫無成員",
+    "loadFailed": "載入成員失敗",
+    "title": "圈子成員"
+  },
+  "courseCatalog": {
+    "duration": "時長",
+    "empty": "暫無目錄",
+    "loadFailed": "載入目錄失敗",
+    "title": "目錄"
+  },
+  "courseQAList": {
+    "answers": "回答",
+    "ask": "提問",
+    "asker": "提問者",
+    "empty": "暫無問答",
+    "loadFailed": "載入失敗",
+    "title": "課程問答"
+  },
+  "debug": {
+    "apiBaseUrl": "API 位址",
+    "clearCache": "清除快取",
+    "clearStorage": "清除儲存",
+    "cleared": "已清除",
+    "confirm": "確定",
+    "copied": "已複製",
+    "copyFailed": "複製失敗",
+    "copyLogs": "複製日誌",
+    "env": "環境",
+    "locale": "語言",
+    "platform": "平台",
+    "title": "偵錯面板",
+    "version": "版本",
+    "warning": "偵錯模式可能影響效能"
+  },
+  "examHistory": {
+    "empty": "暫無考試紀錄",
+    "failed": "未通過",
+    "loadFailed": "載入失敗",
+    "passed": "已通過",
+    "title": "考試紀錄"
+  },
+  "examResult": {
+    "correct": "答對",
+    "correctAnswer": "正確答案",
+    "duration": "用時",
+    "failed": "未通過",
+    "loadFailed": "載入失敗",
+    "passed": "已通過",
+    "wrongQuestions": "錯題",
+    "yourAnswer": "你的答案"
+  },
+  "favorites": {
+    "deleteTitle": "確認刪除",
+    "empty": "暫無收藏",
+    "loadFailed": "載入失敗",
+    "title": "我的收藏"
+  },
+  "feedback": {
+    "contact": "聯絡方式",
+    "contactPlaceholder": "請輸入聯絡方式",
+    "content": "反饋內容",
+    "contentPlaceholder": "請輸入反饋內容",
+    "contentRequired": "請輸入反饋內容",
+    "failed": "提交失敗",
+    "submit": "提交",
+    "submitting": "提交中...",
+    "success": "提交成功",
+    "title": "意見反饋",
+    "type": "反饋類型"
+  },
+  "feedbackDetail": {
+    "content": "反饋內容",
+    "empty": "暫無反饋",
+    "loadFailed": "載入失敗",
+    "reply": "回覆",
+    "title": "反饋詳情"
+  },
+  "feedbackHistory": {
+    "createdAt": "提交時間",
+    "empty": "暫無反饋紀錄",
+    "loadFailed": "載入失敗",
+    "title": "反饋紀錄"
+  },
+  "following": {
+    "empty": "暫無關注",
+    "title": "我的關注",
+    "unfollow": "取消關注"
+  },
+  "help": {
+    "empty": "暫無幫助",
+    "loadFailed": "載入說明失敗",
+    "title": "說明中心"
+  },
+  "helpDetail": {
+    "answer": "解答",
+    "empty": "暫無內容",
+    "loadFailed": "載入失敗",
+    "title": "說明詳情"
+  },
+  "history": {
+    "empty": "暫無紀錄",
+    "loadFailed": "載入失敗",
+    "refresh": "重新整理",
+    "title": "瀏覽紀錄",
+    "type": {
+      "article": "文章",
+      "course": "課程",
+      "live": "直播",
+      "note": "筆記",
+      "post": "貼文"
+    }
+  },
+  "legalDoc": {
+    "updatedAt": "更新時間"
+  },
+  "livePlayback": {
+    "duration": "時長",
+    "empty": "暫無回放",
+    "ended": "已結束",
+    "lecturer": "講師",
+    "loadFailed": "載入回放失敗",
+    "noReplay": "暫無回放",
+    "play": "播放回放",
+    "replayTitle": "直播回放",
+    "retry": "重試",
+    "startAt": "開始時間",
+    "subtitle": "觀看直播回放",
+    "title": "直播回放",
+    "viewerCount": "觀看人數"
+  },
+  "livePlaybackList": {
+    "duration": "時長",
+    "empty": "暫無回放",
+    "lecturer": "講師",
+    "loadFailed": "載入失敗",
+    "play": "播放",
+    "title": "回放列表",
+    "viewerCount": "觀看人數"
+  },
+  "livePreview": {
+    "empty": "暫無預告",
+    "lecturer": "講師",
+    "loadFailed": "載入失敗",
+    "startAt": "開始時間",
+    "subscribe": "預約直播",
+    "subscribed": "已預約",
+    "subscribing": "預約中...",
+    "title": "直播預告"
+  },
+  "messageCenter": {
+    "conversations": "會話",
+    "empty": "暫無訊息",
+    "title": "訊息",
+    "type": {
+      "course": "課程",
+      "order": "訂單",
+      "social": "互動",
+      "system": "系統"
+    }
+  },
+  "messageDirect": {
+    "empty": "暫無私訊",
+    "loadFailed": "載入失敗",
+    "title": "私訊"
+  },
+  "messageGroup": {
+    "empty": "暫無群聊",
+    "loadFailed": "載入失敗",
+    "title": "群聊"
+  },
+  "messageSystem": {
+    "empty": "暫無系統訊息",
+    "loadFailed": "載入失敗",
+    "title": "系統訊息"
+  },
+  "modelIncome": {
+    "accumulated": "累計收入",
+    "empty": "暫無收益紀錄",
+    "loadListFailed": "載入紀錄失敗",
+    "loadOverviewFailed": "載入總覽失敗",
+    "networkError": "網路錯誤",
+    "orderLabel": "訂單",
+    "pending": "待結算",
+    "rateLabel": "分成比例",
+    "retry": "重試",
+    "tip": "收益資料每日更新",
+    "title": "收益管理",
+    "today": "今日收入",
+    "withdrawBtn": "提現",
+    "withdrawModal": {
+      "close": "取消",
+      "confirm": "確認提現",
+      "moreMethods": "更多提現方式",
+      "subtitle": "請選擇提現方式",
+      "title": "選擇提現方式",
+      "wechat": "微信提現"
+    },
+    "withdrawable": "可提現",
+    "withdrawn": "已提現",
+    "yuan": "元"
+  },
+  "noteDetail": {
+    "loadFailed": "載入筆記詳情失敗",
+    "views": "瀏覽量"
+  },
+  "noteList": {
+    "empty": "暫無筆記",
+    "loadFailed": "載入失敗",
+    "title": "筆記"
+  },
+  "notificationList": {
+    "empty": "暫無通知",
+    "loadFailed": "載入通知失敗",
+    "title": "通知",
+    "type": {
+      "course": "課程",
+      "order": "訂單",
+      "social": "互動",
+      "system": "系統"
+    }
+  },
+  "orderDetail": {
+    "amount": "金額",
+    "createdAt": "建立時間",
+    "loadFailed": "載入訂單詳情失敗",
+    "orderNo": "訂單編號",
+    "paidAt": "支付時間",
+    "product": "商品",
+    "status": "訂單狀態",
+    "title": "訂單詳情"
+  },
+  "pointHistory": {
+    "balance": "積分餘額",
+    "empty": "暫無積分紀錄",
+    "loadFailed": "載入積分失敗",
+    "title": "積分紀錄"
+  },
+  "pointRule": {
+    "empty": "暫無積分規則",
+    "loadFailed": "載入規則失敗",
+    "title": "積分規則"
+  },
+  "pointsMall": {
+    "balance": "目前積分",
+    "empty": "暫無商品",
+    "insufficient": "積分不足",
+    "loadFailed": "載入積分商品失敗",
+    "pointsUnit": "積分",
+    "redeem": "兌換",
+    "redeemFailed": "兌換失敗",
+    "redeemSuccess": "兌換成功",
+    "retry": "重試",
+    "stock": "庫存",
+    "subtitle": "用積分兌換好禮",
+    "title": "積分商城"
+  },
+  "postDetail": {
+    "loadFailed": "載入貼文失敗"
+  },
+  "privacy": {
+    "sectionCookie": "Cookie 使用",
+    "sectionCookieBody": "我們使用 Cookie 來記住您的偏好和登入狀態,以提供更好的瀏覽體驗。您可以在瀏覽器設定中停用 Cookie,但部分功能可能無法正常使用。",
+    "sectionData": "資料收集",
+    "sectionDataBody": "我們收集您在使用本平台過程中主動提供的資訊,包括帳號資訊、學習紀錄、互動內容等,用於為您提供個人化服務和改進產品體驗。",
+    "sectionThirdParty": "第三方共用",
+    "sectionThirdPartyBody": "我們不會出售您的個人資訊。在法律要求或為您提供服務所必要的情況下,我們可能與可信的合作夥伴共用必要的資訊,但我們會確保其遵守同等嚴格的資料保護標準。",
+    "subtitle": "我們重視您的隱私",
+    "title": "隱私權政策"
+  },
+  "refundDetail": {
+    "amount": "退款金額",
+    "createdAt": "申請時間",
+    "empty": "暫無退款",
+    "loadFailed": "載入退款詳情失敗",
+    "orderNo": "訂單編號",
+    "reason": "退款原因",
+    "status": "退款狀態",
+    "title": "退款詳情"
+  },
+  "refundHistory": {
+    "createdAt": "申請時間",
+    "empty": "暫無退款紀錄",
+    "loadFailed": "載入失敗",
+    "title": "退款紀錄"
+  },
+  "studyPlan": {
+    "deadline": "截止時間",
+    "empty": "暫無學習計畫",
+    "lessons": "課程數",
+    "loadFailed": "載入學習計畫失敗",
+    "progress": "進度",
+    "status": {
+      "active": "進行中",
+      "completed": "已完成",
+      "overdue": "已逾期",
+      "paused": "已暫停"
+    },
+    "title": "學習計畫"
+  },
+  "vipCompare": {
+    "basic": "基礎",
+    "enterprise": "企業",
+    "feature": "功能",
+    "loadFailed": "載入會員對比失敗",
+    "premium": "高級",
+    "title": "會員對比"
+  },
+  "vipLevel": {
+    "benefits": "權益",
+    "days": "天數",
+    "duration": "時長",
+    "empty": "暫無等級",
+    "loadFailed": "載入等級失敗",
+    "price": "價格",
+    "title": "會員等級"
   }
 }
