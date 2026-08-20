@@ -52,10 +52,10 @@ export interface PlazaScreenProps {
 }
 
 const STATUS_CHIPS: readonly StatusChip[] = [
-  { label: '待接单', value: '2' },
-  { label: '开发中', value: '4' },
-  { label: '已完成', value: '6' },
-  { label: '我的任务', value: '9' },
+  { label: '待接单', value: 'pending' },
+  { label: '开发中', value: 'approved' },
+  { label: '已完成', value: 'offline' },
+  { label: '我的任务', value: 'mine' },
 ] as const
 
 const CYCLE_UNITS: Readonly<Record<string, string>> = {
@@ -152,6 +152,9 @@ export function PlazaScreen({
     const lowestPrice = item['lowestPrice'] as string | number | undefined
     const peakPrice = item['peakPrice'] as string | number | undefined
     const itemStatus = (item.status as string | undefined) || ''
+    const isCompleted = itemStatus === 'offline' || itemStatus === 'completed'
+    const isDeveloping = itemStatus === 'approved' || itemStatus === 'developing'
+    const isWaiting = itemStatus === 'pending' || itemStatus === 'waiting'
 
     return (
       <Pressable
@@ -189,23 +192,23 @@ export function PlazaScreen({
         </View>
         <View style={styles.cardFooter}>
           <Text
-            style={[styles.price, itemStatus === '6' ? styles.priceDone : null]}
+            style={[styles.price, isCompleted ? styles.priceDone : null]}
             allowFontScaling={false}
           >
             <Text style={styles.priceUnit}>￥</Text>
             {`${formatPrice(lowestPrice)}-${formatPrice(peakPrice)}`}
           </Text>
-          {itemStatus === '2' ? (
+          {isWaiting ? (
             <View style={styles.chatBtn}>
               <Text style={styles.chatBtnText} allowFontScaling={false}>
                 聊一聊
               </Text>
             </View>
-          ) : itemStatus === '6' ? (
+          ) : isCompleted ? (
             <Text style={styles.statusDone} allowFontScaling={false}>
               项目已完成
             </Text>
-          ) : itemStatus === '4' ? (
+          ) : isDeveloping ? (
             <Text style={styles.statusDev} allowFontScaling={false}>
               开发中...
             </Text>
