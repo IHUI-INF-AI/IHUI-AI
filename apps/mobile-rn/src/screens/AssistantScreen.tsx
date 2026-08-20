@@ -70,8 +70,12 @@ export default function AssistantScreen() {
   }
 
   // 编辑智能体 → ModelEdit 页(对齐原项目 dev_enter/model_edit.vue 编辑弹层升级为独立页)
-  const handleEdit = (_a: AssistantItem) => {
-    navigation.navigate('ModelEdit')
+  // 弹确认占位并复用 assistant.edit.title/message(设置售卖配置),确认后进入编辑。
+  const handleEdit = (a: AssistantItem) => {
+    Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.confirm'), onPress: () => navigation.navigate('ModelEdit') },
+    ])
   }
 
   const handleOffline = (a: AssistantItem) =>

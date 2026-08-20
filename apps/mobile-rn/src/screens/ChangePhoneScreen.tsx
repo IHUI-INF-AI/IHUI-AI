@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -116,8 +116,8 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
       return
     }
     if (!uuid) {
-      setTip('缺少用户标识,无法绑定')
-      showToast('error', '缺少用户标识')
+      // 用户信息缺失边界分支(无用户对象/标识):用 settings.changePhoneMissingUser 提示后 return
+      Alert.alert(t('common.error'), t('settings.changePhoneMissingUser'))
       return
     }
     setSubmitting(true)

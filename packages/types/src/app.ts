@@ -881,6 +881,12 @@ export interface PostDetailItem {
   likes: number
   comments: number
   createdAt: string
+  lowestPrice?: number | string | null
+  peakPrice?: number | string | null
+  contact?: string | null
+  cycle?: string | null
+  cycleUnit?: string | null
+  closingTime?: string | null
 }
 
 /** PostDetail �?props */
@@ -2567,6 +2573,8 @@ export interface LiveDetailScreenProps {
   onInputChange: (text: string) => void
   onSend: () => void
   onSubscribe: () => void
+  /** 直播互动入口按钮(可选):渲染「互动」按钮,点击跳转直播聊天屏 */
+  onOpenChat?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
