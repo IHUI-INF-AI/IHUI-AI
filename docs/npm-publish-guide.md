@@ -28,7 +28,7 @@
 | `@ihui/design-tokens` | `packages/design-tokens` | `clsx` / `tailwind-merge` / `cva` | `0.1.0` | 设计令牌,无业务依赖 |
 | `@ihui/ui-react` | `packages/ui-react` | `@ihui/design-tokens` + Radix UI | `0.1.0` | React 19 组件库 |
 | `@ihui/sdk` | `packages/sdk` | `@ihui/types` | `0.1.0` | JS/TS SDK,API 调用封装 |
-| `@ihui/api-client` | `packages/api-client` | `@ihui/types` | `0.1.0` | 完整 API 客户端,1300+ endpoint |
+| `@ihui/api-client` | `packages/api-client` | `@ihui/types` | `0.1.0` | 完整 API 客户端,4393 路由 |
 
 > **scope 策略**:统一用 `@ihui` scope,scoped 包默认私有,发布必须带 `--access public`。
 
@@ -366,7 +366,7 @@ prefer-workspace-packages=true
   "name": "@ihui/sdk",
   "version": "0.1.0",
   "private": false,
-  "description": "IHUI-AI 官方 JavaScript/TypeScript SDK - 176 大模型 + 1300+ API 一键调用",
+  "description": "IHUI-AI 官方 JavaScript/TypeScript SDK - 176 大模型 + 4393 API 路由一键调用",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -411,7 +411,7 @@ prefer-workspace-packages=true
   "name": "@ihui/api-client",
   "version": "0.1.0",
   "private": false,
-  "description": "IHUI-AI 完整 API 客户端 - 1300+ endpoint 封装,含熔断器 + WS + 传输层抽象",
+  "description": "IHUI-AI 完整 API 客户端 - 4393 路由封装,含熔断器 + WS + 传输层抽象",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
