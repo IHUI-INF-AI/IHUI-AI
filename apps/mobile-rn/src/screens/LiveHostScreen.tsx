@@ -168,7 +168,7 @@ export function LiveHostScreen() {
       productsError={productsError}
       onStartLive={startLive}
       onEndLive={endLive}
-      onAddProduct={() => Alert.alert(t('common.hint'), '商品添加功能即将上线,敬请期待')}
+      onAddProduct={() => Alert.alert(t('common.hint'), t('liveHost.productAdd.message'))}
       onCopyText={copyText}
       onBack={() => navigation.goBack()}
     />
