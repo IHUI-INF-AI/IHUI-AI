@@ -17,6 +17,7 @@ export const zhsDemandSquare = pgTable(
     types: jsonb('types').$type<string[]>(),
     categories: jsonb('categories').$type<string[]>(),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
+    taskStatus: varchar('task_status', { length: 20 }).notNull().default('waiting'),
     rejectReason: varchar('reject_reason', { length: 500 }),
     reviewedBy: varchar('reviewed_by', { length: 64 }),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
