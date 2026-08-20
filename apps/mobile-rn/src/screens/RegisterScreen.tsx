@@ -57,14 +57,15 @@ export function RegisterScreen() {
 
   const form = useRegisterForm({
     type: 'account',
-    enableCode: false,
+    enableCode: true,
     enableConfirmPassword: true,
     enableAgreement: true,
     enableAutoLogin: true,
+    sendCodeApi: (v) => sendSmsCode(v.account.trim(), 'register'),
     registerApi: async (v) => {
       accountRef.current = v.account.trim()
       passwordRef.current = v.password
-      const res = await register(v.account.trim(), v.password)
+      const res = await register(v.account.trim(), v.password, v.code)
       if (res.success) {
         const user = res.data.user
         // 同步缓存手机号供后续弹窗使用
@@ -130,11 +131,14 @@ export function RegisterScreen() {
         account={form.values.account}
         password={form.values.password}
         confirmPassword={form.values.confirmPassword}
+        code={form.values.code}
         loading={form.submitting}
         error={translateError(form.error)}
         onAccountChange={form.setAccount}
         onPasswordChange={form.setPassword}
         onConfirmPasswordChange={form.setConfirmPassword}
+        onCodeChange={form.setCode}
+        onSendCode={form.sendCode}
         onRegister={form.register}
         onBack={() => navigation.goBack()}
         colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}

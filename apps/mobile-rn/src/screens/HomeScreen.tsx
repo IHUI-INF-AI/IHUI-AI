@@ -16,12 +16,14 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  claimShareFirstReward,
   fetchApi,
   getAllStudyProgress,
   getAgentCategories,
   getAgents,
   getCourses,
   getLiveList,
+  getShareFirstStatus,
   type Agent,
   type AgentCategoryItem,
   type Course,
@@ -55,7 +57,13 @@ import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Draw
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
+import MaterialList, {
+  type MaterialCategory,
+  type MaterialItem,
+  type MaterialType,
+} from '../components/MaterialList'
+// 对齐 Uniapp toggleSkillsPopup → AgentList 智能体选择列表(技能弹窗真实数据源)
+import AgentList, { type AgentListItem } from '../components/AgentList'
 import ModelConfigDialog, {
   type ModelConfig,
   type ModelType as ConfigModelType,
@@ -186,6 +194,14 @@ interface SelectedModel {
   type: ModelType
   id: string
   name: string
+}
+
+/** 素材卡片(对齐 Uniapp materialCards:点击素材作为卡片插入输入区上方,uid 保证可重复添加/独立移除) */
+interface MaterialCard {
+  uid: string
+  id: string
+  title: string
+  type: MaterialType
 }
 
 /** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
@@ -366,6 +382,27 @@ function toAgentShopItem(a: Agent): AgentShopItem {
   }
 }
 
+/** AgentShopItem → AgentListItem 映射(技能弹窗复用 AgentList,字段契约逐一对齐;tags 不入列表) */
+function toAgentListItem(a: AgentShopItem): AgentListItem {
+  return {
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar,
+    isNew: a.isNew,
+    description: a.description,
+    type: a.type,
+    source: a.source,
+    isCollect: a.isCollect,
+    isThumbs: a.isThumbs,
+    collectCount: a.collectCount,
+    likeCount: a.likeCount,
+    usageCount: a.usageCount,
+    isHot: a.isHot,
+    userNickname: a.userNickname,
+    userAvatar: a.userAvatar,
+  }
+}
+
 /** 智能体收藏(对齐 Uniapp pay.js getAgentCollect:POST /cozeZhsApi/agents/collect,body {uuid, botId})
  *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义 */
 function postAgentCollect(uuid: string, botId: string): Promise<ApiResult<unknown>> {
@@ -421,6 +458,11 @@ export function HomeScreen() {
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [activeMaterialCategory, setActiveMaterialCategory] = useState('all')
   const [materialItems] = useState<MaterialItem[]>([])
+  // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
+  const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
+  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
+  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [shareFirstReward, setShareFirstReward] = useState(0)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -597,13 +639,65 @@ export function HomeScreen() {
   const handleClearModel = (): void => setSelectedModel(null)
   /** 打开/关闭模型参数配置弹窗(对齐 Uniapp showModelaConfig 开关) */
   const closeModelConfig = (): void => setShowModelConfig(false)
-  /** 素材项点击(对齐 Uniapp MaterialList @item-click;无素材详情 API,暂提示待接入) */
+  /** 素材项点击(对齐 Uniapp handleMaterialItemClick:素材作为卡片插入输入区上方,可移除)
+   *  无素材详情 API(@ihui/api-client 暂无 getMaterials 封装),materialItems 接入前命中不到 item,
+   *  保留原"待接入"提示兜底;接入后点击即插入卡片并关闭素材弹窗 */
   const handleMaterialPress = useCallback(
-    (_id: string): void => {
-      showToast('info', '素材详情待接入')
+    (id: string): void => {
+      const item = materialItems.find((m) => m.id === id)
+      if (!item) {
+        showToast('info', '素材详情待接入')
+        return
+      }
+      const uid = `${item.id}-${Date.now()}`
+      setMaterialCards((prev) => [
+        ...prev,
+        { uid, id: item.id, title: item.title || '素材内容', type: item.type },
+      ])
+      setShowMaterialList(false)
     },
-    [showToast],
+    [materialItems, showToast],
   )
+  /** 移除素材卡片(对齐 Uniapp removeMaterialCard:按 uid 独立移除,允许重复素材同时存在) */
+  const handleRemoveMaterialCard = useCallback((uid: string): void => {
+    setMaterialCards((prev) => prev.filter((c) => c.uid !== uid))
+  }, [])
+
+  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
+  const hideSharePoints = (): void => setShareValueVisible(false)
+
+  /** 首次分享奖励自动触发:进页检查(对齐 Uniapp ai_index onShow → checkFirstShareStatus) */
+  const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getShareFirstStatus()
+      if (res.success && res.data.canClaim) {
+        setShareFirstReward(res.data.rewardPoints)
+        setShareValueVisible(true)
+      }
+    } catch {
+      // 接口异常静默降级,不阻塞进页
+    }
+  }, [])
+
+  /** 领取首次分享奖励(幂等:已领过后端返回 409) */
+  const handleClaimShareReward = async (): Promise<void> => {
+    try {
+      const res = await claimShareFirstReward()
+      hideSharePoints()
+      if (res.success) {
+        showToast('success', `已领取 ${res.data.points} 智汇值`)
+      } else {
+        showToast('info', res.error ?? '已领取过首次分享奖励')
+      }
+    } catch {
+      showToast('error', '领取失败,请稍后重试')
+    }
+  }
+
+  // 进页自动检查首次分享奖励(对齐 Uniapp ai_index onShow checkFirstShareStatus → showSharePointsPopup)
+  useEffect(() => {
+    void maybeTriggerFirstShareReward()
+  }, [maybeTriggerFirstShareReward])
 
   // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
   const handleRecentAgentPress = (item: RecentAgentItem): void => {
@@ -793,6 +887,21 @@ export function HomeScreen() {
   const handleAgentPress = useCallback(
     (id: string): void => {
       const agent = agentItems.find((a) => a.id === id)
+      rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
+    },
+    [agentItems, rootNav],
+  )
+
+  // ── 技能弹窗智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList;与 ai-list 同源 agentItems) ──
+  const skillAgentItems: AgentListItem[] = useMemo(
+    () => agentItems.map(toAgentListItem),
+    [agentItems],
+  )
+  /** 技能弹窗智能体点击(对齐 Uniapp handleAgentPitch → ai_assistant 对话页;跳转后关闭弹窗) */
+  const handleSkillAgentPress = useCallback(
+    (id: string): void => {
+      const agent = agentItems.find((a) => a.id === id)
+      setActiveModelType(null)
       rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
     },
     [agentItems, rootNav],
@@ -1151,6 +1260,31 @@ export function HomeScreen() {
       <View style={shellStyles.voiceInputWrap}>
         <VoiceInput placeholder="按住说出你的问题" onComplete={handleVoiceComplete} />
       </View>
+      {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
+       *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
+      {materialCards.length > 0 ? (
+        <View style={shellStyles.materialCardsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={shellStyles.materialCardsRow}>
+              {materialCards.map((card) => (
+                <View key={card.uid} style={shellStyles.materialCardItem}>
+                  <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
+                    {card.title}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleRemoveMaterialCard(card.uid)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="移除素材"
+                  >
+                    <Text style={shellStyles.materialCardClose}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ) : null}
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
@@ -1227,7 +1361,15 @@ export function HomeScreen() {
                 <Text style={shellStyles.modelModalClose}>×</Text>
               </Pressable>
             </View>
-            {activeModelType ? (
+            {/* 技能弹窗渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);其余类型保持 ModelList 占位 */}
+            {activeModelType === 'skills' ? (
+              <AgentList
+                items={skillAgentItems}
+                onItemClick={handleSkillAgentPress}
+                isLoading={false}
+                emptyText="暂无智能体"
+              />
+            ) : activeModelType ? (
               <ModelList
                 groups={PLACEHOLDER_MODELS[activeModelType]}
                 selectionMode="single"
@@ -1285,6 +1427,31 @@ export function HomeScreen() {
         onChange={setModelConfig}
         onClose={closeModelConfig}
       />
+      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
+      <Modal
+        visible={shareValueVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideSharePoints}
+      >
+        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
+          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
+              <Text style={shellStyles.shareCloseText}>×</Text>
+            </Pressable>
+            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
+            <Text style={shellStyles.shareDesc}>
+              首次分享成功,获得 {shareFirstReward} 智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+            </Text>
+            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
+              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
+            </Pressable>
+            <Pressable onPress={hideSharePoints} style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}>
+              <Text style={shellStyles.shareBtnText}>稍后再说</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -1407,6 +1574,38 @@ const shellStyles = {
     color: tokens.brand.DEFAULT,
     fontWeight: '600',
   } as const,
+  // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
+  materialCardsWrap: {
+    paddingHorizontal: rpx(24),
+    paddingBottom: rpx(8),
+  } as const,
+  materialCardsRow: {
+    flexDirection: 'row',
+    gap: rpx(12),
+  } as const,
+  materialCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: rpx(460),
+    paddingLeft: rpx(20),
+    paddingRight: rpx(6),
+    paddingVertical: rpx(10),
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  materialCardTitle: {
+    maxWidth: rpx(340),
+    fontSize: 13,
+    color: tokens.text.primary,
+  } as const,
+  materialCardClose: {
+    fontSize: 16,
+    lineHeight: 18,
+    color: tokens.text.tertiary,
+    fontWeight: '400',
+    marginLeft: rpx(12),
+    paddingHorizontal: rpx(4),
+  } as const,
   // ── MaterialList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
   materialBackdrop: {
     flex: 1,
@@ -1468,5 +1667,61 @@ const shellStyles = {
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
+  } as const,
+  // ── 分享领智汇值弹窗(对齐 Uniapp share-points-popup) ──
+  modalMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  shareContent: {
+    width: '84%',
+    borderRadius: 12,
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: rpx(40),
+    paddingTop: rpx(40),
+    paddingBottom: rpx(48),
+    alignItems: 'center',
+  } as const,
+  shareClose: {
+    alignSelf: 'flex-end',
+    padding: rpx(8),
+  } as const,
+  shareCloseText: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+  } as const,
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginTop: rpx(24),
+    marginBottom: rpx(16),
+  } as const,
+  shareDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+  } as const,
+  shareBtn: {
+    paddingHorizontal: rpx(48),
+    paddingVertical: rpx(20),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+    minWidth: '70%',
+    alignItems: 'center',
+  } as const,
+  shareBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  } as const,
+  shareBtnSecondary: {
+    marginTop: rpx(16),
   } as const,
 }
