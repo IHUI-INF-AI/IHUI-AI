@@ -1,10 +1,30 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
 /** 注册共享屏 — props 注入式跨端组件(wrapper 负责 register API 调用 + 自动登录) */
 export type { RegisterScreenProps }
+
+/**
+ * 注册验证码可选注入 props(接入点):
+ * 共享层只负责 UI + 60s 倒计时,发送短信的真实 API 由 wrapper 通过 onSendCode 注入。
+ * 建议实现:`onSendCode: () => sendSmsCode(account, 'register')`(@ihui/api-client)。
+ * 未注入 onSendCode 时发送按钮禁用,避免伪造接口调用。
+ * 注册提交时验证码需由 wrapper 传给 register()(api-client register 有 code 参数)。
+ */
+export interface RegisterCodeOptions {
+  /** 验证码值(受控;未注入时组件内部维护) */
+  code?: string
+  /** 验证码变更回调(受控) */
+  onCodeChange?: (text: string) => void
+  /** 发送验证码回调(发送成功后组件启动 60s 倒计时) */
+  onSendCode?: () => Promise<void>
+  /** 发送倒计时秒数(受控;未注入时组件内部维护) */
+  countdown?: number
+  /** 发送中标志(受控) */
+  sendingCode?: boolean
+}
 
 export function RegisterScreen({
   t,
@@ -25,10 +45,48 @@ export function RegisterScreen({
   showAgreeErr = false,
   onOpenTerms,
   onOpenPrivacy,
-}: RegisterScreenProps) {
+  // ===== 注册验证码(可选注入,未注入时组件内部维护) =====
+  code: codeProp,
+  onCodeChange,
+  onSendCode,
+  countdown: countdownProp,
+  sendingCode: sendingCodeProp,
+}: RegisterScreenProps & RegisterCodeOptions) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const onBrandText = tk.brand.DEFAULT === '#FFFFFF' ? '#000000' : '#FFFFFF'
+
+  // ===== 验证码内部兜底状态(外部注入 prop 时优先使用注入值) =====
+  const [codeState, setCodeState] = useState('')
+  const [countdownState, setCountdownState] = useState(0)
+  const [sendingState, setSendingState] = useState(false)
+  const [codeSendError, setCodeSendError] = useState('')
+
+  const code = codeProp ?? codeState
+  const handleCodeChange = onCodeChange ?? setCodeState
+  const countdown = countdownProp ?? countdownState
+  const sending = sendingCodeProp ?? sendingState
+
+  // 内部 60s 倒计时(仅外部未注入 countdown 时,由发送成功后启动)
+  useEffect(() => {
+    if (countdownProp !== undefined || countdownState <= 0) return
+    const timer = setTimeout(() => setCountdownState((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdownProp, countdownState])
+
+  const handleSendCode = async () => {
+    if (!onSendCode || countdown > 0 || sending) return
+    setCodeSendError('')
+    setSendingState(true)
+    try {
+      await onSendCode()
+      if (countdownProp === undefined) setCountdownState(60)
+    } catch {
+      setCodeSendError(t('register.sendCodeFailed'))
+    } finally {
+      setSendingState(false)
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -48,6 +106,29 @@ export function RegisterScreen({
           placeholderTextColor={tk.text.tertiary}
           autoCapitalize="none"
         />
+        <Text style={styles.label}>{t('register.code')}</Text>
+        <View style={styles.codeRow}>
+          <TextInput
+            style={[styles.input, styles.codeInput]}
+            value={code}
+            onChangeText={handleCodeChange}
+            placeholder={t('register.codePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={[styles.codeBtn, (countdown > 0 || sending || !onSendCode) && styles.codeBtnDisabled]}
+            onPress={() => void handleSendCode()}
+            disabled={countdown > 0 || sending || !onSendCode}
+          >
+            <Text style={styles.codeBtnText}>
+              {countdown > 0 ? t('register.resendIn', { countdown }) : t('register.sendCode')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {codeSendError ? <Text style={styles.error}>{codeSendError}</Text> : null}
         <Text style={styles.label}>{t('register.password')}</Text>
         <TextInput
           style={styles.input}
@@ -154,6 +235,19 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       color: tk.text.primary,
     },
+    codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    codeInput: { flex: 1 },
+    codeBtn: {
+      height: 50,
+      paddingHorizontal: 14,
+      justifyContent: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.surface.light,
+    },
+    codeBtnDisabled: { opacity: 0.5 },
+    codeBtnText: { color: tk.brand.DEFAULT, fontSize: 14, fontWeight: '600' },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 12 },
     // ===== 协议同意行(对齐 LoginScreen AgreementRow 样式) =====
     agreementRow: { marginTop: 16 },
