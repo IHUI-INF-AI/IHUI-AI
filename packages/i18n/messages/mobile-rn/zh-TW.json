@@ -772,7 +772,8 @@
     "sectionTitle": "收益明細",
     "empty": "暫無收益記錄",
     "settled": "已結算",
-    "pending": "待結算"
+    "pending": "待結算",
+    "withdrawn": "已提現"
   },
   "invite": {
     "title": "邀請好友",
