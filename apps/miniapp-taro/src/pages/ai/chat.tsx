@@ -777,6 +777,8 @@ export default function ChatPage() {
 
         {!messages.length ? (
           <View className="welcome">
+            <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
+            <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
             {!agent ? (
               <IntelligentAssistant
                 tokenBalance={(user as Record<string, unknown>)?.tokenBalance as number | undefined}
@@ -791,6 +793,7 @@ export default function ChatPage() {
                 </View>
               ))}
             </View>
+            <Text className="welcome-tip">{t('ai.thinkingTip')}</Text>
           </View>
         ) : null}
 
@@ -824,9 +827,15 @@ export default function ChatPage() {
 
         {thinking && messages[messages.length - 1]?.role === 'assistant' ? (
           <View className="msg-item assistant">
-            <View className="avatar assistant">AI</View>
+            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">
-              <Text className="bubble-text">{t('ai.thinking')}</Text>
+              <Text className="bubble-text">{t('ai.generating')}</Text>
+              <Text
+                className="bubble-text"
+                style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}
+              >
+                {t('ai.thinking')}
+              </Text>
               {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
               <View
                 className="thinking-progress-container"
