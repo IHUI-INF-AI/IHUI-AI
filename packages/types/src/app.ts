@@ -1667,6 +1667,18 @@ export interface LoginScreenProps {
   /** 手机号输入框前缀节点(区号展示,�?"+86",对齐 uniapp login �?xiaicc 区号)
    * 不传则输入框独占一�?向后兼容)�?026-08-15 新增�?*/
   phonePrefixNode?: ReactNode
+  /** 区号选择列表(传 nations + phoneHead 则渲染可点击区号选择器,优先级高于 phonePrefixNode)
+   * 2026-08-20 新增,对齐 uniapp login 的 nation-box + ChangePhone 现有模式:
+   * 点击区号展开列表选择,选中项高亮。不传则回退到 phonePrefixNode / 无前缀。 */
+  nations?: NationOption[]
+  /** 当前选中区号(如 '+86');配合 nations 渲染区号选择器 */
+  phoneHead?: string
+  /** 区号列表是否展开(wrapper 管理,点击区号切换) */
+  nationShow?: boolean
+  /** 展开/收起区号列表回调 */
+  onToggleNationShow?: () => void
+  /** 选中区号回调(wrapper 更新 phoneHead 并收起列表) */
+  onSelectNation?: (nation: NationOption) => void
   onPhoneChange?: (text: string) => void
   onPhoneCodeChange?: (text: string) => void
   onSendPhoneCode?: () => void
