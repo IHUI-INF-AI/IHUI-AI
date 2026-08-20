@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
+  Modal,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -21,6 +22,10 @@ export interface SetNeedScreenProps {
     lowestPrice: string
     peakPrice: string
     contact: string
+    cycle: string
+    cycleUnit: string
+    types: string
+    categories: string
   }
   submitting: boolean
   onFieldChange: (field: string, value: string) => void
@@ -41,6 +46,25 @@ export function SetNeedScreen({
 }: SetNeedScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const [picker, setPicker] = useState<'cycle' | 'cycleUnit' | 'types' | 'categories' | null>(null)
+
+  const pickerOptions =
+    picker === 'cycle'
+      ? ['1', '2', '3', '5', '7', '10']
+      : picker === 'cycleUnit'
+        ? ['日', '周', '月', '年']
+        : picker === 'types'
+          ? ['开发', '设计', '运营', '内容']
+          : ['电商', '教育', '营销', '工具']
+
+  const pickerTitle =
+    picker === 'cycle'
+      ? '开发周期'
+      : picker === 'cycleUnit'
+        ? '周期单位'
+        : picker === 'types'
+          ? '需求类型'
+          : '需求分类'
 
   return (
     <View style={styles.container}>
@@ -124,6 +148,31 @@ export function SetNeedScreen({
           />
         </View>
 
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>开发周期</Text>
+          <View style={styles.priceRow}>
+            <Pressable style={[styles.input, styles.priceInput]} onPress={() => setPicker('cycle')}>
+              <Text style={styles.pickerText}>{form.cycle || '周期数'}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.input, styles.priceInput]}
+              onPress={() => setPicker('cycleUnit')}
+            >
+              <Text style={styles.pickerText}>{form.cycleUnit || '周 / 月 / 日'}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>类型与分类</Text>
+          <Pressable style={styles.input} onPress={() => setPicker('types')}>
+            <Text style={styles.pickerText}>{form.types || '选择需求类型'}</Text>
+          </Pressable>
+          <Pressable style={styles.input} onPress={() => setPicker('categories')}>
+            <Text style={styles.pickerText}>{form.categories || '选择需求分类'}</Text>
+          </Pressable>
+        </View>
+
         <Pressable
           style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed]}
           onPress={onSubmit}
@@ -131,6 +180,30 @@ export function SetNeedScreen({
           <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交需求'}</Text>
         </Pressable>
       </ScrollView>
+      <Modal
+        visible={picker !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPicker(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
+          <Pressable style={styles.pickerSheet} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.pickerTitle}>{pickerTitle}</Text>
+            {pickerOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={styles.pickerOption}
+                onPress={() => {
+                  if (picker) onFieldChange(picker, option)
+                  setPicker(null)
+                }}
+              >
+                <Text style={styles.pickerOptionText}>{option}</Text>
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -164,6 +237,32 @@ function createStyles(tk: AppThemeTokens) {
     priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 } as ViewStyle,
     priceInput: { flex: 1 } as TextStyle,
     priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
+    pickerText: { fontSize: 16, color: tk.text.primary } as TextStyle,
+    modalBackdrop: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    } as ViewStyle,
+    pickerSheet: {
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 28,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+    } as ViewStyle,
+    pickerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 8,
+    } as TextStyle,
+    pickerOption: {
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: tk.border.light,
+    } as ViewStyle,
+    pickerOptionText: { fontSize: 16, color: tk.text.primary } as TextStyle,
     submitBtn: {
       backgroundColor: tk.brand.DEFAULT,
       borderRadius: 12,
