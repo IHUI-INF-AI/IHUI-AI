@@ -2104,9 +2104,16 @@ export interface IncomeCommissionItem {
   cancelled?: boolean
 }
 export interface IncomeData {
+  /** 累计收益(overview.totalCommission,分) */
   totalEarnings: number
+  /** 今日收益(day-month-summary daySummary 今日合计,分) */
   todayCommission: number
+  /** 可提现余额(overview.availableCommission,分) */
   balance: number
+  /** 待结算佣金(overview.pendingCommission,分) */
+  pendingCommission: number
+  /** 已提现(overview.withdrawnCommission,分) */
+  withdrawnCommission: number
   list: IncomeCommissionItem[]
 }
 export interface IncomeScreenProps {
@@ -3749,15 +3756,36 @@ export interface DistributionProduct {
   sales: number
 }
 
-/** 分销概览(平台注入,字段对齐 mobile-rn DistributionScreen DistributionInfo) */
+/**
+ * 分销概览 — 对齐后端 GET /distribution/overview 真实返回。
+ * 金额单位均为「分」(commission_flows.amount / withdrawalFlows.amount)。
+ * 展示层兼容字段(commissionRate/withdrawMin/products)后端无对应数据源,
+ * 保留为可选,共享屏缺省不渲染/按 0 处理(不伪造)。
+ */
 export interface DistributionInfo {
-  level: string
-  commissionRate: number
-  totalEarnings: number
-  withdrawn: number
-  pending: number
-  withdrawMin: number
-  products: DistributionProduct[]
+  /** 累计佣金(全部状态流水合计,分) */
+  totalCommission: number
+  /** 可提现余额(status=1 佣金 − 已提现 − 提现中,分) */
+  availableCommission: number
+  /** 待结算佣金(commission_flows.status=1,分) */
+  pendingCommission: number
+  /** 已提现(withdrawal_flows.status=2 累计,分) */
+  withdrawnCommission: number
+  inviteCode: string | null
+  /** 分销等级(users.level 数字) */
+  level: number
+  /** 总邀请人数(users.parentId = 当前用户计数) */
+  invitedCount: number
+  /** 活跃邀请人数(邀请用户中 status=1 计数) */
+  activeCount: number
+  /** 推广订单数(commission_flows 去重非空 orderId;无订单数据时为 null) */
+  orderCount: number | null
+  /** 佣金率(后端无数据源,可选;共享屏无值时不渲染) */
+  commissionRate?: number
+  /** 最低提现(后端无数据源,可选;缺省按 0 处理) */
+  withdrawMin?: number
+  /** 推广商品(后端无数据源,可选;共享屏无值时不渲染列表) */
+  products?: DistributionProduct[]
 }
 
 /** DistributionScreen props(注入�?wrapper 保留 API 调用 + Alert 弹窗) */

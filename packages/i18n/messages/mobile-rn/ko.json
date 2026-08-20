@@ -772,7 +772,8 @@
     "sectionTitle": "수익 내역",
     "empty": "수익 기록 없음",
     "settled": "정산 완료",
-    "pending": "정산 대기"
+    "pending": "정산 대기",
+    "withdrawn": "출금 완료"
   },
   "invite": {
     "title": "친구 초대",
