@@ -71,6 +71,12 @@ export interface PlazaItem {
   creator?: string
   creatorAvatar?: string
   createdAt?: string
+  lowestPrice?: number | string | null
+  peakPrice?: number | string | null
+  contact?: string | null
+  cycle?: string | null
+  cycleUnit?: string | null
+  closingTime?: string | null
   [key: string]: unknown
 }
 
@@ -287,7 +293,9 @@ export async function deleteTool(id: string): Promise<ApiResult<{ success: boole
 
 /** 获取广场列表 */
 export async function getPlazaList(
-  query: PageQuery & {
+  query: {
+    page?: number
+    pageSize?: number
     status?: string
     search?: string
     creator?: string
