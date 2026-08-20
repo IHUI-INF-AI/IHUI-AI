@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "失敗"
+    "failed": "失敗",
+    "all": "全部",
+    "back": "返回",
+    "close": "關閉",
+    "delete": "刪除",
+    "empty": "暫無資料",
+    "loading": "載入中...",
+    "retry": "重試",
+    "search": "搜尋",
+    "submit": "提交"
   },
   "nav": {
     "chat": "AI 對話",
@@ -11,7 +20,8 @@
     "tabRuntime": "執行階段",
     "ai": "AI",
     "content": "內容",
-    "me": "我的"
+    "me": "我的",
+    "wallet": "錢包"
   },
   "apps": {
     "aiTitle": "AI 應用中心",
@@ -125,7 +135,14 @@
   "auth": {
     "logout": "登出",
     "roleAdmin": "管理員",
-    "roleUser": "一般使用者"
+    "roleUser": "一般使用者",
+    "appleComingSoon": "Apple 登入即將上線",
+    "login": "登入",
+    "loginSubtitle": "登入您的帳號以繼續",
+    "orUseAccount": "或使用帳號登入",
+    "ssoCancelled": "SSO 登入已取消",
+    "ssoLoading": "SSO 授權中...",
+    "ssoLogin": "SSO 一鍵登入"
   },
   "popup": {
     "copyFailed": "複製失敗",
@@ -168,7 +185,8 @@
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "設定"
   },
   "notification": {
     "title": "通知",
