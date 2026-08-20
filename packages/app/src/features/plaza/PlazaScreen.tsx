@@ -24,6 +24,7 @@ export interface PlazaItem {
   creator?: string
   createdAt?: string
   status?: string
+  taskStatus?: string
   [key: string]: unknown
 }
 
@@ -56,9 +57,9 @@ export interface PlazaScreenProps {
 }
 
 const STATUS_CHIPS: readonly StatusChip[] = [
-  { label: '待接单', value: 'pending' },
-  { label: '开发中', value: 'approved' },
-  { label: '已完成', value: 'offline' },
+  { label: '待接单', value: 'waiting' },
+  { label: '开发中', value: 'developing' },
+  { label: '已完成', value: 'completed' },
   { label: '我的任务', value: 'mine' },
 ] as const
 
