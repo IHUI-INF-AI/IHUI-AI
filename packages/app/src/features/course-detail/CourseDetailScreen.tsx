@@ -95,8 +95,8 @@ export function CourseDetailScreen({
               >
                 <Text style={styles.btnText}>
                   {item.isFree
-                    ? t('courseDetail.enroll')
-                    : t('courseDetail.pay', { amount: item.price.toFixed(2) })}
+                    ? t('course.enroll')
+                    : t('course.pay', { amount: item.price.toFixed(2) })}
                 </Text>
               </TouchableOpacity>
             )}

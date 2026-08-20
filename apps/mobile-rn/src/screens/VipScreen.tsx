@@ -459,12 +459,12 @@ export function VipScreen() {
                   <View style={styles.planTags}>
                     {plan.discount ? (
                       <View style={styles.discountTag}>
-                        <Text style={styles.discountTagText}>{plan.discount}</Text>
+                        <Text style={styles.discountTagText}>{t('vipScreen.discount')}</Text>
                       </View>
                     ) : null}
                     {plan.trial ? (
                       <View style={styles.trialTag}>
-                        <Text style={styles.trialTagText}>{plan.trial}</Text>
+                        <Text style={styles.trialTagText}>{t('vipScreen.trial')}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -500,6 +500,19 @@ export function VipScreen() {
           <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
         </View>
       </View>
+
+      {/* 操盘手专属权益横幅(品牌色卡片,title + subtitle) */}
+      <Pressable
+        style={({ pressed }) => [styles.traderBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() =>
+          Alert.alert(t('vipScreen.banner.trader'), t('vipScreen.banner.traderSubtitle'))
+        }
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.trader')}
+      >
+        <Text style={styles.traderBannerTitle}>{t('vipScreen.banner.trader')}</Text>
+        <Text style={styles.traderBannerSubtitle}>{t('vipScreen.banner.traderSubtitle')}</Text>
+      </Pressable>
 
       <SharedVipScreen
         t={t}
@@ -579,6 +592,18 @@ export function VipScreen() {
         </View>
         <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
         <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
+        {/* 二维码弹层关闭按钮 */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.qrCloseButton,
+            pressed ? styles.qrCloseButtonPressed : null,
+          ]}
+          onPress={() => setServicePopupVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('vipScreen.qr.close')}
+        >
+          <Text style={styles.qrCloseText}>{t('vipScreen.qr.close')}</Text>
+        </Pressable>
       </BottomPops>
     </View>
   )
@@ -620,6 +645,18 @@ const SERVICE_CARD_RADIUS = 8
 const QR_BOX_RADIUS = 8
 const SERVICE_TITLE_FONT_SIZE = 15
 const SERVICE_HINT_FONT_SIZE = 12
+
+const SUBSCRIBE_BUTTON_HEIGHT = 36
+const SUBSCRIBE_BUTTON_RADIUS = 8
+const SUBSCRIBE_BUTTON_FONT_SIZE = 13
+
+const TRADER_BANNER_RADIUS = 8
+const TRADER_TITLE_FONT_SIZE = 15
+const TRADER_SUBTITLE_FONT_SIZE = 12
+
+const QR_CLOSE_BUTTON_HEIGHT = 40
+const QR_CLOSE_BUTTON_RADIUS = 8
+const QR_CLOSE_FONT_SIZE = 13
 
 // 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量
 const ACCENT_COLOR = '#5088fa'
@@ -792,6 +829,20 @@ const styles = StyleSheet.create({
     lineHeight: PLAN_DURATION_FONT_SIZE + 2,
     color: tokens.text.secondary,
   } as TextStyle,
+  subscribeButton: {
+    marginTop: rpx(16),
+    height: SUBSCRIBE_BUTTON_HEIGHT,
+    borderRadius: SUBSCRIBE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  subscribeButtonText: {
+    fontSize: SUBSCRIBE_BUTTON_FONT_SIZE,
+    lineHeight: SUBSCRIBE_BUTTON_FONT_SIZE + 2,
+    color: tokens.surface.light,
+    fontWeight: '600',
+  } as TextStyle,
   agreementText: {
     marginTop: rpx(16),
     fontSize: AGREEMENT_FONT_SIZE,
@@ -830,6 +881,31 @@ const styles = StyleSheet.create({
     lineHeight: LEVEL_BANNER_HINT_FONT_SIZE + 4,
     color: tokens.danger.DEFAULT,
     marginTop: rpx(4),
+  } as TextStyle,
+  // ── 操盘手专属权益横幅 ──
+  traderBanner: {
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    backgroundColor: ACCENT_COLOR,
+    borderRadius: TRADER_BANNER_RADIUS,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
+  } as ViewStyle,
+  traderBannerPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  traderBannerTitle: {
+    fontSize: TRADER_TITLE_FONT_SIZE,
+    lineHeight: TRADER_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  } as TextStyle,
+  traderBannerSubtitle: {
+    marginTop: rpx(6),
+    fontSize: TRADER_SUBTITLE_FONT_SIZE,
+    lineHeight: TRADER_SUBTITLE_FONT_SIZE + 4,
+    color: tokens.surface.light,
+    opacity: 0.9,
   } as TextStyle,
   // ── 私董会服务弹窗(BottomPops 子内容样式) ──
   serviceCard: {
@@ -874,6 +950,24 @@ const styles = StyleSheet.create({
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,
+    textAlign: 'center',
+  } as TextStyle,
+  qrCloseButton: {
+    marginTop: rpx(24),
+    height: QR_CLOSE_BUTTON_HEIGHT,
+    borderRadius: QR_CLOSE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  qrCloseButtonPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  qrCloseText: {
+    fontSize: QR_CLOSE_FONT_SIZE,
+    lineHeight: QR_CLOSE_FONT_SIZE + 2,
+    color: tokens.surface.light,
+    fontWeight: '600',
     textAlign: 'center',
   } as TextStyle,
 })
