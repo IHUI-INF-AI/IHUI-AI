@@ -20,9 +20,6 @@
   "course": {
     "title": "강의",
     "studentCount": "{count}명 학습",
-    "pay": "¥{amount} 결제",
-    "enroll": "지금 등록",
-    "enrolled": "등록됨",
     "progress": "진도",
     "empty": "",
     "completed": "",
@@ -33,9 +30,33 @@
   "live": {
     "title": "라이브",
     "viewerCount": "{count}명 시청 중",
+    "ongoing": "방송 중",
     "upcoming": "예정",
     "ended": "종료",
-    "chat": "채팅"
+    "empty": "라이브가 없습니다",
+    "lecturer": "강사",
+    "startAt": "시작 시간"
+  },
+  "liveDetail": {
+    "title": "라이브 상세",
+    "empty": "라이브를 찾을 수 없거나 종료되었습니다",
+    "ongoing": "방송 중",
+    "upcoming": "예정",
+    "lecturer": "강사",
+    "viewerCount": "{count}명 시청 중",
+    "subscribe": "라이브 예약",
+    "subscribed": "예약 완료",
+    "subscribing": "예약 중...",
+    "intro": "라이브 소개",
+    "chat": "채팅",
+    "chatEmpty": "아직 메시지가 없습니다. 첫 댓글을 남겨보세요",
+    "chatPlaceholder": "무언가 말해보세요...",
+    "chatSend": "보내기",
+    "chatConnecting": "연결 중...",
+    "chatConnected": "연결됨",
+    "chatReconnecting": "재연결 중...",
+    "chatError": "연결 실패",
+    "chatDisconnected": "연결이 끊어졌습니다"
   },
   "profile": {
     "title": "마이",
@@ -92,6 +113,7 @@
   },
   "order": {
     "title": "주문",
+    "searchPlaceholder": "주문 검색",
     "status": {
       "pending": "결제 대기",
       "paid": "결제 완료",
@@ -961,8 +983,16 @@
   "register": {
     "phone": "",
     "phonePlaceholder": "",
+    "code": "인증 코드",
+    "codePlaceholder": "인증 코드 입력",
+    "sendCode": "코드 보내기",
+    "resendIn": "{{countdown}}초 후 재전송",
+    "sendCodeFailed": "인증 코드 전송 실패, 다시 시도하세요",
     "submit": "",
     "registering": ""
+  },
+  "withdraw": {
+    "availableBalance": "출금 가능 금액(원)"
   },
   "search": {
     "title": "",

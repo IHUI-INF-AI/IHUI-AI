@@ -20,9 +20,6 @@
   "course": {
     "title": "コース",
     "studentCount": "{count} 人が学習",
-    "pay": "¥{amount} を支払う",
-    "enroll": "今すぐ登録",
-    "enrolled": "登録済み",
     "progress": "進捗",
     "empty": "",
     "completed": "",
@@ -33,9 +30,33 @@
   "live": {
     "title": "ライブ",
     "viewerCount": "{count} 人が視聴中",
+    "ongoing": "配信中",
     "upcoming": "予定",
     "ended": "終了",
-    "chat": "チャット"
+    "empty": "ライブはありません",
+    "lecturer": "講師",
+    "startAt": "開始時間"
+  },
+  "liveDetail": {
+    "title": "ライブ詳細",
+    "empty": "ライブが見つからないか、終了しました",
+    "ongoing": "配信中",
+    "upcoming": "予定",
+    "lecturer": "講師",
+    "viewerCount": "{count} 人が視聴中",
+    "subscribe": "ライブを予約",
+    "subscribed": "予約済み",
+    "subscribing": "予約中...",
+    "intro": "ライブ紹介",
+    "chat": "チャット",
+    "chatEmpty": "まだメッセージはありません。最初の投稿をしましょう",
+    "chatPlaceholder": "何か話してください...",
+    "chatSend": "送信",
+    "chatConnecting": "接続中...",
+    "chatConnected": "接続済み",
+    "chatReconnecting": "再接続中...",
+    "chatError": "接続に失敗しました",
+    "chatDisconnected": "切断しました"
   },
   "profile": {
     "title": "マイページ",
@@ -92,6 +113,7 @@
   },
   "order": {
     "title": "注文",
+    "searchPlaceholder": "注文を検索",
     "status": {
       "pending": "支払い待ち",
       "paid": "支払い済み",
@@ -961,8 +983,16 @@
   "register": {
     "phone": "",
     "phonePlaceholder": "",
+    "code": "認証コード",
+    "codePlaceholder": "認証コードを入力",
+    "sendCode": "コード送信",
+    "resendIn": "{{countdown}}秒後に再送信",
+    "sendCodeFailed": "認証コードの送信に失敗しました",
     "submit": "",
     "registering": ""
+  },
+  "withdraw": {
+    "availableBalance": "引き出し可能額(元)"
   },
   "search": {
     "title": "",
