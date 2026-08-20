@@ -11,7 +11,11 @@
     "progressEmpty": "",
     "livePreview": "",
     "livePreviewMore": "",
-    "recommend": ""
+    "recommend": "",
+    "greetingMorning": "早晨好",
+    "greetingNoon": "中午好",
+    "greetingAfternoon": "下午好",
+    "greetingEvening": "晚上好"
   },
   "course": {
     "title": "課程",
