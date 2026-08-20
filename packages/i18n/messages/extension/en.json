@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "Failed"
+    "failed": "Failed",
+    "all": "All",
+    "back": "Back",
+    "close": "Close",
+    "delete": "Delete",
+    "empty": "No data",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "search": "Search",
+    "submit": "Submit"
   },
   "nav": {
     "chat": "AI Chat",
@@ -11,7 +20,8 @@
     "tabRuntime": "Runtime",
     "ai": "AI",
     "content": "Content",
-    "me": "Me"
+    "me": "Me",
+    "wallet": "Wallet"
   },
   "apps": {
     "aiTitle": "AI Apps Center",
@@ -125,7 +135,14 @@
   "auth": {
     "logout": "Log out",
     "roleAdmin": "Admin",
-    "roleUser": "User"
+    "roleUser": "User",
+    "appleComingSoon": "Apple Sign-In Coming Soon",
+    "login": "Sign In",
+    "loginSubtitle": "Sign in to continue",
+    "orUseAccount": "Or use account login",
+    "ssoCancelled": "SSO sign-in cancelled",
+    "ssoLoading": "SSO authorizing...",
+    "ssoLogin": "SSO one-click sign-in"
   },
   "popup": {
     "copyFailed": "Copy failed",
@@ -168,7 +185,8 @@
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "Settings"
   },
   "notification": {
     "title": "Notifications",
