@@ -318,7 +318,10 @@ export function PlazaScreen({
             ) : (
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyIcon}>🌐</Text>
-                <Text style={styles.emptyText}>当前赛道千万级空白市场,快来抢占市场!</Text>
+                <Text style={styles.emptyText}>当前赛道</Text>
+                <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
+                <Text style={styles.emptyText}>不会开发?发布需求</Text>
+                <Text style={styles.emptyText}>快来抢占市场!</Text>
                 <Pressable style={styles.emptyBtn} onPress={onPublish}>
                   <Text style={styles.emptyBtnText}>发布需求</Text>
                 </Pressable>
@@ -450,6 +453,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       textAlign: 'center',
     } as TextStyle,
+    // 强调行(对齐原项目 empty .font_big:40rpx bold #847CFF)
+    emptyTextStrong: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#847CFF',
+      textAlign: 'center',
+    } as TextStyle,
     emptyBtn: {
       marginTop: 12,
       paddingHorizontal: 24,
@@ -463,9 +473,9 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     } as TextStyle,
     card: {
-      marginBottom: 12,
+      marginBottom: 9,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: 10,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
