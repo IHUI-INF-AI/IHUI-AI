@@ -699,6 +699,10 @@
     "pending": "정산 대기",
     "withdrawBtn": "출금 신청",
     "withdrawMin": "¥{amount} 이상부터 출금 가능",
+    "withdrawNeedRealname": "출금 전 실명 인증을 먼저 진행해 주세요!",
+    "withdrawNeedRealnameHint": "실명 인증 완료 후 정상적으로 출금할 수 있습니다",
+    "withdrawRealnameGo": "실명 인증하러 가기",
+    "withdrawRealnameCancel": "아니요, 괜찮습니다",
     "products": "유통 상품",
     "commission": "커미션",
     "sales": "{count}개 판매됨"
@@ -773,7 +777,18 @@
     "empty": "수익 기록 없음",
     "settled": "정산 완료",
     "pending": "정산 대기",
-    "withdrawn": "출금 완료"
+    "cancelled": "정산 취소",
+    "withdrawn": "출금 완료",
+    "tab": {
+      "all": "전체",
+      "pending": "정산 대기",
+      "settled": "정산 완료",
+      "cancelled": "정산 취소"
+    },
+    "buyer": "주문자: {name}",
+    "relatedOrder": "관련 주문:{orderNo}",
+    "copy": "주문 번호 복사",
+    "copySuccess": "주문 번호 복사 완료"
   },
   "invite": {
     "title": "친구 초대",
