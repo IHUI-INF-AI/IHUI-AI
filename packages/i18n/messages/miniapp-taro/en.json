@@ -5,7 +5,28 @@
   },
   "common": {
     "hint": "Notice",
-    "goSettings": "Go to Settings"
+    "goSettings": "Go to Settings",
+    "all": "All",
+    "back": "Back",
+    "cancel": "Cancel",
+    "close": "Close",
+    "commission": "Commission",
+    "confirm": "Confirm",
+    "consult": "Consult",
+    "customerService": "Customer Service",
+    "delete": "Delete",
+    "empty": "No data",
+    "failed": "Failed to load",
+    "free": "Free",
+    "loading": "Checking...",
+    "loadingShort": "Loading...",
+    "noMore": "No more",
+    "retry": "Retry",
+    "save": "Save",
+    "success": "Success",
+    "uploading": "Uploading...",
+    "user": "User",
+    "viewMore": "View More"
   },
   "login": {
     "loginSuccess": "Login successful",
@@ -31,7 +52,13 @@
     "smsTab": "SMS Login",
     "privacyPolicy": "Privacy Policy",
     "serviceAgreement": "Service Agreement",
-    "autoRegisterHint": "Unregistered users will be auto-registered"
+    "autoRegisterHint": "Unregistered users will be auto-registered",
+    "cancelAuth": "Cancel Authorization",
+    "codeCountdownSuffix": "s to resend",
+    "getPhoneFail": "Failed to get phone number",
+    "loginFailed": "Login failed, please try again",
+    "quickLogin": "Quick Login",
+    "wechatOneClick": "One-click WeChat Login"
   },
   "forgot": {
     "title": "Recover password",
@@ -57,7 +84,8 @@
     "passwordMismatch": "Passwords do not match",
     "resetting": "Resetting…",
     "submit": "Confirm reset",
-    "resetSuccess": "Password reset successful"
+    "resetSuccess": "Password reset successful",
+    "codeInvalid": "Please enter the verification code"
   },
   "home": {
     "hotCourses": "Hot courses",
@@ -108,13 +136,29 @@
       "subtitle": "{n} courses"
     },
     "ratingTitle": "Rate Course",
-    "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
+    "ratingLabels": [
+      "",
+      "Very Bad",
+      "Poor",
+      "Fair",
+      "Good",
+      "Excellent"
+    ],
     "ratingPlaceholder": "Please rate",
     "ratingDescLabel": "Write your review",
     "ratingInputPlaceholder": "How was the course? Share your thoughts...",
     "ratingSubmit": "Submit Review",
     "intro": "Course Intro",
-    "audience": "Target Audience"
+    "audience": "Target Audience",
+    "free": "Free",
+    "lessonUnit": "Lessons",
+    "rating": "Rating",
+    "rating1": "Very Poor",
+    "rating2": "Poor",
+    "rating3": "Average",
+    "rating4": "Good",
+    "rating5": "Excellent",
+    "studentUnit": "Learners"
   },
   "live": {
     "viewers": "{n} viewers",
@@ -139,7 +183,9 @@
       "reminder": "Pre-live reminder",
       "reminderDesc": "Get notified 10 minutes before the live stream starts",
       "unsubscribe": "Unsubscribe",
-      "discover": "Discover live streams"
+      "discover": "Discover live streams",
+      "count": "Subscribed",
+      "unit": "Live"
     },
     "history": {
       "empty": "No past live sessions",
@@ -148,7 +194,8 @@
       "anchorLabel": "Anchor",
       "watchDuration": "Watched",
       "rewatch": "Rewatch",
-      "continue": "Continue watching"
+      "continue": "Continue watching",
+      "minutes": "min"
     },
     "calendar": {
       "loadFailed": "Calendar load failed",
@@ -159,11 +206,14 @@
       "monthStat": "This month",
       "sessions": "sessions",
       "liveList": "Live schedule",
-      "noLive": "No live sessions scheduled today"
+      "noLive": "No live sessions scheduled today",
+      "anchor": "Host",
+      "today": "Today"
     },
     "calendarBtn": "📅 Calendar",
     "mySubscriptionBtn": "🔔 My Subscriptions",
-    "startLiveBtn": "📺 Go Live"
+    "startLiveBtn": "📺 Go Live",
+    "empty": "No live streams yet"
   },
   "liveHost": {
     "statusIdle": "Not Started",
@@ -216,7 +266,11 @@
       "refundAmount": "Refund amount",
       "amountReadOnly": "Not editable",
       "contactLabel": "Contact information",
-      "contactPlaceholder": "Please enter phone number or email"
+      "contactPlaceholder": "Please enter phone number or email",
+      "amountLabel": "Order Amount",
+      "descLabel": "Refund Description",
+      "descPlaceholder": "Please add a refund description (optional)",
+      "submitting": "Submitting..."
     },
     "refundList": {
       "orderNo": "Order No.: {no}",
@@ -231,14 +285,31 @@
       "estimateTip": "Estimated arrival time",
       "collapse": "Collapse progress",
       "viewProgress": "View progress",
-      "viewOrder": "Order details"
+      "viewOrder": "Order details",
+      "noMore": "No more",
+      "reason": "Refund Reason",
+      "statusRefunded": "Refunded",
+      "tabAll": "All"
     },
     "cancelConfirm": "Are you sure you want to cancel this order?",
     "cancelSuccess": "Order cancelled",
     "cancelFailed": "Failed to cancel order",
     "list": {
       "orderTime": "Order time",
-      "refundTime": "Refund time"
+      "refundTime": "Refund time",
+      "applyRefund": "Apply for Refund",
+      "cancel": "Cancel",
+      "empty": "No orders yet",
+      "goPay": "Go to Pay",
+      "notFound": "No matching order found",
+      "orderNo": "Order No.",
+      "search": "Search",
+      "searchPlaceholder": "Search my orders",
+      "title": "My Orders"
+    },
+    "orderNo": "Order No.",
+    "status": {
+      "refunded": "Refunded"
     }
   },
   "wallet": {
@@ -258,7 +329,11 @@
         "backHome": "Back to home",
         "backWallet": "Back to wallet",
         "tipsTitle": "Notice",
-        "arriveTime": "Arrival time"
+        "arriveTime": "Arrival time",
+        "orderNoLabel": "Order No.",
+        "shareFriend": "Share with a Friend",
+        "tipsText": "The recharge amount has been credited. You can view the changes in the wallet details. If you have any questions, please contact customer service.",
+        "viewDetail": "View Details"
       },
       "fail": {
         "title": "Recharge failed",
@@ -268,16 +343,23 @@
         "orderNoLabel": "Order No.",
         "hintTitle": "Notice",
         "contactService": "Contact customer service",
-        "faqQ": "Will I be charged if recharge fails?"
+        "faqQ": "Will I be charged if recharge fails?",
+        "amountLabel": "Recharge Amount",
+        "faqA": "If the payment is not completed, no charge will be made; if you have been charged but the failure is shown, the amount will be refunded to the original account. Please keep an eye on your account changes.",
+        "hintText": "If the recharge has not arrived, please confirm whether the payment was completed. The amount will be refunded to the original account within 1-3 business days, or contact customer service for assistance.",
+        "reasonLabel": "Failure Reason",
+        "viewDetail": "View Details"
       },
       "tokenRate": "1 CNY = {n} IHUI points",
       "activityTitle": "Limited-time event",
       "activityPlaceholder": "Please enter the event recharge amount",
-      "activitySubmit": "Limited-time discount recharge"
+      "activitySubmit": "Limited-time discount recharge",
+      "guest": "Guest"
     },
     "withdrawal": {
       "amountLabel": "Withdrawal amount",
-      "records": "Withdrawal records"
+      "records": "Withdrawal records",
+      "availableYuan": "Withdrawable Amount (CNY)"
     },
     "commission": {
       "today": "Today's commission",
@@ -296,7 +378,9 @@
     "share": "Share"
   },
   "agent": {
-    "title": "Agents"
+    "title": "Agents",
+    "empty": "No agents yet",
+    "uses": "Times"
   },
   "setting": {
     "hint": "Hint",
@@ -328,7 +412,9 @@
     },
     "language": {
       "chooseHint": "Choose app language",
-      "tip": "Language switch will be saved and take effect automatically"
+      "tip": "Language switch will be saved and take effect automatically",
+      "currentLabel": "Current Language",
+      "note": "Some content may still be displayed in the original language. We are continuously improving multilingual support."
     },
     "notification": {
       "categoryTitle": "Notification categories",
@@ -358,7 +444,8 @@
     "notifOpenHint": "To receive notifications, please enable notification permission in system settings",
     "notifOn": "Notifications enabled",
     "notifOff": "Notifications disabled",
-    "accountSecurity": "Account & security"
+    "accountSecurity": "Account & security",
+    "goSetting": "Go to Settings"
   },
   "error": {
     "network": "Network error"
@@ -457,10 +544,18 @@
       "recordFailed": "Recording failed, please retry",
       "clearChat": "Clear conversation",
       "speed": "Speed",
-      "timbre": "Timbre"
+      "timbre": "Timbre",
+      "clearConfirm": "Clear the current chat?",
+      "cleared": "Chat cleared",
+      "title": "AI Voice Chat"
     },
     "image": {
-      "examples": ["A cute cat", "Sunset mountain landscape", "Futuristic city", "Abstract art"],
+      "examples": [
+        "A cute cat",
+        "Sunset mountain landscape",
+        "Futuristic city",
+        "Abstract art"
+      ],
       "emptyHint": "Describe an image to generate",
       "tryThese": "Try these",
       "placeholder": "Describe the image you want",
@@ -474,7 +569,14 @@
       "favorited": "Favorited",
       "history": "History",
       "empty": "No generations yet",
-      "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"],
+      "styles": [
+        "Realistic",
+        "Anime",
+        "Oil Painting",
+        "Watercolor",
+        "3D",
+        "Pixel"
+      ],
       "generateFailed": "Generation failed, please retry",
       "downloadSuccess": "Saved to album",
       "downloadFailed": "Download failed, please retry",
@@ -571,7 +673,10 @@
       "cleared": "Cleared",
       "refreshSuccess": "Refreshed successfully",
       "startNew": "Start new conversation",
-      "msgCount": "{n} messages"
+      "msgCount": "{n} messages",
+      "noMore": "No more",
+      "noResult": "No matching chats",
+      "searchPlaceholder": "Search chat history"
     },
     "special": {
       "pageError": "Operation failed",
@@ -579,11 +684,20 @@
         "image": "AI Drawing",
         "video": "AI Video",
         "voice": "AI Voice",
-        "plaza": "Model Plaza"
+        "plaza": "Model Plaza",
+        "agent": "Agents",
+        "all": "All",
+        "chat": "AI Chat"
       },
       "historySoon": "History coming soon",
       "featured": "Featured",
-      "useBtn": "Use now"
+      "useBtn": "Use now",
+      "bannerDesc": "One-stop aggregation of AI chat/drawing/video/voice/agents/model plaza, with curated recommended capabilities ready to use instantly",
+      "bannerTitle": "AI Special Collection",
+      "empty": "No content yet",
+      "error": "Failed to load",
+      "history": "My Usage History",
+      "useCount": "{n} uses"
     },
     "chat": {
       "agentTipTitle": "Agent Guide",
@@ -601,13 +715,16 @@
     },
     "uploadMaterialTab": "Upload {tab} material",
     "messageAction": {
-      "reuse": "Reuse"
+      "reuse": "Reuse",
+      "copy": "Copy",
+      "delete": "Delete"
     },
     "chatDrawers": {
       "selectModel": "Select Model",
       "materialLibrary": "Material Library",
       "emptyMaterial": "No materials",
-      "skillDetail": "Skill Details"
+      "skillDetail": "Skill Details",
+      "promptLabel": "Prompt"
     },
     "aiAssistant": {
       "nothingToCopy": "Nothing to copy",
@@ -617,10 +734,25 @@
       "insufficientTokens": "Insufficient tokens",
       "goRecharge": "Insufficient tokens. Go to recharge?",
       "pleaseLogin": "Please log in first",
-      "generateFailed": "Generation failed, please retry"
+      "generateFailed": "Generation failed, please retry",
+      "copyFailed": "Copy failed"
     },
     "intelligentAssistant": {
-      "greeting": "Hi, I'm your IHUI AI assistant"
+      "greeting": "Hi, I'm your IHUI AI assistant",
+      "loginRequired": "Please log in first to use",
+      "recharge": "Recharge",
+      "subtitle": "Here to provide AI services anytime",
+      "tokenBalance": "Token Balance: {n}"
+    },
+    "share": {
+      "title": "Share"
+    },
+    "specialModel": {
+      "confirm": "Confirm Switch",
+      "hint": "Notice"
+    },
+    "switchAgent": {
+      "confirm": "Confirm Switch"
     }
   },
   "share": {
@@ -642,7 +774,10 @@
       "goHome": "Back home",
       "history": "History",
       "emptyHistory": "No history",
-      "models": "Models"
+      "models": "Models",
+      "selectCategory": "Select Category",
+      "subtitle": "Curating cutting-edge tech news",
+      "viewMore": "View More Rankings"
     },
     "creation": {
       "title": "AI Creation Share",
@@ -696,7 +831,10 @@
     "sendFailed": "Send failed, please retry",
     "loadFailed": "Load failed",
     "thinking": "Thinking…",
-    "inputPlaceholder": "Type a message…"
+    "inputPlaceholder": "Type a message…",
+    "filePickFailed": "Failed to select file",
+    "imagePickFailed": "Failed to select image",
+    "sending": "Sending…"
   },
   "aiAssistantN8n": {
     "title": "AI Assistant",
@@ -721,7 +859,8 @@
     "clickPlay": "Tap to play",
     "fileMessage": "File message",
     "clickView": "Tap to view",
-    "read": "Read"
+    "read": "Read",
+    "defaultTitle": "AI Assistant"
   },
   "accountCancel": {
     "title": "Delete account",
@@ -741,7 +880,8 @@
     "codePlaceholder": "Enter verification code",
     "getCode": "Get code",
     "confirmLabel": "Confirmation text",
-    "confirmPlaceholder": "Enter the text above"
+    "confirmPlaceholder": "Enter the text above",
+    "failed": "Account cancellation failed, please try again"
   },
   "ask": {
     "search": "Search questions",
@@ -777,7 +917,12 @@
       "categoryPlaceholder": "Select category",
       "imageLabel": "Image",
       "anonymousLabel": "Post anonymously",
-      "anonymousDesc": "Your nickname will not be shown"
+      "anonymousDesc": "Your nickname will not be shown",
+      "categoryLabel": "Category",
+      "contentCount": "{n}/500",
+      "submitting": "Publishing…",
+      "titleCount": "{n}/50",
+      "titleRequired": "Please enter a title"
     }
   },
   "aigc": {
@@ -827,7 +972,8 @@
     "teacher": "Instructor",
     "free": "Free",
     "studentsUnit": "learning",
-    "loadingMore": "Loading…"
+    "loadingMore": "Loading…",
+    "featured": "Featured"
   },
   "following": {
     "cancel": "Unfollow",
@@ -841,7 +987,10 @@
     "sortByRecent": "Recently active",
     "followedAt": "Followed at",
     "searchEmpty": "No matching users found",
-    "goDiscover": "Discover more"
+    "goDiscover": "Discover more",
+    "following": "Followed",
+    "searchPlaceholder": "Search followed users",
+    "total": "Followed"
   },
   "webview": {
     "title": "Web page",
@@ -882,7 +1031,22 @@
       "myAnswer": "My answer",
       "correctAnswer": "Correct answer",
       "analysis": "Analysis",
-      "noReview": "No questions to review"
+      "noReview": "No questions to review",
+      "correct": "Correct",
+      "correctValue": "{n} questions",
+      "duration": "Duration",
+      "durationValue": "{n} minutes",
+      "loading": "Loading...",
+      "questionIdx": "Question {n}",
+      "retry": "Take Test Again",
+      "reviewScore": "{n} points",
+      "share": "Share Score",
+      "shareTitle": "My exam score: {n} points",
+      "totalScoreValue": "Perfect score: {n} points",
+      "unanswered": "Unanswered",
+      "unansweredValue": "{n} questions",
+      "wrong": "Wrong",
+      "wrongValue": "{n} questions"
     },
     "detail": {
       "loadFailed": "Exam load failed",
@@ -904,10 +1068,22 @@
       "historyPassed": "Passed",
       "historyNotPassed": "Not passed",
       "historyEmpty": "No history scores",
-      "starting": "Entering exam…"
+      "starting": "Entering exam…",
+      "historyScoreValue": "{n} points",
+      "historyTime": "Exam time {time}",
+      "loading": "Loading...",
+      "retry": "Click to retry",
+      "rule1": "The exam is timed; please manage your time wisely",
+      "rule2": "Leaving the exam more than 3 times will submit it automatically",
+      "rulesTitle": "Exam Rules",
+      "totalScore": "Total Score",
+      "totalScoreValue": "{n} points"
     },
     "answer": {
-      "judgmentOptions": ["True", "False"],
+      "judgmentOptions": [
+        "True",
+        "False"
+      ],
       "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
@@ -930,7 +1106,10 @@
     "selectAll": "Select all",
     "collectedAt": "Collected at",
     "searchEmpty": "No matching content found",
-    "goDiscover": "Discover"
+    "goDiscover": "Discover",
+    "searchPlaceholder": "Search favorited content",
+    "selectFirst": "Please select first",
+    "total": "Favorited"
   },
   "distribution": {
     "withdraw": {
@@ -1062,7 +1241,8 @@
     "withdrawable": "Withdrawable",
     "pendingSettle": "Pending Settlement",
     "withdrawn": "Withdrawn",
-    "myTeam": "My Team"
+    "myTeam": "My Team",
+    "columnTitle": "Distribution Orders"
   },
   "about": {
     "version": "Version {version}",
@@ -1074,7 +1254,15 @@
         "t4": "2.4 Authorization and Access Restrictions",
         "t5": "2.5 Terminal Device and Network Requirements",
         "t6": "2.6 Usage Rights and Reserved Rights",
-        "t7": "2.7 Content Quality and Feedback Mechanism"
+        "t7": "2.7 Content Quality and Feedback Mechanism",
+        "p1": "This software and its related services are primarily designed for adult users. If you are under the age of 18, please review and fully understand this Agreement in detail under the accompaniment of a legal guardian and use this software and its related services only after obtaining the legal guardian's consent. This software and its related services are based on generative artificial intelligence models and other models and services that may provide assistance, and are intended to provide users with AI-generated technical services, among others. The generated content is for reference only and is strictly prohibited from being used for professional advice, commercial purposes, or other unintended purposes. Particularly in fields with major impact such as healthcare, finance, investment, and insurance, we strongly recommend that you consult relevant professionals. The Company shall not bear any risks or liabilities arising from users' reliance on output content. Users should use generative artificial intelligence technology rationally and scientifically and bear all consequences arising therefrom.",
+        "p2": "To continuously improve the user experience and service security, the Company has the right to update, modify, or upgrade this software and its related services, in part or in full, from time to time, including but not limited to feature enhancements and development of new services. When feasible, the Company will notify users through appropriate means.",
+        "p3": "The user has the right to terminate the use of this software and its related services at any time. At the same time, the Company also reserves the right to suspend the provision of services to the user at any time or to add new usage restrictions.",
+        "p4": "Unless prior explicit written authorization from the Company has been obtained, the user shall not perform any form of unauthorized access to or use of this software and its related services, including but not limited to adaptation, copying, distribution, vertical search, mirroring, or trading",
+        "p5": "The user shall prepare the terminal devices required to access this software and its related services and bear the networking costs incurred by using the services. Once this software and its related services are accessed on a terminal device, the user is deemed to have used this software and its related services.",
+        "p6": "The Company grants the user a personal, revocable, non-transferable, non-exclusive, and non-commercial right to lawfully use this software and its related services. All other rights not expressly granted by this Agreement are reserved by the Company. The user must obtain the Company's written permission before exercising these rights. The Company's failure to exercise any of the aforementioned rights does not constitute a waiver of such rights.",
+        "p7": "The Company attaches great importance to the quality of content generated by artificial intelligence models and will take reasonable measures to filter inappropriate content. If users discover problems with output content or processing results, they are welcome to provide feedback through the designated feedback channels. With regard to infringement complaints and their handling triggered by user-published content, if a user does not accept the handling result, the user should submit relevant supporting materials for appeal as prompted by the Company, and the Company will handle it in a timely manner in accordance with the law.",
+        "title": "2. Terms of This Software and Related Services"
       },
       "s3": {
         "t1": "3.1 Account Registration and Usage",
@@ -1085,15 +1273,107 @@
         "t6": "3.6 Password Recovery",
         "t7": "3.7 Real Identity Information",
         "t8": "3.8 Account Information Management",
-        "t9": "3.9 Account Recycling"
+        "t9": "3.9 Account Recycling",
+        "p1": "The Company provides you with a registration channel through this software and its related services. You should choose a combination of characters that complies with the regulations as your account and set a password that meets security standards. The account and password you set, along with the verification codes you receive, are the sole credentials for logging in to this software and using related services. Please note in particular that the core function of this software and its related services is [AI Chat], which can only be used after logging in to an account.",
+        "p2": "When you decide to terminate the use of this software's account services, the following conditions must be met: You may only apply to cancel your own account and operate in accordance with the established procedures of this software; any liability arising from behavior before and during the cancellation remains with you; after the account is successfully canceled, the relevant information and functions cannot be restored. If you need to cancel your account, please follow the prompts.",
+        "p3": "You promise that the account you register does not violate national laws, regulations, and the relevant provisions of the Company. Registration information such as account names and avatars must not contain illegal or inappropriate content. It is forbidden to register an account under someone else's name or to register account maliciously. The Company reserves the right to review the information you submit. While using your account, you must comply with relevant laws and regulations and must not engage in any behavior that infringes upon others' rights and interests.",
+        "p4": "The account you register may only be used by you. It is forbidden to transfer, rent, or lend your account to others in any form without the Company's explicit written consent. If the Company discovers that the user of the account is not the initial registrant, the Company has the right to suspend or terminate the service to protect account security and may permanently disable the account.",
+        "p5": "You are responsible for ensuring the security of your account, password, and verification codes. You shall bear any legal liability caused by improper custody. If you discover an anomaly in your account, you should notify the Company immediately.",
+        "p6": "If you forget your password or verification code, you can appeal to the Company to recover it through the designated channels. However, you should understand that the Company's password recovery mechanism is based on the matching of appeal information and cannot fully verify the true identity of the appellant. Therefore, we strongly recommend that you properly keep your account-related information.",
+        "p7": "When registering, using, and managing your account, you should ensure that the identity information you provide is true and accurate. If the information you provide is untrue or inaccurate, the Company has the right to refuse or restrict your use of this software and its related services.",
+        "p8": "After completing registration, you may view and modify your personal identity information at any time. However, for security reasons, certain initial registration information may not be modifiable. If you apply to cancel your account, the Company will assist in completing the cancellation after verifying your identity and will delete the relevant information (except where otherwise provided by laws and regulations).",
+        "p9": "If you have not used your account for a long time after registration, the Company has the right to reclaim the account to make full use of resources. Before reclaiming, the Company will remind you through appropriate means. If you still have not used the account within a certain period after receiving the reminder, the Company will proceed with the reclaim.",
+        "title": "3. About Accounts"
       },
       "s5": {
         "t1": "5.1 User Code of Conduct",
         "t2": "5.2 Information Content Guidelines",
-        "t3": "5.3 Complaints and Reports"
+        "t3": "5.3 Complaints and Reports",
+        "p1": "When using this software and its related services, users shall bear full responsibility for their behavior. Unless expressly permitted by law or explicitly authorized in writing by the Company, users are strictly prohibited from carrying out the following behaviors when using this software and its related services:",
+        "p10": "5.1.9 If the Company has reasonable grounds to believe that a user has used generative AI services to engage in illegal activities or may be in violation of the above provisions, the Company has the right, without prior notice, to independently judge and take corresponding measures, including but not limited to warnings, restricting functions, suspending or terminating services, and pursuing relevant legal liabilities in accordance with the law.",
+        "p11": "5.2.1 The Company is committed to promoting civilized, rational, friendly, and high-quality communication, and continuously strengthens its information security management capabilities, earnestly fulfills social responsibilities, complies with national laws and regulations, and respects the legitimate rights and interests of citizens and social public order and good customs.",
+        "p12": "5.2.2 The information that users input, output/generate, create, comment on, upload, publish, or disseminate when using this software and its related services shall consciously comply with laws and regulations and respect social morality and ethics. It shall not contain content that opposes the basic principles established by the Constitution, endangers national security and interests, subverts state power, damages national honor and interests, promotes terrorism, promotes ethnic hatred, promotes discriminatory hatred, engages in illegal or high-risk activities, undermines national religious policies, disseminates rumors and false information, disseminates violent, obscene, or pornographic content, exploits or harms minors, insults or defames others, violates others' privacy, disseminates foul language, violates business ethics, or disseminates commercial advertising spam and other illegal or non-compliant content.",
+        "p13": "Users have the right to complain to and report to the Company about various illegal and non-compliant acts, illegal dissemination activities, and illegal and harmful information. The Company will handle users' legitimate complaints and reports in a timely manner and jointly maintain a clean and upright online environment",
+        "p2": "5.1.1 Without the Company's explicit authorization or consent, no plugins, cheats, systems, or third-party tools may be used to interfere with, damage, modify, or exert improper influence on the normal operation of this software and its related services.",
+        "p3": "5.1.2 It is strictly prohibited to engage in any activities that endanger computer network security using or targeting this software and its related services, including but not limited to: (a) illegally intruding into networks, interfering with the normal functions of networks, or stealing network data and other acts that endanger network security; (b) providing programs or tools specifically used for network intrusion, interfering with the normal functions and protective measures of networks, or stealing network data; (c) providing technical support, advertising promotion, payment settlement, or other assistance to others who are known to be engaged in activities endangering network security; (d) using unauthorized data or accessing unauthorized servers/accounts; (e) entering public computer networks or others' computer systems without authorization to delete, modify, or add stored information; (f) without permission, attempting to detect, scan, or test the weaknesses of this software's systems or networks, or carrying out other acts that damage network security; (g) attempting to interfere with or damage the normal operation of this software's systems or websites, deliberately disseminating malicious programs, viruses, or other acts that interfere with normal network information services; (h) forging TCP/IP data packet names or part of the names.",
+        "p4": "5.1.3 It is prohibited to reverse engineer, decompile, translate, or in any other way attempt to discover the source code, models, algorithms, and underlying components of this software, its systems, or related services.",
+        "p5": "5.1.4 It is strictly prohibited to maliciously register accounts for this software and its related services, including but not limited to frequent and batch registration of accounts.",
+        "p6": "5.1.5 Without the explicit consent of the original user, no user information may be shown or otherwise provided to any non-original user.",
+        "p7": "5.1.6 Without explicit authorization, it is prohibited to impersonate others or obtain illegal access rights to this software and its related services.",
+        "p8": "5.1.7 It is strictly prohibited to use or target this software and its related services for fraud, deception, misleading, or deceptive activities, including but not limited to phishing, impersonation, plagiarism, and academic misconduct.",
+        "p9": "5.1.8 You must respect the privacy of others and must not use this software and its related services in any way that may infringe the privacy of third parties, such as illegally collecting or disclosing personally identifiable information, education, financial, or other protected records.",
+        "title": "5. User Code of Conduct"
       },
       "mainTitle": "Service Agreement",
-      "title": "User Agreement"
+      "title": "User Agreement",
+      "s1": {
+        "p1": "Thank you for choosing to use",
+        "p2": "These services are",
+        "p3": "To ensure that you can fully enjoy the services we provide, please read and fully understand the contents of this Agreement carefully before starting to use this software and its related services, especially the key provisions concerning exemption from liability, limitation clauses, licensing of rights, applicable law, and dispute resolution. For important content such as liability exemption or limitation, we have used prominent methods such as bold font to remind you to pay attention, and we ask you to review it carefully.",
+        "p4": "If you do not agree with any provision of this Agreement, we may be unable to provide you with a complete product and service experience. In such a case, you have the right to choose to stop using this software and its related services. If you choose to continue using or accept this software and its related services, you will be deemed to have fully understood this Agreement and voluntarily acted as a party to this Agreement, accepting the legal binding of this Agreement and other related agreements and rules (including but not limited to the 《Privacy Policy》 and 《Testing Guidelines》).",
+        "p5": "If you have any questions, opinions, or suggestions about the contents of this Agreement, you are welcome to contact us through the feedback and complaint channels built into this software. We will do our best to answer and improve.",
+        "title": "1. Introduction"
+      },
+      "s10": {
+        "p1": "10.1 The user understands and agrees that this software and its related services may be interfered with by multiple uncontrollable factors. Therefore, the Company does not guarantee and expressly states that it shall not bear the following liabilities: (a) that this software and its related services will fully satisfy the user's specific personal needs; (b) that this software and its related services will not be subject to any form of interference and will always remain timely, safe, reliable, and error-free, and that the software, services, or other materials obtained by the user from the Company will fully meet expectations; (c) that all errors or defects in this software and its related services will be corrected.",
+        "p2": "10.2 If you encounter information involving financial transactions, investment and financing activities, financial strategies, or other property-related information, account credentials, advertisements, or promotional materials, please exercise caution and independently judge their authenticity and legality. The Company shall not bear any compensation liability for profit losses, damage to commercial reputation, data loss, or other direct or indirect damages caused by the user's reliance on or use of such information.",
+        "p3": "10.3 The user understands and agrees that the operation of this software and its related services may be affected by force majeure events, including but not limited to natural disasters, government actions, war, labor disputes, or social unrest. In such cases, the Company will make its best efforts to restore services, but shall be exempt from liability to the maximum extent permitted by law for service interruptions, delays, terminations, or any other damages caused by force majeure.",
+        "p4": "10.4 The Company has the right to handle illegal or non-compliant content in accordance with the law; this right does not constitute an obligation or commitment of the Company. The Company cannot guarantee that it will discover all illegal acts in a timely manner, nor can it promise to take corresponding measures against all illegal acts.",
+        "p5": "10.5 The user expressly understands and agrees that, with respect to this software and its related services, the Company provides no express or implied warranty, including but not limited to merchantability and fitness for a particular purpose. The user shall bear all risks of using this software and its related services.",
+        "p6": "10.6 The purpose of this Agreement is to ensure compliance with national laws and regulations, maintain social order, and protect the legitimate rights and interests of users and others. The Company will make its best efforts to judge and act within the scope permitted by laws and regulations, but cannot guarantee that its judgment will be completely consistent with that of judicial or administrative organs. Therefore, the user shall bear any consequences arising therefrom.",
+        "p7": "10.7 In any case, regardless of whether the user has been notified in advance of possible damages, the Company and its affiliates or licensors shall not be liable for any form of damage, including but not limited to profit losses, damage to goodwill, and data loss. Unless otherwise expressly provided by laws and regulations, the total liability of the Company to the user, regardless of cause and form, shall not exceed the total amount of fees paid by the user to the Company during the use of this software and its related services (if any).",
+        "title": "10. Disclaimer"
+      },
+      "s11": {
+        "p1": "11.1 If the user is a minor under the age of 18, the user may use this software and its related services only after carefully reading and agreeing to this Agreement with the accompaniment, guidance, and consent of a guardian.",
+        "p2": "11.2 The Company attaches great importance to the protection of minors' personal information. When providing personal information, minor users should strengthen their awareness of self-protection and correctly use this software and its related services under the guidance and consent of a guardian.",
+        "p3": "11.3 Minor users and their guardians should understand and confirm that any legal liability caused by violating laws, regulations, or the provisions of this Agreement shall be borne by themselves.",
+        "p4": "11.4 Special reminder to minor users: When using this software and its related services, please do so under the accompaniment and guidance of a guardian, arrange your time reasonably, avoid excessive addiction to the Internet, and comply with the relevant provisions of the 《National Youth Online Civilization Convention》.",
+        "p5": "11.5 To protect the privacy rights and interests of minors, please strictly comply with laws and regulations when publishing content involving minors. Posting such content is deemed to constitute sufficient authorization from the rights holders. The Company will use and process such content in accordance with this Agreement and relevant laws and regulations.",
+        "title": "11. Terms of Use for Minors"
+      },
+      "s12": {
+        "p1": "This software and its related services may contain software components provided under open source licenses or other license terms. Users may refer to the 《Android Open Source Notice》 or the 《iOS Open Source Notice》 for more information. Certain open source license terms may have priority over portions of this Agreement, and users are advised to read the relevant licenses carefully.",
+        "title": "12. Open Source License"
+      },
+      "s13": {
+        "p1": "13.1 The establishment, effectiveness, performance, interpretation, and dispute resolution of this Agreement shall be governed by the laws of the People's Republic of China. If any provision of this Agreement is invalid or unenforceable because it conflicts with the laws of the People's Republic of China, it shall be interpreted and applied as far as possible in accordance with the original intent of this Agreement without violating the law, and the other provisions of this Agreement shall remain fully valid.",
+        "p2": "13.2 The place of signing of this Agreement is Longhua District, Shenzhen City, People's Republic of China. Any dispute arising from this Agreement shall be resolved through friendly negotiation between the parties first; if negotiation fails, it shall be submitted to the people's court at the place of signing of this Agreement for resolution through litigation.",
+        "p3": "13.3 To provide better services or to adapt to changes in laws, regulations, policies, and technical conditions, the Company may amend this Agreement from time to time. The amended Agreement shall become part of this Agreement and may be viewed through the relevant pages of this software and its related services. The user's continued use of this software and its related services shall constitute acceptance of the amended Agreement; if you object to the amended Agreement, please stop using this software and its related services immediately.",
+        "p4": "13.4 The Company has the right, based on the operational needs of this software and its related services, to unilaterally decide to arrange for or designate its affiliates, majority-owned subsidiaries, successor companies, or a third party recognized by the Company to continue operating this software. At the same time, certain services under this Agreement may be provided to the user by the aforementioned entities. The user's acceptance of the relevant service content shall be deemed consent to be bound by this Agreement.",
+        "p5": "13.5 The headings in this Agreement are provided solely for ease of reading and do not affect the meaning or interpretation of any provision of this Agreement.",
+        "p6": "13.6 The user and the Company are independent legal entities, and this Agreement does not constitute any agency, partnership, joint venture, or employment relationship between the parties. In no case shall this Agreement constitute any express or implied warranty or condition by the Company to the user.",
+        "title": "13. Miscellaneous"
+      },
+      "s4": {
+        "p1": "The Company attaches great importance to the protection of users' personal information and regards it as one of its fundamental principles. During the use of the services, you may be required to provide personal information. We will protect your personal information rights in accordance with the law and take necessary security measures for protection. For more details, please refer to the 《Privacy Policy》.",
+        "title": "4. Protection of User Personal Information"
+      },
+      "s6": {
+        "p1": "6.1 Without the explicit written authorization of the Company, no user or third party may, on their own initiative or by authorizing others, carry out the following acts on the information content in this software and its related services: (a) copy, read, or adopt the information content of this software and its related services for any commercial purpose such as commercial advertising, increasing readership, or increasing page views; (b) without authorization, edit and organize, then display the information content of this software and its related services on a source page other than that of this software and its related services; (c) use any special identifiers, codes, or other means to produce adverse effects such as diverting, transferring, or hijacking traffic for the information content of this software and its related services; (d) any other behavior that illegally obtains or uses the information content of this software and its related services;",
+        "p2": "6.2 It is strictly prohibited to obtain, directly or indirectly, the text, images, videos, and other information content of this software and its related services by any means such as hot linking, redundant theft, illegal crawling, deep linking, or fake registration. At the same time, no one is allowed, by any means, to delete, conceal, or alter any patent, copyright, trademark, or other ownership notices displayed in this software and its related services.",
+        "p3": "6.3 After obtaining the explicit written permission of the Company, when users and third parties share or forward the information content of this software and its related services, they must comply with the following provisions: (a) the relevant data obtained through crawling or statistics may not be publicized or provided to any third party unless the Company's explicit written consent has been obtained in advance; (b) no changes may be made to the source pages of this software and its related services, including but not limited to entries such as homepage links, and no acts that obstruct in any form, such as covering, inserting, or pop-ups, are permitted; (c) strict security measures should be taken to prevent the information content of this software and its related services from being illegally obtained; (d) the data content may not be used for purposes outside the scope of the Company's written permission, especially sales and commercial use, or be disclosed or provided to third parties;",
+        "p4": "6.4 Users may not use new technologies such as deep learning to produce, publish, or disseminate false information. When publishing or disseminating information generated based on new technologies, such information should be prominently identified or indicated. At the same time, users may not delete or misleadingly modify the identifiers added by this software based on new technologies.",
+        "title": "6. Standards for Use of Information Content"
+      },
+      "s7": {
+        "p1": "7.1 Users should understand that this software and its related services are provided in accordance with existing technology and conditions and may be affected by factors such as force majeure, network reasons, and defects of third-party services, resulting in service interruptions or other losses and risks. The Company will make its best efforts to provide services but cannot foresee and prevent all technical and other risks.",
+        "p2": "7.2 For the overall operation of services and platform security, the Company has the right to decide, based on specific circumstances, the setting, scope, modification, suspension, interruption, or termination of services/functions.",
+        "title": "7. Service Change, Interruption, and Termination"
+      },
+      "s8": {
+        "p1": "8.1 The intellectual property rights of the content provided by users during their use of this software and its related services belong to the users or relevant rights holders. The Company does not claim ownership of output content. However, if the input and/or output contains the Company's intellectual property, the corresponding rights remain with the Company. Users grant the Company and/or its affiliates a free, worldwide, and perpetual license to optimize models and services. This license is transferable and sublicensable. Users must ensure the legality of input content and not infringe upon the legitimate rights and interests of any third party.",
+        "p2": "8.2 Unless otherwise provided, the intellectual property rights of all content provided in this software and its related services belong to the Company. Without permission, no one may use the content in this software and its related services without authorization.",
+        "p3": "8.3 Users grant the Company and/or its affiliates the right to use the information content that they input, upload, publish, or disseminate through this software and its related services for purposes such as related publicity, promotion, and research.",
+        "p4": "8.4 The Company has the corresponding rights to all data and information generated during the development and operation of this software and its related services. Users may not privately use any brand features of the Company, such as trademarks and service marks.",
+        "title": "8. Intellectual Property Rights"
+      },
+      "s9": {
+        "p1": "9.1 For violations of this Agreement or other service terms, the Company has the right to independently judge and take corresponding measures, including but not limited to warnings, refusing to publish, stopping transmission, deleting content, restricting account functions up to terminating services, and closing accounts. The Company shall not be liable for any losses caused thereby and has the right to announce the handling results. For acts suspected of constituting crimes, the Company will report to the authorities in accordance with the law and cooperate with investigations.",
+        "p2": "9.2 Users shall handle third-party complaints or lawsuits arising from violations of this Agreement or other service terms themselves and bear all legal liability. If the Company and its affiliates suffer losses as a result, users shall provide full compensation.",
+        "p3": "9.3 The Company respects and protects the legitimate rights and interests of users and others. When using this software and its related services, users shall not infringe upon the intellectual property rights, reputation rights, and other rights and interests of any third party. If infringement occurs, the Company has the right to remove the allegedly infringing content and require the user to handle it and bear legal liability. If the Company and its affiliates suffer losses as a result, users shall provide full compensation.",
+        "title": "9. Handling of Breach"
+      }
     },
     "privacy": {
       "overviewTitle": "IHUI AI Privacy Policy Overview",
@@ -1106,22 +1386,46 @@
         "t5": "1.5 Message Notification Service",
         "t6": "1.6 Operations and Security Assurance",
         "t7": "1.7 Changes to Purposes of Collecting and Using Personal Information",
-        "t8": "1.8 Exceptions to Obtaining Authorization Consent"
+        "t8": "1.8 Exceptions to Obtaining Authorization Consent",
+        "p0": "We will collect information that users actively provide when using our services in the following ways, as well as information generated during users' use of features or acceptance of services through automated means:",
+        "p1": "When a user registers or logs in",
+        "p2": "We provide conversation and interactive services based on generative artificial intelligence models, and may need to collect the following information: text and voice content actively entered by users, as well as behavioral information when using the models (such as clicks and browsing records). User feedback (such as likes and feedback submissions) to improve service quality. On the premise of strictly following the principles of secure encryption and de-identification, we may use the above data for model training and optimization. If users do not wish their data to be used for this purpose, they may contact us via the contact information provided in this Privacy Policy and request withdrawal. When users input images or voice, we will request corresponding camera, photo album, or microphone permissions. If users refuse to grant such permissions, the related features will be unavailable, but this will not affect the normal use of other features. When location information is required to provide precise services, we will request users to authorize access to location information. Precise location information is sensitive personal information; refusing authorization will affect positioning accuracy but will not affect the normal use of other features.",
+        "p3": "To provide real-time search results, we may collect and analyze information actively input by users, and may provide relevant search results based on users' geographic location.",
+        "p4": "We may save users' communication/call records and related content in order to contact users, resolve issues, or record handling solutions. Such information may be provided to relevant authorities, except where explicitly prohibited by laws and regulations. In addition, we may send questionnaires to improve services, but users have the right to choose not to participate.",
+        "p5": "We may send notifications through the contact information provided by users (such as user experience surveys). Users can unsubscribe from such messages via SMS or by contacting us.",
+        "p6": "To maintain the normal operation of services and protect users' rights, we may collect necessary information to ensure the safe and stable operation of products and services. This may include device information and log information, to prevent malicious programs and ensure operational quality and efficiency.",
+        "p7": "As the business develops, we may adjust features and services. In scenarios that are not directly related to the original processing purpose, we will obtain users' consent anew and explain the purpose of collecting and using personal information.",
+        "p8": "In accordance with laws, regulations, and national standards, in certain specific circumstances (such as fulfilling legal obligations or safeguarding public security), we may collect and use personal information without obtaining prior user consent. These circumstances are described in detail in this Privacy Policy.",
+        "title": "1. Collection and Use of Personal Information"
       },
       "s2": {
         "t1": "2.1 Ensuring Safe and Efficient Operation of Products and Services",
         "t2": "2.2 Improving Your Access Convenience",
-        "t3": "2.3 About Cookie Clearance"
+        "t3": "2.3 About Cookie Clearance",
+        "p1": "Cookies, device information identifiers, and similar technologies are standard technologies widely adopted in the Internet field. When you use",
+        "p2": "We use Cookies and similar technologies mainly to realize the following functions or services:",
+        "p3": "To ensure that you can log in to the services securely and to guard against illegal acts such as theft and fraud, we may set Cookies or anonymous identifiers used for authentication and security assurance. These technologies also help us improve the operational efficiency of our services, optimize login and response speed, and thereby provide you with a smoother user experience.",
+        "p4": "With the help of these technologies, we can save you the tedious steps of repeatedly filling in personal information and entering search content (for example, recording conversation history), making your visit easier and more convenient.",
+        "p5": "You have the right to refuse or manage Cookies and similar technologies through browser settings. The specific operation path is usually as follows: go to the",
+        "title": "2. Explanation of How We Use Cookies and Similar Technologies"
       },
       "s3": {
         "t1": "3.1 Data Sharing and Partners",
         "t2": "3.2 Data Transfer",
         "t3": "3.3 Data Disclosure",
-        "t4": "3.4 Exemption Circumstances"
+        "t4": "3.4 Exemption Circumstances",
+        "p1": "When sharing data with partners, we always adhere to the following principles: Principle of legality: All cooperative activities involving data sharing must have a clear legal purpose and strictly comply with relevant laws and regulations. Principle of legitimacy and necessity: The sharing and use of data is limited to the minimum scope necessary to achieve legitimate purposes. Principle of security and prudence: When evaluating partners' data processing purposes and their security assurance capabilities, we will take a prudent attitude and require partners to strictly comply with the legal agreements reached between the two parties. For specific information about partners, please refer to our 《List of Third-Party Information Sharing》. In specific scenarios, such as entrusted processing or joint processing of personal information, we will sign legal agreements with the entrusted party or joint processor to clarify each party's rights and obligations and ensure the secure and compliant use of personal information.",
+        "p2": "As the business develops, we may be involved in mergers, acquisitions, or asset transfers, which may result in the transfer of your personal information. In such cases, we will ensure that the successor continues to fulfill personal information processing obligations in accordance with laws, regulations, and the standards of this Privacy Policy. If the successor intends to change the original processing purpose or method, we will require it to obtain your authorization anew.",
+        "p3": "We promise not to disclose your personal information arbitrarily unless we have obtained your explicit consent or are required to do so by laws and regulations. When disclosing personal information, we will adopt industry-standard security measures. However, in certain specific circumstances, such as penalizing accounts for violations or fraudulent behavior, we may disclose information about the relevant accounts.",
+        "p4": "Please note that in specific circumstances, in accordance with laws, regulations, and national standards, we may provide or disclose your personal information to partners without obtaining your prior authorization. These circumstances include, but are not limited to, what is necessary for contract performance, fulfillment of legal obligations, safeguarding national security, and responding to public health emergencies.",
+        "title": "3. Data Sharing, Transfer, and Disclosure"
       },
       "s4": {
         "t1": "4.1 Storage Location and Cross-border Transfer",
-        "t2": "4.2 Storage Period and Deletion"
+        "t2": "4.2 Storage Period and Deletion",
+        "p1": "In compliance with laws and regulations, we store your personal information within the territory of the People's Republic of China. At present, we do not transfer your information overseas. If cross-border transfer is involved in the future, we will strictly comply with relevant laws and regulations and seek your consent.",
+        "p2": "We will retain your personal information only for the period necessary to provide the services. After you cancel your account, proactively delete your personal information, or when the necessary period is exceeded, we will delete or anonymize your personal information. However, please note that in accordance with legal requirements or for purposes such as finance and auditing, we may need to extend the storage period of certain information.",
+        "title": "4. Data Storage and Security"
       },
       "s5": {
         "t1": "5.1 Security Assurance Commitment",
@@ -1129,7 +1433,14 @@
         "t3": "5.3 Security Management System",
         "t4": "5.4 Security Risk Notice",
         "t5": "5.5 Emergency Response Mechanism",
-        "t6": "5.6 Information Security Outside the Service"
+        "t6": "5.6 Information Security Outside the Service",
+        "p1": "We solemnly promise to treat the security of users' personal information as a top priority. To this end, we will take a series of reasonable and necessary security measures, including safeguarding against unauthorized use, unauthorized access, public disclosure, tampering, damage, loss, or leakage.",
+        "p2": "To ensure the security of user data, we will adopt industry-leading encryption technologies and anonymization measures. At the same time, we will deploy security protection mechanisms to defend against potential malicious attacks.",
+        "p3": "We have established a comprehensive security management system, including a professional security department and strict security management systems and processes. We only allow authorized personnel to access user data and conduct regular security audits to ensure compliance and security in data use.",
+        "p4": "Although we have taken many measures and complied with relevant legal requirements, limited by current technology and potential malicious behavior, we cannot guarantee one hundred percent security of information. Therefore, we strongly recommend that users strengthen their own information security awareness and take necessary measures to protect their personal accounts and passwords.",
+        "p5": "To respond to possible information security incidents, we have formulated detailed emergency plans. Once a security incident occurs, we will immediately activate the emergency response procedures, promptly notify users, and take corresponding remedial measures. We will maintain communication with users through push notifications, emails, letters, SMS, and other means, and report the handling situation as required by regulatory authorities when necessary.",
+        "p6": "Please note that when users leave the scope of our services to visit other websites or use other services, we will be unable to directly protect the personal information submitted by users on those platforms. Users are advised to handle their personal information with caution when using such services.",
+        "title": "5. Personal Information Security Protection Measures"
       },
       "s9": {
         "t1": "9.1 360 Reinforcement",
@@ -1147,11 +1458,69 @@
         "t13": "9.13 Okhttp3",
         "t14": "9.14 Okio",
         "t15": "9.15 DCloud SDK",
-        "t16": "9.16 MAC Address Collection"
+        "t16": "9.16 MAC Address Collection",
+        "p1": "To provide more complete services, our application integrates the following third-party SDKs and services. The purpose, method, and scope of personal information collection and use by these SDKs and services are described in detail below:",
+        "p10": "Purpose: To allow Huawei phones to promptly notify users of the latest information. Method: Collects device identifiers, push notification status, etc. Scope: Used only for push notification services.",
+        "p11": "Purpose: An image caching component that improves image viewing speed. Method: May collect image cache data. Scope: Used only for image caching.",
+        "p12": "Purpose: To allow Samsung phones to promptly notify users of the latest information. Method: Collects device identifiers, push notification status, etc. Scope: Used only for push notification services.",
+        "p13": "Purpose: An optimization solution provided by Taobao to improve app performance. Method: May collect device information and application performance data. Scope: Used only to optimize application performance.",
+        "p14": "Purpose: An efficient HTTP client that improves app user experience. Method: May collect network request information. Scope: Used only for network requests.",
+        "p15": "Purpose: To supplement the deficiencies of Java.io and java.nio so that the app can access, store, and process data more conveniently and quickly. Method: Does not involve the collection of personal information. Scope: Used only for data access and processing.",
+        "p16": "Purpose: Used for application performance monitoring, user behavior analysis, push notifications, social sharing, one-click login, and other functions. Method: Collects device information (such as device identifiers and network identifiers). Scope: Used only to provide the above functions; the specific information shared will be determined by DCloud's privacy policy and the actual functions of the SDK.",
+        "p17": "Purpose: To ensure the stability and security of network connections, we may collect users' MAC addresses. Method: After the user agrees to the relevant permission, the application collects the device's MAC address information. Scope: The MAC address is used only for the above purposes and for no other purpose. We promise that the MAC address will not be associated with any information that can identify a person's identity.",
+        "p2": "Purpose: To reinforce the security of the app and ensure its security. Method: Collects device information (such as device model and operating system version). Scope: Used only for application security reinforcement and does not involve the collection of personal information.",
+        "p3": "Purpose: Provides compression and decompression functions. Method: Does not involve the collection of personal information. Scope: Used only for file compression and decompression.",
+        "p4": "Purpose: Provides Google browser engine functions. Method: May collect browsing history, cache data, etc. Scope: Used only to improve the in-app web browsing experience.",
+        "p5": "Purpose: An Android Gif control that enables users to play gifs. Method: Does not involve the collection of personal information. Scope: Used only for gif image playback.",
+        "p6": "Purpose: Enables the APP to play videos. Method: May collect device information, playback records, etc. Scope: Used only for video playback functions.",
+        "p7": "Purpose: A collection of low-level class libraries that implement asynchronous operations in the background. Method: Does not involve the collection of personal information. Scope: Used only to improve APP performance.",
+        "p8": "Purpose: An Android image loading and caching library that improves the APP's performance in viewing images. Method: May collect image cache data. Scope: Used only for image loading and caching.",
+        "p9": "Purpose: A powerful image loading component. Method: May collect image cache data. Scope: Used only for image loading and display.",
+        "title": "9. SDKs and Third-Party Services We Use"
       },
       "mainTitle": "Privacy Policy",
       "updateDate": "Updated: June 21, 2025",
-      "effectiveDate": "Effective: June 21, 2025"
+      "effectiveDate": "Effective: June 21, 2025",
+      "coreP1": "We will collect and use your information in accordance with the law and this Privacy Policy, and we will not force you to provide unnecessary personal information merely because you agree to this Policy.",
+      "coreP2": "When you use specific features or services, we may need to collect and use relevant information to ensure the normal operation of the services. This will not affect your use of other features or services.",
+      "coreP3": "Sensitive permissions such as microphone, photo album (storage), Bluetooth, and map are disabled by default. They are only used to realize specific features or services after you have explicitly authorized them, and you can withdraw such authorizations at any time. Even if permission is granted, we will not collect your information unnecessarily.",
+      "detailP1": "This Privacy Policy is intended to explain in detail the principles and practices we follow in handling personal information, including the collection, use, storage, transfer (where applicable), and protection of information, as well as how you can manage your own personal information",
+      "detailP10": "Revision and notification of the Privacy Policy: We will review and update this Privacy Policy on a regular basis and ensure that you are notified promptly of any significant changes.",
+      "detailP11": "Contact us: If you have any questions or suggestions, please feel free to contact us at any time. We will serve you wholeheartedly.",
+      "detailP12": "Please use the service only after you have fully understood and agreed to this Privacy Policy",
+      "detailP2": "Given that this Policy is closely related to your use of our services, we strongly recommend that you read and fully understand the contents of this Policy, paying special attention to the important terms concerning your rights and interests in personal information that we highlight in bold.",
+      "detailP3": "Collection and use of personal information: We will clearly explain the types, purposes, and methods of the information we collect.",
+      "detailP4": "Use of Cookies and similar technologies: We will explain how we use these technologies to improve your user experience and service quality.",
+      "detailP5": "Partners, information transfer, and disclosure: With regard to partners, information transfer, and disclosure involved in data processing, we will strictly comply with applicable laws, regulations, and contractual agreements to ensure the security of your information.",
+      "detailP6": "Storage of personal information: We will take reasonable technical and administrative measures to ensure the security of your personal information during storage.",
+      "detailP7": "Protection of personal information: We will take multi-layered security measures to prevent your information from being accessed, used, or disclosed without authorization.",
+      "detailP8": "Managing your personal information: You will have the right to access, correct, delete, and restrict our processing of your personal information.",
+      "detailP9": "Minors: We will pay special attention to the protection of minors' personal information and ensure that their legitimate rights and interests are not infringed.",
+      "detailTitle": "Detailed contents of the Privacy Policy:",
+      "overviewP1": "\"ZHIHUI Social\" (hereinafter referred to as \"we\" or \"the Company\") is well aware of the importance of personal information to you and the value of your trust in us. To this end, we solemnly promise to protect your personal information and privacy security by strictly abiding by relevant laws and regulations and, with reference to industry best practices, devoting ourselves to this cause. Before using \"ZHIHUI Social\" and related services, we sincerely ask that you read and fully understand this Privacy Policy so that you can make appropriate choices.",
+      "s10": {
+        "p1": "If you have any questions, opinions, or suggestions about this Privacy Policy, or need to file a complaint or report related issues, you may contact us in the following ways:",
+        "p2": "10.1 Provide feedback through the official website of ZHIHUI Social or the feedback portal within the App.",
+        "p3": "10.2 Room 1801, Building B9, Phase II of Yitian Silicon Valley Mansion (Yitian Luodi Yuefu), High-tech Zone, Changchun City.",
+        "title": "10. Contact Information"
+      },
+      "s11": {
+        "p1": "Jilin Province Lee's Digital Culture Co., Ltd. was established in December 2024. It is a technology company specializing in the research of the artificial intelligence field. Focusing on forward-looking technical attempts, through independent research and development, it has completed the underlying algorithms of AI Agents and created a general-purpose agent focused on behavior. At present, the product ZHIHUI Social AI has both APP and web platforms, and is suitable for ordinary people who need it in daily life and daily work, allowing them to own an agent without any prior knowledge. In addition, all external websites accessed by AI are legitimate websites. All AI requests are deemed to be known and agreed to by users by default. ZHIHUI Social only provides AI service functions. This product uses genuine commercial materials from Qianku.com. If there are any other infringing factors, please notify ZHIHUI Social to delete them.",
+        "title": "11. Business Introduction"
+      },
+      "s6": {
+        "p1": "We respect and are committed to safeguarding users' various rights over their personal information, including the right to view, copy, correct, supplement, delete, withdraw consent, and cancel accounts. Users can exercise these rights through designated paths and methods, and we will respond promptly and handle users' reasonable requests.",
+        "title": "6. Protection of User Rights"
+      },
+      "s7": {
+        "p1": "We attach great importance to the protection of minors' personal information. For minors under the age of 18, we recommend that they use our services under the accompaniment and guidance of a guardian. For children under the age of 14, we will strictly follow the provisions of relevant laws and regulations, and obtain the explicit consent of a guardian before collecting, using, or disclosing their personal information. If we discover that minors' information has been collected in violation of regulations, we will immediately take measures to delete the relevant information.",
+        "title": "7. Special Protection for Minors"
+      },
+      "s8": {
+        "p1": "To adapt to service updates and changes in laws and regulations, we may revise this Privacy Policy from time to time. The revised policy will constitute a new agreement with equal legal effect. We will remind users to note the updated content through announcements and other means before the updated terms take effect.",
+        "title": "8. Privacy Policy Updates and Notifications"
+      },
+      "title": "Privacy Policy"
     },
     "help": {
       "title": "Help center",
@@ -1164,7 +1533,15 @@
       "usernamePlaceholder": "Please enter your name",
       "context": "Issue description",
       "contextPlaceholder": "Please enter feedback details",
-      "submitFailed": "Feedback submission failed, please try again later"
+      "submitFailed": "Feedback submission failed, please try again later",
+      "faqTitle": "FAQ",
+      "nameRequired": "Please enter your name",
+      "phone": "Contact",
+      "phonePlaceholder": "Please enter your contact information",
+      "submit": "Submit Feedback",
+      "submitSuccess": "Feedback submitted successfully",
+      "submitTip": "Your feedback will be used to improve our products and services. Please be patient while we process it after submission",
+      "submitting": "Submitting..."
     },
     "contact": {
       "title": "Contact us",
@@ -1180,7 +1557,12 @@
       "workTimeLabel": "Working hours",
       "responseLabel": "Response time",
       "responseTime": "Replied within 24 hours on working days",
-      "callNow": "Call customer service now"
+      "callNow": "Call customer service now",
+      "copied": "Copied",
+      "empty": "Content is empty",
+      "footer": "Thank you for choosing ZHIHUI AI",
+      "noPhone": "No phone number",
+      "wechat": "WeChat"
     },
     "businessLicense": {
       "labels": [
@@ -1195,7 +1577,8 @@
       ],
       "scopeTitle": "Business scope",
       "footer": "For reference only, subject to business registration",
-      "tapToView": "Tap to view business license"
+      "tapToView": "Tap to view business license",
+      "title": "Business License"
     },
     "icpRecord": {
       "footer": "Sourced from MIIT filing system",
@@ -1206,18 +1589,99 @@
       "domain": "Domain",
       "recordDate": "Filing date",
       "query": "Query on MIIT",
-      "icpLabel": "ICP filing/license number"
+      "icpLabel": "ICP filing/license number",
+      "copyHint": "Click the number to copy",
+      "title": "ICP Filing"
     },
     "usageRules": {
       "s2": {
         "sub1": "(1) Permitted Actions",
-        "sub2": "(2) Prohibited Actions (Red Line Terms)"
+        "sub2": "(2) Prohibited Actions (Red Line Terms)",
+        "p1": "Users may lawfully and compliantly use the services provided by this APP within the scope of its functions, including but not limited to information browsing, content publishing, payment transactions, and interactive communication, and enjoy the legitimate rights and interests agreed in these rules and related platform rules.",
+        "p2": "Users may not use this APP to engage in any behavior that violates laws and regulations, damages the legitimate rights and interests of the Platform / other users, or disrupts the platform operation order, including but not limited to:",
+        "p3": "Violating national political, security, and public order and good customs regulations: publishing / disseminating content involving politics, pornography, gambling, drugs, terrorism, or cults, advocating violence, extremism, ethnic discrimination, or regional discrimination, and harming national interests and social public interests.",
+        "p4": "Engaging in illegal and criminal activities: using this APP to commit fraud, money laundering, illegal fundraising, trafficking in personal information, network attacks, spreading computer viruses, etc., or facilitating illegal and criminal activities.",
+        "p5": "Undermining the platform's technical system: using cheats, cracked versions, third-party auxiliary tools, scripts, etc. to tamper with this APP's code, bypass platform verification, hijack platform data, interfere with the normal operation of the APP, or use platform technical loopholes to make profit or obtain undue benefits.",
+        "p6": "Carrying out malicious operations: mass spamming, mass faking likes, faking traffic, faking comments, malicious complaints, false accusations against other users / merchants, exploiting platform activities to \"fleece\" benefits, malicious cash-out, mass-sending advertisements, spam information, and promotional external links, etc.",
+        "p7": "Infringing upon the legitimate rights and interests of others: abusing, defaming, threatening, or doxxing other users, stealing others' avatars, nicknames, works, trademarks, patents, and other intellectual property / personality rights, or leaking others' privacy, contact information, commercial secrets, etc.",
+        "p8": "Disrupting the platform operation ecosystem: organizing or inciting other users to resist the Platform, causing public disturbances, colluding with other users to carry out non-compliant behavior, using the Platform's name without authorization for external publicity or activities, or using the Platform for malicious competition. Other behaviors that violate laws, regulations, these rules, and the Platform's special (topical) rules.",
+        "p9": "If a user carries out the above-mentioned prohibited behaviors, the Platform may take measures such as warnings, rate limiting, restricting APP functions, freezing account assets, suspending account use, and canceling accounts based on the severity of the violation, and at the same time has the right to recover undue benefits obtained by the user through non-compliant behavior; if losses are caused to the Platform / other users, the user shall bear compensation liability; if the circumstances are serious and suspected of a crime, the Platform will report to the public security organs and pursue criminal liability.",
+        "title": "II. Core Code of Conduct for Use"
       },
       "s6": {
         "sub1": "(1) Platform Rights and Obligations",
         "sub2": "(2) User Rights and Obligations",
-        "sub3": "(3) Disclaimer Terms"
-      }
+        "sub3": "(3) Disclaimer Terms",
+        "p1": "Rights: In accordance with these rules and related rules, review and manage users' usage behaviors and published content and take corresponding penalizing measures against non-compliant users; adjust APP functions, update service rules, and revise these rules based on legal and regulatory updates and platform operation needs; when necessary (such as cooperating with regulatory investigations and ensuring platform security), restrict or suspend the APP usage rights of some users, or interrupt some services; and other rights agreed in laws, regulations, and these rules.",
+        "p2": "Obligations: Ensure the normal operation of the APP, promptly fix technical failures, and optimize the service experience; strictly protect users' personal information and data security and fulfill information protection obligations; provide users with convenient customer service channels (such as online customer service, customer service hotlines, and feedback entries), promptly handle users' inquiries, complaints, and appeals, and report the processing results within 7 working days; provide services to users lawfully and compliantly and protect users' legitimate rights and interests; and other obligations agreed in laws, regulations, and these rules.",
+        "p3": "Rights: Within the scope of this APP's functions, lawfully use the various services provided by the Platform and enjoy a fair and just usage experience; enjoy rights to query, correct, delete, and withdraw authorization over personal information; put forward suggestions and opinions on the Platform's services and rules, and complain about and report non-compliant behavior; and other rights agreed in laws, regulations, and these rules.",
+        "p4": "Obligations: Strictly comply with these rules and the various special (topical) rules of the Platform, and use the APP lawfully and compliantly; bear full responsibility for one's own account operations, behaviors, and consequences, and properly keep one's account and personal information; cooperate with the Platform's compliance review, security verification, and violation investigation work; not use the Platform's services to harm the legitimate rights and interests of the Platform / other users; and other obligations agreed in laws, regulations, and these rules.",
+        "p5": "If the Platform is unable to provide services normally or users incur losses due to force majeure (such as earthquakes, floods, fires, network failures, server failures, and government regulatory measures), the Platform shall not bear compensation liability but will promptly take remedial measures after the force majeure event occurs and notify users.",
+        "p6": "The Platform shall not bear compensation liability for account issues and loss of rights and interests caused by the user's own reasons (such as password leakage, false information, operational errors, and failure to update information in a timely manner). Third-party links, advertisements, and content in this APP only represent the views of the third parties. The Platform only provides display services and does not assume warranty liability. If the Platform takes handling measures against a user's account, content, or assets in accordance with laws, regulations, regulatory requirements, or these rules, the Platform shall not bear compensation liability for reasonable losses caused by the handling measures. Other exemption circumstances provided by laws and regulations.",
+        "title": "VI. Definition of Rights and Responsibilities between Users and the Platform"
+      },
+      "introP1": "These rules are formulated in accordance with the 《Civil Code of the People's Republic of China》, the 《Cybersecurity Law of the People's Republic of China》, the 《Personal Information Protection Law of the People's Republic of China》, the 《Measures for the Administration of Internet Information Services》, and other relevant laws and regulations, and are intended to regulate users' use of this APP, safeguard platform operation order, users' legitimate rights and interests, and data security. Any natural person, legal person, or other organization that registers, logs in to, or uses this APP (hereinafter collectively referred to as \"User\") is deemed to have read, understood, and agreed to all the contents of these rules; if a user does not agree to these rules, the user should stop using this APP immediately.",
+      "introP2": "These rules are formulated and interpreted by [Jilin Aizhihui Artificial Intelligence Technology Co., Ltd.] (hereinafter collectively referred to as the \"Platform\"), and the Platform may revise these rules based on legal and regulatory updates and platform operation needs. The revised rules will be notified to users through in-APP announcements, pop-ups, and other means, and will take effect upon the expiration of the public notice period. A user's continued use of this APP shall be deemed to constitute agreement to the revised contents.",
+      "s1": {
+        "p1": "Users need to register an account through the officially designated channels of this APP (phone number / third-party authorization, etc.). When registering, users should provide true, accurate, and complete identity information and contact information. If the information changes, users should update it in the APP in a timely manner. Users shall bear account usage issues and loss of rights and interests caused by false or invalid information.",
+        "p2": "The ownership of the account belongs to the Platform, and the user only obtains limited usage rights to the account, which may only be used by the user personally. It is prohibited to dispose of the account by means of renting, lending, selling, transferring, gifting, or otherwise, and it is prohibited to assign the account to others for operation on the user's behalf. If the above acts occur, the Platform may freeze / cancel the account, and the user shall bear all losses arising therefrom.",
+        "p3": "Users need to properly keep their account passwords, verification codes, facial recognition information, and other login credentials and bear full responsibility for all operations, behaviors, and consequences under the account. If the account is stolen or used by others due to the user's own reasons (such as password leakage or sharing verification codes with others), the Platform shall not bear compensation liability; if the user discovers an account anomaly, the user should immediately contact platform customer service and apply for a freeze, and the Platform will cooperate in taking reasonable remedial measures.",
+        "p4": "Malicious registration or use of accounts is prohibited, including but not limited to: batch registration of accounts, using cheats / scripts to register accounts automatically, registering accounts with information that is not the user's own true information, and registering multiple accounts for the purpose of illegal profit-making. The Platform may take measures against the above-mentioned non-compliant accounts, such as restricting functions, freezing, and cancellation, and reserves the right to pursue legal liability.",
+        "p5": "If an account has not been logged in for 180 consecutive days and has no valid operations, the Platform may clean up the account based on operational needs. Before the cleanup, the Platform will notify the user through the reserved contact information. After the cleanup, undrawn assets and unused benefits in the account will be handled in accordance with the relevant provisions of these rules.",
+        "title": "I. Account Usage Rules"
+      },
+      "s10": {
+        "p1": "These rules are the core rules for users of the ZHIHUI Social (AI ZHIHUI Social) APP. The special rules formulated by the Platform (such as membership rules, activity rules, distribution and withdrawal rules, etc.) are supplementary provisions to these rules and have equal legal effect with these rules; if the special rules are inconsistent with these rules, the special rules shall prevail (except where the special rules violate laws and regulations).",
+        "p2": "Matters not covered in these rules will be supplemented by the Platform through official announcements, in-APP notifications, and other means, and the supplementary content shall take effect from the date of public announcement.",
+        "p3": "These rules take formal effect as of February 4, 2025.",
+        "title": "X. Miscellaneous"
+      },
+      "s3": {
+        "p1": "These terms apply to all users who publish or disseminate various types of information in this APP, including text, images, videos, audio, and links (including ordinary users, merchants, and creators). If a user does not have permission to publish content, these terms will automatically apply to the user's information dissemination behavior (such as forwarding and commenting).",
+        "p2": "The content published by users must be original or lawfully authorized, guaranteed to be authentic and lawful, must not plagiarize or steal others' works, and must not infringe upon the legitimate rights and interests of any third party, such as intellectual property rights and personality rights. If the published content involves the rights and interests of third parties, the user must obtain authorization in advance and bear full responsibility for any defects in the authorization.",
+        "p3": "It is prohibited to publish / disseminate false or misleading content, including but not limited to false advertising, rumors, false winning information, exaggerated product / service information, and forged qualifications / certification documents.",
+        "p4": "It is prohibited to publish / disseminate non-compliant commercial information, including but not limited to promotion of unqualified medical, financial, educational, and health product services, illegal foreign exchange and virtual currency transaction information, and offline traffic diversion and business cooperation information not permitted by the Platform.",
+        "p5": "It is prohibited to publish / disseminate content that harms the physical and mental health of Platform users, including but not limited to bloody, violent, terrifying, and vulgar pornographic content, and content that induces minors to engage in bad behavior.",
+        "p6": "The Platform has reasonable review authority over content published by users and may screen, review, block, and delete content in accordance with laws, regulations, and these rules, and take the penalizing measures agreed in these rules against publishers of non-compliant content. If a user objects to a content review result, the user may apply to platform customer service for re-review. The content published by users only represents their personal views and has nothing to do with the Platform; if the content violates laws and regulations or damages the rights and interests of third parties, the publisher shall bear full responsibility, and the Platform will promptly take necessary measures such as deletion and blocking after receiving a lawful notice.",
+        "title": "III. Content Publishing and Dissemination Rules"
+      },
+      "s4": {
+        "p1": "The Platform strictly complies with the 《Personal Information Protection Law》 and other relevant laws and regulations, adhering to the principles of minimum necessity, user authorization, and security assurance when collecting, using, and storing users' personal information, and at the same time protects users' legal rights to query, correct, delete, and withdraw authorization over their personal information.",
+        "p2": "Permission acquisition: This APP will request necessary system permissions from users (such as location, camera, microphone, contacts, storage, etc.) as required for function implementation. All permission requests are actively authorized by users. The Platform will not force users to authorize non-essential permissions. Users can withdraw or adjust authorizations at any time in the phone system or in the \"Settings - Permission Management\" within the APP.",
+        "p3": "Information collection: The Platform only collects personal information needed to realize the APP's functions, including but not limited to registered phone numbers, login passwords, identity authentication information, device information, and usage behavior data, and does not collect sensitive information unrelated to the functions.",
+        "p4": "Information use: Users' personal information is used only for function realization, service optimization, and security assurance of this APP, including but not limited to account login, transaction verification, customer service, and personalized recommendations. The Platform will not sell or rent users' personal information to any third party; if it is truly necessary to provide it to a third party, the Platform will conduct a compliance review of the third party, require it to assume information protection responsibilities, and inform the user and obtain consent in advance.",
+        "p5": "Information security: The Platform will adopt technical protective measures that meet industry standards (such as encrypted storage, access control, and data backup) to protect users' personal information security and prevent information leakage, tampering, and loss. If an information security incident occurs, the Platform will immediately take remedial measures and promptly notify users and report to regulatory authorities as required by relevant laws and regulations.",
+        "p6": "User information rights: Users can query, correct, and delete their own personal information through entries such as \"Me - Settings - Account Management\" in the APP, and can apply to cancel their account and request the Platform to delete relevant information (except where otherwise provided by laws and regulations). The Platform will process within 7 working days after receiving the user's application and provide feedback on the processing result.",
+        "p7": "Protection of minors' information: This APP will implement the relevant provisions on the protection of minors, strictly restrict the collection and use of minors' personal information, and prohibit displaying non-compliant content to minors or inducing minors to consume. If it is found that a minor uses the APP by borrowing an adult's information, the Platform may restrict the functionality available to them and contact the legal guardian for verification and handling.",
+        "title": "IV. Rules on Permissions and Use of Personal Information"
+      },
+      "s5": {
+        "p1": "Paid items: Paid content in this APP (such as memberships, ZHIHUI credits, courses, and virtual props) and goods / services are all labeled with clear prices, validity periods, and usage rules. Price adjustments will be announced in advance. Users should carefully read the relevant descriptions before paying, and the act of payment is deemed to constitute agreement to the usage rules of the item.",
+        "p2": "Payment methods: Users can complete payment / transactions through the payment channels officially designated by the Platform (such as WeChat Pay and Alipay). The Platform does not recognize transactions made through any unofficial payment channel, and users shall bear the losses caused by unofficial transactions themselves.",
+        "p3": "Refund policy: Virtual goods / services (such as memberships, recharged ZHIHUI credits, and online courses), once purchased, do not support no-reason refunds except where there are quality issues, platform failures, or otherwise provided by laws and regulations. If they cannot be used due to platform reasons, the Platform may arrange a refund or an equivalent service for the user. Physical goods follow the relevant provisions of the 《Consumer Rights Protection Law》 and support seven-day no-reason returns (except where otherwise provided by law). When returning, the goods must be kept intact, and the freight-bearing rules shall be executed in accordance with the agreement on the product detail page.",
+        "p4": "Refund application: Users can submit refund applications through entries such as \"Me - Orders / Payment Records\" in the APP. The Platform will review within 7 working days. After the review passes, the refund will be returned along the original payment path. The time for the refund to arrive shall be governed by the rules of the payment channel.",
+        "p5": "Transaction security: It is prohibited to use the transaction functions of this APP for fake transactions, cash-out, money laundering, and other non-compliant behaviors. The Platform may freeze and verify abnormal transactions. During the verification period, the relevant transaction functions will be suspended and restored after verification without error.",
+        "p6": "Asset protection: The recharged balance, ZHIHUI credits, virtual assets, coupons, etc. in users' accounts may only be used by the user personally and may not be transferred or withdrawn (except where otherwise agreed). After an account is frozen or canceled, unused assets will be handled in accordance with the relevant provisions of these rules. If an account is handled due to user violations, the assets will not be returned.",
+        "title": "V. Payment and Transaction Rules"
+      },
+      "s7": {
+        "p1": "The Platform's determination of a user's non-compliant behavior is based on the usage records, data information, and third-party complaint evidence in the APP. The violation handling decision will be notified to the user through in-APP pop-ups, message notifications, reserved contact information, and other means.",
+        "p2": "If a user objects to a violation handling decision, the user may, within 7 working days after receiving the handling notice, submit an appeal application through the \"Appeal Entry\" in the APP or the customer service channel, and provide relevant supporting materials. The Platform will re-review within 7 working days after receiving the appeal and inform the user of the re-review result.",
+        "p3": "If the re-review result is to revoke the penalty, the Platform will immediately restore the user's account functions and asset rights and interests. If the re-review result is to uphold the penalty, the user may not appeal again for the same reason, and the Platform's handling decision is final. If a user fails to appeal within the time limit, the user is deemed to have accepted the Platform's violation handling decision, and the decision will formally take effect.",
+        "title": "VII. Violation Handling and Appeal Rules"
+      },
+      "s8": {
+        "p1": "Users can proactively apply to cancel their account through \"Me - Settings - Account Cancellation / Cancellation Instructions\" in the APP. Before cancellation, users must complete matters such as withdrawing assets in the account, settling orders, and repaying debts. After the cancellation application is submitted, the Platform will review it within 7 working days. After the review passes, the account will be permanently canceled and cannot be restored.",
+        "p2": "After an account is canceled, the Platform will delete the user's personal information as required by laws and regulations (except where retention is otherwise required by laws and regulations). Undrawn assets and unused benefits in the account will automatically become void, and the Platform shall not bear any responsibility to return them.",
+        "p3": "If a user's account has non-compliant behavior, unsettled transactions / debts, or unprocessed complaints / appeals, the Platform may refuse the cancellation application until the user has handled the relevant matters.",
+        "title": "VIII. Account Cancellation Rules"
+      },
+      "s9": {
+        "p1": "Any dispute between users and the Platform arising from the use of this APP shall first be resolved through friendly negotiation. If negotiation fails, either party has the right to file a lawsuit with the competent people's court at the place of the Platform's domicile.",
+        "p2": "The conclusion, performance, interpretation, and dispute resolution of these rules shall be governed by the laws of the People's Republic of China (excluding the laws of Hong Kong, Macao, and Taiwan regions).",
+        "title": "IX. Dispute Resolution"
+      },
+      "title": "Usage Rules"
     },
     "appPermission": {
       "names": [
@@ -1241,7 +1705,11 @@
       "albumName": "Album permission",
       "albumDesc": "Save and upload images to the album",
       "goSetting": "Open settings",
-      "openAllSetting": "Open system settings"
+      "openAllSetting": "Open system settings",
+      "denied": "Denied",
+      "granted": "Granted",
+      "title": "App Permissions",
+      "unknown": "Not authorized"
     },
     "modelRecord": {
       "noticeTitle": "Model information",
@@ -1252,7 +1720,9 @@
       "algoType": "Algorithm type",
       "recordDate": "Filing date",
       "tableTitle": "LLM filing information",
-      "imageUnavailable": "Record image not uploaded yet"
+      "imageUnavailable": "Record image not uploaded yet",
+      "noticeText": "This app uses artificial intelligence technology. The following is the information about the models used",
+      "title": "Model Filing"
     },
     "apiSettings": {
       "apiUrl": "API URL",
@@ -1274,7 +1744,10 @@
       "workflowPlaceholder": "Please enter the workflow ID",
       "saveBtn": "Save settings",
       "resetBtn": "Reset to default",
-      "diagnoseTitle": "Network diagnostics"
+      "diagnoseTitle": "Network diagnostics",
+      "copied": "Copied",
+      "title": "API Settings",
+      "tokenHint": "Tip: You can obtain your API token and workflow ID from the Coze platform"
     },
     "introFallback": "IHUI AI is dedicated to building a one-stop AI service platform",
     "copyright": "© 2026 IHUI AI. All rights reserved."
@@ -1290,7 +1763,8 @@
     "saveToAlbum": "Save to album",
     "shareWx": "Share to friends",
     "sharePyq": "Share to Moments",
-    "uploadPlaceholder": "Upload business card"
+    "uploadPlaceholder": "Upload business card",
+    "uploading": "Uploading…"
   },
   "cart": {
     "title": "Cart",
@@ -1331,7 +1805,10 @@
       "commentsTitle": "Comments",
       "viewMore": "View more",
       "noComments": "No comments yet, be the first",
-      "commentPlaceholder": "Say something…"
+      "commentPlaceholder": "Say something…",
+      "commentListSoon": "Comment list coming soon",
+      "copied": "Link copied",
+      "send": "Send"
     },
     "create": {
       "contentRequired": "Please enter post content",
@@ -1340,10 +1817,18 @@
       "aigcLabel": "Link AI work",
       "selectAigc": "Select AI work (optional)",
       "noAigc": "No AI works available to link",
-      "allowComments": "Allow comments"
+      "allowComments": "Allow comments",
+      "visibility": "Visibility"
     },
     "index": {
-      "goPublish": "Publish"
+      "goPublish": "Publish",
+      "anonymous": "Anonymous User",
+      "error": "Failed to load",
+      "follow": "Follow",
+      "followed": "Following",
+      "loading": "Loading...",
+      "noMore": "No more",
+      "retry": "Click to retry"
     }
   },
   "devEnter": {
@@ -1406,7 +1891,8 @@
       "mockSuccess": "API not yet available. Mock creation completed",
       "submitting": "Creating…",
       "submit": "Create Agent",
-      "fileSizeExceeded": "File cannot exceed 10MB"
+      "fileSizeExceeded": "File cannot exceed 10MB",
+      "n8nFilePlaceholder": "Click to upload n8n backup JSON file"
     },
     "modelEdit": {
       "title": "Edit model",
@@ -1465,7 +1951,12 @@
       "notifyUpdate": "Model update alerts",
       "postsTitle": "Developer posts",
       "noPosts": "No posts",
-      "contact": "Contact developer"
+      "contact": "Contact developer",
+      "copied": "Contact copied",
+      "noDesc": "No description",
+      "subscribed": "Followed",
+      "use": "Use",
+      "uses": "Uses"
     },
     "income": {
       "withdrawn": "Withdrawn",
@@ -1500,7 +1991,8 @@
       "noMore": "No more",
       "cashEmpty": "No withdrawal records",
       "moreMethod": "More withdrawal methods in official APP",
-      "wechat": "WeChat"
+      "wechat": "WeChat",
+      "yuan": "RMB"
     },
     "index": {
       "subscribeTitle": "Subscription",
@@ -1553,8 +2045,10 @@
       "announce": "Announcements",
       "activity": "Activities",
       "info": "News",
-      "tutorial": "Tutorials"
-    }
+      "tutorial": "Tutorials",
+      "all": "All"
+    },
+    "pinned": "Pinned"
   },
   "plaza": {
     "setNeed": {
@@ -1566,8 +2060,18 @@
         "Help Request",
         "Experience Summary"
       ],
-      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
-      "budgets": ["Under 1000 CNY", "1000-5000 CNY", "5000-10000 CNY", "Over 10000 CNY"],
+      "levels": [
+        "Beginner",
+        "Intermediate",
+        "Advanced",
+        "Expert"
+      ],
+      "budgets": [
+        "Under 1000 CNY",
+        "1000-5000 CNY",
+        "5000-10000 CNY",
+        "Over 10000 CNY"
+      ],
       "selectAtLeast": "Please select at least one",
       "saved": "Saved",
       "directionTitle": "Learning direction",
@@ -1731,7 +2235,9 @@
     "noPrivate": "No Private Messages",
     "noSystem": "No System Notices",
     "markRead": "Mark Read",
-    "deleteConv": "Delete Conversation"
+    "deleteConv": "Delete Conversation",
+    "pin": "Pin Chat",
+    "unpin": "Unpin"
   },
   "member": {
     "index": {
@@ -1753,7 +2259,23 @@
       "upgradeHint": "You are a VIP member; upgrade to permanent VIP",
       "upgradeNow": "Upgrade to permanent VIP",
       "contactTitle": "Having issues?",
-      "contactText": "Customer service WeChat: AIXHS_Service"
+      "contactText": "Customer service WeChat: AIXHS_Service",
+      "currentLevel": "Current Level",
+      "expire": "Expires",
+      "expired": "Expired",
+      "guest": "Guest",
+      "levelIntro": "Membership Level Introduction",
+      "loading": "Loading...",
+      "maxLevel": "Max Level Reached",
+      "maxLevelHint": "You have reached the highest level",
+      "nextLevelHint": "${nextThreshold - growth} away from ${nextTier?.name ?? ''}",
+      "normalUser": "Regular User",
+      "notOpened": "Not Activated",
+      "openNow": "Activate Now",
+      "openVip": "Activate VIP Membership",
+      "opened": "Activated",
+      "privileges": "Member Privileges",
+      "share": "Share and Earn Commission"
     },
     "integral": {
       "current": "Current points",
@@ -1791,7 +2313,13 @@
     },
     "benefit": {
       "unlimited": "Unlimited Chat",
-      "unlimitedDesc": "Unlimited AI chat"
+      "unlimitedDesc": "Unlimited AI chat",
+      "advanced": "Advanced Model",
+      "advancedDesc": "Use the latest AI large models",
+      "community": "VIP Community",
+      "communityDesc": "Join the exclusive VIP discussion group",
+      "priority": "Priority Response",
+      "priorityDesc": "Your chat requests are handled first"
     },
     "level": {
       "normal": "Normal Member",
@@ -1855,7 +2383,21 @@
     "aliUnsupportedWeapp": "Alipay is not supported in WeChat Mini Program",
     "aliOrderMissing": "Alipay order info missing",
     "unsupportedEnv": "Payment is not supported in this environment",
-    "resultPending": "Payment result pending"
+    "resultPending": "Payment result pending",
+    "agreementPrefix": "By clicking Pay Now, you agree to the following",
+    "countLabel": "Quantity",
+    "coupon": "Coupon",
+    "createTime": "Order Time",
+    "defaultName": "AI Assistant",
+    "orderNo": "Order No.",
+    "payFailed": "Payment failed. Please try again",
+    "payNow": "Pay Now",
+    "paying": "Paying...",
+    "perMonth": "/month",
+    "priceLabel": "Price",
+    "purchaseContent": "Purchase Content",
+    "subscribeTip": "Unlimited use after subscribing",
+    "userAgreement": "User Agreement"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -1895,7 +2437,11 @@
       "tabCompleted": "Completed",
       "tabAbandoned": "Abandoned",
       "coverFallback": "Course",
-      "continue": "Continue learning"
+      "continue": "Continue learning",
+      "lastTime": "Last Studied",
+      "statusDone": "Completed",
+      "tabAll": "All",
+      "tabLearning": "Learning"
     },
     "videoDetail": {
       "me": "Me",
@@ -1913,7 +2459,11 @@
         "Help Request",
         "Experience Summary"
       ],
-      "visibilityOptions": ["Public", "Friends Only", "Private"],
+      "visibilityOptions": [
+        "Public",
+        "Friends Only",
+        "Private"
+      ],
       "enterTitle": "Please enter a title",
       "enterContent": "Please enter content",
       "published": "Published",
@@ -1977,7 +2527,13 @@
       "noCourses": "No courses",
       "reviewSection": "Reviews",
       "noReviews": "No reviews",
-      "contact": "Contact instructor"
+      "contact": "Contact instructor",
+      "follow": "+ Follow",
+      "followed": "Followed",
+      "following": "Following",
+      "imSoon": "Private messaging coming soon",
+      "notFound": "Instructor not found",
+      "rating": "Rating"
     }
   },
   "topic": {
@@ -1986,10 +2542,32 @@
       "followSuccess": "Followed successfully",
       "followFailed": "Operation failed",
       "pageTitle": "Topic details",
-      "publishPlaceholder": "Share your thoughts on this topic…"
+      "publishPlaceholder": "Share your thoughts on this topic…",
+      "anonymous": "Anonymous User",
+      "empty": "No posts yet. Be the first to publish one!",
+      "follow": "Follow",
+      "followers": "{n} followers",
+      "following": "Following",
+      "hoursAgo": "{n} hours ago",
+      "justNow": "Just now",
+      "loadFailed": "Failed to load",
+      "loading": "Loading...",
+      "loadingMore": "Loading...",
+      "minutesAgo": "{n} minutes ago",
+      "noMore": "No more",
+      "publish": "Post"
     },
     "list": {
-      "pageTitle": "Topics"
+      "pageTitle": "Topics",
+      "empty": "No topics yet",
+      "loadFailed": "Failed to load",
+      "loading": "Loading...",
+      "loadingMore": "Loading...",
+      "noMore": "No more",
+      "participants": "{n} participants",
+      "posts": "{n} posts",
+      "retry": "Click to retry",
+      "searchPlaceholder": "Search topics"
     }
   },
   "token": {
@@ -2021,7 +2599,9 @@
       "tapPreview": "Tap to view full size",
       "fromAlbum": "Choose from album",
       "takePhoto": "Take photo",
-      "previewHint": "Tap avatar to view full size"
+      "previewHint": "Tap avatar to view full size",
+      "noUrl": "Uploaded successfully but no URL returned",
+      "uploading": "Uploading..."
     },
     "email": {
       "emailInvalid": "Invalid email",
@@ -2054,7 +2634,12 @@
       "randomNickname": "🎲 Random nickname",
       "ruleChar": "Letters, Chinese and numbers",
       "ruleSymbol": "No special symbols",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "maxLength": "Nickname cannot exceed ${MAX_LENGTH} characters",
+      "ruleLength": "${MIN_LENGTH}-${MAX_LENGTH} characters",
+      "rulesTitle": "Nickname Rules",
+      "sameAsCurrent": "The new nickname is the same as the current one",
+      "tooShort": "Nickname cannot be shorter than ${MIN_LENGTH} characters"
     },
     "orders": {
       "pay": "Pay",
@@ -2079,7 +2664,9 @@
       "submit": "Change password",
       "forgotOld": "Forgot the old password? Verify via phone",
       "sameAsOld": "New password cannot be the same as the old one",
-      "submitting": "Changing…"
+      "submitting": "Changing…",
+      "hide": "Hide",
+      "show": "Show"
     },
     "phone": {
       "phoneInvalid": "Invalid phone number",
@@ -2103,7 +2690,10 @@
       "alreadyRegistered": "This phone number is already registered, please use another",
       "step1Title": "Verify current phone number",
       "step2Title": "Bind new phone number",
-      "verifiedTip": "Current phone number verified"
+      "verifiedTip": "Current phone number verified",
+      "bindDesc": "After binding, you can use it to log in, retrieve your password, and receive notifications",
+      "bindTitle": "Bind Phone Number",
+      "codeLength": "Please enter the 6-digit verification code"
     },
     "profile": {
       "avatar": "Avatar",
@@ -2115,7 +2705,16 @@
       "unverified": "Unverified",
       "feedback": "Feedback",
       "avatarUploading": "Uploading...",
-      "avatarUpdateFailed": "Avatar update failed"
+      "avatarUpdateFailed": "Avatar update failed",
+      "accountInfo": "Account Information",
+      "changeAvatar": "Change",
+      "clickToChange": "Click to change avatar",
+      "email": "Email",
+      "nickname": "Nickname",
+      "nicknamePlaceholder": "Please enter your username",
+      "other": "Other",
+      "phone": "Phone Number",
+      "security": "Security Settings"
     },
     "realname": {
       "enterRealName": "Please enter your real name",
@@ -2136,8 +2735,13 @@
       "idCardPhotos": "ID card photos",
       "frontPhoto": "Front side",
       "backPhoto": "Back side",
-      "uploadHint": "Please ensure photos are clear, complete and unobstructed"
-    }
+      "uploadHint": "Please ensure photos are clear, complete and unobstructed",
+      "desc": "To ensure account security and compliance, some features require real-name verification before use",
+      "submitting": "Submitting...",
+      "title": "Real-name Verification"
+    },
+    "member": "Member",
+    "operator": "Operator"
   },
   "vipTrader": {
     "openTitle": "Open membership",
@@ -2154,7 +2758,15 @@
     "featureSection": "Trader benefits",
     "serviceSection": "Service packages",
     "reviewsSection": "User reviews",
-    "consult": "Consult now"
+    "consult": "Consult now",
+    "confirmPay": "Confirm Payment",
+    "openNow": "Activate Membership Now",
+    "opened": "Activated Successfully",
+    "recommended": "Recommended",
+    "subscribe": "Subscribe",
+    "subscribeTitle": "Subscription Package",
+    "subscribed": "Subscribed Successfully",
+    "verified": "Verified"
   },
   "vip": {
     "selectPlanFirst": "Please select a plan",
@@ -2263,7 +2875,9 @@
         "support": "Priority support",
         "supportDesc": "7x24 dedicated service",
         "group": "Exclusive community",
-        "groupDesc": "VIP members-only group"
+        "groupDesc": "VIP members-only group",
+        "chat": "Unlimited AI Chat",
+        "model": "All Models"
       },
       "benefitsTitle": "Benefits details"
     },
@@ -2277,7 +2891,11 @@
       "quarterlyPlan": "Quarterly membership",
       "activationNotice": "Membership activated, enjoy all privileges now",
       "shareTitle": "Share with friends to earn commission",
-      "shareDesc": "Invite friends to join membership and earn 20% cash commission"
+      "shareDesc": "Invite friends to join membership and earn 20% cash commission",
+      "duration": "Membership Duration",
+      "monthlyPlan": "Monthly Membership",
+      "payMethod": "Payment Method",
+      "yearlyPlan": "Yearly Membership"
     },
     "benefitsTitle": "VIP Benefits",
     "upgradeNow": "Upgrade Now",
@@ -2298,7 +2916,11 @@
       "aiVideo": "AI Video",
       "aiVideoDesc": "Smart video content generation",
       "aiLive": "AI Live Assistant",
-      "aiLiveDesc": "Smart live streaming tool"
+      "aiLiveDesc": "Smart live streaming tool",
+      "aiAnalysis": "AI Data Analysis",
+      "aiAnalysisDesc": "Intelligently analyze various data reports",
+      "aiChat": "AI Smart Chat",
+      "aiChatDesc": "Smart assistant answers all kinds of questions"
     }
   },
   "learnDevelop": {
@@ -2334,19 +2956,28 @@
     "types": {
       "complaint": "Complaint",
       "suggestion": "Suggestion",
-      "bug": "Bug"
+      "bug": "Bug",
+      "other": "Other"
     },
     "uploadFailed": "Upload failed",
     "content": "Content",
     "contact": "Contact",
-    "contactPlaceholder": "Please enter contact information (optional)"
+    "contactPlaceholder": "Please enter contact information (optional)",
+    "contentPlaceholder": "Please enter feedback details",
+    "enterContent": "Please enter feedback content",
+    "images": "Image (up to ${MAX_IMAGES})",
+    "submit": "Submit Feedback",
+    "submitSuccess": "Feedback submitted",
+    "type": "Type",
+    "uploading": "Uploading"
   },
   "comment": {
     "loading": "Loading...",
     "empty": "No comments yet, be the first!",
     "reply": "Reply",
     "placeholder": "Write a comment...",
-    "send": "Send"
+    "send": "Send",
+    "anonymous": "Anonymous"
   },
   "subscription": {
     "statusActive": "Active",
@@ -2377,7 +3008,8 @@
     "noCover": "No Cover",
     "watched": "Watched",
     "playing": "Playing",
-    "courseCatalog": "Course Catalog"
+    "courseCatalog": "Course Catalog",
+    "empty": "No chapters yet"
   },
   "video": {
     "noVideo": "No Video",
@@ -2390,12 +3022,18 @@
     "studyDuration": "Study Duration",
     "points": "Points",
     "next": "Next: {title}",
-    "share": "Share"
+    "share": "Share",
+    "articleType": "Article",
+    "continue": "Continue Learning",
+    "done": "Done",
+    "preview": "Preview"
   },
   "streak": {
     "title": "Study Streak",
     "totalDays": "{n} days total",
-    "continuousDays": "Continuous {n} days"
+    "continuousDays": "Continuous {n} days",
+    "signNow": "Check in now +5 points",
+    "signedToday": "Checked in today"
   },
   "withdrawal": {
     "records": "Withdrawal Records"
@@ -2409,7 +3047,8 @@
     "qrcode": "QR Code",
     "code": "Invite Code:",
     "saveImage": "Save Image",
-    "shareNow": "Share Now"
+    "shareNow": "Share Now",
+    "inviteSuffix": "invites you to join"
   },
   "qrcode": {
     "loading": "QR Code Loading",
@@ -2463,15 +3102,34 @@
   "index": {
     "mock": {
       "post1Title": "How to use React Hooks?",
-      "today": "Today"
+      "today": "Today",
+      "post2Title": "TypeScript Type Inference",
+      "post3Title": "Design Pattern Discussion",
+      "yesterday": "Yesterday"
     },
     "feature": {
-      "superAgent": "Deep Thinking"
+      "superAgent": "Deep Thinking",
+      "knowledgeBase": "Knowledge Base",
+      "mcp": "Online",
+      "permanentMemory": "Permanent Memory"
     },
     "toast": {
       "loginRequired": "Please login first"
     },
-    "title": "IHUI AI Community"
+    "title": "IHUI AI Community",
+    "chatError": "Failed to send. Please try again",
+    "material": {
+      "audio": "Audio",
+      "empty": "No materials yet"
+    },
+    "qrCodeHint": "Scan the QR code to join the community",
+    "thinking": "Thinking...",
+    "voice": {
+      "listening": "Listening...",
+      "tapToStop": "Tap to stop recording"
+    },
+    "welcome": "Welcome to the ZHIHUI AI Community",
+    "welcomeHint": "Enter a message to start chatting"
   },
   "album": {
     "saveSuccess": "Saved successfully",
@@ -2483,5 +3141,40 @@
   },
   "auth": {
     "expired": "Login expired, please log in again"
+  },
+  "level": {
+    "0": "Beginner",
+    "1": "Bronze",
+    "2": "Silver",
+    "3": "Gold",
+    "4": "Platinum",
+    "5": "Diamond",
+    "6": "King",
+    "distance": "To"
+  },
+  "messageCenter": {
+    "empty": "No messages",
+    "title": "Message Center",
+    "type": {
+      "course": "Course",
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
+    }
+  },
+  "interaction": {
+    "collect": "Favorited me",
+    "comment": "Commented on me",
+    "follow": "Followed me",
+    "like": "Liked me"
+  },
+  "planet": {
+    "empty": "No planets yet",
+    "join": "Join Planet",
+    "joined": "Joined",
+    "members": "Members"
+  },
+  "chat": {
+    "send": "Send"
   }
 }
