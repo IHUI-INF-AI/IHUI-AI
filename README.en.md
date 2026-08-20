@@ -36,7 +36,7 @@
 </p>
 
 <p align="center">
-  <strong>340 tables · 144 migrations · 1300+ API endpoints · 21 Grafana dashboards · 33+ guardrails · 5346 API tests · 63 e2e specs</strong><br/>
+  <strong>340 tables · 144 migrations · 4393 API routes · 21 Grafana dashboards · 33+ guardrails · 5346 API tests · 63 e2e specs</strong><br/>
   <sub>Not a slide deck, not a promise, not a placeholder — every number is grep-able in the codebase</sub>
 </p>
 
@@ -85,7 +85,7 @@ Building a commercial AI product today means stitching together 6–10 separate 
 
 | #   | Capability                             | What others do                                                                   | What IHUI-AI does                                                                                                                                                                                        |
 | --- | -------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **8-end same-source codebase**         | Dify/FastGPT ship 2 ends (Web + API). Cursor/Claude Code ship 1 end (CLI).       | 8 independent codebases: Web, API, AI Service, CLI, Desktop (Tauri), Browser Extension (WXT), Mobile (RN), Miniapp (Taro) — sharing 12 packages for type-safe cross-end contracts.                       |
+| 1   | **8-end same-source codebase**         | Dify/FastGPT ship 2 ends (Web + API). Cursor/Claude Code ship 1 end (CLI).       | 8 independent codebases: Web, API, AI Service, CLI, Desktop (Tauri), Browser Extension (WXT), Mobile (RN), Miniapp (Taro) — sharing 16 packages for type-safe cross-end contracts.                       |
 | 2   | **176 LLM models, one gateway**        | ChatGPT ships OpenAI only. Coze ships ByteDance only.                            | LiteLLM gateway unifies 176 models across OpenAI, Anthropic Claude, Google Gemini, Qwen, DeepSeek, GLM, Ernie, Doubao, Kimi, Ollama, and 20+ more providers — with smart routing and 60% cache hit rate. |
 | 3   | **LangGraph + MCP + A2A triple stack** | Langflow ships LangChain DAG only. Dify ships a custom workflow engine.          | All three protocols working together: LangGraph for stateful agent workflows, MCP (Model Context Protocol) for tool-calling standardization, A2A (Agent-to-Agent) for inter-agent collaboration.         |
 | 4   | **Apache 2.0, commercial-ready**       | Many "open-source" AI tools use AGPL or BSL (source-available, not open source). | True Apache 2.0 — no copyleft, no viral clauses, no commercial restrictions. Fork it, brand it, sell it, ship it. Your data, your servers, your rules.                                                   |
@@ -404,7 +404,6 @@ pnpm turbo build typecheck lint test
 .\scripts\dev-web.mjs                   # Web only
 .\scripts\kill-dev-servers.ps1          # Stop all dev servers
 .\scripts\restart-dev-server.ps1        # Restart dev servers
-.\scripts\test-admin-e2e.ps1            # Admin E2E tests
 .\scripts\setup-token-refresh-task.ps1  # Configure token refresh scheduled task
 .\scripts\cleanup-external-junk.ps1     # Clean external junk files
 ```
@@ -474,7 +473,7 @@ pnpm turbo build typecheck lint test
                                         │  HTTPS / WebSocket / SSE / ACP
                                ┌────────▼─────────┐
                                │   apps/api       │  Fastify 5 + Drizzle ORM
-                               │   :8802 strict   │  1300+ endpoints + 12 WS + 95 routes
+                               │   :8802 strict   │  4393 routes + 12 WS + 267 route files
                                │                  │  + Developer API Key /v1/* 105 endpoints
                                └────┬───────┬─────┘
                                     │       │
@@ -503,7 +502,7 @@ pnpm turbo build typecheck lint test
 | End            | Directory            | Stack                           | Responsibility                                                                                                                                                                                                                                                          |
 | -------------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Web**        | `apps/web/`          | Next.js 16 + React 19           | Main frontend, 200+ pages, 5-language i18n, PWA, SEO, `output: 'export'` static export loaded by Desktop WebView (shell architecture)                                                                                                                                   |
-| **API**        | `apps/api/`          | Fastify 5 + Drizzle             | Business management + multi-vendor proxy + auth + WebSocket, ~1300 endpoints / 95+ route files                                                                                                                                                                          |
+| **API**        | `apps/api/`          | Fastify 5 + Drizzle             | Business management + multi-vendor proxy + auth + WebSocket, 4393 routes / 267 route files                                                                                                                                                                              |
 | **AI Service** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM gateway + agent execution + MCP tools + A2A protocol + 14 publish adapters, ~55 endpoints                                                                                                                                                                           |
 | **Desktop**    | `apps/desktop/`      | Tauri 2 + Rust                  | Shell architecture: Tauri WebView loads Web static export. 25+ `#[tauri::command]` native capabilities (tray + single instance + autostart + global hotkeys + deep links + native notifications + file access + clipboard + computer control screenshot/mouse/keyboard) |
 | **CLI**        | `apps/cli/`          | Node.js + Commander             | Self-built CLI coding assistant, 21 commands + 36 tools + ACP Server + 24-source config import                                                                                                                                                                          |
@@ -511,22 +510,26 @@ pnpm turbo build typecheck lint test
 | **Mobile**     | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android native apps + SSO                                                                                                                                                                                                                                         |
 | **Miniapp**    | `apps/miniapp-taro/` | Taro 4 + React                  | WeChat Mini Program, native WeChat Pay integration + 3-language i18n                                                                                                                                                                                                    |
 
-### Shared packages (12)
+### Shared packages (16)
 
-| Package               | Purpose                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `@ihui/auth`          | Cross-end JWT + OAuth2 + RBAC unified issuance                                                           |
-| `@ihui/database`      | Drizzle ORM schema + 340 tables + 144 migrations                                                         |
-| `@ihui/types`         | Cross-end TypeScript contracts (WorkPanelTab / ToolCallEvent / P3 types / SharedUser)                    |
-| `@ihui/ui-react`      | Web + extension shared UI (Card / Button / Resizable / WorkPanel)                                        |
-| `@ihui/ui-native`     | React Native shared UI primitives                                                                        |
-| `@ihui/design-tokens` | Cross-end design tokens (colors / radius / fonts / animations / 10 breakpoints) — single source of truth |
-| `@ihui/rn-app`        | RN ↔ Web cross-end shared screens (About / Profile / Settings) via RN primitives + StyleSheet            |
-| `@ihui/config`        | Shared ESLint / TSConfig / Tailwind presets                                                              |
-| `@ihui/i18n`          | Cross-end i18n utilities                                                                                 |
-| `@ihui/api-client`    | Type-safe API client with onToolCall callbacks                                                           |
-| `@ihui/eslint-config` | Shared ESLint rules                                                                                      |
-| `@ihui/tsconfig`      | Shared TSConfig                                                                                          |
+| Package                    | Purpose                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `@ihui/auth`               | Cross-end JWT + OAuth2 + RBAC unified issuance                                                           |
+| `@ihui/database`           | Drizzle ORM schema + 340 tables + 144 migrations                                                         |
+| `@ihui/types`              | Cross-end TypeScript contracts (WorkPanelTab / ToolCallEvent / P3 types / SharedUser)                    |
+| `@ihui/ui-react`           | Web + extension shared UI (Card / Button / Resizable / WorkPanel)                                        |
+| `@ihui/ui-native`          | React Native shared UI primitives                                                                        |
+| `@ihui/design-tokens`      | Cross-end design tokens (colors / radius / fonts / animations / 10 breakpoints) — single source of truth |
+| `@ihui/rn-app`             | RN ↔ Web cross-end shared screens (About / Profile / Settings) via RN primitives + StyleSheet            |
+| `@ihui/i18n`               | Cross-end i18n utilities                                                                                 |
+| `@ihui/api-client`         | Type-safe API client — 68 endpoints, hand-written TS SDK, with onToolCall callbacks                      |
+| `@ihui/shared`             | Cross-end shared hooks / stores / utils / validation / workflows                                         |
+| `@ihui/sdk`                | Multi-language SDK (TypeScript / Python / Go / Java / .NET)                                              |
+| `@ihui/browser-platform`   | Browser platform abstraction (chrome.* / window.* / webContents.*) — unified interface for 4 ends        |
+| `@ihui/dom-actions`        | Shared pure DOM operations (8 ends reusable, no chrome.* dependency)                                     |
+| `@ihui/context-compaction` | LLM context compaction utilities (gpt-tokenizer based)                                                   |
+| `@ihui/eslint-config`      | Shared ESLint rules                                                                                      |
+| `@ihui/tsconfig`           | Shared TSConfig                                                                                          |
 
 ### Project status matrix
 
@@ -535,7 +538,7 @@ Each end ships with real code, tests, and a running dev server — not a placeho
 | End                                | Maturity      | Pages / Endpoints                            | Key features live                                                                                            |
 | ---------------------------------- | ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **Web** (`apps/web`)               | 🟢 Production | 200+ pages · 5-language i18n · PWA · SEO     | Full admin console · AI chat · RAG · agent marketplace · billing · education · publishing · BI dashboards    |
-| **API** (`apps/api`)               | 🟢 Production | 1300+ endpoints · 95 route files · 12 WS     | Auth · RBAC · billing · 8 payment gateways · multi-tenant RLS · developer API keys                           |
+| **API** (`apps/api`)               | 🟢 Production | 4393 routes · 267 route files · 12 WS        | Auth · RBAC · billing · 8 payment gateways · multi-tenant RLS · developer API keys                           |
 | **AI Service** (`apps/ai-service`) | 🟢 Production | ~55 endpoints · 12 routers                   | LangGraph · MCP (22 tools) · A2A · 31+ providers · 6 sandbox backends · 14 publish adapters · 16 IM channels |
 | **CLI** (`apps/cli`)               | 🟢 Production | 21 commands · 36 tools · ACP Server          | Interactive REPL · agent mode · MCP management · 24-source config import · skills · audit                    |
 | **Desktop** (`apps/desktop`)       | 🟢 Production | Tauri 2 + Rust shell · 25+ native commands   | Tray · single instance · autostart · global hotkeys · deep links · native notifications · computer control   |
@@ -600,7 +603,7 @@ IHUI-AI is **Apache 2.0 open source** — self-hosting is forever free. For team
 - Full observability stack (Prometheus + Grafana 21 dashboards + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
 - 30+ pre-commit guardrails + post-commit auto-push + 11 migration audits + 9 PowerShell startup scripts
 - Enterprise security (RBAC + multi-tenant + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
-- 340 database tables + 144 migrations + 12 shared packages + pgvector + knowledge graph + Knip + Lighthouse + Locust
+- 340 database tables + 144 migrations + 16 shared packages + pgvector + knowledge graph + Knip + Lighthouse + Locust
 
 ### Recent highlights (2026-07-22)
 
