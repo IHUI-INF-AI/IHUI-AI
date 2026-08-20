@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  Image,
   TouchableOpacity,
   ScrollView,
   FlatList,
@@ -140,32 +141,50 @@ export function OrderScreen({
           keyExtractor={(item: OrderItem) => item.id}
           renderItem={({ item }) => {
             const sc = statusColors(item.status)
+            // 商品图信息块(有 image 时与图并排;无图直接平铺,保持现状不占位)
+            const info = (
+              <>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <View style={[styles.badge, { backgroundColor: sc.bg }]}>
+                    <Text style={[styles.badgeText, { color: sc.text }]}>
+                      {t(`order.status.${item.status}`)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.orderNo}>{item.orderNo}</Text>
+                  <Text style={styles.metaTime}>{item.createdAt}</Text>
+                </View>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>{t('order.amount')}</Text>
+                  <Text style={styles.amountValue}>
+                    ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+                  </Text>
+                </View>
+              </>
+            )
             return (
               <TouchableOpacity
                 onPress={() => onPressItem(item)}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
                 <View style={styles.card}>
-                  <View style={styles.cardHead}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <View style={[styles.badge, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.badgeText, { color: sc.text }]}>
-                        {t(`order.status.${item.status}`)}
-                      </Text>
+                  {item.image ? (
+                    <View style={styles.cardBodyRow}>
+                      <Image
+                        source={{ uri: item.image }}
+                        style={styles.cardImg}
+                        resizeMode="cover"
+                        accessibilityLabel={item.title}
+                      />
+                      <View style={styles.cardInfo}>{info}</View>
                     </View>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.orderNo}>{item.orderNo}</Text>
-                    <Text style={styles.metaTime}>{item.createdAt}</Text>
-                  </View>
-                  <View style={styles.amountRow}>
-                    <Text style={styles.amountLabel}>{t('order.amount')}</Text>
-                    <Text style={styles.amountValue}>
-                      ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
-                    </Text>
-                  </View>
+                  ) : (
+                    info
+                  )}
                 </View>
               </TouchableOpacity>
             )
@@ -245,6 +264,15 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: 12,
     },
+    // 商品图 130×130 圆角(对齐 Uniapp card-img;无图不渲染)
+    cardBodyRow: { flexDirection: 'row', gap: 12 },
+    cardImg: {
+      width: 130,
+      height: 130,
+      borderRadius: 10,
+      backgroundColor: tk.surface.card,
+    },
+    cardInfo: { flex: 1 },
     cardHead: {
       flexDirection: 'row',
       alignItems: 'center',
