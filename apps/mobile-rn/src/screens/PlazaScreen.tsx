@@ -18,7 +18,9 @@ import {
   View,
   Pressable,
   Text,
+  Image,
   StyleSheet,
+  type ImageStyle,
   type ViewStyle,
   type TextStyle,
 } from 'react-native'
@@ -478,9 +480,24 @@ export function PlazaScreen() {
         >
           <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.identityTitle}>切换身份</Text>
-            <Text style={styles.identitySubtext}>
-              选择合适的身份，更好地发布或承接需求
-            </Text>
+            {/* 身份用户区(对齐原项目 plaza/index.vue identity-user:头像 + 昵称 + 副文案) */}
+            <View style={styles.identityUser}>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.identityAvatar} />
+              ) : (
+                <View style={[styles.identityAvatar, styles.identityAvatarFallback]}>
+                  <Text style={styles.identityAvatarFallbackText}>👤</Text>
+                </View>
+              )}
+              <View style={styles.identityUserInfo}>
+                <Text style={styles.identityNickname}>
+                  {user?.nickname || user?.username || '未登录用户'}
+                </Text>
+                <Text style={styles.identitySubtext}>
+                  选择合适的身份，更好地发布或承接需求
+                </Text>
+              </View>
+            </View>
             <View style={styles.identityButtons}>
               <Pressable
                 style={[styles.identityBtn, styles.identityBtnOutline]}
@@ -605,7 +622,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: rpx(12) },
-  identitySubtext: { fontSize: 13, color: '#8a8a8a', marginBottom: rpx(36), textAlign: 'center' },
+  // ── 身份用户区(对齐原项目 plaza identity-user:头像 + 昵称 + 副文案) ──
+  identityUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: rpx(24),
+    marginBottom: rpx(36),
+  } as ViewStyle,
+  identityAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0f0f0',
+    overflow: 'hidden',
+  } as ImageStyle,
+  identityAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  identityAvatarFallbackText: {
+    fontSize: 28,
+  } as TextStyle,
+  identityUserInfo: {
+    flex: 1,
+  } as ViewStyle,
+  identityNickname: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#171717',
+    marginBottom: rpx(8),
+  } as TextStyle,
+  identitySubtext: { fontSize: 13, color: '#8a8a8a' },
   identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
