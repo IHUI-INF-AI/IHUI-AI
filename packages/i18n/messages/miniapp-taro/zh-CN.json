@@ -24,17 +24,9 @@
     "passwordPlaceholder": "请输入密码",
     "forgotPassword": "忘记密码",
     "wechatLogin": "微信登录",
-    "wechatOnly": "仅支持微信登录",
-    "ssoLogin": "SSO 登录",
-    "ssoLoginHint": "企业账号一键登录",
-    "agreement": "我已阅读并同意《用户协议》和《隐私政策》",
-    "smsTab": "手机号验证码登录",
-    "privacyPolicy": "《隐私政策》",
-    "serviceAgreement": "《服务协议》",
-    "autoRegisterHint": "未注册用户将自动创建账号"
+    "wechatOnly": "仅支持微信登录"
   },
   "forgot": {
-    "title": "找回密码",
     "step1": "第一步:验证手机号",
     "step2": "第二步:设置新密码",
     "phone": "手机号",
@@ -51,8 +43,6 @@
     "newPasswordPlaceholder": "请输入新密码",
     "confirmPassword": "确认密码",
     "confirmPasswordPlaceholder": "请再次输入新密码",
-    "hidePassword": "隐藏密码",
-    "showPassword": "显示密码",
     "passwordTooShort": "密码长度不能少于 6 位",
     "passwordMismatch": "两次输入的密码不一致",
     "resetting": "重置中…",
@@ -60,21 +50,9 @@
     "resetSuccess": "密码重置成功"
   },
   "home": {
-    "hotCourses": "热门课程",
-    "tapLogin": "点击登录",
-    "slogan": "智汇 AI,让学习更高效",
-    "todayMinutes": "今日 {n} 分钟",
-    "continuousDays": "连续 {n} 天",
-    "totalMinutes": "累计 {n} 分钟",
-    "coursesCount": "已学 {n} 门",
-    "learningProgress": "学习进度",
     "more": "更多",
     "livePreview": "直播预告",
-    "startTime": "开播时间",
-    "aiAppTitle": "AI 应用",
-    "knowledgePlanet": "知识星球",
-    "knowledgePlanetDesc": "加入知识星球,与创作者一起成长",
-    "planetMembers": "人"
+    "startTime": "开播时间"
   },
   "course": {
     "learningProgress": "学习进度",
@@ -104,8 +82,7 @@
       "searchPlaceholder": "搜索课程",
       "search": "搜索",
       "empty": "暂无课程",
-      "title": "精品课程",
-      "subtitle": "{n} 个课程"
+      "title": "精品课程"
     },
     "ratingTitle": "评价课程",
     "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
@@ -287,7 +264,6 @@
     }
   },
   "community": {
-    "title": "社区",
     "posts": "帖子"
   },
   "action": {
@@ -369,8 +345,6 @@
   },
   "ai": {
     "title": "AI 助手",
-    "welcomeTitle": "你好,我是智汇 AI 助手",
-    "welcomeDesc": "有什么可以帮你的吗?",
     "inputPlaceholder": "输入你的问题…",
     "suggestions": ["帮我写一首诗", "解释量子力学", "写一段代码", "翻译这段话"],
     "thinking": "思考中…",
@@ -380,243 +354,7 @@
     "serviceUnavailable": "AI 服务异常",
     "modelLoadFailed": "模型加载失败",
     "materialLoadFailed": "素材加载失败",
-    "agentLoadFailed": "智能体加载失败",
-    "generating": "正在极速生成中",
-    "thinkingTip": "Tips:您可以先点击右上角三个点浮窗小程序,过一会儿再回来哟~",
-    "fileSelected": "已选 {count} 个文件",
-    "common": {
-      "loading": "加载中…"
-    },
-    "tishi": {
-      "title": "智能体引导说明",
-      "view": "查看",
-      "close": "关闭",
-      "needInput": "小方需要您输入以下相关内容,以便于更精准的解决您的需求"
-    },
-    "chatMessageItem": {
-      "me": "我",
-      "ai": "AI",
-      "thinkingProcess": "思考过程",
-      "noContent": "没有可复制的内容",
-      "aiGenerated": "智汇AI生成",
-      "tokenCost": "消耗智汇值:{n}",
-      "reuse": "复用",
-      "copy": "复制",
-      "favorited": "已收藏",
-      "speak": "朗读",
-      "stopSpeak": "停止",
-      "share": "分享",
-      "viewDigitalHuman": "查看数字人",
-      "digitalHuman": "数字人生成 →",
-      "voiceMessage": "语音消息",
-      "downloading": "下载中",
-      "downloadSuccess": "已保存到相册",
-      "downloadFailed": "下载失败",
-      "needAlbumAuth": "需要相册权限才能保存图片,请在设置中开启",
-      "collapse": "收起",
-      "edit": "编辑",
-      "regenerate": "重新生成"
-    },
-    "history": {
-      "title": "历史对话",
-      "empty": "暂无历史",
-      "clearConfirm": "确定清空所有历史对话?",
-      "cleared": "历史已清空"
-    },
-    "inputArea": {
-      "placeholder": "输入你的问题…",
-      "releaseToSend": "松开发送",
-      "holdToSpeak": "按住说话",
-      "send": "发送"
-    },
-    "materialPopup": {
-      "title": "选择素材",
-      "upload": "上传",
-      "loadMore": "加载更多",
-      "noMore": "没有更多了",
-      "empty": "暂无素材"
-    },
-    "skillsPopup": {
-      "title": "选择技能",
-      "searchPlaceholder": "搜索技能",
-      "uses": "{n} 次使用",
-      "notFound": "未找到相关技能",
-      "empty": "暂无可用技能"
-    },
-    "voice": {
-      "welcome": "你好,长按下方按钮开始语音对话",
-      "voiceMessage": "[语音消息]",
-      "chatFailed": "对话失败,请重试",
-      "releaseToSend": "松开发送",
-      "holdToSpeak": "按住说话",
-      "recordFailed": "录音失败,请重试",
-      "clearChat": "清空对话",
-      "speed": "语速",
-      "timbre": "音色"
-    },
-    "image": {
-      "examples": ["一只可爱的猫咪", "日落山景", "未来城市", "抽象艺术"],
-      "emptyHint": "输入描述生成图片",
-      "tryThese": "试试这些",
-      "placeholder": "描述你想生成的图片",
-      "generating": "生成中…",
-      "generate": "生成图片",
-      "vertical": "竖图 1024×1792",
-      "title": "图片生成",
-      "download": "下载",
-      "share": "分享",
-      "favorite": "收藏",
-      "favorited": "已收藏",
-      "history": "历史记录",
-      "empty": "暂无生成记录",
-      "styles": ["写实", "动漫", "油画", "水彩", "3D", "像素"],
-      "generateFailed": "生成失败,请重试",
-      "downloadSuccess": "已保存到相册",
-      "downloadFailed": "下载失败,请重试",
-      "favoriteAdded": "已加入收藏",
-      "favoriteRemoved": "已取消收藏"
-    },
-    "video": {
-      "title": "视频生成",
-      "promptPlaceholder": "描述你想要生成的视频内容...",
-      "generate": "生成视频",
-      "generating": "生成中…",
-      "pending": "排队中…",
-      "succeeded": "生成完成",
-      "failed": "生成失败",
-      "download": "下载",
-      "share": "分享",
-      "history": "历史记录",
-      "emptyHistory": "暂无历史记录",
-      "generateFailed": "生成失败,请重试",
-      "modelUnavailable": "该模型 API 暂未开放",
-      "notAvailable": "未开放",
-      "taskSubmitted": "任务已提交,请稍后查看历史",
-      "downloadSuccess": "已保存到相册",
-      "downloadFailed": "下载失败,请重试"
-    },
-    "agent": {
-      "searchPlaceholder": "搜索智能体",
-      "count": "{n} 个",
-      "empty": "暂无智能体",
-      "inputPlaceholder": "输入你的问题…"
-    },
-    "agentDetail": {
-      "runtimeTitle": "运行状态",
-      "runtimeClear": "清空",
-      "runtimePlan": "执行计划",
-      "runtimePermission": "权限",
-      "runtimePermissionTool": "工具",
-      "runtimePermissionLevel": "危险等级",
-      "runtimePermissionMode": "模式",
-      "runtimeOutput": "输出",
-      "runtimeError": "错误",
-      "runtimeEmpty": "暂无运行记录",
-      "runtimeInputPlaceholder": "输入消息…",
-      "runtimeStop": "停止",
-      "runtimeSend": "发送",
-      "promptLabel": "提示词",
-      "tabRuntime": "运行状态",
-      "vipPermissionDenied": "该智能体需要 VIP 权限",
-      "vipExclusive": "VIP 专属",
-      "permissionLoading": "权限加载中…",
-      "permissionAllowed": "已授权",
-      "permissionDenied": "未授权",
-      "startChat": "开始对话",
-      "favoriteAgent": "收藏智能体",
-      "favorited": "已收藏",
-      "unfavorite": "取消收藏",
-      "useCount": "{n}人使用",
-      "relatedAgents": "相关推荐",
-      "prologue": "开场白",
-      "exampleDialog": "示例对话",
-      "reviews": "评价",
-      "reviewCount": "{n}条评价",
-      "ratingDistribution": "评分分布"
-    },
-    "agentList": {
-      "categories": {
-        "recommend": "推荐",
-        "office": "办公",
-        "writing": "写作",
-        "coding": "编程",
-        "education": "教育",
-        "life": "生活"
-      },
-      "useCount": "{n}人使用",
-      "noResult": "未找到相关智能体",
-      "sortBy": "排序",
-      "sortHot": "热门",
-      "sortNewest": "最新",
-      "sortUses": "使用数",
-      "tabAll": "全部",
-      "tabFavorites": "我的收藏",
-      "tabRecent": "最近使用",
-      "hot": "热门",
-      "hotRecommend": "热门推荐",
-      "createAgent": "创建智能体",
-      "emptyFavorites": "暂无收藏智能体",
-      "emptyRecent": "暂无最近使用智能体"
-    },
-    "historyPage": {
-      "empty": "暂无对话历史",
-      "deleteOne": "删除该对话",
-      "clearAll": "清空全部",
-      "clearConfirm": "确定要清空全部对话历史吗?",
-      "cleared": "已清空",
-      "refreshSuccess": "刷新成功",
-      "startNew": "开始新对话",
-      "msgCount": "{n} 条消息"
-    },
-    "special": {
-      "pageError": "操作失败",
-      "cat": {
-        "image": "AI 绘图",
-        "video": "AI 视频",
-        "voice": "AI 语音",
-        "plaza": "模型广场"
-      },
-      "historySoon": "历史记录即将开放",
-      "featured": "精选推荐",
-      "useBtn": "立即使用"
-    },
-    "chat": {
-      "agentTipTitle": "智能体使用说明",
-      "agentTipConfirm": "我知道了",
-      "agentTipSkill": "选择技能",
-      "agentTipSkillDesc": "点击左上角技能按钮,选择对应智能体",
-      "agentTipTalk": "选择对话",
-      "agentTipTalkDesc": "切换到对话模式,与 AI 直接交流",
-      "agentTipImage": "选择绘图",
-      "agentTipImageDesc": "切换到绘图模式,生成图片",
-      "agentTipInput": "输入问题",
-      "agentTipInputDesc": "在底部输入框输入你的问题,按发送",
-      "agentTipHistory": "历史记录",
-      "agentTipHistoryDesc": "可查看历史对话"
-    },
-    "uploadMaterialTab": "上传{tab}素材",
-    "messageAction": {
-      "reuse": "复用"
-    },
-    "chatDrawers": {
-      "selectModel": "选择模型",
-      "materialLibrary": "素材库",
-      "emptyMaterial": "暂无素材",
-      "skillDetail": "技能详情"
-    },
-    "aiAssistant": {
-      "nothingToCopy": "没有可复制的内容",
-      "copySuccess": "复制成功",
-      "pleaseInputDesc": "请输入描述",
-      "pleaseWait": "请稍候",
-      "insufficientTokens": "智汇值不足",
-      "goRecharge": "智汇值不足,是否前往充值?",
-      "pleaseLogin": "请先登录",
-      "generateFailed": "生成失败,请重试"
-    },
-    "intelligentAssistant": {
-      "greeting": "你好,我是智汇 AI 助手"
-    }
+    "agentLoadFailed": "智能体加载失败"
   },
   "share": {
     "appTitle": "智汇 AI - 让学习更高效",
@@ -625,19 +363,12 @@
     "liveTitle": "推荐直播:{title}",
     "index": {
       "title": "AI资讯",
-      "removeConfirm": "确认删除此对话?",
       "enter": "进入资讯",
       "hotRank": "热门排行",
-      "category": "分类",
       "tabLatest": "最新",
       "tabHot": "热门",
       "tabFollowing": "关注",
-      "drawerTitle": "我的对话",
-      "newChat": "新建对话",
-      "goHome": "返回首页",
-      "history": "历史对话",
-      "emptyHistory": "暂无历史对话",
-      "models": "模型列表"
+      "history": "历史对话"
     },
     "creation": {
       "title": "AI 创作分享",
@@ -671,7 +402,6 @@
   },
   "aiCircle": {
     "title": "AI 圈子",
-    "post": "帖子",
     "empty": "暂无内容",
     "loadFailed": "加载失败",
     "anonymous": "匿名",
@@ -994,7 +724,6 @@
       "empty": "暂无订单",
       "product": "商品",
       "orderNo": "订单号",
-      "amount": "金额",
       "commission": "佣金",
       "error": "加载失败",
       "retry": "点击重试",
@@ -1528,7 +1257,6 @@
   },
   "news": {
     "search": "搜索资讯",
-    "views": "{n} 次浏览",
     "empty": "暂无资讯",
     "readCount": "{n}阅读",
     "detail": {
@@ -1635,34 +1363,6 @@
     "yearlyIncome": "年收入",
     "submitting": "提交中…",
     "apply": "立即申请"
-  },
-  "register": {
-    "enterPhone": "请输入手机号",
-    "codeSent": "验证码已发送",
-    "incomplete": "请填写完整信息",
-    "success": "注册成功",
-    "title": "注册账号",
-    "phone": "手机号",
-    "phonePlaceholder": "请输入手机号",
-    "code": "验证码",
-    "getCode": "获取验证码",
-    "password": "密码",
-    "passwordPlaceholder": "请设置密码",
-    "submit": "注册",
-    "agreeFirst": "请先阅读并同意用户协议",
-    "phoneInvalid": "请输入正确的手机号",
-    "pwdLength": "密码长度 6-20 位",
-    "pageMissing": "页面未注册",
-    "codePlaceholder": "请输入验证码",
-    "hide": "隐藏",
-    "show": "显示",
-    "pwdHint": "6-20 位,建议字母数字组合",
-    "submitting": "注册中…",
-    "agreePrefix": "我已阅读并同意",
-    "userAgreement": "《用户协议》",
-    "privacyPolicy": "《隐私协议》",
-    "hasAccount": "已有账号?",
-    "toLogin": "去登录"
   },
   "message": {
     "tabs": {
@@ -2262,11 +1962,7 @@
       "aiCopywriting": "AI营销文案",
       "aiCopywritingDesc": "智能生成各类营销文案",
       "aiDesign": "AI智能设计",
-      "aiDesignDesc": "智能生成图片和设计",
-      "aiVideo": "AI视频制作",
-      "aiVideoDesc": "智能生成视频内容",
-      "aiLive": "AI直播助手",
-      "aiLiveDesc": "智能直播辅助工具"
+      "aiDesignDesc": "智能生成图片和设计"
     }
   },
   "learnDevelop": {
@@ -2406,27 +2102,16 @@
     "settings": "通知设置"
   },
   "messageInput": {
-    "placeholder": "请输入内容...",
-    "send": "发送",
-    "stop": "停止",
     "fullscreenBack": "收起",
     "fullscreenHint": "全屏编辑模式",
     "recording": "松开发送,上滑取消",
     "voiceHint": "长按说话",
-    "document": "文档",
-    "video": "视频",
-    "addFile": "添加附件",
     "releaseToSend": "松开发送",
     "holdToSpeak": "按住说话"
   },
   "toolbar": {
-    "traffic-service": "流量运营陪跑",
-    "device-service": "一站式设备应用",
-    "ai-other-service": "AI其他技术服务",
     "ai": "AI对话",
     "course": "课程",
-    "plaza": "广场",
-    "rank": "排行",
     "vip": "会员"
   },
   "index": {
