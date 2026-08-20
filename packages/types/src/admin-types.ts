@@ -41,6 +41,8 @@ export interface EduOrder {
   orderType: string
   targetId?: string | null
   targetTitle?: string | null
+  /** 商品图,待商品库数据接入 */
+  image?: string | null
   quantity: number
   originalPrice: string
   discountAmount: string
