@@ -125,13 +125,16 @@ export function OrderDetailScreen() {
         return
       }
 
-      // 5. 查询支付状态确认(乐观提示:SDK 成功即展示)
+      // 5. 只有后端确认已支付才刷新订单状态
       const outTradeNo = payRes.data.outTradeNo
-      if (outTradeNo) {
-        const statusRes = await checkPaymentStatus(outTradeNo)
-        if (!statusRes.success || !statusRes.data?.paid) {
-          // 后端状态未同步,乐观加载(不打印 __DEV__ warn)
-        }
+      if (!outTradeNo) {
+        Alert.alert(t('payment.payFailed'))
+        return
+      }
+      const statusRes = await checkPaymentStatus(outTradeNo)
+      if (!statusRes.success || !statusRes.data?.paid) {
+        Alert.alert(t('payment.payFailed'))
+        return
       }
       // 6. 重新加载订单详情
       await load()
