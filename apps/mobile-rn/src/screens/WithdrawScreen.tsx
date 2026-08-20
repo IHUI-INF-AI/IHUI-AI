@@ -32,9 +32,13 @@ export function WithdrawScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetchApi<unknown>('/wallet/withdraw', {
+      const resp = await fetchApi<unknown>('/api/wallet/withdraw', {
         method: 'POST',
-        body: JSON.stringify({ amount: num, bankCardId: bankCardId || undefined }),
+        body: JSON.stringify({
+          amount: Math.round(num),
+          account: bankCardId,
+          accountType: 'bank_card',
+        }),
       })
       if (!resp.success) throw new Error('http')
       setSuccess(t('withdraw.success'))

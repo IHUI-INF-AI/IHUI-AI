@@ -699,6 +699,10 @@
     "pending": "待結算",
     "withdrawBtn": "申請提現",
     "withdrawMin": "滿 ¥{amount} 方可提現",
+    "withdrawNeedRealname": "提現前請先實名認證!",
+    "withdrawNeedRealnameHint": "完成實名認證後即可正常提現",
+    "withdrawRealnameGo": "去實名",
+    "withdrawRealnameCancel": "不,謝謝",
     "products": "分銷商品",
     "commission": "佣金",
     "sales": "已售 {count} 件"
@@ -773,7 +777,18 @@
     "empty": "暫無收益記錄",
     "settled": "已結算",
     "pending": "待結算",
-    "withdrawn": "已提現"
+    "cancelled": "取消結算",
+    "withdrawn": "已提現",
+    "tab": {
+      "all": "全部",
+      "pending": "待結算",
+      "settled": "已結算",
+      "cancelled": "取消結算"
+    },
+    "buyer": "下單人:{name}",
+    "relatedOrder": "關聯訂單:{orderNo}",
+    "copy": "複製訂單號",
+    "copySuccess": "已複製訂單號"
   },
   "invite": {
     "title": "邀請好友",
