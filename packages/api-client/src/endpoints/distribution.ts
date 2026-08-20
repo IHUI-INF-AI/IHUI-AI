@@ -12,6 +12,8 @@ export interface CommissionOverview {
   invitedCount: number
   activeCount: number
   rank: number
+  /** 推广订单数(commission_flows 去重非空 orderId;无订单数据时为 null) */
+  orderCount: number | null
 }
 
 export interface InviteInfo {
@@ -41,8 +43,14 @@ export interface CommissionRecord {
   rate: number
   userId: string
   userNickname: string
+  /** 后端 /distribution/list 返回 commission_flows 原始行,status 实为数字(0=invalid 1=active);消费方需 String() 归一化 */
   status: string
   createdAt: string
+  /** 后端原始行真实字段(金额单位分);展示层字段 orderAmount/commissionAmount 无数据源时为 undefined */
+  amount?: number
+  token?: number
+  type?: number
+  remark?: string | null
 }
 
 export interface CommissionWithdrawRecord {
@@ -110,9 +118,28 @@ export async function getRanking(
   return fetchApi<CommissionRanking[]>(`/distribution/ranking${buildQs(query)}`)
 }
 
+export interface DayMonthSummaryItem {
+  /** 日期 YYYY-MM-DD 或月份 YYYY-MM */
+  dateStr: string
+  /** 金额(分) */
+  amount: number
+  /** 笔数 */
+  count: number
+}
+
+/**
+ * 日/月收益汇总 — 对齐后端 /api/finance/commission/day-month-summary 实际返回
+ * { daySummary, monthSummary, total }(数组,按时间倒序)。
+ * day/month 标量后端不下发,保留为可选仅供旧调用方兜底。
+ */
 export interface DayMonthSummary {
-  day: number
-  month: number | null
+  daySummary: DayMonthSummaryItem[]
+  monthSummary: DayMonthSummaryItem[]
+  total: { totalAmount: number; totalCount: number }
+  /** 兼容旧调用方:后端不返回 day 标量,应由 daySummary 按日期计算 */
+  day?: number
+  /** 兼容旧调用方:后端不返回 month 标量,应由 monthSummary 按月份计算 */
+  month?: number | null
 }
 
 export async function getDayMonthSummary(): Promise<ApiResult<DayMonthSummary>> {
