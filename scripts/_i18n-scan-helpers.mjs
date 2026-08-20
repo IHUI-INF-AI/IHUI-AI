@@ -139,6 +139,20 @@ export const DYNAMIC_PREFIX_RE = /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0
 // 此正则捕获 `return '<多段点分 key>'` 形式(含 `=> 'x.y.z'` 精简写法),把该 key 加入 staticRefs。
 // 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
 export const RETURN_KEY_RE = /return\s+['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 三元条件字符串字面量:`cond ? 'a.b.c' : 'd.e.f'`(2026-08-20 增强)
+// 背景:extension ComingSoonPage 用 `t(isOpenInWeb ? 'apps.openInWebDesc' : 'apps.comingSoon')`
+// 三元条件形式引用 key,直接 `t('key')` 正则(要求引号紧跟左括号)无法命中 `t(cond ? 'key'`,
+// 导致 apps.openInWebDesc / apps.comingSoon 被误判为死 key。
+// IF 分支匹配 `? 'a.b.c'`(紧跟问号),ELSE 分支匹配 `: 'a.b.c'`(紧跟冒号)。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const TERNARY_KEY_RE_IF = /\?\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const TERNARY_KEY_RE_ELSE = /:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 自定义翻译包装器带 locale 参数:`translateBg(locale, 'a.b.c')`(2026-08-20 增强)
+// 背景:extension entrypoints/background.ts 用 `translateBg(locale, 'contextMenu.translate')`
+// 等自定义包装器在非 React 环境读取翻译,静态扫描只识别 t/tt/tList 名,导致 3 个 contextMenu.* 误判为死 key。
+// 匹配任意以 t 开头 XX 单词 + 元组第 2 参为多段点分 key: `wordToScan(locale, 'a.b.c')`。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -258,6 +272,14 @@ export function scanCode(files) {
       // 2026-08-20 增强:字符串常量 return 'a.b.c'(LiveDetailScreen.chatStatusLabelKey 引用模式)
       RETURN_KEY_RE.lastIndex = 0
       while ((m = RETURN_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:三元条件字符串字面量 cond ? 'a.b.c' : 'd.e.f'(extension ComingSoonPage 引用模式)
+      TERNARY_KEY_RE_IF.lastIndex = 0
+      while ((m = TERNARY_KEY_RE_IF.exec(line)) !== null) staticRefs.add(m[1])
+      TERNARY_KEY_RE_ELSE.lastIndex = 0
+      while ((m = TERNARY_KEY_RE_ELSE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:自定义翻译包装器第二参 translateBg(locale, 'a.b.c')(extension background 引用模式)
+      WRAPPER_ARG_KEY_RE.lastIndex = 0
+      while ((m = WRAPPER_ARG_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
       // 2026-07-26 三次增强:动态前缀拼接 `prefix.${var}`(mobile-rn order.status.* 引用模式)
       // 把前缀加入 usedNamespaces,使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true
       DYNAMIC_PREFIX_RE.lastIndex = 0

@@ -12,21 +12,7 @@
 
 ---
 
-## 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service)
-
-> 起因:用户问"发布文章页面功能都好使吗"。实测发现 5 个发布页在真实浏览器登录态下数据加载大面积失败,定位并修复 5 个根因 + 2 个能力补全:
-
-1. **P0 rewrites 劫持 publish 路由**(apps/web/next.config.ts):原 `/api/publish/:path*` → ai-service 8803 规则把浏览器所有 publish 请求劫持到 8803。ai-service JWTAuthMiddleware 只认 Bearer、不认 cookie → 浏览器同源请求大量 401;analytics 端点只在 api 端注册,走 8803 必 404。**修复**:删除该 rewrite,回落 /api/:path* → 8802。
-2. **P0 代理不转发 cookie 凭据**(publish-routes.ts + publish-analytics.ts):cookie 认证场景下转发无凭据 → ai-service 401。**修复**:resolveAuthHeader()(authorization 优先,缺省从 auth_token cookie 提取构造 Bearer)。
-3. **P0 scheduler 落库失败**(ai-service scheduler.py):`_finish_task_db` SQL 中 `$1` 同时用于 SET status 与 CASE WHEN 比较,asyncpg 推断 text vs varchar 冲突抛 AmbiguousParameterError → 任务状态永久 pending、执行结果不落库。**修复**:把"是否 failed"拆成独立布尔参数 $3,消除 $1 歧义。附带:retry 参数顺序错误、失败路径补写 publish_history。
-4. **P1 提交后进度轮询失效**(new/page.tsx + SubmitBar.tsx):后端返回 task_id(字符串 pub-xxx)无数字 id,前端判 resp.id==='number' 恒 false;且轮询接口返回 platforms(success 布尔)非 targets(status)。**修复**:task_id 字符串轮询 + platforms 映射。
-5. **P1 asyncpg JSONB 返回字符串**:列表/详情的 targets/results/content 是 JSON 字符串,前端读不到字段。**修复**:publish.py 新增 _json_or_raw 统一解析 + _serialize_results_to_platforms(列表返回真实执行结果 platforms)。
-6. **能力补全**:日历页拖拽改期接真实 API(POST /tasks/{task_id}/reschedule,原纯 toast 假改期);历史页展开显示单平台真实执行结果(platforms 优先);api 层补 detect-from-cdp 代理;analytics 改用列表 platforms 统计真实成功率/平台分布/失败原因。
-7. **i18n 补全**:calendar.rescheduled/rescheduleFailed 5 语言;ja/ko 74 处缺失翻译;chat.message.jumpToLatest 5 语言;settings.langZh 语言名修正;zh-TW 繁体修正。
-
-**验证**:web/api/api-client typecheck 全绿;eslint 改动文件 0 错;check-i18n-keys parity OK;i18n-diff 无 pending;mypy(Python 改动)0 错;playwright + Edge 登录态实测 5 个发布页 API 全 200 无报错;POST /tasks 创建 + 改期 + 落库(failed+results)+ 列表/详情 platforms 全链路实测通过(测试数据已清理)。
-
----
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service) -->
 
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
@@ -217,160 +203,13 @@
 - desktop tauri dev 编译成功(58.45s)+ app 运行 ✅
 - plans 表列补齐后 subscriptions 端点 200(修复前 500)✅
 
-## P0 全项目 Bug 排查 + 修复批次(2026-08-11 立,2026-08-12 完成 ✅,跨端:apps/web + apps/api + apps/ai-service + packages/i18n)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 全项目 Bug 排查 + 修复批次(2026-08-11 立,2026-08-12 完成 ✅,跨端:apps/web + apps/api + apps/ai-service + packages/i18n) -->
 
-> 用户指令:"检查本项目bug" → "你自己思考 做完整"。全项目 bug 排查(未提交改动审查 + typecheck 门禁 + 运行时日志扫描)后一次性修复。
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database) -->
 
-### 目标
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅) -->
 
-现状:未提交改动新增 `/models/prompts`、`/models/eval` 导航与 3 条 ai-service 反向代理,但(1)页面依赖的 prompts API 返回 `{ok:true}` 不符合 api-client `code===0` 契约;(2)usage API 返回 `code:200` 同样不兼容;(3)web i18n 5 语言 parity 漂移(zh-CN 缺 113 key / 其他语言各缺 45 key + zh-TW 186 处简体残留)导致 guardian 2n-web/2b blocking 拦提交;(4)crew-role-loader 内置 json 加载静默失败;(5)sidebar 重复 `/live` 导航引发 React key 冲突。
-
-### 硬性指标(H1-H8)— 全部达成 ✅
-
-- [x] ✅(2026-08-12) H1:ai-service 响应格式对齐 `{code:0,message,data}` 契约 — `routers/usage.py` 4 端点 `code:200→0`;`routers/prompts.py` 7 端点 `{ok:true}→{code:0,message:"success",data}`(删除端点返回 `data:{deleted,name}`)
-- [x] ✅(2026-08-12) H2:`apps/api/src/services/crew-role-loader.ts` parseRoles 兼容 `string|Record` 入参(require 返回对象不再 JSON.parse);loadBuiltin 传对象。内置 crew-roles.json 恢复真实加载(修复前永远 fallback),crew-role-loader.test.ts 10/10 通过
-- [x] ✅(2026-08-12) H3:sidebar.tsx 删除 eduAi 组重复 `/live`(保留 eduGroup 组),同步删 Radio import — 消除 React key 冲突警告
-- [x] ✅(2026-08-12) H4:新建 `/models/prompts`、`/models/eval` 页面(2026-08-11 用户已建)审查修复:prompts 页错误态按钮文案(`prompts.create`→`retry`)、详情版本标签空插值;eval 页数据集表格 `ds.items.length`→`item_count`(list 接口无 items,原会崩溃)、`created_at` 缺失防御、2 处错误态按钮文案
-- [x] ✅(2026-08-12) H5:web i18n 5 语言 parity 全绿 — zh-CN 补 113 key(parentPortal/settings/user/help/faq/agreement/common 等,从 en 翻译)+ 4 语言各补 45 key(parentPortal 41 + models.usage.chart 4 + nav.eduParentPortal 1)+ zh-CN models 命名空间补 `retry` + 修复 `admin.relayParamOps.dryRunModified` 缺失;zh-TW 186 处简体残留按 scan 脚本建议自动修复;`check-i18n-keys --parity-only` 通过、`scan-i18n-zh-residue zh-TW/ko` 通过、`check-i18n-broken-en` 通过
-- [x] ✅(2026-08-12) H6:ai-service pytest 71/71 通过(test_prompt_registry + test_eval_service + test_llm_usage_service);crew-role-loader 10/10 通过;改动文件 eslint 0 错误
-- [x] ✅(2026-08-12) H7:`pnpm --filter @ihui/api typecheck` exit 0(tsc --noEmit 0 错误)
-- [x] ✅(2026-08-12) H8:`pnpm --filter @ihui/web typecheck` exit 0(后台全量,2026-08-12 凌晨验证)
-
-### 约束边界
-
-- 后端只改响应格式(契约对齐),不改路由结构/业务逻辑;service 层零改动
-- 前端只修既有页面缺陷,不重构页面结构
-- i18n 补 key 严格按 zh-CN 已有值翻译,新增 key 5 语言同步
-- 环境类问题(Redis 5.0.14.1 版本过低、publish.scheduler 启动顺序、registry-sync 外部源)属运维/外部依赖,不在本批次代码修复范围,单独记录
-
-### 遗留观察(非本批次修复)
-
-- Redis 版本 5.0.14.1 低于 Bull 要求的 6.2(Aug7 曾 2597 条 MISCONF,当前已恢复)— 建议升级
-- ~~ai-service `publish.scheduler` 在 Postgres 未启动时每 62s 重试(Aug8 历史)— 建议退避重试~~ ✅(2026-08-13 已实现:scheduler.py `_DB_BACKOFF_BASE_SEC=5.0`/`_MAX=300.0` 指数退避,2026-08-16 复核确认)
-- registry-sync 外部源 mcp.so/smithery.ai/glama.ai 404 + GitHub rate limit — 需配置 githubToken
-
----
-
-## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)
-
-> AGENTS.md §9 平台独占豁免:本任务仅触及后端 `apps/api` 验证码校验逻辑 + `packages/database` 迁移,不涉及前端 UI/交互,无需 8 端同步。
-> AGENTS.md §24 豁免:用户已明确要求"验证码默认为 123456 就可以测试登录不需要收真实验证码 这条需要加到数据库"。
-> 配套 user_profile 规则:测试账号强制使用 admin(username=admin / password=admin123 / email=502319984@qq.com / phone=18643389808),禁止创建新测试账号。
-
-### 目标
-
-为 admin 账号(email=502319984@qq.com / phone=18643389808)在测试环境下启用固定验证码 123456,无需收真实验证码即可完成登录/注册/换绑手机等流程的自动化测试与 E2E 验证。
-
-### 硬性指标(H1-H5)— 全部达成 ✅
-
-- [x] ✅(2026-08-01) H1:新增迁移 `packages/database/drizzle/20260801040000_admin_test_verify_code_bypass.sql` 建 `test_verify_code_bypass` 表 + seed admin 邮箱/手机号 2 条 fixed_code=123456 记录(幂等可重复执行)
-- [x] ✅(2026-08-01) H2:`apps/api/src/utils/code-store.ts` `verifyCode` 改 async,非生产环境优先查 `test_verify_code_bypass` 表,命中且 code 匹配 → true(不消耗内存 code),查询失败降级到内存校验(不阻塞登录)
-- [x] ✅(2026-08-01) H3:13 处 `verifyCode` 调用方全部加 `await`(auth-codes.ts 1 处 + auth-extended.ts 7 处 + users.ts 1 处 + code-store.test.ts 4 处)
-- [x] ✅(2026-08-01) H4:`pnpm --filter @ihui/api typecheck` exit 0;本任务 5 文件 eslint exit 0(全量 lint 8 errors 均为其他 agent 文件 coupons.ts/export-csv.ts/api-key-tpm-service.ts/redemption-code-service.test.ts,不在本任务范围)
-- [x] ✅(2026-08-01) H5:commit + push origin/main,local == remote,git-push-guard exit 0
-
-### 约束边界
-
-- **安全**:仅 `NODE_ENV !== 'production'` 生效;生产环境永远走真实验证码流程,此表在生产环境不生效
-- **admin 不可变**:admin 账号由 0067/0071 触发器保证不可变(见 user_profile 测试账号强制规则)
-- **不修改发送验证码逻辑**:只改 `verifyCode` 校验侧,`generateCode` / `sendCode` 保持不变(测试时无需真发)
-- **降级策略**:db 查询失败(catch)降级到内存校验,不阻塞登录流程
-
-### 涉及文件
-
-- `packages/database/drizzle/20260801040000_admin_test_verify_code_bypass.sql`(新)
-- `apps/api/src/utils/code-store.ts`(改:verifyCode async + bypass)
-- `apps/api/src/routes/auth-codes.ts`(改:1 处 await)
-- `apps/api/src/routes/auth-extended.ts`(改:7 处 await)
-- `apps/api/src/routes/users.ts`(改:1 处 await)
-- `apps/api/tests/code-store.test.ts`(改:4 处 async/await)
-
----
-
-## 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅)
-
-### 目标
-
-将 Codex 必装 10 插件(Chrome/GitHub/Computer Use/Build Web Apps/Figma/Documents/Presentations/Spreadsheets/HyperFrames/Remotion)在项目插件市场 `/plugins` 100% 配齐:6 个 catalog 已有项补 vendor 映射,4 个 catalog 缺失项新建条目,所有图标在页面正确显示,内置可在平台内调用(dialog 模式,LLM 真集成走 ai-service MCP 工具)。
-
-### 硬性指标(H1-H8)
-
-- [x] ✅(2026-08-01) H1:plugins-data.ts 新增 4 项 MARKET_PLUGINS(build-web-apps / documents / presentations / spreadsheets)
-- [x] ✅(2026-08-01) H2:brand-icon.tsx 新增 4 项 VENDOR_COMPONENTS(chrome / figma / remotion / hyperframes)
-- [x] ✅(2026-08-01) H3:6 项已有条目 vendor 字段补全(puppeteer→google/figma-mcp→figma/remotion→remotion/hyperframes→hyperframes/anthropic-computer-use→anthropic/github-mcp→githubcopilot)
-- [x] ✅(2026-08-01) H4:REAL_INTEGRATED_IDS 更新(build-web-apps 进 REAL_INTEGRATED 走 e2b/code-interpreter MCP;documents/presentations/spreadsheets 后端暂无对应工具留 prompt-only)
-- [x] ✅(2026-08-01) H5:`pnpm --filter @ihui/web typecheck` exit 0
-- [x] ✅(2026-08-01) H6:本任务 3 文件(plugins-data.ts / brand-icon.tsx / plugins-marketplace.spec.ts)eslint exit 0(全量 lint 5 errors 均为其他模块 use-chat.ts / use-lazy-resource-hooks.ts / use-slash-action.ts / message-list.test.tsx,不在本任务范围)
-- [x] ✅(2026-08-01) H7:browser_use 访问 `/plugins` 验证 10 插件卡片渲染,DOM 读 svg 验证图标:6 个走 BrandIcon 真实矢量(GithubCopilot/Anthropic/Vercel/Figma/Notion/Google),4 个走 lucide fallback(Browser Use/Presentations/Hyperframes/Remotion)符合预期
-- [x] ✅(2026-08-01) H8:新增 `apps/web/e2e/plugins-marketplace.spec.ts` 3 测试用例(H8.1 页面可访问 + H8.2 10 插件名称可见 + H8.3 每卡片含 svg/img 图标)
-
-### 约束边界
-
-- 涉及文件:`apps/web/app/(main)/plugins/plugins-data.ts` + `apps/web/src/components/ai/brand-icon.tsx` + `apps/web/e2e/plugins-marketplace.spec.ts`(新)+ `README.md`(同步插件市场章节)
-- 不可触及:其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)、i18n 文件(已有 invokePrompt 模板覆盖)
-- 图标策略:lobehub 收录的 vendor → BrandIcon;未收录的用 lucide fallback(Chrome→Chrome lucide / Remotion/Hyperframes→Video lucide 同色但不同形,接受风格偏差)
-- 真实集成度:build-web-apps(走 e2b/code-interpreter MCP)进 REAL_INTEGRATED;其余 documents/presentations/spreadsheets 后端暂无对应工具,留 prompt-only
-
----
-
-## 已完成任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,2026-07-30 完成 ✅,/goal 模式,平台独占:仅 apps/miniapp-taro)
-
-> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
-> /goal 运行时:已完成,STATE.md + loop-run-log.md 已删除(goal 模式 §7 整合清理)
-> 对齐基础设施:`.trae-cn/tmp/miniapp-taro-style-align/`(page-list.md / color-map.md / workflow.md / home-spec.md)
-
-### 目标条件(五要素契约)
-
-将 `apps/miniapp-taro` 100+ 页面样式完整对齐历史项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uni-app + Vue + SCSS),做到"一模一样":布局/颜色/间距/字号/圆角/交互视觉全对齐。验证:browser_use 截图 + DOM 验证 + typecheck/lint/build 全绿。约束:保留 design-tokens 映射原项目颜色,允许重写页面+子组件,禁止引入新依赖。20 轮耗尽输出剩余清单。
-
-### 硬性指标(H1-H10)— 全部达成 ✅
-
-- [x] ✅(2026-07-30) H1:tabbar 5 tab 页面对齐(首页+我的 2/3 对齐 + DOM 验证通过,智汇社区保留现有布局,课程/直播原项目无对应跳过,截图因 browser 工具 tab not visible 限制跳过)
-- [x] ✅(2026-07-30) H2:高频 10 页面对齐(9/8 对齐 + DOM 验证通过:登录/注册/忘记密码/VIP/AI对话/支付/订单/用户中心/消息,order/detail/search 无对应跳过)
-- [x] ✅(2026-07-30) H3:长尾页面按轮次推进(12 个长尾对齐:about/feedback/protocol/phone/password/privacy/setting/recharge success/fail/withdrawal/top-up/distribution plan;剩余 11+ 多为命名差异/无对应/样式已合理,经评估无需进一步对齐)
-- [x] ✅(2026-07-29) H4:typecheck exit 0(轮次 3 验证)
-- [x] ✅(2026-07-29) H5:lint exit 0(轮次 3 验证,0 errors)
-- [x] ✅(2026-07-30) H6:taro build 无 error(轮次 10 build:weapp 28.41s 成功 + build:h5 20.67s 成功)
-- [x] ✅(2026-07-29) H7:token 同步不漂移(sync-design-tokens --check exit 0)
-- [x] ✅(2026-07-29) H8:颜色映射表建立(color-map.md,87 颜色/29 字号/38 间距/31 圆角)
-- [x] ✅(2026-07-29) H9:对齐清单建立(page-list.md,159 条目)
-- [x] ✅(2026-07-29) H10:工作流模板建立(workflow.md,7 步流程 + 4 快速查询 + 验证清单)
-
-### 进度记录(11 轮迭代,2026-07-29 ~ 2026-07-30)
-
-- 轮次 1:启动 + 建立 goal-runtime STATE.md + loop-run-log.md
-- 轮次 2:建立对齐基础设施(page-list.md / color-map.md / workflow.md,3 subagent 并行)
-- 轮次 3:新增青色 token 到 tokens.css(8 青色 + 4 透明度)+ 同步到 app.css + H4/H5/H7 达成
-- 轮次 4:重写首页 + 改造 7 个子组件对齐 ai_index.vue(NavBar/DrawerComponent/ModelList/ModelTypeButton/BottomActionBar/InputArea)
-- 轮次 5:迁移原项目静态资源(21 个 PNG/SVG)+ 修正 13 处图片引用 + user 页面对齐(会员权益卡片)
-- 轮次 6:H2 高频 10 页面对齐(ai/chat 青色渐变 + pay 圆角统一 + order/list 9 处对齐 + 登录/注册/忘记密码/VIP 4 页 + 3 共享组件 + 13 资源)
-- 轮次 7:H3 长尾 3 页对齐(about/feedback/protocol)
-- 轮次 8:H3 长尾 4 页对齐(phone/password/privacy/setting)
-- 轮次 9:H3 长尾 5 页对齐(recharge success/fail + withdrawal + top-up + distribution/plan)
-- 轮次 10:解决视觉验证阻塞(build:h5 成功 + HTTP 服务器 + browser_use DOM 验证通过:首页+user 关键 Tailwind 类在编译产物确认;4 状态截图因 browser 工具 tab not visible 限制跳过)
-- 轮次 11:H3 剩余 6 个长尾页面评估均无需进一步对齐(2 个有对应已用 design-tokens + 4 个无对应/功能不匹配),goal 评估 yes(基本达成)
-
-### 关键发现
-
-- 原项目首页 `pages/table/aiIndex/ai_index.vue` 是 AI 对话主页(6186 行:template 182 + script 3772 + style 2229),与 miniapp-taro 现有首页(教育门户)完全不同,需整体重写
-- 原项目主品牌色 #93d2f3 青色系在 design-tokens 缺失,轮次 3 已新增 8 青色 token + 4 透明度变体解除阻塞
-- model-type-btn 选中态用 SVG 背景图(非纯色),8 个按钮统一结构可抽成 ModelTypeButton 组件
-- 159 页清单:P0 未对齐 2 项(首页+智汇社区),P1 未对齐若干,P2 长尾 144 项,无对应 74 项
-- 视觉验证(4 状态截图)因 browser 工具 tab not visible 限制无法完成(环境问题非任务问题),DOM 验证通过(Grep h5 产物 JS/CSS 确认关键 Tailwind 类存在)
-
-### Git 同步证据
-
-- 轮次 4 commit: 284b77fdb(首页 + 7 子组件 + index.css)
-- 轮次 5 commit: 34afb0140(user 页面会员权益)+ 1c2eff9057(21 资源 + 13 引用修正)
-- 轮次 6 commit: dd870e544(ai/chat + pay + order/list)+ 18ec7cb1ac(登录/注册/忘记密码/VIP 4 页 + 3 组件 + 13 资源)
-- 轮次 7 commit: a27fb5c5b3(about/feedback/protocol)
-- 轮次 8 commit: a8a43a5bb9(phone/password/privacy/setting)
-- 轮次 9 commit: 1e1e694b0(recharge success/fail + withdrawal + distribution/plan)
-- 轮次 10-11:无代码 commit(视觉验证 + 评估,无源码改动)
-- origin HEAD: 18ec7cb1acfff72da51b29fb74b932215ce4e27d
-- 同步状态: local == remote ✅
-
----
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,2026-07-30 完成 ✅,/goal 模式,平台独占:仅 apps/miniapp-taro) -->
 
 ## 当前活跃任务:miniapp-taro 功能组件对齐 zhs_app-ZZ(2026-07-30 立,平台独占:仅 apps/miniapp-taro)
 
@@ -453,48 +292,7 @@
 
 ---
 
-## 已完成任务:mobile-rn 组件对齐原 uniapp 项目(2026-08-16 完成 ✅,平台独占:apps/mobile-rn)
-
-> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/mobile-rn`(+ 少量 shared 依赖),不参与 web/api/ai-service 跨端契约同步。
-> 原 uniapp 项目:D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue(48 组件);RN:apps/mobile-rn/src/components(55 组件)。
-
-### 目标
-
-穷尽比对原 uniapp 项目组件与 mobile-rn 组件差异(结构/交互/尺寸/文案),逐一对齐,验证 typecheck 0 错误 + 模拟器实测无红屏。
-
-### 成果(commit 92de524,22 files +2559/-822)
-
-- **38 组差异全部处理**:30 组已对齐/重写(我改 11 组:Toolbar/AgentList/AgentShopList 新增/PayButton/ConfirmPurchasePopUp/PurchaseNoticePopUp/BottomFigure/EarningsStatisticsCard/KnowledgePlanet/SingleTypeBar/CardWithList/UserInfoCard/BottomActionBar + 并发会话改 19 组)+ 8 组合理保留(TabBar 原 v-if=false 不渲染/SideMenu/MoreTitles/NavBar/LoginPopUp/VerifyCodeModal/IntroducePopup/ColorfulLoader)
-- **两处真实缺陷修复(2026-08-16 收尾)**:
-  - VerifyCodeModal:倒计时时机修复 — 原"打开即倒计时但短信未发"改为 remaining 初值 0、打开不自动启动、onResend await 成功后 startTimer(对齐原版 sendTextMsg 成功后 codeMin=60)
-  - IntroducePopup:补头像区 + 顶部装饰图(头像 88×88 圆 + 身份徽标 + 左装饰图 + 右二维码 + headertitle 双图),新增 avatarUrl/showDecorations/showAvatar 可选 props 零破坏现有调用
-- **守门修复**:check-root-dir-clean.mjs 白名单补 check-chat-keys.js(既有跟踪脚本)
-
-### 验证
-
-- tsc --noEmit: 0 错误(全量)
-- 模拟器实测:Running "main" 成功,无红屏,登录页/GlobalFloatBox 正常渲染
-- 依赖修复:mobile-rn babel-preset-expo 链接 + .bin 顶层链接(并发 pnpm install 破坏,2026-08-16 两轮修复)
-
-### 收尾:rpx 间距基线统一(2026-08-19)
-
-- 将 `apps/mobile-rn/src/screens|pages` 28 个 Screen 的 StyleSheet 数值间距(padding\*/margin\*/gap\*)统一改写为 `rpx(value*2)`,与设计稿 750rpx 基准精确对齐;`rpx` 工具函数来自 `apps/mobile-rn/src/utils/rpx.ts`(P0-2 已落地)。
-- 修复 codemod 对多行 import 块末尾插入 `import { rpx }` 导致的语法错误(改为插入到最后一个 `} from` 之后),ProfileScreen 等 28 文件受益。
-- 验证:`tsc --noEmit` 0 错误 + `eslint .` 0 错误(仅 28 文件增量)。
-
-### 收尾:web 间距类化 + 首次分享积分闭环(2026-08-19/20)
-
-- **web 内联间距 clz 化**(commit 54736f229a):`apps/web` 审计 11 处内联间距 px,仅 4 处真实可改(file-explorer `pl-3`/`pl-7`、global-hooks ul/li gap 类化),其余为 ECharts/ReactFlow/Radix/`customStyle` 非渲染间距不动;值不变。
-- **首次分享领智汇值积分闭环**(commits bb82e2aeb4 + 72cb936b1d):
-  - 后端:`GET /api/share/first-status` + `POST /api/share/first-claim`(幂等,已领 409),复用 edu 积分基建(事务 + FOR UPDATE + `description='first_share'` 查重,不加表);`share-first.ts` 新路由 + `point-queries.ts` 两个新函数。
-  - api-client:`getShareFirstStatus`/`claimShareFirstReward`(web/mobile-rn 共用)。
-  - mobile-rn ChatScreen:任意分享成功 → 查状态 → 弹"分享领智汇值"弹窗 → "领取"按钮闭环(保留"立即分享邀请好友"次按钮)。
-  - 测试:重建 `share-first.test.ts`(6 用例);api 全量 359 文件 5949 tests 通过。
-- **明确不再执行的项(诚实标注,非遗漏)**:
-  - Profile 4Tab 用户内容 API(`getMyCreation` type=1/2/3/4):数据库无用户内容表(文本/图片/视频/音频),需产品定义 + 建表,交后端。
-  - Home 营销接口(`getHomePageResources`):无 banner/资源表,需营销内容管理能力,交后端。
-  - TabBar 清理:§7 评估保留(9 个 tabbar 图标唯一引用)。
-  - 真机/模拟器视觉对比:用户已明确不做。
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:mobile-rn 组件对齐原 uniapp 项目(2026-08-16 完成 ✅,平台独占:apps/mobile-rn) -->
 
 ## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
 
@@ -1603,72 +1401,9 @@
 
 <!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 字符数从外层 hint 行迁移至输入框内右下角 + enterToSend 5 语言,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
-## web 端 AI 对话页登录弹窗样式/凭证持久化修复(2026-07-31,已完成 ✅)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页登录弹窗样式/凭证持久化修复(2026-07-31,已完成 ✅) -->
 
-> 用户反馈:web 端登录弹窗"乱七八糟"挡住 AI 对话内容,admin 测试账号每周都要重新登录,账号输入框右侧 ChevronDown 不需要。
-> AGENTS.md §24:本任务为"现有功能的修复/重构/优化/适配",不引入新能力,豁免 AskUserQuestion 确认。
-
-### 修复内容
-
-- [x] **/chat 路由未登录态友好引导**:`apps/web/app/(main)/chat/page.tsx` 不再无条件复用 /home,未登录时显示"登录后开始 AI 对话" + 自动 open LoginDialog,已登录时复用 home(包含 AISidePanel),hydration-safe 占位防 SSR/CSR 不一致
-- [x] **AccountHistoryInput 移除 ChevronDown**:`apps/web/src/components/login/AccountHistoryInput.tsx` 删除 ChevronDown icon import 和右侧按钮渲染,保留双击 + 键盘 ArrowDown 展开历史账号,功能不变
-- [x] **admin 凭证 30 天持久化**:`apps/web/src/lib/cookie-utils.ts` `ACCESS_TOKEN_DEFAULT_MAX_AGE` 从 7 天升到 30 天,覆盖 30 天 refreshToken 周期,admin 测试账号 30 天内不被弹窗打断;详细注释说明 XSS/cookie 安全权衡
-- [x] **i18n 5 语言 parity 补齐**:`chat.loginRequiredTitle` / `chat.loginRequiredDesc` 同步到 zh-CN / en / ja / ko / zh-TW(10 个 key parity OK);`npx vitest run tests/i18n-icu-antipattern.test.tsx` → 25 tests passed ✅
-- [x] **单独 typecheck + lint 全绿**:本任务 3 个 commit 9 个文件独立跑 `tsc --noEmit` + `eslint <files>` 0 错误(其他文件 lint/typecheck 错误属其他 agent,本任务不越权帮修)
-
-### Git 同步证据(§20 硬定义 5 条全绿)
-
-- `e973c0b00a` fix(web): 移除 AccountHistoryInput 非必要 ChevronDown + admin 凭证 30 天持久化
-- `652afb933e` fix(web): /chat 路由未登录时显示友好引导,避免被登录弹窗挡 AI 对话内容(同时附 ide 3 panel + i18n 5 文件补全)
-- `ef18409100` fix(i18n): 补齐 /chat 路由 chat.loginRequiredTitle/Desc 5 语言 key(parity)
-- `3e37ca201b` fix(ui-react): 共享层 AccountHistoryInput 移除 ChevronDown 按钮(共享包版本)
-- `d0d9dddeea` docs(web+ui-react): AccountHistoryInput 注释同步 — 明确移除 ChevronDown 行为
-- `a12d54abd1` fix(web): MessageInput 输入框 border-border → border-input + LoginDialog 移除双层圆角 + 旧 Radix 策略
-- 本任务最终 local HEAD `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` == origin/main `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` ✅
-- `node scripts/git-push-guard.mjs` exit 0 ✅(tag 同步失败为非阻塞告警,branch push 成功)
-
-## web 端 AI 对话页 UI 一致性 2 轮细化修复(2026-07-31,已完成 ✅)
-
-> 触发背景:用户多次反馈"AI 对话页跟历史项目根本不一致"、"你深度分析比对"。
-> AGENTS.md §24:本任务为"现有功能的细化优化/适配",不引入新能力,豁免 AskUserQuestion 确认。
-
-### 本轮修复内容(subagent 浏览器 SSR HTML 抓取 + DOM 静态分析发现)
-
-- [x] **MessageInput 输入框描边色升级**:`apps/web/src/components/chat/message-input.tsx:339` 改 `border-border` (89.8% L / 22% L) → `border-input` (91% L / 26% L),对齐 tokens.css `--color-input` 设计意图。亮色下输入框在白底卡片上视觉边界更柔和(用户偏好"light mode colors to be whiter"),暗色下与卡片 10% L 背景对比度提升 4%,用户更易找到光标位置
-- [x] **LoginDialog 双层圆角消除**:`apps/web/src/components/login/LoginDialog.tsx:55-69` 移除 DialogContent 的 `sm:rounded-xl`(AuthShell 内部已 `rounded-xl`),小屏(<640px)不再双层圆角叠加视觉割裂
-- [x] **LoginDialog 旧 Radix pointer-events 策略移除**:同文件 DialogContent 移除 `pointer-events-none [&>div]:pointer-events-auto`,2026 Radix UI 已默认全启用,旧策略会导致子元素事件穿透。LoginDialog 账号/密码输入响应更可靠
-
-### Git 同步证据
-
-- 本任务最终 commit `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` == origin/main `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` ✅
-- 单独 typecheck(`pnpm --filter @ihui/web typecheck`)+ eslint 2 文件 0 errors
-
-### 影响文件(共 2 个)
-
-- `apps/web/src/components/chat/message-input.tsx`
-- `apps/web/src/components/login/LoginDialog.tsx`
-
-### 未完成项(本环境能力限制)
-
-- ⚠️ **浏览器 4 状态视觉自验未完成**:主 agent + subagent 工具集均无 `browser_*` 工具(系统提示"browser is currently locked"但无解锁能力),无法实际渲染截图。dev server 持续运行在 8801 端口(已 HTTP 200 验证),用户可在 TRAE 浏览器面板打开 `http://localhost:8801/chat` 实际验证 3 项修复的视觉效果
-- subagent 静态分析已发现的 P1 待修复项(不动):
-  - P1 #1 ✅ **已解决**(2026-08-01 复核):web 端 `ThirdPartyLoginButtons.tsx` 已于 2026-07-31 删除(dead code,LoginDialog 走共享包 `@ihui/ui-react` 的 LoginForm → 共享 ThirdPartyLoginButtons),5 个独立登录表单经评估无独立 dead code(已被 LoginFormContent/RegisterFormContent 等共享组件替代)
-  - P1 #3 ✅ **已修复**(2026-08-01 复核):`apps/web/src/components/ai/ai-side-panel.tsx` L815-817 + L876-877 已于 2026-07-31 完成移动端适配 — docked 关闭态手柄 `hidden min-[1024px]:block` 在 < 1024px 隐藏(避免 400px 面板推溢 viewport),mobile 下 AI 面板入口改用浮窗 FAB(floatMode 路径),浮窗展开时 `fixed inset-0 z-sticky` 全屏覆盖(解决 400px 浮窗在 390px 视口溢出),无需产品决策
-  - P1 #4 ✅ **已作废**(2026-07-31 深度分析):原"第三方登录双 grid 合并"经 subagent 验证实际是 web 端 `ThirdPartyLoginButtons` 整个文件 dead code,无双层 grid 渲染;文件已于 2026-07-31 删除,无实际用户可见影响
-
-### 影响文件(共 9 个)
-
-- `apps/web/app/(main)/chat/page.tsx`
-- `apps/web/src/components/login/AccountHistoryInput.tsx`
-- `apps/web/src/lib/cookie-utils.ts`
-- `apps/web/src/components/ide/applications-panel.tsx`(652afb933e 附带)
-- `apps/web/src/components/ide/search-panel.tsx`(652afb933e 附带)
-- `apps/web/src/components/ide/source-control-panel.tsx`(652afb933e 附带)
-- `packages/i18n/messages/web/{zh-CN,zh-TW,en,ja,ko}.json`(共 5 个,652afb933e + ef18409100 共 2 commit 提交)
-
-### 浏览器自验状态
-
-- ⚠️ **未完成 browser 4 状态截图自验**:工作区 AdminNav.tsx 当前有未提交的脏改动(line 38 + line 89 重复 import Gauge),其他 agent 改的代码引入编译错,导致 dev server 8801 整页报 500,任何路由都跑不动。本任务代码(`chat/page.tsx` / `AccountHistoryInput.tsx` / `cookie-utils.ts` / 5 个 i18n)独立 typecheck/lint 0 错误,远端 origin/main `66d1d86793` commit 也未触及 AdminNav。按 AGENTS.md §16 越权事故规则,**不修其他 agent 未提交的脏代码**;AdminNav 提交 + 推送后本任务修复即可一次性 browser 4 状态自验通过。
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页 UI 一致性 2 轮细化修复(2026-07-31,已完成 ✅) -->
 
 ## 对话历史批量操作功能(2026-07-31 立,平台独占:apps/web + apps/api)
 
@@ -2304,22 +2039,7 @@ CDP 关键 API:
 
 <!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
 
-## /goal 管理端彻底修复完整开发到极致完美(2026-07-31,achieved ✅)
-
-> /goal 运行时:已完成,STATE.md + loop-run-log.md 已删除(goal 模式 §7 整合清理)
-
-- **目标条件**:彻底修复管理端所有剩余问题:后端缺失端点、前端API调用不匹配、前端半成品页面、后端mock端点,做到所有功能接口都有对应界面操作管理,零404零不匹配
-- **硬性指标 H1-H6**:全部满足
-  - H1:后端缺失端点修复 — admin-support-tickets.ts 添加列表端点 + admin-shop-routes.ts 统一 PATCH→PUT + admin-monitoring-routes.ts 6个mock端点替换为真实DB查询 + relay-key-pool.ts 健康检查接入真实上游检测 ✅
-  - H2:前端API调用不匹配修复 — batchImportAdminMembers 路径修正 + adminUpdateConfig 方法修正(PATCH→PUT)✅
-  - H3:前端半成品页面修复 — api-groups/page.tsx 改为只读页面 + dashboard-stat/page.tsx 对接真实API + api-logs/page.tsx 对接真实API ✅
-  - H4:后端缺失GET /:id详情端点 — 9个路由文件共新增22个GET /:id详情端点 ✅
-  - H5:全量验证 — API typecheck通过 + Web typecheck零错误 + 20个文件822行新增327行删除 ✅
-  - H6:Git 同步 — commit b4257f933f push 成功,local HEAD == remote HEAD ✅
-- **执行方式**:3个并行审计subagent + 3个并行修复subagent,单轮完成
-- **Git 同步证据**:local HEAD b4257f933f == remote HEAD b4257f933f
-- **总轮次**:1 轮(审计 + 修复 + 验证 + 交付)
-- **目标状态**:achieved ✅(STATE.md + loop-run-log.md 已清理)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: /goal 管理端彻底修复完整开发到极致完美(2026-07-31,achieved ✅) -->
 
 ## Web 端移动端/平板深度适配(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注)
 
@@ -2566,109 +2286,11 @@ CDP 关键 API:
 
 ---
 
-## 已修复:next build 生产构建内存崩溃 + 构建提速 15 倍(2026-08-05 完成 ✅,运维/构建系统)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:next build 生产构建内存崩溃 + 构建提速 15 倍(2026-08-05 完成 ✅,运维/构建系统) -->
 
-### 根因(历经 20+ 实验定位)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:Cloudflared tunnel token rotate + 泄露封堵(2026-08-05 完成 ✅,安全/运维) -->
 
-- **表象**:`next build` 反复崩溃,`memory allocation of 7.5/15/30GB failed` + 退出码 `0xC0000409`(Rust abort),单进程 Private 膨胀到 137GB
-- **真凶**:Tailwind 4(@tailwindcss/postcss)默认扫描项目目录时,把构建脚本备份产物 `.next-bak-*`(4 个共 14.8GB,含 1.05GB webpack cache pack + 5.3 万文件)当内容源解析 → 内存爆炸 → SWC 30GB 分配失败;`.gitignore` 只忽略 `.next/` 不匹配 `.next-bak-*`
-- **恶性循环**:构建失败 → 脚本备份 .next → 又多一个污染目录
-
-### 修复(三层根治)
-
-1. **污染源**:全部 6 个构建脚本备份 .next 改到外部 `C:/tmp/next-backup-*`(不再生成 .next-bak-*)
-2. **防呆**:`.gitignore` 加 `.next-bak-*/` + `.next-failrec-*/`
-3. **加速**:next.config cpus 4→12(12 物理核最优,16 实测慢 11s)+ 恢复 webpack filesystem 缓存 → **构建 50.6min → 3.4min(15 倍)**
-
-### 其他修复
-
-- 排障期间误注释的 `globals.css @source`(Tailwind 扫描 ui-react)已恢复,重建验证样式完整
-- 公网大响应 502/慢:Cloudflared 协议 quic→http2(TTFB 3-7s→0.4s)+ 构建脚本自动重启隧道
-- 健康检查脚本新增 3 项(.next-bak 污染/提交量/隧道协议)+ 修复 ProjectRoot 路径
-- i18n models.sort 补齐(priceAsc/priceDesc/contextDesc/nameAsc,5 语言)编译进产物
-- 构建脚本入库 `scripts/build-next-prod.ps1`(原在 .trae-cn 被 git 忽略,有丢失风险)
-
-### 经验沉淀
-
-- 排障 skill:`nextjs-windows-build-oom`(双 pagefile 数组格式/Tailwind 扫描检查/sourcemap 关闭等完整流程)
-- `.git` 丢失恢复流程:备份 worktree 改动 → clone 远程 → 应用改动 push → Copy clone\.git 回原目录 → reset --hard 同步
-- 当前生产:BUILD_ID=SXt6jK6D5WpSyurkg7oYF,公网全绿(首页 TTFB 0.4s),git 已 push(HEAD=d36c240770)
-
----
-
-## 已修复:Cloudflared tunnel token rotate + 泄露封堵(2026-08-05 完成 ✅,安全/运维)
-
-### 触发背景
-
-用户要求 rotate Cloudflared tunnel token 并确保新 token 不再泄露。盘点发现两类泄露点:
-
-- **真实泄露**:git 历史 commit `cc73503d2d` 中 `scripts/start-cloudflared-tunnel.ps1` 第 19 行硬编码了旧 token(已 push 到 GitHub origin/main)
-- **运行时泄露**:浏览器 MCP 工具的 network log 文件含 token 字符串(本地 Temp 目录)
-
-### 操作过程
-
-1. **rotate token**:用 browser_use subagent 登录 Cloudflare Zero Trust 后台,在 ihui-local 隧道编辑页点"刷新令牌" → 确认对话框 → 通过注入 fetch 拦截器捕获 `PATCH /api/v4/accounts/{id}/cfd_tunnel/{id}` 的 200 响应 body,提取新 token(subagent 第一次报告"已 rotate"是假的,通过 connections API 验证旧连接仍活跃识破)
-2. **立即应用**:写入 `C:\ProgramData\cloudflared\token`(Windows 服务用)+ `deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt`(PS 脚本用)→ Restart-Service Cloudflared → curl 验证公网全绿(aizhs.top/bsm.aizhs.top 200,api.aizhs.top/api/health 200,ai.aizhs.top 401 正常,TTFB 0.5-0.7s)
-3. **封堵泄露点**:
-   - 删除浏览器 network log 文件(`%TEMP%\trae\browser-logs\network-*.log`)
-   - 删除旧 token 备份目录(`.trae-cn/tmp/cloudflared-token-backup-*`)
-   - 清空系统剪贴板
-   - 加固 token 文件 ACL(仅 SYSTEM + Administrators + 当前用户读,移除 Users/Power Users 读权限)
-4. **守门加固**:
-   - `.gitignore` 添加显式防御规则(`**/TUNNEL_TOKEN*.txt` / `**/cloudflared*token*` / `deploy/prod-bundle/cloudflared/*.local.txt`)
-   - `scripts/check-api-key-leak.mjs` 的 `KNOWN_KEY_PREFIXES` 加 cloudflared token 前缀 `eyJhIjoiNDhkY2Q1...`(account ID 段固定,rotate 后 s-field 变但前缀不变,可检测新旧 token;完整前缀仅存于守门脚本自身,不进文档)
-   - 该守门已集成在 pre-commit guardian-runner 第 1 项(blocking),任何 staged 文件含 token 字符串 → 阻塞 commit
-
-### 遗留评估
-
-- **git 历史中的旧 token**:commit `cc73503d2d` 已 push 到 origin/main,旧 token 字符串在 GitHub 远端可见。但旧 token 已 rotate 失效(20 分钟前 Cloudflare 后台确认),任何持有旧 token 的进程无法建立新连接,**实际危害 = 0**。不重写 git 历史(违反 AGENTS.md §22 §9b 单分支 + 禁止 force push 规则),仅做记录
-- **新 token 字符串**:仅存在于 `C:\ProgramData\cloudflared\token`(ACL 收紧)+ `deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt`(未 git tracked + .gitignore 显式忽略 + ACL 收紧),不进 git,不写代码,不进 memory
-
-### 经验沉淀
-
-- Cloudflare Dashboard UI 不直接展示完整 token,只渲染截断版本;获取完整 token 的可靠方式 = 浏览器注入 fetch 拦截器捕获 API 响应 body
-- `cloudflared tunnel run --token-file <path>` 是 Windows 服务模式的最优解(token 不进命令行参数,不进 Process Explorer 可见性)
-- token 结构:`{"a":"<account_id>","t":"<tunnel_id>","s":"<secret_uuid_base64>"}`,rotate 只换 s 字段,a/t 不变 → 守门用 a 字段前缀检测可覆盖所有 rotate 版本
-- subagent 自动化操作 Cloudflare 后台不可靠(会假报"已操作"),关键安全操作必须主 agent 亲自验证(API 调用确认状态变更)
-
-## P0 两步验证(2FA)登录全链路落地(2026-08-06 完成 ✅,登录功能修复 + 功能补齐)
-
-### 触发背景
-
-- 08-05 15:03 admin 在设置页开启 2FA 后,web 端登录被锁死:后端要求 TOTP 二次校验,但前端登录组件没有 2FA 步骤 → 密码再正确也登不进去(共享 LoginForm 判定"无 accessToken = 登录失败")。
-- 08-06 处置分两步:① 立即恢复登录(DB 关闭 admin 2FA + 清 Redis 失败计数)② 本任务:完整实现前端 2FA 登录流程。
-
-### 根因(两层)
-
-1. **前端缺 2FA 登录步骤**:后端 `/api/auth/login` 在账号启用 2FA 时返回 `{twoFactorRequired:true, challengeToken}`(不发 accessToken);前端 `packages/ui-react` 共享 LoginForm 第 156 行 `if (!result.success || !result.data?.accessToken)` 一律判失败。
-2. **后端响应脱敏坑**(比前端缺失更隐蔽):登录接口 2FA 分支未设 `request.skipResponseSanitization`,challengeToken(JWT)被响应脱敏层改写成 `***` → 即使前端做了 2FA 步骤也会 401"challenge token 无效或已过期"。**api.aizhs.top/api/auth/login 实测返回 `"challengeToken":"***"`**。正常登录分支有 skip,2FA 分支漏了。
-
-### 实现(前端共享包 + web + 后端)
-
-- **packages/ui-react**(共享 LoginForm):
-  - `types.ts`:LoginResult 增加 `twoFactorRequired?/challengeToken?`,user 改可选;新增 `TwoFactorChallenge` 类型;LoginApiClient 新增可选 `verifyTwoFactor`
-  - 新组件 `two-factor-panel.tsx`:TOTP 6 位/备用码(AAAA-AAAA)双模式输入 + 提交 + 错误/过期提示 + 返回登录
-  - `login-form.tsx`:2FA challenge 状态机,挑战存在时整体切换为验证面板(替换 Tabs+第三方+注册区)
-  - 3 个表单(password/email/phone):响应 `twoFactorRequired` 时上抛 `onTwoFactorRequired` 而非判失败
-- **apps/web**:LoginFormContent 注入 `verifyTwoFactor`(POST /api/auth/2fa/login-verify)
-- **apps/api**:`auth.ts` export `resolveUserPermissions/publicUser`;两处 2FA 分支补 `skipResponseSanitization`;`auth-extended.ts` login-verify 成功响应补 `user`(与正常登录一致,前端无需再拉 /me)
-- **i18n**:5 语言(zh-CN/en/ja/ko/zh-TW)auth.* 新增 14 个 2FA key
-
-### 验证(E2E 8/8 通过,API 层实测)
-
-注册→登录→2fa/setup→TOTP verify 开启→二次登录返回 twoFactorRequired+完整 JWT challengeToken→错误 TOTP 401→正确 TOTP 登录成功(含 user)→备用码登录成功。前端产物 grep 确认 twoFactorRequired/two-factor-panel/两步验证/login-verify 已编译;公网 chunk + 登录接口实测通过。
-
-### 生产事故记录(同日)
-
-- **admin 曾被 2FA 锁死登录**(08-06 09:52 报障)→ 已 SQL 关闭(备份 secret+10 备用码后清除)
-- **.git 第三次消失**(08-06 10:40,前两次 08-04/08-05)→ 已 clone 远程恢复;同时发现 auth.ts 修改被外部回滚(10:40 文件被重写,原因未明,疑似与 .git 异常相关,已重新落盘并重启验证)
-- 测试用户保留:13900008888 / test2fa2026,2FA secret=RBVHMFANM4CVS2GGFIIRERP6KZTWIDT4(李总实测用,验证后可删)
-
-### 经验沉淀
-
-- **Fastify 响应脱敏层**:任何返回 JWT/敏感串的新端点必须 `request.skipResponseSanitization = true`,否则字段变 `***`(登录 2FA 分支实测踩坑)
-- **前端登录成功判定**不能依赖"accessToken 必须存在",必须识别 twoFactorRequired 中间态
-- 后台任务的 pnpm install 会触发 safe-delete 沙箱拦截 → typecheck/lint 用 `node_modules/.bin/tsc`/`eslint` 直跑绕过
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 两步验证(2FA)登录全链路落地(2026-08-06 完成 ✅,登录功能修复 + 功能补齐) -->
 
 ## P1 staging area 同目录文件级污染根治(2026-08-06 立,工程治理,平台独占:scripts/ + .husky/ + AGENTS.md)
 
@@ -2715,224 +2337,17 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ---
 
-## 下载功能深度开发(2026-08-06 ✅,跨端:apps/web + apps/api + packages/{types,api-client,shared,database},AGENTS.md §24 用户已确认)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能深度开发(2026-08-06 ✅,跨端:apps/web + apps/api + packages/{types,api-client,shared,database},AGENTS.md §24 用户已确认) -->
 
-> **触发**:用户要求为 8 端开发完整下载功能深度开发(详情页 + 下载量统计 + 自动化构建同步)。
-> **范围**:8 端下载元数据单一事实源 + `/download/[platform]` 详情页 + 下载量统计后端 API + download_events 表 + 共享层类型/api-client/hook + 前端集成 + 自动化构建同步脚本。
-> **AGENTS.md §21 README 同步**:已同步 — README "8 端架构" 章节新增 "8 端下载能力矩阵" 子章节,列 8 端下载状态 + 核心能力 5 项 + npm scripts 命令表 + 详情页路径。
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能增强 — admin 统计页 + CI 自动化(2026-08-06 完成 ✅,跨端:apps/web + apps/api + .github/workflows,AGENTS.md §24 用户已确认) -->
 
-### 已完成清单
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 前端全量深度审计与修复(2026-08-06 完成 ✅,跨端:apps/web + miniapp-taro + mobile-rn + extension + desktop) -->
 
-- [x] ✅(2026-08-06) 8 端下载元数据单一事实源(PLATFORM_META)— `apps/web/src/lib/download-meta.ts` 集中定义 8 端元数据(id/name/version/size/assetHref/systemRequirements/installGuide/availability),5 语言 i18n 自动跟随
-- [x] ✅(2026-08-06) `/download/[platform]` 详情页 — `apps/web/app/(main)/download/[platform]/page.tsx`(版本/大小/系统要求/安装指南/下载资源卡片)
-- [x] ✅(2026-08-06) 下载量统计后端 API — `POST /api/downloads/track`(记录下载事件,uuid + userId + platform + assetHref + source + ip + userAgent)+ `GET /api/downloads/stats`(管理员聚合查询,按平台/来源/时间维度)
-- [x] ✅(2026-08-06) `download_events` 数据库表 + migration — `packages/database/src/schema/download-events.ts`(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
-- [x] ✅(2026-08-06) 共享层类型 + api-client + hook 跨端复用 — `packages/types/src/download.ts`(DownloadEvent/DownloadStatsRequest/DownloadStatsResponse 类型)+ `packages/api-client/src/endpoints/downloads.ts`(trackDownload/fetchDownloadStats SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook)
-- [x] ✅(2026-08-06) 前端 sidebar + 详情页集成统计 API — sidebar Popover 点击调 `trackDownload` + 详情页下载按钮点击调 `trackDownload`,均带 source 字段区分入口
-- [x] ✅(2026-08-06) 自动化构建同步脚本 — `scripts/sync-downloads.mjs`(构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json` 含版本/大小/sha256)+ npm scripts `sync:downloads` / `:check` / `:dry-run`
-- [x] ✅(2026-08-06) i18n 5 语言翻译键补全 — 36 key × 5 语言(zh-CN/zh-TW/en/ja/ko)download.* 命名空间,check-i18n-keys.mjs parity OK + scan-i18n-zh-residue.mjs 无残留
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared) -->
 
-### 已接入端(有真实下载包)
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送) -->
 
-- **desktop**:Windows NSIS `.exe`(71.6 MB)+ MSI(77.7 MB),版本 0.1.13
-- **extension**:Chrome MV3 `.zip`(1.29 MB),版本 1.0.0
-- **cli**:`npm install -g @ihui/cli`(详情页展示安装命令)
-- **mobile**:源码构建(详情页展示 GitHub 链接)
-- **web**:PWA / 浏览器访问
-
-### 待运营接入(详情页显示"即将上线"占位)
-
-> 核查工具已就绪:`scripts/check-downloads-config.mjs` 一键输出 8 端配置状态。运营提供数据 → 填 `apps/web/.env.production` → 重新 build 即生效(无需代码改动)。
-
-- [ ] 运营接入 iOS App Store ID(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID`)
-- [x] ✅ **Android APK 自托管直连下载(2026-08-06 已落地,commit d1426373a2)**:不备案不上架,APK 放 `apps/web/public/apk/ihui-ai-latest.apk` + 填 `NEXT_PUBLIC_DOWNLOAD_APK_URL=/apk/ihui-ai-latest.apk` + VERSION/RELEASE_DATE → 重新 build 即生效(同源下载,无需 CDN/备案/上架;下载页自动显示 APK 按钮 + 含"允许未知来源"的安装引导)。**待你放入 APK 文件即完全闭合**
-- [ ] 运营接入微信小程序 QR(待用户提供数据;填 `NEXT_PUBLIC_DOWNLOAD_WECHAT_QR`)
-
-### 平台环境限制 → 已由 CI 自动构建闭环(2026-08-06 ✅,commit dd36a23a95)
-
-> 新增 `.github/workflows/desktop-build.yml`(Tauri 多平台 matrix):`workflow_dispatch` 手动触发或推送 `v*` tag 时,在官方 runner 上原生构建 —— **无需本地 macOS/Linux 环境**。
-
-- [x] ✅ macOS `.dmg` 包构建 — CI `macos-latest` runner `tauri build`(产物 artifacts: dmg)
-- [x] ✅ Linux `.deb` / `.AppImage` 包构建 — CI `ubuntu-latest` runner(产物: deb + AppImage)
-- [x] ✅(附带)Windows `.exe` 安装包 — CI `windows-latest` runner(产物: nsis exe + msi)
-- 📌 用法:GitHub Actions 手动 Run workflow,或推 `v*` tag 自动构建;产物在 Actions artifacts 下载;发布到 Release 需在 workflow 加 `softprops/action-gh-release`(当前未配,按需)
-
-### admin 后台(已完成)
-
-- [x] ✅(2026-08-06) admin 后台下载量统计展示页 — `/admin/downloads`(GET /api/downloads/stats),Card 概览 + 趋势图 + 平台分布 + 时间筛选,已上线(commit 22e98ef26,browser 自验通过)
-
----
-
-## 下载功能增强 — admin 统计页 + CI 自动化(2026-08-06 完成 ✅,跨端:apps/web + apps/api + .github/workflows,AGENTS.md §24 用户已确认)
-
-> **触发**:用户要求"继续按建议执行,最多 agent 并行,完美细致完整毫无遗漏"。
-> **范围**:① admin 下载量统计展示页(`/admin/downloads`)② CI 集成 sync-downloads.mjs 到 release workflow ③ 跨平台构建矩阵补齐 macOS/Linux 产物同步到 public/downloads。
-> **已提交**:commit `22e98ef26`(9 文件,562 行,已在远端 origin/main)。
-
-### 任务清单
-
-- [x] ✅(2026-08-06) admin 下载量统计展示页 — `/admin/downloads` 页面消费 `GET /api/downloads/stats`,Card 概览 + EChart 趋势图 + 平台分布饼图 + 时间筛选(275 行页面,含平台/时间筛选 + 平台明细表)
-- [x] ✅(2026-08-06) CI 集成 sync-downloads.mjs — release-desktop.yml 构建后自动跑 sync:downloads,产物同步到 apps/web/public/downloads/(新增 sync-downloads.yml 独立 workflow)
-- [x] ✅(2026-08-06) 跨平台构建矩阵补齐 — release-desktop.yml 增加 post-build 步骤把 .dmg/.deb/.AppImage 复制到 apps/web/public/downloads/desktop/(79 行增量)
-- [x] ✅(2026-08-06) admin 导航菜单注册 — AdminNav 注册"下载统计"菜单项(第 708 行)
-- [x] ✅(2026-08-06) i18n 5 语言翻译键 — admin.downloads.* 命名空间(5 语言 × 24 key 全对齐)
-- [x] ✅(2026-08-06) browser 自验 admin 页面 4 状态(默认/hover/active/dark) — `.trae-cn/tmp/admin-downloads-verify/` 4 截图 + dom-report.json,h1="下载统计" / select 9 选项 / dark mode 切换正常 / 空数据态占位卡片符合代码预期
-
----
-
-## 前端全量深度审计与修复(2026-08-06 完成 ✅,跨端:apps/web + miniapp-taro + mobile-rn + extension + desktop)
-
-> **触发**:用户要求"深度分析发现所有前端 bug / 未开发完整处 / 容器文本贴边无呼吸感,并彻底修复"。
-> **结果**:6 个并行扫描 agent 全仓审计(web ~2400 文件 / taro 422 / rn 227 / extension 71 / desktop 壳),发现 P0 35+ / P1 89+ / P2 148+ 项,已分批提交 8 个 commit(见 git log 2026-08-06)。
-
-### 已完成(commit 4069ed087 / 835381bba / f34f9d319 / dc91041ac / 99eb0a52b / 0213d85bc / 9b6af9a63 / b7cc8712a)
-
-- [x] ✅(2026-08-06) web P0:DataTable 排序/全选错位(rowKey 选中态)、CommentItem 点赞不同步、registry className 拼写、workspace 上传非空断言、压缩率吞负值、MemberCard 签到 react-query 化、GroupSidebar 删除分组接入 deleteGroupV2、agents 详情 Tab 空态、use-authed-api 死代码删除、5 个假数据死代码组件删除
-- [x] ✅(2026-08-06) web P1:admin statistics/bi-dashboard/i18n-dashboard MOCK 兜底改诚实空态+错误提示、models 市场 FALLBACK 改空态、mobile-dashboard 示例数据标注、chat/settings 模型下拉接 v2-providers、llm prefill 弹窗 ref 去重
-- [x] ✅(2026-08-06) web P2:25 文件单边 border 分割线移除、sidebar/通知/Badge/徽章/列表 padding 呼吸感提升、进度条圆角梯度化
-- [x] ✅(2026-08-06) miniapp-taro P0:chat 会话恢复(sessionId/id)、7 处路由注册/跳转修复、rank 模板字符串、account-cancel 移除 mock 成功、agent-dialogue ws 用 BASE_URL、member/community 跳转修复
-- [x] ✅(2026-08-06) miniapp-taro P2:20 文件全圆角梯度化、4 处容器 padding 呼吸感提升
-- [x] ✅(2026-08-06) mobile-rn P0:RootNavigator 注册 Recharge/AigcCover/AigcPublish、Certificate 改跳 CertDetail、StudyPlan 改跳 StudyProgress、ChatScreen getParent 修复、OrderDetail effect 循环拆分
-- [x] ✅(2026-08-06) extension P0/P1:SidepanelApp 路由重定向参数修复、token 兜底刷新、主题持久化、i18n 存储统一、startAutoRefresh 实现、第三方登录 app 平台补齐
-- [x] ✅(2026-08-06) desktop:tauri.conf.json CSP 内联脚本白屏、窗口状态写盘防抖、版本号同步
-- [x] ✅(2026-08-06) 验证:web/mobile-rn/miniapp-taro/extension 四端 tsc --noEmit 全绿
-
-### 遗留待办(2026-08-06 二轮深度开发中,部分已完成)
-
-- [x] ✅(2026-08-06) context 页 toggle/预算持久化 — ai-service PUT /sources(Redis)+api 转发+前端乐观更新(commit bbf42ca20)
-- [x] ✅(2026-08-06) favorites 列表资源标题 — findFavorites 批量关联资源表(commit 43459d2c8)
-- [x] ✅(2026-08-06) **ai-world/favorites 收藏闭环** — 主代理审计发现孤儿页面(前端调 404 接口)后闭环:①后端 GET /ai-world/favorites(requireAuth)+ findAiWorldFavorites 关联 aiWorldItems(commit 8f66eaa05)②social zod 常量加 aiworld,与 JSON schema 对齐(POST /favorites 不再 400,commit 4a3f6af46)③详情页收藏按钮写入口 + cn import 补全(commit ad86535d0)。收藏:状态 GET /api/favorites/check/aiworld/:id、切换 POST/DELETE /api/favorites。~~favorites 页面导航入口待补(可直接 URL 访问)~~ ✅(2026-08-16 sidebar.tsx AI 组 /ai-world 项下补 children `/ai-world/favorites` 入口,nav.favorites 5 语言 key 已齐全)
-- [x] ✅(2026-08-06) agents 详情页 5 Tab 运行时数据 — GET /subagents/by-agent/:agentId/summary(agent_tasks 聚合)+前端 useQuery 接入
-- [x] ✅(2026-08-06) admin saas 配额真实数据源 — admin-saas-quota.ts 拦截原代理路径,tenants/tenant_quotas/ai_cost_records 真实聚合
-- [x] ✅(2026-08-06) downloads 运营数据配置化 — 10 处 TODO 改 NEXT_PUBLIC_DOWNLOAD_* 环境变量 getter,未配置走"即将上线"
-- [x] ✅(2026-08-06) mobile-dashboard 真实移动端统计 — GET /admin/mobile-stats(visit_logs/analytics_events/users 聚合),前端 useQuery 接入,示例数据全删
-- [x] ✅(2026-08-06) 小程序真机 BASE_URL 部署配置 — TARO_APP_API_BASE 环境变量 + .env.example + 部署文档
-
-### 审计收尾:「无法由代码闭合」4 项核实与处理(2026-08-06,commit 4a0079a99)
-
-> 前端全量审计遗留 4 项被判定"无法由代码闭合(需外部动作)",2026-08-06 逐项物理核实后,发现其中 1 项存在真实代码缺口已修复,其余 3 项结论属实。
-
-- [x] ✅(2026-08-06) **tenant_quotas 用量为 0 — 核实发现真实代码缺口并修复**:ai-callback-worker / crew-llm-adapter / ai-user-model-chat 三处 `recordAiCost` 调用均未传 tenantId → `ai_cost_records.tenant_id` 恒为 NULL → admin 配额页租户维度 AI token 用量恒 0 + `checkBudget('tenant')` 预算永不生效。修复:①`recordAiCost` 内部自动解析(userId → tenant_members,取最早加入租户,容错不阻塞)②tenant_members 新增 `tenant_members_user_id_idx` 索引 ③migration `20260806153000_tenant_members_user_id_idx.sql` + journal 条目(idx 155)。**待部署侧执行 migrate 后生效**。剩余:`tenant_quotas.api_calls_used / storage_used_mb` 字段仍无写入侧维护(需计费/用量写入服务,外部动作)
-- [x] ✅(2026-08-06) **崩溃率无数据源(返回 null)— 结论属实**:`admin/mobile-stats.ts` crashRate 恒 null + 前端 MobileDashboardClient 诚实注释"项目无崩溃上报表"。代码侧已做到诚实空态,无进一步可修。需真实值必须客户端集成崩溃埋点 SDK(Sentry/Crashlytics)并上报表(外部动作,待客户端团队)
-- [x] ✅(2026-08-06) **downloads 真数据 — 结论属实,配置通道已就绪**:`apps/web/src/config/downloads.config.ts` 已完成 10 处 env 化(NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID / APK_URL / WECHAT_QR 等,未配置自动走"即将上线"占位)。需运营在 .env.production 填 App Store ID / APK URL / 小程序 QR(外部动作,PROJECT_PLAN「待运营接入」3 项保持 [ ] 待数据)
-- [x] ✅(2026-08-06) **agent 运行时步进精度 — 结论属实(数据模型限制)**:项目无 `subagents` 持久化表,ai-service 运行时 subagent 为内存态,无 agentId 关联的轨迹表;`agent_tasks`(agent_id 有索引)聚合是现有最真实水平。提升需 ai-service 侧新增运行轨迹持久化设计(架构演进项,非 bug)
-
-### 环境债记录(2026-08-06 审计中发现 → 当日彻底修复 ✅)
-
-- ~~`packages/database/drizzle` 工具链已损坏~~ **已彻底修复(2026-08-06,commit e61312612b + a74095103f)**:
-  - journal 已补全至 204 条(idx 0-203 连续,含此前缺失的 47 个 SQL;commit 664207017e 由健康审计并行完成)
-  - `0131/0152_snapshot.json` zod 失败根因:孤儿快照由更新版 drizzle-kit 序列化,index 用新格式 columnExpressions,与 0.31.10 v7 index2 .strict() 不兼容 → 用健康快照(0127)同语义表定义替换转回 v7 格式,50 快照全部通过真实 validator
-  - **schema drift 消除**:46 张 schema 独有表按 v7 格式合并进 0152;6 张 prev 独有表(ab_tests/t_check_in_record/t_homework/audit_chain_entries 等,schema 无对应、业务零引用)已从快照移除;609 张公共表中 32 处假 diff(已有 migration 应用过的列/索引/外键差异)一并对齐
-  - **验证**:`drizzle-kit generate` 非交互输出 "No schema changes, nothing to migrate" —— 工具链完全可用
-  - 2 个非幂等 SQL(20260801010060/20260801010070)共 7 处 CREATE INDEX 补 IF NOT EXISTS(重跑安全)
-  - ⚠️ generate 首次中间产物 `0204_curvy_swarm.sql`(含 6 表 DROP,勿执行)/`meta/0204_snapshot.json`/`scripts/tmp-cur-snapshot.*` 已 gitignore 保护(待用户授权后清理)
-
-## 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared)
-
-> 用户指令"你说的所有问题都要处理修复"——不接受外部动作分类,4 项全部按可执行开发打通链路。git 仓库损坏事故中重放提交,全部推送成功。
-
-### 1. 崩溃率链路(原判定"需客户端埋点")✅
-
-- `crash_reports` 表 + migration `20260806154900_crash_reports.sql`(platform/version/userId/errorMessage/stack/route,created_at+platform 索引)
-- `POST /api/crash-reports`(匿名可上报,可选登录取 userId;同栈 5 分钟内存去重防刷;静默失败不阻断业务)
-- admin `/api/admin/mobile-stats` crashRate 由恒 null 改为**近 7 日真实聚合**(crash 数 / visit_logs 会话数,无会话返回 null)
-- 三端埋点:web `ErrorBoundary.componentDidCatch` 自动上报;miniapp-taro `Taro.onError` + `onUnhandledRejection`;mobile-rn `ErrorUtils.setGlobalHandler`(desktop 复用 web ErrorBoundary)
-- 前端 mobile-dashboard 展示逻辑已兼容(数字→百分比,无会话→"暂无数据")
-
-### 2. tenant_quotas 用量恒 0(原判定"需计费写入侧")✅
-
-- `admin-saas-quota.ts` **展示层实时真实聚合**(字段保留,其他消费方不受影响):
-  - apiCallsUsed = api_logs 按租户成员(tenant_members)计数
-  - storageUsedMb = files 按租户成员(uploaded_by,未软删)SUM(size)÷MB
-  - aiTokens = ai_cost_records 按 tenant_id 聚合(上轮已修 tenantId 关联)
-- 根治"用量恒 0":不再读可能为 0 的静态字段 api_calls_used / storage_used_mb
-
-### 3. downloads 真数据(原判定"需运营填 env")✅
-
-- 配置通道确认 100% 就绪(.env.example 13 个 NEXT_PUBLIC_DOWNLOAD_* 变量 + 分组注释完整)
-- 新增 `getDownloadsStatus()` 配置自检(8 端 configured 状态 + 缺项提示),运营/运维可编程验证"哪些端已上架、缺什么"
-- 剩余:真实 App Store ID / APK URL / 小程序 QR 需运营提供数据(物理上无法由代码生成,填 env + rebuild 即生效)
-
-### 4. agent 运行时步进精度(原判定"数据模型限制")✅
-
-- **根因确认**:subagent 派单(Redis 内存态)从不写 agent_tasks,agents 详情页 5 Tab 恒空;ai-service 请求模型无 agentId
-- **修复**:`subagent-dispatch-service` 派单链路持久化——
-  - `dispatch()` 创建时 insert agent_tasks(status=running, agentId, payload.dispatchId)
-  - `_persistDispatch` 联动 `_syncAgentTask`:终态(completed/failed/quota_exceeded/cancelled/preempted)写回 result/errorMessage/completedAt
-  - `POST /subagents/dispatch` schema 加可选 `agentId`;shared `SubagentDispatchInput.agentId`
-  - web agents 详情页新增「派发 Subagent」入口(带 agentId),派单轨迹落 agent_tasks → 5 Tab 真实数据
-- 说明:ai-service 侧不持久化 subagent 内存态,但派单层 agent_tasks 轨迹已是该数据模型下的最真实水平
-
-### ⚠️ git 仓库损坏事故记录(2026-08-06 16:09,已恢复,零内容丢失)
-
-- **事故**:push 被拒(远端有他人提交)→ stash push + rebase 时 git 仓库元数据损坏(.git 仅剩 objects/refs,HEAD/config/index 丢失;loose objects 缺失 + 1 个 pack unresolved delta),本地 2 个未推送 commit 对象丢失
-- **恢复**:从远端重新 clone(健康 .git)替换;工作区文件(含全部改动)完好 → 20 个文件改动重放为 commit 6ee8c89ab3;他人提交(fbbd510678/9882f4fdb5)已还原;12 个其他会话 WIP 文件(ai-service/zh-TW/ai-world/third-party-config)完好保留未提交
-- **根因分析(证据链,2026-08-06 调查)**:
-  1. **autoGc 并发 repack 损坏 pack(主因)**:仓库 96 万+ 对象,git 默认 autoGc 阈值 6700 loose 对象,任意 commit 都易触发;多 agent 并行 commit 时多个 git 进程**同时** repack → 一个进程删掉另一个刚写的 pack → fsck "unresolved delta"/"broken link" + `tmp_pack_*` 残留(8-05 晚 3 个 tmp_pack 已证实)
-  2. **post-commit 脚本风暴**:每次 commit 触发 5 个 git 脚本(auto-archive + push-guard + tag-sync + pollution-clean + lfs),多 agent 并行时并发 git 写操作(index/refs 竞争)
-  3. **历史同类事故**:7-26 lost-commit tag 被 gc 清理、8-05 晚仓库重建(P0 代码三次丢失)→ 非偶然,系同一类根因反复
-- **预防(已落地)**:
-  - ✅ `git config gc.auto 0` + `gc.autodetach false` 已生效(消除并发 repack 根因)
-  - ✅ 新增 `scripts/git-hygiene-init.mjs`(幂等):新环境/clone 后执行一次即可恢复全部防护配置
-  - ✅ 约定:关键提交后立即 push(远端是最终备份);多 agent 并行期间避免手动 git gc / repack
-  - 📌 建议:多 agent 并行时用 `HUSKY_SKIP_ARCHIVE=1 HUSKY_SKIP_TAG_SYNC=1` 减少 post-commit 写操作竞争
-
-### 彻底杜绝方案(2026-08-06 17:00 ✅,commit 91ad0517ed,根治 3 次同类事故)
-
-> 用户指令"要彻底杜绝问题再发生"——不再靠"降低概率",三层防线全部落地。
-
-**防线 1:git 写操作全局串行化锁(根治并发写)**
-
-- `scripts/git-lock.mjs`:mkdir 原子锁(unitId 可重入防嵌套死锁、300s 悬挂锁自动抢占、120s 等待超时、CLI acquire/release/check)
-- `safe-commit.mjs` 集成:整个 commit 流程自动持锁(Step 0/5),`IHUI_GIT_LOCK_UNIT` 环境变量传给子进程
-- `.husky/post-commit` 集成:直接 `git commit`(未走 safe-commit)时自动 acquire + trap EXIT 释放
-- 手动 git 写命令(pull/rebase/fetch/checkout/stash)前 `node scripts/git-lock.mjs check` 确认无锁
-- **测试验证**:并发 acquire 测试通过(B 在 A 释放后才获锁,串行化生效);safe-commit 实跑通过(post-commit 锁内正常)
-
-**防线 2:封死 gc 所有触发路径**
-
-- `gc.auto=0` + `gc.autodetach=false` + `maintenance.auto=false`(2.30+ 自动维护)已全部禁用
-- `scripts/safe-gc.mjs`:手动 gc 唯一合法入口(自动检查无锁;`IHUI_GIT_NO_GC=1` 可完全禁用)
-- AGENTS.md 红线:禁止手动 `git gc`/`repack`/`prune`
-
-**防线 3:一键重建兜底(杜绝损坏的影响)**
-
-- `scripts/git-rebuild-local.mjs`:健康检查(git cat-file 校验 HEAD)→ 损坏自动从远端 clone 重建 .git → git reset 重建 index(工作区文件永不动)→ 输出重新提交指引
-- 实测 `--check` 对健康仓库正确返回;损坏场景 5 分钟内恢复
-
-**环境初始化**:新 clone 后必须执行 `node scripts/git-hygiene-init.mjs`(恢复 local 防护配置,clone 不保留)——已写入 AGENTS.md §12 强制规则。
-
-## 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送)
-
-<!-- 已归档(2026-08-19):并行收尾全部闭环,已知边界 4 项已转入"剩余问题处理"章节 + commit 8a780abd50 处理,详见 .trae-cn/archive/PROJECT_PLAN_2026-08-19_auto-archive.md -->
-
-> 用户指令"继续执行到没有任何后续建议为止,并行最大化效率"。3 个并行 agent + 主代理收尾,全部完成。
-
-- ✅ **i18n 硬编码修复**(`d9965b67bd`):agents 详情页"派发 Subagent"按钮 + 对话框标题接入 i18n,复用已有孤立 key `aiChat.dispatchSubagent`(5 语言已全译,零新增 key、零 json 冲突);check-i18n-keys/tsc/eslint 全绿
-- ✅ **核心链路测试**(`76753f3a5b`):5 文件 42 用例全过——crash-reports 路由(zod/防刷/匿名)9、recordCrash 服务 6、崩溃率聚合 8、租户配额聚合 7、subagent 轨迹持久化 12;mock DB 不连真实库
-- ✅ **drizzle 工具链彻底修复**(`e61312612b` + `a74095103f`):见上文"环境债记录"段——快照 zod 根因修复 + schema drift 消除 + 2 个 SQL 幂等化,`generate` 非交互可用
-- ✅ **前端数据消费验证**:崩溃率(null→暂无数据/数字→%)、租户配额(apiCalls/storage/aiTokens 字段契约)、agent 轨迹(派单→agent_tasks→5 Tab)三项闭环确认
-- ✅ **generate 中间产物保护**:0204 DROP SQL 等 4 文件已 gitignore(待用户授权后清理)
-- ✅ **可复用沉淀**:用户级 skill `git-repository-recovery`(仓库损坏检测/远端重建/工作区重放/防护配置全流程)
-
-### 已知边界(非代码可闭合,如实记录)
-
-1. **downloads 运营数据**:App Store ID / APK URL / 小程序 QR 需运营提供真实数据(填 env + rebuild 即生效,`getDownloadsStatus()` 可自检)
-2. **ai-service 侧 agent 轨迹**:subagent 内存态不持久化是数据模型限制,派单层 agent_tasks 轨迹已是最真实水平(架构演进项)
-3. **mobile-dashboard 5 处"暂无数据"硬编码**:待 `packages/i18n/messages/web/*.json` 其他会话 WIP 完成后 i18n 化(避免污染他人未完成改动)
-4. **generate 中间产物清理**:`0204_curvy_swarm.sql`(含 DROP 勿执行)/`meta/0204_snapshot.json`/`scripts/tmp-cur-snapshot.*` 已 gitignore,待用户授权删除
-5. **migration 部署执行**:`20260806153000_tenant_members_user_id_idx`、`20260806154900_crash_reports` 需部署环境执行(本地无 DATABASE_URL)
-
-## 剩余问题处理(2026-08-06 19:30 ✅,commit 8a780abd50,已推送)
-
-> 用户指令"剩余问题也要处理好"——5 项边界中 3 项已代码解决,2 项受外部条件阻塞(如实记录)。
-
-- ✅ **migration 部署执行(边界 5 已闭合)**:本地开发库(127.0.0.1/ihui)实测跑通 `run-migrate.mjs`——`tenant_members_user_id_idx` 索引与 `crash_reports` 表已落地(pg_indexes/to_regclass 实证)。**期间修复 journal when 机制问题**:drizzle migrator 按 `when` 与 `__drizzle_migrations.created_at` 比较执行(非 hash),47 条补入条目 when 不合理导致依赖序错误(42P01)。修复:时间戳条目 when 统一小值跳过(库为 push 演进模式),新 migration 用真实时间戳 when 正常执行——**migrate 稳定可跑**("completed",不再失败)
-- ✅ **mobile-dashboard 5 处"暂无数据"硬编码(边界 3 已闭合)**:json WIP 结束后安全 i18n 化——新增 `mobileDashboardPage.noData`(5 语言),5 处 tsx 全部接入,check-i18n-keys/tsc 全绿
-- ✅ **subagent 轨迹步骤明细(边界 2 补强)**:`_syncAgentTask` completed 时把 runtime.steps(agent/耗时/token 用量/attempt/status)写入 result——agents 详情页 5 Tab checkpoint 展示更真实;12 个既有测试全过
-- ✅ **downloads 配置核查(边界 1 工具化)**:新增 `scripts/check-downloads-config.mjs`——一键输出 8 端配置状态,当前明确 3 端待运营数据(iOS App Store ID / Android APK·Play / 小程序 QR)
-- ⏳ **generate 中间产物清理(边界 4)**:`0204_curvy_swarm.sql`(含 DROP 勿执行)等 4 文件已 gitignore 保护;物理删除曾被用户拒绝沙箱外权限——**保留,待用户授权后清理**
-- ⏳ **ai-service 侧轨迹(边界 2 深层)**:ai-service 9 个文件正被其他会话 WIP 修改,不可触碰(避免污染);派单层 agent_tasks(含 steps 明细)已是该架构下最真实水平——**待 ai-service WIP 结束后可评估深层演进**
+<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 剩余问题处理(2026-08-06 19:30 ✅,commit 8a780abd50,已推送) -->
 
 ## P1 消息输入框附加栏 3 按钮高度统一根治(2026-08-07 立,平台独占:apps/web + apps/web/src/lib/nav-styles.ts,AGENTS.md §3 共享层优先)
 
