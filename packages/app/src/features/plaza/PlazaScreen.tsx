@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import {
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -48,6 +50,8 @@ export interface PlazaScreenProps {
   onSearchChange: (search: string) => void
   onSubmitSearch: () => void
   onPressItem: (item: PlazaItem) => void
+  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
+  onChatPress?: (item: PlazaItem) => void
   onPublish: () => void
 }
 
@@ -109,6 +113,7 @@ export function PlazaScreen({
   onSearchChange,
   onSubmitSearch,
   onPressItem,
+  onChatPress,
   onPublish,
   colorScheme = 'light',
 }: PlazaScreenProps) {
@@ -156,6 +161,18 @@ export function PlazaScreen({
     const isDeveloping = itemStatus === 'approved' || itemStatus === 'developing'
     const isWaiting = itemStatus === 'pending' || itemStatus === 'waiting'
 
+    // 需求图(兼容两种数据形态:imgs 逗号分隔串 / cover 单图 URL;无图不占位)
+    const rawImgs = item['imgs']
+    const rawCover = item['cover']
+    const coverImage: string | undefined = (() => {
+      if (typeof rawImgs === 'string' && rawImgs.trim()) {
+        const first = rawImgs.split(',')[0]?.trim()
+        if (first) return first
+      }
+      if (typeof rawCover === 'string' && rawCover.trim()) return rawCover.trim()
+      return undefined
+    })()
+
     return (
       <Pressable
         key={String(item.id)}
@@ -164,6 +181,9 @@ export function PlazaScreen({
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={styles.cardImage} resizeMode="cover" />
+        ) : null}
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.title}
         </Text>
@@ -199,11 +219,23 @@ export function PlazaScreen({
             {`${formatPrice(lowestPrice)}-${formatPrice(peakPrice)}`}
           </Text>
           {isWaiting ? (
-            <View style={styles.chatBtn}>
+            <Pressable
+              style={({ pressed }) => [styles.chatBtn, pressed ? styles.chatBtnPressed : null]}
+              onPress={() => {
+                // 独立可点:有 onChatPress 走回调(由 wrapper 决定跳转),否则与整卡一致
+                if (onChatPress) {
+                  onChatPress(item)
+                } else {
+                  onPressItem(item)
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="聊一聊"
+            >
               <Text style={styles.chatBtnText} allowFontScaling={false}>
                 聊一聊
               </Text>
-            </View>
+            </Pressable>
           ) : isCompleted ? (
             <Text style={styles.statusDone} allowFontScaling={false}>
               项目已完成
@@ -447,6 +479,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: 8,
     } as TextStyle,
+    cardImage: {
+      width: '100%',
+      height: 160,
+      borderRadius: 8,
+      marginBottom: 8,
+    } as ImageStyle,
     cardDesc: {
       fontSize: 14,
       color: tk.text.secondary,
@@ -511,6 +549,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 4,
       borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
+    } as ViewStyle,
+    chatBtnPressed: {
+      opacity: 0.75,
     } as ViewStyle,
     chatBtnText: {
       fontSize: 11,
